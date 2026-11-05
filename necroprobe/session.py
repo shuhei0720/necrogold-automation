@@ -20,7 +20,7 @@ VARIANTS = (
 )
 FATAL = {"response_mac_mismatch", "response_id_mismatch", "http_status_401", "http_status_403",
          "invalid_response_tag", "pairing_missing", "posix_timer_required", "timer_already_in_use",
-         "timer_setup_failed", "timer_restore_failed", "timer_cleanup_failed", "timer_handler_unknown"}
+         "timer_setup_failed", "timer_cleanup_failed", "timer_owner_required", "timer_unusable", "timer_handler_in_use"}
 
 
 def atomic_write(path, raw):

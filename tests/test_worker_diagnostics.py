@@ -141,8 +141,8 @@ class WorkerDiagnosticsTests(unittest.TestCase):
                 self.assertNotIn("PRIVATE_FIXTURE_SECRET", output.getvalue())
 
     def test_each_checkpoint_failure_prevents_the_next_operation(self):
-        phases = ["pairing_load", "crypto_initialize", "capture_collection"]
-        previous = ["spawn_requested", "pairing_load", "crypto_initialize"]
+        phases = ["pairing_load", "crypto_initialize", "timer_initialize", "capture_collection"]
+        previous = ["spawn_requested", "pairing_load", "crypto_initialize", "timer_initialize"]
         for index, phase in enumerate(phases):
             with self.subTest(phase=phase), tempfile.TemporaryDirectory() as folder:
                 report = new_report(3, 0)
@@ -158,7 +158,7 @@ class WorkerDiagnosticsTests(unittest.TestCase):
                      patch.object(cli, "Crypto") as crypto, \
                      patch.object(cli, "Client") as client, \
                      patch.object(cli, "collect") as collect:
-                    client.return_value.crypto.engine = "test"
+                    crypto.return_value.engine = "test"
                     output = io.StringIO()
                     with contextlib.redirect_stdout(output):
                         cli.worker(args)

@@ -8,6 +8,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT), str(ROOT / "tests")]
 from necroprobe.crypto import Crypto
+from necroprobe.deadlines import OwnedRpcTimer
 from necroprobe.protocol import Client
 from test_protocol import KEY, TOK, sealed_reply
 
@@ -19,7 +20,8 @@ def unsupported_getitimer(*_):
 
 resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 signal.getitimer = unsupported_getitimer
-reply = Client(lambda body, timeout: sealed_reply(body, result={"ok": True}),
-               KEY, TOK, crypto=Crypto(native=False)).call("device_info")
+with OwnedRpcTimer() as owner:
+    reply = Client(lambda body, timeout: sealed_reply(body, result={"ok": True}),
+                   KEY, TOK, crypto=Crypto(native=False), deadline_owner=owner).call("device_info")
 assert reply.result == {"ok": True}
 print("authenticated_reply_received")

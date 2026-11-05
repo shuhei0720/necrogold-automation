@@ -1,0 +1,77 @@
+{
+  "checked_at": "2026-11-05T16:29:44.731361+09:00",
+  "version": "P1.4",
+  "scope": "BUG-P1-003: worker-owned timer, no setitimer old-value dependence; host-only validation",
+  "environment": {
+    "python": "3.12.14",
+    "pillow": "13.0.0",
+    "architecture": "x86_64"
+  },
+  "tests": {
+    "total": 98,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "log": "p1-owned-timer-tests.txt",
+    "log_sha256": "f07d8f57dfdaa244e534a7377e16877ae96b86faf6376ff97daf7ee036a2034f",
+    "initial_regression_red": {
+      "tests": 1,
+      "failures": 1,
+      "log": "p1-owned-timer-red.txt",
+      "reason": "P1.3 compares a deliberately unreadable setitimer old value"
+    },
+    "review_regression_red": {
+      "tests": 28,
+      "failures": 4,
+      "log": "p1-owned-timer-review-red.txt"
+    },
+    "transport_integration": "Real local authenticated HTTP, real parent/worker subprocess, launch once plus 12 captures with unreadable old values; not a device test"
+  },
+  "reviews": {
+    "rounds": 3,
+    "reviewers": [
+      "p14_timer_design",
+      "p14_timer_safety"
+    ],
+    "final_review_status": "complete",
+    "independent_final_targeted_passes": [
+      9,
+      31
+    ],
+    "unresolved_blocking_findings": 0
+  },
+  "checks": {
+    "python39_syntax_files": 21,
+    "actual_python39_tested": false,
+    "actual_ish_tested": false,
+    "legacy_unchanged_files": 40
+  },
+  "device": {
+    "TEST-003": "P1.3 timer_already_in_use, no launch, 0/12 captures, worker exit 0 means report returned not success",
+    "TEST-004": "not_run",
+    "game_e2e": "not_implemented_not_run"
+  },
+  "files_sha256": {
+    "necroprobe/__init__.py": "c13feb4cd1430c27af6b3df904368c33d33f557f858ded62525da2b40d4e7f5e",
+    "necroprobe/__main__.py": "376c7c4cf908f887c6cd8d7bafa0c851b11f8fccf47bcd3daa94a70b75fe2309",
+    "necroprobe/capture.py": "abc9e8e8ac66e10f5b58c50f6e047514100a9ba4e5de0548c0d98aa9fad6f9d3",
+    "necroprobe/crypto.py": "2cbdbde963da06deea06ddf490aa0d8203ae6815b66fe43f4d72e80871b493be",
+    "necroprobe/deadlines.py": "ae825f32aa646be1d01f2ffae5e6a5ca5bbe80581fb268f82e7902cb11a3025a",
+    "necroprobe/protocol.py": "29d30c9f99275353ba63106412ff3a3d2d97afdf504bd24eaf294846ece3af5b",
+    "necroprobe/session.py": "b4436cfebfc5c29fc5b81201e2faea18a10855f444e03c2948bc692cdcd4f91f",
+    "necroprobe/validation.py": "23afda73b47b7bc8e14838a21795cffa88ef46ab3a9c13555225ed6d907c9ba2",
+    "tests/fixtures/ish_timer_driver.py": "ac366e5d704625d6db237f6255143304e989f76acad6695b45af3cc23f036153",
+    "tests/fixtures/owned_timer_driver.py": "bc88a514eed5ec0194289fd61b1be0160bc85e4092d96817eb1e49e8e2dc2f16",
+    "tests/fixtures/stop_driver.py": "5cc4b22217fcf7261d76af91659747d506870b3d30d57bfeb2a477e4f71e604d",
+    "tests/fixtures/worker_failure_driver.py": "2ca67fc6c1353a7fe70a11ce116fedbd34349b97dd8874f5d3ce2b6b29d8bb13",
+    "tests/test_capture.py": "a7703e5c158788edaf73c013f492ea6431b8a89e42414dbc5310d14e0038c9c6",
+    "tests/test_http_and_cli.py": "cccdfeb597b2f6ea707924d5416232f84a41935cdcc230d7abb5c6d8753b177f",
+    "tests/test_owned_worker.py": "181578f1b81ad16965f51df453db7779be27de4bc1fb901ddae48f1db37a1b5b",
+    "tests/test_protocol.py": "516b84743adb467558fd01d6251041dffbcd0668b8baa7df589e88564b84c8f1",
+    "tests/test_session.py": "f645c17c44f855a82df1490c676ccbea1cb193a3d6f5c621961c852af52daf46",
+    "tests/test_stop_integration.py": "fa239c7566d9e48afce5cfe4c86f599898c0f9388e56e535d6ec19661a64d5e7",
+    "tests/test_timer_compat.py": "a86a32043001b0f0406d0f68799a2a1d40acf8c57402eb01942a181b3111c9a6",
+    "tests/test_worker_diagnostics.py": "1d77b0ce04f66b96d5e79cf7d01966c3ee1326b92152275ca8cf356c3e29137e",
+    "tests/timer_support.py": "acbe461c56cf32f69a26016414f818437697bd4a1b2f6cc8d81fd576d7979e0f"
+  }
+}

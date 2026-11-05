@@ -14,12 +14,13 @@ import uuid
 from . import VERSION
 from .capture import inspect_bytes
 from .crypto import Crypto
+from .deadlines import OwnedRpcTimer
 from .protocol import Client, HttpTransport, load_pairing
 from .session import VARIANTS, collect, finish, new_report, output_failed, stop_report, write_report
 from .validation import ProbeError
 
 WORKER_REPORT_READ_EXIT = 74
-WORKER_STAGES = {"spawn_requested", "pairing_load", "crypto_initialize", "capture_collection"}
+WORKER_STAGES = {"spawn_requested", "pairing_load", "crypto_initialize", "timer_initialize", "capture_collection"}
 
 
 def read_checkpoint(path, samples):
@@ -142,6 +143,7 @@ def parser():
 
 def worker(args):
     folder = Path(args.output)
+    timer = None
     try:
         report = read_checkpoint(folder / "report.json", args.samples)
     except ValueError:
@@ -165,12 +167,14 @@ def worker(args):
         key, tok = load_pairing(args.token_store, args.store_key)
         checkpoint_stage("crypto_initialize")
         crypto = Crypto(native=not args.python_crypto)
-        client = Client(HttpTransport(), key, tok, timeout=args.rpc_timeout,
-                        allow_launch=args.launch_game, crypto=crypto)
-        report["crypto_engine"] = client.crypto.engine
-        checkpoint_stage("capture_collection")
-        collect(client, report, folder, args.stop_ns)
-        return 0
+        report["crypto_engine"] = crypto.engine
+        checkpoint_stage("timer_initialize")
+        timer = OwnedRpcTimer()
+        with timer:
+            client = Client(HttpTransport(), key, tok, timeout=args.rpc_timeout,
+                            allow_launch=args.launch_game, crypto=crypto, deadline_owner=timer)
+            checkpoint_stage("capture_collection")
+            collect(client, report, folder, args.stop_ns)
     except ProbeError as exc:
         stop_report(report, exc.code)
     except KeyboardInterrupt:
@@ -181,6 +185,9 @@ def worker(args):
         known = (OSError, ValueError, TypeError, RuntimeError, MemoryError, ImportError,
                  AttributeError, KeyError, OverflowError)
         state["exception_type"] = type(exc).__name__ if type(exc) in known else "Exception"
+    finally:
+        if timer is not None:
+            report["timer"] = timer.diagnostics()
     finish(report, time.monotonic_ns())
     try:
         write_report(folder, report)

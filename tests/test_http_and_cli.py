@@ -13,9 +13,10 @@ import unittest
 
 from necroprobe.__main__ import supervise
 from necroprobe.crypto import Crypto
-from necroprobe.protocol import Client, HttpTransport, deadline
+from necroprobe.protocol import HttpTransport
 from necroprobe.validation import MAX_HTTP, ProbeError
 from test_protocol import KEY, TOK, sealed_reply
+from timer_support import TimerTestCase
 
 
 class LocalServer:
@@ -42,7 +43,7 @@ class LocalServer:
         self.thread.join(timeout=1)
 
 
-class HttpTests(unittest.TestCase):
+class HttpTests(TimerTestCase):
     def test_real_local_http_encrypted_exchange(self):
         def respond(handler, body):
             raw = sealed_reply(body, result={"local_test": True})
@@ -51,7 +52,7 @@ class HttpTests(unittest.TestCase):
             handler.end_headers()
             handler.wfile.write(raw)
         with LocalServer(respond) as port:
-            reply = Client(HttpTransport(port), KEY, TOK, crypto=Crypto(native=False)).call("device_info")
+            reply = self.client(HttpTransport(port), KEY, TOK, crypto=Crypto(native=False)).call("device_info")
             self.assertTrue(reply.result["local_test"])
 
     def test_redirect_and_oversized_content_length_rejected(self):
@@ -63,7 +64,7 @@ class HttpTests(unittest.TestCase):
                 handler.end_headers()
             with self.subTest(status=status), LocalServer(respond) as port:
                 with self.assertRaises(ProbeError):
-                    Client(HttpTransport(port), KEY, TOK).call("device_info")
+                    self.client(HttpTransport(port), KEY, TOK).call("device_info")
 
     def test_slow_drip_has_total_deadline_not_just_read_timeout(self):
         def respond(handler, body):
@@ -77,13 +78,13 @@ class HttpTests(unittest.TestCase):
         with LocalServer(respond) as port:
             started = time.monotonic()
             with self.assertRaisesRegex(ProbeError, "rpc_deadline"):
-                Client(HttpTransport(port), KEY, TOK, timeout=.15).call("device_info")
+                self.client(HttpTransport(port), KEY, TOK, timeout=.15).call("device_info")
             self.assertLess(time.monotonic() - started, 1)
 
-    def test_alarm_restored_after_rpc_timeout(self):
+    def test_owned_handler_remains_after_rpc_timeout(self):
         before = signal.getsignal(signal.SIGALRM)
         with self.assertRaisesRegex(ProbeError, "rpc_deadline"):
-            with deadline(.01):
+            with self.timer.deadline(.01):
                 time.sleep(.1)
         self.assertEqual(before, signal.getsignal(signal.SIGALRM))
         self.assertEqual((0, 0), signal.getitimer(signal.ITIMER_REAL))

@@ -1,0 +1,54 @@
+{
+  "test_id": "TEST-003",
+  "source_archive": "test-003.zip",
+  "source_archive_sha256": "0ae61a41acc03c68858941cb3224a91c32806a693b85398f1b06103958d7a649",
+  "report_path": "test-003/probe-20261105T070048Z-f7a8e2da/report.json",
+  "report_sha256": "117ed9a634e3ebaf89d35d3d3913862ea02dd7cd6daf9d62f49f2d8ff48e2a79",
+  "run": "probe-20261105T070048Z-f7a8e2da",
+  "start_time_jst": "2026-11-05T16:00:48+09:00",
+  "version": "P1.3",
+  "crypto_engine": "python",
+  "worker": {
+    "stage": "capture_collection",
+    "process": {
+      "returncode": 0,
+      "signal_number": null,
+      "signal_name": null
+    },
+    "report_read_ok": true
+  },
+  "stop_reason": "timer_already_in_use",
+  "events": [
+    {
+      "method": "device_info",
+      "status": "error",
+      "error": "timer_already_in_use"
+    }
+  ],
+  "counts": {
+    "planned": 12,
+    "started": 0,
+    "complete": 0,
+    "errors": 0,
+    "interrupted": 0,
+    "not_started": 12
+  },
+  "timings_ms": {
+    "parent_total": 8469.929,
+    "before_first_device_info": 7649.519,
+    "device_info_event": 191.665,
+    "rpc_roundtrip": null
+  },
+  "image_files": 0,
+  "launch_record_present": false,
+  "screenshot": {
+    "filename": "IMG_8525.png",
+    "sha256": "01dfacee3238aa463db07e79ab1c982a03af0ef1992cb810096e1bcac04d584f"
+  },
+  "device_build": "not_received",
+  "old_timer_value": "not_recorded",
+  "root_cause_status": "P1.3 uses setitimer old values as ownership evidence; iSH source can return inactive/uninitialized values. Host regression reproduced; actual device values/build unavailable.",
+  "device_gate": "not_passed",
+  "game_e2e": "not_run",
+  "source_handling": "Only derived observations and hashes saved to GitHub; raw archive and screenshot remain chat attachments."
+}

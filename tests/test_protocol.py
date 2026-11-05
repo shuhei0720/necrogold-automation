@@ -8,6 +8,7 @@ from unittest.mock import patch
 from necroprobe.crypto import Crypto, mac, python_xor
 from necroprobe.protocol import Client, GAME, select_record
 from necroprobe.validation import ProbeError, b64, json_object, number
+from timer_support import TimerTestCase
 
 KEY = bytes(range(32))
 TOK = hashlib.sha256(KEY).digest()[:4].hex()
@@ -25,22 +26,20 @@ def sealed_reply(body, *, result=None, response_id=None, corrupt_mac=False, rpc_
     return json.dumps({"ct": base64.b64encode(cipher).decode(), "tag": "00" * 32 if corrupt_mac else tag}).encode()
 
 
-def client(**reply_args):
-    return Client(lambda body, timeout: sealed_reply(body, **reply_args), KEY, TOK, crypto=Crypto(native=False))
-
-
-class ProtocolTests(unittest.TestCase):
+class ProtocolTests(TimerTestCase):
+    def reply_client(self, **reply_args):
+        return self.client(lambda body, timeout: sealed_reply(body, **reply_args), KEY, TOK, crypto=Crypto(native=False))
     def test_tap_is_rejected_before_any_network_call(self):
         for method in ("tap", "run_steps", "reset", "pair", "launch_app", "notify"):
             sent = []
-            probe = Client(lambda *args: sent.append(args), KEY, TOK, crypto=Crypto(native=False))
+            probe = self.client(lambda *args: sent.append(args), KEY, TOK, crypto=Crypto(native=False))
             with self.subTest(method=method), self.assertRaises(ProbeError) as caught:
                 probe.call(method, {"x": 298, "y": 448})
             self.assertEqual("method_not_allowed", caught.exception.code)
             self.assertEqual([], sent)
 
     def test_authenticated_response_and_clock_boundaries(self):
-        reply = client(result={"ok": True}).call("device_info")
+        reply = self.reply_client(result={"ok": True}).call("device_info")
         self.assertEqual({"ok": True}, reply.result)
         keys = ("request_start_ns", "http_start_ns", "http_end_ns", "decrypt_start_ns", "decrypt_end_ns", "response_end_ns")
         self.assertEqual(sorted(reply.timings[key] for key in keys), [reply.timings[key] for key in keys])
@@ -48,11 +47,11 @@ class ProtocolTests(unittest.TestCase):
     def test_bad_mac_wrong_id_and_error_are_rejected(self):
         for kwargs in ({"corrupt_mac": True}, {"response_id": 2}, {"response_id": True}, {"rpc_error": True}):
             with self.subTest(kwargs=kwargs), self.assertRaises(ProbeError):
-                client(**kwargs).call("device_info")
+                self.reply_client(**kwargs).call("device_info")
 
     def test_rpc_error_does_not_expose_server_text(self):
         with self.assertRaises(ProbeError) as caught:
-            client(result={"message": "PRIVATE_SECRET"}, rpc_error=True).call("device_info")
+            self.reply_client(result={"message": "PRIVATE_SECRET"}, rpc_error=True).call("device_info")
         self.assertNotIn("PRIVATE_SECRET", str(caught.exception))
 
     def test_launch_is_exact_game_only_and_never_retried(self):
@@ -60,7 +59,7 @@ class ProtocolTests(unittest.TestCase):
         def fail(body, timeout):
             calls.append(body)
             raise ProbeError("connection_error")
-        probe = Client(fail, KEY, TOK, allow_launch=True)
+        probe = self.client(fail, KEY, TOK, allow_launch=True)
         with self.assertRaises(ProbeError):
             probe.call("launch_app", {"bundle_id": "other"})
         self.assertEqual([], calls)
@@ -72,7 +71,7 @@ class ProtocolTests(unittest.TestCase):
     def test_screenshot_params_finite_and_bounded(self):
         for scale in (float("nan"), float("inf"), True, 0, 3):
             with self.subTest(scale=repr(scale)), self.assertRaises(ProbeError):
-                client().call("screenshot", {"format": "jpeg", "scale": scale})
+                self.reply_client().call("screenshot", {"format": "jpeg", "scale": scale})
 
     def test_pairing_only_unambiguous_existing_local_record(self):
         record = {"key": KEY.hex(), "tok": TOK, "addresses": ["@127.0.0.1:8300"]}

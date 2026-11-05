@@ -1,6 +1,5 @@
 """既存ペアリングを使う計測通信。タップを送るAPIは提供しない。"""
 import base64
-from contextlib import contextmanager
 from dataclasses import dataclass
 import hashlib
 import hmac
@@ -8,69 +7,16 @@ import http.client
 import json
 from pathlib import Path
 import secrets
-import signal
 import time
 
 from .crypto import Crypto, mac
+from .deadlines import OwnedRpcTimer
 from .validation import MAX_HTTP, MAX_PLAIN, ProbeError, b64, json_object, number
 
 GAME = "jp.co.spike-chunsoft.necrodancerjp"
 HOST = "127.0.0.1:8300"
 
 
-@contextmanager
-def deadline(seconds):
-    """Own ITIMER_REAL in the dedicated worker; never call iSH's missing getitimer."""
-    number(seconds, 0.001, 60)
-    if not hasattr(signal, "setitimer"):
-        raise ProbeError("posix_timer_required")
-    old_handler = signal.getsignal(signal.SIGALRM)
-    if old_handler is None:
-        raise ProbeError("timer_handler_unknown")
-    queried_at = time.monotonic()
-    try:
-        # setitimer returns (previous delay, interval); iSH implements syscall 104,
-        # whereas getitimer (105) is absent. Do not probe it even in a try/except:
-        # unsupported syscalls can terminate the process instead of raising Python.
-        old_timer = signal.setitimer(signal.ITIMER_REAL, 0)
-    except (OSError, ValueError):
-        raise ProbeError("timer_setup_failed") from None
-    if old_timer != (0.0, 0.0):
-        delay, interval = old_timer
-        if delay > 0:
-            delay = max(.000001, delay - (time.monotonic() - queried_at))
-        try:
-            signal.setitimer(signal.ITIMER_REAL, delay, interval)
-        except (OSError, ValueError):
-            raise ProbeError("timer_restore_failed") from None
-        raise ProbeError("timer_already_in_use")
-
-    def expired(_signal, _frame):
-        raise ProbeError("rpc_deadline")
-
-    try:
-        signal.signal(signal.SIGALRM, expired)
-    except (OSError, ValueError):
-        raise ProbeError("timer_setup_failed") from None
-    try:
-        try:
-            signal.setitimer(signal.ITIMER_REAL, seconds)
-        except (OSError, ValueError):
-            raise ProbeError("timer_setup_failed") from None
-        yield
-    finally:
-        failed = False
-        try:
-            signal.setitimer(signal.ITIMER_REAL, 0)
-        except (OSError, ValueError):
-            failed = True
-        finally:
-            try:
-                signal.signal(signal.SIGALRM, old_handler)
-            except (OSError, ValueError):
-                failed = True
-        if failed:
-            raise ProbeError("timer_cleanup_failed") from None
 
 
 class HttpTransport:
@@ -155,8 +101,9 @@ class RpcReply:
 
 
 class Client:
-    def __init__(self, transport, key=None, tok=None, *, timeout=8, allow_launch=False, crypto=None):
+    def __init__(self, transport, key=None, tok=None, *, timeout=8, allow_launch=False, crypto=None, deadline_owner=None):
         self.transport = transport
+        self.deadline_owner = deadline_owner
         self.key, self.tok = key, tok
         self.timeout = number(timeout, 0.1, 30)
         self.allow_launch = allow_launch
@@ -191,7 +138,9 @@ class Client:
         self.sequence += 1
         rpc_id = self.sequence
         times = {"request_start_ns": time.monotonic_ns(), "crypto_engine": self.crypto.engine}
-        with deadline(timeout):
+        if not isinstance(self.deadline_owner, OwnedRpcTimer):
+            raise ProbeError("timer_owner_required")
+        with self.deadline_owner.deadline(timeout):
             nonce = secrets.token_bytes(16)
             ts = int(time.time())
             body = json.dumps({"jsonrpc": "2.0", "id": rpc_id, "method": method, "params": params}, separators=(",", ":")).encode()

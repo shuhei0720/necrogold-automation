@@ -1,0 +1,74 @@
+test_arm_failure_poison_prevents_reuse (test_timer_compat.TimerCompatibilityTests.test_arm_failure_poison_prevents_reuse) ... ok
+test_cleanup_failure_after_success_is_fatal (test_timer_compat.TimerCompatibilityTests.test_cleanup_failure_after_success_is_fatal) ... ok
+test_cleanup_failure_poison_preserves_primary_interrupt (test_timer_compat.TimerCompatibilityTests.test_cleanup_failure_poison_preserves_primary_interrupt) ... ok
+test_cli_identifies_no_web_ui_or_taps (test_timer_compat.TimerCompatibilityTests.test_cli_identifies_no_web_ui_or_taps) ... ok
+test_combined_crypto_transport_and_decrypt_share_one_deadline (test_timer_compat.TimerCompatibilityTests.test_combined_crypto_transport_and_decrypt_share_one_deadline) ... ok
+test_delayed_signal_cannot_make_overdue_result_successful (test_timer_compat.TimerCompatibilityTests.test_delayed_signal_cannot_make_overdue_result_successful) ... ok
+test_duplicate_owner_and_reentry_refused_without_touching_timer (test_timer_compat.TimerCompatibilityTests.test_duplicate_owner_and_reentry_refused_without_touching_timer) ... ok
+test_early_one_shot_delivery_rearms_remaining_deadline (test_timer_compat.TimerCompatibilityTests.test_early_one_shot_delivery_rearms_remaining_deadline) ... FAIL
+test_early_signal_rearm_failure_poison_prevents_reuse (test_timer_compat.TimerCompatibilityTests.test_early_signal_rearm_failure_poison_prevents_reuse) ... FAIL
+test_getitimer_sigsys_fault_does_not_kill_rpc_child (test_timer_compat.TimerCompatibilityTests.test_getitimer_sigsys_fault_does_not_kill_rpc_child) ... ok
+test_late_signals_outside_or_before_deadline_are_ignored (test_timer_compat.TimerCompatibilityTests.test_late_signals_outside_or_before_deadline_are_ignored) ... ok
+test_nested_rpc_does_not_modify_outer_deadline (test_timer_compat.TimerCompatibilityTests.test_nested_rpc_does_not_modify_outer_deadline) ... ok
+test_no_owner_rejects_before_crypto_timer_or_http (test_timer_compat.TimerCompatibilityTests.test_no_owner_rejects_before_crypto_timer_or_http) ... ok
+test_outer_handled_exception_does_not_hide_cleanup_failure (test_timer_compat.TimerCompatibilityTests.test_outer_handled_exception_does_not_hide_cleanup_failure) ... FAIL
+test_pending_alarm_between_rpcs_and_after_close_does_not_kill_child (test_timer_compat.TimerCompatibilityTests.test_pending_alarm_between_rpcs_and_after_close_does_not_kill_child) ... ok
+test_real_http_launch_capture_sequence_without_getitimer (test_timer_compat.TimerCompatibilityTests.test_real_http_launch_capture_sequence_without_getitimer) ... ok
+test_rpc_sequence_ignores_all_timer_return_values (test_timer_compat.TimerCompatibilityTests.test_rpc_sequence_ignores_all_timer_return_values) ... ok
+test_slow_crypto_times_out_before_network (test_timer_compat.TimerCompatibilityTests.test_slow_crypto_times_out_before_network) ... ok
+test_slow_headers_obey_total_deadline (test_timer_compat.TimerCompatibilityTests.test_slow_headers_obey_total_deadline) ... ok
+test_timer_failures_stop_session_without_later_rpc (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_without_later_rpc) ... ok
+test_unstarted_and_closed_owner_are_rejected (test_timer_compat.TimerCompatibilityTests.test_unstarted_and_closed_owner_are_rejected) ... ok
+test_wrong_pid_or_thread_rejected_without_timer_changes (test_timer_compat.TimerCompatibilityTests.test_wrong_pid_or_thread_rejected_without_timer_changes) ... ok
+test_close_handler_failure_is_fatal_and_poisoned (test_timer_compat.TimerStartupTests.test_close_handler_failure_is_fatal_and_poisoned) ... ok
+test_foreign_or_unknown_handler_rejected_before_any_timer_change (test_timer_compat.TimerStartupTests.test_foreign_or_unknown_handler_rejected_before_any_timer_change) ... ok
+test_handler_setup_failure_is_fixed_error (test_timer_compat.TimerStartupTests.test_handler_setup_failure_is_fixed_error) ... ok
+test_initial_disarm_failure_is_fixed_error (test_timer_compat.TimerStartupTests.test_initial_disarm_failure_is_fixed_error) ... ok
+test_interrupt_during_initialization_closes_owner_and_preserves_reason (test_timer_compat.TimerStartupTests.test_interrupt_during_initialization_closes_owner_and_preserves_reason) ... FAIL
+test_owner_initialization_ignores_arbitrary_old_values (test_timer_compat.TimerStartupTests.test_owner_initialization_ignores_arbitrary_old_values) ... ok
+
+======================================================================
+FAIL: test_early_one_shot_delivery_rearms_remaining_deadline (test_timer_compat.TimerCompatibilityTests.test_early_one_shot_delivery_rearms_remaining_deadline)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 185, in test_early_one_shot_delivery_rearms_remaining_deadline
+    self.assertLess(time.monotonic() - started, .3)
+AssertionError: 0.5006138479948277 not less than 0.3
+
+======================================================================
+FAIL: test_early_signal_rearm_failure_poison_prevents_reuse (test_timer_compat.TimerCompatibilityTests.test_early_signal_rearm_failure_poison_prevents_reuse)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 190, in test_early_signal_rearm_failure_poison_prevents_reuse
+    with self.assertRaisesRegex(ProbeError, "timer_setup_failed"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ProbeError not raised
+
+======================================================================
+FAIL: test_outer_handled_exception_does_not_hide_cleanup_failure (test_timer_compat.TimerCompatibilityTests.test_outer_handled_exception_does_not_hide_cleanup_failure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 205, in test_outer_handled_exception_does_not_hide_cleanup_failure
+    raise ValueError("already handled")
+ValueError: already handled
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 208, in test_outer_handled_exception_does_not_hide_cleanup_failure
+    with self.assertRaisesRegex(ProbeError, "timer_cleanup_failed"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ProbeError not raised
+
+======================================================================
+FAIL: test_interrupt_during_initialization_closes_owner_and_preserves_reason (test_timer_compat.TimerStartupTests.test_interrupt_during_initialization_closes_owner_and_preserves_reason)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 361, in test_interrupt_during_initialization_closes_owner_and_preserves_reason
+    self.assertTrue(owner.diagnostics()["closed"])
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 28 tests in 2.434s
+
+FAILED (failures=4)

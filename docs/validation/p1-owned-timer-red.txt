@@ -1,0 +1,35 @@
+test_rpc_sequence_ignores_all_timer_return_values (test_timer_compat.TimerCompatibilityTests.test_rpc_sequence_ignores_all_timer_return_values) ... FAIL
+
+======================================================================
+FAIL: test_rpc_sequence_ignores_all_timer_return_values (test_timer_compat.TimerCompatibilityTests.test_rpc_sequence_ignores_all_timer_return_values)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 39, in test_rpc_sequence_ignores_all_timer_return_values
+    self.test_real_http_launch_capture_sequence_without_getitimer()
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 78, in test_real_http_launch_capture_sequence_without_getitimer
+    collect(client, report, folder, time.monotonic_ns() + 5_000_000_000)
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 179, in collect
+    event("device_info")
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 158, in event
+    reply = call(method, params)
+            ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 149, in call
+    return client.call(method, params, timeout=min(client.timeout, remaining))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 194, in call
+    with deadline(timeout):
+         ^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 38, in deadline
+    if old_timer != (0.0, 0.0):
+       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 32, in __ne__
+    raise AssertionError("OS timer old value must not be interpreted")
+AssertionError: OS timer old value must not be interpreted
+
+----------------------------------------------------------------------
+Ran 1 test in 0.027s
+
+FAILED (failures=1)

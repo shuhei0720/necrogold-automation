@@ -2,7 +2,7 @@
 
 このツールは、黒画像と取得遅延の原因を調べるためのものです。**Safariの操作サイトは起動しません。新しい自動周回版ではありません。** ゲームを開く要求を送りますが、「ゲームを続行」は押しません。オプション、移動、リスタート、購入も行いません。実機で開くことを今回確認します。
 
-現在はP1.3です。TEST-001の3実行に加え、TEST-002もゲーム起動前にSIGSYSとなりました。iSH未実装のgetitimer呼出しを除去し、停止期限を維持した修正です。今回は[TEST-003の手順](device-tests/003-ish-timer.md)を使ってください。実機原因の解消は未確認です。
+現在はP1.4です。TEST-003はゲーム起動前のtimer_already_in_useで停止しました。専用workerで期限タイマーを所有し、iSHの旧タイマー戻り値に依存しないよう修正しました。今回は[TEST-004の手順](device-tests/004-owned-timer.md)を使ってください。実機原因の解消は未確認です。
 
 ## 起動
 
@@ -39,7 +39,7 @@ Pillowがなければ、起動時に表示される`apk add py3-pillow`で入れ
 | `pairing_ambiguous` | ローカル接続に複数の鍵が該当。適当な端末を選ばず停止 |
 | `connection_failure_limit` | 3回連続で通信が失敗 |
 | `session_deadline` | 設定した全体時間に到達。未実施・中断を残す |
-| `timer_setup_failed` / `timer_restore_failed` / `timer_cleanup_failed` | RPC期限を管理できず停止。次の通信へ進まない |
+| `timer_setup_failed` / `timer_cleanup_failed` / `timer_unusable` | RPC期限を管理できず停止。次の通信へ進まない |
 | `response_mac_mismatch` / `response_id_mismatch` | 応答を信用できないため即停止 |
 
 `gate.P1`は常に`not_passed`です。取得速度だけでは画像の鮮度、タップ座標、送信済み入力の取消、長時間動作を証明できません。
@@ -74,4 +74,4 @@ python3 -m necroprobe inspect evidence/start-failed.jpg analysis/manual-video-2/
 python3 -m unittest discover -s tests -v
 ```
 
-Python 3.9以降、Pillow、POSIXのsetitimerとプロセス終了APIを使います。getitimerは使用しません。実際のiSHでの動作、ネイティブ暗号処理の速度、ゲームへの復帰は未検証です。次の実装判断は今回の実機レポートを根拠にします。
+Python 3.9以降、Pillow、POSIXのsetitimerとプロセス終了APIを使います。getitimerは使用しません。P1.4は専用worker内でSIGALRM/ITIMER_REALを所有し、setitimerの旧値を読み取り・復元しません。reportの`timer`に方式、終了状態、継続利用不可の状態（poisoned）、cleanup_errorを記録します。実際のiSHでの動作、ネイティブ暗号処理の速度、ゲームへの復帰は未検証です。次の実装判断は今回の実機レポートを根拠にします。
