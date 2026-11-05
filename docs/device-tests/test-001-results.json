@@ -1,0 +1,155 @@
+{
+  "test_id": "TEST-001",
+  "source_archive": "test-001.zip",
+  "source_archive_sha256": "d768c29e08697cd9a6f1e467c13c2b150aa2369f802047e9eb8741709f8d3b02",
+  "source_handling": "Original ZIP remains a chat attachment; only derived observations and hashes are stored in GitHub. AppleDouble metadata is ignored.",
+  "report_count": 3,
+  "image_file_count": 0,
+  "runs": [
+    {
+      "run": "probe-20261105T055131Z-dc554042",
+      "report_archive_path": "test-001/probe-20261105T055131Z-dc554042/report.json",
+      "report_sha256": "58f186c299d95a579bb184eefb8880344fd6db6419509229ef12827da3ee82b8",
+      "folder_start_time_jst": "2026-11-05T14:51:31+09:00",
+      "version": "P1.1",
+      "crypto_engine": "native_i386",
+      "stop_reason": "worker_failed",
+      "termination_reason": "worker_failed",
+      "events_recorded": [
+        {
+          "method": "device_info",
+          "status": "interrupted",
+          "completion_timestamp_present": false
+        }
+      ],
+      "capture_counts": {
+        "planned": 12,
+        "started": 0,
+        "complete": 0,
+        "errors": 0,
+        "interrupted": 0,
+        "not_started": 12
+      },
+      "counts_by_variant": {
+        "jpeg_scale1": {
+          "not_started": 4
+        },
+        "jpeg_scale2": {
+          "not_started": 4
+        },
+        "png_scale1": {
+          "not_started": 4
+        }
+      },
+      "timings_ms": {
+        "parent_total": 7667.77,
+        "parent_start_to_device_info_start": 7391.985,
+        "device_info_start_to_parent_end": 275.785,
+        "device_info_rpc_roundtrip": null
+      },
+      "game_launch_record_present": false,
+      "image_file_count": 0,
+      "native_cause_confirmed": false
+    },
+    {
+      "run": "probe-20261105T055230Z-791d6e9c",
+      "report_archive_path": "test-001/probe-20261105T055230Z-791d6e9c/report.json",
+      "report_sha256": "6027f506f910143329d94fb91726c3990cc4716f3336e58043156eb3b18bc20d",
+      "folder_start_time_jst": "2026-11-05T14:52:30+09:00",
+      "version": "P1.1",
+      "crypto_engine": "native_i386",
+      "stop_reason": "worker_failed",
+      "termination_reason": "worker_failed",
+      "events_recorded": [
+        {
+          "method": "device_info",
+          "status": "interrupted",
+          "completion_timestamp_present": false
+        }
+      ],
+      "capture_counts": {
+        "planned": 12,
+        "started": 0,
+        "complete": 0,
+        "errors": 0,
+        "interrupted": 0,
+        "not_started": 12
+      },
+      "counts_by_variant": {
+        "jpeg_scale1": {
+          "not_started": 4
+        },
+        "jpeg_scale2": {
+          "not_started": 4
+        },
+        "png_scale1": {
+          "not_started": 4
+        }
+      },
+      "timings_ms": {
+        "parent_total": 8473.924,
+        "parent_start_to_device_info_start": 8182.516,
+        "device_info_start_to_parent_end": 291.408,
+        "device_info_rpc_roundtrip": null
+      },
+      "game_launch_record_present": false,
+      "image_file_count": 0,
+      "native_cause_confirmed": false
+    },
+    {
+      "run": "probe-20261105T055532Z-b0524e50",
+      "report_archive_path": "test-001/probe-20261105T055532Z-b0524e50/report.json",
+      "report_sha256": "fdb7d7a46ae8cdbbb0a2f3049502582c4568c4aec451be5d2a5decaf7056029d",
+      "folder_start_time_jst": "2026-11-05T14:55:32+09:00",
+      "version": "P1.1",
+      "crypto_engine": "native_i386",
+      "stop_reason": "worker_failed",
+      "termination_reason": "worker_failed",
+      "events_recorded": [
+        {
+          "method": "device_info",
+          "status": "interrupted",
+          "completion_timestamp_present": false
+        }
+      ],
+      "capture_counts": {
+        "planned": 12,
+        "started": 0,
+        "complete": 0,
+        "errors": 0,
+        "interrupted": 0,
+        "not_started": 12
+      },
+      "counts_by_variant": {
+        "jpeg_scale1": {
+          "not_started": 4
+        },
+        "jpeg_scale2": {
+          "not_started": 4
+        },
+        "png_scale1": {
+          "not_started": 4
+        }
+      },
+      "timings_ms": {
+        "parent_total": 8967.308,
+        "parent_start_to_device_info_start": 8641.963,
+        "device_info_start_to_parent_end": 325.345,
+        "device_info_rpc_roundtrip": null
+      },
+      "game_launch_record_present": false,
+      "image_file_count": 0,
+      "native_cause_confirmed": false
+    }
+  ],
+  "conclusion": "All three saved reports reach the first device_info event but lack its completion; no launch_app or screenshot event is recorded. Native engine selected. Failure cause remains unknown.",
+  "not_proven": [
+    "RPC request reached LoopCtrl",
+    "exact child exit code or signal",
+    "failure exclusively caused by native crypto",
+    "game launch or valid image capture",
+    "background operation success",
+    "game E2E or performance acceptance"
+  ],
+  "next_test": "TEST-002: existing P1.2, --python-crypto, same 12 planned captures and 45-second limit."
+}
