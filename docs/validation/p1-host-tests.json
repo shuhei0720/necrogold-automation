@@ -1,0 +1,81 @@
+{
+  "checked_at": "2026-11-05T14:28:09.535294+09:00",
+  "scope": "P1 diagnostic tooling host validation; not device acceptance",
+  "environment": {
+    "python": "3.12.14",
+    "pillow": "13.0.0",
+    "system": "Linux",
+    "architecture": "x86_64"
+  },
+  "suite": {
+    "command": "python3 -m unittest discover -s tests -v",
+    "tests": 54,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "log": "p1-tests.txt",
+    "log_sha256": "2a93723a145bd5c9afcbe8f227c967ab8b79f37525cd0229d496a623c8201cae"
+  },
+  "checks": {
+    "python39_syntax": {
+      "pass": true,
+      "files": 13,
+      "actual_python39_runtime_tested": false
+    },
+    "shell_syntax": true,
+    "legacy_sha256_unchanged_files": 40,
+    "real_local_http_tests": true,
+    "real_child_process_stop_cases": 6
+  },
+  "negative_controls": {
+    "disabled_rpc_allowlist": "test failed by assertion as expected",
+    "reencoded_original_jpeg": "test failed by assertion as expected",
+    "fatal_error_then_save_failure": "Red observed before fix; Green after fix"
+  },
+  "independent_reviews": {
+    "perspectives": [
+      "contract/test coverage",
+      "implementation",
+      "security"
+    ],
+    "rounds": 3,
+    "final_round_host_suite": 54,
+    "post_final_review_change": "Only test_session.py fixture strengthened with actual JPEG; root checked failure under reencoding and reran full suite; no fourth independent review"
+  },
+  "not_tested": [
+    "actual iSH and Python 3.9 runtime",
+    "i386 native crypto on device",
+    "background execution on iPhone",
+    "volume-button cancellation via LoopCtrl",
+    "fresh frame generation timestamp",
+    "device input px/pt transform",
+    "device-side queued-input cancellation",
+    "direct Resume",
+    "restart and navigation",
+    "wood/iron shop entrances",
+    "target goods recognition",
+    "human-faster completed item checks per minute",
+    "long-running stability"
+  ],
+  "gate": {
+    "P1": "not_passed",
+    "P2_to_P6": "not_implemented"
+  },
+  "files_sha256": {
+    "necroprobe/__init__.py": "5852eafbdd0edee86749fee6553272f646702080ca9aec8ed69f360f16ac41bb",
+    "necroprobe/__main__.py": "d3ccaaf272d1bb467fe4dbb12e8da3cba8e83d34bdfe89c9d654cf6f41f50a6d",
+    "necroprobe/capture.py": "abc9e8e8ac66e10f5b58c50f6e047514100a9ba4e5de0548c0d98aa9fad6f9d3",
+    "necroprobe/crypto.py": "2cbdbde963da06deea06ddf490aa0d8203ae6815b66fe43f4d72e80871b493be",
+    "necroprobe/protocol.py": "cfe2e08e907feb22f917cb00df5c95fff2874bb372c067d8bbd9d49bd41c4d69",
+    "necroprobe/session.py": "9b2c3ad4268f292ecba0848fd5f9003e6cb1bfd6d21f719e77f1edcd2b900aef",
+    "necroprobe/validation.py": "23afda73b47b7bc8e14838a21795cffa88ef46ab3a9c13555225ed6d907c9ba2",
+    "tests/fixtures/stop_driver.py": "5fd1cdec592ae3a6adf5fb7a5c96b39324559d10dc859e457ccbd7effb7dc0fe",
+    "tests/test_capture.py": "a7703e5c158788edaf73c013f492ea6431b8a89e42414dbc5310d14e0038c9c6",
+    "tests/test_http_and_cli.py": "9b32e6738717050026b16a44eb2ad262ba2b387923744a82beb8df7237d385ed",
+    "tests/test_protocol.py": "27ebcafda8ac797a71aac97b1f587faa2420833842975ee7b6aea41aa1c0cd31",
+    "tests/test_session.py": "f645c17c44f855a82df1490c676ccbea1cb193a3d6f5c621961c852af52daf46",
+    "tests/test_stop_integration.py": "b47ddbddaa516bdc879af5f076043e089d992960dd383e8e933e463264349cec",
+    "start_probe.sh": "e6f339a52cdc1cd8199565d19859201982794543c2ecc87083b574a6ba35e75d",
+    "docs/plans/p1-probe.md": "cfea23ecf636fbc694f67abc63ec22b8a9bdac5f187a4077cdf71169a7ada632"
+  }
+}

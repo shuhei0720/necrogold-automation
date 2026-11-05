@@ -4,11 +4,11 @@
 
 Read `README.md`, `docs/status.md`, `docs/development-flow.md`, `docs/requirements.md`, and `docs/video-2-analysis.md`.
 
-Follow the user's `shuhei0720/AI-Driven-Development` Codex workflow, identified in `docs/development-flow.md`. Separate requirements from the eight-part plan. Review the plan independently by design, edge cases/test coverage, and security; use subagents with fresh context, no implementation history, and inherited model settings. Limit review/fix rounds to three and record remaining issues. Build behavior tests with observed Red → Green → Refactor, not after-the-fact success-only checks. Human review of test expectations and implementation is part of the workflow. Current work is requirements, plan, evidence and archival saving; not application implementation.
+Follow the user's `shuhei0720/AI-Driven-Development` Codex workflow, identified in `docs/development-flow.md`. Separate requirements from the eight-part plan. Review the plan independently by design, edge cases/test coverage, and security; use subagents with fresh context, no implementation history, and inherited model settings. Limit review/fix rounds to three and record remaining issues. Build behavior tests with observed Red → Green → Refactor, not after-the-fact success-only checks. Human review of test expectations and implementation is part of the workflow. Current work is P1 measurement tooling and host tests; device acceptance and gameplay implementation remain gated.
 
 ## Current scope
 
-The user requested requirements and a plan before rebuilding the application. This repository currently preserves the R12 baseline, analysis, and plans. GitHub repository creation and saving the complete existing code were explicitly authorized. Do not label the archival import a fix or a new functioning release.
+The user asked to continue after the reviewed plan. Implement P1 measurement tooling and its tests now, outside the immutable R12 archive. The P1 device gate still applies: do not claim a working gameplay release or proceed to autonomous exploration without device evidence. GitHub saving remains authorized. The prior documentation-only scope is superseded by this continuation.
 
 ## Functional and performance requirements
 
