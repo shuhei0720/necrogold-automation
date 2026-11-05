@@ -1,0 +1,54 @@
+{
+  "checked_at": "2026-11-05T15:09:00.312962+09:00",
+  "version": "P1.2",
+  "scope": "BUG-P1-001: host worker diagnostics; device cause unknown",
+  "environment": {
+    "python": "3.12.14",
+    "pillow": "13.0.0",
+    "architecture": "x86_64"
+  },
+  "tests": {
+    "total": 67,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "log": "p1-worker-tests.txt",
+    "log_sha256": "9a71e77626abcaee6f38575010912b3e17672be0bc1cd4c288e566ae98455496"
+  },
+  "reviews": {
+    "rounds": 3,
+    "reviewers": [
+      "worker_fix_contract",
+      "worker_fix_implementation"
+    ],
+    "independently_run_final_diagnostic_tests_per_reviewer": 13,
+    "unresolved_major_findings": 0
+  },
+  "checks": {
+    "python39_syntax_files": 15,
+    "actual_python39_tested": false,
+    "legacy_unchanged_files": 40
+  },
+  "device": {
+    "TEST-001": "2 worker_failed results observed in screenshot; report not received; cause unknown",
+    "TEST-002": "not_run",
+    "game_e2e": "not_implemented_not_run"
+  },
+  "files_sha256": {
+    "necroprobe/__init__.py": "49ced6fa6fccdd1c3c60af87b1e1526cb778c48c8565c68e1e1970ee806e8433",
+    "necroprobe/__main__.py": "bb5018b6176836770fa4584dfb2a388465a93b2e0ed238a3c222419759b2e7ce",
+    "necroprobe/capture.py": "abc9e8e8ac66e10f5b58c50f6e047514100a9ba4e5de0548c0d98aa9fad6f9d3",
+    "necroprobe/crypto.py": "2cbdbde963da06deea06ddf490aa0d8203ae6815b66fe43f4d72e80871b493be",
+    "necroprobe/protocol.py": "cfe2e08e907feb22f917cb00df5c95fff2874bb372c067d8bbd9d49bd41c4d69",
+    "necroprobe/session.py": "9b2c3ad4268f292ecba0848fd5f9003e6cb1bfd6d21f719e77f1edcd2b900aef",
+    "necroprobe/validation.py": "23afda73b47b7bc8e14838a21795cffa88ef46ab3a9c13555225ed6d907c9ba2",
+    "tests/fixtures/stop_driver.py": "5cc4b22217fcf7261d76af91659747d506870b3d30d57bfeb2a477e4f71e604d",
+    "tests/fixtures/worker_failure_driver.py": "2ca67fc6c1353a7fe70a11ce116fedbd34349b97dd8874f5d3ce2b6b29d8bb13",
+    "tests/test_capture.py": "a7703e5c158788edaf73c013f492ea6431b8a89e42414dbc5310d14e0038c9c6",
+    "tests/test_http_and_cli.py": "9b32e6738717050026b16a44eb2ad262ba2b387923744a82beb8df7237d385ed",
+    "tests/test_protocol.py": "27ebcafda8ac797a71aac97b1f587faa2420833842975ee7b6aea41aa1c0cd31",
+    "tests/test_session.py": "f645c17c44f855a82df1490c676ccbea1cb193a3d6f5c621961c852af52daf46",
+    "tests/test_stop_integration.py": "fa239c7566d9e48afce5cfe4c86f599898c0f9388e56e535d6ec19661a64d5e7",
+    "tests/test_worker_diagnostics.py": "3f944deb638676e756e4f102ddc273fcb798d9d187b2fbc14f4494f80b00e9bb"
+  }
+}

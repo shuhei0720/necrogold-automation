@@ -1,0 +1,73 @@
+test_native_style_crash_keeps_last_checkpoint_in_final_report (test_worker_diagnostics.WorkerDiagnosticsTests.test_native_style_crash_keeps_last_checkpoint_in_final_report) ... FAIL
+test_nonzero_exit_keeps_exact_code_without_logging_stderr (test_worker_diagnostics.WorkerDiagnosticsTests.test_nonzero_exit_keeps_exact_code_without_logging_stderr) ... FAIL
+test_python_failure_keeps_safe_type_and_primary_reason (test_worker_diagnostics.WorkerDiagnosticsTests.test_python_failure_keeps_safe_type_and_primary_reason) ... FAIL
+test_signal_exit_keeps_number_and_name (test_worker_diagnostics.WorkerDiagnosticsTests.test_signal_exit_keeps_number_and_name) ... FAIL
+test_spawn_failure_is_not_misreported_as_output_failure (test_worker_diagnostics.WorkerDiagnosticsTests.test_spawn_failure_is_not_misreported_as_output_failure) ... ERROR
+test_success_keeps_zero_returncode (test_worker_diagnostics.WorkerDiagnosticsTests.test_success_keeps_zero_returncode) ... FAIL
+
+======================================================================
+ERROR: test_spawn_failure_is_not_misreported_as_output_failure (test_worker_diagnostics.WorkerDiagnosticsTests.test_spawn_failure_is_not_misreported_as_output_failure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 43, in test_spawn_failure_is_not_misreported_as_output_failure
+    reason = supervise([str(Path(folder) / "missing-executable")], 3, info)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 22, in supervise
+    process = subprocess.Popen(command, stderr=subprocess.DEVNULL)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp6qh6q0mf/missing-executable'
+
+======================================================================
+FAIL: test_native_style_crash_keeps_last_checkpoint_in_final_report (test_worker_diagnostics.WorkerDiagnosticsTests.test_native_style_crash_keeps_last_checkpoint_in_final_report)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 63, in test_native_style_crash_keeps_last_checkpoint_in_final_report
+    report = self.run_child_failure("signal")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 54, in run_child_failure
+    self.assertEqual("crypto_initialize", report.get("worker", {}).get("stage"))
+AssertionError: 'crypto_initialize' != None
+
+======================================================================
+FAIL: test_nonzero_exit_keeps_exact_code_without_logging_stderr (test_worker_diagnostics.WorkerDiagnosticsTests.test_nonzero_exit_keeps_exact_code_without_logging_stderr)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 22, in test_nonzero_exit_keeps_exact_code_without_logging_stderr
+    self.assertEqual(23, info.get("returncode"))
+AssertionError: 23 != None
+
+======================================================================
+FAIL: test_python_failure_keeps_safe_type_and_primary_reason (test_worker_diagnostics.WorkerDiagnosticsTests.test_python_failure_keeps_safe_type_and_primary_reason)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 69, in test_python_failure_keeps_safe_type_and_primary_reason
+    report = self.run_child_failure("exception")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 54, in run_child_failure
+    self.assertEqual("crypto_initialize", report.get("worker", {}).get("stage"))
+AssertionError: 'crypto_initialize' != None
+
+======================================================================
+FAIL: test_signal_exit_keeps_number_and_name (test_worker_diagnostics.WorkerDiagnosticsTests.test_signal_exit_keeps_number_and_name)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 36, in test_signal_exit_keeps_number_and_name
+    self.assertEqual(-signal.SIGTERM, info.get("returncode"))
+AssertionError: -15 != None
+
+======================================================================
+FAIL: test_success_keeps_zero_returncode (test_worker_diagnostics.WorkerDiagnosticsTests.test_success_keeps_zero_returncode)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 29, in test_success_keeps_zero_returncode
+    self.assertEqual(0, info.get("returncode"))
+AssertionError: 0 != None
+
+----------------------------------------------------------------------
+Ran 6 tests in 1.011s
+
+FAILED (failures=5, errors=1)

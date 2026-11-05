@@ -40,6 +40,9 @@ class StopIntegrationTests(unittest.TestCase):
                 self.assertEqual(6, report["summary"]["planned"])
                 self.assertFalse(report["input_authorized"])
                 self.assertEqual("not_passed", report["gate"]["P1"])
+                self.assertEqual(-signal.SIGKILL, report["worker"]["process"]["returncode"])
+                self.assertEqual("SIGKILL", report["worker"]["process"]["signal_name"])
+                self.assertTrue(report["worker"]["report_read_ok"])
                 with self.assertRaises(ProcessLookupError):
                     os.kill(worker["pid"], 0)
             finally:

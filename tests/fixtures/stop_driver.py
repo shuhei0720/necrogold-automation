@@ -70,9 +70,9 @@ def main():
     phase, destination, seconds = sys.argv[1:]
     marker = Path(destination) / "blocked.json"
     real_supervise = cli.supervise
-    def supervised_test_worker(command, timeout):
+    def supervised_test_worker(command, timeout, diagnostics=None):
         injected = [sys.executable, str(Path(__file__).resolve()), "worker", phase, str(marker)] + command[3:]
-        return real_supervise(injected, timeout)
+        return real_supervise(injected, timeout, diagnostics)
     cli.supervise = supervised_test_worker
     return cli.main(["capture", "--output", destination, "--samples", "6", "--seconds", seconds, "--python-crypto"])
 

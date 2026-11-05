@@ -1,0 +1,221 @@
+test_child_initial_report_failure_has_reserved_code_and_safe_message (test_worker_diagnostics.WorkerDiagnosticsTests.test_child_initial_report_failure_has_reserved_code_and_safe_message) ... ok
+test_each_checkpoint_failure_prevents_the_next_operation (test_worker_diagnostics.WorkerDiagnosticsTests.test_each_checkpoint_failure_prevents_the_next_operation) ... ok
+test_native_style_crash_keeps_last_checkpoint_in_final_report (test_worker_diagnostics.WorkerDiagnosticsTests.test_native_style_crash_keeps_last_checkpoint_in_final_report) ... ok
+test_nonzero_exit_keeps_exact_code_without_logging_stderr (test_worker_diagnostics.WorkerDiagnosticsTests.test_nonzero_exit_keeps_exact_code_without_logging_stderr) ... ok
+test_oserror_in_initialization_is_not_output_error (test_worker_diagnostics.WorkerDiagnosticsTests.test_oserror_in_initialization_is_not_output_error) ... ok
+test_python_failure_keeps_safe_type_and_primary_reason (test_worker_diagnostics.WorkerDiagnosticsTests.test_python_failure_keeps_safe_type_and_primary_reason) ... ok
+test_signal_exit_keeps_number_and_name (test_worker_diagnostics.WorkerDiagnosticsTests.test_signal_exit_keeps_number_and_name) ... ok
+test_spawn_failure_is_not_misreported_as_output_failure (test_worker_diagnostics.WorkerDiagnosticsTests.test_spawn_failure_is_not_misreported_as_output_failure) ... ok
+test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) ... 
+  test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={}) ... ERROR
+  test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'rows': []}) ... FAIL
+  test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'worker': []}) ... ERROR
+  test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'start_ns': 'bad'}) ... ERROR
+  test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'rows': [None]}) ... ERROR
+  test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'events': [None]}) ... ERROR
+  test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'status': 'PRIVATE_FIXTURE_SECRET'}) ... FAIL
+test_structurally_invalid_parent_report_keeps_process_result (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_parent_report_keeps_process_result) ... 
+  test_structurally_invalid_parent_report_keeps_process_result (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_parent_report_keeps_process_result) (index=0) ... FAIL
+  test_structurally_invalid_parent_report_keeps_process_result (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_parent_report_keeps_process_result) (index=1) ... FAIL
+  test_structurally_invalid_parent_report_keeps_process_result (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_parent_report_keeps_process_result) (index=2) ... FAIL
+  test_structurally_invalid_parent_report_keeps_process_result (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_parent_report_keeps_process_result) (index=3) ... FAIL
+test_success_keeps_zero_returncode (test_worker_diagnostics.WorkerDiagnosticsTests.test_success_keeps_zero_returncode) ... ok
+test_unknown_exception_class_is_not_exposed (test_worker_diagnostics.WorkerDiagnosticsTests.test_unknown_exception_class_is_not_exposed) ... ok
+test_unreadable_report_and_nonzero_exit_are_both_recorded (test_worker_diagnostics.WorkerDiagnosticsTests.test_unreadable_report_and_nonzero_exit_are_both_recorded) ... ok
+
+======================================================================
+ERROR: test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 139, in test_structurally_invalid_child_report_uses_reserved_code
+    code = cli.worker(args)
+           ^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 135, in worker
+    finish(report, time.monotonic_ns())
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 255, in finish
+    for row in report["rows"]:
+               ~~~~~~^^^^^^^^
+KeyError: 'rows'
+
+======================================================================
+ERROR: test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'worker': []})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 115, in worker
+    checkpoint_stage("pairing_load")
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 104, in checkpoint_stage
+    previous = state["stage"]
+               ~~~~~^^^^^^^^^
+TypeError: list indices must be integers or slices, not str
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 139, in test_structurally_invalid_child_report_uses_reserved_code
+    code = cli.worker(args)
+           ^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 134, in worker
+    state["exception_type"] = type(exc).__name__ if type(exc) in known else "Exception"
+    ~~~~~^^^^^^^^^^^^^^^^^^
+TypeError: list indices must be integers or slices, not str
+
+======================================================================
+ERROR: test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'start_ns': 'bad'})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 139, in test_structurally_invalid_child_report_uses_reserved_code
+    code = cli.worker(args)
+           ^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 135, in worker
+    finish(report, time.monotonic_ns())
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 262, in finish
+    report["summary"] = summarize(report["rows"], max(0, now - report["start_ns"]))
+                                                         ~~~~^~~~~~~~~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for -: 'int' and 'str'
+
+======================================================================
+ERROR: test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'rows': [None]})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 139, in test_structurally_invalid_child_report_uses_reserved_code
+    code = cli.worker(args)
+           ^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 135, in worker
+    finish(report, time.monotonic_ns())
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 256, in finish
+    if row["status"] == "in_progress":
+       ~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+
+======================================================================
+ERROR: test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'events': [None]})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 139, in test_structurally_invalid_child_report_uses_reserved_code
+    code = cli.worker(args)
+           ^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 135, in worker
+    finish(report, time.monotonic_ns())
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 259, in finish
+    if "status" not in event:
+       ^^^^^^^^^^^^^^^^^^^^^
+TypeError: argument of type 'NoneType' is not iterable
+
+======================================================================
+FAIL: test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'rows': []})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 140, in test_structurally_invalid_child_report_uses_reserved_code
+    self.assertEqual(cli.WORKER_REPORT_READ_EXIT, code)
+AssertionError: 74 != 0
+
+======================================================================
+FAIL: test_structurally_invalid_child_report_uses_reserved_code (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_child_report_uses_reserved_code) (update={'status': 'PRIVATE_FIXTURE_SECRET'})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 140, in test_structurally_invalid_child_report_uses_reserved_code
+    self.assertEqual(cli.WORKER_REPORT_READ_EXIT, code)
+AssertionError: 74 != 0
+
+======================================================================
+FAIL: test_structurally_invalid_parent_report_keeps_process_result (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_parent_report_keeps_process_result) (index=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 118, in test_structurally_invalid_parent_report_keeps_process_result
+    self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+AssertionError: 2 != 1 : 画像取得の診断を開始します。タップ・オプション操作は行いません。
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/fixtures/worker_failure_driver.py", line 52, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/fixtures/worker_failure_driver.py", line 48, in main
+    return cli.main(["capture", "--output", folder, "--samples", "3", "--seconds", "5"])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 213, in main
+    return run_capture(args)
+           ^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 193, in run_capture
+    finish(report, time.monotonic_ns(), reason)
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 255, in finish
+    for row in report["rows"]:
+               ~~~~~~^^^^^^^^
+KeyError: 'rows'
+
+
+======================================================================
+FAIL: test_structurally_invalid_parent_report_keeps_process_result (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_parent_report_keeps_process_result) (index=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 118, in test_structurally_invalid_parent_report_keeps_process_result
+    self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+AssertionError: 2 != 1 : 画像取得の診断を開始します。タップ・オプション操作は行いません。
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/fixtures/worker_failure_driver.py", line 52, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/fixtures/worker_failure_driver.py", line 48, in main
+    return cli.main(["capture", "--output", folder, "--samples", "3", "--seconds", "5"])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 213, in main
+    return run_capture(args)
+           ^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 189, in run_capture
+    state.update(process=diagnostics, report_read_ok=report_read_ok)
+    ^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'update'
+
+
+======================================================================
+FAIL: test_structurally_invalid_parent_report_keeps_process_result (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_parent_report_keeps_process_result) (index=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 118, in test_structurally_invalid_parent_report_keeps_process_result
+    self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+AssertionError: 2 != 1 : 画像取得の診断を開始します。タップ・オプション操作は行いません。
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/fixtures/worker_failure_driver.py", line 52, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/fixtures/worker_failure_driver.py", line 48, in main
+    return cli.main(["capture", "--output", folder, "--samples", "3", "--seconds", "5"])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 213, in main
+    return run_capture(args)
+           ^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 193, in run_capture
+    finish(report, time.monotonic_ns(), reason)
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 258, in finish
+    for event in report["events"]:
+                 ~~~~~~^^^^^^^^^^
+KeyError: 'events'
+
+
+======================================================================
+FAIL: test_structurally_invalid_parent_report_keeps_process_result (test_worker_diagnostics.WorkerDiagnosticsTests.test_structurally_invalid_parent_report_keeps_process_result) (index=3)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_worker_diagnostics.py", line 118, in test_structurally_invalid_parent_report_keeps_process_result
+    self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+AssertionError: 2 != 1 : 画像取得の診断を開始します。タップ・オプション操作は行いません。
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/fixtures/worker_failure_driver.py", line 52, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/fixtures/worker_failure_driver.py", line 48, in main
+    return cli.main(["capture", "--output", folder, "--samples", "3", "--seconds", "5"])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 213, in main
+    return run_capture(args)
+           ^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/__main__.py", line 193, in run_capture
+    finish(report, time.monotonic_ns(), reason)
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 255, in finish
+    for row in report["rows"]:
+               ~~~~~~^^^^^^^^
+KeyError: 'rows'
+
+
+----------------------------------------------------------------------
+Ran 13 tests in 3.715s
+
+FAILED (failures=6, errors=5)
