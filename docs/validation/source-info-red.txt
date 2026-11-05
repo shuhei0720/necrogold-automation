@@ -1,0 +1,14 @@
+test_keep_expected_fields_and_drop_private_values (test_source_info.SourceInfoTests.test_keep_expected_fields_and_drop_private_values) ... FAIL
+
+======================================================================
+FAIL: test_keep_expected_fields_and_drop_private_values (test_source_info.SourceInfoTests.test_keep_expected_fields_and_drop_private_values)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_info.py", line 15, in test_keep_expected_fields_and_drop_private_values
+    self.assertEqual(expected, result.get("values"))
+AssertionError: {'server_version': '1.98.14', 'build': '2[130 chars]': 2} != None
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)

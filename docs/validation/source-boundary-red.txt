@@ -1,0 +1,45 @@
+test_cleanup_failure_is_fixed_and_always_restores_handlers (test_source_info.QueryBoundaryTests.test_cleanup_failure_is_fixed_and_always_restores_handlers) ... ERROR
+test_signal_during_spawn_is_retained_until_child_is_owned (test_source_info.QueryBoundaryTests.test_signal_during_spawn_is_retained_until_child_is_owned) ... FAIL
+
+======================================================================
+ERROR: test_cleanup_failure_is_fixed_and_always_restores_handlers (test_source_info.QueryBoundaryTests.test_cleanup_failure_is_fixed_and_always_restores_handlers)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_info.py", line 212, in test_cleanup_failure_is_fixed_and_always_restores_handlers
+    result = source.run_query(['fixture'])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tools/inspect_capture_source.py", line 114, in run_query
+    process.communicate(timeout=1)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1198, in _execute_mock_call
+    raise effect
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tools/inspect_capture_source.py", line 70, in run_query
+    raw, _ = process.communicate(timeout=timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1198, in _execute_mock_call
+    raise effect
+subprocess.TimeoutExpired: Command 'PRIVATE' timed out after 1 seconds
+
+======================================================================
+FAIL: test_signal_during_spawn_is_retained_until_child_is_owned (test_source_info.QueryBoundaryTests.test_signal_during_spawn_is_retained_until_child_is_owned)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_info.py", line 198, in test_signal_during_spawn_is_retained_until_child_is_owned
+    self.assertIsNotNone(children[0].poll(), 'a cancelled spawn must be reaped')
+AssertionError: unexpectedly None : a cancelled spawn must be reaped
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.066s
+
+FAILED (failures=1, errors=1)

@@ -1,0 +1,52 @@
+{
+  "date_jst": "2026-11-05",
+  "base_commit": "e88520ac9522196b891529a9237f0b23f1a84639",
+  "scope": "standalone source-info helper only; no landscape capture implementation",
+  "host": {
+    "total": 115,
+    "existing": 98,
+    "new": 17,
+    "passed": 115,
+    "failed": 0,
+    "duration_seconds": 28.027,
+    "py_compile": "passed"
+  },
+  "behavioral_red_logs": [
+    "source-info-red.txt",
+    "source-parent-red.txt",
+    "source-boundary-red.txt",
+    "source-repeat-signal-red.txt",
+    "source-group-signal-red.txt"
+  ],
+  "earlier_failures": [
+    {
+      "stage": "initial materialization",
+      "details": "Three binary-fixture read errors before fixture restore; one unchanged baseline subprocess 8s timeout. These are not behavioral Red."
+    },
+    {
+      "stage": "restored baseline",
+      "total": 100,
+      "existing_98": "passed",
+      "new_preview_2": "failed as intended; withdrawn after user direction; not counted as landscape evidence"
+    },
+    {
+      "stage": "first full regression",
+      "total": 110,
+      "failed": 1,
+      "test": "test_deadline_during_rpc",
+      "details": "3s fixture deadline expired before blocked marker; isolated retry passed unchanged. Final all-suite rerun passed."
+    }
+  ],
+  "runtime_baseline_files_unchanged": 22,
+  "legacy_r12_expected_unchanged_blob_count": 40,
+  "review_rounds": 3,
+  "final_independent_p0_p1": 0,
+  "final_p2": "group-signal cancellation classification fixed by primary, observed Red then full Green; no fourth independent round",
+  "device_test": "not_run",
+  "landscape_capture": "not_implemented",
+  "performance_acceptance": "not_verified",
+  "source_sha256": {
+    "tools/inspect_capture_source.py": "5f14ab2d697b240e67383faf8f6a336c04cdf5b0e456a3cfd143652597cba204",
+    "tests/test_source_info.py": "05acd2e2f9b534f6c35aa442bf33842b39ecc5651530b7ea278f74a139bf6bf8"
+  }
+}

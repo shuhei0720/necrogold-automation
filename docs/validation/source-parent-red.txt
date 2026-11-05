@@ -1,0 +1,16 @@
+test_parent_rejects_valid_json_with_private_extra_keys (test_source_info.QueryTests.test_parent_rejects_valid_json_with_private_extra_keys) ... FAIL
+
+======================================================================
+FAIL: test_parent_rejects_valid_json_with_private_extra_keys (test_source_info.QueryTests.test_parent_rejects_valid_json_with_private_extra_keys)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_info.py", line 59, in test_parent_rejects_valid_json_with_private_extra_keys
+    self.assertEqual({'error': 'source_info_invalid_output'}, result)
+AssertionError: {'error': 'source_info_invalid_output'} != {'token': 'PRIVATE'}
+- {'error': 'source_info_invalid_output'}
++ {'token': 'PRIVATE'}
+
+----------------------------------------------------------------------
+Ran 1 test in 0.043s
+
+FAILED (failures=1)

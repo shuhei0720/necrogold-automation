@@ -1,0 +1,28 @@
+test_parent_interrupt_and_term_recover_child (test_source_info.QueryTests.test_parent_interrupt_and_term_recover_child) ... 
+  test_parent_interrupt_and_term_recover_child (test_source_info.QueryTests.test_parent_interrupt_and_term_recover_child) (signal=<Signals.SIGINT: 2>) ... FAIL
+  test_parent_interrupt_and_term_recover_child (test_source_info.QueryTests.test_parent_interrupt_and_term_recover_child) (signal=<Signals.SIGTERM: 15>) ... FAIL
+
+======================================================================
+FAIL: test_parent_interrupt_and_term_recover_child (test_source_info.QueryTests.test_parent_interrupt_and_term_recover_child) (signal=<Signals.SIGINT: 2>)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_info.py", line 119, in test_parent_interrupt_and_term_recover_child
+    self.assertEqual({'error':'source_info_cancelled'}, json.loads(stdout))
+AssertionError: {'error': 'source_info_cancelled'} != {'error': 'source_info_worker_failed', 'returncode': -2}
+- {'error': 'source_info_cancelled'}
++ {'error': 'source_info_worker_failed', 'returncode': -2}
+
+======================================================================
+FAIL: test_parent_interrupt_and_term_recover_child (test_source_info.QueryTests.test_parent_interrupt_and_term_recover_child) (signal=<Signals.SIGTERM: 15>)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_info.py", line 119, in test_parent_interrupt_and_term_recover_child
+    self.assertEqual({'error':'source_info_cancelled'}, json.loads(stdout))
+AssertionError: {'error': 'source_info_cancelled'} != {'error': 'source_info_worker_failed', 'returncode': -15}
+- {'error': 'source_info_cancelled'}
++ {'error': 'source_info_worker_failed', 'returncode': -15}
+
+----------------------------------------------------------------------
+Ran 1 test in 0.685s
+
+FAILED (failures=2)

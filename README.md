@@ -5,7 +5,7 @@ iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に�
 **P1の画像取得・遅延計測ツールを実装しました。自動周回はまだ実装・実機合格していません。** 保存したR12は不具合が報告された旧版です。新ツールは取得経路を診断し、ポーズ解除やリスタートのタップは行いません。
 
 - [計測ツールの使い方と結果の見方](docs/p1-probe-guide.md)
-- [TEST-008の形状比較結果](docs/device-tests/008-display-reference.md)を記録しました。次は[画像幾何と入力座標を分離する改修計画](docs/plans/p1-geometry-validation.md)。現在、追加の端末操作は不要です。
+- [TEST-008の形状比較結果](docs/device-tests/008-display-reference.md)を記録。受信後の比率補正案は撤回し、取得元から横長で返す方針へ修正しました。[計画](docs/plans/p1-geometry-validation.md) / 次は[TEST-009の取得元照会](docs/device-tests/009-source-info.md)。既存P1.4に補助ファイル1つを追加し、版/build/対応機能だけを読み取ります。
 - ホスト試験: `python3 -m unittest discover -s tests -v`
 - 完全な新規ソース: `necroprobe/`。旧版40ファイルは未変更。
 - P1.1の検証: ホスト54試験と3観点の相互レビューを通過しましたが、[TEST-001](docs/device-tests/001-capture.md)の実機3実行はworker_failedでした。3reportを受領し、最初のdevice_infoの開始記録までで完了していないことを確認。ホスト通過を実機合格とは扱いません。
