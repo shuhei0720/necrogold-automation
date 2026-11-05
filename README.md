@@ -5,13 +5,13 @@ iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に�
 **P1の画像取得・遅延計測ツールを実装しました。自動周回はまだ実装・実機合格していません。** 保存したR12は不具合が報告された旧版です。新ツールは取得経路を診断し、ポーズ解除やリスタートのタップは行いません。
 
 - [計測ツールの使い方と結果の見方](docs/p1-probe-guide.md)
-- 次の確認: [TEST-008・通常スクリーンショット1枚の比較](docs/device-tests/008-display-reference.md)。診断コマンドの再実行は不要です。
+- [TEST-008の形状比較結果](docs/device-tests/008-display-reference.md)を記録しました。次は[画像幾何と入力座標を分離する改修計画](docs/plans/p1-geometry-validation.md)。現在、追加の端末操作は不要です。
 - ホスト試験: `python3 -m unittest discover -s tests -v`
 - 完全な新規ソース: `necroprobe/`。旧版40ファイルは未変更。
 - P1.1の検証: ホスト54試験と3観点の相互レビューを通過しましたが、[TEST-001](docs/device-tests/001-capture.md)の実機3実行はworker_failedでした。3reportを受領し、最初のdevice_infoの開始記録までで完了していないことを確認。ホスト通過を実機合格とは扱いません。
 - P1.2の[TEST-002](docs/device-tests/002-worker-diagnostics.md)はPython暗号でもゲーム起動前にSIGSYSで終了しました。
 - P1.3の[TEST-003](docs/device-tests/003-ish-timer.md)は`timer_already_in_use`でゲーム起動前に停止、取得0/12でした。
-- **現在P1.4**: iSHの`setitimer`旧値を使用中判定・復元に使う処理を廃止。専用worker内でタイマーを明示的に所有します。[修正計画](docs/plans/p1-owned-timer.md) / [全ホスト試験ログ](docs/validation/p1-owned-timer-tests.txt) / [実機確認手順TEST-004](docs/device-tests/004-owned-timer.md)。TEST-004はゲーム起動応答まで完了したが、取得0/12、約119秒でsession_deadline。実機ゲートは未通過です。[TEST-005](docs/device-tests/005-ish-foreground.md)ではiSH画像を11/12取得、約45秒で期限終了。保存3枚を目視確認済みです。[TEST-006](docs/device-tests/006-game-keepalive.md)では継続処理付きで12/12取得、約32.9秒で正常終了し、保存3枚全てでゲームのポーズ画面を確認しました。座標・鮮度・取消は未確認です。[TEST-007](docs/device-tests/007-native-crypto.md)はnative_i386で12/12非黒取得、約26.3秒で正常終了。保存3枚はゲームのポーズ。JPEG小サイズの取得→検査中央値は751.430→409.465ms、同じ画像データでも復号時間の短縮を確認しました。次は[TEST-008](docs/device-tests/008-display-reference.md)で通常スクリーンショットと形状を比較します。
+- **現在P1.4**: iSHの`setitimer`旧値を使用中判定・復元に使う処理を廃止。専用worker内でタイマーを明示的に所有します。[修正計画](docs/plans/p1-owned-timer.md) / [全ホスト試験ログ](docs/validation/p1-owned-timer-tests.txt) / [実機確認手順TEST-004](docs/device-tests/004-owned-timer.md)。TEST-004はゲーム起動応答まで完了したが、取得0/12、約119秒でsession_deadline。実機ゲートは未通過です。[TEST-005](docs/device-tests/005-ish-foreground.md)ではiSH画像を11/12取得、約45秒で期限終了。保存3枚を目視確認済みです。[TEST-006](docs/device-tests/006-game-keepalive.md)では継続処理付きで12/12取得、約32.9秒で正常終了し、保存3枚全てでゲームのポーズ画面を確認しました。座標・鮮度・取消は未確認です。[TEST-007](docs/device-tests/007-native-crypto.md)はnative_i386で12/12非黒取得、約26.3秒で正常終了。保存3枚はゲームのポーズ。JPEG小サイズの取得→検査中央値は751.430→409.465ms、同じ画像データでも復号時間の短縮を確認しました。[TEST-008](docs/device-tests/008-display-reference.md)で通常画像1792×828とAPI原画像の相対配置を比較し、単純な回転ではなく縦横の縮尺差を確認しました。入力ptの対応は未確認です。
 - **P1診断版にはSafariの操作サイトがありません。** ゲーム起動要求と原画像の取得を行い、「ゲームを続行」はまだ押しません。旧版の操作サイトを併用しないでください。
 - [実機テスト台帳](docs/device-tests/README.md)と[実ゲームE2Eの合格条件](docs/device-tests/game-e2e.md)を管理します。
 

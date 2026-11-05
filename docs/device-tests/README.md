@@ -11,7 +11,7 @@
 | TEST-005 | 同じP1.4でiSHを前面に維持して取得 | P1.4・コード変更なし | reportと原画像3枚、終了画面を受領 | 11/12非黒取得、1中断、45115.262ms、session_deadline/SIGTERM。保存3枚で今回のiSH表示を確認。P1全体は未合格 |
 | TEST-006 | 一時的な継続処理付きでゲーム取得 | P1.4・診断コード変更なし | report・原画像3枚・終了画面を受領 | 12/12非黒取得、32908.814ms、completed/子終了0。保存3枚全てゲームのポーズ。座標・鮮度・取消は未確認 |
 | TEST-007 | 同じゲーム取得条件で既存ネイティブ復号を比較 | P1.4・診断コード変更なし | report・原画像3枚・終了画面を受領 | native_i386、12/12非黒、26274.969ms、completed/子終了0。保存3枚はゲームのポーズ。同一画像バイトでも復号時間短縮を確認 |
-| TEST-008 | 通常スクリーンショットで表示形状の基準を確認 | コード実行なし | 資料待ち・未実施 | 同じポーズ画面の未加工スクリーンショット1枚を比較。入力座標の合格判定は別 |
+| TEST-008 | 通常スクリーンショットで表示形状の基準を確認 | 新しい実機コマンド実行なし | IMG_8531.png受領・オフライン比較済み | 標準1792×828、API414×896/828×1792。同方向の文字配置に縦横別の縮尺差を確認。入力座標・鮮度・原因確定は未完了 |
 
 [TEST-001の手順と記録欄](001-capture.md)
 
@@ -19,7 +19,7 @@
 
 [TEST-002の比較手順](002-worker-diagnostics.md) / [実際のゲーム画面でのE2E計画](game-e2e.md)
 
-[TEST-002の派生結果](test-002-results.json) / [TEST-003の派生結果](test-003-results.json) / [TEST-004の結果](004-owned-timer.md) / [TEST-004派生JSON](test-004-results.json) / [TEST-005の結果](005-ish-foreground.md) / [TEST-005派生JSON](test-005-results.json) / [TEST-006の結果](006-game-keepalive.md) / [TEST-006派生JSON](test-006-results.json) / [TEST-007の結果](007-native-crypto.md) / [TEST-007派生JSON](test-007-results.json) / [次のTEST-008](008-display-reference.md)
+[TEST-002の派生結果](test-002-results.json) / [TEST-003の派生結果](test-003-results.json) / [TEST-004の結果](004-owned-timer.md) / [TEST-004派生JSON](test-004-results.json) / [TEST-005の結果](005-ish-foreground.md) / [TEST-005派生JSON](test-005-results.json) / [TEST-006の結果](006-game-keepalive.md) / [TEST-006派生JSON](test-006-results.json) / [TEST-007の結果](007-native-crypto.md) / [TEST-007派生JSON](test-007-results.json) / [TEST-008の結果](008-display-reference.md) / [TEST-008派生JSON](test-008-results.json) / [次の改修計画](../plans/p1-geometry-validation.md)
 
 結果を受け取ったら、実行時刻、資料名とハッシュ、実際の端末条件、観察、条件別の予定/完了/失敗/中断/未実施、時間の中央値/p95、問題と次の対応を追記します。端末での操作はこのチャットから直接観測できないため、資料受領前に結果を補完しません。秘密の接続情報を含むファイルは保存しません。
 

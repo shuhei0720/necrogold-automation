@@ -1,0 +1,795 @@
+{
+  "test_id": "TEST-008",
+  "date_jst": "2026-11-05",
+  "kind": "offline_comparison_of_user_supplied_display_reference",
+  "device_command_run": false,
+  "reference_source": "user supplied IMG_8531.png in response to TEST-008 request; original-capture procedure not independently witnessed",
+  "exif_time_zone": "not encoded; device clock accuracy unverified",
+  "images": [
+    {
+      "file": "IMG_8531.png",
+      "sha256": "ba97e509cea9864c95dd3f3a2c5e2a6d83c241f5fd49fbc0e13a27981fce44a7",
+      "raw_bytes": 31431,
+      "format": "PNG",
+      "mode": "RGB",
+      "width": 1792,
+      "height": 828,
+      "exif_orientation": 1,
+      "exif_datetime": "2026:11:05 19:16:18",
+      "labels": [
+        {
+          "name": "GAME PAUSE",
+          "box_px_exclusive_right_bottom": [
+            708,
+            132,
+            1073,
+            187
+          ],
+          "normalized_box": [
+            0.395089286,
+            0.15942029,
+            0.598772321,
+            0.225845411
+          ]
+        },
+        {
+          "name": "ゲームを続行",
+          "box_px_exclusive_right_bottom": [
+            782,
+            215,
+            1000,
+            251
+          ],
+          "normalized_box": [
+            0.436383929,
+            0.259661836,
+            0.558035714,
+            0.303140097
+          ]
+        },
+        {
+          "name": "GAME CENTER",
+          "box_px_exclusive_right_bottom": [
+            727,
+            282,
+            1058,
+            313
+          ],
+          "normalized_box": [
+            0.405691964,
+            0.34057971,
+            0.590401786,
+            0.378019324
+          ]
+        },
+        {
+          "name": "ランキング",
+          "box_px_exclusive_right_bottom": [
+            803,
+            337,
+            981,
+            374
+          ],
+          "normalized_box": [
+            0.448102679,
+            0.407004831,
+            0.547433036,
+            0.451690821
+          ]
+        },
+        {
+          "name": "オプション",
+          "box_px_exclusive_right_bottom": [
+            803,
+            399,
+            981,
+            435
+          ],
+          "normalized_box": [
+            0.448102679,
+            0.481884058,
+            0.547433036,
+            0.525362319
+          ]
+        },
+        {
+          "name": "カスタムミュージック",
+          "box_px_exclusive_right_bottom": [
+            711,
+            460,
+            1070,
+            497
+          ],
+          "normalized_box": [
+            0.396763393,
+            0.555555556,
+            0.597098214,
+            0.600241546
+          ]
+        },
+        {
+          "name": "クイックリスタート",
+          "box_px_exclusive_right_bottom": [
+            733,
+            524,
+            1052,
+            558
+          ],
+          "normalized_box": [
+            0.409040179,
+            0.632850242,
+            0.587053571,
+            0.673913043
+          ]
+        },
+        {
+          "name": "ロビーに戻る",
+          "box_px_exclusive_right_bottom": [
+            785,
+            586,
+            997,
+            619
+          ],
+          "normalized_box": [
+            0.438058036,
+            0.707729469,
+            0.556361607,
+            0.747584541
+          ]
+        }
+      ],
+      "frame_box_px_exclusive_right_bottom": [
+        442,
+        159,
+        1349,
+        669
+      ],
+      "normalized_frame_box": [
+        0.246651786,
+        0.192028986,
+        0.752790179,
+        0.807971014
+      ]
+    },
+    {
+      "file": "001-jpeg_scale1-decoded_nonblank.jpg",
+      "sha256": "38268f93a02ecc7951ff543371b58b1bb877b897cbf37a306d07a7a1c65159f5",
+      "raw_bytes": 26157,
+      "format": "JPEG",
+      "mode": "RGB",
+      "width": 414,
+      "height": 896,
+      "exif_orientation": 1,
+      "exif_datetime": null,
+      "labels": [
+        {
+          "name": "GAME PAUSE",
+          "box_px_exclusive_right_bottom": [
+            164,
+            143,
+            248,
+            202
+          ],
+          "normalized_box": [
+            0.396135266,
+            0.159598214,
+            0.599033816,
+            0.225446429
+          ]
+        },
+        {
+          "name": "ゲームを続行",
+          "box_px_exclusive_right_bottom": [
+            182,
+            236,
+            231,
+            271
+          ],
+          "normalized_box": [
+            0.439613527,
+            0.263392857,
+            0.557971014,
+            0.302455357
+          ]
+        },
+        {
+          "name": "GAME CENTER",
+          "box_px_exclusive_right_bottom": [
+            168,
+            305,
+            244,
+            339
+          ],
+          "normalized_box": [
+            0.405797101,
+            0.340401786,
+            0.589371981,
+            0.378348214
+          ]
+        },
+        {
+          "name": "ランキング",
+          "box_px_exclusive_right_bottom": [
+            186,
+            371,
+            225,
+            405
+          ],
+          "normalized_box": [
+            0.449275362,
+            0.4140625,
+            0.543478261,
+            0.452008929
+          ]
+        },
+        {
+          "name": "オプション",
+          "box_px_exclusive_right_bottom": [
+            186,
+            432,
+            224,
+            471
+          ],
+          "normalized_box": [
+            0.449275362,
+            0.482142857,
+            0.541062802,
+            0.525669643
+          ]
+        },
+        {
+          "name": "カスタムミュージック",
+          "box_px_exclusive_right_bottom": [
+            165,
+            501,
+            247,
+            538
+          ],
+          "normalized_box": [
+            0.398550725,
+            0.559151786,
+            0.596618357,
+            0.600446429
+          ]
+        },
+        {
+          "name": "クイックリスタート",
+          "box_px_exclusive_right_bottom": [
+            170,
+            570,
+            243,
+            604
+          ],
+          "normalized_box": [
+            0.410628019,
+            0.636160714,
+            0.586956522,
+            0.674107143
+          ]
+        },
+        {
+          "name": "ロビーに戻る",
+          "box_px_exclusive_right_bottom": [
+            182,
+            634,
+            229,
+            670
+          ],
+          "normalized_box": [
+            0.439613527,
+            0.707589286,
+            0.553140097,
+            0.747767857
+          ]
+        }
+      ],
+      "frame_box_px_exclusive_right_bottom": [
+        102,
+        172,
+        311,
+        724
+      ],
+      "normalized_frame_box": [
+        0.246376812,
+        0.191964286,
+        0.751207729,
+        0.808035714
+      ]
+    },
+    {
+      "file": "002-jpeg_scale2-decoded_nonblank.jpg",
+      "sha256": "374c91fd7c63b3a8428e41a7cea07381e75c34c77cfec3cbd5c085ec8ef516a6",
+      "raw_bytes": 69289,
+      "format": "JPEG",
+      "mode": "RGB",
+      "width": 828,
+      "height": 1792,
+      "exif_orientation": 1,
+      "exif_datetime": null,
+      "labels": [
+        {
+          "name": "GAME PAUSE",
+          "box_px_exclusive_right_bottom": [
+            327,
+            286,
+            495,
+            405
+          ],
+          "normalized_box": [
+            0.394927536,
+            0.159598214,
+            0.597826087,
+            0.226004464
+          ]
+        },
+        {
+          "name": "ゲームを続行",
+          "box_px_exclusive_right_bottom": [
+            362,
+            466,
+            462,
+            543
+          ],
+          "normalized_box": [
+            0.437198068,
+            0.260044643,
+            0.557971014,
+            0.303013393
+          ]
+        },
+        {
+          "name": "GAME CENTER",
+          "box_px_exclusive_right_bottom": [
+            336,
+            610,
+            489,
+            677
+          ],
+          "normalized_box": [
+            0.405797101,
+            0.340401786,
+            0.59057971,
+            0.377790179
+          ]
+        },
+        {
+          "name": "ランキング",
+          "box_px_exclusive_right_bottom": [
+            371,
+            730,
+            453,
+            809
+          ],
+          "normalized_box": [
+            0.448067633,
+            0.407366071,
+            0.547101449,
+            0.451450893
+          ]
+        },
+        {
+          "name": "オプション",
+          "box_px_exclusive_right_bottom": [
+            371,
+            864,
+            453,
+            941
+          ],
+          "normalized_box": [
+            0.448067633,
+            0.482142857,
+            0.547101449,
+            0.525111607
+          ]
+        },
+        {
+          "name": "カスタムミュージック",
+          "box_px_exclusive_right_bottom": [
+            329,
+            997,
+            494,
+            1075
+          ],
+          "normalized_box": [
+            0.397342995,
+            0.556361607,
+            0.596618357,
+            0.599888393
+          ]
+        },
+        {
+          "name": "クイックリスタート",
+          "box_px_exclusive_right_bottom": [
+            339,
+            1134,
+            486,
+            1207
+          ],
+          "normalized_box": [
+            0.40942029,
+            0.6328125,
+            0.586956522,
+            0.673549107
+          ]
+        },
+        {
+          "name": "ロビーに戻る",
+          "box_px_exclusive_right_bottom": [
+            363,
+            1269,
+            460,
+            1339
+          ],
+          "normalized_box": [
+            0.438405797,
+            0.708147321,
+            0.555555556,
+            0.747209821
+          ]
+        }
+      ],
+      "frame_box_px_exclusive_right_bottom": [
+        204,
+        344,
+        623,
+        1448
+      ],
+      "normalized_frame_box": [
+        0.246376812,
+        0.191964286,
+        0.752415459,
+        0.808035714
+      ]
+    },
+    {
+      "file": "003-png_scale1-decoded_nonblank.png",
+      "sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+      "raw_bytes": 39046,
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 414,
+      "height": 896,
+      "exif_orientation": 1,
+      "exif_datetime": null,
+      "labels": [
+        {
+          "name": "GAME PAUSE",
+          "box_px_exclusive_right_bottom": [
+            164,
+            143,
+            248,
+            202
+          ],
+          "normalized_box": [
+            0.396135266,
+            0.159598214,
+            0.599033816,
+            0.225446429
+          ]
+        },
+        {
+          "name": "ゲームを続行",
+          "box_px_exclusive_right_bottom": [
+            182,
+            236,
+            231,
+            271
+          ],
+          "normalized_box": [
+            0.439613527,
+            0.263392857,
+            0.557971014,
+            0.302455357
+          ]
+        },
+        {
+          "name": "GAME CENTER",
+          "box_px_exclusive_right_bottom": [
+            168,
+            305,
+            244,
+            339
+          ],
+          "normalized_box": [
+            0.405797101,
+            0.340401786,
+            0.589371981,
+            0.378348214
+          ]
+        },
+        {
+          "name": "ランキング",
+          "box_px_exclusive_right_bottom": [
+            186,
+            371,
+            225,
+            405
+          ],
+          "normalized_box": [
+            0.449275362,
+            0.4140625,
+            0.543478261,
+            0.452008929
+          ]
+        },
+        {
+          "name": "オプション",
+          "box_px_exclusive_right_bottom": [
+            186,
+            432,
+            224,
+            471
+          ],
+          "normalized_box": [
+            0.449275362,
+            0.482142857,
+            0.541062802,
+            0.525669643
+          ]
+        },
+        {
+          "name": "カスタムミュージック",
+          "box_px_exclusive_right_bottom": [
+            165,
+            501,
+            247,
+            538
+          ],
+          "normalized_box": [
+            0.398550725,
+            0.559151786,
+            0.596618357,
+            0.600446429
+          ]
+        },
+        {
+          "name": "クイックリスタート",
+          "box_px_exclusive_right_bottom": [
+            170,
+            570,
+            243,
+            604
+          ],
+          "normalized_box": [
+            0.410628019,
+            0.636160714,
+            0.586956522,
+            0.674107143
+          ]
+        },
+        {
+          "name": "ロビーに戻る",
+          "box_px_exclusive_right_bottom": [
+            182,
+            634,
+            229,
+            670
+          ],
+          "normalized_box": [
+            0.439613527,
+            0.707589286,
+            0.553140097,
+            0.747767857
+          ]
+        }
+      ],
+      "frame_box_px_exclusive_right_bottom": [
+        102,
+        172,
+        311,
+        724
+      ],
+      "normalized_frame_box": [
+        0.246376812,
+        0.191964286,
+        0.751207729,
+        0.808035714
+      ]
+    }
+  ],
+  "method": {
+    "labels": {
+      "normalized_x_interval": [
+        0.38,
+        0.62
+      ],
+      "normalized_y_bands": [
+        {
+          "name": "GAME PAUSE",
+          "interval": [
+            0.15,
+            0.23
+          ]
+        },
+        {
+          "name": "ゲームを続行",
+          "interval": [
+            0.25,
+            0.31
+          ]
+        },
+        {
+          "name": "GAME CENTER",
+          "interval": [
+            0.33,
+            0.39
+          ]
+        },
+        {
+          "name": "ランキング",
+          "interval": [
+            0.4,
+            0.46
+          ]
+        },
+        {
+          "name": "オプション",
+          "interval": [
+            0.48,
+            0.53
+          ]
+        },
+        {
+          "name": "カスタムミュージック",
+          "interval": [
+            0.55,
+            0.61
+          ]
+        },
+        {
+          "name": "クイックリスタート",
+          "interval": [
+            0.63,
+            0.68
+          ]
+        },
+        {
+          "name": "ロビーに戻る",
+          "interval": [
+            0.7,
+            0.75
+          ]
+        }
+      ],
+      "white_rule": "all RGB channels >= 200",
+      "box_convention": "left/top inclusive; right/bottom exclusive; normalize by width/height"
+    },
+    "frame": {
+      "roi": [
+        0.2,
+        0.15,
+        0.8,
+        0.85
+      ],
+      "blue_rule": "B >= 150 and G >= 100 and B-R >= 20"
+    },
+    "correlation": {
+      "normalized_roi": [
+        0.38,
+        0.14,
+        0.62,
+        0.76
+      ],
+      "grid_columns": 480,
+      "grid_rows": 620,
+      "normalized_endpoints_included": true,
+      "coordinate_conversion": "normalized value * (dimension - 1)",
+      "interpolation": "scipy.ndimage.map_coordinates order=1 mode=nearest",
+      "gray_conversion": "Pillow convert L",
+      "rotations": "numpy.rot90 CCW, k=0,1,2,3",
+      "score": "Pearson correlation; not a matching percentage or recognition accuracy",
+      "output_images_saved": false,
+      "numeric_dtype": "Pillow L converted to numpy float64 before rotation, interpolation and correlation"
+    },
+    "selection_limit": "ROIs and thresholds chosen for this supplied pause-menu pair; not an unseen recognition evaluation or runtime calibration",
+    "library_versions": {
+      "Pillow": "13.0.0",
+      "numpy": "2.3.5",
+      "scipy": "1.17.0"
+    }
+  },
+  "comparisons": [
+    {
+      "file": "001-jpeg_scale1-decoded_nonblank.jpg",
+      "rotation_ccw_degrees": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "central_text_gray_correlation": [
+        0.925494,
+        -0.05889,
+        0.104436,
+        -0.05955
+      ],
+      "max_normalized_label_box_edge_difference": 0.007057669,
+      "image_only_scale_to_reference": {
+        "x": 4.328502415458937,
+        "y": 0.9241071428571429
+      },
+      "input_coordinate_transform": "not_derived"
+    },
+    {
+      "file": "002-jpeg_scale2-decoded_nonblank.jpg",
+      "rotation_ccw_degrees": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "central_text_gray_correlation": [
+        0.977261,
+        -0.049123,
+        0.09468,
+        -0.049422
+      ],
+      "max_normalized_label_box_edge_difference": 0.000946234,
+      "image_only_scale_to_reference": {
+        "x": 2.1642512077294684,
+        "y": 0.46205357142857145
+      },
+      "input_coordinate_transform": "not_derived"
+    },
+    {
+      "file": "003-png_scale1-decoded_nonblank.png",
+      "rotation_ccw_degrees": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "central_text_gray_correlation": [
+        0.926122,
+        -0.056776,
+        0.103039,
+        -0.057395
+      ],
+      "max_normalized_label_box_edge_difference": 0.007057669,
+      "image_only_scale_to_reference": {
+        "x": 4.328502415458937,
+        "y": 0.9241071428571429
+      },
+      "input_coordinate_transform": "not_derived"
+    }
+  ],
+  "findings": {
+    "screen_content_orientation": "same upright menu layout; single quarter-turn does not explain discrepancy",
+    "geometry_relation": "same normalized layout, with different horizontal and vertical scale factors",
+    "distortion_present_in_saved_raw_api_bytes": true,
+    "runtime_correction_applied": false,
+    "input_coordinates_verified": false,
+    "freshness_verified": false
+  },
+  "upstream_source_hypothesis": {
+    "repository": "Souitou-iop/LoopCtrl",
+    "commit": "6fc759fcce397c92482c2a8c6f90244e5374aac9",
+    "path": "LoopCtrlUITests/ActionHandler.swift",
+    "blob_sha": "b8d988bb4ac80ef376a15491cd98db21853a5c50",
+    "lines": {
+      "cached_point_size": [
+        315,
+        341
+      ],
+      "screenshot_target": [
+        1710,
+        1788
+      ],
+      "resize": [
+        1846,
+        1862
+      ]
+    },
+    "observation": "pointSize caches app.frame; screenshot derives targetPixels from pointSize and requested scale; renderer draws image into that rectangle",
+    "inference": "A cached portrait point size with a landscape source image can produce the observed anisotropic geometry",
+    "installed_server_identity": "not recorded by P1.4; public source not established as installed binary",
+    "root_cause_confirmed": false
+  },
+  "gate": {
+    "P1": "not_passed",
+    "input_authorized": false,
+    "capture_freshness": "not_measured",
+    "input_geometry": "not_measured",
+    "device_input_cancel": "not_measured"
+  }
+}
