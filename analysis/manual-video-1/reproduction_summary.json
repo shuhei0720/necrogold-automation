@@ -1,0 +1,35 @@
+{
+  "frames": 3179,
+  "runs": 42,
+  "restart_count": 41,
+  "shop_count": 9,
+  "quick_skip_cycle": {
+    "n": 33,
+    "minimum_s": 1.1333330000000004,
+    "median_s": 1.3666670000000067,
+    "p95_s": 1.9933332000000004,
+    "maximum_s": 2.4666669999999993
+  },
+  "quick_skip_to_pause": {
+    "n": 33,
+    "minimum_s": 0.5666659999999979,
+    "median_s": 0.6333340000000014,
+    "p95_s": 1.0400000000000034,
+    "maximum_s": 1.6999999999999993
+  },
+  "restart": {
+    "n": 41,
+    "minimum_s": 0.5666660000000014,
+    "median_s": 0.7000000000000028,
+    "p95_s": 1.1666669999999968,
+    "maximum_s": 1.5
+  },
+  "goods_visible": {
+    "n": 9,
+    "minimum_s": 3.13,
+    "median_s": 3.763,
+    "p95_s": 4.703200000000001,
+    "maximum_s": 4.73
+  },
+  "note": "HUD boundaries are frame-derived; shop visibility is manually labelled. These are not touch-event latency measurements."
+}

@@ -1,0 +1,30 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>リスタート位置の登録</title>
+<style>body{font:17px/1.6 system-ui;margin:1rem auto;padding:0 1rem;max-width:800px;color:#20242b}h1{font-size:1.4rem}img{width:100%;height:auto;display:block;margin:.7rem 0;touch-action:manipulation}button{font-size:1rem;padding:.7rem}p{margin:.5rem 0}output{color:#095d58}</style>
+<h1>リスタート位置の登録</h1><p>1-1で撮った、トリミングしていない横向きのスクリーンショットを選び、画像上の対象の文字をタップしてください。</p>
+<div id="fields"></div><p><label><input type="checkbox" id="no">このゲーム設定では確認画面が出ない</label></p>
+<button id="save">この位置を保存</button><p id="message"></p>
+<script>
+const chosen=[null,null];
+["① ポーズ画面の「リスタート」","② 確認画面の「はい」などの確定ボタン"].forEach((name,index)=>{
+ const section=document.createElement("section"), title=document.createElement("h3"), file=document.createElement("input"), image=document.createElement("img"), status=document.createElement("output");
+ title.textContent=name;file.type="file";file.accept="image/*";section.append(title,file,image,status);fields.append(section);
+ file.onchange=()=>{chosen[index]=null;status.textContent="";if(image.src)URL.revokeObjectURL(image.src);if(file.files[0])image.src=URL.createObjectURL(file.files[0]);};
+ image.onclick=e=>{
+  const bounds=image.getBoundingClientRect(),w=image.naturalWidth,h=image.naturalHeight;
+  const x=(e.clientX-bounds.left)/bounds.width,y=(e.clientY-bounds.top)/bounds.height;
+  if(Math.abs(w/h-1792/828)>.07){status.textContent="横向きのゲーム画面だけが写った画像を選んでください。";return;}
+  if(Math.min(x,y,1-x,1-y)<=.04){status.textContent="ボタンの文字の中央をタップしてください。";return;}
+  const c=document.createElement("canvas");c.width=56;c.height=15;const ctx=c.getContext("2d");
+  ctx.drawImage(image,(x-.043)*w,(y-.027)*h,.086*w,.054*h,0,0,56,15);
+  const rgba=ctx.getImageData(0,0,56,15).data,patch=[];
+  for(let k=0;k<rgba.length;k+=4)patch.push(Math.round(.299*rgba[k]+.587*rgba[k+1]+.114*rgba[k+2]));
+  chosen[index]={point:[x,y],patch};status.textContent="位置を登録しました。タップし直すと修正できます。";
+ };});
+document.getElementById("save").onclick=async()=>{
+ const values=document.getElementById("no").checked?chosen.slice(0,1):chosen;
+ if(values.some(x=>!x)){message.textContent="写真を選んだ後、写真内の該当ボタンをタップしてください。";return;}
+ try{const response=await fetch(location.pathname,{method:"POST",body:JSON.stringify(values)});
+ message.textContent=response.ok?"保存しました。iSHへ戻ってください。":"保存できませんでした。ボタンの文字を選び直してください。";}
+ catch(e){message.textContent="iSHの登録画面を開き直してください。";}
+};
+</script></html>

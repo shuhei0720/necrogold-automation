@@ -1,0 +1,36 @@
+{
+  "source": "IMG_8513.png",
+  "width": 1792,
+  "height": 828,
+  "coordinate_space": "original_image_pixels_not_touch_coordinates",
+  "label_authority": "user identified this screenshot as 鉄",
+  "objects": [
+    {
+      "label": "closed_iron_door",
+      "bbox_xyxy": [
+        859,
+        104,
+        930,
+        159
+      ],
+      "bbox_precision": "approximate_manual",
+      "status": "user_confirmed_type"
+    },
+    {
+      "label": "hud_pause_icon",
+      "bbox_xyxy": [
+        869,
+        23,
+        919,
+        73
+      ],
+      "bbox_precision": "approximate_manual",
+      "status": "visually_distinct_from_door"
+    }
+  ],
+  "not_established": [
+    "opening_input_sequence",
+    "open_state_appearance",
+    "passage_behavior"
+  ]
+}

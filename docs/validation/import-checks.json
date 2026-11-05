@@ -1,0 +1,10 @@
+{
+  "r12_files_verified": 40,
+  "json_files_parsed": 10,
+  "video_2_images_verified": 13,
+  "broken_local_links": [],
+  "known_secret_pattern_files": [],
+  "scope": "Archival integrity and document validation only; no device or application behavior tests",
+  "limitations": "Pattern scan is not proof of absence of arbitrary secrets. Historical R12 tests were not rerun.",
+  "date_jst": "2026-11-05"
+}

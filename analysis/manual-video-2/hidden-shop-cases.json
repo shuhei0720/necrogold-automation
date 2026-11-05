@@ -1,0 +1,466 @@
+{
+  "schema_version": 1,
+  "created_date_jst": "2026-11-05",
+  "analysis_status": "目視による仮説と証拠の整理。ゲーム操作コード変更なし。学習・実装・実機検証なし。",
+  "source": {
+    "filename": "ScreenRecording_11-05-2026 12-41-49_1.mp4",
+    "sha256": "2f256fbb3efcec103436f7f73d9600b0c60cea550ae3a7f2544d3f732a41d618",
+    "width": 1108,
+    "height": 512,
+    "rotation_applied_degrees": 0,
+    "rotation_note": "元動画は横向き。回転メタデータなし。抽出時に回転・拡縮なし。",
+    "avg_frame_rate": "30/1",
+    "frame_count": 5153,
+    "stream_duration_s": 171.766667,
+    "container_duration_s": 171.785034,
+    "video_start_time_s": 0,
+    "time_base": "1/600"
+  },
+  "method": {
+    "viewing": "指定6区間の全体を0.2秒間隔で目視し、選択証拠は原動画のPTS付きで再抽出した。",
+    "exact_selection": "ffmpeg select=not(mod(n,6)) with source time ranges, fps_mode=vfr, frame_pts=1. PNG filenames are the original 30-fps frame index; showinfo validated pts_time.",
+    "reviewed_ranges_s": [
+      [
+        23.4,
+        28.0
+      ],
+      [
+        39.2,
+        44.0
+      ],
+      [
+        66.6,
+        72.8
+      ],
+      [
+        81.8,
+        86.8
+      ],
+      [
+        143.2,
+        148.2
+      ],
+      [
+        164.8,
+        170.6
+      ]
+    ],
+    "sampling_interval_s": 0.2,
+    "time_semantics": "全recording_time_sとintervalは動画先頭からのPTS秒。HUDゲーム時計は別の値。各first_sampleは0.2秒刻みで最初に確認した点であり、初出フレームを1/30秒精度で同定した値ではない。",
+    "initial_future_separation": "initial_observationsは初期フレームのみ。経路・入口・商品・後のミニマップ拡張を初期特徴へ混ぜない。",
+    "sample_sheet_warning": "既存の1fps一覧の整数ラベルは画像の実PTSと約0.5秒ずれる。今回の最終証拠はそのラベルを使わず原PTSから作成。"
+  },
+  "cases": [
+    {
+      "id": "H01",
+      "pattern": "部屋の左上を確認すると左側の店へつながる",
+      "evidence": {
+        "initial_first": {
+          "recording_time_s": 23.8,
+          "source_frame_index_zero_based": 714,
+          "source_pts": 14280,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "a6ed716c9360b1fd9a10b8d18940d22281f17e82e464819f43763fc3c0e81bc0"
+        },
+        "initial_features": {
+          "recording_time_s": 24.2,
+          "source_frame_index_zero_based": 726,
+          "source_pts": 14520,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "328aab0b6ae4565d90070cb4909871f55e3bca39ca5612501ddabb8225609b19"
+        },
+        "gold_first_sample": {
+          "recording_time_s": 26.0,
+          "source_frame_index_zero_based": 780,
+          "source_pts": 15600,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "ae1e7cf0c30786833ab75c62a2f19dc2f648c649179a62a9bbc2a865b60bf954"
+        },
+        "goods_first_sample": {
+          "recording_time_s": 27.4,
+          "source_frame_index_zero_based": 822,
+          "source_pts": 16440,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "e8907dfafb797546fd3b9103d5591cbceec67cbc4658089d3420a5b34c691f18"
+        }
+      },
+      "montage": {
+        "path": "patterns/h01-initial-gold-goods.png",
+        "width": 1108,
+        "height": 1662,
+        "sha256": "2d8c03346f66870898af0d1383bbcafb34b821ab4b9ca9b59ba87e215e86ea27",
+        "transform": "Three native 1108x512 frames vertically concatenated; 42-pixel labels added above each; no crop, scale or rotation."
+      },
+      "classification_status": "目視観察。判定器の学習・実装・精度検証は行っていない。",
+      "initial_gold_visible": false,
+      "initial_gold_absence_scope": "観測できる初期画面で金壁を確認できない。マップ全体に店がないという意味ではない。",
+      "initial_observations": {
+        "room_and_exits": "四角い初期部屋。上辺の壁が左側壁より左へ張り出し、その下の暗い床が左へ続く。下側にも出口がある。",
+        "minimap": "小部屋と下側の短い枝は見える。初期の地図に独立した店の部屋は表示されていない。",
+        "occlusion": "未観測域は黒い。中央に説明文字が重なり、画面上端にはポーズ記号がある。金壁が見えない理由を画角外・暗さ・壁による遮蔽のいずれか1つに断定しない。"
+      },
+      "later_observations": {
+        "route": "左へ寄る → 上辺の通路へ上がる → 左の金壁と横向き入口を確認 → 左向きに開扉して商品を見る。",
+        "entrance": "店の東側入口。画面上では左へ接近する。",
+        "detail": "26.0秒に左上の金壁の一部が見え、27.4秒に横向き入口の先の商品図柄と価格が見える。",
+        "gold_boundary_interval_s": {
+          "after": 25.8,
+          "at_or_before": 26.0
+        },
+        "goods_boundary_interval_s": {
+          "after": 27.2,
+          "at_or_before": 27.4
+        },
+        "goods_identity_verified": false
+      },
+      "selected_initial_to_gold_s": 2.2,
+      "selected_initial_to_goods_s": 3.6,
+      "timing_caveat": "選択した初期フレームからの経過。ゲーム開始や入力イベントの正確な境界ではない。"
+    },
+    {
+      "id": "H02",
+      "pattern": "初期から見える北の細道の先",
+      "evidence": {
+        "initial_first": {
+          "recording_time_s": 39.6,
+          "source_frame_index_zero_based": 1188,
+          "source_pts": 23760,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "d96944d828f576d2efec939d1261edadff5d8054008f774302b00928fb906ee6"
+        },
+        "initial_features": {
+          "recording_time_s": 39.8,
+          "source_frame_index_zero_based": 1194,
+          "source_pts": 23880,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "9a10bf2abf287bceeb0bf040d8bfaf3aeaf1bc7084287cb53555096a9a988b59"
+        },
+        "gold_first_sample": {
+          "recording_time_s": 41.6,
+          "source_frame_index_zero_based": 1248,
+          "source_pts": 24960,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "3192ac26a804944b20e7f2f73880825ceed91652c3b30c692079840d79bccea0"
+        },
+        "goods_first_sample": {
+          "recording_time_s": 43.6,
+          "source_frame_index_zero_based": 1308,
+          "source_pts": 26160,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "b42d846a6676eeb0434c659d6f6f93ce5b4410c1176475cc2154f8c195243d38"
+        }
+      },
+      "montage": {
+        "path": "patterns/h02-initial-gold-goods.png",
+        "width": 1108,
+        "height": 1662,
+        "sha256": "6420e8b1da655a6c11b8c7ae6529922cd3afd908bf160a1ebed37a206a70fdaf",
+        "transform": "Three native 1108x512 frames vertically concatenated; 42-pixel labels added above each; no crop, scale or rotation."
+      },
+      "classification_status": "目視観察。判定器の学習・実装・精度検証は行っていない。",
+      "initial_gold_visible": false,
+      "initial_gold_absence_scope": "観測できる初期画面で金壁を確認できない。マップ全体に店がないという意味ではない。",
+      "initial_observations": {
+        "room_and_exits": "部屋の上中央に細い縦方向の床が伸び、左右を茶色・灰色の壁が囲む。北端は黒い未観測域に近く、ポーズ記号とも重なる。右下にも出口がある。",
+        "minimap": "現在の部屋と上・右下への短い張り出しは読み取れる。店や商品を確定する表示はない。",
+        "occlusion": "未観測域は黒い。中央に説明文字が重なり、画面上端にはポーズ記号がある。金壁が見えない理由を画角外・暗さ・壁による遮蔽のいずれか1つに断定しない。"
+      },
+      "later_observations": {
+        "route": "北の細道へ進む → 通路の小さな左右ずれを合わせて進む → 北の金壁と扉を確認 → 上向きの開扉後、入口手前から商品を見る。",
+        "entrance": "店の南側入口。画面上では上へ接近する。",
+        "detail": "41.6秒には上左の金壁が1列だけ見える。両側の金壁が同時に見える前から接近候補を維持する必要がある。43.6秒に上端の商品が見える。",
+        "gold_boundary_interval_s": {
+          "after": 41.4,
+          "at_or_before": 41.6
+        },
+        "goods_boundary_interval_s": {
+          "after": 43.4,
+          "at_or_before": 43.6
+        },
+        "goods_identity_verified": false
+      },
+      "selected_initial_to_gold_s": 2.0,
+      "selected_initial_to_goods_s": 4.0,
+      "timing_caveat": "選択した初期フレームからの経過。ゲーム開始や入力イベントの正確な境界ではない。"
+    },
+    {
+      "id": "H03",
+      "pattern": "左上に出てから上へ折れる細道",
+      "evidence": {
+        "initial_first": {
+          "recording_time_s": 66.8,
+          "source_frame_index_zero_based": 2004,
+          "source_pts": 40080,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "b1dd98f99ad7a9f3fda240069ab9d82c76261ff471db673c5ffcddce0ce30988"
+        },
+        "initial_features": {
+          "recording_time_s": 67.0,
+          "source_frame_index_zero_based": 2010,
+          "source_pts": 40200,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "d9c52bc60ec86a88d2213fce84a224994505709016722e6af976d5f9d242c4f4"
+        },
+        "gold_first_sample": {
+          "recording_time_s": 71.0,
+          "source_frame_index_zero_based": 2130,
+          "source_pts": 42600,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "bbd80d2bac1e07fe09224fcba9b5b40eb7fcdabe1da43cf6afcac2deeacfdc14"
+        },
+        "goods_first_sample": {
+          "recording_time_s": 72.0,
+          "source_frame_index_zero_based": 2160,
+          "source_pts": 43200,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "1e9504c86ef9baf8559288ca67853fa451ed528383101e7463555ea7f0d05161"
+        }
+      },
+      "montage": {
+        "path": "patterns/h03-initial-gold-goods.png",
+        "width": 1108,
+        "height": 1662,
+        "sha256": "d25cfbcee5ce902475519d56a9c6971ae98fe9bede5087daeeb89a874fc48cad",
+        "transform": "Three native 1108x512 frames vertically concatenated; 42-pixel labels added above each; no crop, scale or rotation."
+      },
+      "classification_status": "目視観察。判定器の学習・実装・精度検証は行っていない。",
+      "initial_gold_visible": false,
+      "initial_gold_absence_scope": "観測できる初期画面で金壁を確認できない。マップ全体に店がないという意味ではない。",
+      "initial_observations": {
+        "room_and_exits": "四角い部屋。左上に壁面から外へ出た暗い床の短い部分があり、右下にも縦の出口が見える。上辺全体は茶色と灰色の壁で、金壁は見えない。",
+        "minimap": "小部屋と短い枝が見えるだけで、上の店を示す独立した部屋は見えない。",
+        "occlusion": "未観測域は黒い。中央に説明文字が重なり、画面上端にはポーズ記号がある。金壁が見えない理由を画角外・暗さ・壁による遮蔽のいずれか1つに断定しない。"
+      },
+      "later_observations": {
+        "route": "途中のポーズ解除後、左へ寄る → 上へ進み左上の小さな床の張り出しへ出る → そこで北へ折れて金壁と扉へ接近 → 上向き開扉で商品を見る。",
+        "entrance": "店の南側入口。初期部屋から左へ寄った後、画面上では上へ接近する。",
+        "detail": "71.0秒に左上の金壁が暗く現れ、71.2秒以降に両側が明瞭になる。72.0秒には上端に商品が表示される。",
+        "gold_boundary_interval_s": {
+          "after": 70.8,
+          "at_or_before": 71.0
+        },
+        "goods_boundary_interval_s": {
+          "after": 71.8,
+          "at_or_before": 72.0
+        },
+        "goods_identity_verified": false
+      },
+      "selected_initial_to_gold_s": 4.2,
+      "selected_initial_to_goods_s": 5.2,
+      "timing_caveat": "選択した初期フレームからの経過。ゲーム開始や入力イベントの正確な境界ではない。",
+      "pause_note": "67.4〜68.0秒付近にポーズ画面を挟み、同じ部屋配置と継続したゲーム時計が68.2秒で再表示される。単純な通常周回速度比較から除外。"
+    },
+    {
+      "id": "H04",
+      "pattern": "左上に出てから上へ折れる細道の別配置",
+      "evidence": {
+        "initial_first": {
+          "recording_time_s": 82.2,
+          "source_frame_index_zero_based": 2466,
+          "source_pts": 49320,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "7fdeab4c83797bb7c180eef940e5a7e75636ee73b7e52fb7710b5bd639409ec7"
+        },
+        "initial_features": {
+          "recording_time_s": 82.4,
+          "source_frame_index_zero_based": 2472,
+          "source_pts": 49440,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "d4218c05ee7ff7706c410e4ecabf00d6fe1264c4a41e207d90b77031ee63fe23"
+        },
+        "gold_first_sample": {
+          "recording_time_s": 85.2,
+          "source_frame_index_zero_based": 2556,
+          "source_pts": 51120,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "0b37809eabe0bd5018abf6af1b2143283cbc466f79f6284e55b9cb4dd37f050f"
+        },
+        "goods_first_sample": {
+          "recording_time_s": 86.2,
+          "source_frame_index_zero_based": 2586,
+          "source_pts": 51720,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "bb637d17f004670ba5184d8862e13e90bf5fa944c45a840ff10c0bdc2e603b84"
+        }
+      },
+      "classification_status": "目視観察。判定器の学習・実装・精度検証は行っていない。",
+      "initial_gold_visible": false,
+      "initial_gold_absence_scope": "観測できる初期画面で金壁を確認できない。マップ全体に店がないという意味ではない。",
+      "initial_observations": {
+        "room_and_exits": "上辺の壁が左へ張り出し、左上に短い暗い床が見える。右側壁に灰色石が縦に並ぶ。下側は左寄りに開口する。",
+        "minimap": "初期の小部屋と短い枝のみ。店の存在を確定できる図柄は見えない。",
+        "occlusion": "未観測域は黒い。中央に説明文字が重なり、画面上端にはポーズ記号がある。金壁が見えない理由を画角外・暗さ・壁による遮蔽のいずれか1つに断定しない。"
+      },
+      "later_observations": {
+        "route": "左へ寄る → 上辺に沿う左上の通路へ進む → 北への折れ曲がりを確認 → 金壁の間の上側扉を開ける。",
+        "entrance": "店の南側入口。画面上では上へ接近する。",
+        "detail": "85.0秒に暗い壁の変化があるが金色の確定には弱い。85.2秒に両側の金壁と扉が明瞭。86.2秒に上端の商品が見える。",
+        "gold_boundary_interval_s": {
+          "after": 84.8,
+          "at_or_before": 85.2
+        },
+        "goods_boundary_interval_s": {
+          "after": 86.0,
+          "at_or_before": 86.2
+        },
+        "goods_identity_verified": false
+      },
+      "selected_initial_to_gold_s": 3.0,
+      "selected_initial_to_goods_s": 4.0,
+      "timing_caveat": "選択した初期フレームからの経過。ゲーム開始や入力イベントの正確な境界ではない。",
+      "ambiguous_gold_sample_s": 85.0
+    },
+    {
+      "id": "H05",
+      "pattern": "左上への細道を上がった先に横入口",
+      "evidence": {
+        "initial_first": {
+          "recording_time_s": 143.6,
+          "source_frame_index_zero_based": 4308,
+          "source_pts": 86160,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "ef6b6dc7747b76b7d262274c7c31ee168680a3bb3ea277ed83d709e82d76fe07"
+        },
+        "initial_features": {
+          "recording_time_s": 143.8,
+          "source_frame_index_zero_based": 4314,
+          "source_pts": 86280,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "d3cbb6975f1bad3b4e8c1e22efca22f04f70652f5066d51a2ddf65207e8ef743"
+        },
+        "gold_first_sample": {
+          "recording_time_s": 146.6,
+          "source_frame_index_zero_based": 4398,
+          "source_pts": 87960,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "817c46e914b66e92ee30ef238a4a4c5b1a4d22b8aa8e0a77090a929dbea18a40"
+        },
+        "goods_first_sample": {
+          "recording_time_s": 147.6,
+          "source_frame_index_zero_based": 4428,
+          "source_pts": 88560,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "3354f823d50d8f0ccd0076a0c52ea900f21b39e6b5ce099ae56bcf465d97ec84"
+        }
+      },
+      "montage": {
+        "path": "patterns/h05-initial-gold-goods.png",
+        "width": 1108,
+        "height": 1662,
+        "sha256": "5fa8cadcaec0ce2f25b7c013968e727290bf13451e8380a2d1d55266bcdf1a1a",
+        "transform": "Three native 1108x512 frames vertically concatenated; 42-pixel labels added above each; no crop, scale or rotation."
+      },
+      "classification_status": "目視観察。判定器の学習・実装・精度検証は行っていない。",
+      "initial_gold_visible": false,
+      "initial_gold_absence_scope": "観測できる初期画面で金壁を確認できない。マップ全体に店がないという意味ではない。",
+      "initial_observations": {
+        "room_and_exits": "左上に縦へ伸びる細い床があり、右にも横道と木色の縦長物体が見える。左上の先は黒く、店の金壁は見えない。",
+        "minimap": "現在の部屋と右の枝が主に見える。左上の店の全体はまだ描かれていない。",
+        "occlusion": "未観測域は黒い。中央に説明文字が重なり、画面上端にはポーズ記号がある。金壁が見えない理由を画角外・暗さ・壁による遮蔽のいずれか1つに断定しない。"
+      },
+      "later_observations": {
+        "route": "左へ寄る → 左上の縦の細道を上がる → 上端付近で左の金壁と横入口が現れる → 左向きの開扉で商品を見る。",
+        "entrance": "店の東側入口。画面上では左へ接近する。",
+        "detail": "146.6秒に縦道の左に金壁と横入口が見える。147.6秒に商品が表示される。初期の上向き通路から入口方向が上とは限らない。",
+        "gold_boundary_interval_s": {
+          "after": 146.4,
+          "at_or_before": 146.6
+        },
+        "goods_boundary_interval_s": {
+          "after": 147.4,
+          "at_or_before": 147.6
+        },
+        "goods_identity_verified": false
+      },
+      "selected_initial_to_gold_s": 3.0,
+      "selected_initial_to_goods_s": 4.0,
+      "timing_caveat": "選択した初期フレームからの経過。ゲーム開始や入力イベントの正確な境界ではない。"
+    },
+    {
+      "id": "H06",
+      "pattern": "左の短い張り出しから早期に金壁が見える",
+      "evidence": {
+        "initial_first": {
+          "recording_time_s": 165.2,
+          "source_frame_index_zero_based": 4956,
+          "source_pts": 99120,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "d3d2214a8de6d147208c3ed8b8e69ec6816e9d734de3bdf9b7bebb83fc419e1b"
+        },
+        "initial_features": {
+          "recording_time_s": 165.4,
+          "source_frame_index_zero_based": 4962,
+          "source_pts": 99240,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "2abbd8a03adfefa2a625696319ea7d153a5af12485a51341f756e7ce11d49fc3"
+        },
+        "gold_first_sample": {
+          "recording_time_s": 166.0,
+          "source_frame_index_zero_based": 4980,
+          "source_pts": 99600,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "e4dd44b1257738afcbbcf5609f72c0031d35ec8603e96409c3617759fded7854"
+        },
+        "goods_first_sample": {
+          "recording_time_s": 169.2,
+          "source_frame_index_zero_based": 5076,
+          "source_pts": 101520,
+          "source_time_base": "1/600",
+          "decoded_frame_sha256": "19cc5149d04dc7a6e44376cebe0f2ea36e30ec2215df245a0b384969f9b7104f"
+        }
+      },
+      "montage": {
+        "path": "patterns/h06-initial-gold-goods.png",
+        "width": 1108,
+        "height": 1662,
+        "sha256": "8d4a1f3183b65f44680e5f397d47f67aa3894e739f87a55cb71b905d962f0dec",
+        "transform": "Three native 1108x512 frames vertically concatenated; 42-pixel labels added above each; no crop, scale or rotation."
+      },
+      "classification_status": "目視観察。判定器の学習・実装・精度検証は行っていない。",
+      "initial_gold_visible": false,
+      "initial_gold_absence_scope": "観測できる初期画面で金壁を確認できない。マップ全体に店がないという意味ではない。",
+      "initial_observations": {
+        "room_and_exits": "左側上寄りに床が短く張り出し、その下または左に灰色石の壁がある。部屋左上の輪郭は凹凸があり、左先は黒い未観測域。下にも出口がある。",
+        "minimap": "部屋の左側に短い張り出しがある。店の部屋は初期地図には見えない。",
+        "occlusion": "未観測域は黒い。中央に説明文字が重なり、画面上端にはポーズ記号がある。金壁が見えない理由を画角外・暗さ・壁による遮蔽のいずれか1つに断定しない。"
+      },
+      "later_observations": {
+        "route": "左へ寄ると金壁の一部が現れる → 左上の折れた床に沿って上・左へ進む → 横向き入口の前に合わせる → 左向き開扉で商品を見る。",
+        "entrance": "店の東側入口。画面上では左へ接近する。",
+        "detail": "166.0秒には左上の金壁が見えるが、入口までの通路は灰色壁に沿って折れる。金壁の方向へ一直線に進める例ではない。169.2秒に商品が見える。",
+        "gold_boundary_interval_s": {
+          "after": 165.8,
+          "at_or_before": 166.0
+        },
+        "goods_boundary_interval_s": {
+          "after": 169.0,
+          "at_or_before": 169.2
+        },
+        "goods_identity_verified": false
+      },
+      "selected_initial_to_gold_s": 0.8,
+      "selected_initial_to_goods_s": 4.0,
+      "timing_caveat": "選択した初期フレームからの経過。ゲーム開始や入力イベントの正確な境界ではない。"
+    }
+  ],
+  "limits": [
+    "6例は近い店が後で現れた区間を選んだ正例寄りの集合。店の出現確率・特徴の適中率・偽陰性率を計算できない。",
+    "同形状で人が見送った例も店なしの正解にはできない。探索していない先は未観測。",
+    "タッチログ、入力回数、拍との対応、実際の最短歩数はこの解析では未確定。",
+    "初期ミニマップを店の確定根拠として読めた例はない。",
+    "商品の可視化は商品名の完全判読や目的アイテムの識別成功を意味しない。",
+    "この動画の確認済み回を未知評価データとして扱わない。"
+  ],
+  "proposed_local_probe_policy": {
+    "status": "未実装の設計仮説",
+    "priority": [
+      "初期に見える金壁を優先。",
+      "金壁なしでも、見えている床が近い未観測域へ続く出口・壁の張り出しを局所探索候補に残す。",
+      "可視床の最短候補1つを短区間だけ進み、金壁・新しい接続・行き止まりのいずれが見えたかで更新。"
+    ],
+    "bounds": "全マップ探索や複数枝の順回りにはしない。1回の予約は1〜2マス程度を検証案とし、経路全体の時間上限・移動上限は実機測定後に固定する。これは入力回数の観測値ではない。",
+    "success": "金壁を確認したら局所探索から入口への接近へ切り替え、商品が判別できる最初の地点で追加移動を止める。",
+    "failure": "上限内に新しい根拠が得られない場合は「近場を判定できなかった」と記録し、全域店なしとしない。",
+    "speed_validation": "初期金壁あり・初期金壁なし・人の見送りを別群で比較。未観測の店を捨てた頻度と不要探索時間を併記。H03は途中ポーズのため通常周回の速度値と分ける。"
+  }
+}

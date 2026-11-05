@@ -1,0 +1,74 @@
+{
+  "source_sha256": "2f256fbb3efcec103436f7f73d9600b0c60cea550ae3a7f2544d3f732a41d618",
+  "rotation_degrees": 0,
+  "output_dimensions": [
+    1108,
+    512
+  ],
+  "frames": [
+    {
+      "frame_index": 60,
+      "time_seconds": 2.0,
+      "filename": "002000-pause.jpg",
+      "label": "pause",
+      "sha256": "ffedf97518bf42d15e3c6195a41982a5c8bc42d522e57b696523f5f9351a2e95",
+      "bytes": 35547
+    },
+    {
+      "frame_index": 1392,
+      "time_seconds": 46.4,
+      "filename": "046400-wood-door.jpg",
+      "label": "wood-door",
+      "sha256": "daa31935861982d12c829fc65176741c39e478a6af1a6edd37474979d8e740fe",
+      "bytes": 87767
+    },
+    {
+      "frame_index": 1452,
+      "time_seconds": 48.4,
+      "filename": "048400-wood-goods.jpg",
+      "label": "wood-goods",
+      "sha256": "c21da62caf9a77ae55e1c2efc094f80ea873249bef6cec23a0f1f3bb60d0525c",
+      "bytes": 79724
+    },
+    {
+      "frame_index": 3444,
+      "time_seconds": 114.8,
+      "filename": "114800-iron-door.jpg",
+      "label": "iron-door",
+      "sha256": "fc44cad904c7f9ee2c489d14d8b67727a5d7ac2733247f2c8e92fa76f2e7ab4a",
+      "bytes": 72177
+    },
+    {
+      "frame_index": 3462,
+      "time_seconds": 115.4,
+      "filename": "115400-iron-approach.jpg",
+      "label": "iron-approach",
+      "sha256": "c5f3b498afef3bc0b328710818000f2ef8d21b10f89effd90c19da50adfe4755",
+      "bytes": 58244
+    },
+    {
+      "frame_index": 3480,
+      "time_seconds": 116.0,
+      "filename": "116000-iron-open-partial-goods.jpg",
+      "label": "iron-open-partial-goods",
+      "sha256": "48ab41d3bdfdf4d6435da33818e9a03c1489fb57afc9138aed4eabd755462848",
+      "bytes": 70943
+    },
+    {
+      "frame_index": 3492,
+      "time_seconds": 116.4,
+      "filename": "116400-iron-goods.jpg",
+      "label": "iron-goods",
+      "sha256": "fa0a9fbd2b0f121b7d1686f9108216283d977ff9f350b5c0861616312b517195",
+      "bytes": 76248
+    },
+    {
+      "frame_index": 4812,
+      "time_seconds": 160.4,
+      "filename": "160400-southern-shop-partial-goods.jpg",
+      "label": "southern-shop-partial-goods",
+      "sha256": "d45b726ec2c92b23773885e29aa9754c3e491913525867a2d2ac86c273d04d75",
+      "bytes": 72911
+    }
+  ]
+}

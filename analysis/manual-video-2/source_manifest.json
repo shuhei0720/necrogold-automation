@@ -1,0 +1,64 @@
+{
+  "source": "ScreenRecording_11-05-2026 12-41-49_1.mp4",
+  "source_library_id": "libfile_b5201d29709c8191800c367530f5ce58",
+  "sha256": "2f256fbb3efcec103436f7f73d9600b0c60cea550ae3a7f2544d3f732a41d618",
+  "bytes": 103283702,
+  "duration_seconds": 171.785034,
+  "video_dimensions": [
+    1108,
+    512
+  ],
+  "frame_rate": "30/1",
+  "rotation_degrees": 0,
+  "review_method": "Whole video sampled at 1 fps; selected iron segment additionally at 5 fps; indexed evidence below is exact frame index, not the approximate contact sheet labels.",
+  "reference_frames": [
+    {
+      "frame_index": 60,
+      "time_seconds": 2.0,
+      "filename": "002000-pause.jpg",
+      "label": "pause"
+    },
+    {
+      "frame_index": 1392,
+      "time_seconds": 46.4,
+      "filename": "046400-wood-door.jpg",
+      "label": "wood-door"
+    },
+    {
+      "frame_index": 1452,
+      "time_seconds": 48.4,
+      "filename": "048400-wood-goods.jpg",
+      "label": "wood-goods"
+    },
+    {
+      "frame_index": 3444,
+      "time_seconds": 114.8,
+      "filename": "114800-iron-door.jpg",
+      "label": "iron-door"
+    },
+    {
+      "frame_index": 3462,
+      "time_seconds": 115.4,
+      "filename": "115400-iron-approach.jpg",
+      "label": "iron-approach"
+    },
+    {
+      "frame_index": 3480,
+      "time_seconds": 116.0,
+      "filename": "116000-iron-open-partial-goods.jpg",
+      "label": "iron-open-partial-goods"
+    },
+    {
+      "frame_index": 3492,
+      "time_seconds": 116.4,
+      "filename": "116400-iron-goods.jpg",
+      "label": "iron-goods"
+    },
+    {
+      "frame_index": 4812,
+      "time_seconds": 160.4,
+      "filename": "160400-southern-shop-partial-goods.jpg",
+      "label": "southern-shop-partial-goods"
+    }
+  ]
+}
