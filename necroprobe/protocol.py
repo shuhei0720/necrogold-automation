@@ -101,12 +101,14 @@ class RpcReply:
 
 
 class Client:
-    def __init__(self, transport, key=None, tok=None, *, timeout=8, allow_launch=False, crypto=None, deadline_owner=None):
+    def __init__(self, transport, key=None, tok=None, *, timeout=8, allow_launch=False, crypto=None, deadline_owner=None,
+                 source_geometry=False):
         self.transport = transport
         self.deadline_owner = deadline_owner
         self.key, self.tok = key, tok
         self.timeout = number(timeout, 0.1, 30)
         self.allow_launch = allow_launch
+        self.source_geometry = source_geometry
         self.crypto = crypto or Crypto()
         self.sequence = 0
         self.launched = False
@@ -116,7 +118,9 @@ class Client:
             raise ProbeError("invalid_params")
         if method == "device_info" and not params:
             return
-        if method == "screenshot" and set(params) <= {"format", "scale", "quality"}:
+        if method == "screenshot" and set(params) <= {"format", "scale", "quality", "geometry"}:
+            if "geometry" in params and params["geometry"] != "image_size_v1":
+                raise ProbeError("invalid_params")
             if params.get("format") not in ("jpeg", "png"):
                 raise ProbeError("invalid_params")
             number(params.get("scale"), 1, 2)

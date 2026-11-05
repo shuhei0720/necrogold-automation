@@ -1,0 +1,20 @@
+{
+  "source_sha256": {
+    "LoopCtrlUITests/ActionCommand.swift": "caebb5c8168e9e250a7940809488999982fd3c94328fc319f6b27c1ae5d95d71",
+    "LoopCtrlUITests/ActionHandler.swift": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
+    "LoopCtrlKit/RPCMethod.swift": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
+    "LoopCtrlKit/RPCTypes.swift": "4f4fe92c21cb74251de49da7524bc7ad8877a366ae9949490648d1e1c633437b"
+  },
+  "mutation_red": {
+    "compiled": true,
+    "returncode": 1,
+    "observed": "FAIL landscape_scale1: expected=896x414 actual=414x896"
+  },
+  "production_green": {
+    "compiled": true,
+    "returncode": 0,
+    "observed": "PASS all 91 pure Swift contracts; UIKit/device not executed"
+  },
+  "scope": "Actual extracted pure helper, ActionCommand and JSON RPC types; UIKit rendering/capture/device not executed",
+  "device_test": "not_run"
+}

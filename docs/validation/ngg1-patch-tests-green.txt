@@ -1,0 +1,22 @@
+test_install_failure_rolls_back_prior_file (test_apply_patch.ApplyPatchTests.test_install_failure_rolls_back_prior_file) ... ok
+test_matching_three_files_apply_and_preserve_other_files (test_apply_patch.ApplyPatchTests.test_matching_three_files_apply_and_preserve_other_files) ... ok
+test_mismatch_in_last_file_writes_nothing (test_apply_patch.ApplyPatchTests.test_mismatch_in_last_file_writes_nothing) ... ok
+test_missing_last_file_writes_nothing (test_apply_patch.ApplyPatchTests.test_missing_last_file_writes_nothing) ... ok
+test_parent_path_in_patch_is_rejected (test_apply_patch.ApplyPatchTests.test_parent_path_in_patch_is_rejected) ... ok
+test_second_application_writes_nothing (test_apply_patch.ApplyPatchTests.test_second_application_writes_nothing) ... ok
+test_symlink_directory_is_rejected (test_apply_patch.ApplyPatchTests.test_symlink_directory_is_rejected) ... ok
+test_symlink_source_is_rejected (test_apply_patch.ApplyPatchTests.test_symlink_source_is_rejected) ... ok
+test_truncated_patch_writes_nothing (test_apply_patch.ApplyPatchTests.test_truncated_patch_writes_nothing) ... ok
+test_unexpected_fourth_target_writes_nothing (test_apply_patch.ApplyPatchTests.test_unexpected_fourth_target_writes_nothing) ... ok
+test_wrong_blob_writes_nothing (test_apply_patch.ApplyPatchTests.test_wrong_blob_writes_nothing) ... ok
+test_wrong_output_hash_writes_nothing (test_apply_patch.ApplyPatchTests.test_wrong_output_hash_writes_nothing) ... ok
+test_complete_package (test_package.PackageTests.test_complete_package) ... ok
+test_missing_cli (test_package.PackageTests.test_missing_cli) ... ok
+test_missing_test_binary (test_package.PackageTests.test_missing_test_binary) ... ok
+test_nested_profile_rejected (test_package.PackageTests.test_nested_profile_rejected) ... ok
+test_plugin_identity_must_match (test_package.PackageTests.test_plugin_identity_must_match) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.085s
+
+OK

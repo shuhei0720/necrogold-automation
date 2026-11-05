@@ -1,0 +1,33 @@
+test_unexpected_output_exif_orientation_stops_without_transpose (test_source_geometry.SourceGeometryTests.test_unexpected_output_exif_orientation_stops_without_transpose) ... 
+  test_unexpected_output_exif_orientation_stops_without_transpose (test_source_geometry.SourceGeometryTests.test_unexpected_output_exif_orientation_stops_without_transpose) (orientation=2) ... FAIL
+  test_unexpected_output_exif_orientation_stops_without_transpose (test_source_geometry.SourceGeometryTests.test_unexpected_output_exif_orientation_stops_without_transpose) (orientation=6) ... FAIL
+  test_unexpected_output_exif_orientation_stops_without_transpose (test_source_geometry.SourceGeometryTests.test_unexpected_output_exif_orientation_stops_without_transpose) (orientation=8) ... FAIL
+
+======================================================================
+FAIL: test_unexpected_output_exif_orientation_stops_without_transpose (test_source_geometry.SourceGeometryTests.test_unexpected_output_exif_orientation_stops_without_transpose) (orientation=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 186, in test_unexpected_output_exif_orientation_stops_without_transpose
+    self.assertEqual("source_geometry_invalid", report.get("stop_reason"))
+AssertionError: 'source_geometry_invalid' != None
+
+======================================================================
+FAIL: test_unexpected_output_exif_orientation_stops_without_transpose (test_source_geometry.SourceGeometryTests.test_unexpected_output_exif_orientation_stops_without_transpose) (orientation=6)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 186, in test_unexpected_output_exif_orientation_stops_without_transpose
+    self.assertEqual("source_geometry_invalid", report.get("stop_reason"))
+AssertionError: 'source_geometry_invalid' != None
+
+======================================================================
+FAIL: test_unexpected_output_exif_orientation_stops_without_transpose (test_source_geometry.SourceGeometryTests.test_unexpected_output_exif_orientation_stops_without_transpose) (orientation=8)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 186, in test_unexpected_output_exif_orientation_stops_without_transpose
+    self.assertEqual("source_geometry_invalid", report.get("stop_reason"))
+AssertionError: 'source_geometry_invalid' != None
+
+----------------------------------------------------------------------
+Ran 1 test in 0.033s
+
+FAILED (failures=3)

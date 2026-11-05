@@ -1,4 +1,4 @@
-"""P1.4の取得元を1回だけ照会。画像・位置情報・ゲーム操作は扱わない。"""
+"""P1.4/P1.5の取得元を1回だけ照会。画像・位置情報・ゲーム操作は扱わない。"""
 import json
 import math
 import os
@@ -11,7 +11,7 @@ import time
 
 FIELDS = ('server_version', 'build', 'protocol_version', 'point_width', 'point_height',
           'pixel_width', 'pixel_height', 'scale')
-CAPABILITIES = ('run_steps', 'wait_for', 'screenshot_stream', 'video_stream', 'stream_ticket')
+CAPABILITIES = ('run_steps', 'wait_for', 'screenshot_stream', 'video_stream', 'stream_ticket', 'screenshot_image_geometry_v1')
 
 
 def sanitize(result):
@@ -44,7 +44,7 @@ def probe_device():
     # カレントは既存 /mnt/necro_p14。ペアリングの内容を出力しない。
     sys.path.insert(0, os.getcwd())
     from necroprobe import VERSION
-    if VERSION != 'P1.4':
+    if VERSION not in ('P1.4', 'P1.5'):
         return {'error': 'requires_P1.4'}
     from necroprobe.crypto import Crypto
     from necroprobe.deadlines import OwnedRpcTimer

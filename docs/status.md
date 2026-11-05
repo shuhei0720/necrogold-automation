@@ -4,7 +4,7 @@
 
 前回到達点（TEST-009実施前）: 受信後の縦横比補正案をユーザーの性能要件により撤回。取得元から横長で受け取る方針へ変更した。実機の版/buildが未記録のため、[TEST-009](device-tests/009-source-info.md)の読み取り専用補助を追加。診断本体P1.4・原画像保存・R12は変更しない。横長取得の本体修正と性能合格は未完了。[計画](plans/p1-geometry-validation.md) / [レビュー](reviews/p1-source-info.md)。
 
-最新: TEST-009結果受領。実機API1.98.14/build2026-11-01 16:49、native_i386、video_stream/stream_ticket申告を確認。再照会は不要。次は[NG-G1取得元の寸法修正](plans/p1-source-geometry.md)。SwiftコンパイラがないLinux上でビルド済みとはせず、固定元ソースの数値契約をmacOS CIで先に検証する。IPA未作成・現行アプリ更新不要。
+最新: **NG-G1取得元修正とP1.5診断クライアントを作成・検証済み**。[CI run 42022602975](https://github.com/shuhei0720/necrogold-automation/actions/runs/42022602975)で元式Red、Swift91契約、unsigned IPA build、既存LoopCtrlKit tests、構成検査が成功。IPA SHA-256と3ファイル全文のhashも取得後照合済み。P1.5は全131ホスト試験成功、独立3観点レビューと指摘修正を完了。次はSideStore更新後の[TEST-010](device-tests/010-source-landscape.md)。端末での横長画像・速度は未確認。人より速い自動周回/P1全体は未合格。
 
 | 項目 | 状態 |
 | --- | --- |
@@ -104,3 +104,8 @@ iSH前面で11/12非黒取得、保存3枚で今回のiSH表示と試行の進�
 ## 取得元の横長出力へ方針修正
 
 毎フレームのクライアント変換を通常経路へ追加しない。公開LoopCtrlのcached pointSizeへの描画が原因候補だが実機版との一致は不明。版/buildを1回照会する補助スクリプトを用意した。TEST-009の結果待ちで、再インストールやゲーム操作は不要。従来の「次」「追加操作不要」は当時の記録で、現時点の次手順はTEST-009を参照する。
+
+
+## P1.5 / NG-G1の提出
+
+取得元はAPI1.98.14-ngg1、診断はP1.5。最初の新capability確認と応答契約照合を追加した。原画像の受信後変換なし。端末試験は未実施。最新コード/試験の正本は[クライアントレビュー](reviews/p15-source-client.md)、取得元の範囲と残P2は[取得元レビュー](reviews/ngg1-implementation.md)。過去節の「次」やP1.4表記は当時の履歴。

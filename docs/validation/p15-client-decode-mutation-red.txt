@@ -1,0 +1,14 @@
+test_all_formats_scales_preserve_raw_bytes_and_decode_once (test_source_geometry.SourceGeometryTests.test_all_formats_scales_preserve_raw_bytes_and_decode_once) ... FAIL
+
+======================================================================
+FAIL: test_all_formats_scales_preserve_raw_bytes_and_decode_once (test_source_geometry.SourceGeometryTests.test_all_formats_scales_preserve_raw_bytes_and_decode_once)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 120, in test_all_formats_scales_preserve_raw_bytes_and_decode_once
+    self.assertEqual(3, decode.call_count, "Each raw payload must be decoded only once")
+AssertionError: 3 != 6 : Each raw payload must be decoded only once
+
+----------------------------------------------------------------------
+Ran 1 test in 0.029s
+
+FAILED (failures=1)

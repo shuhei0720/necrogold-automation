@@ -1,6 +1,7 @@
 """取得画像を加工前に調べる。非黒画像≠ゲーム認識成功。"""
 import hashlib
 import io
+import math
 import time
 import warnings
 
@@ -84,3 +85,69 @@ def inspect_payload(payload):
     result["reported_geometry"] = metadata
     result["metadata_issues"] = issues
     return raw, result
+
+
+def validate_source_geometry(payload, result, params):
+    """Validate NG-G1 metadata against the already decoded, unchanged raster.
+
+    UIImage.size reflects its orientation; never swap axes from the orientation
+    enum or use the separate input-side point dimensions as a coordinate map.
+    """
+    def invalid():
+        raise ProbeError("source_geometry_invalid")
+
+    def positive(key, maximum):
+        value = payload.get(key)
+        try:
+            number(value, 0, maximum)
+        except ProbeError:
+            invalid()
+        if value <= 0:
+            invalid()
+        return value
+
+    def matches(left, right):
+        if not math.isclose(left, right, rel_tol=1e-9, abs_tol=1e-9):
+            invalid()
+
+    if (payload.get("geometry") != "image_size_v1"
+            or payload.get("input_geometry_verified") is not False
+            or payload.get("scope") != "screen"
+            or payload.get("format") != params["format"]
+            or result["format"].lower() != params["format"]
+            or result["exif_orientation"] != 1):
+        invalid()
+    orientation = payload.get("source_orientation")
+    if type(orientation) is not int or not 0 <= orientation <= 7:
+        invalid()
+    metadata = {"geometry": "image_size_v1", "input_geometry_verified": False,
+                "source_orientation": orientation, "scope": "screen"}
+    for key in ("source_scale", "device_scale", "scale", "requested_scale"):
+        metadata[key] = positive(key, 8)
+    if metadata["scale"] != params["scale"] or metadata["requested_scale"] != params["scale"]:
+        invalid()
+    expected = []
+    for axis in ("width", "height"):
+        # Native source dimensions may exceed the bounded output dimensions.
+        for prefix, maximum in (("source_", 32768), ("source_pixel_", 32768),
+                                ("image_point_", 4096), ("point_", 4096), ("pixel_", 4096)):
+            key = prefix + axis
+            metadata[key] = positive(key, maximum)
+        source_pixels = metadata["source_" + axis] * metadata["source_scale"]
+        matches(metadata["source_pixel_" + axis], source_pixels)
+        image_points = source_pixels / metadata["device_scale"]
+        matches(metadata["image_point_" + axis], image_points)
+        pixels = image_points * metadata["scale"]
+        if not 1 <= pixels <= 4096:
+            invalid()
+        # Swift .rounded() rounds positive halves up; Python round() does not.
+        rounded = math.floor(pixels + .5)
+        claimed = metadata["pixel_" + axis]
+        if claimed != rounded or claimed != result["pixel_" + axis]:
+            invalid()
+        expected.append(pixels)
+    if expected[0] * expected[1] > MAX_PIXELS:
+        invalid()
+    # inspect_bytes already bounds the decoded integer raster and total pixels.
+    result["reported_geometry"] = metadata
+    result["metadata_issues"] = []

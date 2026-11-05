@@ -1,0 +1,14 @@
+test_tolerated_image_point_noise_cannot_change_expected_half_up_output (test_source_geometry.SourceGeometryTests.test_tolerated_image_point_noise_cannot_change_expected_half_up_output) ... FAIL
+
+======================================================================
+FAIL: test_tolerated_image_point_noise_cannot_change_expected_half_up_output (test_source_geometry.SourceGeometryTests.test_tolerated_image_point_noise_cannot_change_expected_half_up_output)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 159, in test_tolerated_image_point_noise_cannot_change_expected_half_up_output
+    self.assertEqual("source_geometry_invalid", report.get("stop_reason"))
+AssertionError: 'source_geometry_invalid' != None
+
+----------------------------------------------------------------------
+Ran 1 test in 0.155s
+
+FAILED (failures=1)

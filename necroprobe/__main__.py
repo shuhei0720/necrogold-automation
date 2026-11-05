@@ -127,6 +127,7 @@ def parser():
     sub = ap.add_subparsers(dest="command", required=True)
     capture = sub.add_parser("capture", help="既存の端末内LoopCtrl接続で画像を取得")
     capture.add_argument("--launch-game", action="store_true", help="最初にゲームを1回だけ開く（続行は押さない）")
+    capture.add_argument("--source-geometry", action="store_true", help="対応を確認した取得元で画像自身の寸法を使う（入力座標は未検証）")
     capture.add_argument("--samples", type=positive_int, default=12)
     capture.add_argument("--seconds", type=seconds, default=45)
     capture.add_argument("--rpc-timeout", type=seconds, default=8)
@@ -172,7 +173,8 @@ def worker(args):
         timer = OwnedRpcTimer()
         with timer:
             client = Client(HttpTransport(), key, tok, timeout=args.rpc_timeout,
-                            allow_launch=args.launch_game, crypto=crypto, deadline_owner=timer)
+                            allow_launch=args.launch_game, crypto=crypto, deadline_owner=timer,
+                            source_geometry=args.source_geometry)
             checkpoint_stage("capture_collection")
             collect(client, report, folder, args.stop_ns)
     except ProbeError as exc:
@@ -210,6 +212,8 @@ def run_capture(args):
     folder.mkdir(mode=0o700)
     start = time.monotonic_ns()
     report = new_report(args.samples, start)
+    if args.source_geometry:
+        report["requested_geometry"] = "image_size_v1"
     report["worker"] = {"stage": "spawn_requested"}
     write_report(folder, report)
     command = [sys.executable, "-m", "necroprobe", "capture", "--worker", "--output", str(folder),
@@ -222,6 +226,8 @@ def run_capture(args):
         command.append("--launch-game")
     if args.python_crypto:
         command.append("--python-crypto")
+    if args.source_geometry:
+        command.append("--source-geometry")
     print("%s 画像取得の診断版です。操作サイトは起動しません。" % VERSION, flush=True)
     print("「ゲームを続行」は押しません。タップ・オプション操作は行いません。", flush=True)
     diagnostics = {}

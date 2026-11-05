@@ -9,7 +9,7 @@ import tempfile
 import time
 
 from . import VERSION
-from .capture import inspect_payload
+from .capture import inspect_payload, validate_source_geometry
 from .protocol import GAME
 from .validation import ProbeError
 
@@ -20,7 +20,8 @@ VARIANTS = (
 )
 FATAL = {"response_mac_mismatch", "response_id_mismatch", "http_status_401", "http_status_403",
          "invalid_response_tag", "pairing_missing", "posix_timer_required", "timer_already_in_use",
-         "timer_setup_failed", "timer_cleanup_failed", "timer_owner_required", "timer_unusable", "timer_handler_in_use"}
+         "timer_setup_failed", "timer_cleanup_failed", "timer_owner_required", "timer_unusable", "timer_handler_in_use",
+         "source_geometry_invalid"}
 
 
 def atomic_write(path, raw):
@@ -116,7 +117,7 @@ def safe_info(result):
     caps = caps if isinstance(caps, list) else []
     # Presence is informational, not proof of semantics or device execution.
     return {"foreground": front, "screen_locked": system.get("screen_locked") if type(system.get("screen_locked")) is bool else None,
-            "advertised_known_capabilities": [name for name in ("run_steps", "wait_for", "screenshot_stream") if name in caps],
+            "advertised_known_capabilities": [name for name in ("run_steps", "wait_for", "screenshot_stream", "screenshot_image_geometry_v1") if name in caps],
             "execution_deadline_verified": False, "foreground_generation_verified": False,
             "input_cancel_verified": False}
 
@@ -130,6 +131,9 @@ def new_report(samples, start_ns):
 
 def collect(client, report, folder, stop_ns, clock=time.monotonic_ns):
     """Parent supervises the entire worker, including native code and file IO."""
+    source_geometry = getattr(client, "source_geometry", False) is True
+    if source_geometry:
+        report["requested_geometry"] = "image_size_v1"
     failures = {name: 0 for name, _ in VARIANTS}
     saved = set()
     last_hash = None
@@ -148,7 +152,7 @@ def collect(client, report, folder, stop_ns, clock=time.monotonic_ns):
             raise ProbeError("session_deadline")
         return client.call(method, params, timeout=min(client.timeout, remaining))
 
-    def event(method, params=None):
+    def event(method, params=None, *, required=False):
         entry = {"method": method, "start_ns": clock()}
         report["events"].append(entry)
         checkpoint()
@@ -163,9 +167,10 @@ def collect(client, report, folder, stop_ns, clock=time.monotonic_ns):
                 entry["launch_acknowledged"] = True
                 entry["game_visible_verified"] = False
                 print("ゲーム起動の応答を受け取りました。表示の成功は未確認です。画像を取得します。", flush=True)
+            return reply.result
         except ProbeError as exc:
             entry.update(status="error", error=exc.code)
-            if exc.code in FATAL or exc.code == "session_deadline" or method == "launch_app":
+            if required or exc.code in FATAL or exc.code == "session_deadline" or method == "launch_app":
                 stop_report(report, exc.code)
                 raise
         except KeyboardInterrupt:
@@ -176,13 +181,19 @@ def collect(client, report, folder, stop_ns, clock=time.monotonic_ns):
             checkpoint()
 
     try:
-        event("device_info")
+        initial_info = event("device_info", required=source_geometry)
+        if source_geometry:
+            caps = initial_info.get("capabilities")
+            if not isinstance(caps, list) or "screenshot_image_geometry_v1" not in caps:
+                raise ProbeError("source_geometry_capability_missing")
         if client.allow_launch:
             event("launch_app", {"bundle_id": GAME})
         for row in report["rows"]:
             if clock() >= stop_ns:
                 raise ProbeError("session_deadline")
             name, params = VARIANTS[(row["trial"] - 1) % 3]
+            if source_geometry:
+                params = dict(params, geometry="image_size_v1")
             if failures[name] >= 3:
                 row["not_started_reason"] = "condition_failure_limit"
                 continue
@@ -193,7 +204,14 @@ def collect(client, report, folder, stop_ns, clock=time.monotonic_ns):
                 reply = call("screenshot", params)
                 connection_failures = 0
                 row["timings"].update(reply.timings)
-                raw, image = inspect_payload(reply.result)
+                try:
+                    raw, image = inspect_payload(reply.result)
+                    if source_geometry:
+                        validate_source_geometry(reply.result, image, params)
+                except ProbeError:
+                    if source_geometry:
+                        raise ProbeError("source_geometry_invalid") from None
+                    raise
                 for key in list(image):
                     if key.endswith("_ns") and key != "capture_time_ns":
                         row["timings"][key] = image.pop(key)
@@ -234,8 +252,10 @@ def collect(client, report, folder, stop_ns, clock=time.monotonic_ns):
             finally:
                 row["timings"]["trial_end_ns"] = clock()
                 checkpoint()
-            print("%d/%d %s: %s" % (row["trial"], len(report["rows"]), name,
-                  row.get("image", {}).get("image_status", row.get("error", row["status"]))), flush=True)
+            outcome = row.get("image", {}).get("image_status", row.get("error", row["status"]))
+            if source_geometry and row["status"] == "complete":
+                outcome += " %dx%d" % (row["image"]["pixel_width"], row["image"]["pixel_height"])
+            print("%d/%d %s: %s" % (row["trial"], len(report["rows"]), name, outcome), flush=True)
             if all(value >= 3 for value in failures.values()):
                 raise ProbeError("all_conditions_failed")
         event("device_info")

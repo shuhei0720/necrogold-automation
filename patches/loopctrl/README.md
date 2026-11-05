@@ -23,7 +23,7 @@ Swift契約試験は本番関数を直接切り出して実行する。元のキ
 
 専用[workflow](../../.github/workflows/loopctrl-geometry.yml)は、上記試験、unsigned IPA build、既存LoopCtrlKit tests、.xctest/CLI同梱と個人プロビジョニング情報がないことを確認する。IPAとSHA-256、上流/driver commit、patch SHA、toolchain情報をprivate Actions artifactへ保存する。署名・端末への導入・端末受入は別工程。公開releaseは作らない。
 
-現在は取得元修正のCI・独立レビューを進行中。現行iPhoneのアプリ削除・更新はまだ不要。新capabilityを確認する診断クライアントは、取得元ビルド後に用意する。P1.4とR12はこの変更に含まない。
+取得元修正のCI・独立レビューは完了。Swift91契約、IPA build、既存LoopCtrlKit tests、構成検査が成功。新capabilityを確認するP1.5も用意し、次は[TEST-010](../../docs/device-tests/010-source-landscape.md)のSideStore更新と実機試験。R12は変更しない。
 
 ## ライセンス
 

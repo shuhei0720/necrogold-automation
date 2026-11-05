@@ -1,0 +1,9 @@
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:2fa33dd903dd8baf15aaba844044e77e2ef2d357, name:My Mac }
+{ platform:macOS, arch:x86_64, id:2fa33dd903dd8baf15aaba844044e77e2ef2d357, name:My Mac }
+/Users/runner/work/necrogold-automation/necrogold-automation/upstream/LoopCtrl.xcodeproj: LoopCtrlKitTests: ld: warning: building for macOS-13.0, but linking with dylib '@rpath/XCTest.framework/Versions/A/XCTest' which was built for newer version 14.0
+/Users/runner/work/necrogold-automation/necrogold-automation/upstream/LoopCtrl.xcodeproj: LoopCtrlKitTests: ld: warning: building for macOS-13.0, but linking with dylib '@rpath/libXCTestSwiftSupport.dylib' which was built for newer version 14.0
+2026-11-05 11:59:07.708 xcodebuild[25890:57257] [MT] IDETestOperationsObserverDebug: 1.355 elapsed -- Testing started completed.
+2026-11-05 11:59:07.708 xcodebuild[25890:57257] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-05 11:59:07.708 xcodebuild[25890:57257] [MT] IDETestOperationsObserverDebug: 1.355 sec, +1.355 sec -- end
+Testing started

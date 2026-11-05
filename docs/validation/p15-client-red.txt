@@ -1,0 +1,1045 @@
+test_exact_geometry_is_allowed_and_all_other_values_rejected (test_source_geometry.SourceGeometryProtocolTests.test_exact_geometry_is_allowed_and_all_other_values_rejected) ... ERROR
+test_flag_reaches_parent_command_worker_and_client (test_source_geometry.SourceGeometryProtocolTests.test_flag_reaches_parent_command_worker_and_client) ... usage: python3 -m unittest [-h] {capture,inspect} ...
+python3 -m unittest: error: unrecognized arguments: --source-geometry
+ERROR
+test_helper_accepts_new_known_capability_without_private_names (test_source_geometry.SourceGeometryProtocolTests.test_helper_accepts_new_known_capability_without_private_names) ... FAIL
+test_advertising_old_server_ignoring_geometry_stops_after_first_capture (test_source_geometry.SourceGeometryTests.test_advertising_old_server_ignoring_geometry_stops_after_first_capture) ... ERROR
+test_all_formats_scales_preserve_raw_bytes_and_decode_once (test_source_geometry.SourceGeometryTests.test_all_formats_scales_preserve_raw_bytes_and_decode_once) ... FAIL
+test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) ... 
+  test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps=[]) ... FAIL
+  test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps=['screenshot_image_geometry_v10']) ... FAIL
+  test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps='screenshot_image_geometry_v1') ... FAIL
+  test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps={'screenshot_image_geometry_v1': True}) ... FAIL
+  test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps=[True]) ... FAIL
+  test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps=[['screenshot_image_geometry_v1']]) ... FAIL
+test_initial_info_failure_is_fatal_without_implicit_legacy_fallback (test_source_geometry.SourceGeometryTests.test_initial_info_failure_is_fatal_without_implicit_legacy_fallback) ... 
+  test_initial_info_failure_is_fatal_without_implicit_legacy_fallback (test_source_geometry.SourceGeometryTests.test_initial_info_failure_is_fatal_without_implicit_legacy_fallback) (error='connection_error') ... FAIL
+  test_initial_info_failure_is_fatal_without_implicit_legacy_fallback (test_source_geometry.SourceGeometryTests.test_initial_info_failure_is_fatal_without_implicit_legacy_fallback) (error='rpc_deadline') ... FAIL
+  test_initial_info_failure_is_fatal_without_implicit_legacy_fallback (test_source_geometry.SourceGeometryTests.test_initial_info_failure_is_fatal_without_implicit_legacy_fallback) (error='rpc_error') ... FAIL
+test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) ... 
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='geometry', value=None) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='geometry', value='legacy') ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='geometry', value=True) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='input_geometry_verified', value=True) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='input_geometry_verified', value=0) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='input_geometry_verified', value=None) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='scope', value='app') ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='scope', value='PRIVATE') ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='pixel_width', value=41) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='pixel_width', value=40.5) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='pixel_width', value=True) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='pixel_height', value=21) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='pixel_height', value=20.5) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='format', value='png') ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='format', value='PRIVATE') ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='format', value=None) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_width', value=nan) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_width', value=0) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_width', value=4097) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_width', value=True) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_height', value=inf) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_height', value=-1) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='image_point_width', value=41) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='image_point_width', value=0) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='image_point_width', value=inf) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='image_point_height', value=21) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='image_point_height', value=False) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_width', value=81) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_width', value=nan) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_width', value=1e+100) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_height', value=41) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_height', value=0) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_scale', value=0) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_scale', value=True) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_scale', value=9) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_pixel_width', value=81) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_pixel_width', value=-1) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_pixel_height', value=41) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_pixel_height', value=inf) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_orientation', value=-1) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_orientation', value=8) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_orientation', value=3.0) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_orientation', value=True) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_orientation', value='3') ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='device_scale', value=0) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='device_scale', value=3) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='device_scale', value=9) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='scale', value=2) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='scale', value=True) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='scale', value=nan) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='requested_scale', value=2) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='requested_scale', value=None) ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='data', value='/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAUACkDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigAooooAKKKKACiiigAooooAKKKKAP//Z') ... ERROR
+  test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='data', value='iVBORw0KGgoAAAANSUhEUgAAACgAAAAUCAIAAABwJOjsAAAAJUlEQVR4nO3NMQEAAAgDILV/5xljDxRgk0zDVVaxWCwWi8XiigcB4QMlssy/eAAAAABJRU5ErkJggg==') ... ERROR
+test_legacy_default_keeps_requests_and_nonfatal_metadata_warnings (test_source_geometry.SourceGeometryTests.test_legacy_default_keeps_requests_and_nonfatal_metadata_warnings) ... ok
+test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) ... 
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='image_point_height') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='input_geometry_verified') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='device_scale') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='point_height') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='geometry') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_pixel_width') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='scope') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_orientation') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='pixel_height') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='requested_scale') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='format') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='pixel_width') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='image_point_width') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_scale') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='point_width') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_width') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='scale') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_height') ... ERROR
+  test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_pixel_height') ... ERROR
+test_portrait_source_scale_and_half_up_rounding (test_source_geometry.SourceGeometryTests.test_portrait_source_scale_and_half_up_rounding) ... ok
+
+======================================================================
+ERROR: test_exact_geometry_is_allowed_and_all_other_values_rejected (test_source_geometry.SourceGeometryProtocolTests.test_exact_geometry_is_allowed_and_all_other_values_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 186, in test_exact_geometry_is_allowed_and_all_other_values_rejected
+    client._validate("screenshot", params)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/protocol.py", line 128, in _validate
+    raise ProbeError("method_not_allowed")
+necroprobe.validation.ProbeError: method_not_allowed
+
+======================================================================
+ERROR: test_flag_reaches_parent_command_worker_and_client (test_source_geometry.SourceGeometryProtocolTests.test_flag_reaches_parent_command_worker_and_client)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 196, in test_flag_reaches_parent_command_worker_and_client
+    args = cli.parser().parse_args(["capture", "--source-geometry", "--output", folder, "--samples", "3"])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/argparse.py", line 1908, in parse_args
+    self.error(msg)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/argparse.py", line 2650, in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/argparse.py", line 2637, in exit
+    _sys.exit(status)
+SystemExit: 2
+
+======================================================================
+ERROR: test_advertising_old_server_ignoring_geometry_stops_after_first_capture (test_source_geometry.SourceGeometryTests.test_advertising_old_server_ignoring_geometry_stops_after_first_capture)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 106, in test_advertising_old_server_ignoring_geometry_stops_after_first_capture
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='geometry', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='geometry', value='legacy')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='geometry', value=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='input_geometry_verified', value=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='input_geometry_verified', value=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='input_geometry_verified', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='scope', value='app')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='scope', value='PRIVATE')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='pixel_width', value=41)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='pixel_width', value=40.5)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='pixel_width', value=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='pixel_height', value=21)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='pixel_height', value=20.5)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='format', value='png')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='format', value='PRIVATE')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='format', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_width', value=nan)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_width', value=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_width', value=4097)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_width', value=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_height', value=inf)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='point_height', value=-1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='image_point_width', value=41)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='image_point_width', value=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='image_point_width', value=inf)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='image_point_height', value=21)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='image_point_height', value=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_width', value=81)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_width', value=nan)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_width', value=1e+100)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_height', value=41)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_height', value=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_scale', value=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_scale', value=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_scale', value=9)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_pixel_width', value=81)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_pixel_width', value=-1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_pixel_height', value=41)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_pixel_height', value=inf)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_orientation', value=-1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_orientation', value=8)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_orientation', value=3.0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_orientation', value=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='source_orientation', value='3')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='device_scale', value=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='device_scale', value=3)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='device_scale', value=9)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='scale', value=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='scale', value=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='scale', value=nan)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='requested_scale', value=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='requested_scale', value=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='data', value='/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAUACkDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigAooooAKKKKACiiigAooooAKKKKAP//Z')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_invalid_metadata_and_raw_format_or_dimensions_stop (test_source_geometry.SourceGeometryTests.test_invalid_metadata_and_raw_format_or_dimensions_stop) (key='data', value='iVBORw0KGgoAAAANSUhEUgAAACgAAAAUCAIAAABwJOjsAAAAJUlEQVR4nO3NMQEAAAgDILV/5xljDxRgk0zDVVaxWCwWi8XiigcB4QMlssy/eAAAAABJRU5ErkJggg==')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 170, in test_invalid_metadata_and_raw_format_or_dimensions_stop
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='image_point_height')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='input_geometry_verified')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='device_scale')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='point_height')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='geometry')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_pixel_width')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='scope')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_orientation')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='pixel_height')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='requested_scale')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='format')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='pixel_width')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='image_point_width')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_scale')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='point_width')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_width')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='scale')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_height')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+ERROR: test_missing_geometry_fields_are_not_successes (test_source_geometry.SourceGeometryTests.test_missing_geometry_fields_are_not_successes) (key='source_pixel_height')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 149, in test_missing_geometry_fields_are_not_successes
+    self.assertEqual("source_geometry_invalid", report["stop_reason"])
+                                                ~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'stop_reason'
+
+======================================================================
+FAIL: test_helper_accepts_new_known_capability_without_private_names (test_source_geometry.SourceGeometryProtocolTests.test_helper_accepts_new_known_capability_without_private_names)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 215, in test_helper_accepts_new_known_capability_without_private_names
+    self.assertEqual([CAPABILITY], result["known_capabilities"])
+AssertionError: Lists differ: ['screenshot_image_geometry_v1'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'screenshot_image_geometry_v1'
+
+- ['screenshot_image_geometry_v1']
++ []
+
+======================================================================
+FAIL: test_all_formats_scales_preserve_raw_bytes_and_decode_once (test_source_geometry.SourceGeometryTests.test_all_formats_scales_preserve_raw_bytes_and_decode_once)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 120, in test_all_formats_scales_preserve_raw_bytes_and_decode_once
+    self.assertEqual([dict(p, geometry=GEOMETRY) for _, p in VARIANTS], [p for m, p in client.calls if m == "screenshot"])
+AssertionError: Lists differ: [{'fo[36 chars]e': 1, 'geometry': 'image_size_v1'}, {'format'[122 chars]v1'}] != [{'fo[36 chars]e': 1}, {'format': 'jpeg', 'quality': 0.6, 'sc[35 chars]: 1}]
+
+First differing element 0:
+{'format': 'jpeg', 'quality': 0.6, 'scale': 1, 'geometry': 'image_size_v1'}
+{'format': 'jpeg', 'quality': 0.6, 'scale': 1}
+
+- [{'format': 'jpeg', 'geometry': 'image_size_v1', 'quality': 0.6, 'scale': 1},
+?                    -----------------------------
+
++ [{'format': 'jpeg', 'quality': 0.6, 'scale': 1},
+-  {'format': 'jpeg', 'geometry': 'image_size_v1', 'quality': 0.6, 'scale': 2},
+?                    -----------------------------
+
++  {'format': 'jpeg', 'quality': 0.6, 'scale': 2},
+-  {'format': 'png', 'geometry': 'image_size_v1', 'scale': 1}]
++  {'format': 'png', 'scale': 1}]
+
+======================================================================
+FAIL: test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps=[])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 88, in test_capability_must_be_exact_list_member_before_launch_or_capture
+    self.assertEqual([("device_info", None)], client.calls)
+AssertionError: Lists differ: [('device_info', None)] != [('device_info', None), ('launch_app', {'bundle_id': 'jp.co.spi[222 chars]one)]
+
+Second list contains 5 additional elements.
+First extra element 1:
+('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'})
+
+- [('device_info', None)]
+?                       ^
+
++ [('device_info', None),
+?                       ^
+
++  ('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 1}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 2}),
++  ('screenshot', {'format': 'png', 'scale': 1}),
++  ('device_info', None)]
+
+======================================================================
+FAIL: test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps=['screenshot_image_geometry_v10'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 88, in test_capability_must_be_exact_list_member_before_launch_or_capture
+    self.assertEqual([("device_info", None)], client.calls)
+AssertionError: Lists differ: [('device_info', None)] != [('device_info', None), ('launch_app', {'bundle_id': 'jp.co.spi[222 chars]one)]
+
+Second list contains 5 additional elements.
+First extra element 1:
+('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'})
+
+- [('device_info', None)]
+?                       ^
+
++ [('device_info', None),
+?                       ^
+
++  ('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 1}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 2}),
++  ('screenshot', {'format': 'png', 'scale': 1}),
++  ('device_info', None)]
+
+======================================================================
+FAIL: test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps='screenshot_image_geometry_v1')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 88, in test_capability_must_be_exact_list_member_before_launch_or_capture
+    self.assertEqual([("device_info", None)], client.calls)
+AssertionError: Lists differ: [('device_info', None)] != [('device_info', None), ('launch_app', {'bundle_id': 'jp.co.spi[222 chars]one)]
+
+Second list contains 5 additional elements.
+First extra element 1:
+('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'})
+
+- [('device_info', None)]
+?                       ^
+
++ [('device_info', None),
+?                       ^
+
++  ('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 1}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 2}),
++  ('screenshot', {'format': 'png', 'scale': 1}),
++  ('device_info', None)]
+
+======================================================================
+FAIL: test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps={'screenshot_image_geometry_v1': True})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 88, in test_capability_must_be_exact_list_member_before_launch_or_capture
+    self.assertEqual([("device_info", None)], client.calls)
+AssertionError: Lists differ: [('device_info', None)] != [('device_info', None), ('launch_app', {'bundle_id': 'jp.co.spi[222 chars]one)]
+
+Second list contains 5 additional elements.
+First extra element 1:
+('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'})
+
+- [('device_info', None)]
+?                       ^
+
++ [('device_info', None),
+?                       ^
+
++  ('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 1}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 2}),
++  ('screenshot', {'format': 'png', 'scale': 1}),
++  ('device_info', None)]
+
+======================================================================
+FAIL: test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps=[True])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 88, in test_capability_must_be_exact_list_member_before_launch_or_capture
+    self.assertEqual([("device_info", None)], client.calls)
+AssertionError: Lists differ: [('device_info', None)] != [('device_info', None), ('launch_app', {'bundle_id': 'jp.co.spi[222 chars]one)]
+
+Second list contains 5 additional elements.
+First extra element 1:
+('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'})
+
+- [('device_info', None)]
+?                       ^
+
++ [('device_info', None),
+?                       ^
+
++  ('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 1}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 2}),
++  ('screenshot', {'format': 'png', 'scale': 1}),
++  ('device_info', None)]
+
+======================================================================
+FAIL: test_capability_must_be_exact_list_member_before_launch_or_capture (test_source_geometry.SourceGeometryTests.test_capability_must_be_exact_list_member_before_launch_or_capture) (caps=[['screenshot_image_geometry_v1']])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 88, in test_capability_must_be_exact_list_member_before_launch_or_capture
+    self.assertEqual([("device_info", None)], client.calls)
+AssertionError: Lists differ: [('device_info', None)] != [('device_info', None), ('launch_app', {'bundle_id': 'jp.co.spi[222 chars]one)]
+
+Second list contains 5 additional elements.
+First extra element 1:
+('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'})
+
+- [('device_info', None)]
+?                       ^
+
++ [('device_info', None),
+?                       ^
+
++  ('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 1}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 2}),
++  ('screenshot', {'format': 'png', 'scale': 1}),
++  ('device_info', None)]
+
+======================================================================
+FAIL: test_initial_info_failure_is_fatal_without_implicit_legacy_fallback (test_source_geometry.SourceGeometryTests.test_initial_info_failure_is_fatal_without_implicit_legacy_fallback) (error='connection_error')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 98, in test_initial_info_failure_is_fatal_without_implicit_legacy_fallback
+    self.assertEqual([("device_info", None)], client.calls)
+AssertionError: Lists differ: [('device_info', None)] != [('device_info', None), ('launch_app', {'bundle_id': 'jp.co.spi[222 chars]one)]
+
+Second list contains 5 additional elements.
+First extra element 1:
+('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'})
+
+- [('device_info', None)]
+?                       ^
+
++ [('device_info', None),
+?                       ^
+
++  ('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 1}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 2}),
++  ('screenshot', {'format': 'png', 'scale': 1}),
++  ('device_info', None)]
+
+======================================================================
+FAIL: test_initial_info_failure_is_fatal_without_implicit_legacy_fallback (test_source_geometry.SourceGeometryTests.test_initial_info_failure_is_fatal_without_implicit_legacy_fallback) (error='rpc_deadline')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 98, in test_initial_info_failure_is_fatal_without_implicit_legacy_fallback
+    self.assertEqual([("device_info", None)], client.calls)
+AssertionError: Lists differ: [('device_info', None)] != [('device_info', None), ('launch_app', {'bundle_id': 'jp.co.spi[222 chars]one)]
+
+Second list contains 5 additional elements.
+First extra element 1:
+('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'})
+
+- [('device_info', None)]
+?                       ^
+
++ [('device_info', None),
+?                       ^
+
++  ('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 1}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 2}),
++  ('screenshot', {'format': 'png', 'scale': 1}),
++  ('device_info', None)]
+
+======================================================================
+FAIL: test_initial_info_failure_is_fatal_without_implicit_legacy_fallback (test_source_geometry.SourceGeometryTests.test_initial_info_failure_is_fatal_without_implicit_legacy_fallback) (error='rpc_error')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_source_geometry.py", line 98, in test_initial_info_failure_is_fatal_without_implicit_legacy_fallback
+    self.assertEqual([("device_info", None)], client.calls)
+AssertionError: Lists differ: [('device_info', None)] != [('device_info', None), ('launch_app', {'bundle_id': 'jp.co.spi[222 chars]one)]
+
+Second list contains 5 additional elements.
+First extra element 1:
+('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'})
+
+- [('device_info', None)]
+?                       ^
+
++ [('device_info', None),
+?                       ^
+
++  ('launch_app', {'bundle_id': 'jp.co.spike-chunsoft.necrodancerjp'}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 1}),
++  ('screenshot', {'format': 'jpeg', 'quality': 0.6, 'scale': 2}),
++  ('screenshot', {'format': 'png', 'scale': 1}),
++  ('device_info', None)]
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.969s
+
+FAILED (failures=11, errors=76)

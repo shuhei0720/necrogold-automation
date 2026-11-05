@@ -1,0 +1,15 @@
+test_matching_three_files_apply_and_preserve_other_files (test_apply_patch.ApplyPatchTests.test_matching_three_files_apply_and_preserve_other_files) ... FAIL
+
+======================================================================
+FAIL: test_matching_three_files_apply_and_preserve_other_files (test_apply_patch.ApplyPatchTests.test_matching_three_files_apply_and_preserve_other_files)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/test_apply_patch.py", line 63, in test_matching_three_files_apply_and_preserve_other_files
+    self.assertEqual({name: (self.root / name).read_bytes() for name in PATHS}, self.after)
+AssertionError: {'Loo[50 chars]nlet original = 0\n', 'LoopCtrlUITests/ActionH[114 chars]2\n'} != {'Loo[50 chars]nlet changed = 0\n', 'LoopCtrlUITests/ActionHa[111 chars]2\n'}
+Diff is 868 characters long. Set self.maxDiff to None to see it.
+
+----------------------------------------------------------------------
+Ran 1 test in 0.010s
+
+FAILED (failures=1)
