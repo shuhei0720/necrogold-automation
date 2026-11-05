@@ -9,9 +9,9 @@
 | 追加動画 | 全編を1秒間隔で目視確認。鉄扉の開閉区間を追加で0.2秒間隔で確認 |
 | 要件・計画 | 要件と8項目プランを分離。2周の独立文書レビュー済み（実機合格ではない）。速度基準は提案値 |
 | 以前のAI駆動開発フロー | AI-Driven-DevelopmentのCodex版を確認し、8ステップを適用 |
-| P1の取得・遅延計測ツール | P1.3のtimer_already_in_useを受けP1.4で専用workerによる所有方式へ変更。setitimer旧値への依存を除去。ホスト検証・独立レビューの記録を保存。修正後実機は未確認 |
+| P1の取得・遅延計測ツール | P1.3のtimer_already_in_useを受けP1.4で専用workerによる所有方式へ変更。setitimer旧値への依存を除去。ホスト検証・独立レビューの記録を保存。TEST-004はdevice_info・launch_app応答まで到達。画像取得は0/12、期限切れ。次は同じP1.4でiSH前面比較 |
 | 新しいゲーム操作コード | 未実装 |
-| iPhoneでの実機検証 | TEST-001全3回worker_failed。TEST-002はPython暗号でもdevice_info開始後SIGSYS、取得0/12。TEST-003もtimer_already_in_useで取得0/12。全5実行でlaunch未到達、画像なし。TEST-004未実行 |
+| iPhoneでの実機検証 | TEST-001全3回worker_failed。TEST-002はPython暗号でもdevice_info開始後SIGSYS、取得0/12。TEST-003もtimer_already_in_useで取得0/12。TEST-001〜003の全5実行でlaunch未到達、画像なし。TEST-004の追加1実行は起動応答まで完了、取得0/12、118888.205ms、session_deadline/SIGTERM。再添付は同一ZIPのため重複計上しない |
 | 操作サイト | P1診断版には未実装。CLIで起動要求と画像取得を確認する。旧版サイトを起動する版ではない |
 
 ## P1計測ツールと8工程の対応
@@ -35,7 +35,7 @@
 - [レビュー指摘と修正記録](reviews/p1-review.md)
 - [検証条件・結果・ソースハッシュ](validation/p1-host-tests.json) / [全テストログ](validation/p1-tests.txt)
 
-TEST-002は受領・分析済み。[P1.3修正計画](plans/p1-ish-timer.md)でgetitimer互換性の問題へ対応しました。その後[TEST-003](device-tests/003-ish-timer.md)でもtimer_already_in_useで停止し、[P1.4修正計画](plans/p1-owned-timer.md)へ戻りました。[TEST-004](device-tests/004-owned-timer.md)が次の実機確認です。取得が成立し、入力先と変換を検証した後、[実ゲームの最小E2E](device-tests/game-e2e.md)（ポーズ取得→直接続行→プレイ画面確認）へ進めます。画像の新鮮さと座標変換、端末側の入力取消は、今回の計測だけでは確認できません。
+TEST-002は受領・分析済み。[P1.3修正計画](plans/p1-ish-timer.md)でgetitimer互換性の問題へ対応しました。その後[TEST-003](device-tests/003-ish-timer.md)でもtimer_already_in_useで停止し、[P1.4修正計画](plans/p1-owned-timer.md)へ戻りました。[TEST-004](device-tests/004-owned-timer.md)は実施済みです。ゲーム表示はユーザー報告あり、画像取得0/12で未合格。次は[TEST-005](device-tests/005-ish-foreground.md)でiSH前面時を比較します。取得が成立し、入力先と変換を検証した後、[実ゲームの最小E2E](device-tests/game-e2e.md)（ポーズ取得→直接続行→プレイ画面確認）へ進めます。画像の新鮮さと座標変換、端末側の入力取消は、今回の計測だけでは確認できません。
 
 P1.3の8工程は、①修正プラン、②③独立プラン/網羅/安全レビュー、④⑤失敗を先に観測した実装・回帰試験、⑥独立実装レビューを記録。⑦は提出・実機確認待ち、⑧の人間レビュー後のリファクタリングは未実施。全自動化の完了宣言ではありません。[今回の記録](reviews/p1-ish-timer.md)を参照。
 
@@ -62,4 +62,9 @@ P1.3の8工程は、①修正プラン、②③独立プラン/網羅/安全レ�
 
 ## P1.4の進捗
 
-①[8項目の修正計画](plans/p1-owned-timer.md)、②③設計/異常系/安全の独立レビュー、④⑤旧値を読むと失敗するRed→所有方式の実装→ホスト回帰、⑥[実装レビュー](reviews/p1-owned-timer.md)を記録。⑦は修正とTEST-004を提示する段階。⑧の人間レビュー後のリファクタリングは未実施。機能追加としてのゲーム内タップやサイトは含まない。[実測した検証範囲](validation/p1-owned-timer-host-tests.json)を参照。
+①[8項目の修正計画](plans/p1-owned-timer.md)、②③設計/異常系/安全の独立レビュー、④⑤旧値を読むと失敗するRed→所有方式の実装→ホスト回帰、⑥[実装レビュー](reviews/p1-owned-timer.md)を記録。⑦でTEST-004の結果を受領。起動応答まで到達したが画像0枚のため原因切り分けを継続する。⑧の人間レビュー後のリファクタリングは未実施。機能追加としてのゲーム内タップやサイトは含まない。[実測した検証範囲](validation/p1-owned-timer-host-tests.json)を参照。
+
+
+## 2026-11-05 引き継ぎ
+
+最新の正本は[実機台帳](device-tests/README.md)と[TEST-004派生JSON](device-tests/test-004-results.json)。次は[TEST-005](device-tests/005-ish-foreground.md)。P1.4のコードは変更していない。旧版のバックグラウンド維持処理との差は確認したが、原因は未確定。iSHの前面状態と取得対象画面が一緒に変わる比較なので、結果だけで休止が原因とは断定しない。自動周回やゲーム再開は引き続き未実装・未合格。

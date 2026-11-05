@@ -1,0 +1,104 @@
+{
+  "test_id": "TEST-004",
+  "source_archives": [
+    "test-004.zip",
+    "test-004(1).zip"
+  ],
+  "source_archive_sha256": "20b93e3596c7a8373dcb99cfba3a6833b219b2fc0043b0791e25e7f7676ef6f8",
+  "duplicate_upload": true,
+  "distinct_runs": 1,
+  "report_path": "test-004/probe-20261105T075826Z-b1a21218/report.json",
+  "report_sha256": "5563525d9685165e76501aa46b14f0a4db989ba964283da981c9666e8e4e5794",
+  "run": "probe-20261105T075826Z-b1a21218",
+  "start_time_jst": "2026-11-05T16:58:26+09:00",
+  "start_time_source": "report directory name; device clock accuracy unverified",
+  "version": "P1.4",
+  "source_code_reference": "f8b8f100d778d81b72fea2b71c5350896576273d",
+  "source_code_reference_note": "P1.4 repository reference; device source hashes not received",
+  "crypto_engine": "python",
+  "worker": {
+    "stage": "capture_collection",
+    "process": {
+      "returncode": -15,
+      "signal_number": 15,
+      "signal_name": "SIGTERM"
+    },
+    "report_read_ok": true
+  },
+  "stop_reason": "session_deadline",
+  "events": [
+    {
+      "method": "device_info",
+      "start_ns": 57990192970000,
+      "status": "complete",
+      "timings": {
+        "request_start_ns": 57990385004000,
+        "crypto_engine": "python",
+        "http_start_ns": 57990390889000,
+        "http_end_ns": 57990661234000,
+        "decrypt_start_ns": 57990679443000,
+        "decrypt_end_ns": 57990711839000,
+        "response_end_ns": 57990732046000,
+        "request_bytes": 255,
+        "encrypted_response_bytes": 2379
+      },
+      "observation": {
+        "foreground": "unknown",
+        "screen_locked": false,
+        "advertised_known_capabilities": [
+          "run_steps",
+          "wait_for"
+        ],
+        "execution_deadline_verified": false,
+        "foreground_generation_verified": false,
+        "input_cancel_verified": false
+      },
+      "end_ns": 57990732747000
+    },
+    {
+      "method": "launch_app",
+      "start_ns": 57990921754000,
+      "status": "complete",
+      "timings": {
+        "request_start_ns": 57991114943000,
+        "crypto_engine": "python",
+        "http_start_ns": 57991120422000,
+        "http_end_ns": 57992718784000,
+        "decrypt_start_ns": 57992727696000,
+        "decrypt_end_ns": 57992746057000,
+        "response_end_ns": 57992761407000,
+        "request_bytes": 319,
+        "encrypted_response_bytes": 455
+      },
+      "launch_acknowledged": true,
+      "game_visible_verified": false,
+      "end_ns": 57992763336000
+    }
+  ],
+  "counts": {
+    "planned": 12,
+    "started": 1,
+    "complete": 0,
+    "errors": 0,
+    "interrupted": 1,
+    "not_started": 11
+  },
+  "elapsed_ms": 118888.205,
+  "image_files": 0,
+  "device_observation": {
+    "game_opened": "user reported in previous conversation",
+    "game_visible_verified_by_report": false
+  },
+  "timer_error_in_report": false,
+  "timer_diagnostics_present": false,
+  "requested_seconds": {
+    "value": 45,
+    "source": "TEST-004 instructions; raw report does not record invocation"
+  },
+  "root_cause_status": "unconfirmed",
+  "hypothesis": "iSH background suspension or foreground-dependent capture; screenshot request/decrypt/decode/save stage cannot be isolated from this checkpoint",
+  "device_gate": "not_passed",
+  "game_e2e": "not_run",
+  "next_test": "TEST-005: same P1.4, iSH remains foreground, no --launch-game",
+  "source_handling": "Only derived observations and hashes saved to GitHub. Raw archives and report remain chat evidence."
+}
