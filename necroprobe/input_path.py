@@ -1,4 +1,4 @@
-"""TEST-011: 続行対象の候補参照を一度照会する。ゲーム内入力APIは許可しない。"""
+"""TEST-011/012: 続行対象の候補参照を一度照会する。ゲーム内入力APIは許可しない。"""
 import argparse
 from datetime import datetime, timezone
 import json
@@ -17,11 +17,14 @@ from .capture import inspect_payload, validate_source_geometry
 from .crypto import Crypto
 from .deadlines import OwnedRpcTimer
 from .protocol import Client, GAME, HttpTransport, load_pairing
+from .rpc_diagnostics import (CATEGORIES, CATEGORY_CODES, DIAGNOSTIC_REVISION, FIXED_FIND_PARAMS,
+                              RemoteRpcError, valid_rpc_code)
 from .session import atomic_write, safe_info
 from .validation import MAX_IMAGE, ProbeError, json_object
 
 CAPABILITY = "screenshot_image_geometry_v1"
-FIND_PARAMS = {"bundle_id": GAME, "element_id": "ゲームを続行", "match": "exact"}
+FIND_PARAMS = dict(FIXED_FIND_PARAMS)
+TEST_IDS = ("TEST-011", "TEST-012")
 CAPTURE_PARAMS = {"format": "jpeg", "quality": .6, "scale": 1, "geometry": "image_size_v1"}
 MAX_REPORT = 65536
 SESSION_SECONDS = 50
@@ -30,6 +33,9 @@ STEPS = ("initial_info", "launch", "pre_info", "before_capture", "before_info", 
          "find", "after_info", "after_capture", "final_info", "after_save")
 STAGES = ("spawn_requested", "pairing_load", "crypto_initialize", "timer_initialize") + STEPS + ("complete",)
 INFO_STEPS = ("initial_info", "pre_info", "before_info", "after_info", "final_info")
+RPC_STEPS = tuple(stage for stage in STEPS if not stage.endswith("_save"))
+RPC_STOP_REASONS = frozenset(("rpc_error", "user_interrupt", "session_deadline", "worker_failed",
+                             "worker_cleanup_failed", "output_write_failed", "timer_cleanup_failed"))
 TYPES = frozenset(("Any", "Application", "Window", "Button", "StaticText", "TextField", "SecureTextField",
                    "TextView", "SearchField", "Image", "Icon", "Cell", "Table", "CollectionView", "ScrollView",
                    "Switch", "Slider", "Link", "NavigationBar", "TabBar", "Toolbar", "Alert", "Sheet", "Keyboard",
@@ -225,8 +231,11 @@ def candidate_evidence(report):
         for image in report["images"].values())
 
 
-def new_report(start_ns):
-    return {"version": VERSION, "kind": "input_path_probe", "test_id": "TEST-011",
+def new_report(start_ns, test_id="TEST-011"):
+    if test_id not in TEST_IDS:
+        raise ValueError("invalid_test_id")
+    return {"version": VERSION, "kind": "input_path_probe", "test_id": test_id,
+            "diagnostic_revision": DIAGNOSTIC_REVISION, "rpc_error_detail": None,
             "device_acceptance": "not_tested", "input_authorized": False, "input_geometry_verified": False,
             "device_input_cancel_verified": False, "start_ns": start_ns, "end_ns": None,
             "status": "running", "stage": "spawn_requested", "stop_reason": None,
@@ -248,7 +257,7 @@ def write_parent_result(folder, report):
     atomic_write(Path(folder) / "parent-result.json", json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False).encode())
 
 
-def stop(report, reason):
+def stop(report, reason, end_ns=None):
     # 外部例外の文字列をそのままreportへ入れない。
     if reason not in ERRORS and not (isinstance(reason, str) and re.fullmatch(r"http_status_[1-5][0-9]{2}", reason)):
         reason = "internal_error"
@@ -256,6 +265,7 @@ def stop(report, reason):
     for event in report["events"]:
         if event["status"] == "in_progress":
             event["status"] = "error"
+            event["end_ns"] = time.monotonic_ns() if end_ns is None else end_ns
 
 
 def collect(client, report, folder, stop_ns, clock=time.monotonic_ns):
@@ -276,7 +286,14 @@ def collect(client, report, folder, stop_ns, clock=time.monotonic_ns):
         remaining = (stop_ns - clock()) / 1e9
         if remaining < .001:
             raise ProbeError("session_deadline")
-        result = client.call(method, params, timeout=min(client.timeout, remaining)).result
+        try:
+            result = client.call(method, params, timeout=min(client.timeout, remaining)).result
+        except RemoteRpcError as exc:
+            # startはcheckpoint書込みより前。これはホスト段階の区間で、純RPC時間ではない。
+            event.update(status="error", end_ns=clock())
+            report["rpc_error_detail"] = {"stage": stage, "rpc_code": exc.rpc_code,
+                                          "category": exc.category, "error_shape_valid": exc.error_shape_valid}
+            raise
         if not isinstance(result, dict):
             raise ProbeError("rpc_result_type")
         if method == "device_info":
@@ -323,13 +340,13 @@ def collect(client, report, folder, stop_ns, clock=time.monotonic_ns):
             report["candidate_reference"] = "candidate_reference_observed"
         write_report(folder, report)
     except ProbeError as exc:
-        stop(report, exc.code)
+        stop(report, exc.code, clock())
     except KeyboardInterrupt:
-        stop(report, "user_interrupt")
+        stop(report, "user_interrupt", clock())
     except OSError:
-        stop(report, "output_write_failed")
+        stop(report, "output_write_failed", clock())
     except Exception:
-        stop(report, "internal_error")
+        stop(report, "internal_error", clock())
     if report["status"] == "stopped":
         report["end_ns"] = clock()
         try:
@@ -413,15 +430,42 @@ def validate_image(image, name):
     validate_source_geometry(payload, dict(image), CAPTURE_PARAMS)
 
 
-def validate_report(report):
+def validate_rpc_detail(report):
+    detail = report["rpc_error_detail"]
+    if detail is None:
+        return
+    keys(detail, ("stage", "rpc_code", "category", "error_shape_valid"))
+    code, category, valid = detail["rpc_code"], detail["category"], detail["error_shape_valid"]
+    require(code is None or valid_rpc_code(code))
+    require(type(category) is str and category in CATEGORIES)
+    require(type(valid) is bool and valid == (category != "malformed_remote_error"))
+    require(not valid or code is not None)
+    require(detail["stage"] in RPC_STEPS and detail["stage"] == report["stage"])
+    if category in CATEGORY_CODES:
+        require(detail["stage"] == "find" and code == CATEGORY_CODES[category])
+    require(report["status"] == "stopped" and report["candidate_reference"] == "unconfirmed")
+    require(report["stop_reason"] in RPC_STOP_REASONS and report["end_ns"] is not None)
+    errors = [event for event in report["events"] if event["status"] == "error"]
+    require(len(errors) == 1 and errors[0]["stage"] == detail["stage"])
+    event = errors[0]
+    require(event["end_ns"] is not None and event["start_ns"] <= event["end_ns"] <= report["end_ns"])
+
+
+def validate_report(report, *, expected_test_id=None, expected_start_ns=None,
+                    expected_revision=DIAGNOSTIC_REVISION):
     template = new_report(0)
     keys(report, template)
-    for key in ("version", "kind", "test_id", "device_acceptance"):
+    for key in ("version", "kind", "diagnostic_revision", "device_acceptance"):
         require(report[key] == template[key])
+    require(report["test_id"] in TEST_IDS)
+    require(expected_test_id is None or report["test_id"] == expected_test_id)
+    require(expected_start_ns is None or report["start_ns"] == expected_start_ns)
+    require(report["diagnostic_revision"] == expected_revision)
     for key in ("input_authorized", "input_geometry_verified", "device_input_cancel_verified"):
         require(report[key] is False)
     ns(report["start_ns"])
     ns(report["end_ns"], True)
+    require(report["end_ns"] is None or report["start_ns"] <= report["end_ns"])
     require(report["status"] in ("running", "stopped", "completed"))
     require(report["stage"] in STAGES)
     reason = report["stop_reason"]
@@ -438,6 +482,7 @@ def validate_report(report):
     events = report["events"]
     require(type(events) is list and len(events) == len(STEPS))
     unfinished = False
+    previous_end = report["start_ns"]
     for index, event in enumerate(events):
         keys(event, ("stage", "status", "start_ns", "end_ns", "observation"))
         require(event["stage"] == STEPS[index])
@@ -452,8 +497,18 @@ def validate_report(report):
             require(event["start_ns"] is None and event["end_ns"] is None and event["observation"] is None)
         else:
             require(event["start_ns"] is not None)
-        if event["status"] == "complete":
+            require(previous_end <= event["start_ns"])
+            if report["end_ns"] is not None:
+                require(event["start_ns"] <= report["end_ns"])
+        if event["status"] in ("complete", "error"):
             require(event["end_ns"] is not None)
+        if event["status"] == "in_progress":
+            require(event["end_ns"] is None)
+        if event["end_ns"] is not None:
+            require(event["start_ns"] <= event["end_ns"])
+            if report["end_ns"] is not None:
+                require(event["end_ns"] <= report["end_ns"])
+            previous_end = event["end_ns"]
         if event["observation"] is not None:
             require(event["stage"] in INFO_STEPS)
             validate_info(event["observation"])
@@ -468,6 +523,7 @@ def validate_report(report):
         require(all(report["images"].values()) and report["ax"] is not None)
     if report["candidate_reference"] == "candidate_reference_observed":
         require(report["status"] == "completed" and candidate_evidence(report))
+    validate_rpc_detail(report)
     worker = report["worker"]
     keys(worker, template["worker"])
     for key, low, high in (("returncode", -255, 255), ("signal_number", 1, 255), ("spawn_errno", 0, 4096)):
@@ -487,33 +543,40 @@ def validate_report(report):
         require(timer["cleanup_error"] in (None, "timer_cleanup_failed"))
 
 
-def read_checkpoint(path):
+def read_checkpoint(path, *, expected_test_id=None, expected_start_ns=None,
+                    expected_revision=DIAGNOSTIC_REVISION):
     """capture用schemaは使わず、未知キー・文字列・偽boolを階層ごとに拒否する。"""
     try:
         with Path(path).open("rb") as stream:
             raw = stream.read(MAX_REPORT + 1)
         report = json_object(raw, MAX_REPORT)
-        validate_report(report)
+        validate_report(report, expected_test_id=expected_test_id, expected_start_ns=expected_start_ns,
+                        expected_revision=expected_revision)
         return report
     except (OSError, ValueError, TypeError, KeyError, RecursionError, ProbeError):
         raise ValueError("report_read_failed") from None
 
 
 def parser():
-    ap = argparse.ArgumentParser(description="TEST-011: 続行対象の参照を1回照会。ゲーム内入力は0回。")
+    ap = argparse.ArgumentParser(description="TEST-011/012: 続行対象の参照を1回照会。ゲーム内入力は0回。")
     ap.add_argument("--output", default="runtime/test-011")
+    ap.add_argument("--test-id", choices=TEST_IDS, default="TEST-011")
     ap.add_argument("--token-store", default=str(Path.home() / ".loopctrl/token.json"))
     ap.add_argument("--store-key", default=None)
     ap.add_argument("--python-crypto", action="store_true")
     ap.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--stop-ns", type=int, default=0, help=argparse.SUPPRESS)
+    ap.add_argument("--start-ns", type=int, default=None, help=argparse.SUPPRESS)
     return ap
 
 
 def worker(args):
     folder = Path(args.output)
     try:
-        report = read_checkpoint(folder / "report.json")
+        ns(args.start_ns)
+        report = read_checkpoint(folder / "report.json", expected_test_id=args.test_id,
+                                 expected_start_ns=args.start_ns, expected_revision=DIAGNOSTIC_REVISION)
+        require(report["status"] == "running" and report["stage"] == "spawn_requested")
     except ValueError:
         return WORKER_REPORT_READ_EXIT
     timer = None
@@ -560,21 +623,23 @@ def run(args):
     folder = base / ("input-path-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8])
     folder.mkdir(mode=0o700)
     start = time.monotonic_ns()
-    report = new_report(start)
+    report = new_report(start, args.test_id)
     write_report(folder, report)
     command = [sys.executable, "-m", "necroprobe.input_path", "--worker", "--output", str(folder),
+               "--test-id", args.test_id, "--start-ns", str(start),
                "--token-store", args.token_store, "--stop-ns", str(start + SESSION_SECONDS * 1_000_000_000)]
     if args.store_key is not None:
         command.extend(["--store-key", args.store_key])
     if args.python_crypto:
         command.append("--python-crypto")
     diagnostics = {}
-    print("TEST-011: ゲームを1回開き、続行対象を照会します。ゲーム内入力0回。", flush=True)
+    print(args.test_id + ": ゲームを1回開き、続行対象を照会します。ゲーム内入力0回。", flush=True)
     reason = supervise(command, max(.001, SESSION_SECONDS - (time.monotonic_ns() - start) / 1e9), diagnostics)
     if reason == "worker_failed" and diagnostics.get("returncode") == WORKER_REPORT_READ_EXIT:
         reason = "worker_report_read_failed"
     try:
-        report = read_checkpoint(folder / "report.json")
+        report = read_checkpoint(folder / "report.json", expected_test_id=args.test_id,
+                                 expected_start_ns=start, expected_revision=DIAGNOSTIC_REVISION)
         report["worker"]["report_read_ok"] = True
     except ValueError:
         reason = reason or "report_read_failed"
@@ -594,6 +659,10 @@ def run(args):
         write_report(folder, report)
     print("続行対象の候補参照を確認" if report["candidate_reference"] == "candidate_reference_observed" else "候補参照は未確認", flush=True)
     print("ゲーム内入力0回 / 終了理由: " + (report["stop_reason"] or "completed"), flush=True)
+    if report["rpc_error_detail"] is not None:
+        detail = report["rpc_error_detail"]
+        print("先行RPCエラーの観測: stage=%s / code=%s / category=%s / shape_valid=%s" %
+              (detail["stage"], detail["rpc_code"], detail["category"], detail["error_shape_valid"]), flush=True)
     print("保存先: " + str(folder), flush=True)
     print("子終了コード: %s / シグナル: %s" % (report["worker"]["returncode"], report["worker"]["signal_name"]), flush=True)
     if report["worker"]["exit_confirmed"] is False:
@@ -618,13 +687,13 @@ def main(argv=None):
     try:
         return run(args)
     except ProbeError as exc:
-        print("TEST-011停止: " + (exc.code if exc.code in ERRORS else "internal_error"), file=sys.stderr)
+        print(args.test_id + "停止: " + (exc.code if exc.code in ERRORS else "internal_error"), file=sys.stderr)
         return 2
     except OSError:
-        print("TEST-011: 結果を保存できませんでした。", file=sys.stderr)
+        print(args.test_id + ": 結果を保存できませんでした。", file=sys.stderr)
         return 2
     except KeyboardInterrupt:
-        print("TEST-011: 中断しました。", file=sys.stderr)
+        print(args.test_id + ": 中断しました。", file=sys.stderr)
         return 130
     finally:
         for signum, handler in previous.items():

@@ -11,6 +11,7 @@ import time
 
 from .crypto import Crypto, mac
 from .deadlines import OwnedRpcTimer
+from .rpc_diagnostics import remote_error
 from .validation import MAX_HTTP, MAX_PLAIN, ProbeError, b64, json_object, number
 
 GAME = "jp.co.spike-chunsoft.necrodancerjp"
@@ -174,7 +175,7 @@ class Client:
             if response.get("jsonrpc") != "2.0" or type(response.get("id")) is not int or response["id"] != rpc_id:
                 raise ProbeError("response_id_mismatch")
             if "error" in response:
-                raise ProbeError("rpc_error")
+                raise remote_error(response, method, params) from None
             if not isinstance(response.get("result"), dict):
                 raise ProbeError("rpc_result_type")
             times["response_end_ns"] = time.monotonic_ns()
