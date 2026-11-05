@@ -1,0 +1,548 @@
+{
+  "test_id": "TEST-007",
+  "source_archive": "test-007.zip",
+  "source_archive_sha256": "79297c86bdf1ede7fdea5bd53d2b4e648913780dd38036134579de8fc23482a2",
+  "report_path": "test-007/probe-20261105T094605Z-1d2b2565/report.json",
+  "report_sha256": "38bba5859e41c15fc0cdfbdbcc4c39be90d958662c417999c9eb225a63c0a721",
+  "run": "probe-20261105T094605Z-1d2b2565",
+  "start_time_jst": "2026-11-05T18:46:05+09:00",
+  "start_time_source": "directory timestamp; device clock accuracy unverified",
+  "version": "P1.4",
+  "crypto_engine": "native_i386",
+  "code_reference": "f8b8f100d778d81b72fea2b71c5350896576273d",
+  "code_identity_note": "P1.4 version visible in terminal; device source hashes not received",
+  "command_evidence": {
+    "source": "IMG_8529.png",
+    "sha256": "3968f4519eee1a15a2786e7fcdaeea09512fcf1fc7565a9a3aca0eb4d3362887",
+    "samples": 12,
+    "seconds": 45,
+    "python_crypto": false,
+    "launch_game": true,
+    "output": "runtime/test-007",
+    "location_reader_started": true,
+    "location_reader_alive_before_exit_trap": true,
+    "location_reader_stopped_verified": false,
+    "app_switch_timeline": "not supplied",
+    "location_permission_prompt_or_choice": "not supplied"
+  },
+  "status": "completed",
+  "worker": {
+    "stage": "capture_collection",
+    "process": {
+      "returncode": 0,
+      "signal_number": null,
+      "signal_name": null
+    },
+    "report_read_ok": true
+  },
+  "counts": {
+    "planned": 12,
+    "started": 12,
+    "complete": 12,
+    "errors": 0,
+    "interrupted": 0,
+    "not_started": 0
+  },
+  "elapsed_ms": 26274.969,
+  "startup_before_first_device_info_ms": 8443.64,
+  "events": [
+    {
+      "method": "device_info",
+      "start_ns": 64449181335000,
+      "status": "complete",
+      "timings": {
+        "request_start_ns": 64449366381000,
+        "crypto_engine": "native_i386",
+        "http_start_ns": 64449371689000,
+        "http_end_ns": 64449678077000,
+        "decrypt_start_ns": 64449695726000,
+        "decrypt_end_ns": 64449702304000,
+        "response_end_ns": 64449728555000,
+        "request_bytes": 255,
+        "encrypted_response_bytes": 2376
+      },
+      "observation": {
+        "foreground": "unknown",
+        "screen_locked": false,
+        "advertised_known_capabilities": [
+          "run_steps",
+          "wait_for"
+        ],
+        "execution_deadline_verified": false,
+        "foreground_generation_verified": false,
+        "input_cancel_verified": false
+      },
+      "end_ns": 64449729401000
+    },
+    {
+      "method": "launch_app",
+      "start_ns": 64449933256000,
+      "status": "complete",
+      "timings": {
+        "request_start_ns": 64450140692000,
+        "crypto_engine": "native_i386",
+        "http_start_ns": 64450145972000,
+        "http_end_ns": 64451643758000,
+        "decrypt_start_ns": 64451649735000,
+        "decrypt_end_ns": 64451653311000,
+        "response_end_ns": 64451660492000,
+        "request_bytes": 319,
+        "encrypted_response_bytes": 455
+      },
+      "launch_acknowledged": true,
+      "game_visible_verified": false,
+      "end_ns": 64451661785000
+    },
+    {
+      "method": "device_info",
+      "start_ns": 64465537338000,
+      "status": "complete",
+      "timings": {
+        "request_start_ns": 64465779187000,
+        "crypto_engine": "native_i386",
+        "http_start_ns": 64465784452000,
+        "http_end_ns": 64465860141000,
+        "decrypt_start_ns": 64465866169000,
+        "decrypt_end_ns": 64465870729000,
+        "response_end_ns": 64465891014000,
+        "request_bytes": 255,
+        "encrypted_response_bytes": 2431
+      },
+      "observation": {
+        "foreground": "game",
+        "screen_locked": false,
+        "advertised_known_capabilities": [
+          "run_steps",
+          "wait_for"
+        ],
+        "execution_deadline_verified": false,
+        "foreground_generation_verified": false,
+        "input_cancel_verified": false
+      },
+      "end_ns": 64465891637000
+    }
+  ],
+  "groups": {
+    "jpeg_scale1": {
+      "planned": 4,
+      "counts": {
+        "complete": 4
+      },
+      "image_counts": {
+        "decoded_nonblank": 4
+      },
+      "saved": 1,
+      "success_only_timings": {
+        "request_prepare": {
+          "n": 4,
+          "median_ms": 4.888,
+          "p95_ms": 11.87
+        },
+        "http_roundtrip": {
+          "n": 4,
+          "median_ms": 164.801,
+          "p95_ms": 170.908
+        },
+        "envelope_auth": {
+          "n": 4,
+          "median_ms": 39.372,
+          "p95_ms": 41.051
+        },
+        "decrypt": {
+          "n": 4,
+          "median_ms": 40.272,
+          "p95_ms": 42.458
+        },
+        "response_json": {
+          "n": 4,
+          "median_ms": 17.422,
+          "p95_ms": 18.034
+        },
+        "image_base64": {
+          "n": 4,
+          "median_ms": 9.439,
+          "p95_ms": 10.35
+        },
+        "image_decode": {
+          "n": 4,
+          "median_ms": 89.088,
+          "p95_ms": 381.188
+        },
+        "image_inspect": {
+          "n": 4,
+          "median_ms": 40.834,
+          "p95_ms": 44.371
+        },
+        "capture_to_inspected": {
+          "n": 4,
+          "median_ms": 409.465,
+          "p95_ms": 677.383
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 193.0,
+          "p95_ms": 193.0
+        },
+        "trial_total": {
+          "n": 4,
+          "median_ms": 772.093,
+          "p95_ms": 1115.105
+        }
+      }
+    },
+    "jpeg_scale2": {
+      "planned": 4,
+      "counts": {
+        "complete": 4
+      },
+      "image_counts": {
+        "decoded_nonblank": 4
+      },
+      "saved": 1,
+      "success_only_timings": {
+        "request_prepare": {
+          "n": 4,
+          "median_ms": 5.257,
+          "p95_ms": 5.589
+        },
+        "http_roundtrip": {
+          "n": 4,
+          "median_ms": 192.569,
+          "p95_ms": 205.039
+        },
+        "envelope_auth": {
+          "n": 4,
+          "median_ms": 79.19,
+          "p95_ms": 81.09
+        },
+        "decrypt": {
+          "n": 4,
+          "median_ms": 98.666,
+          "p95_ms": 106.036
+        },
+        "response_json": {
+          "n": 4,
+          "median_ms": 30.724,
+          "p95_ms": 32.504
+        },
+        "image_base64": {
+          "n": 4,
+          "median_ms": 25.645,
+          "p95_ms": 26.547
+        },
+        "image_decode": {
+          "n": 4,
+          "median_ms": 264.895,
+          "p95_ms": 276.239
+        },
+        "image_inspect": {
+          "n": 4,
+          "median_ms": 142.294,
+          "p95_ms": 145.35
+        },
+        "capture_to_inspected": {
+          "n": 4,
+          "median_ms": 840.267,
+          "p95_ms": 849.256
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 189.751,
+          "p95_ms": 189.751
+        },
+        "trial_total": {
+          "n": 4,
+          "median_ms": 1097.879,
+          "p95_ms": 1197.778
+        }
+      }
+    },
+    "png_scale1": {
+      "planned": 4,
+      "counts": {
+        "complete": 4
+      },
+      "image_counts": {
+        "decoded_nonblank": 4
+      },
+      "saved": 1,
+      "success_only_timings": {
+        "request_prepare": {
+          "n": 4,
+          "median_ms": 5.869,
+          "p95_ms": 6.088
+        },
+        "http_roundtrip": {
+          "n": 4,
+          "median_ms": 176.411,
+          "p95_ms": 196.764
+        },
+        "envelope_auth": {
+          "n": 4,
+          "median_ms": 54.535,
+          "p95_ms": 56.566
+        },
+        "decrypt": {
+          "n": 4,
+          "median_ms": 56.331,
+          "p95_ms": 57.575
+        },
+        "response_json": {
+          "n": 4,
+          "median_ms": 18.844,
+          "p95_ms": 19.01
+        },
+        "image_base64": {
+          "n": 4,
+          "median_ms": 14.268,
+          "p95_ms": 14.642
+        },
+        "image_decode": {
+          "n": 4,
+          "median_ms": 76.53,
+          "p95_ms": 76.72
+        },
+        "image_inspect": {
+          "n": 4,
+          "median_ms": 41.9,
+          "p95_ms": 43.853
+        },
+        "capture_to_inspected": {
+          "n": 4,
+          "median_ms": 447.403,
+          "p95_ms": 461.113
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 239.396,
+          "p95_ms": 239.396
+        },
+        "trial_total": {
+          "n": 4,
+          "median_ms": 695.593,
+          "p95_ms": 950.276
+        }
+      }
+    }
+  },
+  "timer": {
+    "backend": "owned_itimer_real",
+    "poisoned": false,
+    "closed": true,
+    "cleanup_error": null
+  },
+  "saved_images": [
+    {
+      "trial": 1,
+      "file": "001-jpeg_scale1-decoded_nonblank.jpg",
+      "sha256": "38268f93a02ecc7951ff543371b58b1bb877b897cbf37a306d07a7a1c65159f5",
+      "pixel_width": 414,
+      "pixel_height": 896,
+      "raw_bytes": 26157,
+      "visual_observation": "game pause menu; portrait dimensions and vertically elongated content"
+    },
+    {
+      "trial": 2,
+      "file": "002-jpeg_scale2-decoded_nonblank.jpg",
+      "sha256": "374c91fd7c63b3a8428e41a7cea07381e75c34c77cfec3cbd5c085ec8ef516a6",
+      "pixel_width": 828,
+      "pixel_height": 1792,
+      "raw_bytes": 69289,
+      "visual_observation": "game pause menu; portrait dimensions and vertically elongated content"
+    },
+    {
+      "trial": 3,
+      "file": "003-png_scale1-decoded_nonblank.png",
+      "sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+      "pixel_width": 414,
+      "pixel_height": 896,
+      "raw_bytes": 39046,
+      "visual_observation": "game pause menu; portrait dimensions and vertically elongated content"
+    }
+  ],
+  "per_variant_sha256": {
+    "jpeg_scale1": [
+      {
+        "trial": 1,
+        "sha256": "38268f93a02ecc7951ff543371b58b1bb877b897cbf37a306d07a7a1c65159f5",
+        "raw_bytes": 26157
+      },
+      {
+        "trial": 4,
+        "sha256": "c59350bd7a50bb37a7863a79e23bcb620dfcaebe0c85ee51801d86e4180617c1",
+        "raw_bytes": 25665
+      },
+      {
+        "trial": 7,
+        "sha256": "c59350bd7a50bb37a7863a79e23bcb620dfcaebe0c85ee51801d86e4180617c1",
+        "raw_bytes": 25665
+      },
+      {
+        "trial": 10,
+        "sha256": "c59350bd7a50bb37a7863a79e23bcb620dfcaebe0c85ee51801d86e4180617c1",
+        "raw_bytes": 25665
+      }
+    ],
+    "jpeg_scale2": [
+      {
+        "trial": 2,
+        "sha256": "374c91fd7c63b3a8428e41a7cea07381e75c34c77cfec3cbd5c085ec8ef516a6",
+        "raw_bytes": 69289
+      },
+      {
+        "trial": 5,
+        "sha256": "374c91fd7c63b3a8428e41a7cea07381e75c34c77cfec3cbd5c085ec8ef516a6",
+        "raw_bytes": 69289
+      },
+      {
+        "trial": 8,
+        "sha256": "374c91fd7c63b3a8428e41a7cea07381e75c34c77cfec3cbd5c085ec8ef516a6",
+        "raw_bytes": 69289
+      },
+      {
+        "trial": 11,
+        "sha256": "374c91fd7c63b3a8428e41a7cea07381e75c34c77cfec3cbd5c085ec8ef516a6",
+        "raw_bytes": 69289
+      }
+    ],
+    "png_scale1": [
+      {
+        "trial": 3,
+        "sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+        "raw_bytes": 39046
+      },
+      {
+        "trial": 6,
+        "sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+        "raw_bytes": 39046
+      },
+      {
+        "trial": 9,
+        "sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+        "raw_bytes": 39046
+      },
+      {
+        "trial": 12,
+        "sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+        "raw_bytes": 39046
+      }
+    ]
+  },
+  "evidence_limits": [
+    "Only 3 saved raw images were visually inspected; all 12 rows report decoded_nonblank.",
+    "Same-variant hashes repeat, including identical PNG across TEST-006 and TEST-007; static pause and stale frames cannot be distinguished by hashes alone.",
+    "same_bytes_as_previous compares adjacent trials of alternating formats; false does not prove freshness.",
+    "Final device_info foreground=game is one checkpoint, not continuous foreground verification.",
+    "Reader alive at start/end does not establish location permission or cessation after the exit trap; app-switch timeline was not supplied.",
+    "All-row timing summaries use 4 trials per variant without warmup exclusion; matched-payload subsets are reported separately.",
+    "Capture-to-inspection is not frame age, gameplay throughput or human-faster acceptance.",
+    "Image content appears vertically elongated, with unchanged raw bytes saved; the origin and input-coordinate mapping remain unverified."
+  ],
+  "gate": {
+    "P1": "not_passed",
+    "capture_freshness": "not_measured",
+    "input_geometry": "not_measured",
+    "device_input_cancel": "not_measured",
+    "reason": "Capture diagnostics alone do not authorize gameplay input."
+  },
+  "device_acceptance": "not_tested",
+  "input_authorized": false,
+  "matched_payload_comparison": {
+    "reference_test": "TEST-006",
+    "reference_report_sha256": "ef87561c72d6ff6099e915ca9857f335953a5bf3682b4d6b8bef83e19abd8074",
+    "selection_rule": "same variant and identical raw image SHA-256 across both runs; retain full per-run summary above",
+    "groups": [
+      {
+        "variant": "jpeg_scale1",
+        "image_sha256": "c59350bd7a50bb37a7863a79e23bcb620dfcaebe0c85ee51801d86e4180617c1",
+        "raw_bytes": 25665,
+        "python_trials": [
+          4,
+          7,
+          10
+        ],
+        "native_trials": [
+          4,
+          7,
+          10
+        ],
+        "metrics": {
+          "decrypt": {
+            "python_median_ms": 373.257,
+            "native_median_ms": 39.81,
+            "python_to_native_duration_ratio": 9.376,
+            "duration_reduction_percent": 89.334
+          },
+          "capture_to_inspected": {
+            "python_median_ms": 743.941,
+            "native_median_ms": 408.364,
+            "python_to_native_duration_ratio": 1.822,
+            "duration_reduction_percent": 45.108
+          }
+        }
+      },
+      {
+        "variant": "jpeg_scale2",
+        "image_sha256": "374c91fd7c63b3a8428e41a7cea07381e75c34c77cfec3cbd5c085ec8ef516a6",
+        "raw_bytes": 69289,
+        "python_trials": [
+          5,
+          8,
+          11
+        ],
+        "native_trials": [
+          2,
+          5,
+          8,
+          11
+        ],
+        "metrics": {
+          "decrypt": {
+            "python_median_ms": 998.175,
+            "native_median_ms": 98.666,
+            "python_to_native_duration_ratio": 10.117,
+            "duration_reduction_percent": 90.115
+          },
+          "capture_to_inspected": {
+            "python_median_ms": 1732.028,
+            "native_median_ms": 840.267,
+            "python_to_native_duration_ratio": 2.061,
+            "duration_reduction_percent": 51.487
+          }
+        }
+      },
+      {
+        "variant": "png_scale1",
+        "image_sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+        "raw_bytes": 39046,
+        "python_trials": [
+          3,
+          6,
+          9,
+          12
+        ],
+        "native_trials": [
+          3,
+          6,
+          9,
+          12
+        ],
+        "metrics": {
+          "decrypt": {
+            "python_median_ms": 555.947,
+            "native_median_ms": 56.331,
+            "python_to_native_duration_ratio": 9.869,
+            "duration_reduction_percent": 89.868
+          },
+          "capture_to_inspected": {
+            "python_median_ms": 934.609,
+            "native_median_ms": 447.403,
+            "python_to_native_duration_ratio": 2.089,
+            "duration_reduction_percent": 52.129
+          }
+        }
+      }
+    ],
+    "limits": "Small independent runs; matching bytes controls image payload but not device load or all timing conditions. Not a guarantee of gameplay speed or frame freshness."
+  }
+}
