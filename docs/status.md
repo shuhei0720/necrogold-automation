@@ -9,9 +9,9 @@
 | 追加動画 | 全編を1秒間隔で目視確認。鉄扉の開閉区間を追加で0.2秒間隔で確認 |
 | 要件・計画 | 要件と8項目プランを分離。2周の独立文書レビュー済み（実機合格ではない）。速度基準は提案値 |
 | 以前のAI駆動開発フロー | AI-Driven-DevelopmentのCodex版を確認し、8ステップを適用 |
-| P1の取得・遅延計測ツール | P1.3のtimer_already_in_useを受けP1.4で専用workerによる所有方式へ変更。setitimer旧値への依存を除去。ホスト検証・独立レビューの記録を保存。TEST-004はdevice_info・launch_app応答まで到達。画像取得は0/12、期限切れ。TEST-005ではiSH前面で11/12取得、約45秒で期限終了。次は同じP1.4に一時的な継続処理を付けるTEST-006 |
+| P1の取得・遅延計測ツール | P1.3のtimer_already_in_useを受けP1.4で専用workerによる所有方式へ変更。setitimer旧値への依存を除去。ホスト検証・独立レビューの記録を保存。TEST-004はdevice_info・launch_app応答まで到達。画像取得は0/12、期限切れ。TEST-005ではiSH前面で11/12取得、約45秒で期限終了。TEST-006は継続処理付きで12/12取得、約32.9秒で正常終了。保存3枚はゲームのポーズ。次は既存ネイティブ復号を比較するTEST-007 |
 | 新しいゲーム操作コード | 未実装 |
-| iPhoneでの実機検証 | TEST-001全3回worker_failed。TEST-002はPython暗号でもdevice_info開始後SIGSYS、取得0/12。TEST-003もtimer_already_in_useで取得0/12。TEST-001〜003の全5実行でlaunch未到達、画像なし。TEST-004の追加1実行は起動応答まで完了、取得0/12、118888.205ms、session_deadline/SIGTERM。再添付は同一ZIPのため重複計上しない。TEST-005は11/12非黒取得、45115.262ms、保存3枚は今回のiSH表示 |
+| iPhoneでの実機検証 | TEST-001全3回worker_failed。TEST-002はPython暗号でもdevice_info開始後SIGSYS、取得0/12。TEST-003もtimer_already_in_useで取得0/12。TEST-001〜003の全5実行でlaunch未到達、画像なし。TEST-004の追加1実行は起動応答まで完了、取得0/12、118888.205ms、session_deadline/SIGTERM。再添付は同一ZIPのため重複計上しない。TEST-005は11/12非黒取得、45115.262ms、保存3枚は今回のiSH表示。TEST-006は12/12非黒、32908.814ms、正常終了、保存3枚はゲームのポーズ |
 | 操作サイト | P1診断版には未実装。CLIで起動要求と画像取得を確認する。旧版サイトを起動する版ではない |
 
 ## P1計測ツールと8工程の対応
@@ -35,7 +35,7 @@
 - [レビュー指摘と修正記録](reviews/p1-review.md)
 - [検証条件・結果・ソースハッシュ](validation/p1-host-tests.json) / [全テストログ](validation/p1-tests.txt)
 
-TEST-002は受領・分析済み。[P1.3修正計画](plans/p1-ish-timer.md)でgetitimer互換性の問題へ対応しました。その後[TEST-003](device-tests/003-ish-timer.md)でもtimer_already_in_useで停止し、[P1.4修正計画](plans/p1-owned-timer.md)へ戻りました。[TEST-004](device-tests/004-owned-timer.md)は実施済みです。ゲーム表示はユーザー報告あり、画像取得0/12で未合格。[TEST-005](device-tests/005-ish-foreground.md)ではiSH画像を11/12取得し、保存3枚を目視確認しました。次は[TEST-006](device-tests/006-game-keepalive.md)で継続処理付きのゲーム取得を比較します。取得が成立し、入力先と変換を検証した後、[実ゲームの最小E2E](device-tests/game-e2e.md)（ポーズ取得→直接続行→プレイ画面確認）へ進めます。画像の新鮮さと座標変換、端末側の入力取消は、今回の計測だけでは確認できません。
+TEST-002は受領・分析済み。[P1.3修正計画](plans/p1-ish-timer.md)でgetitimer互換性の問題へ対応しました。その後[TEST-003](device-tests/003-ish-timer.md)でもtimer_already_in_useで停止し、[P1.4修正計画](plans/p1-owned-timer.md)へ戻りました。[TEST-004](device-tests/004-owned-timer.md)は実施済みです。ゲーム表示はユーザー報告あり、画像取得0/12で未合格。[TEST-005](device-tests/005-ish-foreground.md)ではiSH画像を11/12取得し、保存3枚を目視確認しました。[TEST-006](device-tests/006-game-keepalive.md)では継続処理付きで12/12取得、保存3枚でゲームのポーズ画面を確認しました。次は[TEST-007](device-tests/007-native-crypto.md)で同条件の既存ネイティブ復号を比較します。取得が成立し、入力先と変換を検証した後、[実ゲームの最小E2E](device-tests/game-e2e.md)（ポーズ取得→直接続行→プレイ画面確認）へ進めます。画像の新鮮さと座標変換、端末側の入力取消は、今回の計測だけでは確認できません。
 
 P1.3の8工程は、①修正プラン、②③独立プラン/網羅/安全レビュー、④⑤失敗を先に観測した実装・回帰試験、⑥独立実装レビューを記録。⑦は提出・実機確認待ち、⑧の人間レビュー後のリファクタリングは未実施。全自動化の完了宣言ではありません。[今回の記録](reviews/p1-ish-timer.md)を参照。
 
@@ -62,13 +62,21 @@ P1.3の8工程は、①修正プラン、②③独立プラン/網羅/安全レ�
 
 ## P1.4の進捗
 
-①[8項目の修正計画](plans/p1-owned-timer.md)、②③設計/異常系/安全の独立レビュー、④⑤旧値を読むと失敗するRed→所有方式の実装→ホスト回帰、⑥[実装レビュー](reviews/p1-owned-timer.md)を記録。⑦でTEST-004の結果を受領。起動応答まで到達したが画像0枚のため原因切り分けを継続する。⑧の人間レビュー後のリファクタリングは未実施。機能追加としてのゲーム内タップやサイトは含まない。[実測した検証範囲](validation/p1-owned-timer-host-tests.json)を参照。
+①[8項目の修正計画](plans/p1-owned-timer.md)、②③設計/異常系/安全の独立レビュー、④⑤旧値を読むと失敗するRed→所有方式の実装→ホスト回帰、⑥[実装レビュー](reviews/p1-owned-timer.md)を記録。⑦でTEST-004〜006の結果を受領。TEST-006では継続処理付きでゲームのポーズ画像取得が成立。鮮度・座標・取消・速度の確認を継続する。⑧の人間レビュー後のリファクタリングは未実施。機能追加としてのゲーム内タップやサイトは含まない。[実測した検証範囲](validation/p1-owned-timer-host-tests.json)を参照。
 
 
 ## 2026-11-05 引き継ぎ
 
-最新の正本は[実機台帳](device-tests/README.md)と[TEST-004派生JSON](device-tests/test-004-results.json)。TEST-005受領後の最新結果は[TEST-005派生JSON](device-tests/test-005-results.json)。次は[TEST-006](device-tests/006-game-keepalive.md)。P1.4のコードは変更していない。旧版のバックグラウンド維持処理との差は確認したが、原因は未確定。iSHの前面状態と取得対象画面が一緒に変わる比較なので、結果だけで休止が原因とは断定しない。自動周回やゲーム再開は引き続き未実装・未合格。
+最新の正本は[実機台帳](device-tests/README.md)と[TEST-006派生JSON](device-tests/test-006-results.json)。TEST-004/005の失敗・部分成功も元の記録に残す。次は[TEST-007](device-tests/007-native-crypto.md)。P1.4のコードは変更していない。旧版のバックグラウンド維持処理との差は確認したが、原因は未確定。iSHの前面状態と取得対象画面が一緒に変わる比較なので、結果だけで休止が原因とは断定しない。自動周回やゲーム再開は引き続き未実装・未合格。
 
 ## TEST-005受領後
 
 iSH前面で11/12非黒取得、保存3枚で今回のiSH表示と試行の進行を確認。終了は45115.262msのsession_deadlineで、最後の1試行は中断。前面APIはunknown、定量的鮮度は未確認。JPEG scale1の取得要求→画像検査は完了4試行の中央値1483.898ms、そのうちPython復号880.556ms。ゲームの背景取得と速度の2点を別課題とし、まずTEST-006で背景継続だけを比較する。診断コードはP1.4のまま。
+
+## TEST-006受領後
+
+継続処理付きで12/12非黒取得、32908.814ms、completed/子終了0。保存3枚全てゲームのGAME PAUSE画面を目視確認。終了時のdevice_infoはgame。継続処理の有効性を支持するが、途中のアプリ切替時刻は未報告で、休止だけを原因と確定しない。readerの終了直前の生存は確認、停止完了は未確認。
+
+原画像は414×896/828×1792でメニューが縦長に見えるため、入力座標を推定しない。同じ形式内で同一ハッシュが反復しており、静止画とキャッシュの区別・定量的な鮮度は未確認。JPEG scale1の取得要求→画像検査は中央値751.430ms、そのうちPython復号375.666ms。各形式4試行。TEST-005とは取得画面が違うため高速化の証明ではない。
+
+次はTEST-007で、同じP1.4・継続処理・ゲームのポーズ・12試行・45秒のまま既存ネイティブ復号の利用と時間を比較する。背景継続の恒久組込みと座標/鮮度/取消の検証は別工程。新たなゲーム内タップ・自動周回は未実装。コードの変更はなく、今回98ホスト試験を再実行したとは扱わない。[独立レビュー](reviews/p1-test006-analysis.md)参照。

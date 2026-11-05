@@ -1,0 +1,24 @@
+{
+  "scope": "TEST-007 documented shell procedure; host syntax, CLI parser and exact change check only",
+  "procedure_sha256": "b9fe8419def395da9a47615804d2690fbdc9fb0fe467ac53cab0b0263d8e4473",
+  "syntax_passed": true,
+  "exact_changes_from_test006": [
+    "TEST-006 display labels to TEST-007",
+    "runtime/test-006 to runtime/test-007",
+    "omit --python-crypto"
+  ],
+  "cli_verified": {
+    "launch_game": true,
+    "python_crypto": false,
+    "samples": 12,
+    "seconds": 45.0,
+    "rpc_timeout": 8,
+    "output": "runtime/test-007"
+  },
+  "cleanup_structure_unchanged": true,
+  "prior_host_cleanup_cases": "docs/validation/test006-procedure-check.json",
+  "prior_host_cleanup_cases_rerun": false,
+  "native_i386_execution": "not_tested_on_host",
+  "device_test": "not_run",
+  "existing_98_regression_tests_rerun": false
+}

@@ -2,9 +2,11 @@
 
 このツールは、黒画像と取得遅延の原因を調べるためのものです。**Safariの操作サイトは起動しません。新しい自動周回版ではありません。** ゲームを開く要求を送りますが、「ゲームを続行」は押しません。オプション、移動、リスタート、購入も行いません。実機で開くことを今回確認します。
 
-現在はP1.4です。TEST-003はゲーム起動前のtimer_already_in_useで停止しました。専用workerで期限タイマーを所有し、iSHの旧タイマー戻り値に依存しないよう修正しました。TEST-004は起動応答まで進んだものの画像取得0/12、約119秒で期限切れでした。TEST-005ではiSH前面で11/12取得、約45秒で終了しました。保存3枚を目視し、今回のiSH表示を確認しました。次は[TEST-006: 一時的な継続処理ありのゲーム取得](device-tests/006-game-keepalive.md)のコマンドを使います。原因は未確定です。
+現在はP1.4です。TEST-003はゲーム起動前のtimer_already_in_useで停止しました。専用workerで期限タイマーを所有し、iSHの旧タイマー戻り値に依存しないよう修正しました。TEST-004は起動応答まで進んだものの画像取得0/12、約119秒で期限切れでした。TEST-005ではiSH前面で11/12取得、約45秒で終了しました。保存3枚を目視し、今回のiSH表示を確認しました。[TEST-006](device-tests/006-game-keepalive.md)は12/12取得、約32.9秒で正常終了し、保存3枚全てゲームのポーズ画面でした。次は[TEST-007: 同条件で既存ネイティブ復号を比較](device-tests/007-native-crypto.md)のコマンドを使います。継続処理の有効性を支持しますが、休止だけが原因とは確定していません。
 
-## 起動
+## 標準CLIの起動仕様
+
+以下はCLI単体の説明です。次回の実機試験は冒頭のTEST-007のブロック全体を使ってください。CLI単体には、TEST-006で併用した継続処理は含まれません。
 
 GitHubの`work/p1-capture-probe`ブランチからCode → Download ZIPで取得し、旧版とは別フォルダへ展開してください。iSHにマウントした展開先で、次を実行します。展開済みなのでZIPを再展開するコマンドは不要です。
 
@@ -33,7 +35,7 @@ Pillowがなければ、起動時に表示される`apk add py3-pillow`で入れ
 | `blank_or_dark` | 取得ファイル自体が黒に近い。金壁なしではない |
 | `decoded_nonblank` | 画像を展開でき、明るい画素がある。ゲーム画面の認識成功ではない |
 | `metadata_issues` | 返された寸法等と実画像の食い違い・型不正 |
-| `same_bytes_as_previous` | 同一ファイルが続いた。ポーズの静止画かキャッシュかは未確定 |
+| `same_bytes_as_previous` | 直前の試行との同一バイト判定。3形式/縮尺を交互に取得するため、falseでも同じ形式内の反復を否定しない。静止画かキャッシュかは未確定 |
 | `frame_age_ms: null` | 端末生成時刻を検証できないので鮮度は未計測 |
 | `pairing_missing` | 既存のローカル接続用の鍵が見つからない。再ペアリングは自動実行しない |
 | `pairing_ambiguous` | ローカル接続に複数の鍵が該当。適当な端末を選ばず停止 |
@@ -74,5 +76,5 @@ python3 -m necroprobe inspect evidence/start-failed.jpg analysis/manual-video-2/
 python3 -m unittest discover -s tests -v
 ```
 
-Python 3.9以降、Pillow、POSIXのsetitimerとプロセス終了APIを使います。getitimerは使用しません。P1.4は専用worker内でSIGALRM/ITIMER_REALを所有し、setitimerの旧値を読み取り・復元しません。reportの`timer`に方式、終了状態、継続利用不可の状態（poisoned）、cleanup_errorを記録します。実際のiSHでの動作、ネイティブ暗号処理の速度、ゲームへの復帰は未検証です。次の実装判断は今回の実機レポートを根拠にします。
+Python 3.9以降、Pillow、POSIXのsetitimerとプロセス終了APIを使います。getitimerは使用しません。P1.4は専用worker内でSIGALRM/ITIMER_REALを所有し、setitimerの旧値を読み取り・復元しません。reportの`timer`に方式、終了状態、継続利用不可の状態（poisoned）、cleanup_errorを記録します。TEST-006で継続処理付きのゲームのポーズ画像取得は確認できました。ネイティブ暗号処理の速度、画像の鮮度・座標、ゲーム続行の入力は未検証です。次の実装判断は今回の実機レポートを根拠にします。
 

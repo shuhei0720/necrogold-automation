@@ -1,0 +1,449 @@
+{
+  "test_id": "TEST-006",
+  "source_archive": "test-006.zip",
+  "source_archive_sha256": "652bc7f79554019113d010649c7bb45eaa8c5a5e102461e424fd8562651a3943",
+  "report_path": "test-006/probe-20261105T092605Z-93b8dc80/report.json",
+  "report_sha256": "ef87561c72d6ff6099e915ca9857f335953a5bf3682b4d6b8bef83e19abd8074",
+  "run": "probe-20261105T092605Z-93b8dc80",
+  "start_time_jst": "2026-11-05T18:26:05+09:00",
+  "start_time_source": "directory timestamp; device clock accuracy unverified",
+  "version": "P1.4",
+  "crypto_engine": "python",
+  "code_reference": "f8b8f100d778d81b72fea2b71c5350896576273d",
+  "code_identity_note": "P1.4 version visible in terminal; device source hashes not received",
+  "command_evidence": {
+    "source": "IMG_8528.png",
+    "sha256": "e4a26ffb23546ab792fb94bcc1aee04c527fa52b551c2d819ebd077ae91d3784",
+    "samples": 12,
+    "seconds": 45,
+    "python_crypto": true,
+    "launch_game": true,
+    "output": "runtime/test-006",
+    "location_reader_started": true,
+    "location_reader_alive_before_exit_trap": true,
+    "location_reader_stopped_verified": false,
+    "app_switch_timeline": "not supplied",
+    "location_permission_prompt_or_choice": "not supplied"
+  },
+  "status": "completed",
+  "worker": {
+    "stage": "capture_collection",
+    "process": {
+      "returncode": 0,
+      "signal_number": null,
+      "signal_name": null
+    },
+    "report_read_ok": true
+  },
+  "counts": {
+    "planned": 12,
+    "started": 12,
+    "complete": 12,
+    "errors": 0,
+    "interrupted": 0,
+    "not_started": 0
+  },
+  "elapsed_ms": 32908.814,
+  "startup_before_first_device_info_ms": 8109.008,
+  "events": [
+    {
+      "method": "device_info",
+      "start_ns": 63248888614000,
+      "status": "complete",
+      "timings": {
+        "request_start_ns": 63249079265000,
+        "crypto_engine": "python",
+        "http_start_ns": 63249085181000,
+        "http_end_ns": 63249560176000,
+        "decrypt_start_ns": 63249576004000,
+        "decrypt_end_ns": 63249606147000,
+        "response_end_ns": 63249627267000,
+        "request_bytes": 255,
+        "encrypted_response_bytes": 2375
+      },
+      "observation": {
+        "foreground": "unknown",
+        "screen_locked": false,
+        "advertised_known_capabilities": [
+          "run_steps",
+          "wait_for"
+        ],
+        "execution_deadline_verified": false,
+        "foreground_generation_verified": false,
+        "input_cancel_verified": false
+      },
+      "end_ns": 63249627987000
+    },
+    {
+      "method": "launch_app",
+      "start_ns": 63249828500000,
+      "status": "complete",
+      "timings": {
+        "request_start_ns": 63250024446000,
+        "crypto_engine": "python",
+        "http_start_ns": 63250030079000,
+        "http_end_ns": 63251592051000,
+        "decrypt_start_ns": 63251599866000,
+        "decrypt_end_ns": 63251615730000,
+        "response_end_ns": 63251630350000,
+        "request_bytes": 319,
+        "encrypted_response_bytes": 455
+      },
+      "launch_acknowledged": true,
+      "game_visible_verified": false,
+      "end_ns": 63251631755000
+    },
+    {
+      "method": "device_info",
+      "start_ns": 63272197623000,
+      "status": "complete",
+      "timings": {
+        "request_start_ns": 63272448038000,
+        "crypto_engine": "python",
+        "http_start_ns": 63272452890000,
+        "http_end_ns": 63272511127000,
+        "decrypt_start_ns": 63272516384000,
+        "decrypt_end_ns": 63272542234000,
+        "response_end_ns": 63272562555000,
+        "request_bytes": 255,
+        "encrypted_response_bytes": 2427
+      },
+      "observation": {
+        "foreground": "game",
+        "screen_locked": false,
+        "advertised_known_capabilities": [
+          "run_steps",
+          "wait_for"
+        ],
+        "execution_deadline_verified": false,
+        "foreground_generation_verified": false,
+        "input_cancel_verified": false
+      },
+      "end_ns": 63272563164000
+    }
+  ],
+  "groups": {
+    "jpeg_scale1": {
+      "planned": 4,
+      "counts": {
+        "complete": 4
+      },
+      "image_counts": {
+        "decoded_nonblank": 4
+      },
+      "saved": 1,
+      "success_only_timings": {
+        "request_prepare": {
+          "n": 4,
+          "median_ms": 5.589,
+          "p95_ms": 10.028
+        },
+        "http_roundtrip": {
+          "n": 4,
+          "median_ms": 166.636,
+          "p95_ms": 185.135
+        },
+        "envelope_auth": {
+          "n": 4,
+          "median_ms": 41.404,
+          "p95_ms": 41.937
+        },
+        "decrypt": {
+          "n": 4,
+          "median_ms": 375.666,
+          "p95_ms": 421.263
+        },
+        "response_json": {
+          "n": 4,
+          "median_ms": 17.152,
+          "p95_ms": 19.083
+        },
+        "image_base64": {
+          "n": 4,
+          "median_ms": 9.477,
+          "p95_ms": 10.775
+        },
+        "image_decode": {
+          "n": 4,
+          "median_ms": 88.694,
+          "p95_ms": 381.414
+        },
+        "image_inspect": {
+          "n": 4,
+          "median_ms": 38.697,
+          "p95_ms": 45.447
+        },
+        "capture_to_inspected": {
+          "n": 4,
+          "median_ms": 751.43,
+          "p95_ms": 1067.498
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 189.903,
+          "p95_ms": 189.903
+        },
+        "trial_total": {
+          "n": 4,
+          "median_ms": 990.783,
+          "p95_ms": 1553.137
+        }
+      }
+    },
+    "jpeg_scale2": {
+      "planned": 4,
+      "counts": {
+        "complete": 4
+      },
+      "image_counts": {
+        "decoded_nonblank": 4
+      },
+      "saved": 1,
+      "success_only_timings": {
+        "request_prepare": {
+          "n": 4,
+          "median_ms": 5.587,
+          "p95_ms": 5.914
+        },
+        "http_roundtrip": {
+          "n": 4,
+          "median_ms": 168.112,
+          "p95_ms": 187.989
+        },
+        "envelope_auth": {
+          "n": 4,
+          "median_ms": 79.741,
+          "p95_ms": 81.314
+        },
+        "decrypt": {
+          "n": 4,
+          "median_ms": 998.792,
+          "p95_ms": 1129.273
+        },
+        "response_json": {
+          "n": 4,
+          "median_ms": 31.48,
+          "p95_ms": 32.941
+        },
+        "image_base64": {
+          "n": 4,
+          "median_ms": 26.072,
+          "p95_ms": 28.663
+        },
+        "image_decode": {
+          "n": 4,
+          "median_ms": 272.954,
+          "p95_ms": 274.353
+        },
+        "image_inspect": {
+          "n": 4,
+          "median_ms": 145.615,
+          "p95_ms": 153.971
+        },
+        "capture_to_inspected": {
+          "n": 4,
+          "median_ms": 1740.169,
+          "p95_ms": 1840.507
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 195.441,
+          "p95_ms": 195.441
+        },
+        "trial_total": {
+          "n": 4,
+          "median_ms": 1980.443,
+          "p95_ms": 2251.704
+        }
+      }
+    },
+    "png_scale1": {
+      "planned": 4,
+      "counts": {
+        "complete": 4
+      },
+      "image_counts": {
+        "decoded_nonblank": 4
+      },
+      "saved": 1,
+      "success_only_timings": {
+        "request_prepare": {
+          "n": 4,
+          "median_ms": 5.684,
+          "p95_ms": 5.716
+        },
+        "http_roundtrip": {
+          "n": 4,
+          "median_ms": 168.504,
+          "p95_ms": 189.572
+        },
+        "envelope_auth": {
+          "n": 4,
+          "median_ms": 53.135,
+          "p95_ms": 55.202
+        },
+        "decrypt": {
+          "n": 4,
+          "median_ms": 555.947,
+          "p95_ms": 557.052
+        },
+        "response_json": {
+          "n": 4,
+          "median_ms": 18.59,
+          "p95_ms": 19.361
+        },
+        "image_base64": {
+          "n": 4,
+          "median_ms": 14.541,
+          "p95_ms": 14.938
+        },
+        "image_decode": {
+          "n": 4,
+          "median_ms": 76.649,
+          "p95_ms": 78.416
+        },
+        "image_inspect": {
+          "n": 4,
+          "median_ms": 41.752,
+          "p95_ms": 43.265
+        },
+        "capture_to_inspected": {
+          "n": 4,
+          "median_ms": 934.609,
+          "p95_ms": 956.468
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 229.37,
+          "p95_ms": 229.37
+        },
+        "trial_total": {
+          "n": 4,
+          "median_ms": 1194.8,
+          "p95_ms": 1406.117
+        }
+      }
+    }
+  },
+  "timer": {
+    "backend": "owned_itimer_real",
+    "poisoned": false,
+    "closed": true,
+    "cleanup_error": null
+  },
+  "saved_images": [
+    {
+      "trial": 1,
+      "file": "001-jpeg_scale1-decoded_nonblank.jpg",
+      "sha256": "f4645dde715b86927b1376cb8807827728a921266ad1e54457bd513d0d99ee1e",
+      "pixel_width": 414,
+      "pixel_height": 896,
+      "raw_bytes": 27451,
+      "visual_observation": "game pause menu with temporary overlay; portrait dimensions and vertically elongated content"
+    },
+    {
+      "trial": 2,
+      "file": "002-jpeg_scale2-decoded_nonblank.jpg",
+      "sha256": "b7636117ac96ab962f44afc9b747d7ce0f103db6027e46c442b55bc18e8482ec",
+      "pixel_width": 828,
+      "pixel_height": 1792,
+      "raw_bytes": 77902,
+      "visual_observation": "game pause menu with temporary overlay; portrait dimensions and vertically elongated content"
+    },
+    {
+      "trial": 3,
+      "file": "003-png_scale1-decoded_nonblank.png",
+      "sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+      "pixel_width": 414,
+      "pixel_height": 896,
+      "raw_bytes": 39046,
+      "visual_observation": "game pause menu without the temporary overlay; portrait dimensions and vertically elongated content"
+    }
+  ],
+  "per_variant_sha256": {
+    "jpeg_scale1": [
+      {
+        "trial": 1,
+        "sha256": "f4645dde715b86927b1376cb8807827728a921266ad1e54457bd513d0d99ee1e",
+        "raw_bytes": 27451
+      },
+      {
+        "trial": 4,
+        "sha256": "c59350bd7a50bb37a7863a79e23bcb620dfcaebe0c85ee51801d86e4180617c1",
+        "raw_bytes": 25665
+      },
+      {
+        "trial": 7,
+        "sha256": "c59350bd7a50bb37a7863a79e23bcb620dfcaebe0c85ee51801d86e4180617c1",
+        "raw_bytes": 25665
+      },
+      {
+        "trial": 10,
+        "sha256": "c59350bd7a50bb37a7863a79e23bcb620dfcaebe0c85ee51801d86e4180617c1",
+        "raw_bytes": 25665
+      }
+    ],
+    "jpeg_scale2": [
+      {
+        "trial": 2,
+        "sha256": "b7636117ac96ab962f44afc9b747d7ce0f103db6027e46c442b55bc18e8482ec",
+        "raw_bytes": 77902
+      },
+      {
+        "trial": 5,
+        "sha256": "374c91fd7c63b3a8428e41a7cea07381e75c34c77cfec3cbd5c085ec8ef516a6",
+        "raw_bytes": 69289
+      },
+      {
+        "trial": 8,
+        "sha256": "374c91fd7c63b3a8428e41a7cea07381e75c34c77cfec3cbd5c085ec8ef516a6",
+        "raw_bytes": 69289
+      },
+      {
+        "trial": 11,
+        "sha256": "374c91fd7c63b3a8428e41a7cea07381e75c34c77cfec3cbd5c085ec8ef516a6",
+        "raw_bytes": 69289
+      }
+    ],
+    "png_scale1": [
+      {
+        "trial": 3,
+        "sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+        "raw_bytes": 39046
+      },
+      {
+        "trial": 6,
+        "sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+        "raw_bytes": 39046
+      },
+      {
+        "trial": 9,
+        "sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+        "raw_bytes": 39046
+      },
+      {
+        "trial": 12,
+        "sha256": "04086f41f40aa65fb12886707ac9b91954e504e12c34762918b6bd04ddd5dbb9",
+        "raw_bytes": 39046
+      }
+    ]
+  },
+  "evidence_limits": [
+    "Only 3 saved raw images were visually inspected; all 12 rows report decoded_nonblank.",
+    "Same-variant hashes repeat: JPEG scale1 trials 4/7/10, JPEG scale2 trials 5/8/11, PNG scale1 trials 3/6/9/12. Static pause and stale frames cannot be distinguished by hashes alone.",
+    "same_bytes_as_previous compares adjacent trials of alternating formats, so all false does not prove freshness.",
+    "Final device_info foreground=game is a single checkpoint, not continuous foreground verification.",
+    "Reader alive at start/end does not establish location permission or cessation after the exit trap.",
+    "TEST-004 actual arguments and app-switch timeline are unavailable; this run supports the keepalive hypothesis without proving sole cause.",
+    "TEST-005 captured iSH with different image sizes/content and foreground condition; speed differences are not an isolated optimization benchmark."
+  ],
+  "gate": {
+    "P1": "not_passed",
+    "capture_freshness": "not_measured",
+    "input_geometry": "not_measured",
+    "device_input_cancel": "not_measured",
+    "reason": "Capture diagnostics alone do not authorize gameplay input."
+  },
+  "device_acceptance": "not_tested",
+  "input_authorized": false
+}
