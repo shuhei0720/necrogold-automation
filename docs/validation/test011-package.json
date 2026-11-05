@@ -1,0 +1,14 @@
+{
+  "file": "necro_test011.zip",
+  "bytes": 506822,
+  "sha256": "c19ee1fa72ddd2b788c539d8d71e95a58f833a0487715d531ff8fc3eef689c0e",
+  "files": 153,
+  "zip_crc": "pass",
+  "manifest_sha256_checks": "all_pass",
+  "shell_syntax": "pass",
+  "module_help": "pass",
+  "existing_runtime_files_unchanged": 8,
+  "native_crypto_sha256": "cf049d2049c273974ff8d53819a7b7294de50775ba3570849e33261fcfd38b9d",
+  "device_test": "not_run",
+  "source_commit": "806fa20a13304bea684c9c0ee4502ec6d3598ec2"
+}
