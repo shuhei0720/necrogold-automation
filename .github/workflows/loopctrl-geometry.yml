@@ -12,9 +12,9 @@ permissions:
   contents: read
 
 jobs:
-  baseline:
+  build:
     runs-on: macos-26
-    timeout-minutes: 10
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -26,15 +26,64 @@ jobs:
           ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
           path: upstream
           persist-credentials: false
-      - name: Compile and observe original dimension contract
+      - name: Observe original dimension contract Red
         run: |
           swiftc --version
           python3 driver/patches/loopctrl/check_baseline.py upstream "$RUNNER_TEMP/geometry-baseline"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - name: Test patch application and package validation
+        run: python3 -m unittest discover -s driver/patches/loopctrl -p 'test_*.py' -v
+      - name: Apply guarded source patch and run Swift contracts
+        run: |
+          python3 driver/patches/loopctrl/apply_patch.py upstream
+          python3 driver/patches/loopctrl/check_geometry.py upstream "$RUNNER_TEMP/geometry-ngg1"
+      - name: Install build tools
+        run: |
+          brew install xcodegen
+          rustup target add aarch64-apple-ios
+          xcodebuild -version
+          rustc --version
+      - name: Configure unsigned build
+        working-directory: upstream
+        run: |
+          mkdir -p Config
+          printf '// CI: unsigned build, no team.\nDEVELOPMENT_TEAM =\n' > Config/Local.xcconfig
+      - name: Build and package unsigned IPA
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          make ipa UNSIGNED=1 EXTRA_BUILD_SETTINGS="CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER" 2>&1 | tee "$RUNNER_TEMP/geometry-ngg1/ios-build.txt"
+          Scripts/package-release.sh 2>&1 | tee "$RUNNER_TEMP/geometry-ngg1/ios-package.txt"
+      - name: Run existing LoopCtrlKit tests
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          xcodebuild test -project LoopCtrl.xcodeproj -scheme LoopCtrlKitTests -destination platform=macOS -quiet 2>&1 | tee "$RUNNER_TEMP/geometry-ngg1/loopctrlkit-tests.txt"
+      - name: Verify package and record provenance
+        run: python3 driver/patches/loopctrl/verify_package.py upstream driver upstream/release/LoopCtrl.ipa
+      - name: Save unsigned IPA
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-ngg1-unsigned
+          path: |
+            upstream/release/LoopCtrl.ipa
+            upstream/release/SHA256SUMS.txt
+            upstream/release/build-manifest.json
+            upstream/LICENSE
+            upstream/NOTICE.md
+            upstream/LoopCtrlUITests/ActionCommand.swift
+            upstream/LoopCtrlUITests/ActionHandler.swift
+            upstream/LoopCtrlKit/RPCMethod.swift
+          if-no-files-found: error
+          retention-days: 30
+      - name: Save test and build diagnostics
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: loopctrl-geometry-baseline
+          name: loopctrl-ngg1-validation
           path: |
             ${{ runner.temp }}/geometry-baseline/*.json
             ${{ runner.temp }}/geometry-baseline/*.txt
+            ${{ runner.temp }}/geometry-ngg1/*.json
+            ${{ runner.temp }}/geometry-ngg1/*.txt
           if-no-files-found: error
+          retention-days: 30

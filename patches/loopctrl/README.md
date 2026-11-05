@@ -1,13 +1,30 @@
-# LoopCtrl取得元の画像寸法修正
+# LoopCtrl取得元の画像寸法修正 NG-G1
 
-対象は公式v0.3.4 commit `6e25cf6a9f65bc86c372cdce94bdb151d0cf6767`。TEST-009の実機server_versionは1.98.14で公式リリースのAPI版と一致するが、バイナリ同一性は未証明。
+公式v0.3.4 commit `6e25cf6a9f65bc86c372cdce94bdb151d0cf6767` に適用する診断用パッチ。API版は `1.98.14-ngg1`、新capabilityは `screenshot_image_geometry_v1`。変更済みの取得元3ファイルはActionsの配布artifactにも全文を含める。
 
-現在は実装前のRed確認段階。`check_baseline.py`は固定された元ソースから実際の寸法式を取り出し、Swiftでコンパイルして、キャッシュ414×896で横長896×414を期待すると失敗することを観測する。コンパイル失敗はRedに数えない。UIKit描画、キャプチャ、iPhone性能の試験ではない。
+`screenshot` に `geometry: "image_size_v1"` を明示した場合、キャッシュされた入力側寸法ではなく、取得したUIImage自身の寸法・scaleから出力を計算する。ゲーム画像が1792×828、deviceScale=2なら、scale1で896×414、scale2で1792×828が期待値。既存の描画・符号化1回で返し、受信後の縦横変換は追加しない。画像のpointと入力のpointの対応は未検証なので、タップ座標には使わない。
 
-macOSでの実行:
+指定なしの従来経路を保持する。新モードのbundle_idは拒否し、取得を全画面1回に限定。未知/空/null/型不正のgeometryは取得前に拒否する。寸法上限・丸め後上限を検査し、描画/符号化失敗を元画像へのフォールバックで隠さない。
+
+## 試験と実行
+
+[実装前のSwift Red](../../docs/validation/ngg1-baseline.json)は観測済み。元寸法式が期待896×414に対して414×896を返すことを確認した。最初のCIはコンパイル失敗だったためRedに数えていない。CoreGraphicsを明示importした実行でコンパイル成功後の期待する失敗を確認した。
+
+macOSと、固定commitのLoopCtrl checkoutを用意して実行する。ソースパッチは3ファイル全ての元SHA-256/blobと適用後SHA-256を検証する。不一致、欠落、二重適用、差分破損は書き換え前に停止する。
 
 ```sh
-python3 patches/loopctrl/check_baseline.py /path/to/LoopCtrl /tmp/ng-geometry-baseline
+python3 patches/loopctrl/check_baseline.py /path/to/LoopCtrl /tmp/ngg1-baseline
+python3 -m unittest discover -s patches/loopctrl -p 'test_*.py' -v
+python3 patches/loopctrl/apply_patch.py /path/to/LoopCtrl
+python3 patches/loopctrl/check_geometry.py /path/to/LoopCtrl /tmp/ngg1-contracts
 ```
 
-コード本体・unsigned IPAはまだ作成していない。CIの結果を記録してから[計画](../../docs/plans/p1-source-geometry.md)の明示geometryモードを実装する。現行iPhoneのアプリ削除・更新は不要。
+Swift契約試験は本番関数を直接切り出して実行する。元のキャッシュ式へ戻した変異も失敗することを確認する。UIImageの実描画、ゲーム表示、速度はこの数値試験で証明しない。
+
+専用[workflow](../../.github/workflows/loopctrl-geometry.yml)は、上記試験、unsigned IPA build、既存LoopCtrlKit tests、.xctest/CLI同梱と個人プロビジョニング情報がないことを確認する。IPAとSHA-256、上流/driver commit、patch SHA、toolchain情報をprivate Actions artifactへ保存する。署名・端末への導入・端末受入は別工程。公開releaseは作らない。
+
+現在は取得元修正のCI・独立レビューを進行中。現行iPhoneのアプリ削除・更新はまだ不要。新capabilityを確認する診断クライアントは、取得元ビルド後に用意する。P1.4とR12はこの変更に含まない。
+
+## ライセンス
+
+LoopCtrlの原ソースはApache-2.0。[LICENSE](LICENSE-LoopCtrl.txt) と [NOTICE](NOTICE-LoopCtrl.md) を保持する。改変3ファイルに変更を明記する。第三者コンポーネントの通知は上流のパッケージ処理を保持する。

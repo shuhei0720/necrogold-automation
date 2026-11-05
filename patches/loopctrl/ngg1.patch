@@ -1,0 +1,373 @@
+--- a/LoopCtrlUITests/ActionCommand.swift
++++ b/LoopCtrlUITests/ActionCommand.swift
+@@ -1,3 +1,4 @@
++// Modified for NecroGold NG-G1: opt-in screenshot image geometry, 2026-11-05.
+ import Foundation
+ 
+ struct ActionCommand {
+@@ -40,6 +41,10 @@
+     var includeOverlays: Bool?
+     var visibleOnly: Bool?
+     var maxChildren: Int?
++    // Preserve presence/type: explicit null must not select the legacy mode.
++    var geometry: JSONValue?
++    var bundleIdProvided: Bool
++    var scaleParameter: JSONValue?
+     // screenshot encoding
+     var format: String?
+     var quality: Double?
+@@ -60,6 +65,9 @@
+ 
+     init(method: String, params: [String: JSONValue]?) {
+         self.name = method
++        self.geometry = params?["geometry"]
++        self.bundleIdProvided = params?["bundle_id"] != nil
++        self.scaleParameter = params?["scale"]
+         self.x = params?["x"]?.doubleValue
+         self.y = params?["y"]?.doubleValue
+         self.direction = params?["direction"]?.stringValue
+--- a/LoopCtrlUITests/ActionHandler.swift
++++ b/LoopCtrlUITests/ActionHandler.swift
+@@ -1,6 +1,121 @@
++// Modified for NecroGold NG-G1: opt-in screenshot image geometry, 2026-11-05.
+ import XCTest
+ import UIKit
+ import Vision
++
++// NG-G1 BEGIN: pure screenshot contract (extracted verbatim by the Swift tests).
++enum NGScreenshotGeometry {
++    enum Mode { case legacy, imageSizeV1 }
++
++    enum Failure: Error {
++        case invalidParameter(String)
++        case invalidImage
++        case encodingFailed
++
++        var rpcError: JSONRPCError {
++            switch self {
++            case .invalidParameter(let message):
++                return JSONRPCError(code: -32602, message: message, data: nil)
++            case .invalidImage:
++                return .serverError("Invalid screenshot geometry: dimensions must be finite, positive, 1...4096 per axis and at most 8000000 pixels before and after rounding.")
++            case .encodingFailed:
++                return .serverError("Screenshot encoding failed; no original-image fallback in image_size_v1.")
++            }
++        }
++    }
++
++    struct Request {
++        let mode: Mode
++        let requestedScale: Double
++        let effectiveScale: Double
++    }
++
++    struct Target {
++        let pixelWidth: Double
++        let pixelHeight: Double
++        let imagePointWidth: Double
++        let imagePointHeight: Double
++    }
++
++    // Called before any capture, including the optional app-scoped legacy path.
++    static func request(_ cmd: ActionCommand) throws -> Request {
++        let mode: Mode
++        if let geometry = cmd.geometry {
++            guard geometry == .string("image_size_v1") else {
++                throw Failure.invalidParameter("geometry must be image_size_v1, or omitted for legacy behavior.")
++            }
++            mode = .imageSizeV1
++            guard !cmd.bundleIdProvided else {
++                throw Failure.invalidParameter("bundle_id must be omitted with image_size_v1.")
++            }
++            if let suppliedScale = cmd.scaleParameter, suppliedScale.doubleValue == nil {
++                throw Failure.invalidParameter("scale must be a finite number.")
++            }
++            if let quality = cmd.quality, !quality.isFinite {
++                throw Failure.invalidParameter("quality must be finite.")
++            }
++        } else {
++            mode = .legacy
++        }
++        let requested = cmd.scale ?? 2.0
++        guard requested.isFinite else { throw Failure.invalidParameter("scale must be finite.") }
++        return Request(mode: mode, requestedScale: requested,
++                       effectiveScale: min(max(requested, 0.05), 3.0))
++    }
++
++    static func target(mode: Mode, imageSize: CGSize, imageScale: Double,
++                       deviceScale: Double, effectiveScale: Double,
++                       cachedSize: CGSize) throws -> Target {
++        if mode == .legacy {
++            return Target(pixelWidth: Double(cachedSize.width) * effectiveScale,
++                          pixelHeight: Double(cachedSize.height) * effectiveScale,
++                          imagePointWidth: Double(cachedSize.width),
++                          imagePointHeight: Double(cachedSize.height))
++        }
++        let width = Double(imageSize.width), height = Double(imageSize.height)
++        guard [width, height, imageScale, deviceScale, effectiveScale].allSatisfy({ $0.isFinite && $0 > 0 }) else {
++            throw Failure.invalidImage
++        }
++        let imagePointWidth = width * imageScale / deviceScale
++        let imagePointHeight = height * imageScale / deviceScale
++        let pixelWidth = imagePointWidth * effectiveScale
++        let pixelHeight = imagePointHeight * effectiveScale
++        guard imagePointWidth.isFinite, imagePointWidth > 0,
++              imagePointHeight.isFinite, imagePointHeight > 0,
++              validPixels(pixelWidth, pixelHeight) else { throw Failure.invalidImage }
++        let roundedWidth = pixelWidth.rounded(), roundedHeight = pixelHeight.rounded()
++        guard validPixels(roundedWidth, roundedHeight) else { throw Failure.invalidImage }
++        return Target(pixelWidth: roundedWidth, pixelHeight: roundedHeight,
++                      imagePointWidth: imagePointWidth, imagePointHeight: imagePointHeight)
++    }
++
++    private static func validPixels(_ width: Double, _ height: Double) -> Bool {
++        width.isFinite && height.isFinite && width >= 1 && height >= 1
++            && width <= 4096 && height <= 4096 && width * height <= 8_000_000
++    }
++
++    static func encode(_ encoder: () -> Data?) throws -> Data {
++        guard let data = encoder(), !data.isEmpty else { throw Failure.encodingFailed }
++        return data
++    }
++
++    // Apply last: SpringBoard's normal advice must not remove this warning.
++    static func annotate(_ response: inout [String: JSONValue], target: Target,
++                         sourceSize: CGSize, sourceScale: Double, sourceOrientation: Int) {
++        response["geometry"] = .string("image_size_v1")
++        response["input_geometry_verified"] = .bool(false)
++        response["image_point_width"] = .double(target.imagePointWidth)
++        response["image_point_height"] = .double(target.imagePointHeight)
++        response["source_width"] = .double(Double(sourceSize.width))
++        response["source_height"] = .double(Double(sourceSize.height))
++        response["source_scale"] = .double(sourceScale)
++        response["source_orientation"] = .int(sourceOrientation)
++        response["source_pixel_width"] = .double(Double(sourceSize.width) * sourceScale)
++        response["source_pixel_height"] = .double(Double(sourceSize.height) * sourceScale)
++        response["hint"] = .string("Image points and input points have NOT been verified to correspond. Dividing pixels by scale gives image points only; do not use that result as tap/swipe coordinates. point_width/point_height remain the input-side report; image_point_width/image_point_height describe this image.")
++    }
++}
++// NG-G1 END: pure screenshot contract.
+ 
+ extension XCUIElement {
+     /// `exists`, without the ability to kill the runner.
+@@ -959,7 +1074,7 @@
+         // did take effect.
+         if Self.seenOnRead.contains(method), result.1 == nil, var data = result.0,
+            let quiet = lastNoChange, nowMonotonic - quiet.at < 10,
+-           let frame = readFrame ?? ScreenSettle.sample(),
++           let frame = readFrame ?? (method == "screenshot" && cmd.geometry == .string("image_size_v1") ? nil : ScreenSettle.sample()),
+            quiet.bid == resolveForegroundBundleId(),
+            ScreenSettle.diff(quiet.frame, frame) >= 0.1 {
+             let learned = min(2.5, max(lateReactQuiet[quiet.bid] ?? quiet.base, quiet.base) + 0.5)
+@@ -979,7 +1094,7 @@
+         // now on, and tell this reader to look again.
+         if Self.seenOnRead.contains(method), result.1 == nil, var data = result.0,
+            let settled = lastSettle, nowMonotonic - settled.at < 10,
+-           let frame = readFrame ?? ScreenSettle.sample(),
++           let frame = readFrame ?? (method == "screenshot" && cmd.geometry == .string("image_size_v1") ? nil : ScreenSettle.sample()),
+            settled.bid == resolveForegroundBundleId(),
+            ScreenSettle.diff(settled.frame, frame) >= 0.25 {
+             let watch = min(2.0, (lateLoaderWatch[settled.bid] ?? ScreenSettle.newScreenWatch) + 0.5)
+@@ -995,7 +1110,7 @@
+ 
+         // Reads show the caller the screen: remember what it looked like —
+         // from the read's own capture when it took one.
+-        if Self.seenOnRead.contains(method), result.1 == nil, let frame = readFrame ?? ScreenSettle.sample() {
++        if Self.seenOnRead.contains(method), result.1 == nil, let frame = readFrame ?? (method == "screenshot" && cmd.geometry == .string("image_size_v1") ? nil : ScreenSettle.sample()) {
+             noteSeen(frame)
+         }
+ 
+@@ -1695,7 +1810,8 @@
+                 "screen_scale (\(s)) is the PANEL's ratio — do NOT divide screenshot pixels by it. " +
+                 "A screenshot defaults to scale 2 (\(Int(frame.width * 2))×\(Int(frame.height * 2)) px), " +
+                 "so dividing by \(s) would put a tap far off target. Always read `scale` from the " +
+-                "screenshot response itself and use point = pixel / that scale. " +
++                "screenshot response itself and use point = pixel / that scale only in legacy geometry. " +
++                "With geometry=image_size_v1, image points and input points are unverified; pixel_width/pixel_height here do not predict that image. " +
+                 "Bottom tab bars sit above the home-indicator safe area (~y \(Int(frame.height) - 60)–\(Int(frame.height) - 20))."
+             ),
+             // Live device health. This is the call /remote polls for its status
+@@ -1708,6 +1824,14 @@
+     }
+ 
+     private func screenshot(_ cmd: ActionCommand) -> ([String: JSONValue]?, JSONRPCError?) {
++        let geometryRequest: NGScreenshotGeometry.Request
++        do {
++            geometryRequest = try NGScreenshotGeometry.request(cmd)
++        } catch let failure as NGScreenshotGeometry.Failure {
++            return (nil, failure.rpcError)
++        } catch {
++            return (nil, .internalError)
++        }
+         // XCUIScreen.screenshot() grabs the current frame directly and does NOT
+         // wait for quiescence. Use the CACHED point size (not app.frame) so the
+         // screenshot path stays fast on animation-heavy apps.
+@@ -1715,8 +1839,8 @@
+         let deviceScale = scale  // native pixels-per-point (e.g. 3)
+ 
+         // Requested output scale (pixels-per-point): default 2, clamp to (0, 3].
+-        let requested = cmd.scale ?? 2.0
+-        let targetScale = min(max(requested, 0.05), 3.0)
++        let requested = geometryRequest.requestedScale
++        let targetScale = geometryRequest.effectiveScale
+ 
+         // Target selection:
+         //   - explicit bundle_id → screenshot ONLY that app's window (opt-in)
+@@ -1756,8 +1880,19 @@
+         if scopedTo == nil { readFrame = ScreenSettle.frame(from: fullImage) }
+ 
+         // Resize on the server to targetScale so the client gets a smaller PNG.
+-        let targetPixelW = frame.width * targetScale
+-        let targetPixelH = frame.height * targetScale
++        let target: NGScreenshotGeometry.Target
++        do {
++            target = try NGScreenshotGeometry.target(
++                mode: geometryRequest.mode, imageSize: fullImage.size,
++                imageScale: Double(fullImage.scale), deviceScale: Double(deviceScale),
++                effectiveScale: targetScale, cachedSize: frame.size)
++        } catch let failure as NGScreenshotGeometry.Failure {
++            return (nil, failure.rpcError)
++        } catch {
++            return (nil, .internalError)
++        }
++        let targetPixelW = target.pixelWidth
++        let targetPixelH = target.pixelHeight
+         // JPEG by default. The client has to run the whole response body through
+         // the envelope's HMAC keystream, so response SIZE is what dominates a
+         // screenshot's end-to-end cost — a PNG of a UI screen is typically 5-10x
+@@ -1767,9 +1902,27 @@
+         let wantPNG = (cmd.format ?? "jpeg").lowercased() == "png"
+         let quality = min(max(cmd.quality ?? 0.6, 0.1), 1.0)
+         let targetPixels = CGSize(width: targetPixelW, height: targetPixelH)
+-        let imageData = wantPNG
+-            ? Self.encodePNG(fullImage, targetPixels: targetPixels)
+-            : Self.encodeJPEG(fullImage, targetPixels: targetPixels, quality: quality)
++        let imageData: Data
++        if geometryRequest.mode == .imageSizeV1 {
++            let resized = Self.resize(fullImage, targetPixels: targetPixels)
++            guard let raster = resized.cgImage,
++                  raster.width == Int(targetPixelW), raster.height == Int(targetPixelH) else {
++                return (nil, NGScreenshotGeometry.Failure.encodingFailed.rpcError)
++            }
++            do {
++                imageData = try NGScreenshotGeometry.encode {
++                    wantPNG ? resized.pngData() : resized.jpegData(compressionQuality: CGFloat(quality))
++                }
++            } catch let failure as NGScreenshotGeometry.Failure {
++                return (nil, failure.rpcError)
++            } catch {
++                return (nil, .internalError)
++            }
++        } else {
++            imageData = wantPNG
++                ? Self.encodePNG(fullImage, targetPixels: targetPixels)
++                : Self.encodeJPEG(fullImage, targetPixels: targetPixels, quality: quality)
++        }
+         let base64 = imageData.base64EncodedString()
+ 
+         var result: [String: JSONValue] = [
+@@ -1826,6 +1979,11 @@
+             out["scope"] = .string("app")
+         } else {
+             out["scope"] = .string("screen")
++        }
++        if geometryRequest.mode == .imageSizeV1 {
++            NGScreenshotGeometry.annotate(&out, target: target, sourceSize: fullImage.size,
++                                          sourceScale: Double(fullImage.scale),
++                                          sourceOrientation: fullImage.imageOrientation.rawValue)
+         }
+         return (out, nil)
+     }
+--- a/LoopCtrlKit/RPCMethod.swift
++++ b/LoopCtrlKit/RPCMethod.swift
+@@ -1,3 +1,4 @@
++// Modified for NecroGold NG-G1: opt-in screenshot image geometry, 2026-11-05.
+ import Foundation
+ 
+ struct RPCParamDef: Encodable {
+@@ -79,7 +80,7 @@
+             name: "device_info",
+             description: "Get device name, model, OS version, the coordinate space (point size for tap/swipe, pixel size for screenshots, scale), AND the server's identity: server_version, protocol_version, and a capabilities array — so ONE device_info call gives you both the device and what this server supports (no separate /schema fetch for feature detection). CALL THIS FIRST before any coordinate-based action.",
+             params: [],
+-            returns: "Object with point_width/point_height (tap space), pixel_width/pixel_height (screenshot space), scale, a 'hint' string, plus server_version (semver), protocol_version (int), capabilities (array of feature tags, e.g. envelope_v1, stream_ticket, find_element_ref, clear_text, page, stop_server), skill_version + skill_update_hint (if the device's skill_version is newer than your SKILL.md frontmatter, update before anything else — the hint has the commands), and a 'system' object of live health: thermal_state, low_power_mode, total_memory_mb, processor_count, process_memory_mb, process_cpu_percent, system_free_memory_mb?, disk_total_mb, disk_free_mb, disk_available_now_mb, disk_used_percent, battery_percent?, battery_state?. Keys the sandbox refuses are absent rather than zero. NOTE: process_cpu_percent is THIS runner's usage (can exceed 100% across cores), not system-wide — iOS does not expose global CPU. disk_free_mb matches what Settings shows (counts purgeable space); disk_available_now_mb is the stricter figure."
++            returns: "Object with point_width/point_height (tap space), pixel_width/pixel_height (legacy screenshot space; not a prediction for image_size_v1), scale, a 'hint' string, plus server_version (semver), protocol_version (int), capabilities (array of feature tags, e.g. envelope_v1, stream_ticket, find_element_ref, clear_text, page, stop_server), skill_version + skill_update_hint (if the device's skill_version is newer than your SKILL.md frontmatter, update before anything else — the hint has the commands), and a 'system' object of live health: thermal_state, low_power_mode, total_memory_mb, processor_count, process_memory_mb, process_cpu_percent, system_free_memory_mb?, disk_total_mb, disk_free_mb, disk_available_now_mb, disk_used_percent, battery_percent?, battery_state?. Keys the sandbox refuses are absent rather than zero. NOTE: process_cpu_percent is THIS runner's usage (can exceed 100% across cores), not system-wide — iOS does not expose global CPU. disk_free_mb matches what Settings shows (counts purgeable space); disk_available_now_mb is the stricter figure."
+         ),
+         RPCMethodDef(
+             name: "page_source",
+@@ -124,16 +125,17 @@
+             name: "screenshot",
+             description: "Capture a screenshot as base64 JPEG (default) or PNG. SECOND CHOICE, not your default way of seeing the screen — reach for page_source{visible_only:true} first: it is usually faster (~100ms vs ~150ms), far smaller, and gives every element's type, label and exact frame. To ACT on a control, prefer find_element{element_id} → tap{ref}: a ref re-resolves the live element, survives scroll/animation, and avoids the pixel→point conversion that coordinate taps require (a conversion that silently mis-taps when it goes wrong). Use a screenshot when the tree genuinely cannot answer: unlabelled/icon-only controls, visual layout judgements, confirming an action landed, or when page_source returns sparse data (see its ax_coverage / sparse_hint / viewport_warning) — most often a WEB VIEW, whose page content never enters the accessibility tree. Captures the WHOLE SCREEN by default; pass bundle_id only to crop one app's window (slower). Image is in PIXELS, taps are in POINTS. Optional 'scale' (default 2, max 3).",
+             params: [
+-                RPCParamDef(name: "scale", type: "number", required: false, description: "Output pixels-per-point (default 2, max 3; smaller = faster/less detail, e.g. 1 or 0.5)"),
++                RPCParamDef(name: "geometry", type: "string", required: false, description: "Omit for legacy cached input-size rendering. Only explicit 'image_size_v1' is accepted: render from UIImage.size * UIImage.scale / deviceScale, then effective scale. bundle_id must be absent (including null/empty). Image points and input points are NOT verified to correspond; never infer tap coordinates from this image."),
++                RPCParamDef(name: "scale", type: "number", required: false, description: "Finite output pixels-per-point (default 2, clamped to 0.05...3). In image_size_v1 these are IMAGE points, not verified input points. Smaller = faster/less detail, e.g. 1 or 0.5."),
+                 RPCParamDef(name: "bundle_id", type: "string", required: false, description: "Crop to just this app's window (slower, time-bounded). OMIT for the default full-screen capture (fast) — the default is NOT scoped to the launched app."),
+                 RPCParamDef(name: "format", type: "string", required: false, description: "'jpeg' (default) or 'png'. JPEG is 5-10x smaller, which cuts BOTH transfer and the client's envelope decryption time — response size dominates a screenshot's end-to-end cost. Use 'png' only when you need lossless output (pixel diffing, OCR on fine text)."),
+                 RPCParamDef(name: "quality", type: "number", required: false, description: "JPEG quality 0.1-1.0 (default 0.6). Ignored for PNG. Lower = smaller/faster."),
+             ],
+-            returns: "Object: {data: base64 image, format:'jpeg'|'png', bytes, quality?, pixel_width, pixel_height, point_width, point_height, scale, scope:'screen'|'app', scoped_to?, hint, prefer_instead}. `hint` carries the pixel→point conversion for THIS image; `prefer_instead` says when find_element/page_source would have served you better — read it before tapping from the image."
++            returns: "Object: {data: base64 image, format:'jpeg'|'png', bytes, quality?, pixel_width, pixel_height, point_width, point_height, scale, scope:'screen'|'app', scoped_to?, hint, prefer_instead}. In legacy geometry, `hint` carries the pixel→point conversion for THIS image. With geometry='image_size_v1', it instead warns that input_geometry_verified=false; image_point_width/image_point_height, source_width/source_height (UIImage.size), source_scale, source_orientation (UIImage.Orientation raw value), and source_pixel_width/source_pixel_height are added. pixel_width/pixel_height are the rendered integer raster dimensions. point_width/point_height remain the input-side report. Output is bounded to 1...4096 per axis and 8000000 pixels, with no encoding fallback; `prefer_instead` says when find_element/page_source would have served you better — read it before tapping from the image."
+         ),
+         RPCMethodDef(
+             name: "tap",
+-            description: "Tap either by a stable 'ref' (from find_element/scroll_to_element — RECOMMENDED, re-resolves the live element and won't drift) OR by x,y coordinates in POINTS. If reading from a screenshot, convert: point = pixel / scale. Out-of-range coords return the valid range. Bottom tab bars sit just above the home-indicator safe area.",
++            description: "Tap either by a stable 'ref' (from find_element/scroll_to_element — RECOMMENDED, re-resolves the live element and won't drift) OR by x,y coordinates in POINTS. If reading from a legacy screenshot, convert: point = pixel / scale. This does not establish input coordinates for geometry=image_size_v1 (input_geometry_verified=false). Out-of-range coords return the valid range. Bottom tab bars sit just above the home-indicator safe area.",
+             params: [
+                 RPCParamDef(name: "manual", type: "boolean", required: false, description: "For a person driving the live screen (the /remote page): skip the agent safety checks (system alert, what is under the point, anti-bot, same page) and send the touch at once. Agents: leave it out."),
+                 RPCParamDef(name: "settle", type: "boolean", required: false, description: "Default true: after the action, wait until the screen stops changing (compares low-res frames; up to settle_timeout) and report it in `settle`. false = return right after the action."),
+@@ -547,7 +549,7 @@
+     /// release that added the encrypted auth channel plus the docs/Skill,
+     /// clear-text, page-source, and reliability improvements. Single source of
+     /// truth for /schema AND device_info.
+-    static let serverVersion = "1.98.14"
++    static let serverVersion = "1.98.14-ngg1"
+ 
+     /// When this binary was built, as "YYYY-MM-DD HH:MM".
+     ///
+@@ -583,6 +585,7 @@
+         "collect",             // collect{pages}: page + read N screens in one call
+         "stop_server",         // config{stop_server:true}
+         "logs_history",        // GET /logs/history (persisted logs)
++        "screenshot_image_geometry_v1", // opt-in image sizing; input coordinate correspondence unverified
+         "screenshot_jpeg",     // screenshot{format:'jpeg'|'png', quality} — jpeg is the default
+         "reset",               // reset RPC (recover from a dropped accessibility connection)
+         "nonui_lane",          // config/reset/logs answer while UI calls are blocked
+@@ -715,14 +718,14 @@
+                     "2. Element is off-screen (need to scroll to it) → scroll_to_element{element_id:<label>} — it scrolls then returns the ref in one call. Don't hand-roll swipe loops.",
+                     "3. App exposes accessibility identifiers (look for 'identifier:' in page_source, e.g. big apps use them for their own UI tests) → use that id as element_id — the most stable key.",
+                     "4. The on-screen text ≠ accessibility label (common!), or label is truncated → read the EXACT label from page_source first, or use match:'contains'.",
+-                    "5. Pure icon / image / canvas with no useful label (games, webviews, custom-drawn UI) → screenshot, find it visually, tap by COORDINATE (pixel/scale). This is the fallback, not the default.",
++                    "5. Pure icon / image / canvas with no useful label (games, webviews, custom-drawn UI) → screenshot, find it visually, tap by COORDINATE (pixel/scale for legacy geometry only; image_size_v1 input mapping is unverified). This is the fallback, not the default.",
+                     "6. Multiple elements share a label → add element_type (button/cell/…) to disambiguate; the matcher returns the first HITTABLE one.",
+                     "Prefer ref over coordinates whenever you have one: a ref re-resolves the live element and won't drift if the layout shifts; a coordinate is a fixed point that breaks after any scroll/animation.",
+                 ],
+                 "coordinate_space":
+                     "tap, double_tap, long_press, swipe, drag and type(x,y) all use POINTS, not pixels. " +
+-                    "page_source frames are already in points. Screenshots are PIXELS: point = pixel / scale. " +
+-                    "Get scale and the valid point range from device_info (point_width/point_height).",
++                    "page_source frames are already in points. Legacy screenshots are PIXELS: point = pixel / scale. For geometry=image_size_v1, image points and input points are unverified; never infer tap coordinates from this image. " +
++                    "Use the legacy screenshot response scale; device_info supplies the input point range (point_width/point_height), not image_size_v1 dimensions.",
+                 "recommended_flow":
+                     "1) call device_info once to learn point_width/point_height/scale. " +
+                     "2) open the app you need: resolve_app{text:<name>} → launch_app{bundle_id} (or open_url for a deep link). " +
+@@ -734,7 +737,7 @@
+                 "common_pitfalls": [
+                     "Reaching for screenshot first when page_source + find_element would locate the element more precisely and cheaply.",
+                     "Using a coordinate when a ref is available — the coordinate breaks after any scroll/animation; a ref re-resolves the live element.",
+-                    "Passing raw pixel coordinates to tap → taps land off-target or out of bounds. Convert pixel/scale first.",
++                    "Passing raw pixel coordinates to tap → taps land off-target or out of bounds. Convert pixel/scale only for legacy geometry; image_size_v1 does not verify an input mapping.",
+                     "Bottom tab bars/buttons live just above the home-indicator safe area; if a tap seems ignored, aim slightly higher (smaller y).",
+                     "Searching by the ON-SCREEN text when the accessibility label differs (e.g. a button reads '添加至购物袋' but its label is '添加') — read the exact label from page_source, or use match:'contains'.",
+                     "type requires an input field to already have keyboard focus — tap the field first (or pass x,y). To run a search, use type{submit:true} instead of hunting for the keyboard's Search key.",
+@@ -829,9 +832,10 @@
+         <p><strong>⚠️ Coordinates use POINTS, not pixels.</strong></p>
+         <p style="margin-top:6px;color:#6e6e73;font-size:14px">
+         Screenshots come back in <em>pixels</em>; <code>tap</code>/<code>swipe</code>/<code>drag</code> take <em>points</em>.
+-        Convert: <code>point = pixel / scale</code>, taking <code>scale</code> from the
++        For legacy geometry, convert: <code>point = pixel / scale</code>, taking <code>scale</code> from the
+         <em>screenshot response</em> — not <code>device_info.screen_scale</code>, which is the
+         panel ratio (3) while a screenshot is downscaled to 2 by default.
++        With <code>geometry=image_size_v1</code>, image points and input points are unverified; do not infer tap coordinates from this image.
+         The valid tap range (<code>point_width</code> × <code>point_height</code>) comes from either.
+         </p>
+         <p style="margin-top:6px;color:#6e6e73;font-size:14px">

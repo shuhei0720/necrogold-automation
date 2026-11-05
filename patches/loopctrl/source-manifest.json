@@ -1,0 +1,20 @@
+{
+  "upstream_commit": "6e25cf6a9f65bc86c372cdce94bdb151d0cf6767",
+  "files": {
+    "LoopCtrlUITests/ActionCommand.swift": {
+      "blob": "dedfcaf6d0d473ca1de51c32f14d3ad316eebb85",
+      "sha256": "cd293f0b0cc10dfecad23594312fb32f18dff9c58c8e9a26321ef8c2965440f3",
+      "patched_sha256": "caebb5c8168e9e250a7940809488999982fd3c94328fc319f6b27c1ae5d95d71"
+    },
+    "LoopCtrlUITests/ActionHandler.swift": {
+      "blob": "b8d988bb4ac80ef376a15491cd98db21853a5c50",
+      "sha256": "f56e3d606a14acc82916fae7f7cecd9aa181af42ceadbf2d217ad935eab0c1b5",
+      "patched_sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78"
+    },
+    "LoopCtrlKit/RPCMethod.swift": {
+      "blob": "a091acfbaffdd9d75c85a681148a8f7859da0fbb",
+      "sha256": "d77ac060614779073fb99997deac5e8c06aabb2291587f16a2a5154890463486",
+      "patched_sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87"
+    }
+  }
+}

@@ -1,0 +1,76 @@
+test_complete_package (test_package.PackageTests.test_complete_package) ... ERROR
+test_missing_cli (test_package.PackageTests.test_missing_cli) ... ERROR
+test_missing_test_binary (test_package.PackageTests.test_missing_test_binary) ... ERROR
+test_nested_profile_rejected (test_package.PackageTests.test_nested_profile_rejected) ... ERROR
+test_plugin_identity_must_match (test_package.PackageTests.test_plugin_identity_must_match) ... ERROR
+
+======================================================================
+ERROR: test_complete_package (test_package.PackageTests.test_complete_package)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/test_package.py", line 35, in test_complete_package
+    self.assertEqual(self.inspect()['bundle_id'], 'top.ebato.loopctrl')
+                     ^^^^^^^^^^^^^^
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/test_package.py", line 13, in inspect
+    spec.loader.exec_module(module)
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1132, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1190, in get_data
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/verify_package.py'
+
+======================================================================
+ERROR: test_missing_cli (test_package.PackageTests.test_missing_cli)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/test_package.py", line 39, in test_missing_cli
+    self.inspect(missing='loopctrl')
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/test_package.py", line 13, in inspect
+    spec.loader.exec_module(module)
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1132, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1190, in get_data
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/verify_package.py'
+
+======================================================================
+ERROR: test_missing_test_binary (test_package.PackageTests.test_missing_test_binary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/test_package.py", line 43, in test_missing_test_binary
+    self.inspect(missing='LoopCtrlUITests')
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/test_package.py", line 13, in inspect
+    spec.loader.exec_module(module)
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1132, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1190, in get_data
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/verify_package.py'
+
+======================================================================
+ERROR: test_nested_profile_rejected (test_package.PackageTests.test_nested_profile_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/test_package.py", line 47, in test_nested_profile_rejected
+    self.inspect(profile=True)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/test_package.py", line 13, in inspect
+    spec.loader.exec_module(module)
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1132, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1190, in get_data
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/verify_package.py'
+
+======================================================================
+ERROR: test_plugin_identity_must_match (test_package.PackageTests.test_plugin_identity_must_match)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/test_package.py", line 51, in test_plugin_identity_must_match
+    self.inspect(wrong_id=True)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/test_package.py", line 13, in inspect
+    spec.loader.exec_module(module)
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1132, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1190, in get_data
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/scratch/36fc414778f8/necrogold-automation/patches/loopctrl/verify_package.py'
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.003s
+
+FAILED (errors=5)
