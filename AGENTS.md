@@ -8,7 +8,7 @@ Follow the user's `shuhei0720/AI-Driven-Development` Codex workflow, identified 
 
 ## Current scope
 
-The user confirmed TEST-013 actually resumed the game and explicitly requested the next real-device feature: quick restart until initially visible gold. Implement and deliver the bounded TEST-014 loop outside immutable R12, with minimal relevant tests and independent review. Earlier measurement-only gates are superseded for this authorized increment; do not claim the full gameplay, speed, or endurance requirements are achieved. GitHub saving remains authorized. Preserve feature-by-feature real-device iteration and do not add raw logs/images/ZIPs or duplicate plans/review documents to git.
+The user accepted TEST-014 run 2 (two quick restarts, gold detection, confirmed pause). Run 1 detected initial gold but stopped before sending pause. Deliver TEST-015 for the same bounded 30-restart/180-second loop: decode once, exact native i386 analysis with Pillow fallback, defer mounted evidence writes until control ends, retain control results before export, and measure latency. The user reports a brief pause-menu input lockout; enforce a provisional 200 ms from first observed menu, count existing elapsed work, and measure actual wait. Do not claim calibration or human-faster performance before device evidence. GitHub saving remains authorized. Preserve feature-by-feature real-device iteration and do not add raw logs/images/ZIPs or duplicate plans/review documents to git.
 
 ## Functional and performance requirements
 

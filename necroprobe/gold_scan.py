@@ -93,18 +93,33 @@ def analyze(raw):
         with Image.open(io.BytesIO(raw)) as source:
             if source.size != SIZE:
                 return answer
-            image = source.convert("RGB")
-            gray = image.convert("L")
+            return analyze_image(source)
+    except (OSError, ValueError, TypeError):
+        return answer
+
+
+def analyze_image(source):
+    """既に検証・復号した原寸RGBを受け取り、二重decodeを避ける。"""
+    from .native_scan import scan
+    answer = {"state": "unknown", "gold": "unknown", "fingerprint": [],
+              "gold_peak": 0, "restart_label": False}
+    if not isinstance(source, Image.Image) or source.size != SIZE:
+        return answer
+    image = source if source.mode == "RGB" else source.convert("RGB")
+    try:
+        with image.convert("L") as gray:
             if _matches(gray, "continue"):
                 answer.update(state="pause", restart_label=_matches(gray, "restart"))
             elif (all(_matches(gray, name) for name in ("icon", "footer", "zone_one", "floor_one"))
                   and not _matches(gray, "death")):
-                peak = _gold_peak(image)
+                result = scan(image.tobytes())
+                peak, fingerprint = result if result is not None else (_gold_peak(image), _fingerprint(gray))
                 answer.update(state="floor", gold="candidate" if peak >= 135 else "clear" if peak < 100 else "unknown",
-                              gold_peak=peak, fingerprint=_fingerprint(gray))
+                              gold_peak=peak, fingerprint=fingerprint)
             return answer
-    except (OSError, ValueError, TypeError):
-        return answer
+    finally:
+        if image is not source:
+            image.close()
 
 
 def changed(a, b):

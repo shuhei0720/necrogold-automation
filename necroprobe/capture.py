@@ -9,7 +9,7 @@ from PIL import Image, UnidentifiedImageError
 from .validation import MAX_IMAGE, MAX_PIXELS, ProbeError, b64, number
 
 
-def inspect_bytes(raw):
+def inspect_bytes(raw, *, include_rgb=False):
     if not isinstance(raw, bytes) or not raw or len(raw) > MAX_IMAGE:
         raise ProbeError("image_bytes_limit")
     started = time.monotonic_ns()
@@ -46,7 +46,9 @@ def inspect_bytes(raw):
                     "game_state": "not_classified", "input_authorized": False,
                     "geometry_applied": "none",
                 }
-                return result
+                # TEST-015だけが検証済みRGBの所有権を受け取り、解析でも再利用する。
+                # 既存呼出しの返り値と検証内容は変更しない。
+                return (result, source.convert("RGB")) if include_rgb else result
     except ProbeError:
         raise
     except (OSError, ValueError, SyntaxError, UnidentifiedImageError,
@@ -54,13 +56,14 @@ def inspect_bytes(raw):
         raise ProbeError("invalid_image") from None
 
 
-def inspect_payload(payload):
+def inspect_payload(payload, *, include_rgb=False):
     if not isinstance(payload, dict):
         raise ProbeError("invalid_capture_payload")
     start = time.monotonic_ns()
     raw = b64(payload.get("data"), MAX_IMAGE)
     end = time.monotonic_ns()
-    result = inspect_bytes(raw)
+    inspected = inspect_bytes(raw, include_rgb=include_rgb)
+    result, rgb = inspected if include_rgb else (inspected, None)
     result.update(base64_start_ns=start, base64_end_ns=end,
                   capture_time_ns=None, source_sequence=None,
                   frame_age_ms=None, freshness_verified=False)
@@ -84,7 +87,7 @@ def inspect_payload(payload):
         issues.append("format_mismatch")
     result["reported_geometry"] = metadata
     result["metadata_issues"] = issues
-    return raw, result
+    return (raw, result, rgb) if include_rgb else (raw, result)
 
 
 def validate_source_geometry(payload, result, params):

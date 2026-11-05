@@ -1,4 +1,4 @@
-"""TEST-014: iPhoneで金壁候補まで反復する上限付き実機版。"""
+"""TEST-015: iPhoneで金壁候補まで反復する上限付き実機版。"""
 import argparse
 from contextlib import contextmanager
 from copy import deepcopy
@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import signal
 import sys
+import tempfile
 import time
 import uuid
 
@@ -22,11 +23,13 @@ from .protocol import Client, GAME, HttpTransport, load_pairing
 from .session import atomic_write, safe_info
 from .validation import ProbeError, json_object
 
-REVISION = 'gold-restart-v1'
+REVISION = 'gold-restart-v2'
 SESSION_SECONDS = 180
 MAX_RESTARTS = 30
 MAX_ACTIONS = 64
 MAX_OBSERVATIONS = 240
+MENU_READY_NS = 200_000_000
+MAX_EVIDENCE_BYTES = 4 * 1024 * 1024
 POINTS = {'resume': (297, 448), 'pause': (390, 448), 'restart': (144, 448)}
 ERRORS = resume.ERRORS | {'batch_unknown','screen_unconfirmed','new_run_unconfirmed','already_running',
                         'observation_limit','pause_unconfirmed','gold_candidate','restart_limit','time_limit'}
@@ -64,11 +67,15 @@ def code(value):
 
 
 def new_report(start,run_id):
-    return {'version':VERSION,'test_id':'TEST-014','revision':REVISION,'run_id':run_id,
+    return {'version':VERSION,'test_id':'TEST-015','revision':REVISION,'run_id':run_id,
             'start_ns':start,'end_ns':None,'status':'running','reason':None,
             'candidate':False,'paused':False,'restarts_confirmed':0,'actions':[],'runs':[],
             'capture_ms':[],'analysis_ms':[],'input_ms':[], 'worker_exit_confirmed':None,
-            'worker_returncode':None,'crypto_engine':None,'counts_certain':True}
+            'worker_returncode':None,'crypto_engine':None,'counts_certain':True,
+            'analysis_engine':'pillow','decode_ms':[],'foreground_ms':[],'checkpoint_ms':[],
+            'candidate_detected_ns':None,'candidate_pause_already_issued':False,'paused_seen_ns':None,
+            'control_end_ns':None,'control_reason':None,'export_ms':None,'export_complete':False,
+            'export_error':None,'exported_images':[],'omitted_images':[]}
 
 
 def write(folder,report,name='report.json'):
@@ -80,22 +87,22 @@ def read_report(path,run_id,start):
         r=json_object(source.read(65537),65536)
     require=supervisor.require
     require(set(r)==set(new_report(start,run_id)))
-    for k,v in [('version',VERSION),('test_id','TEST-014'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
+    for k,v in [('version',VERSION),('test_id','TEST-015'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
         require(type(r[k]) is type(v) and r[k]==v)
     require(r['status'] in ('running','completed','stopped'))
     require(r['reason'] is None or (type(r['reason']) is str and code(r['reason'])==r['reason']))
-    for k in ('candidate','paused','counts_certain'): require(type(r[k]) is bool)
+    for k in ('candidate','paused','counts_certain','candidate_pause_already_issued','export_complete'): require(type(r[k]) is bool)
     require(type(r['restarts_confirmed']) is int and 0<=r['restarts_confirmed']<=MAX_RESTARTS)
     require(r['worker_exit_confirmed'] is None or type(r['worker_exit_confirmed']) is bool)
     require(r['worker_returncode'] is None or (type(r['worker_returncode']) is int and -255<=r['worker_returncode']<=255))
     require(r['crypto_engine'] in (None,'native_i386','python'))
     require(r['end_ns'] is None or (type(r['end_ns']) is int and start<=r['end_ns']<2**63))
-    for k in ('capture_ms','analysis_ms','input_ms'):
-        require(type(r[k]) is list and len(r[k])<=MAX_OBSERVATIONS)
+    for k in ('capture_ms','analysis_ms','input_ms','decode_ms','foreground_ms','checkpoint_ms'):
+        require(type(r[k]) is list and len(r[k])<=512)
         require(all(type(v) in (int,float) and math.isfinite(v) and 0<=v<=SESSION_SECONDS*1000 for v in r[k]))
     require(type(r['actions']) is list and len(r['actions'])<=MAX_ACTIONS)
     for a in r['actions']:
-        require(type(a) is dict and set(a)=={'action','outcome','start_ns'})
+        require(type(a) is dict and set(a)=={'action','outcome','start_ns','issued_ns','completed_ns','capture_age_ms','foreground_age_ms','menu_age_ms','menu_wait_ms'})
         require(a['action'] in POINTS and a['outcome'] in ('not_requested','not_sent','acknowledged','unknown'))
         require(type(a['start_ns']) is int and start<=a['start_ns']<2**63)
     require(type(r['runs']) is list and len(r['runs'])<=MAX_RESTARTS+1)
@@ -106,6 +113,20 @@ def read_report(path,run_id,start):
         require(row['gold'] in ('clear','candidate','unknown'))
         require(type(row['gold_peak']) is int and 0<=row['gold_peak']<=255)
         require(type(row['seen_ns']) is int and start<=row['seen_ns']<2**63)
+    for a in r['actions']:
+        for key in ('issued_ns','completed_ns'):
+            require(a[key] is None or (type(a[key]) is int and start<=a[key]<2**63))
+        for key in ('capture_age_ms','foreground_age_ms','menu_age_ms','menu_wait_ms'):
+            require(a[key] is None or (type(a[key]) in (int,float) and math.isfinite(a[key]) and 0<=a[key]<=SESSION_SECONDS*1000))
+    require(r['analysis_engine'] in ('pillow','native_i386'))
+    for key in ('candidate_detected_ns','paused_seen_ns','control_end_ns'):
+        require(r[key] is None or (type(r[key]) is int and start<=r[key]<2**63))
+    require(r['control_reason'] is None or (type(r['control_reason']) is str and code(r['control_reason'])==r['control_reason']))
+    require(r['export_error'] in (None,'output_write_failed'))
+    require(r['export_ms'] is None or (type(r['export_ms']) in (float,int) and math.isfinite(r['export_ms']) and 0<=r['export_ms']<=SESSION_SECONDS*1000))
+    for key in ('exported_images','omitted_images'):
+        require(type(r[key]) is list and len(r[key])<=36)
+        require(all(type(v) is str and re.fullmatch(r'(initial|found|stopped|last|run-[0-9]{3})\.jpg',v) for v in r[key]))
     return r
 
 
@@ -122,38 +143,55 @@ def device_lock(path=None):
 
 
 class RuntimeDriver:
-    def __init__(self,client,report,folder,stop_ns,clock=time.monotonic_ns):
+    def __init__(self,client,report,folder,stop_ns,clock=time.monotonic_ns,checkpoint_dir=None):
         self.client,self.report,self.folder,self.stop_ns,self.clock=client,report,Path(folder),stop_ns,clock
         self.last=None; self.pending=False
+        self.control_dir=Path(checkpoint_dir) if checkpoint_dir else self.folder
+        self.images={};self.menu_since_ns=None;self.sleeper=time.sleep
     def budget(self):
         remain=(self.stop_ns-self.clock())/1e9
         if remain<.001: raise ProbeError('session_deadline')
         return min(8,remain)
     def bounded(self): return self.clock()>=self.stop_ns-8_000_000_000
-    def checkpoint(self): write(self.folder,self.report)
+    def checkpoint(self):
+        before=self.clock()
+        write(self.control_dir,self.report)
+        if len(self.report['checkpoint_ms'])<512:
+            self.report['checkpoint_ms'].append((self.clock()-before)/1e6)
     def guard(self):
+        before=self.clock()
         info=safe_info(self.client.call('device_info',{},timeout=self.budget()).result)
         replied=self.clock()
+        self.report['foreground_ms'].append((replied-before)/1e6)
         if info['foreground']!='game' or info['screen_locked'] is not False: raise ProbeError('foreground_not_verified')
         if not all(c in info['advertised_known_capabilities'] for c in resume.CAPABILITIES): raise ProbeError('capabilities_missing')
         return replied
     def observe(self):
-        from .gold_scan import analyze
+        from .gold_scan import analyze_image
+        from . import native_scan
         if len(self.report['capture_ms'])>=MAX_OBSERVATIONS: raise ProbeError('observation_limit')
         self.guard()
         started=self.clock()
         payload=self.client.call('screenshot',dict(resume.CAPTURE_PARAMS),timeout=self.budget()).result
-        raw,image=inspect_payload(payload)
-        validate_source_geometry(payload,image,resume.CAPTURE_PARAMS)
-        g=image['reported_geometry']
-        if (image['pixel_width'],image['pixel_height'],g['source_orientation'],g['point_width'],g['point_height'])!=(896,414,2,414,896):
-            raise ProbeError('source_geometry_invalid')
-        decoded=self.clock()
-        obs=analyze(raw)
-        done=self.clock()
+        raw,image,rgb=inspect_payload(payload,include_rgb=True)
+        try:
+            validate_source_geometry(payload,image,resume.CAPTURE_PARAMS)
+            g=image['reported_geometry']
+            if (image['pixel_width'],image['pixel_height'],g['source_orientation'],g['point_width'],g['point_height'])!=(896,414,2,414,896):
+                raise ProbeError('source_geometry_invalid')
+            decoded=self.clock()
+            obs=analyze_image(rgb)
+            done=self.clock()
+        finally:
+            rgb.close()
+        self.report['analysis_engine']=native_scan.ENGINE
+        self.report['decode_ms'].append((image['inspect_end_ns']-image['decode_start_ns'])/1e6)
+        if obs['state']=='pause':
+            if self.last is None or self.last['state']!='pause':self.menu_since_ns=done
+        else:self.menu_since_ns=None
         self.report['capture_ms'].append((decoded-started)/1e6)
         self.report['analysis_ms'].append((done-decoded)/1e6)
-        obs.update(_raw=raw,_captured=started,_sha=hashlib.sha256(raw).hexdigest())
+        obs.update(_raw=raw,_captured=started,_seen_ns=done,_sha=image['sha256'])
         self.last=obs
         return obs
     def tap(self,action,observed):
@@ -164,31 +202,83 @@ class RuntimeDriver:
         if action=='restart' and not observed['restart_label']: raise ProbeError('screen_unconfirmed')
         front=self.guard()
         if len(self.report['actions'])>=MAX_ACTIONS: raise ProbeError('method_not_allowed')
-        entry={'action':action,'outcome':'not_requested','start_ns':self.clock()}
+        entry={'action':action,'outcome':'not_requested','start_ns':self.clock(),
+               'issued_ns':None,'completed_ns':None,'capture_age_ms':None,'foreground_age_ms':None,
+               'menu_age_ms':None,'menu_wait_ms':0.0}
         self.report['actions'].append(entry)
         entry['outcome']='unknown'; self.pending=True
         self.checkpoint()
-        now=self.clock()
         try:
+            if action=='restart':
+                if self.menu_since_ns is None:raise ProbeError('screen_unconfirmed')
+                wait_started=self.clock()
+                waited=False
+                while True:
+                    remaining_ns=self.menu_since_ns+MENU_READY_NS-self.clock()
+                    if remaining_ns<=0:break
+                    remaining=self.budget()
+                    waited=True
+                    self.sleeper(min(.05,remaining,remaining_ns/1e9))
+                if waited:
+                    entry['menu_wait_ms']=(self.clock()-wait_started)/1e6
+                    front=self.guard()
+            now=self.clock()
             timeout=self.budget()
             if not(0<=now-observed['_captured']<=3_000_000_000 and 0<=now-front<=1_000_000_000):
                 raise ProbeError('host_observation_expired')
         except ProbeError:
             entry['outcome']='not_requested';self.pending=False
             raise
+        entry.update(issued_ns=now,capture_age_ms=(now-observed['_captured'])/1e6,
+                     foreground_age_ms=(now-front)/1e6,
+                     menu_age_ms=(now-self.menu_since_ns)/1e6 if action=='restart' else None)
         result=self.client.call('run_steps',batch(action),timeout=timeout).result
+        entry['completed_ns']=self.clock()
         self.report['input_ms'].append((self.clock()-now)/1e6)
         outcome,_=resume.batch_evidence(result)
         entry['outcome']=outcome
         self.pending=outcome=='unknown'
         self.checkpoint()
         if outcome!='acknowledged': raise ProbeError('batch_unknown')
-    def save(self,name,observed): atomic_write(self.folder/name,observed['_raw'])
+    def save(self,name,observed):
+        # 原画像の永続化は操作終了後。入力待ち中にiOSマウントへ書かない。
+        raw=observed['_raw']
+        priority=lambda key:3 if key=='found.jpg' else 2 if key=='stopped.jpg' else 1 if key=='initial.jpg' else 0
+        self.images.pop(name,None)
+        while self.images and (len(self.images)>=36 or sum(map(len,self.images.values()))+len(raw)>MAX_EVIDENCE_BYTES):
+            old=min(self.images,key=priority)
+            if priority(old)>priority(name):break
+            self.images.pop(old)
+            if old not in self.report['omitted_images']:self.report['omitted_images'].append(old)
+        if len(raw)<=MAX_EVIDENCE_BYTES and sum(map(len,self.images.values()))+len(raw)<=MAX_EVIDENCE_BYTES:
+            self.images[name]=raw
+            if name in self.report['omitted_images']:self.report['omitted_images'].remove(name)
+        elif name not in self.report['omitted_images']:self.report['omitted_images'].append(name)
+    def export_images(self):
+        before=self.clock()
+        try:
+            # 発見/停止を先に保存する。書き出せた名前だけをcheckpointへ確定。
+            order=sorted(self.images,key=lambda key:(key not in ('found.jpg','stopped.jpg'),key))
+            for name in order:
+                atomic_write(self.folder/name,self.images[name])
+                self.report['exported_images'].append(name)
+                self.checkpoint()
+            self.report['export_complete']=True
+        except OSError:
+            self.report['export_error']='output_write_failed'
+        finally:
+            self.report['export_ms']=(self.clock()-before)/1e6
+            self.checkpoint()
+    def mark_candidate(self,obs):
+        self.report['candidate_detected_ns']=obs['_seen_ns']
+        self.report['candidate_pause_already_issued']=bool(self.report['actions'] and
+            self.report['actions'][-1]['action']=='pause' and self.report['actions'][-1]['issued_ns'] is not None)
+    def mark_paused(self,obs):self.report['paused_seen_ns']=obs['_seen_ns']
     def record_run(self,observed):
         index=len(self.report['runs'])+1
         self.save('run-%03d.jpg'%index,observed)
         self.report['runs'].append({'index':index,'sha256':observed['_sha'],'gold':observed['gold'],
-                                   'gold_peak':observed['gold_peak'],'seen_ns':self.clock()})
+                                   'gold_peak':observed['gold_peak'],'seen_ns':observed['_seen_ns']})
         self.checkpoint()
         print('第%d回: %s / リスタート確認 %d回'%(index,{'clear':'金壁なし','candidate':'金壁候補','unknown':'未判定'}[observed['gold']],self.report['restarts_confirmed']),flush=True)
     def changed(self,a,b):
@@ -202,6 +292,7 @@ def collect(driver,max_restarts=MAX_RESTARTS):
     def latch(obs):
         if obs['state']=='floor' and obs['gold']=='candidate' and not r['candidate']:
             r.update(candidate=True,reason='gold_candidate')
+            if hasattr(driver,'mark_candidate'):driver.mark_candidate(obs)
             driver.save('found.jpg',obs)
             driver.checkpoint()
     def pause_and_finish(obs,reason):
@@ -214,7 +305,9 @@ def collect(driver,max_restarts=MAX_RESTARTS):
             after=driver.observe()
             latch(after)
             if after['state']=='pause':
-                r['paused']=True; driver.save('stopped.jpg',after); return r
+                r['paused']=True
+                if hasattr(driver,'mark_paused'):driver.mark_paused(after)
+                driver.save('stopped.jpg',after); return r
         r['reason']='pause_unconfirmed'
         return r
     def ready(previous=None):
@@ -253,12 +346,16 @@ def collect(driver,max_restarts=MAX_RESTARTS):
             menu=driver.observe()
             latch(menu)
             if menu['state']=='pause' and r['candidate']:
-                r['paused']=True;driver.save('stopped.jpg',menu);return r
+                r['paused']=True
+                if hasattr(driver,'mark_paused'):driver.mark_paused(menu)
+                driver.save('stopped.jpg',menu);return r
             if menu['state']=='pause' and menu['restart_label']: break
         else: raise ProbeError('screen_unconfirmed')
         # 終了予算に入ったら、既にポーズしているのでリスタートしない。
         if driver.bounded():
-            r.update(paused=True,reason='time_limit');driver.save('stopped.jpg',menu);return r
+            r.update(paused=True,reason='time_limit')
+            if hasattr(driver,'mark_paused'):driver.mark_paused(menu)
+            driver.save('stopped.jpg',menu);return r
         driver.tap('restart',menu)
         after=ready(obs)
         if after['gold']=='candidate':
@@ -272,12 +369,13 @@ def collect(driver,max_restarts=MAX_RESTARTS):
 
 
 def parser():
-    ap=argparse.ArgumentParser(description='TEST-014: 金壁候補まで最大30回/180秒、発見したらポーズ。')
-    ap.add_argument('--output',default='runtime/test-014')
+    ap=argparse.ArgumentParser(description='TEST-015: 金壁候補まで最大30回/180秒、発見したらポーズ。')
+    ap.add_argument('--output',default='runtime/test-015')
     ap.add_argument('--token-store',default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key',default=None)
     ap.add_argument('--python-crypto',action='store_true')
     ap.add_argument('--worker',action='store_true',help=argparse.SUPPRESS)
+    ap.add_argument('--checkpoint-dir',default=None,help=argparse.SUPPRESS)
     ap.add_argument('--stop-ns',type=int,default=0,help=argparse.SUPPRESS)
     ap.add_argument('--start-ns',type=int,default=0,help=argparse.SUPPRESS)
     ap.add_argument('--run-id',default=None,help=argparse.SUPPRESS)
@@ -286,7 +384,8 @@ def parser():
 
 def worker(args):
     folder=Path(args.output)
-    try: report=read_report(folder/'report.json',args.run_id,args.start_ns)
+    control=Path(args.checkpoint_dir) if args.checkpoint_dir else folder
+    try: report=read_report(control/'report.json',args.run_id,args.start_ns)
     except (ValueError,OSError,ProbeError): return 74
     driver=None
     try:
@@ -296,7 +395,7 @@ def worker(args):
             report['crypto_engine']=crypto.engine
             with OwnedRpcTimer() as timer:
                 client=RestartClient(HttpTransport(),key,tok,timeout=8,crypto=crypto,deadline_owner=timer)
-                driver=RuntimeDriver(client,report,folder,args.stop_ns)
+                driver=RuntimeDriver(client,report,folder,args.stop_ns,checkpoint_dir=control)
                 client.call('launch_app',{'bundle_id':GAME},timeout=driver.budget())
                 collect(driver)
                 report['status']='completed' if report['paused'] else 'stopped'
@@ -304,10 +403,16 @@ def worker(args):
     except KeyboardInterrupt: report.update(status='stopped',reason='user_interrupt')
     except OSError: report.update(status='stopped',reason='output_write_failed')
     except Exception: report.update(status='stopped',reason='internal_error')
-    report['end_ns']=time.monotonic_ns()
+    report.update(control_end_ns=time.monotonic_ns(),control_reason=report['reason'])
+    report['end_ns']=report['control_end_ns']
     try:
-        if driver and driver.last is not None: driver.save('last.jpg',driver.last)
-        write(folder,report)
+        # 制御結果はexportより前にローカルへ確定。途中終了でもゲーム結果を失わない。
+        write(control,report)
+        if driver:
+            if driver.last is not None:driver.save('last.jpg',driver.last)
+            driver.export_images()
+        report['end_ns']=time.monotonic_ns()
+        write(control,report)
     except OSError: return 2
     return 0
 
@@ -317,15 +422,17 @@ def run(args):
     base=Path(args.output).resolve();base.mkdir(parents=True,exist_ok=True)
     run_id=uuid.uuid4().hex;start=time.monotonic_ns()
     folder=base/('gold-loop-'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'-'+run_id[:8]);folder.mkdir(mode=0o700)
-    report=new_report(start,run_id);write(folder,report)
+    report=new_report(start,run_id)
+    control=Path(tempfile.mkdtemp(prefix='necroprobe-'))
+    write(control,report)
     command=[sys.executable,'-m','necroprobe.restart_loop','--worker','--output',str(folder),
-             '--start-ns',str(start),'--stop-ns',str(start+SESSION_SECONDS*1_000_000_000),'--run-id',run_id,'--token-store',args.token_store]
+             '--checkpoint-dir',str(control),'--start-ns',str(start),'--stop-ns',str(start+SESSION_SECONDS*1_000_000_000),'--run-id',run_id,'--token-store',args.token_store]
     if args.store_key is not None:command+=['--store-key',args.store_key]
     if args.python_crypto:command.append('--python-crypto')
-    print('TEST-014: 金壁候補まで最大30回/180秒。ゲームを表示したまま待ってください。',flush=True)
+    print('TEST-015: 金壁候補まで最大30回/180秒。ゲームを表示したまま待ってください。',flush=True)
     diagnostics={}
     reason=supervisor.supervise(command,max(.001,SESSION_SECONDS-(time.monotonic_ns()-start)/1e9),diagnostics)
-    try: report=read_report(folder/'report.json',run_id,start)
+    try: report=read_report(control/'report.json',run_id,start)
     except (ValueError,OSError,ProbeError):
         report['counts_certain']=False;reason=reason or 'report_read_failed'
     report['worker_exit_confirmed']=diagnostics.get('exit_confirmed')
@@ -334,10 +441,16 @@ def run(args):
         report['counts_certain']=False;reason='worker_cleanup_failed'
     if reason or report['status']=='running':report.update(status='stopped',reason=code(reason or 'worker_failed'))
     report['end_ns']=time.monotonic_ns();write(folder,report,'parent-result.json')
-    if report['worker_exit_confirmed'] is not False:write(folder,report)
+    if report['worker_exit_confirmed'] is not False:
+        write(folder,report)
+        import shutil
+        shutil.rmtree(control,ignore_errors=True)
     labels={'gold_candidate':'金壁候補を検出','restart_limit':'リスタート上限','time_limit':'時間上限'}
     print('終了: '+labels.get(report['reason'],report['reason'] or 'unknown')+' / ポーズ確認: '+str(report['paused']),flush=True)
     print('リスタート確認: '+(str(report['restarts_confirmed']) if report['counts_certain'] else '不明')+' / 保存先: '+str(folder),flush=True)
+    if report['control_reason'] is not None and report['control_reason']!=report['reason']:
+        print('操作終了時の結果: '+report['control_reason'],flush=True)
+    print('画像解析: '+report['analysis_engine']+' / 画像保存完了: '+str(report['export_complete']),flush=True)
     if not report['paused']:print('ポーズ未確認です。ゲーム画面を確認し、必要なら手動でポーズしてください。',flush=True)
     return 0 if report['status']=='completed' else 2
 
@@ -350,8 +463,8 @@ def main(argv=None):
         for sig in (signal.SIGINT,signal.SIGTERM):
             previous[sig]=signal.getsignal(sig);signal.signal(sig,interrupt)
     try:return run(args)
-    except ProbeError as exc:print('TEST-014停止: '+code(exc.code),file=sys.stderr);return 2
-    except OSError:print('TEST-014: 結果保存に失敗しました。',file=sys.stderr);return 2
+    except ProbeError as exc:print('TEST-015停止: '+code(exc.code),file=sys.stderr);return 2
+    except OSError:print('TEST-015: 結果保存に失敗しました。',file=sys.stderr);return 2
     finally:
         for sig,handler in previous.items():signal.signal(sig,handler)
 
