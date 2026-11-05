@@ -1,0 +1,55 @@
+{
+  "test_id": "TEST-009",
+  "status": "source_information_observed",
+  "source": {
+    "name": "IMG_8533.png",
+    "sha256": "a4ad096babe83af410ef38360aa4ba2c71faa37cce5e3797e0d47e10b70afe29",
+    "bytes": 379810,
+    "kind": "terminal_screenshot_transcription",
+    "visible_time": "20:16",
+    "raw_stdout_file_received": false
+  },
+  "probe_source_commit": "dfc965d00a205d1df2cf940c81d829415a1ec351",
+  "observed": {
+    "server": {
+      "values": {
+        "server_version": "1.98.14",
+        "build": "2026-11-01 16:49",
+        "protocol_version": 1,
+        "point_width": 414,
+        "point_height": 896,
+        "pixel_width": 828,
+        "pixel_height": 1792,
+        "scale": 2
+      },
+      "issues": [],
+      "known_capabilities": [
+        "run_steps",
+        "wait_for",
+        "video_stream",
+        "stream_ticket"
+      ]
+    },
+    "crypto_engine": "native_i386"
+  },
+  "terminal_prompt_returned": true,
+  "device_foreground": "iSH visible in supplied screenshot; no continuous observation",
+  "elapsed_ms": null,
+  "exit_code": null,
+  "release_comparison": {
+    "tag": "v0.3.4",
+    "commit": "6e25cf6a9f65bc86c372cdce94bdb151d0cf6767",
+    "declared_server_version": "1.98.14",
+    "version_matches": true,
+    "binary_identity_verified": false
+  },
+  "acceptance": {
+    "device_info_read": "observed",
+    "source_version": "observed",
+    "video_stream_runtime": "not_tested",
+    "landscape_capture": "not_tested",
+    "performance": "not_tested",
+    "input_geometry": "not_tested",
+    "P1": "not_passed"
+  }
+}

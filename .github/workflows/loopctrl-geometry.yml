@@ -1,0 +1,40 @@
+name: LoopCtrl geometry contract
+
+on:
+  push:
+    branches: [work/p1-capture-probe]
+    paths:
+      - 'patches/loopctrl/**'
+      - '.github/workflows/loopctrl-geometry.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Compile and observe original dimension contract
+        run: |
+          swiftc --version
+          python3 driver/patches/loopctrl/check_baseline.py upstream "$RUNNER_TEMP/geometry-baseline"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: loopctrl-geometry-baseline
+          path: |
+            ${{ runner.temp }}/geometry-baseline/*.json
+            ${{ runner.temp }}/geometry-baseline/*.txt
+          if-no-files-found: error

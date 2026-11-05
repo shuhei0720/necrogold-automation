@@ -2,7 +2,9 @@
 
 更新: 2026-11-05（日本時間）
 
-最新: 受信後の縦横比補正案をユーザーの性能要件により撤回。取得元から横長で受け取る方針へ変更した。実機の版/buildが未記録のため、[TEST-009](device-tests/009-source-info.md)の読み取り専用補助を追加。診断本体P1.4・原画像保存・R12は変更しない。横長取得の本体修正と性能合格は未完了。[計画](plans/p1-geometry-validation.md) / [レビュー](reviews/p1-source-info.md)。
+前回到達点（TEST-009実施前）: 受信後の縦横比補正案をユーザーの性能要件により撤回。取得元から横長で受け取る方針へ変更した。実機の版/buildが未記録のため、[TEST-009](device-tests/009-source-info.md)の読み取り専用補助を追加。診断本体P1.4・原画像保存・R12は変更しない。横長取得の本体修正と性能合格は未完了。[計画](plans/p1-geometry-validation.md) / [レビュー](reviews/p1-source-info.md)。
+
+最新: TEST-009結果受領。実機API1.98.14/build2026-11-01 16:49、native_i386、video_stream/stream_ticket申告を確認。再照会は不要。次は[NG-G1取得元の寸法修正](plans/p1-source-geometry.md)。SwiftコンパイラがないLinux上でビルド済みとはせず、固定元ソースの数値契約をmacOS CIで先に検証する。IPA未作成・現行アプリ更新不要。
 
 | 項目 | 状態 |
 | --- | --- |
