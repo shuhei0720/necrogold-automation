@@ -1,0 +1,392 @@
+{
+  "test_id": "TEST-010",
+  "source_archive": {
+    "file": "test-010.zip",
+    "bytes": 137504,
+    "sha256": "e6eaa3846f76eee263811c84b9c903bae471b0f26a703bae12dc45b66c016650",
+    "report_path": "test-010/probe-20261105T122752Z-a1e51f80/report.json",
+    "report_sha256": "d1cfa9a73b025b0bc90d0145419af1b5508cd4f84f68bdebcb2602d5363c5934"
+  },
+  "terminal_image": {
+    "file": "IMG_8534.png",
+    "bytes": 565210,
+    "sha256": "56ff4b11dbc2460e854df287bbfd90d34fa45faa3ae16837f5946491142b30e5"
+  },
+  "run": "probe-20261105T122752Z-a1e51f80",
+  "start_time_jst": "2026-11-05T21:27:52+09:00",
+  "start_time_source": "directory timestamp; device clock accuracy unverified",
+  "version": "P1.5",
+  "crypto_engine": "native_i386",
+  "delivered_client_commit": "b07e0682e86140e623b436fa5747ba5d964f7e4f",
+  "delivered_source_commit": "ae91483e51f5c97d93f2da1eac7a6f99759c74aa",
+  "device_source_hashes_received": false,
+  "status": "completed",
+  "worker": {
+    "stage": "capture_collection",
+    "process": {
+      "returncode": 0,
+      "signal_number": null,
+      "signal_name": null
+    },
+    "report_read_ok": true
+  },
+  "counts": {
+    "planned": 12,
+    "started": 12,
+    "complete": 12,
+    "errors": 0,
+    "interrupted": 0,
+    "not_started": 0
+  },
+  "elapsed_ms": 28322.32,
+  "startup_before_first_event_ms": 8384.479,
+  "groups": {
+    "jpeg_scale1": {
+      "planned": 4,
+      "complete": 4,
+      "durations_ms": {
+        "request_prepare": {
+          "n": 4,
+          "median_ms": 5.573,
+          "p95_ms": 5.957
+        },
+        "http_roundtrip": {
+          "n": 4,
+          "median_ms": 171.268,
+          "p95_ms": 175.182
+        },
+        "envelope_auth": {
+          "n": 4,
+          "median_ms": 42.856,
+          "p95_ms": 43.403
+        },
+        "decrypt": {
+          "n": 4,
+          "median_ms": 44.386,
+          "p95_ms": 49.394
+        },
+        "response_json": {
+          "n": 4,
+          "median_ms": 22.325,
+          "p95_ms": 22.516
+        },
+        "image_base64": {
+          "n": 4,
+          "median_ms": 11.293,
+          "p95_ms": 11.946
+        },
+        "image_decode": {
+          "n": 4,
+          "median_ms": 99.583,
+          "p95_ms": 378.843
+        },
+        "image_inspect": {
+          "n": 4,
+          "median_ms": 44.237,
+          "p95_ms": 47.06
+        },
+        "capture_to_inspected": {
+          "n": 4,
+          "median_ms": 438.467,
+          "p95_ms": 732.078
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 219.783,
+          "p95_ms": 219.783
+        },
+        "trial_total": {
+          "n": 4,
+          "median_ms": 697.181,
+          "p95_ms": 1167.734
+        }
+      },
+      "hash_trials": {
+        "0216d9dde83972072435b3a058860292c4034c13099cbaacd92e268237a88114": [
+          1
+        ],
+        "71883d3835897752ed6d81ba5ff04b0c6d2c4486268afb72395ca9ec7e3c6163": [
+          4,
+          7,
+          10
+        ]
+      },
+      "dimensions": [
+        [
+          896,
+          414
+        ]
+      ]
+    },
+    "jpeg_scale2": {
+      "planned": 4,
+      "complete": 4,
+      "durations_ms": {
+        "request_prepare": {
+          "n": 4,
+          "median_ms": 5.432,
+          "p95_ms": 5.952
+        },
+        "http_roundtrip": {
+          "n": 4,
+          "median_ms": 198.425,
+          "p95_ms": 216.48
+        },
+        "envelope_auth": {
+          "n": 4,
+          "median_ms": 87.712,
+          "p95_ms": 98.744
+        },
+        "decrypt": {
+          "n": 4,
+          "median_ms": 117.575,
+          "p95_ms": 125.892
+        },
+        "response_json": {
+          "n": 4,
+          "median_ms": 40.905,
+          "p95_ms": 42.048
+        },
+        "image_base64": {
+          "n": 4,
+          "median_ms": 30.052,
+          "p95_ms": 32.837
+        },
+        "image_decode": {
+          "n": 4,
+          "median_ms": 284.681,
+          "p95_ms": 289.636
+        },
+        "image_inspect": {
+          "n": 4,
+          "median_ms": 153.315,
+          "p95_ms": 162.537
+        },
+        "capture_to_inspected": {
+          "n": 4,
+          "median_ms": 922.941,
+          "p95_ms": 964.696
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 208.547,
+          "p95_ms": 208.547
+        },
+        "trial_total": {
+          "n": 4,
+          "median_ms": 1182.548,
+          "p95_ms": 1405.072
+        }
+      },
+      "hash_trials": {
+        "02e7ff0f2cead1ea2ccdb260577a10a992067d3a6636fecac9679a6d7ec330a0": [
+          2
+        ],
+        "f12b0cecf89976434c1f00bb14ab2f850e091e1f6224762843d8549c7bf81055": [
+          5,
+          8,
+          11
+        ]
+      },
+      "dimensions": [
+        [
+          1792,
+          828
+        ]
+      ]
+    },
+    "png_scale1": {
+      "planned": 4,
+      "complete": 4,
+      "durations_ms": {
+        "request_prepare": {
+          "n": 4,
+          "median_ms": 6.559,
+          "p95_ms": 7.197
+        },
+        "http_roundtrip": {
+          "n": 4,
+          "median_ms": 190.7,
+          "p95_ms": 208.033
+        },
+        "envelope_auth": {
+          "n": 4,
+          "median_ms": 56.468,
+          "p95_ms": 68.447
+        },
+        "decrypt": {
+          "n": 4,
+          "median_ms": 67.387,
+          "p95_ms": 83.118
+        },
+        "response_json": {
+          "n": 4,
+          "median_ms": 25.057,
+          "p95_ms": 28.301
+        },
+        "image_base64": {
+          "n": 4,
+          "median_ms": 16.938,
+          "p95_ms": 21.121
+        },
+        "image_decode": {
+          "n": 4,
+          "median_ms": 79.75,
+          "p95_ms": 82.784
+        },
+        "image_inspect": {
+          "n": 4,
+          "median_ms": 45.466,
+          "p95_ms": 47.512
+        },
+        "capture_to_inspected": {
+          "n": 4,
+          "median_ms": 488.194,
+          "p95_ms": 547.253
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 220.275,
+          "p95_ms": 220.275
+        },
+        "trial_total": {
+          "n": 4,
+          "median_ms": 753.994,
+          "p95_ms": 1008.528
+        }
+      },
+      "hash_trials": {
+        "0005ae691357f82f4d8655e9abd050d17ece41330c7f758cc481ee9a96d863b5": [
+          3
+        ],
+        "89156cb0a2862121650a91b1bcfbafe2a5070d7371bf053288bcfe22d0d372ce": [
+          6,
+          9,
+          12
+        ]
+      },
+      "dimensions": [
+        [
+          896,
+          414
+        ]
+      ]
+    }
+  },
+  "saved_images_verified": [
+    {
+      "file": "001-jpeg_scale1-decoded_nonblank.jpg",
+      "trial": 1,
+      "dimensions": [
+        896,
+        414
+      ],
+      "format": "JPEG",
+      "exif_orientation": 1,
+      "bytes": 31089,
+      "sha256": "0216d9dde83972072435b3a058860292c4034c13099cbaacd92e268237a88114"
+    },
+    {
+      "file": "002-jpeg_scale2-decoded_nonblank.jpg",
+      "trial": 2,
+      "dimensions": [
+        1792,
+        828
+      ],
+      "format": "JPEG",
+      "exif_orientation": 1,
+      "bytes": 85780,
+      "sha256": "02e7ff0f2cead1ea2ccdb260577a10a992067d3a6636fecac9679a6d7ec330a0"
+    },
+    {
+      "file": "003-png_scale1-decoded_nonblank.png",
+      "trial": 3,
+      "dimensions": [
+        896,
+        414
+      ],
+      "format": "PNG",
+      "exif_orientation": 1,
+      "bytes": 52770,
+      "sha256": "0005ae691357f82f4d8655e9abd050d17ece41330c7f758cc481ee9a96d863b5"
+    }
+  ],
+  "all_12_metadata_issues_empty": true,
+  "all_12_client_geometry_applied": "none",
+  "reported_geometry_first_row": {
+    "geometry": "image_size_v1",
+    "input_geometry_verified": false,
+    "source_orientation": 2,
+    "scope": "screen",
+    "source_scale": 2,
+    "device_scale": 2,
+    "scale": 1,
+    "requested_scale": 1,
+    "source_width": 896,
+    "source_pixel_width": 1792,
+    "image_point_width": 896,
+    "point_width": 414,
+    "pixel_width": 896,
+    "source_height": 414,
+    "source_pixel_height": 828,
+    "image_point_height": 414,
+    "point_height": 896,
+    "pixel_height": 414
+  },
+  "foreground_first": "unknown",
+  "foreground_last": "game",
+  "input_authorized": false,
+  "gate": {
+    "P1": "not_passed",
+    "capture_freshness": "not_measured",
+    "input_geometry": "not_measured",
+    "device_input_cancel": "not_measured",
+    "reason": "Capture diagnostics alone do not authorize gameplay input."
+  },
+  "timer": {
+    "backend": "owned_itimer_real",
+    "poisoned": false,
+    "closed": true,
+    "cleanup_error": null
+  },
+  "location_reader_start_reported": true,
+  "location_reader_stop_requested": true,
+  "location_reader_stop_completed_verified": false,
+  "comparison": {
+    "source_archive": {
+      "file": "test-007.zip",
+      "bytes": 102738,
+      "sha256": "79297c86bdf1ede7fdea5bd53d2b4e648913780dd38036134579de8fc23482a2",
+      "report_path": "test-007/probe-20261105T094605Z-1d2b2565/report.json",
+      "report_sha256": "38bba5859e41c15fc0cdfbdbcc4c39be90d958662c417999c9eb225a63c0a721"
+    },
+    "test007_elapsed_ms": 26274.969,
+    "elapsed_change_percent": 7.792,
+    "capture_to_inspected": {
+      "jpeg_scale1": {
+        "test007_median_ms": 409.465,
+        "test010_median_ms": 438.467,
+        "median_change_percent": 7.083
+      },
+      "jpeg_scale2": {
+        "test007_median_ms": 840.267,
+        "test010_median_ms": 922.941,
+        "median_change_percent": 9.839
+      },
+      "png_scale1": {
+        "test007_median_ms": 447.403,
+        "test010_median_ms": 488.194,
+        "median_change_percent": 9.117
+      }
+    }
+  },
+  "limitations": [
+    "Four completed trials per format; nearest-rank p95 is the maximum; no warmup excluded.",
+    "Only three original images were saved; other nine raster metadata/hashes cannot replace visual inspection.",
+    "Source-generated compressed images and sizes differ from TEST-007; separate runs do not isolate regression causality.",
+    "capture_to_inspected ends before new metadata validation; trial_total includes that validation and selected raw saves.",
+    "Trial/report checkpoints and startup overhead are included in elapsed; throughput is not fresh game frame rate.",
+    "same_bytes_as_previous compares adjacent mixed formats, not same-format history; later same-format hashes repeat.",
+    "Input geometry, capture timestamps, frame age, input cancellation, gameplay and human-faster performance remain unverified."
+  ]
+}
