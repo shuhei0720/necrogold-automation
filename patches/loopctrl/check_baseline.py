@@ -23,8 +23,9 @@ def program(raw):
         raise ValueError('baseline_statements_not_unique')
     # この2式は元ActionHandlerから取り出す。UIImage/XCTestの実行ではない。
     return '''import Foundation
+import CoreGraphics
 let frame = CGRect(x: 0, y: 0, width: 414, height: 896)
-let targetScale = 1.0
+let targetScale: CGFloat = 1.0
 ''' + '\n'.join(source[source.index(line):source.index(line)+len(line)] for line in statements) + '''
 if targetPixelW != 896 || targetPixelH != 414 {
     print("FAIL baseline_landscape_scale1: expected=896x414 actual=\\(Int(targetPixelW))x\\(Int(targetPixelH))")
@@ -42,7 +43,10 @@ def main():
     swift.write_text(program(raw))
     executable = destination/'baseline-test'
     # コンパイル失敗をRedと見なさない。先にcheck=Trueで独立して検査する。
-    subprocess.run(['swiftc', str(swift), '-o', str(executable)], check=True, timeout=120)
+    compiled = subprocess.run(['swiftc', str(swift), '-o', str(executable)],
+                              capture_output=True, text=True, timeout=120)
+    (destination/'baseline-compile.txt').write_text(compiled.stdout+compiled.stderr)
+    compiled.check_returncode()
     result = subprocess.run([str(executable.resolve())], capture_output=True, text=True, timeout=10)
     (destination/'baseline-swift-tests.txt').write_text(result.stdout+result.stderr)
     expected = 'FAIL baseline_landscape_scale1: expected=896x414 actual=414x896'
