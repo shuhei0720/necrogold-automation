@@ -20,22 +20,57 @@ HOST = "127.0.0.1:8300"
 
 @contextmanager
 def deadline(seconds):
+    """Own ITIMER_REAL in the dedicated worker; never call iSH's missing getitimer."""
     number(seconds, 0.001, 60)
     if not hasattr(signal, "setitimer"):
         raise ProbeError("posix_timer_required")
     old_handler = signal.getsignal(signal.SIGALRM)
-    old_timer = signal.getitimer(signal.ITIMER_REAL)
+    if old_handler is None:
+        raise ProbeError("timer_handler_unknown")
+    queried_at = time.monotonic()
+    try:
+        # setitimer returns (previous delay, interval); iSH implements syscall 104,
+        # whereas getitimer (105) is absent. Do not probe it even in a try/except:
+        # unsupported syscalls can terminate the process instead of raising Python.
+        old_timer = signal.setitimer(signal.ITIMER_REAL, 0)
+    except (OSError, ValueError):
+        raise ProbeError("timer_setup_failed") from None
     if old_timer != (0.0, 0.0):
+        delay, interval = old_timer
+        if delay > 0:
+            delay = max(.000001, delay - (time.monotonic() - queried_at))
+        try:
+            signal.setitimer(signal.ITIMER_REAL, delay, interval)
+        except (OSError, ValueError):
+            raise ProbeError("timer_restore_failed") from None
         raise ProbeError("timer_already_in_use")
+
     def expired(_signal, _frame):
         raise ProbeError("rpc_deadline")
-    signal.signal(signal.SIGALRM, expired)
-    signal.setitimer(signal.ITIMER_REAL, seconds)
+
     try:
+        signal.signal(signal.SIGALRM, expired)
+    except (OSError, ValueError):
+        raise ProbeError("timer_setup_failed") from None
+    try:
+        try:
+            signal.setitimer(signal.ITIMER_REAL, seconds)
+        except (OSError, ValueError):
+            raise ProbeError("timer_setup_failed") from None
         yield
     finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, old_handler)
+        failed = False
+        try:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+        except (OSError, ValueError):
+            failed = True
+        finally:
+            try:
+                signal.signal(signal.SIGALRM, old_handler)
+            except (OSError, ValueError):
+                failed = True
+        if failed:
+            raise ProbeError("timer_cleanup_failed") from None
 
 
 class HttpTransport:

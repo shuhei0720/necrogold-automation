@@ -19,7 +19,8 @@ VARIANTS = (
     ("png_scale1", {"format": "png", "scale": 1}),
 )
 FATAL = {"response_mac_mismatch", "response_id_mismatch", "http_status_401", "http_status_403",
-         "invalid_response_tag", "pairing_missing", "posix_timer_required", "timer_already_in_use"}
+         "invalid_response_tag", "pairing_missing", "posix_timer_required", "timer_already_in_use",
+         "timer_setup_failed", "timer_restore_failed", "timer_cleanup_failed", "timer_handler_unknown"}
 
 
 def atomic_write(path, raw):
@@ -152,6 +153,8 @@ def collect(client, report, folder, stop_ns, clock=time.monotonic_ns):
         report["events"].append(entry)
         checkpoint()
         try:
+            if method == "launch_app":
+                print("ゲームの起動要求を送ります。", flush=True)
             reply = call(method, params)
             entry.update(status="complete", timings=reply.timings)
             if method == "device_info":
@@ -159,6 +162,7 @@ def collect(client, report, folder, stop_ns, clock=time.monotonic_ns):
             else:
                 entry["launch_acknowledged"] = True
                 entry["game_visible_verified"] = False
+                print("ゲーム起動の応答を受け取りました。表示の成功は未確認です。画像を取得します。", flush=True)
         except ProbeError as exc:
             entry.update(status="error", error=exc.code)
             if exc.code in FATAL or exc.code == "session_deadline" or method == "launch_app":

@@ -1,0 +1,411 @@
+test_arm_failure_restores_handler_and_does_not_enter_body (test_timer_compat.TimerCompatibilityTests.test_arm_failure_restores_handler_and_does_not_enter_body) ... ERROR
+test_body_exception_clears_timer_and_restores_handler (test_timer_compat.TimerCompatibilityTests.test_body_exception_clears_timer_and_restores_handler) ... ok
+test_cleanup_failure_still_restores_handler (test_timer_compat.TimerCompatibilityTests.test_cleanup_failure_still_restores_handler) ... ERROR
+test_cli_explicitly_identifies_no_web_ui_or_taps (test_timer_compat.TimerCompatibilityTests.test_cli_explicitly_identifies_no_web_ui_or_taps) ... FAIL
+test_combined_crypto_and_transport_share_one_deadline (test_timer_compat.TimerCompatibilityTests.test_combined_crypto_and_transport_share_one_deadline) ... ok
+test_existing_periodic_timer_restored_and_rpc_refused (test_timer_compat.TimerCompatibilityTests.test_existing_periodic_timer_restored_and_rpc_refused) ... FAIL
+test_existing_timer_restore_failure_is_fatal_and_sends_nothing (test_timer_compat.TimerCompatibilityTests.test_existing_timer_restore_failure_is_fatal_and_sends_nothing) ... ERROR
+test_getitimer_sigsys_fault_does_not_kill_rpc_child (test_timer_compat.TimerCompatibilityTests.test_getitimer_sigsys_fault_does_not_kill_rpc_child) ... FAIL
+test_handler_restore_failure_cannot_report_success (test_timer_compat.TimerCompatibilityTests.test_handler_restore_failure_cannot_report_success) ... ERROR
+test_initial_timer_query_failure_is_safe_and_sends_nothing (test_timer_compat.TimerCompatibilityTests.test_initial_timer_query_failure_is_safe_and_sends_nothing) ... ERROR
+test_keyboard_interrupt_clears_timer_and_restores_handler (test_timer_compat.TimerCompatibilityTests.test_keyboard_interrupt_clears_timer_and_restores_handler) ... ok
+test_nested_deadline_refused_without_disabling_outer_timeout (test_timer_compat.TimerCompatibilityTests.test_nested_deadline_refused_without_disabling_outer_timeout) ... ok
+test_real_http_launch_capture_sequence_without_getitimer (test_timer_compat.TimerCompatibilityTests.test_real_http_launch_capture_sequence_without_getitimer) ... FAIL
+test_slow_crypto_times_out_before_network (test_timer_compat.TimerCompatibilityTests.test_slow_crypto_times_out_before_network) ... ok
+test_slow_headers_obey_total_deadline (test_timer_compat.TimerCompatibilityTests.test_slow_headers_obey_total_deadline) ... ok
+test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) ... 
+  test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_setup_failed', method='device_info') ... FAIL
+  test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_setup_failed', method='screenshot') ... FAIL
+  test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_restore_failed', method='device_info') ... FAIL
+  test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_restore_failed', method='screenshot') ... FAIL
+  test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_cleanup_failed', method='device_info') ... FAIL
+  test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_cleanup_failed', method='screenshot') ... FAIL
+  test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_handler_unknown', method='device_info') ... FAIL
+  test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_handler_unknown', method='screenshot') ... FAIL
+
+======================================================================
+ERROR: test_arm_failure_restores_handler_and_does_not_enter_body (test_timer_compat.TimerCompatibilityTests.test_arm_failure_restores_handler_and_does_not_enter_body)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 87, in test_arm_failure_restores_handler_and_does_not_enter_body
+    with deadline(.2):
+         ^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 33, in deadline
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1204, in _execute_mock_call
+    result = effect(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 83, in fail_arm
+    raise OSError("timer unsupported")
+OSError: timer unsupported
+
+======================================================================
+ERROR: test_cleanup_failure_still_restores_handler (test_timer_compat.TimerCompatibilityTests.test_cleanup_failure_still_restores_handler)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 105, in test_cleanup_failure_still_restores_handler
+    with deadline(.2):
+         ^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 37, in deadline
+    signal.setitimer(signal.ITIMER_REAL, 0)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1204, in _execute_mock_call
+    result = effect(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 101, in fail_cleanup
+    raise OSError("synthetic cleanup failure after disarm")
+OSError: synthetic cleanup failure after disarm
+
+======================================================================
+ERROR: test_existing_timer_restore_failure_is_fatal_and_sends_nothing (test_timer_compat.TimerCompatibilityTests.test_existing_timer_restore_failure_is_fatal_and_sends_nothing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 35, in deadline
+    yield
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 171, in call
+    envelope = json_object(response, MAX_HTTP)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/validation.py", line 52, in json_object
+    raise ProbeError("json_size")
+necroprobe.validation.ProbeError: json_size
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 180, in test_existing_timer_restore_failure_is_fatal_and_sends_nothing
+    Client(lambda *args: calls.append(args), KEY, TOK, crypto=Crypto(native=False)).call("device_info")
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 159, in call
+    with deadline(timeout):
+         ^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 37, in deadline
+    signal.setitimer(signal.ITIMER_REAL, 0)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1202, in _execute_mock_call
+    raise result
+OSError: PRIVATE_RESTORE_ERROR
+
+======================================================================
+ERROR: test_handler_restore_failure_cannot_report_success (test_timer_compat.TimerCompatibilityTests.test_handler_restore_failure_cannot_report_success)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 194, in test_handler_restore_failure_cannot_report_success
+    with deadline(.5):
+         ^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 38, in deadline
+    signal.signal(signal.SIGALRM, old_handler)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1204, in _execute_mock_call
+    result = effect(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 190, in fail_restore
+    raise OSError("PRIVATE_HANDLER_ERROR")
+OSError: PRIVATE_HANDLER_ERROR
+
+======================================================================
+ERROR: test_initial_timer_query_failure_is_safe_and_sends_nothing (test_timer_compat.TimerCompatibilityTests.test_initial_timer_query_failure_is_safe_and_sends_nothing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 172, in test_initial_timer_query_failure_is_safe_and_sends_nothing
+    Client(lambda *args: calls.append(args), KEY, TOK, crypto=Crypto(native=False)).call("device_info")
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 159, in call
+    with deadline(timeout):
+         ^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 33, in deadline
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1198, in _execute_mock_call
+    raise effect
+OSError: PRIVATE_TIMER_ERROR
+
+======================================================================
+FAIL: test_cli_explicitly_identifies_no_web_ui_or_taps (test_timer_compat.TimerCompatibilityTests.test_cli_explicitly_identifies_no_web_ui_or_taps)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 249, in test_cli_explicitly_identifies_no_web_ui_or_taps
+    self.assertIn("操作サイトは起動しません", result.stdout)
+AssertionError: '操作サイトは起動しません' not found in '画像取得の診断を開始します。タップ・オプション操作は行いません。\n診断終了: pairing_missing / 取得完了 0/3 / エラー 0 / 未実施 3\n保存先: /tmp/tmphdql07ze/probe-20261105T064104Z-1b3b672b\n子プロセス: 段階=pairing_load / 終了コード=0 / シグナル=None\nreport.jsonと保存画像が診断資料です。実機の自動周回は未検証です。\n'
+
+======================================================================
+FAIL: test_existing_periodic_timer_restored_and_rpc_refused (test_timer_compat.TimerCompatibilityTests.test_existing_periodic_timer_restored_and_rpc_refused)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 118, in test_existing_periodic_timer_restored_and_rpc_refused
+    client.call("device_info")
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 159, in call
+    with deadline(timeout):
+         ^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 27, in deadline
+    old_timer = signal.getitimer(signal.ITIMER_REAL)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1198, in _execute_mock_call
+    raise effect
+AssertionError: unsupported syscall
+
+======================================================================
+FAIL: test_getitimer_sigsys_fault_does_not_kill_rpc_child (test_timer_compat.TimerCompatibilityTests.test_getitimer_sigsys_fault_does_not_kill_rpc_child)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 40, in test_getitimer_sigsys_fault_does_not_kill_rpc_child
+    self.assertEqual(0, result.returncode, "getitimer caused child signal/exit: " + str(result.returncode))
+AssertionError: 0 != -31 : getitimer caused child signal/exit: -31
+
+======================================================================
+FAIL: test_real_http_launch_capture_sequence_without_getitimer (test_timer_compat.TimerCompatibilityTests.test_real_http_launch_capture_sequence_without_getitimer)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 65, in test_real_http_launch_capture_sequence_without_getitimer
+    collect(client, report, folder, time.monotonic_ns() + 5_000_000_000)
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 175, in collect
+    event("device_info")
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 155, in event
+    reply = call(method, params)
+            ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/session.py", line 148, in call
+    return client.call(method, params, timeout=min(client.timeout, remaining))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 159, in call
+    with deadline(timeout):
+         ^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/necroprobe/protocol.py", line 27, in deadline
+    old_timer = signal.getitimer(signal.ITIMER_REAL)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1198, in _execute_mock_call
+    raise effect
+AssertionError: unsupported syscall
+
+======================================================================
+FAIL: test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_setup_failed', method='device_info')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 215, in test_timer_failures_stop_session_before_launch_or_more_captures
+    self.assertEqual(expected, [method for method, _ in client.calls])
+AssertionError: Lists differ: ['device_info'] != ['device_info', 'launch_app', 'screenshot', 'screenshot[26 chars]nfo']
+
+Second list contains 5 additional elements.
+First extra element 1:
+'launch_app'
+
+- ['device_info']
+?               ^
+
++ ['device_info',
+?               ^
+
++  'launch_app',
++  'screenshot',
++  'screenshot',
++  'screenshot',
++  'device_info']
+
+======================================================================
+FAIL: test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_setup_failed', method='screenshot')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 215, in test_timer_failures_stop_session_before_launch_or_more_captures
+    self.assertEqual(expected, [method for method, _ in client.calls])
+AssertionError: Lists differ: ['dev[18 chars]_app', 'screenshot'] != ['dev[18 chars]_app', 'screenshot', 'screenshot', 'screenshot', 'device_info']
+
+Second list contains 3 additional elements.
+First extra element 3:
+'screenshot'
+
+- ['device_info', 'launch_app', 'screenshot']
++ ['device_info',
++  'launch_app',
++  'screenshot',
++  'screenshot',
++  'screenshot',
++  'device_info']
+
+======================================================================
+FAIL: test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_restore_failed', method='device_info')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 215, in test_timer_failures_stop_session_before_launch_or_more_captures
+    self.assertEqual(expected, [method for method, _ in client.calls])
+AssertionError: Lists differ: ['device_info'] != ['device_info', 'launch_app', 'screenshot', 'screenshot[26 chars]nfo']
+
+Second list contains 5 additional elements.
+First extra element 1:
+'launch_app'
+
+- ['device_info']
+?               ^
+
++ ['device_info',
+?               ^
+
++  'launch_app',
++  'screenshot',
++  'screenshot',
++  'screenshot',
++  'device_info']
+
+======================================================================
+FAIL: test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_restore_failed', method='screenshot')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 215, in test_timer_failures_stop_session_before_launch_or_more_captures
+    self.assertEqual(expected, [method for method, _ in client.calls])
+AssertionError: Lists differ: ['dev[18 chars]_app', 'screenshot'] != ['dev[18 chars]_app', 'screenshot', 'screenshot', 'screenshot', 'device_info']
+
+Second list contains 3 additional elements.
+First extra element 3:
+'screenshot'
+
+- ['device_info', 'launch_app', 'screenshot']
++ ['device_info',
++  'launch_app',
++  'screenshot',
++  'screenshot',
++  'screenshot',
++  'device_info']
+
+======================================================================
+FAIL: test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_cleanup_failed', method='device_info')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 215, in test_timer_failures_stop_session_before_launch_or_more_captures
+    self.assertEqual(expected, [method for method, _ in client.calls])
+AssertionError: Lists differ: ['device_info'] != ['device_info', 'launch_app', 'screenshot', 'screenshot[26 chars]nfo']
+
+Second list contains 5 additional elements.
+First extra element 1:
+'launch_app'
+
+- ['device_info']
+?               ^
+
++ ['device_info',
+?               ^
+
++  'launch_app',
++  'screenshot',
++  'screenshot',
++  'screenshot',
++  'device_info']
+
+======================================================================
+FAIL: test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_cleanup_failed', method='screenshot')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 215, in test_timer_failures_stop_session_before_launch_or_more_captures
+    self.assertEqual(expected, [method for method, _ in client.calls])
+AssertionError: Lists differ: ['dev[18 chars]_app', 'screenshot'] != ['dev[18 chars]_app', 'screenshot', 'screenshot', 'screenshot', 'device_info']
+
+Second list contains 3 additional elements.
+First extra element 3:
+'screenshot'
+
+- ['device_info', 'launch_app', 'screenshot']
++ ['device_info',
++  'launch_app',
++  'screenshot',
++  'screenshot',
++  'screenshot',
++  'device_info']
+
+======================================================================
+FAIL: test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_handler_unknown', method='device_info')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 215, in test_timer_failures_stop_session_before_launch_or_more_captures
+    self.assertEqual(expected, [method for method, _ in client.calls])
+AssertionError: Lists differ: ['device_info'] != ['device_info', 'launch_app', 'screenshot', 'screenshot[26 chars]nfo']
+
+Second list contains 5 additional elements.
+First extra element 1:
+'launch_app'
+
+- ['device_info']
+?               ^
+
++ ['device_info',
+?               ^
+
++  'launch_app',
++  'screenshot',
++  'screenshot',
++  'screenshot',
++  'device_info']
+
+======================================================================
+FAIL: test_timer_failures_stop_session_before_launch_or_more_captures (test_timer_compat.TimerCompatibilityTests.test_timer_failures_stop_session_before_launch_or_more_captures) (code='timer_handler_unknown', method='screenshot')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 215, in test_timer_failures_stop_session_before_launch_or_more_captures
+    self.assertEqual(expected, [method for method, _ in client.calls])
+AssertionError: Lists differ: ['dev[18 chars]_app', 'screenshot'] != ['dev[18 chars]_app', 'screenshot', 'screenshot', 'screenshot', 'device_info']
+
+Second list contains 3 additional elements.
+First extra element 3:
+'screenshot'
+
+- ['device_info', 'launch_app', 'screenshot']
++ ['device_info',
++  'launch_app',
++  'screenshot',
++  'screenshot',
++  'screenshot',
++  'device_info']
+
+----------------------------------------------------------------------
+Ran 16 tests in 1.386s
+
+FAILED (failures=12, errors=5)

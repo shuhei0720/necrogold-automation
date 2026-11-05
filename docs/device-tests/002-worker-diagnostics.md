@@ -1,6 +1,6 @@
 # TEST-002: 子プロセスの終了診断と暗号初期化の比較
 
-状態: 未実行。結果: 未判定。対象: P1.2（コードcommit `cfcb70b61cea995e360eea0ad1378878a7f64c40`）。TEST-001の3回の失敗はそのまま残す。
+状態: 実行済み、reportと終了画面受領。結果: **worker_failed / SIGSYS、画像取得0/12**。対象: P1.2（コードcommit `cfcb70b61cea995e360eea0ad1378878a7f64c40`）。TEST-001の3回の失敗はそのまま残す。
 
 P1.2は子の終了コードと最後のcheckpointを追加する修正版であり、TEST-001の実機原因を解消したと保証する版ではない。取得条件は同じ12試行・45秒。今回だけ`--python-crypto`でnative暗号を使わず、差を観察する。これで動いてもnativeが唯一の原因と断定しない。Python処理の速度を完成版の性能と評価しない。
 
@@ -43,4 +43,12 @@ sh start_probe.sh --python-crypto --samples 12 --seconds 45 --output runtime/tes
 
 ## 結果
 
-実行日時、端末条件、起動結果、stage、終了コード、シグナル、画像結果、各時間、受領資料とハッシュ: すべて未受領。P1全体とゲーム操作E2Eは未通過。
+2026-11-05 15:27:01（日本時間、フォルダ名のUTCから変換）。P1.2、`--python-crypto --samples 12 --seconds 45`。取得0、エラー0、未実施12。暗号engineはpython、stage=capture_collection、子returncode=-31、SIGSYS。最初のdevice_infoイベントの開始記録だけがあり、完了・launch_app・screenshotの記録なし。ゲームが開かないという報告と整合する。report_read_ok=trueで、親の初期件数へのフォールバックではない。
+
+全体8,385.825ms、device_info開始前8,118.924ms、開始記録から親の終了まで266.901ms。これらは子起動・保存・終了回収を含み、RPC時間やゲームの速度ではない。画像ファイルは0。
+
+元資料: `test-002.zip` / `IMG_8524.png`。派生数値・SHA-256は[test-002-results.json](test-002-results.json)。元ZIP・画像は添付で保持し、GitHubへ複製しない。
+
+Python暗号でも再現するため、ネイティブ暗号だけを原因にはできない。毎RPC前の`getitimer`がiSHで未実装である互換性不具合をコードと公式ソースから発見し、[P1.3修正](../plans/p1-ish-timer.md)へ進む。端末ビルド・syscall traceは未受領なので、実機の唯一の故障原因は未確定。P1全体とゲーム操作E2Eは未通過。
+
+操作サイトが開かない点は別で、P1.2にはHTTPサーバーが実装されていない。旧版の画面を期待させた案内不足を訂正する。次は[TEST-003](003-ish-timer.md)。

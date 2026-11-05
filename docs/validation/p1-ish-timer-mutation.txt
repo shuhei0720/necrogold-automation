@@ -1,0 +1,47 @@
+Host-only mutation: remove remaining-time correction in memory; source file unchanged. Expected regression failures.
+test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer (test_timer_compat.TimerCompatibilityTests.test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer) ... 
+  test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer (test_timer_compat.TimerCompatibilityTests.test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer) (delay=1.0) ... FAIL
+  test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer (test_timer_compat.TimerCompatibilityTests.test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer) (delay=0.1) ... FAIL
+
+======================================================================
+FAIL: test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer (test_timer_compat.TimerCompatibilityTests.test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer) (delay=1.0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 150, in test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer
+    self.assertEqual((signal.ITIMER_REAL, expected, 2.0), timer.call_args.args)
+AssertionError: Tuples differ: (0, 0.75, 2.0) != (0, 1.0, 2.0)
+
+First differing element 1:
+0.75
+1.0
+
+- (0, 0.75, 2.0)
+?      ---
+
++ (0, 1.0, 2.0)
+?     ++
+
+
+======================================================================
+FAIL: test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer (test_timer_compat.TimerCompatibilityTests.test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer) (delay=0.1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/f1d1e569ced4/necrogold-automation/tests/test_timer_compat.py", line 150, in test_existing_timer_restoration_subtracts_elapsed_time_and_never_disarms_due_timer
+    self.assertEqual((signal.ITIMER_REAL, expected, 2.0), timer.call_args.args)
+AssertionError: Tuples differ: (0, 1e-06, 2.0) != (0, 0.1, 2.0)
+
+First differing element 1:
+1e-06
+0.1
+
+- (0, 1e-06, 2.0)
+?      ----
+
++ (0, 0.1, 2.0)
+?     ++
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.004s
+
+FAILED (failures=2)

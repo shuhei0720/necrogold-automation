@@ -1,0 +1,53 @@
+{
+  "test_id": "TEST-002",
+  "source_archive": "test-002.zip",
+  "source_archive_sha256": "898f1968f3603c78f1256fd0a49e82e0d8e061ba70df86e9ecf1b45a28fa4803",
+  "report_path": "test-002/probe-20261105T062701Z-b588fb40/report.json",
+  "report_sha256": "4565cdb0413cbc6b3030cfa804fb949cc902da0f3a5842fa386b4a397f113ab7",
+  "run": "probe-20261105T062701Z-b588fb40",
+  "start_time_jst": "2026-11-05T15:27:01+09:00",
+  "version": "P1.2",
+  "crypto_engine": "python",
+  "worker": {
+    "stage": "capture_collection",
+    "process": {
+      "returncode": -31,
+      "signal_number": 31,
+      "signal_name": "SIGSYS"
+    },
+    "report_read_ok": true
+  },
+  "stop_reason": "worker_failed",
+  "events": [
+    {
+      "method": "device_info",
+      "status": "interrupted",
+      "completion_timestamp_present": false
+    }
+  ],
+  "counts": {
+    "planned": 12,
+    "started": 0,
+    "complete": 0,
+    "errors": 0,
+    "interrupted": 0,
+    "not_started": 12
+  },
+  "timings_ms": {
+    "parent_total": 8385.825,
+    "before_first_device_info": 8118.924,
+    "device_info_start_to_parent_end": 266.901,
+    "rpc_roundtrip": null
+  },
+  "image_files": 0,
+  "launch_record_present": false,
+  "screenshot": {
+    "filename": "IMG_8524.png",
+    "sha256": "749e0e2f93706ea431d6439793ae8486d0856dbbced0690baef9d7a73da09d3d"
+  },
+  "device_build": "not_received",
+  "root_cause_status": "getitimer incompatibility found in source and reproduced by host fault injection; device syscall trace not obtained",
+  "device_gate": "not_passed",
+  "game_e2e": "not_run",
+  "source_handling": "Only derived observations and hashes saved to GitHub; raw archive and screenshot remain chat attachments."
+}

@@ -9,7 +9,9 @@ iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に�
 - ホスト試験: `python3 -m unittest discover -s tests -v`
 - 完全な新規ソース: `necroprobe/`。旧版40ファイルは未変更。
 - P1.1の検証: ホスト54試験と3観点の相互レビューを通過しましたが、[TEST-001](docs/device-tests/001-capture.md)の実機3実行はworker_failedでした。3reportを受領し、最初のdevice_infoの開始記録までで完了していないことを確認。ホスト通過を実機合格とは扱いません。
-- P1.2では終了診断を修正。[修正計画](docs/plans/p1-worker-diagnostics.md) / [全67試験ログ](docs/validation/p1-worker-tests.txt) / [次の実機比較](docs/device-tests/002-worker-diagnostics.md)。実機原因の解消は未確認です。
+- P1.2の[TEST-002](docs/device-tests/002-worker-diagnostics.md)はPython暗号でもゲーム起動前にSIGSYSで終了しました。
+- **現在P1.3**: iSH未実装の`getitimer`呼出しを除去。[修正計画](docs/plans/p1-ish-timer.md) / [全ホスト試験ログ](docs/validation/p1-ish-timer-tests.txt) / [実機確認手順TEST-003](docs/device-tests/003-ish-timer.md)。修正後の実機通過は未確認です。
+- **P1診断版にはSafariの操作サイトがありません。** ゲーム起動要求と原画像の取得を行い、「ゲームを続行」はまだ押しません。旧版の操作サイトを併用しないでください。
 - [実機テスト台帳](docs/device-tests/README.md)と[実ゲームE2Eの合格条件](docs/device-tests/game-e2e.md)を管理します。
 
 ## まず読むもの

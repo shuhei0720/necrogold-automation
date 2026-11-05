@@ -11,6 +11,7 @@ import sys
 import time
 import uuid
 
+from . import VERSION
 from .capture import inspect_bytes
 from .crypto import Crypto
 from .protocol import Client, HttpTransport, load_pairing
@@ -214,7 +215,8 @@ def run_capture(args):
         command.append("--launch-game")
     if args.python_crypto:
         command.append("--python-crypto")
-    print("画像取得の診断を開始します。タップ・オプション操作は行いません。", flush=True)
+    print("%s 画像取得の診断版です。操作サイトは起動しません。" % VERSION, flush=True)
+    print("「ゲームを続行」は押しません。タップ・オプション操作は行いません。", flush=True)
     diagnostics = {}
     try:
         reason = supervise(command, max(.001, args.seconds - (time.monotonic_ns() - start) / 1e9), diagnostics)
