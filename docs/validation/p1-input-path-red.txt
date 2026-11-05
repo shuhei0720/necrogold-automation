@@ -1,0 +1,21 @@
+test_input_path (unittest.loader._FailedTest.test_input_path) ... ERROR
+
+======================================================================
+ERROR: test_input_path (unittest.loader._FailedTest.test_input_path)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_input_path
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 16, in <module>
+    from necroprobe import input_path as probe
+ImportError: cannot import name 'input_path' from 'necroprobe' (/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/__init__.py)
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (errors=1)

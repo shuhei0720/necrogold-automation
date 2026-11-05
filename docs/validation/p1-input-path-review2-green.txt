@@ -1,0 +1,9 @@
+test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text (test_input_path.InputCleanupTests.test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text) ... ok
+test_terminate_failure_still_attempts_kill_and_reap (test_input_path.InputCleanupTests.test_terminate_failure_still_attempts_kill_and_reap) ... ok
+test_unreaped_child_cannot_overwrite_parent_final_result (test_input_path.InputCleanupTests.test_unreaped_child_cannot_overwrite_parent_final_result) ... ok
+test_image_status_must_agree_with_maximum_luma (test_input_path.InputReportTests.test_image_status_must_agree_with_maximum_luma) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.035s
+
+OK

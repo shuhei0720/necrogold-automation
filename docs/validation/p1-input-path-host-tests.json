@@ -1,0 +1,98 @@
+{
+  "recorded_at": "2026-11-05T22:28:44.928713+09:00",
+  "test_id": "TEST-011",
+  "runtime_version": "P1.5",
+  "device_acceptance": "not_tested",
+  "full_host_run": {
+    "command": "python3 -m unittest discover -s tests -v",
+    "tests": 167,
+    "passed": 167,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 56.656,
+    "log": "p1-input-path-all-green.txt"
+  },
+  "targeted_rerun": {
+    "tests": 1,
+    "passed": 1,
+    "seconds": 0.204,
+    "log": "p1-input-path-final-timer-rerun.txt",
+    "note": "全回帰成功への置換ではない。"
+  },
+  "new_tests": {
+    "tests": 36,
+    "passed_in_full_host_run": 36,
+    "focused_log": "p1-input-path-new-tests-round2.txt"
+  },
+  "shell_syntax": {
+    "command": "sh -n test_011.sh",
+    "passed": true
+  },
+  "existing_runtime_files_unchanged": {
+    "count": 8,
+    "passed": true,
+    "manifest": "p1-input-path-runtime-unchanged.json"
+  },
+  "remaining_host_test_limits": [
+    "新規2秒deadline fixtureは負荷次第で対象段階到達前に停止し得る。第3周で1例失敗→単独成功、最終全回帰成功。実機結果ではない。"
+  ],
+  "red_evidence": [
+    "p1-input-path-red.txt",
+    "p1-input-path-behavior-red.txt",
+    "p1-input-path-numeric-red.txt",
+    "p1-input-path-review1-red.txt",
+    "p1-input-path-review2-red.txt"
+  ],
+  "post_fix_mutation_evidence": {
+    "log": "p1-input-path-spawn-mutation-red.txt",
+    "note": "修正後の隔離コピーを旧監視と例外型handlerに戻した回帰検出。修正前のログとは扱わない。初回spawn Redログは失われ、独立レビューの再現が修正前根拠。"
+  },
+  "sources": [
+    {
+      "path": "necroprobe/input_path.py",
+      "sha256": "473952bb19389f8e12d4a20f92d91a5f9808b5e7f1e818d1bbac72c658dbb213"
+    },
+    {
+      "path": "test_011.sh",
+      "sha256": "ea02aa0215c82e13bbaaecb73e2197a1ff47d883282ed3cb04f2aaa95e898b95"
+    },
+    {
+      "path": "tests/test_input_path.py",
+      "sha256": "b74a08c73a328b0916b4dd851577a830b41049d395d1c8e8c7e1eaf02dc55691"
+    },
+    {
+      "path": "tests/input_path_support.py",
+      "sha256": "459ea060daaf03da523a1321fa5948d90919a3dce0643538a98ae290a297e79d"
+    },
+    {
+      "path": "tests/fixtures/input_path_driver.py",
+      "sha256": "f01eecfe270d9009fbd2ea147bf145d61d34d4e32b4dc3ddc240ae36800950d1"
+    },
+    {
+      "path": "tests/test_timer_compat.py",
+      "sha256": "65dc044fa89d3bfb6a212fca0e0eb6620cad4a928cc16bf48d2bb6663eb2442e"
+    },
+    {
+      "path": "tests/fixtures/stop_driver.py",
+      "sha256": "b428a48bcc1b7242950ed22c6aa48755611d03b47f9791a125000f12c4915891"
+    }
+  ],
+  "input_authorized": false,
+  "ipa_reinstalled": false,
+  "previous_full_host_run": {
+    "command": "python3 -m unittest discover -s tests -v",
+    "tests": 167,
+    "passed": 166,
+    "failures": 1,
+    "errors": 0,
+    "seconds": 47.275,
+    "log": "p1-input-path-tests-final.txt",
+    "failed_test": "test_timer_compat.TimerCompatibilityTests.test_combined_crypto_transport_and_decrypt_share_one_deadline",
+    "observation": "200ms期限のうち80ms待機を2回挟む既存試験で、復号開始前に期限となりstage期待値のみ不一致。例外rpc_deadlineは期待どおり。"
+  },
+  "post_review_fixture_changes": [
+    "既存200ms試験を仮想時計で総期限を検査する方式へ変更。段階ごとの期限再設定はmutationで失敗を確認。",
+    "旧/新停止fixtureのmarker公開をatomic renameへ変更。公開前にSIGTERM無視を設定。"
+  ],
+  "independent_review_rounds": 3
+}

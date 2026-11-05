@@ -1,0 +1,26 @@
+test_huge_numeric_report_field_is_a_safe_read_rejection (test_input_path.InputReportTests.test_huge_numeric_report_field_is_a_safe_read_rejection) ... ERROR
+
+======================================================================
+ERROR: test_huge_numeric_report_field_is_a_safe_read_rejection (test_input_path.InputReportTests.test_huge_numeric_report_field_is_a_safe_read_rejection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 293, in test_huge_numeric_report_field_is_a_safe_read_rejection
+    self.assert_rejected(report)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 234, in assert_rejected
+    probe.read_checkpoint(path)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/input_path.py", line 391, in read_checkpoint
+    validate_report(report)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/input_path.py", line 338, in validate_report
+    validate_ax(report["ax"])
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/input_path.py", line 283, in validate_ax
+    require(finite(value, -4096 if key in ("x", "y") else 0, 4096))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/input_path.py", line 87, in finite
+    return type(value) in (int, float) and math.isfinite(value) and low <= value <= high
+                                           ^^^^^^^^^^^^^^^^^^^^
+OverflowError: int too large to convert to float
+
+----------------------------------------------------------------------
+Ran 1 test in 0.034s
+
+FAILED (errors=1)

@@ -1,0 +1,103 @@
+test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text (test_input_path.InputCleanupTests.test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text) ... 
+  test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text (test_input_path.InputCleanupTests.test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text) (mode='kill') ... ERROR
+  test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text (test_input_path.InputCleanupTests.test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text) (mode='wait') ... ERROR
+test_terminate_failure_still_attempts_kill_and_reap (test_input_path.InputCleanupTests.test_terminate_failure_still_attempts_kill_and_reap) ... ERROR
+test_unreaped_child_cannot_overwrite_parent_final_result (test_input_path.InputCleanupTests.test_unreaped_child_cannot_overwrite_parent_final_result) ... ERROR
+test_image_status_must_agree_with_maximum_luma (test_input_path.InputReportTests.test_image_status_must_agree_with_maximum_luma) ... 
+  test_image_status_must_agree_with_maximum_luma (test_input_path.InputReportTests.test_image_status_must_agree_with_maximum_luma) (status='decoded_nonblank') ... FAIL
+  test_image_status_must_agree_with_maximum_luma (test_input_path.InputReportTests.test_image_status_must_agree_with_maximum_luma) (status='blank_or_dark') ... FAIL
+
+======================================================================
+ERROR: test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text (test_input_path.InputCleanupTests.test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text) (mode='kill')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/input_path.py", line 95, in supervise
+    process.wait(timeout=.3)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 459, in wait
+    raise subprocess.TimeoutExpired("PRIVATE_COMMAND", timeout)
+subprocess.TimeoutExpired: Command 'PRIVATE_COMMAND' timed out after 0.3 seconds
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 480, in test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text
+    reason = probe.supervise(["PRIVATE_COMMAND"], 0, diagnostics)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/input_path.py", line 97, in supervise
+    process.kill()
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 454, in kill
+    raise OSError("PRIVATE")
+OSError: PRIVATE
+
+======================================================================
+ERROR: test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text (test_input_path.InputCleanupTests.test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text) (mode='wait')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/input_path.py", line 95, in supervise
+    process.wait(timeout=.3)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 459, in wait
+    raise subprocess.TimeoutExpired("PRIVATE_COMMAND", timeout)
+subprocess.TimeoutExpired: Command 'PRIVATE_COMMAND' timed out after 0.3 seconds
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 480, in test_failed_kill_or_reap_has_fixed_diagnostics_and_no_exception_text
+    reason = probe.supervise(["PRIVATE_COMMAND"], 0, diagnostics)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/input_path.py", line 98, in supervise
+    process.wait(timeout=1)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 459, in wait
+    raise subprocess.TimeoutExpired("PRIVATE_COMMAND", timeout)
+subprocess.TimeoutExpired: Command 'PRIVATE_COMMAND' timed out after 1 seconds
+
+======================================================================
+ERROR: test_terminate_failure_still_attempts_kill_and_reap (test_input_path.InputCleanupTests.test_terminate_failure_still_attempts_kill_and_reap)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 467, in test_terminate_failure_still_attempts_kill_and_reap
+    reason = probe.supervise(["PRIVATE_COMMAND"], 0, diagnostics)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/input_path.py", line 93, in supervise
+    process.terminate()
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 450, in terminate
+    raise OSError("PRIVATE")
+OSError: PRIVATE
+
+======================================================================
+ERROR: test_unreaped_child_cannot_overwrite_parent_final_result (test_input_path.InputCleanupTests.test_unreaped_child_cannot_overwrite_parent_final_result)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 502, in test_unreaped_child_cannot_overwrite_parent_final_result
+    report = probe.read_checkpoint(parent)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/necroprobe/input_path.py", line 458, in read_checkpoint
+    raise ValueError("report_read_failed") from None
+ValueError: report_read_failed
+
+======================================================================
+FAIL: test_image_status_must_agree_with_maximum_luma (test_input_path.InputReportTests.test_image_status_must_agree_with_maximum_luma) (status='decoded_nonblank')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 331, in test_image_status_must_agree_with_maximum_luma
+    self.assert_rejected(altered)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 246, in assert_rejected
+    with self.assertRaises(ValueError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_image_status_must_agree_with_maximum_luma (test_input_path.InputReportTests.test_image_status_must_agree_with_maximum_luma) (status='blank_or_dark')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 331, in test_image_status_must_agree_with_maximum_luma
+    self.assert_rejected(altered)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 246, in assert_rejected
+    with self.assertRaises(ValueError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.045s
+
+FAILED (failures=2, errors=4)

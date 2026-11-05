@@ -1,0 +1,16 @@
+各段階で期限を再設定する故障を隔離コピーへ注入。実装ファイルは変更しない。
+test_combined_crypto_transport_and_decrypt_share_one_deadline (timer_budget_mutation.TimerCompatibilityTests.test_combined_crypto_transport_and_decrypt_share_one_deadline) ... FAIL
+
+======================================================================
+FAIL: test_combined_crypto_transport_and_decrypt_share_one_deadline (timer_budget_mutation.TimerCompatibilityTests.test_combined_crypto_transport_and_decrypt_share_one_deadline)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tmpzrzvxp74/test_timer_compat_mutation.py", line 315, in test_combined_crypto_transport_and_decrypt_share_one_deadline
+    with self.assertRaisesRegex(ProbeError, "rpc_deadline"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ProbeError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)

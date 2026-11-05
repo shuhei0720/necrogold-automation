@@ -1,0 +1,32 @@
+旧superviseと例外型停止handlerへの隔離mutation。実装前ログ消失後の回帰検出再確認。
+test_parent_sigterm_immediately_after_real_spawn_reaps_child (test_input_path.InputStopTests.test_parent_sigterm_immediately_after_real_spawn_reaps_child) ... FAIL
+test_parent_sigint_immediately_after_real_spawn_reaps_child (test_input_path.InputStopTests.test_parent_sigint_immediately_after_real_spawn_reaps_child) ... FAIL
+
+======================================================================
+FAIL: test_parent_sigterm_immediately_after_real_spawn_reaps_child (test_input_path.InputStopTests.test_parent_sigterm_immediately_after_real_spawn_reaps_child)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tmpi17c8crs/tests/test_input_path.py", line 411, in test_parent_sigterm_immediately_after_real_spawn_reaps_child
+    self.check_spawn_stop("term")
+  File "/tmp/tmpi17c8crs/tests/test_input_path.py", line 395, in check_spawn_stop
+    self.assertEqual(2, process.returncode, out + err)
+AssertionError: 2 != 130 : TEST-011: ゲームを1回開き、続行対象を照会します。ゲーム内入力0回。
+TEST-011: 中断しました。
+
+
+======================================================================
+FAIL: test_parent_sigint_immediately_after_real_spawn_reaps_child (test_input_path.InputStopTests.test_parent_sigint_immediately_after_real_spawn_reaps_child)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tmpi17c8crs/tests/test_input_path.py", line 414, in test_parent_sigint_immediately_after_real_spawn_reaps_child
+    self.check_spawn_stop("int")
+  File "/tmp/tmpi17c8crs/tests/test_input_path.py", line 395, in check_spawn_stop
+    self.assertEqual(2, process.returncode, out + err)
+AssertionError: 2 != 130 : TEST-011: ゲームを1回開き、続行対象を照会します。ゲーム内入力0回。
+TEST-011: 中断しました。
+
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.699s
+
+FAILED (failures=2)

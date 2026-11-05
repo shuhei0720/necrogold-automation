@@ -1,0 +1,8 @@
+test_dark_before_or_after_image_keeps_reference_unconfirmed (test_input_path.InputCollectionTests.test_dark_before_or_after_image_keeps_reference_unconfirmed) ... ok
+test_contradictory_ax_visibility_is_rejected_on_reload (test_input_path.InputReportTests.test_contradictory_ax_visibility_is_rejected_on_reload) ... ok
+test_confirmed_candidate_with_dark_image_is_rejected_on_reload (test_input_path.InputReportTests.test_confirmed_candidate_with_dark_image_is_rejected_on_reload) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.116s
+
+OK

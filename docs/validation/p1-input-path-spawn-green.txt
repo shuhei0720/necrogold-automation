@@ -1,0 +1,11 @@
+test_deadline_during_rpc (test_input_path.InputStopTests.test_deadline_during_rpc) ... ok
+test_parent_sigint_immediately_after_real_spawn_reaps_child (test_input_path.InputStopTests.test_parent_sigint_immediately_after_real_spawn_reaps_child) ... ok
+test_parent_sigterm_during_decode (test_input_path.InputStopTests.test_parent_sigterm_during_decode) ... ok
+test_parent_sigterm_during_rpc (test_input_path.InputStopTests.test_parent_sigterm_during_rpc) ... ok
+test_parent_sigterm_during_save (test_input_path.InputStopTests.test_parent_sigterm_during_save) ... ok
+test_parent_sigterm_immediately_after_real_spawn_reaps_child (test_input_path.InputStopTests.test_parent_sigterm_immediately_after_real_spawn_reaps_child) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 5.855s
+
+OK

@@ -1,0 +1,6 @@
+test_combined_crypto_transport_and_decrypt_share_one_deadline (test_timer_compat.TimerCompatibilityTests.test_combined_crypto_transport_and_decrypt_share_one_deadline) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+OK

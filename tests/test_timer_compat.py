@@ -297,11 +297,19 @@ class TimerCompatibilityTests(TimerTestCase):
         crypto = Crypto(native=False)
         original = crypto.xor
         stages = []
+        simulated = [100.0]
+        def advance():
+            # 同じ総期限を使う契約を、ホスト負荷や暗号処理の実行時間と分けて検査する。
+            # 実SIGALRMの配送・低速HTTPの中断は隣接する実時間試験で扱う。
+            simulated[0] += .08
+            signal.getsignal(signal.SIGALRM)(signal.SIGALRM, None)
         def slow_xor(*args):
-            stages.append("crypto"); time.sleep(.08); return original(*args)
+            stages.append("crypto"); advance(); return original(*args)
         def slow_transport(body, _timeout):
-            stages.append("http"); time.sleep(.08); return sealed_reply(body)
-        with patch.object(crypto, "xor", side_effect=slow_xor):
+            stages.append("http"); advance(); return sealed_reply(body)
+        with patch.object(crypto, "xor", side_effect=slow_xor), \
+                patch("necroprobe.deadlines.time.monotonic", side_effect=lambda: simulated[0]), \
+                patch("necroprobe.deadlines.signal.setitimer"):
             with self.assertRaisesRegex(ProbeError, "rpc_deadline"):
                 self.client(slow_transport, KEY, TOK, crypto=crypto, timeout=.2).call("device_info")
         self.assertEqual(["crypto", "http", "crypto"], stages)

@@ -17,8 +17,10 @@ from necroprobe.protocol import RpcReply
 
 
 def block(marker, phase):
-    marker.write_text(json.dumps({"pid": os.getpid(), "phase": phase}))
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    pending = marker.with_suffix(".pending")
+    pending.write_text(json.dumps({"pid": os.getpid(), "phase": phase}))
+    os.replace(pending, marker)
     while True:
         time.sleep(1)
 

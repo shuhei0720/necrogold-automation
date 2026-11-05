@@ -1,0 +1,2 @@
+初回Red実行はツール終了コード1を観測したが、保存ログは空であり、挙動失敗の証跡には数えない。
+独立レビューの実Popen直後SIGINT/SIGTERM再現を修正前の根拠とし、p1-input-path-spawn-mutation-red.txtは修正後に隔離コピーを旧監視/例外handlerへ戻した追加の回帰検出証拠である。

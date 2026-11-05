@@ -1,0 +1,80 @@
+test_dark_before_or_after_image_keeps_reference_unconfirmed (test_input_path.InputCollectionTests.test_dark_before_or_after_image_keeps_reference_unconfirmed) ... 
+  test_dark_before_or_after_image_keeps_reference_unconfirmed (test_input_path.InputCollectionTests.test_dark_before_or_after_image_keeps_reference_unconfirmed) (image_index=1) ... FAIL
+  test_dark_before_or_after_image_keeps_reference_unconfirmed (test_input_path.InputCollectionTests.test_dark_before_or_after_image_keeps_reference_unconfirmed) (image_index=2) ... FAIL
+test_contradictory_ax_visibility_is_rejected_on_reload (test_input_path.InputReportTests.test_contradictory_ax_visibility_is_rejected_on_reload) ... 
+  test_contradictory_ax_visibility_is_rejected_on_reload (test_input_path.InputReportTests.test_contradictory_ax_visibility_is_rejected_on_reload) (visibility='partial') ... FAIL
+  test_contradictory_ax_visibility_is_rejected_on_reload (test_input_path.InputReportTests.test_contradictory_ax_visibility_is_rejected_on_reload) (visibility='offscreen') ... FAIL
+test_confirmed_candidate_with_dark_image_is_rejected_on_reload (test_input_path.InputReportTests.test_confirmed_candidate_with_dark_image_is_rejected_on_reload) ... 
+  test_confirmed_candidate_with_dark_image_is_rejected_on_reload (test_input_path.InputReportTests.test_confirmed_candidate_with_dark_image_is_rejected_on_reload) (image='before') ... FAIL
+  test_confirmed_candidate_with_dark_image_is_rejected_on_reload (test_input_path.InputReportTests.test_confirmed_candidate_with_dark_image_is_rejected_on_reload) (image='after') ... FAIL
+
+======================================================================
+FAIL: test_dark_before_or_after_image_keeps_reference_unconfirmed (test_input_path.InputCollectionTests.test_dark_before_or_after_image_keeps_reference_unconfirmed) (image_index=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 238, in test_dark_before_or_after_image_keeps_reference_unconfirmed
+    self.assertEqual("unconfirmed", report["candidate_reference"])
+AssertionError: 'unconfirmed' != 'candidate_reference_observed'
+- unconfirmed
++ candidate_reference_observed
+
+
+======================================================================
+FAIL: test_dark_before_or_after_image_keeps_reference_unconfirmed (test_input_path.InputCollectionTests.test_dark_before_or_after_image_keeps_reference_unconfirmed) (image_index=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 238, in test_dark_before_or_after_image_keeps_reference_unconfirmed
+    self.assertEqual("unconfirmed", report["candidate_reference"])
+AssertionError: 'unconfirmed' != 'candidate_reference_observed'
+- unconfirmed
++ candidate_reference_observed
+
+
+======================================================================
+FAIL: test_contradictory_ax_visibility_is_rejected_on_reload (test_input_path.InputReportTests.test_contradictory_ax_visibility_is_rejected_on_reload) (visibility='partial')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 314, in test_contradictory_ax_visibility_is_rejected_on_reload
+    self.assert_rejected(altered)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 246, in assert_rejected
+    with self.assertRaises(ValueError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_contradictory_ax_visibility_is_rejected_on_reload (test_input_path.InputReportTests.test_contradictory_ax_visibility_is_rejected_on_reload) (visibility='offscreen')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 314, in test_contradictory_ax_visibility_is_rejected_on_reload
+    self.assert_rejected(altered)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 246, in assert_rejected
+    with self.assertRaises(ValueError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_confirmed_candidate_with_dark_image_is_rejected_on_reload (test_input_path.InputReportTests.test_confirmed_candidate_with_dark_image_is_rejected_on_reload) (image='before')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 322, in test_confirmed_candidate_with_dark_image_is_rejected_on_reload
+    self.assert_rejected(altered)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 246, in assert_rejected
+    with self.assertRaises(ValueError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_confirmed_candidate_with_dark_image_is_rejected_on_reload (test_input_path.InputReportTests.test_confirmed_candidate_with_dark_image_is_rejected_on_reload) (image='after')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 322, in test_confirmed_candidate_with_dark_image_is_rejected_on_reload
+    self.assert_rejected(altered)
+  File "/workspace/scratch/36fc414778f8/necrogold-automation/tests/test_input_path.py", line 246, in assert_rejected
+    with self.assertRaises(ValueError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.213s
+
+FAILED (failures=6)

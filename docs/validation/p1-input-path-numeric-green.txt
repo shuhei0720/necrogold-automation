@@ -1,0 +1,7 @@
+test_huge_numeric_report_field_is_a_safe_read_rejection (test_input_path.InputReportTests.test_huge_numeric_report_field_is_a_safe_read_rejection) ... ok
+test_fixed_find_reaches_encrypted_protocol_once_with_no_raw_ref_report (test_input_path.InputEncryptedProtocolTests.test_fixed_find_reaches_encrypted_protocol_once_with_no_raw_ref_report) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.021s
+
+OK

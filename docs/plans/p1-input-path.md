@@ -22,8 +22,8 @@
 - find_elementのRPCエラー/timeoutは理由を推測せず「参照未確認」。自動再試行、部分一致/OCR/scroll/tapへのfallbackはしない。全RPCエラー、画像検査/保存失敗、checkpoint失敗でも追加RPCを送らず終了する。
 - 成功時は応答をwhitelist化。labelは一致bool、refは存在boolのみ保存。数値は有限・座標±4096/幅高さ0超4096以下、既知type/visibilityだけ採用。exists/hittableはbool厳密。match_count > 1またはalternativesが1件以上なら曖昧扱い。match_count/alternativesの型不正・矛盾も未確認。文字列本文/value/hint/ref/任意の例外文は保存しない。
 - AXの確認判定は、exact label一致、exists=true、refあり、hittable=true、有限非空frame、応答で複数候補が報告されていないこと、前後foreground=gameかつunlockedの全条件。合格表現は「候補参照を確認」であり、タップ成功・座標検証・遮蔽なし・P1合格ではない。hittableは取得元のinView近似なので実際の遮蔽を保証しない。
-- 成功応答後もdevice_infoと後画像を取得し、前後のゲーム表示は目視評価する。両画像とも取得直後のdevice_infoでgame/unlockedを確認してから原画像を確定保存する。別アプリ/unknownならその画像は保存しない。通知や観測間の一時切替の保証ではないため送付前の目視も必要。後画像の検査・保存を含む全段階が完了して初めて候補確認を確定する。自動GAME PAUSE分類器は今回実装しない。
-- worker内のOwnedRpcTimer、親から50秒のプロセス監視、終了理由/子終了状態を使用。各段階でreportをatomic保存。新CLIで親SIGTERMをKeyboardInterrupt相当の停止受付へ接続し、既存superviseによる子terminate→期限付きkill/reapへつなぐ。終了理由は固定コードを保存。元々入力APIはないが、親停止後の継続RPCも止める。すでに端末へ送った照会の取消とは呼ばない。端末の継続用readerは既存手順と同じ一時的catで値を破棄、終了時停止要求のみ、保存後iSH終了を案内。
+- 成功応答後もdevice_infoと後画像を取得し、前後のゲーム表示は目視評価する。両画像とも取得直後のdevice_infoでgame/unlockedを確認してから原画像を確定保存する。別アプリ/unknownならその画像は保存しない。通知や観測間の一時切替の保証ではないため送付前の目視も必要。後画像の検査・保存を含む全段階が完了し、前後画像が両方decoded_nonblankの場合だけ候補確認を確定する。暗画像は診断資料として保存しても候補確認の根拠にしない。自動GAME PAUSE分類器は今回実装しない。
+- worker内のOwnedRpcTimer、親から50秒のプロセス監視、終了理由/子終了状態を使用。各段階でreportをatomic保存。新CLI専用の監視を使い、親SIGINT/SIGTERMは例外を投げず停止フラグへ記録する。Popenを含むtry/finallyで子生成直後の停止も拾い、短いpollで子terminate→期限付きkill/reapへつなぐ。既存superviseはPopen直後の停止窓があるため流用しない。終了理由は固定コードを保存。terminateの失敗時もkillと期限付き回収を試み、生例外/コマンド本文を出力しない。終了を確認できない場合はworker_cleanup_failedと終了未確認を記録し候補を未確認へ戻す。子が書くreport.jsonとは別に親専用parent-result.jsonへ最終結果を保存し、遅れた子の書込みで親の停止結果が消えないようにする。元々入力APIはないが、親停止後の継続RPCも止める。すでに端末へ送った照会の取消とは呼ばない。端末の継続用readerは既存手順と同じ一時的catで値を破棄、終了時停止要求のみ、保存後iSH終了を案内。
 - device_infoは既存safe_info、画像は既存検査の固定fields、AXは限定値を保存。親の再読込はTEST011の固定kind/stage/input_authorized=falseとschemaを厳格に検査し、未知field/生ref/任意文字列や破損・過大JSONを拒否して安全な初期reportへ戻す。capture専用read_checkpointを流用しない。候補一意性は全ツリー未観測なので保証しない。
 - runを分離し、既存reportの上書きなし。ペアリング情報は既存ファイルを読むだけでZIPへ含めない。
 
@@ -33,7 +33,7 @@
 
 ## 5. 新規テスト
 
-実装前Red: 固定find許可と一回制限、別bundle/部分一致/別ラベル/未知params/操作API拒否、capなしと前面unknown/lockedでfind未送信、画像契約違反で停止、findエラーで後続RPCなし、成功でもinput_authorized=false、曖昧/不正数値/未知文字列/偽ref型を候補確認にしない、原画像バイト保持、親期限で子終了、結果を再読込した時の許可値保持。さらに親だけのSIGTERM、全段階の保存/RPC失敗で後続0、後検査完了前は候補未確認、ref/数値/曖昧性の厳密型、schema未知field/欠落/許可値true・1・null/NaN/過大JSON/秘密文字列注入のRedを追加。capabilitiesはlist内完全一致を要求。既存全ホスト試験も回帰。実機試験は未実施と明記する。
+実装前Red: 固定find許可と一回制限、別bundle/部分一致/別ラベル/未知params/操作API拒否、capなしと前面unknown/lockedでfind未送信、画像契約違反で停止、findエラーで後続RPCなし、成功でもinput_authorized=false、曖昧/不正数値/未知文字列/偽ref型を候補確認にしない、原画像バイト保持、親期限で子終了、結果を再読込した時の許可値保持。さらに親だけのSIGTERM/SIGINT（子生成直後の窓と処理中の両方）、RPCごとに更新する共有ログで停止後の増分0、前後暗画像では候補未確認、image_statusとmax_luma整合、terminate/kill/wait失敗の固定コード・親専用結果の保持・生例外非出力、再読込のvisibility/hittable矛盾拒否、全段階の保存/RPC失敗で後続0、後検査完了前は候補未確認、ref/数値/曖昧性の厳密型、schema未知field/欠落/許可値true・1・null/NaN/過大JSON/秘密文字列注入のRedを追加。capabilitiesはlist内完全一致を要求。既存全ホスト試験も回帰。実機試験は未実施と明記する。
 
 ## 6. 実装順
 
