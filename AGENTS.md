@@ -8,7 +8,7 @@ Follow the user's `shuhei0720/AI-Driven-Development` Codex workflow, identified 
 
 ## Current scope
 
-The user asked to continue after the reviewed plan. Implement P1 measurement tooling and its tests now, outside the immutable R12 archive. The P1 device gate still applies: do not claim a working gameplay release or proceed to autonomous exploration without device evidence. GitHub saving remains authorized. The prior documentation-only scope is superseded by this continuation.
+The user confirmed TEST-013 actually resumed the game and explicitly requested the next real-device feature: quick restart until initially visible gold. Implement and deliver the bounded TEST-014 loop outside immutable R12, with minimal relevant tests and independent review. Earlier measurement-only gates are superseded for this authorized increment; do not claim the full gameplay, speed, or endurance requirements are achieved. GitHub saving remains authorized. Preserve feature-by-feature real-device iteration and do not add raw logs/images/ZIPs or duplicate plans/review documents to git.
 
 ## Functional and performance requirements
 
@@ -34,3 +34,4 @@ The user asked to continue after the reviewed plan. Implement P1 measurement too
 ## Reporting
 
 Use Japanese for user-facing documentation and explanations. Use Japan time for user-facing dates. State what changed, what was verified, and what still requires device evidence. Never promise absolute success without proof.
+
