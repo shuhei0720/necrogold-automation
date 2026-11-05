@@ -1,0 +1,57 @@
+{
+  "scope": "TEST-006 documented shell procedure, host fixtures only; no iSH, location permission, LoopCtrl or game test",
+  "shell": "host /bin/sh",
+  "procedure_sha256": "42aae3330bff56784e39aaf6f6fffc326cd5fdad4e341ce2f238105dec34d373",
+  "fixture_substitutions": [
+    "mount directory",
+    "/dev/location replaced by FIFO or missing path",
+    "cat wrapper records its PID; no location data",
+    "start_probe.sh replaced by exit/wait stub"
+  ],
+  "syntax_passed": true,
+  "cases": [
+    {
+      "case": "normal_exit",
+      "passed": true,
+      "returncode": 0,
+      "probe_invoked": true,
+      "reader_running_after": false
+    },
+    {
+      "case": "probe_nonzero",
+      "passed": true,
+      "returncode": 2,
+      "probe_invoked": true,
+      "reader_running_after": false
+    },
+    {
+      "case": "missing_location",
+      "passed": true,
+      "returncode": 1,
+      "probe_invoked": false,
+      "reader_running_after": false
+    },
+    {
+      "case": "reader_early_exit",
+      "passed": true,
+      "returncode": 1,
+      "probe_invoked": false,
+      "reader_running_after": false
+    },
+    {
+      "case": "interrupt_group",
+      "passed": true,
+      "returncode": -2,
+      "probe_invoked": true,
+      "reader_running_after": false
+    },
+    {
+      "case": "terminate_group",
+      "passed": true,
+      "returncode": -15,
+      "probe_invoked": true,
+      "reader_running_after": false
+    }
+  ],
+  "device_test": "not_run"
+}

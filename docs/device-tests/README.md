@@ -8,7 +8,8 @@
 | TEST-002 | 子終了診断の追加とPython暗号での比較 | P1.2 / `cfcb70b61cea995e360eea0ad1378878a7f64c40` | report1件と終了画面を受領 | Python暗号でも最初のdevice_infoでSIGSYS(-31)、取得0/12、launch未到達 |
 | TEST-003 | getitimer不使用版でゲーム起動・原画像取得 | P1.3 / `2ed85f29d65d81d249dfd780182ea2df989ddd01` | report1件と終了画面を受領 | timer_already_in_use、取得0/12、画像なし・launch未到達。worker終了0は成功ではない |
 | TEST-004 | 専用workerのタイマー所有方式でゲーム起動・原画像取得 | P1.4 | 同一実行のZIPを2回受領、1実行として記録 | device_info・launch_app応答完了。取得0/12、1中断・11未実施、118888.205ms、session_deadline/SIGTERM。ユーザーはゲーム表示を報告 |
-| TEST-005 | 同じP1.4でiSHを前面に維持して取得 | P1.4・コード変更なし | 手順準備・未実行 | 未判定。起動を省くため取得対象画面も変わる。原因を断定する試験ではない |
+| TEST-005 | 同じP1.4でiSHを前面に維持して取得 | P1.4・コード変更なし | reportと原画像3枚、終了画面を受領 | 11/12非黒取得、1中断、45115.262ms、session_deadline/SIGTERM。保存3枚で今回のiSH表示を確認。P1全体は未合格 |
+| TEST-006 | 一時的な継続処理付きでゲーム取得 | P1.4・診断コード変更なし | 手順準備・未実行 | 暗号/12試行/45秒を維持し、位置情報読取りを一時併用。ゲーム画像は未確認 |
 
 [TEST-001の手順と記録欄](001-capture.md)
 
@@ -16,7 +17,7 @@
 
 [TEST-002の比較手順](002-worker-diagnostics.md) / [実際のゲーム画面でのE2E計画](game-e2e.md)
 
-[TEST-002の派生結果](test-002-results.json) / [TEST-003の派生結果](test-003-results.json) / [TEST-004の結果](004-owned-timer.md) / [TEST-004派生JSON](test-004-results.json) / [次のTEST-005](005-ish-foreground.md)
+[TEST-002の派生結果](test-002-results.json) / [TEST-003の派生結果](test-003-results.json) / [TEST-004の結果](004-owned-timer.md) / [TEST-004派生JSON](test-004-results.json) / [TEST-005の結果](005-ish-foreground.md) / [TEST-005派生JSON](test-005-results.json) / [次のTEST-006](006-game-keepalive.md)
 
 結果を受け取ったら、実行時刻、資料名とハッシュ、実際の端末条件、観察、条件別の予定/完了/失敗/中断/未実施、時間の中央値/p95、問題と次の対応を追記します。端末での操作はこのチャットから直接観測できないため、資料受領前に結果を補完しません。秘密の接続情報を含むファイルは保存しません。
 

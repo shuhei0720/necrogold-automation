@@ -1,0 +1,316 @@
+{
+  "test_id": "TEST-005",
+  "source_archive": "test-005.zip",
+  "source_archive_sha256": "6c2104dd7971f35d36189f3ddd2a5e71bf97c8045dfbd039de3a186d040b8a68",
+  "report_path": "test-005/probe-20261105T090154Z-ad0f3fe4/report.json",
+  "report_sha256": "8e744d276507d5130f7110775a0f4923352ab55fbaf20566d9cba6e54a0a15c9",
+  "run": "probe-20261105T090154Z-ad0f3fe4",
+  "start_time_jst": "2026-11-05T18:01:54+09:00",
+  "start_time_source": "directory timestamp; device clock accuracy unverified",
+  "version": "P1.4",
+  "crypto_engine": "python",
+  "code_reference": "f8b8f100d778d81b72fea2b71c5350896576273d",
+  "code_identity_note": "P1.4 version visible in terminal; device source hashes not received",
+  "command_evidence": {
+    "source": "IMG_8527.png",
+    "sha256": "a972bac64ffedfa6e5cddad11b659e4890d85179a2c79afcc5668fa2f5d5ef30",
+    "samples": 12,
+    "seconds": 45,
+    "python_crypto": true,
+    "launch_game": false,
+    "output": "runtime/test-005"
+  },
+  "worker": {
+    "stage": "capture_collection",
+    "process": {
+      "returncode": -15,
+      "signal_number": 15,
+      "signal_name": "SIGTERM"
+    },
+    "report_read_ok": true
+  },
+  "stop_reason": "session_deadline",
+  "counts": {
+    "planned": 12,
+    "started": 12,
+    "complete": 11,
+    "errors": 0,
+    "interrupted": 1,
+    "not_started": 0
+  },
+  "elapsed_ms": 45115.262,
+  "startup_before_first_device_info_ms": 9108.956,
+  "events": [
+    {
+      "method": "device_info",
+      "start_ns": 61798672234000,
+      "status": "complete",
+      "timings": {
+        "request_start_ns": 61798857497000,
+        "crypto_engine": "python",
+        "http_start_ns": 61798863373000,
+        "http_end_ns": 61799228740000,
+        "decrypt_start_ns": 61799247350000,
+        "decrypt_end_ns": 61799276033000,
+        "response_end_ns": 61799299615000,
+        "request_bytes": 255,
+        "encrypted_response_bytes": 2370
+      },
+      "observation": {
+        "foreground": "unknown",
+        "screen_locked": false,
+        "advertised_known_capabilities": [
+          "run_steps",
+          "wait_for"
+        ],
+        "execution_deadline_verified": false,
+        "foreground_generation_verified": false,
+        "input_cancel_verified": false
+      },
+      "end_ns": 61799300425000
+    }
+  ],
+  "groups": {
+    "jpeg_scale1": {
+      "planned": 4,
+      "counts": {
+        "complete": 4
+      },
+      "image_counts": {
+        "decoded_nonblank": 4
+      },
+      "saved": 1,
+      "success_only_timings": {
+        "request_prepare": {
+          "n": 4,
+          "median_ms": 6.303,
+          "p95_ms": 7.512
+        },
+        "http_roundtrip": {
+          "n": 4,
+          "median_ms": 203.412,
+          "p95_ms": 211.046
+        },
+        "envelope_auth": {
+          "n": 4,
+          "median_ms": 72.72,
+          "p95_ms": 82.134
+        },
+        "decrypt": {
+          "n": 4,
+          "median_ms": 880.556,
+          "p95_ms": 1038.983
+        },
+        "response_json": {
+          "n": 4,
+          "median_ms": 25.711,
+          "p95_ms": 29.768
+        },
+        "image_base64": {
+          "n": 4,
+          "median_ms": 22.341,
+          "p95_ms": 27.813
+        },
+        "image_decode": {
+          "n": 4,
+          "median_ms": 114.251,
+          "p95_ms": 413.396
+        },
+        "image_inspect": {
+          "n": 4,
+          "median_ms": 49.719,
+          "p95_ms": 51.601
+        },
+        "capture_to_inspected": {
+          "n": 4,
+          "median_ms": 1483.898,
+          "p95_ms": 1564.519
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 190.028,
+          "p95_ms": 190.028
+        },
+        "trial_total": {
+          "n": 4,
+          "median_ms": 1752.745,
+          "p95_ms": 1944.599
+        }
+      }
+    },
+    "jpeg_scale2": {
+      "planned": 4,
+      "counts": {
+        "complete": 4
+      },
+      "image_counts": {
+        "decoded_nonblank": 4
+      },
+      "saved": 1,
+      "success_only_timings": {
+        "request_prepare": {
+          "n": 4,
+          "median_ms": 5.845,
+          "p95_ms": 6.142
+        },
+        "http_roundtrip": {
+          "n": 4,
+          "median_ms": 242.873,
+          "p95_ms": 247.317
+        },
+        "envelope_auth": {
+          "n": 4,
+          "median_ms": 165.599,
+          "p95_ms": 191.722
+        },
+        "decrypt": {
+          "n": 4,
+          "median_ms": 2437.791,
+          "p95_ms": 2904.417
+        },
+        "response_json": {
+          "n": 4,
+          "median_ms": 57.584,
+          "p95_ms": 64.545
+        },
+        "image_base64": {
+          "n": 4,
+          "median_ms": 65.335,
+          "p95_ms": 77.999
+        },
+        "image_decode": {
+          "n": 4,
+          "median_ms": 328.445,
+          "p95_ms": 342.442
+        },
+        "image_inspect": {
+          "n": 4,
+          "median_ms": 168.765,
+          "p95_ms": 174.232
+        },
+        "capture_to_inspected": {
+          "n": 4,
+          "median_ms": 3474.516,
+          "p95_ms": 4006.217
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 297.025,
+          "p95_ms": 297.025
+        },
+        "trial_total": {
+          "n": 4,
+          "median_ms": 3722.343,
+          "p95_ms": 4262.093
+        }
+      }
+    },
+    "png_scale1": {
+      "planned": 4,
+      "counts": {
+        "complete": 3,
+        "interrupted": 1
+      },
+      "image_counts": {
+        "decoded_nonblank": 3
+      },
+      "saved": 1,
+      "success_only_timings": {
+        "request_prepare": {
+          "n": 3,
+          "median_ms": 5.762,
+          "p95_ms": 6.228
+        },
+        "http_roundtrip": {
+          "n": 3,
+          "median_ms": 228.65,
+          "p95_ms": 229.59
+        },
+        "envelope_auth": {
+          "n": 3,
+          "median_ms": 129.284,
+          "p95_ms": 137.813
+        },
+        "decrypt": {
+          "n": 3,
+          "median_ms": 1834.951,
+          "p95_ms": 1984.902
+        },
+        "response_json": {
+          "n": 3,
+          "median_ms": 43.307,
+          "p95_ms": 45.165
+        },
+        "image_base64": {
+          "n": 3,
+          "median_ms": 48.584,
+          "p95_ms": 53.57
+        },
+        "image_decode": {
+          "n": 3,
+          "median_ms": 114.132,
+          "p95_ms": 118.975
+        },
+        "image_inspect": {
+          "n": 3,
+          "median_ms": 60.535,
+          "p95_ms": 63.397
+        },
+        "capture_to_inspected": {
+          "n": 3,
+          "median_ms": 2463.181,
+          "p95_ms": 2639.396
+        },
+        "raw_save": {
+          "n": 1,
+          "median_ms": 195.455,
+          "p95_ms": 195.455
+        },
+        "trial_total": {
+          "n": 3,
+          "median_ms": 2701.666,
+          "p95_ms": 2890.022
+        }
+      }
+    }
+  },
+  "images": [
+    {
+      "trial": 1,
+      "filename": "001-jpeg_scale1-decoded_nonblank.jpg",
+      "sha256": "e5a672410b2bf79ddeb6b70c385fc985bcde2cca216124503d52b703a723e1d8",
+      "format": "JPEG",
+      "pixel_width": 414,
+      "pixel_height": 896,
+      "rotation_applied": "none"
+    },
+    {
+      "trial": 2,
+      "filename": "002-jpeg_scale2-decoded_nonblank.jpg",
+      "sha256": "36f8a000335a5c1e59564f25b18f2f9d2cc65a0c53214a5a9ca15d88a2bfdfbd",
+      "format": "JPEG",
+      "pixel_width": 828,
+      "pixel_height": 1792,
+      "rotation_applied": "none"
+    },
+    {
+      "trial": 3,
+      "filename": "003-png_scale1-decoded_nonblank.png",
+      "sha256": "1cca62ea48c951828b2bce3720213f72a0d1421234328127e8e847450d277d02",
+      "format": "PNG",
+      "pixel_width": 414,
+      "pixel_height": 896,
+      "rotation_applied": "none"
+    }
+  ],
+  "visual_observation": "All three saved originals show the current iSH command runtime/test-005. Trial 1 image has no completed trial line; trial 2 image shows completed 1/12; trial 3 image shows completed 1/12 and 2/12. This supports changing current-run content for the saved images, not quantitative freshness for all 11 captures.",
+  "image_files": 3,
+  "raw_images_saved_policy": "First image per variant and blank/nonblank class only; 11 completed captures do not imply 11 saved files.",
+  "partial_capture_result": "11/12 completed, all decoded_nonblank; 12th interrupted by session_deadline",
+  "root_cause_status": "Background suspension/foreground-dependent capture remains a hypothesis; test changes both foreground and captured screen relative to TEST-004.",
+  "freshness_verified": false,
+  "device_gate": "not_passed",
+  "game_e2e": "not_run",
+  "next_test": "TEST-006: same P1.4 Python crypto, samples 12, seconds 45, game launch with temporary /dev/location reader",
+  "source_handling": "Only derived measurements, observations and hashes committed. Original archive, terminal screenshot and captured images remain chat evidence."
+}
