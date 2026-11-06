@@ -167,8 +167,14 @@ def scan(image):
                 continue
             # Positive dark-floor evidence. The old catch-all floor branch is
             # deliberately absent; warm dirt and bright grey stone stay blocked.
-            if (r <= 38 and 44 * r <= 100 * b <= 90 * r and 40 * r <= 100 * g <= 90 * r
-                    and abs(g - b) <= max(2, .18 * r)
+            dark_floor = (r <= 38 and 44 * r <= 100 * b <= 90 * r
+                          and 40 * r <= 100 * g <= 90 * r and abs(g-b) <= max(2,.18*r))
+            # TEST019: lit floor around the player reaches medians39..45.
+            # This narrow positive band excludes both existing stone (g/r>.69)
+            # and dirt (b/r<.55); unknown pixels never become floor by default.
+            bright_floor = (38 < r <= 52 and 55*r <= 100*b <= 70*r
+                            and 45*r <= 100*g <= 68*r and abs(g-b) <= max(2,.12*r))
+            if ((dark_floor or bright_floor)
                     and (spread_enough if spread_enough is not None else max(stats.stddev) >= 2)):
                 tiles[point] = "floor"
             elif r > 40 and 100 * b > 53 * r and 100 * g > 69 * r:
@@ -240,12 +246,10 @@ def choose(scene, position=(0, 0), visits=None):
     return result()
 
 
-def motion(before, after, direction):
-    if (direction not in DIRECTIONS or len(before.signature) != 224 * 104 or
-            len(after.signature) != 224 * 104):
-        return "unknown"
-    old = Image.frombytes("L", _SIGNATURE_SIZE, before.signature)
-    new = Image.frombytes("L", _SIGNATURE_SIZE, after.signature)
+def _pillow_motion_scores(before_signature, after_signature):
+    """Native利用不可時の既存73候補。スコア・有効領域・丸めを維持。"""
+    old = Image.frombytes("L", _SIGNATURE_SIZE, before_signature)
+    new = Image.frombytes("L", _SIGNATURE_SIZE, after_signature)
     valid = Image.new("L", _SIGNATURE_SIZE)
     valid.paste(255, (40, 20, 179, 79))
     valid.paste(0, (90, 36, 139, 79))  # player / opening instructions
@@ -272,6 +276,17 @@ def motion(before, after, direction):
         for dx, dy in DIRECTIONS.values():
             sx, sy = amount * dx, amount * dy
             candidates.append((score(sx, sy), sx, sy))
+    return candidates
+
+
+def motion(before, after, direction):
+    if (direction not in DIRECTIONS or len(before.signature) != 224 * 104 or
+            len(after.signature) != 224 * 104):
+        return "unknown"
+    from . import motion_stats
+    candidates = motion_stats.scores(before.signature, after.signature)
+    if candidates is None:
+        candidates = _pillow_motion_scores(before.signature, after.signature)
     candidates.sort()
     best, sx, sy = candidates[0]
     # Provisional thresholds include the recorded 119→124 one-tile movement

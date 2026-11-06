@@ -51,6 +51,36 @@ def shop_image():
 
 
 class ShopNavigationTests(unittest.TestCase):
+    def test_06_bright_floor_keeps_stone_dirt_and_unknown_blocked(self):
+        def patch_cell(image, color, texture=True):
+            cell=Image.new('RGB',(25,25))
+            cell.putdata([tuple(max(0,min(255,c+(0 if i==624 else -3 if i%2 else 3))) for c in color)
+                          if texture else color for i in range(625)])
+            image.paste(cell,(400,195))  # player-relative (-1,0)
+        for color in ((39,24,22),(40,25,23),(45,30,30),(52,35,29)):
+            with self.subTest(floor=color):
+                image=terrain();patch_cell(image,color)
+                self.assertEqual('floor',nav.scan(image).tiles.get((-1,0)))
+        for color in ((50,36,30),(50,25,25),(45,32,29),(53,33,31),(70,70,65),(50,32,15)):
+            with self.subTest(blocked=color):
+                image=terrain();patch_cell(image,color)
+                self.assertNotEqual('floor',nav.scan(image).tiles.get((-1,0)))
+        image=terrain();patch_cell(image,(40,25,23),False)
+        self.assertNotEqual('floor',nav.scan(image).tiles.get((-1,0)))
+
+    def test_07_optional_test019_left_shop_bright_frame(self):
+        path=os.environ.get('NECRO_NAV_TEST019')
+        if not path:self.skipTest('external TEST019 run-101.jpg not supplied')
+        with Image.open(path) as src:actual=nav.scan(src.convert('RGB'))
+        self.assertEqual({(-6,-1),(-6,1)},actual.gold)
+        self.assertEqual('floor',actual.tiles.get((-1,0)))
+        self.assertEqual('floor',actual.tiles.get((-2,0)))
+        decision=nav.choose(actual)
+        self.assertEqual('left',decision['direction'])
+        self.assertEqual((-5,0),decision['target'])
+        actual.protected.add((-1,0))
+        self.assertIsNone(nav.choose(actual)['direction'])
+
     def test_01_native_grid_dark_floor_gold_and_invalid_geometry(self):
         image = terrain()
         tile(image, (-5, -1), (160, 130, 45))
