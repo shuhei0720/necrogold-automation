@@ -391,7 +391,7 @@ def _pillow_motion_scores(before_signature, after_signature):
     return candidates
 
 
-def _motion_view(signature):
+def _motion_view(signature, full_texture=False):
     """明るさの緩やかな変化を除く。元画像・原署名は変更しない。"""
     raw = Image.frombytes('L', _SIGNATURE_SIZE, signature)
     active = raw.point([0] * 7 + [255] * 249)
@@ -404,10 +404,19 @@ def _motion_view(signature):
     detail_mask = ImageChops.difference(raw, median)
     texture = ImageChops.darker(detail_mask.point([0] * 3 + [255] * 253), active)
     positive = ImageChops.subtract(raw, median).point([0] * 3 + [255] * 253)
+    return normalized, texture if full_texture else _texture_mask(texture), positive
+
+
+def _texture_mask(texture, expanded=False):
     valid = Image.new('L', _SIGNATURE_SIZE)
     valid.paste(255, (40, 20, 179, 79))
-    valid.paste(0, (90, 36, 139, 79))
-    return normalized, ImageChops.darker(texture, valid), positive
+    if expanded:
+        # プレイヤーと右側の説明文を除外。中央値フィルタの影響も1px外まで除く。
+        valid.paste(0, (103, 43, 122, 61))
+        valid.paste(0, (115, 38, 154, 80))
+    else:
+        valid.paste(0, (90, 36, 139, 79))
+    return ImageChops.darker(texture, valid)
 
 
 def _translated_closed_gate(before, after, sx, sy):
@@ -452,14 +461,49 @@ def _structural_motion(before, after, candidates, old_texture, new_texture, old_
     return True
 
 
+def _unique_gate_shift(before, after):
+    """新しく見えた金壁は許容し、既知の金壁と入口の対応を一意に決める。"""
+    if len(before.gold) < 2:
+        return None
+    old_gates, new_gates = _gates(before.tiles), _gates(after.tiles)
+    shifts = [(0, 0)] + [(dx*n, dy*n) for n in (1, 2) for dx,dy in DIRECTIONS.values()]
+    matches = []
+    for tx, ty in shifts:
+        if not {(x+tx, y+ty) for x,y in before.gold}.issubset(after.gold):
+            continue
+        if any((p[0]+tx, p[1]+ty) in new_gates and
+               (before.tiles.get(p), after.tiles.get((p[0]+tx, p[1]+ty))) in
+               (("door", "door"), ("door", "floor"), ("floor", "floor")) for p in old_gates):
+            matches.append((9*tx, 9*ty))
+    return matches[0] if len(matches) == 1 else None
+
+
+def _corridor_motion(before, after, candidates, old_texture, new_texture, old_positive, new_positive):
+    """通常の質感範囲が狭すぎる入口だけ、地形対応と追加の細部で裏付ける。"""
+    _, sx, sy = candidates[0]
+    if _unique_gate_shift(before, after) != (sx, sy):
+        return False
+    old_texture, new_texture = _texture_mask(old_texture, True), _texture_mask(new_texture, True)
+    support, opposite, _, _ = _texture_match(old_texture, new_texture, old_positive, new_positive, sx, sy)
+    if support < 300 or 20*opposite > support:
+        return False
+    # 静止・反復模様も候補に含め、一部の明暗変化だけで移動を確定しない。
+    for _, tx, ty in candidates[1:]:
+        count, bad, _, _ = _texture_match(old_texture, new_texture, old_positive, new_positive, tx, ty)
+        if count >= 300 and 20*(bad*support-opposite*count) < 3*count*support:
+            return False
+    return True
+
+
 def motion(before, after, direction, expected_steps=1):
     if (type(expected_steps) is not int or expected_steps not in (1, 2)
             or direction not in DIRECTIONS or len(before.signature) != 224 * 104 or
             len(after.signature) != 224 * 104):
         return "unknown"
     from . import motion_stats
-    old, old_texture, old_positive = _motion_view(before.signature)
-    new, new_texture, new_positive = _motion_view(after.signature)
+    old, old_raw_texture, old_positive = _motion_view(before.signature, full_texture=True)
+    new, new_raw_texture, new_positive = _motion_view(after.signature, full_texture=True)
+    old_texture, new_texture = _texture_mask(old_raw_texture), _texture_mask(new_raw_texture)
     candidates = motion_stats.scores(old, new)
     if candidates is None:
         candidates = _pillow_motion_scores(old, new)
@@ -471,17 +515,14 @@ def motion(before, after, direction, expected_steps=1):
     if best > .45 and not _structural_motion(
             before, after, candidates, old_texture, new_texture, old_positive, new_positive):
         return "unknown"
-    box = (max(0, -sx), max(0, -sy), min(224, 224 - sx), min(104, 104 - sy))
-    other = (box[0] + sx, box[1] + sy, box[2] + sx, box[3] + sy)
-    matched = ImageChops.darker(old_texture.crop(box), new_texture.crop(other))
-    support = matched.histogram()[255]
+    support, opposite, _, _ = _texture_match(old_texture, new_texture, old_positive, new_positive, sx, sy)
     if support < 300:
-        return 'unknown'
+        if best > .45 or not _corridor_motion(before, after, candidates,
+                old_raw_texture, new_raw_texture, old_positive, new_positive):
+            return 'unknown'
     # 質感が存在するだけでは不十分。同じ変位で明暗の細部が対応すること。
     # 静止した床の上で照明だけが移る場合は、独立な質感の符号が揃わない。
-    opposite = ImageChops.darker(matched, ImageChops.difference(
-        old_positive.crop(box), new_positive.crop(other))).histogram()[255]
-    if 4 * opposite > support:
+    elif 4 * opposite > support:
         return 'unknown'
     dx, dy = DIRECTIONS[direction]
     if sx == sy == 0:
