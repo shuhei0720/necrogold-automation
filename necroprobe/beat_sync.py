@@ -1,4 +1,4 @@
-"""TEST-016: HUDの拍をHTTP中点の時計へ当てはめる限定試験用の推定器。
+"""TEST-021: HUDの拍の初期取得と、確立した周期の継続追跡。
 
 HTTP区間は画像生成時刻でも保証された誤差範囲でもない。固定の取得遅延・
 入力遅延は未校正であり、良い回帰残差も実機の拍受付を証明しない。
@@ -206,7 +206,69 @@ def fit(samples):
             "candidate_count": len(distinct),
             "http_half_width_max_ns": max(sample["http_half_width_ns"] for sample in samples),
             "clock_source": "http_midpoint_unverified", "device_timing_verified": False,
-            "dispatch_lead_ns": DEFAULT_LEAD_NS, "dispatch_timing_calibrated": False}
+            "dispatch_lead_ns": DEFAULT_LEAD_NS, "dispatch_timing_calibrated": False,
+            "mode": "acquired", "tracking_error_cycles": None,
+            "extrapolation_budget_cycles": None, "gap_ns": 0, "prediction_span_ns": 0}
+
+
+def track(model, samples):
+    """確立済み周期を新しいHUDで検証し、同じ周回数の枝で更新する。
+
+    初期取得のalias判定を代用しない。最新の位相をrefit前に確認し、旧周期と
+    半周以上離れる回帰は禁止。入力時の3秒鮮度はnext_targetが別に要求する。
+    R*(1+2*gap/span)は追跡を打ち切る経験的budgetであり、表示/通信遅延や
+    将来誤差の保証ではない。新しい画像の時刻もHTTP中点の推定のままである。
+    """
+    if (not _model_valid(model) or model.get("mode") not in ("acquired", "tracking")
+            or not _ns(model.get("first_sample_ns"))
+            or not _number(model.get("max_residual_cycles"))
+            or not 0 <= model["max_residual_cycles"] <= MAX_SINGLE_RESIDUAL_CYCLES
+            or type(samples) is not list or not 3 <= len(samples) <= 12
+            or not all(map(_sample_valid, samples))):
+        return None
+    mids = [s["midpoint_ns"] for s in samples]
+    if any(b <= a for a, b in zip(mids, mids[1:])):
+        return None
+    old_span = model["last_sample_ns"] - model["first_sample_ns"]
+    gap = mids[-1] - model["last_sample_ns"]
+    if (not 2_000_000_000 <= old_span <= 20_000_000_000
+            or not 0 < gap <= old_span or model["last_sample_ns"] not in mids):
+        return None
+    budget = model["max_residual_cycles"] * (1 + 2 * gap / old_span)
+    if budget > MAX_SINGLE_RESIDUAL_CYCLES:
+        return None
+    tolerance = min(MAX_SINGLE_RESIDUAL_CYCLES, max(0.08, 3 * model["residual_cycles"]))
+    errors = []
+    for sample in samples:
+        if sample["midpoint_ns"] > model["last_sample_ns"]:
+            expected = ((model["epoch_ns"] - sample["midpoint_ns"]) % model["period_ns"]) / model["period_ns"]
+            errors.append(_distance(sample["q"], expected))
+    if any(abs(error) > tolerance for error in errors):
+        return None
+    # 歩行の間隔が長くても過去20秒まで。初期の8枚を毎回要求し直さない。
+    window = [s for s in samples if mids[-1] - s["midpoint_ns"] <= 20_000_000_000]
+    if len(window) < 3 or window[-1]["midpoint_ns"] - window[0]["midpoint_ns"] < 2_000_000_000:
+        return None
+    times = [(s["midpoint_ns"] - window[0]["midpoint_ns"]) / 1e9 for s in window]
+    frequency = 1e9 / model["period_ns"]
+    candidate = _candidate(times, [s["q"] for s in window], frequency)
+    if (candidate is None or candidate["rms"] > MAX_RESIDUAL_CYCLES
+            or candidate["maximum"] > MAX_SINGLE_RESIDUAL_CYCLES
+            or abs(candidate["frequency"] - frequency) * (old_span / 1e9) >= 0.5):
+        return None
+    period = round(1e9 / candidate["frequency"])
+    epoch = window[0]["midpoint_ns"] + round(candidate["intercept"] * period)
+    epoch += ((mids[-1] - epoch) // period) * period
+    updated = dict(model)
+    updated.update(period_ns=period, epoch_ns=epoch,
+                   first_sample_ns=window[0]["midpoint_ns"], last_sample_ns=mids[-1],
+                   sample_count=len(window), residual_cycles=candidate["rms"],
+                   max_residual_cycles=candidate["maximum"],
+                   runner_up_residual_cycles=None, alias_gap_cycles=None, candidate_count=1,
+                   http_half_width_max_ns=max(s["http_half_width_ns"] for s in window),
+                   mode="tracking", tracking_error_cycles=errors[-1],
+                   extrapolation_budget_cycles=budget, gap_ns=gap, prediction_span_ns=old_span)
+    return updated
 
 
 def _model_valid(model):

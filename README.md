@@ -2,11 +2,11 @@
 
 iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に金壁が見える回の金商人の商品を高速に確認し、目的の「呪いの指輪」の候補で停止するためのプロジェクトです。
 
-**TEST-019で約0.522秒の拍推定と右への一歩・停止は成立しましたが、左の商店とは逆方向でした。** TEST-020は明るい床の判定抜けと、移動確認に4.47秒かかって拍が古くなる問題を修正します。入力座標は変更せず、左への経路と継続歩行を実機で確認します。指輪の正例画像は受領しましたが、指輪認識・通知は今回の変更範囲ではありません。
+**TEST-020は3回中1回で左2歩を確認しましたが、歩行間隔は約14.6秒、商品位置への到達は未合格です。** TEST-021は初期の周期取得と、その後の新しいHUDによる追跡を分け、毎歩8枚から取り直す停止を修正します。地形・商品は毎歩確認し、予定入力前の保存処理を先に済ませます。実際の拍受付時刻と人より速い性能は未検証です。
 
 - [計測ツールの使い方と結果の見方](docs/p1-probe-guide.md)
-- **現在P1.5 / TEST-020**: [実行手順](docs/device-tests/README.md#test-020実行手順)。導入済みNG-G1をそのまま使用し、画像は896×414の横長原寸で判定します。開発ブランチは`work/p1-capture-probe`です。
-- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_motion_stats test_navigation_stats test_shop_walk test_shop_navigation test_beat_sync test_restart_speed test_restart_loop -v`
+- **現在P1.5 / TEST-021**: [実行手順](docs/device-tests/README.md#test-021実行手順)。導入済みNG-G1をそのまま使用し、画像は896×414の横長原寸で判定します。開発ブランチは`work/p1-capture-probe`です。
+- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_beat_sync test_shop_walk test_restart_loop test_restart_speed -v`
 - 完全な新規ソース: `necroprobe/`。旧版40ファイルは未変更。
 - P1.1の検証: ホスト54試験と3観点の相互レビューを通過しましたが、[TEST-001](docs/device-tests/001-capture.md)の実機3実行はworker_failedでした。3reportを受領し、最初のdevice_infoの開始記録までで完了していないことを確認。ホスト通過を実機合格とは扱いません。
 - P1.2の[TEST-002](docs/device-tests/002-worker-diagnostics.md)はPython暗号でもゲーム起動前にSIGSYSで終了しました。

@@ -158,5 +158,124 @@ class BeatSyncTests(unittest.TestCase):
         self.assertFalse(beat_sync.compatible(None, current))
 
 
+def test020_sequences():
+    """TEST020の2停止runのHTTP差分とHUD。端末受付時刻ではない。"""
+    rows = [[(-77513500, 77513500, 0.6618703220855697, 104.25, 445.25),
+      (2718448500, 2911907500, 0.28442226441658486, 103.5, 445.25),
+      (3736211500, 3909803500, 0.2978087396549835, 104.58333333333331, 445.25),
+      (4854130500, 5015080500, 0.17764460800896673, 104.375, 445.25),
+      (5720471500, 5897709500, 0.5560386727719953, 103.5, 445.25),
+      (6699621500, 6868767500, 0.6187048544596705, 104.25, 445.25),
+      (7793052500, 7961608500, 0.5801282592930792, 104.0, 445.25),
+      (8630455500, 8817803500, 0.9456435692608577, 104.25, 445.25),
+      (9614451500, 9789054500, 0.060911270997635616, 104.25, 445.25)],
+     [(-93816500, 93816500, 0.6570745220391305, 104.25, 445.25),
+      (920586500, 1086046500, 0.7338127681287352, 104.25, 445.25),
+      (2043802500, 2193837500, 0.5657051823700023, 104.0, 445.25),
+      (2922935500, 3109836500, 0.8936848771868298, 104.25, 445.0),
+      (3926343500, 4097901500, 0.9601276450976024, 104.5, 445.25),
+      (5044904500, 5189852500, 0.8450839328681392, 104.25, 445.25),
+      (5930838500, 6113886500, 0.1201595780688471, 104.375, 445.25),
+      (6942165500, 7117636500, 0.20383711196718818, 104.25, 445.25),
+      (8152335500, 8317677500, 0.8737011232176922, 104.25, 445.25),
+      (9071682500, 9237305500, 0.11790586370197646, 104.25, 445.25)]]
+    base = 20_000_000_000
+    return [[beat_sync.make_sample({'remaining':q,'spacing_px':spacing,'center_px':center},base+start,base+end)
+             for start,end,q,spacing,center in sequence] for sequence in rows]
+
+
+class BeatTrackingTests(unittest.TestCase):
+    def test_recorded_holdout_tracks_established_branch(self):
+        for samples in test020_sequences():
+            with self.subTest(count=len(samples)):
+                old=beat_sync.fit(samples[:-1])
+                self.assertIsNotNone(old)
+                self.assertTrue(beat_sync.compatible(old,samples[-1]))
+                self.assertIsNone(beat_sync.fit(samples))
+                updated=beat_sync.track(old,samples)
+                self.assertIsNotNone(updated)
+                self.assertEqual('tracking',updated['mode'])
+                self.assertLess(abs(updated['tracking_error_cycles']),.004)
+                self.assertLess(updated['residual_cycles'],old['residual_cycles'])
+                self.assertEqual(samples[-1]['midpoint_ns'],updated['last_sample_ns'])
+                self.assertIsNotNone(beat_sync.next_target(updated,samples[-1]['http_end_ns']))
+                self.assertFalse(updated['device_timing_verified'])
+                self.assertFalse(updated['dispatch_timing_calibrated'])
+
+    def test_tracking_neither_hardcodes_522ms_nor_uses_stale_phase(self):
+        for period in (345_000_000,522_000_000,700_000_000):
+            with self.subTest(period=period):
+                samples=observations(9);origin=samples[0]['midpoint_ns']
+                for v in samples:v['q']=v['remaining']=(.23-(v['midpoint_ns']-origin)/period)%1
+                old=beat_sync.fit(samples);self.assertIsNotNone(old)
+                sample=dict(samples[-1]);gap=4_000_000_000
+                for key in ('http_start_ns','http_end_ns','midpoint_ns'):sample[key]+=gap
+                sample['q']=sample['remaining']=(samples[-1]['q']-gap/period)%1
+                self.assertIsNone(beat_sync.next_target(old,sample['http_end_ns']))
+                tracked=beat_sync.track(old,samples+[sample]);self.assertIsNotNone(tracked)
+                self.assertAlmostEqual(period,tracked['period_ns'],delta=2)
+                self.assertIsNotNone(beat_sync.next_target(tracked,sample['http_end_ns']))
+                self.assertIsNone(beat_sync.next_target(tracked,sample['midpoint_ns']+3_000_000_001))
+                wrong=dict(sample,q=(sample['q']+.25)%1,remaining=(sample['remaining']+.25)%1)
+                self.assertIsNone(beat_sync.track(old,samples+[wrong]))
+
+    def test_tracking_bounds_and_branch_change_fail_closed(self):
+        samples=observations(10,noise=True);old=beat_sync.fit(samples[:-1])
+        self.assertIsNotNone(beat_sync.track(old,samples))
+        for model,values in ((None,samples),(old,samples[-2:]),(old,samples[:-1]),
+                             (old,samples[::-1]),(dict(old,max_residual_cycles=float('nan')),samples),
+                             (dict(old,first_sample_ns=old['last_sample_ns']),samples)):
+            with self.subTest(model=model,values=len(values)):
+                self.assertIsNone(beat_sync.track(model,values))
+        gap=old['last_sample_ns']-old['first_sample_ns']+1;latest=dict(samples[-2])
+        for k in ('http_start_ns','http_end_ns','midpoint_ns'):latest[k]+=gap
+        latest['q']=latest['remaining']=(samples[-2]['q']-gap/old['period_ns'])%1
+        self.assertIsNone(beat_sync.track(old,samples[:-1]+[latest]))
+        with patch.object(beat_sync,'_candidate',return_value={'frequency':2.9,'intercept':.2,'rms':.001,'maximum':.001}):
+            self.assertIsNone(beat_sync.track(old,samples))
+
+    def test_time_trim_keeps_continuity_without_requiring_eight_again(self):
+        samples=observations(9);model=beat_sync.fit(samples)
+        for _ in range(7):
+            latest=dict(samples[-1])
+            for key in ('http_start_ns','http_end_ns','midpoint_ns'):latest[key]+=4_000_000_000
+            latest['q']=latest['remaining']=(samples[-1]['q']-4_000_000_000/520_000_000)%1
+            samples=(samples+[latest])[-12:];model=beat_sync.track(model,samples)
+            self.assertIsNotNone(model)
+            self.assertLessEqual(model['last_sample_ns']-model['first_sample_ns'],20_000_000_000)
+        self.assertLess(model['sample_count'],8)
+
+    def test_tracking_window_budget_and_branch_boundaries(self):
+        samples=observations(9);old=beat_sync.fit(samples)
+        def sample_at(mid):
+            q=((old['epoch_ns']-mid)%old['period_ns'])/old['period_ns']
+            return beat_sync.make_sample({'remaining':q,'spacing_px':104.,'center_px':446.},
+                                         mid-1,mid+1)
+        last=old['last_sample_ns'];span=last-old['first_sample_ns']
+        for offset,accepted in ((999_999_999,False),(1_000_000_000,True)):
+            with self.subTest(two_second_window=offset):
+                window=[sample_at(last-1_000_000_000),sample_at(last),sample_at(last+offset)]
+                self.assertEqual(accepted,beat_sync.track(old,window) is not None)
+        latest=sample_at(last+span);window=samples+[latest]
+        limit=beat_sync.MAX_SINGLE_RESIDUAL_CYCLES/3
+        for residual,accepted in ((limit,True),(math.nextafter(limit,math.inf),False)):
+            with self.subTest(budget=residual):
+                model=dict(old,max_residual_cycles=residual)
+                self.assertEqual(accepted,beat_sync.track(model,window) is not None)
+        self.assertIsNone(beat_sync.track(old,samples[:-1]+[sample_at(last+1_000_000_000)]))
+        # 4sの予測spanで0.5周期ちょうどのbranch変更を拒否する。
+        branch_model=dict(old,period_ns=500_000_000,first_sample_ns=last-4_000_000_000)
+        values=[sample_at(last-1_000_000_000),sample_at(last),sample_at(last+1_000_000_000)]
+        for value in values:
+            value['q']=value['remaining']=((old['epoch_ns']-value['midpoint_ns'])%500_000_000)/500_000_000
+        for frequency,accepted in ((2.124999,True),(2.125,False)):
+            with patch.object(beat_sync,'_candidate',return_value={
+                    'frequency':frequency,'intercept':.2,'rms':.001,'maximum':.001}):
+                self.assertEqual(accepted,beat_sync.track(branch_model,values) is not None)
+        ambiguous=observations(uniform=True)
+        self.assertIsNone(beat_sync.fit(ambiguous))
+        self.assertIsNone(beat_sync.track(beat_sync.fit(ambiguous),ambiguous))
+
+
 if __name__ == "__main__":
     unittest.main()
