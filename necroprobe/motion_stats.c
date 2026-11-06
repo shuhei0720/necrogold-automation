@@ -5,13 +5,42 @@
  *   necroprobe/motion_stats.c -o necroprobe/motion_stats_i386.so
  * All length arguments are bytes. Stats: count,sum_a,sum_b,square_a,square_b.
  * Order: (0,0), then left,right,up,down for each amount 1..18.
- * No allocation, floating point, imports or shared mutable state.
+ * The original statistics/differences remain integer-only. LUT generation
+ * accepts Python-computed binary64 gains and uses explicit ties-to-even.
+ * No allocation, imports or shared mutable state.
  */
 #define SIGNATURE_LENGTH (224u * 104u)
 #define CANDIDATES 73u
 #define STATS_LENGTH (CANDIDATES * 5u * 4u)
 #define LUT_LENGTH (CANDIDATES * 256u)
 #define DIFF_LENGTH (CANDIDATES * 4u)
+#define GAIN_LENGTH (CANDIDATES * 8u)
+
+int necro_motion_luts(const double *gains, unsigned int gains_len,
+                      unsigned char *out, unsigned int out_len) {
+    unsigned int k,v;
+    if (!gains || !out || sizeof(double)!=8u || gains_len!=GAIN_LENGTH ||
+        out_len!=LUT_LENGTH) return -1;
+    /* Validate the entire input before writing, including the final row. */
+    for (k=0;k<CANDIDATES;++k) {
+        double gain=gains[k];
+        if (gain!=gain || (gain!=0.0 && (gain<0.65 || gain>1.55))) return -1;
+    }
+    for (k=0;k<CANDIDATES;++k) {
+        double gain=gains[k];
+        for (v=0;v<256u;++v) {
+            /* Force the same binary64 product Python rounds, including x87.
+             * An extended-precision product can fall on the other side of a tie.
+             */
+            volatile double product=(double)v*gain;
+            unsigned int rounded=(unsigned int)product;
+            double fraction=product-(double)rounded;
+            if (fraction>0.5 || (fraction==0.5 && (rounded&1u))) ++rounded;
+            out[k*256u+v]=(unsigned char)(rounded>255u ? 255u : rounded);
+        }
+    }
+    return 0;
+}
 
 /* Both samples must lie in the same old Pillow valid mask. Intersect its
  * outer rectangle first; test the player/instructions cutout per sample.

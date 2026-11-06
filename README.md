@@ -2,11 +2,11 @@
 
 iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に金壁が見える回の金商人の商品を高速に確認し、目的の「呪いの指輪」の候補で停止するためのプロジェクトです。
 
-**TEST-034は150ms・75msの単発入力に対して実移動0、最終ポーズtrueでした。** 残りの候補は期限条件で未送信のまま終了しました。TEST-035は移動0を確定した後に新しい全画像を取得し、同じ安全な床・金壁・方向を再確認して次候補へ進みます。7候補・16入力・歩行45秒と既存の期限を維持します。入力が受け付けられなかった原因は未確定で、新版の歩行も実機未確認です。 [結果と手順](docs/device-tests/README.md#test-035実行手順)。
+**TEST-035は商品3点の可視位置へ到達し、最終ポーズを確認しました。** 通常の単発入力は約3.1秒間隔、最後の開扉＋進入は約0.525秒の送信間隔でした。TEST-036は約1.04秒かかっていた移動比較のうち輝度補正表だけをCへ移し、同じ判定を維持して直線連続入力の余裕を増やします。曲がり角では撮影が入るため、全経路で毎拍歩く目標は未達です。 [結果と手順](docs/device-tests/README.md#test-036実行手順)。
 
 - [計測ツールの使い方と結果の見方](docs/p1-probe-guide.md)
-- **現在P1.5 / TEST-035**: [実行手順](docs/device-tests/README.md#test-035実行手順)。導入済みNG-G1をそのまま使用し、画像は896×414の横長原寸で判定します。開発ブランチは`work/p1-capture-probe`です。
-- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_gold_scan test_shop_navigation test_shop_walk test_walk_burst test_walk_sequence test_walk_obstacles test_walk_approach test_walk_doorway test_footer_state test_corridor_motion test_shop_labels test_gate_sequence test_continuous_walk test_timing_selection test_trial_refresh test_dispatch_window -v`
+- **現在P1.5 / TEST-036**: [実行手順](docs/device-tests/README.md#test-036実行手順)。導入済みNG-G1をそのまま使用し、画像は896×414の横長原寸で判定します。開発ブランチは`work/p1-capture-probe`です。
+- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_gold_scan test_shop_navigation test_shop_walk test_walk_burst test_walk_sequence test_walk_obstacles test_walk_approach test_walk_doorway test_footer_state test_corridor_motion test_shop_labels test_gate_sequence test_continuous_walk test_timing_selection test_trial_refresh test_dispatch_window test_motion_stats test_motion_luts test_motion_budget -v`
 - 完全な新規ソース: `necroprobe/`。旧版40ファイルは未変更。
 - P1.1の検証: ホスト54試験と3観点の相互レビューを通過しましたが、[TEST-001](docs/device-tests/001-capture.md)の実機3実行はworker_failedでした。3reportを受領し、最初のdevice_infoの開始記録までで完了していないことを確認。ホスト通過を実機合格とは扱いません。
 - P1.2の[TEST-002](docs/device-tests/002-worker-diagnostics.md)はPython暗号でもゲーム起動前にSIGSYSで終了しました。
