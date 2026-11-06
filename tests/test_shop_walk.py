@@ -552,8 +552,8 @@ class SyncDeadlineTests(unittest.TestCase):
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-031',r['test_id']);self.assertEqual('shop-walk-v16',r['revision'])
-            self.assertEqual('runtime/test-031',p.parser().parse_args([]).output)
+            self.assertEqual('TEST-032',r['test_id']);self.assertEqual('shop-walk-v17',r['revision'])
+            self.assertEqual('runtime/test-032',p.parser().parse_args([]).output)
             self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
             self.assertEqual(motion_stats.ENGINE,r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):

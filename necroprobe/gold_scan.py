@@ -66,11 +66,24 @@ def _matches(gray, name):
 
 
 
+def _vertical_icon(mask):
+    """13px未満の縦成分を除く。欠けた棒を補わず、crop外は黒として扱う。"""
+    width, height = mask.size
+    eroded = mask
+    for dy in range(-6, 7):
+        eroded = ImageChops.darker(eroded, mask.crop((0, -dy, width, height-dy)))
+    opened = eroded
+    for dy in range(-6, 7):
+        opened = ImageChops.lighter(opened, eroded.crop((0, -dy, width, height-dy)))
+    return opened
+
+
 def _matches_pause_icon(image, gray):
     """半透明のpause棒を保持し、背後の金壁の強い色だけ除く暫定判定。
 
     36×36原寸crop内の輝度>=55（不一致時は85）かつ2*最小RGB>=最大RGB。参照maskは
-    切り詰めず、通常の全unionで形状を照合する。未知画像精度は未検証。
+    切り詰めず、通常の全unionで形状を照合する。両閾値で不一致の場合のみ、
+    商品名の短い縦成分を除いて再照合する。未知画像精度は未検証。
     """
     box, table, minimum, reference = _TEMPLATES['icon']
     with image.crop(box) as crop:
@@ -82,8 +95,16 @@ def _matches_pause_icon(image, gray):
         region = gray.crop(box)
         # 鉄扉の灰色が55を超えても、より明るい2本の棒の全形状を要求する。
         # 既存55を先に維持し、背景を切り捨てた部分一致にはしない。
+        masks = []
         for threshold in (table, [255 if value >= 85 else 0 for value in range(256)]):
             observed = ImageChops.darker(region.point(threshold), neutral)
+            intersection = ImageChops.darker(observed, reference).histogram()[255]
+            union = ImageChops.lighter(observed, reference).histogram()[255]
+            if intersection >= minimum * max(1, union):return True
+            masks.append(observed)
+        # 観測された長い棒だけを保持する。参照外の長い白い形もunionに残す。
+        for observed in masks:
+            observed = _vertical_icon(observed)
             intersection = ImageChops.darker(observed, reference).histogram()[255]
             union = ImageChops.lighter(observed, reference).histogram()[255]
             if intersection >= minimum * max(1, union):return True
