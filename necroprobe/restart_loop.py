@@ -85,6 +85,10 @@ def write(folder,report,name='report.json'):
 def read_report(path,run_id,start):
     with Path(path).open('rb') as source:
         r=json_object(source.read(65537),65536)
+    return validate_report(r,run_id,start)
+
+
+def validate_report(r,run_id,start):
     require=supervisor.require
     require(set(r)==set(new_report(start,run_id)))
     for k,v in [('version',VERSION),('test_id','TEST-015'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
@@ -143,11 +147,12 @@ def device_lock(path=None):
 
 
 class RuntimeDriver:
-    def __init__(self,client,report,folder,stop_ns,clock=time.monotonic_ns,checkpoint_dir=None):
+    def __init__(self,client,report,folder,stop_ns,clock=time.monotonic_ns,checkpoint_dir=None,frame_analyzer=None):
         self.client,self.report,self.folder,self.stop_ns,self.clock=client,report,Path(folder),stop_ns,clock
         self.last=None; self.pending=False
         self.control_dir=Path(checkpoint_dir) if checkpoint_dir else self.folder
         self.images={};self.menu_since_ns=None;self.sleeper=time.sleep
+        self.frame_analyzer=frame_analyzer
     def budget(self):
         remain=(self.stop_ns-self.clock())/1e9
         if remain<.001: raise ProbeError('session_deadline')
@@ -172,7 +177,8 @@ class RuntimeDriver:
         if len(self.report['capture_ms'])>=MAX_OBSERVATIONS: raise ProbeError('observation_limit')
         self.guard()
         started=self.clock()
-        payload=self.client.call('screenshot',dict(resume.CAPTURE_PARAMS),timeout=self.budget()).result
+        reply=self.client.call('screenshot',dict(resume.CAPTURE_PARAMS),timeout=self.budget())
+        payload=reply.result
         raw,image,rgb=inspect_payload(payload,include_rgb=True)
         try:
             validate_source_geometry(payload,image,resume.CAPTURE_PARAMS)
@@ -181,6 +187,10 @@ class RuntimeDriver:
                 raise ProbeError('source_geometry_invalid')
             decoded=self.clock()
             obs=analyze_image(rgb)
+            if self.frame_analyzer is not None:
+                obs['_extra']=self.frame_analyzer(rgb,obs)
+                obs['_http_start_ns']=reply.timings.get('http_start_ns',started)
+                obs['_http_end_ns']=reply.timings.get('http_end_ns',decoded)
             done=self.clock()
         finally:
             rgb.close()

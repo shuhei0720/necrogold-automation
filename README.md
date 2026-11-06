@@ -2,11 +2,11 @@
 
 iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に金壁が見える回の金商人の商品を高速に確認し、目的の「呪いの指輪」の候補で停止するためのプロジェクトです。
 
-**TEST-015で9回のクイックリスタート後、金壁発見・ポーズ停止を実機確認しました。** 新しい盤面の観測間隔は中央値4.17秒。次は画面端操作・設定0でビートに合わせ、商品を見渡せる位置まで接近する機能。人より速い性能は未合格です。
+**TEST-015で9回のクイックリスタート後、金壁発見・ポーズ停止を実機確認しました。** 新しい盤面の観測間隔は中央値4.17秒。次のTEST-016は画面端操作・設定0で拍を推定し、1歩ごとに確認して商品を見渡せる位置まで接近する実機版です。人より速い性能は未合格です。
 
 - [計測ツールの使い方と結果の見方](docs/p1-probe-guide.md)
-- **現在P1.5 / TEST-015**: [実行手順](docs/device-tests/README.md#test-015実行手順)。導入済みNG-G1をそのまま使用し、画像は896×414の横長原寸で判定します。開発ブランチは`work/p1-capture-probe`です。
-- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_restart_speed test_native_scan test_restart_loop test_gold_scan test_capture -v`
+- **現在P1.5 / TEST-016**: [実行手順](docs/device-tests/README.md#test-016実行手順)。導入済みNG-G1をそのまま使用し、画像は896×414の横長原寸で判定します。開発ブランチは`work/p1-capture-probe`です。
+- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_shop_walk test_shop_navigation test_beat_sync test_restart_speed test_restart_loop -v`
 - 完全な新規ソース: `necroprobe/`。旧版40ファイルは未変更。
 - P1.1の検証: ホスト54試験と3観点の相互レビューを通過しましたが、[TEST-001](docs/device-tests/001-capture.md)の実機3実行はworker_failedでした。3reportを受領し、最初のdevice_infoの開始記録までで完了していないことを確認。ホスト通過を実機合格とは扱いません。
 - P1.2の[TEST-002](docs/device-tests/002-worker-diagnostics.md)はPython暗号でもゲーム起動前にSIGSYSで終了しました。
