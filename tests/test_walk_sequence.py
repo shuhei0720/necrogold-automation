@@ -37,6 +37,28 @@ class SequenceTests(unittest.TestCase):
             self.assertEqual([p.move_batch('left')]*2,sent)
             self.assertEqual([1,1],[a['scheduled_inputs'] for a in d.state['actions']])
 
+    def test_planned_count_survives_downgrade_unknown_and_report_roundtrip(self):
+        for mode in ('single','pair','downgrade','unknown'):
+            with self.subTest(mode=mode),tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,_,_,sent):
+                before,model=d.synchronize(d.observe());self.corridor(before)
+                planned=1 if mode=='single' else 2
+                target=now[0]+300_000_000
+                if mode=='downgrade':before['_captured']=target-p.LEAD_NS-2_600_000_000
+                call=d.client.call
+                def rpc(method,params,timeout):
+                    if mode=='unknown' and method=='run_steps':return RpcReply({}, {})
+                    return call(method,params,timeout)
+                with patch('necroprobe.beat_sync.next_target',return_value=target),patch.object(d.client,'call',side_effect=rpc):
+                    if mode=='unknown':
+                        with self.assertRaises(ProbeError):d.perform('left',before,model,count=planned)
+                    else:actual=d.perform('left',before,model,count=planned)
+                first=d.state['actions'][0];self.assertEqual(planned,first['planned_inputs'])
+                if mode!='unknown':self.assertEqual(2 if mode=='pair' else 1,actual)
+                self.assertEqual('sequence_window_short' if mode=='downgrade' else None,first['reason'])
+                p.write(folder,d.outer);saved=p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])
+                self.assertEqual(planned,saved['walk']['actions'][0]['planned_inputs'])
+                if mode=='unknown':self.assertTrue(d.pending)
+
     def test_late_first_ack_skips_second_without_shifting_to_a_later_beat(self):
         for extra in (p.DISPATCH_LATE_NS,p.DISPATCH_LATE_NS+1):
             with self.subTest(extra=extra),tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,_,_,sent):

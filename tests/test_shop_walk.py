@@ -103,7 +103,7 @@ class ExpiringFake(Fake):
     def perform(self,action,frame,model=None,count=1):
         entry={'action':action,'outcome':'not_requested','reason':None,'requested_ns':self.clock(),
                'issued_ns':None,'completed_ns':None,'target_ns':None,'rpc_timings':{},'target_checks':[],
-               'requested_inputs':1 if action in p.MOVE_POINTS else 0,'scheduled_inputs':0,'period_ns':None}
+               'requested_inputs':1 if action in p.MOVE_POINTS else 0,'scheduled_inputs':0,'period_ns':None,'planned_inputs':count if action in p.MOVE_POINTS else 0}
         self.state['actions'].append(entry)
         if action in p.MOVE_POINTS:
             result=next(self.outcomes)
@@ -552,8 +552,8 @@ class SyncDeadlineTests(unittest.TestCase):
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-026',r['test_id']);self.assertEqual('shop-walk-v11',r['revision'])
-            self.assertEqual('runtime/test-026',p.parser().parse_args([]).output)
+            self.assertEqual('TEST-027',r['test_id']);self.assertEqual('shop-walk-v12',r['revision'])
+            self.assertEqual('runtime/test-027',p.parser().parse_args([]).output)
             self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
             self.assertEqual(motion_stats.ENGINE,r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):

@@ -5,6 +5,8 @@
 画像全体のresize/rotation、旧R12のimport、ネットワーク操作は行わない。
 """
 from collections import deque
+import heapq
+from itertools import count
 from dataclasses import dataclass
 
 from PIL import Image, ImageChops, ImageFilter, ImageStat
@@ -79,9 +81,10 @@ def _peaks(mask):
     return result
 
 
-def _merchandise(image, gray, channels):
+def _merchandise(image, gray, channels, sign_mask=None):
     """看板候補と同一baselineの価格3列、各商品画素を別々に要求。"""
-    peaks = _peaks(_colour_mask(channels, sign=True))
+    if sign_mask is None:sign_mask = _colour_mask(channels, sign=True)
+    peaks = _peaks(sign_mask) if sign_mask.getbbox() else []
     if not peaks:
         return "unknown", set()
     red, green, blue = channels
@@ -125,7 +128,7 @@ def _merchandise(image, gray, channels):
 def _gates(tiles):
     result = {}
     for point, kind in tiles.items():
-        if kind not in ("floor", "door", "dirt", "stone"):
+        if kind not in ("floor", "door", "dirt", "stone", "wood"):
             continue
         x, y = point
         for tangent, normal in (((1, 0), (0, 1)), ((0, 1), (1, 0))):
@@ -140,9 +143,14 @@ def scan(image):
         return Scene({}, set(), "unknown", set(), b"")
     gray = image.convert("L")
     from . import navigation_stats
-    fast_stats = navigation_stats.scan(image.tobytes())
+    rgb = image.tobytes()
+    fast_stats = navigation_stats.scan(rgb)
+    colours = navigation_stats.colours(rgb)
     channels = image.split()
-    gold_mask = _colour_mask(channels)
+    gold_mask = _colour_mask(channels) if colours is None else None
+    sign_mask = Image.frombytes("L", SIZE, colours[1]) if colours is not None else None
+    if sign_mask is not None:
+        for box in _HUD:sign_mask.paste(0, box)
     tiles = {(0, 0): "floor"}
     for j in range(-5, 5):
         for i in range(-11, 12):
@@ -153,7 +161,9 @@ def scan(image):
             if any(_overlap(box, hud) for hud in _HUD):
                 continue
             point = (i, j)
-            if gold_mask.crop(box).histogram()[255] >= 280:
+            gold_pixels = (colours[0][(j+5)*23+i+11] if colours is not None
+                           else gold_mask.crop(box).histogram()[255])
+            if gold_pixels >= 280:
                 tiles[point] = "gold"
                 continue
             if fast_stats is None:
@@ -181,10 +191,16 @@ def scan(image):
                 tiles[point] = "stone"
             elif 100 * b < 55 * r and 100 * g > 42 * r:
                 tiles[point] = "dirt"
+            elif (35 <= r <= 140 and g >= 8 and 18*r <= 100*g <= 42*r
+                  and 100*b <= 25*r
+                  and (spread_enough if spread_enough is not None else max(stats.stddev) >= 2)):
+                tiles[point] = "wood"
     for point in _gates(tiles):
-        if tiles[point] in ("dirt", "stone"):
+        if tiles[point] in ("dirt", "stone", "wood"):
             tiles[point] = "door"
-    goods, items = _merchandise(image, gray, channels)
+    # 木色だけでは扉にしない。現在見える金壁に両側を挟まれたセルだけ。
+    tiles = {p:kind for p,kind in tiles.items() if kind != "wood"}
+    goods, items = _merchandise(image, gray, channels, sign_mask)
     protected = set(items)
     for point in items:
         protected.update(_add(point, delta) for delta in DIRECTIONS.values())
@@ -210,6 +226,22 @@ def _floor_paths(scene):
     return paths
 
 
+def _gate_paths(scene):
+    """観測済み入口へだけ茶壁を掘る。床1入力、茶壁は掘り+移動の2入力。"""
+    paths={(0,0):()};costs={(0,0):0};serial=count();queue=[(0,next(serial),(0,0))]
+    while queue:
+        cost,_,point=heapq.heappop(queue)
+        if cost!=costs[point]:continue
+        for name,delta in DIRECTIONS.items():
+            nxt=_add(point,delta);kind=scene.tiles.get(nxt)
+            if nxt in scene.protected or kind not in ("floor","dirt"):continue
+            total=cost+(2 if kind=="dirt" else 1)
+            if total<costs.get(nxt,float("inf")):
+                paths[nxt]=paths[point]+(name,);costs[nxt]=total
+                heapq.heappush(queue,(total,next(serial),nxt))
+    return paths,costs
+
+
 def choose(scene, position=(0, 0), visits=None):
     def result(direction=None, reason="no_observed_route", target=None):
         return {"direction": direction, "reason": reason, "target": target}
@@ -220,7 +252,7 @@ def choose(scene, position=(0, 0), visits=None):
     if not scene.gold or scene.tiles.get((0, 0)) != "floor":
         return result(reason="no_visible_gold_or_origin")
     visits = visits or {}
-    paths = _floor_paths(scene)
+    paths,costs = _gate_paths(scene)
     options = []
     for gate, sides in _gates(scene.tiles).items():
         if gate in scene.protected:
@@ -234,13 +266,14 @@ def choose(scene, position=(0, 0), visits=None):
                 if direction:
                     return result(direction, "gate_single_probe", gate)
             else:
-                options.append((len(path), path[0], near))
+                options.append((costs[near], path[0], near))
     if options:
         _, direction, target = min(options)
-        return result(direction, "approach_gate", target)
+        reason="dig_single_probe" if scene.tiles.get(DIRECTIONS[direction])=="dirt" else "approach_gate"
+        return result(direction, reason, target)
     # A partial gold wall may require moving around a corner. Only known floor
     # is eligible; the smallest distance-to-gold and revisit penalty guide it.
-    for target, path in paths.items():
+    for target, path in _floor_paths(scene).items():
         if not path:
             continue
         gap = min(_distance(target, gold) for gold in scene.gold)
@@ -263,7 +296,8 @@ def burst_count(scene, decision):
             or not isinstance(target, (tuple, list)) or len(target) != 2
             or any(type(value) is not int for value in target)):
         return 1
-    path = _floor_paths(scene).get(tuple(target), ())
+    paths = _gate_paths(scene)[0] if decision.get("reason") == "approach_gate" else _floor_paths(scene)
+    path = paths.get(tuple(target), ())
     if len(path) < 2 or path[:2] != (direction, direction):
         return 1
     gates = _gates(scene.tiles)
@@ -365,6 +399,10 @@ def motion(before, after, direction, expected_steps=1):
                 and after.tiles.get(next_point) == "floor"
                 and next_point in _gates(after.tiles)):
             return "door_opened"
+        if (expected_steps == 1 and before.tiles.get(next_point) == "dirt"
+                and after.tiles.get(next_point) == "floor"
+                and next_point not in before.protected and next_point not in after.protected):
+            return "terrain_opened"
         return "blocked"
     if (sx, sy) == (-9 * expected_steps * dx, -9 * expected_steps * dy):
         return "moved"
