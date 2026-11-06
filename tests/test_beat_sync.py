@@ -3,7 +3,7 @@ import math
 import unittest
 from unittest.mock import patch
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 from necroprobe import beat_sync
 
@@ -39,6 +39,33 @@ def observations(count=10, uniform=False, noise=False):
 
 
 class BeatSyncTests(unittest.TestCase):
+    def test_05_scalar_only_pillow_and_vertical_coverage_boundary(self):
+        # Pillow 9.5 ImageFilter.BoxBlur.__init__ begins with `radius < 0`.
+        # A tuple fails before filtering on that supported iSH-era API.
+        current = ImageFilter.BoxBlur
+        def scalar_only(radius):
+            if radius < 0:
+                raise ValueError('radius must be >= 0')
+            return current(radius)
+        with patch.object(ImageFilter, 'BoxBlur', side_effect=scalar_only), \
+             patch.object(Image.Image, 'resize', side_effect=AssertionError('resize forbidden')), \
+             patch.object(Image.Image, 'rotate', side_effect=AssertionError('rotate forbidden')), \
+             patch.object(Image.Image, 'transpose', side_effect=AssertionError('transpose forbidden')):
+            for height in (17, 18, 37):
+                image = Image.new('RGB', (896, 414))
+                draw = ImageDraw.Draw(image)
+                for side in (-1, 1):
+                    for index in range(5):
+                        x = round(446 + side * (.25 + index) * 104)
+                        if 20 < x < 876 and not 418 < x < 474:
+                            draw.rectangle((x-2,350,x+2,350+height-1),fill=(30,220,175))
+                feature = beat_sync.extract(image)
+                if height == 17:
+                    self.assertIsNone(feature)
+                else:
+                    self.assertIsNotNone(feature)
+                    self.assertAlmostEqual(.25, feature['remaining'], delta=.012)
+
     def test_01_hud_wrap_occlusion_and_rejection_without_reformatting(self):
         with patch.object(Image.Image, "resize", side_effect=AssertionError("resize forbidden")), \
              patch.object(Image.Image, "rotate", side_effect=AssertionError("rotate forbidden")), \

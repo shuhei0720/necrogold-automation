@@ -1,4 +1,4 @@
-"""TEST-016: 画面端0で1歩ずつ拍に合わせ、商品可視で止める限定実機版。
+"""TEST-017: 画面端0で1歩ずつ拍に合わせ、商品可視で止める限定実機版。
 
 HTTP中点と150ms先行は未校正の推定。予定拍での実受付を保証しない。
 """
@@ -6,6 +6,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import json
 import math
+import re
 from pathlib import Path
 import shutil
 import signal
@@ -17,7 +18,7 @@ import uuid
 from . import VERSION, restart_loop as base
 from .validation import ProbeError, json_object
 
-REVISION='shop-walk-v1'
+REVISION='shop-walk-v2'
 MOVE_POINTS={'up':(290,838),'down':(124,838),'left':(207,49),'right':(207,838)}
 DIRECTIONS={'up':(0,-1),'down':(0,1),'left':(-1,0),'right':(1,0)}
 MAX_STEPS=16
@@ -25,7 +26,9 @@ WALK_SECONDS=45
 MAX_RESTARTS=12
 LEAD_NS=150_000_000
 REASONS={'goods_visible','goods_partial','no_safe_path','movement_unconfirmed','unexpected_movement',
-         'beat_unconfirmed','walk_limit','gold_not_found','approach','navigation_unknown'}
+         'beat_unconfirmed','walk_limit','gold_not_found','approach','navigation_unknown','walk_analysis_failed'}
+FAILURE_KINDS={'TypeError','ValueError','AttributeError','IndexError','KeyError','OverflowError','MemoryError','RuntimeError','other'}
+VERSION_PATTERN=r'[0-9][0-9A-Za-z.+_-]{0,31}'
 
 
 def code(reason):return reason if reason in REASONS else base.code(reason)
@@ -58,15 +61,18 @@ def gesture_evidence(result):
 
 
 def new_walk():
+    from PIL import __version__ as pillow_version
+    if not isinstance(pillow_version,str) or re.fullmatch(VERSION_PATTERN,pillow_version) is None:pillow_version=None
     return {'started_ns':None,'end_ns':None,'reason':None,'goods_visible':False,'paused':False,
         'device_timing_verified':False,'dispatch_timing_calibrated':False,'dispatch_lead_ns':LEAD_NS,
         'position':[0,0],'moves_confirmed':0,'door_changes':0,'actions':[],'events':[],
         'samples':[],'models':[],'input_pending':False,
-        'navigation_ms':[],'beat_extract_ms':[],'motion_ms':[],'beat_fit_ms':[]}
+        'navigation_ms':[],'beat_extract_ms':[],'motion_ms':[],'beat_fit_ms':[],
+        'failure':None,'pillow_version':pillow_version}
 
 
 def new_report(start,run_id):
-    return {'version':VERSION,'test_id':'TEST-016','revision':REVISION,'run_id':run_id,
+    return {'version':VERSION,'test_id':'TEST-017','revision':REVISION,'run_id':run_id,
         'start_ns':start,'end_ns':None,'phase':'search','status':'running','reason':None,
         'control_reason':None,'control_end_ns':None,'worker_returncode':None,'worker_exit_confirmed':None,
         'search':base.new_report(start,run_id),'walk':new_walk()}
@@ -80,7 +86,7 @@ def read_report(path,run_id,start):
     with Path(path).open('rb') as source:r=json_object(source.read(131073),131072)
     req=base.supervisor.require
     req(type(r) is dict and set(r)==set(new_report(start,run_id)))
-    for k,v in [('version',VERSION),('test_id','TEST-016'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
+    for k,v in [('version',VERSION),('test_id','TEST-017'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
         req(type(r[k]) is type(v) and r[k]==v)
     req(r['phase'] in ('search','walk','done'))
     req(r['status'] in ('running','completed','stopped'))
@@ -90,6 +96,11 @@ def read_report(path,run_id,start):
     req(r['worker_returncode'] is None or type(r['worker_returncode']) is int and -255<=r['worker_returncode']<=255)
     base.validate_report(r['search'],run_id,start)
     w=r['walk'];req(type(w) is dict and set(w)==set(new_walk()))
+    req(w['pillow_version'] is None or type(w['pillow_version']) is str and re.fullmatch(VERSION_PATTERN,w['pillow_version']) is not None)
+    failure=w['failure']
+    req(failure is None or type(failure) is dict and set(failure)=={'stage','kind'}
+        and type(failure['stage']) is str and type(failure['kind']) is str
+        and failure['stage'] in ('navigation','beat_extract','control') and failure['kind'] in FAILURE_KINDS)
     for key in ('goods_visible','paused','input_pending'):req(type(w[key]) is bool)
     req(w['device_timing_verified'] is False and w['dispatch_timing_calibrated'] is False and w['dispatch_lead_ns']==LEAD_NS)
     req(w['reason'] is None or type(w['reason']) is str and code(w['reason'])==w['reason'])
@@ -113,15 +124,30 @@ def read_report(path,run_id,start):
 class Driver(base.RuntimeDriver):
     def __init__(self,client,outer,folder,stop_ns,control,clock=time.monotonic_ns):
         self.outer=outer;self.state=outer['walk'];self.model=None;self.samples=[];self.visits={(0,0):1}
+        self.analysis_failed=False;self.finishing=False
         super().__init__(client,outer['search'],folder,stop_ns,clock,control,self.analyze_frame)
+    def record_failure(self,stage,exc):
+        if self.state['failure'] is None:
+            kind=type(exc).__name__
+            self.state['failure']={'stage':stage,'kind':kind if kind in FAILURE_KINDS else 'other'}
     def analyze_frame(self,image,obs):
-        if self.outer['phase']!='walk' or obs['state']!='floor':return None
+        if self.outer['phase']!='walk' or obs['state']!='floor' or self.analysis_failed or self.finishing:return None
         from . import beat_sync,shop_navigation
-        begin=self.clock();scene=shop_navigation.scan(image);scanned=self.clock()
-        beat=beat_sync.extract(image);finished=self.clock()
-        self.state['navigation_ms'].append((scanned-begin)/1e6)
-        self.state['beat_extract_ms'].append((finished-scanned)/1e6)
-        return {'scene':scene,'beat':beat}
+        stage='navigation';scene=None
+        try:
+            begin=self.clock()
+            try:scene=shop_navigation.scan(image)
+            finally:self.state['navigation_ms'].append((self.clock()-begin)/1e6)
+            stage='beat_extract';begin=self.clock()
+            try:beat=beat_sync.extract(image)
+            finally:self.state['beat_extract_ms'].append((self.clock()-begin)/1e6)
+            return {'scene':scene,'beat':beat}
+        except ProbeError:raise
+        except Exception as exc:
+            self.record_failure(stage,exc);self.analysis_failed=True
+            # 基本の画像検証・分類・時刻・原画像はsuper.observeに保存させる。
+            # beatだけ失敗した場合も、既に得られた商品可視は失わない。
+            return {'scene':scene,'beat':None} if scene is not None else None
     def checkpoint(self):
         before=self.clock();write(self.control_dir,self.outer)
         if len(self.report['checkpoint_ms'])<512:self.report['checkpoint_ms'].append((self.clock()-before)/1e6)
@@ -131,6 +157,7 @@ class Driver(base.RuntimeDriver):
             self.state['goods_visible']=True
             self.save('found.jpg',observed)
             self.checkpoint()
+        if self.analysis_failed and not self.finishing:raise ProbeError('walk_analysis_failed')
         return observed
     def goods(self,obs):
         extra=obs.get('_extra')
@@ -214,6 +241,8 @@ class Driver(base.RuntimeDriver):
         except ProbeError:
             entry['outcome']='not_requested';self.pending=False;self.state['input_pending']=False;raise
         entry['issued_ns']=now
+        # 入力より前の観測を、入力後の停止確認や再送判断に流用しない。
+        self.last=None
         result=self.client.call('run_steps',move_batch(action) if moving else base.batch(action),timeout=timeout).result
         entry['completed_ns']=self.clock()
         outcome=gesture_evidence(result) if moving else base.resume.batch_evidence(result)[0]
@@ -229,8 +258,10 @@ class Driver(base.RuntimeDriver):
         self.visits[tuple(self.state['position'])]=self.visits.get(tuple(self.state['position']),0)+1
         self.checkpoint()
     def finish(self,reason,obs):
+        self.finishing=True
         self.state['reason']=code(reason);self.checkpoint()
         if self.pending or self.state['input_pending']:return
+        if obs is not self.last:return
         if obs and obs['state']=='pause':
             self.state['paused']=True;self.save('stopped.jpg',obs);return
         if not obs or obs['state']!='floor':return
@@ -288,8 +319,8 @@ def walk(driver):
 
 
 def parser():
-    ap=base.parser();ap.description='TEST-016: 金壁発見後、拍を推定し1歩ずつ商品が見える位置へ。'
-    ap.set_defaults(output='runtime/test-016');return ap
+    ap=base.parser();ap.description='TEST-017: 金壁発見後、拍を推定し1歩ずつ商品が見える位置へ。'
+    ap.set_defaults(output='runtime/test-017');return ap
 
 
 def worker(args):
@@ -314,11 +345,13 @@ def worker(args):
                         walk(d)
                         r['reason']=r['walk']['reason']
                         r['status']='completed' if r['walk']['goods_visible'] and r['walk']['paused'] else 'stopped'
-                    except (ProbeError,KeyboardInterrupt,OSError) as exc:
-                        reason=code(exc.code) if isinstance(exc,ProbeError) else 'user_interrupt' if isinstance(exc,KeyboardInterrupt) else 'output_write_failed'
+                    except (Exception,KeyboardInterrupt) as exc:
+                        reason=(code(exc.code) if isinstance(exc,ProbeError) else 'user_interrupt' if isinstance(exc,KeyboardInterrupt)
+                                else 'output_write_failed' if isinstance(exc,OSError) else 'internal_error')
+                        if reason=='internal_error':d.record_failure('control',exc)
                         r.update(status='stopped',reason=reason)
                         try:d.finish(r['walk']['reason'] or reason,d.last)
-                        except (ProbeError,OSError,KeyboardInterrupt):pass
+                        except (Exception,KeyboardInterrupt):pass
                 else:r.update(status='stopped',reason='gold_not_found')
     except (ProbeError,KeyboardInterrupt,OSError) as exc:
         reason=code(exc.code) if isinstance(exc,ProbeError) else 'user_interrupt' if isinstance(exc,KeyboardInterrupt) else 'output_write_failed'
@@ -347,7 +380,7 @@ def run(args):
         '--run-id',run_id,'--start-ns',str(start),'--stop-ns',str(start+180_000_000_000),'--token-store',args.token_store]
     if args.store_key is not None:command+=['--store-key',args.store_key]
     if args.python_crypto:command.append('--python-crypto')
-    print('TEST-016: 金壁→拍の推定→1歩ずつ商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
+    print('TEST-017: 金壁→拍の推定→1歩ずつ商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
     diagnostics={};reason=base.supervisor.supervise(command,max(.001,180-(time.monotonic_ns()-start)/1e9),diagnostics)
     try:r=read_report(control/'report.json',run_id,start)
     except (ValueError,OSError,ProbeError):r['search']['counts_certain']=False;reason=reason or 'report_read_failed'
@@ -358,6 +391,7 @@ def run(args):
     if r['worker_exit_confirmed'] is not False:write(folder,r);shutil.rmtree(control,ignore_errors=True)
     w=r['walk'];paused=w['paused'] if w['started_ns'] is not None else r['search']['paused']
     print('終了: %s / 歩行確認: %d / 商品可視: %s / ポーズ確認: %s'%(r['reason'],w['moves_confirmed'],w['goods_visible'],paused),flush=True)
+    if w['failure']:print('停止箇所: %s / 例外種類: %s / Pillow: %s'%(w['failure']['stage'],w['failure']['kind'],w['pillow_version']),flush=True)
     print('予定拍での実受付は未検証 / 画像保存完了: %s / 保存先: %s'%(r['search']['export_complete'],folder),flush=True)
     if not paused:print('ポーズ未確認です。必要なら手動でポーズしてください。',flush=True)
     return 0 if r['status']=='completed' else 2
@@ -370,8 +404,8 @@ def main(argv=None):
         def interrupt(_sig,_frame):base.supervisor._cancel_requested=True
         for sig in (signal.SIGINT,signal.SIGTERM):previous[sig]=signal.getsignal(sig);signal.signal(sig,interrupt)
     try:return run(args)
-    except ProbeError as exc:print('TEST-016停止: '+code(exc.code),file=sys.stderr);return 2
-    except OSError:print('TEST-016: 結果保存に失敗しました。',file=sys.stderr);return 2
+    except ProbeError as exc:print('TEST-017停止: '+code(exc.code),file=sys.stderr);return 2
+    except OSError:print('TEST-017: 結果保存に失敗しました。',file=sys.stderr);return 2
     finally:
         for sig,handler in previous.items():signal.signal(sig,handler)
 

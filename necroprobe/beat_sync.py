@@ -8,7 +8,7 @@ HTTP区間は画像生成時刻でも保証された誤差範囲でもない。�
 import math
 from statistics import median
 
-from PIL import Image, ImageChops, ImageFilter
+from PIL import Image, ImageChops
 
 SIZE = (896, 414)
 MIN_PERIOD_NS = 320_000_000
@@ -49,7 +49,7 @@ def _circle(values):
 def extract(image):
     """原寸RGBの下部バーから残り拍割合を返す。不十分・不整合ならNone。
 
-    色maskと縦方向平均はPillow native演算。Pythonでは896列の小さな
+    色maskはPillow native演算、列の集計はbytes.count。Pythonでは896列の小さな
     要約だけを走査し、原画像全体の画素走査・resize・回転を行わない。
     閾値は既知HUDの試験値であり、未知画像での精度は未検証。
     """
@@ -61,12 +61,11 @@ def extract(image):
         for channel, lower in ((green, _RED_PLUS_35), (blue, _RED_PLUS_25)):
             above = ImageChops.subtract(channel, red.point(lower)).point(_POSITIVE)
             mask = ImageChops.darker(mask, above)
-        # 中央の1行は37行の平均。縦バーが少なくとも約18行続く列を採る。
-        averaged = mask.filter(ImageFilter.BoxBlur((0, 18)))
-        with averaged.crop((0, 18, 896, 19)) as row:
-            columns = row.tobytes()
-    active = [x for x, value in enumerate(columns)
-              if value >= 120 and 20 <= x <= 875 and not 418 <= x <= 474]
+        # 37行の二値mask: 平均>=120 と 255の個数>=18 は同値。
+        # 旧Pillowで非対応のBoxBlur((0,18))を使わず、原画像も変形しない。
+        columns = mask.tobytes()
+    active = [x for x in range(20, 876)
+              if not 418 <= x <= 474 and columns[x::896].count(255) >= 18]
     groups = []
     for x in active:
         if not groups or x - groups[-1][-1] > 3:

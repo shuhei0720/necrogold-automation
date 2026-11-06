@@ -31,6 +31,125 @@ class Fake:
     def note_step(self,*args):pass
 
 class WalkTests(unittest.TestCase):
+    def test_09_analysis_failure_keeps_new_frame_and_pauses_once(self):
+        import base64, io
+        from types import SimpleNamespace
+        from PIL import Image
+        from necroprobe import gold_scan, shop_navigation, beat_sync
+        from necroprobe.protocol import RpcReply
+        from test_source_geometry import geometry_payload
+        from test_gold_scan import floor
+        from test_restart_loop import LiveStub, A, P
+        buf=io.BytesIO();floor().save(buf,'JPEG');raw=buf.getvalue()
+        _,payload=geometry_payload(p.base.resume.CAPTURE_PARAMS,size=(896,414),source_scale=2)
+        payload.update(data=base64.b64encode(raw).decode(),source_orientation=2)
+        class Capture(LiveStub):
+            def call(self,method,params,timeout):
+                if method=='screenshot':return RpcReply(payload,{})
+                return super().call(method,params,timeout)
+        for stage,goods in (('navigation','unknown'),('beat_extract','unknown'),('beat_extract','visible')):
+            with self.subTest(stage=stage,goods=goods), tempfile.TemporaryDirectory() as folder:
+                now=1_000_000_000;r=p.new_report(now,'d'*32);r['phase']='walk'
+                d=p.Driver(Capture(),r,folder,now+20_000_000_000,folder,clock=lambda:now)
+                d.last={'state':'pause','_captured':now,'_raw':b'old'}
+                fail=TypeError('PRIVATE_TOKEN must not be saved')
+                with patch.object(gold_scan,'analyze_image',side_effect=[deepcopy(A),deepcopy(P)]), \
+                     patch.object(shop_navigation,'scan',side_effect=fail if stage=='navigation' else None,
+                                  return_value=SimpleNamespace(goods=goods)), \
+                     patch.object(beat_sync,'extract',side_effect=fail if stage=='beat_extract' else None):
+                    with self.assertRaises(ProbeError) as caught:d.observe()
+                    self.assertEqual('walk_analysis_failed',caught.exception.code)
+                    self.assertEqual('floor',d.last['state']);self.assertEqual(raw,d.last['_raw'])
+                    d.finish(caught.exception.code,d.last)
+                    d.finish(caught.exception.code,d.last)
+                self.assertTrue(d.state['paused']);self.assertEqual(1,d.client.calls.count('run_steps'))
+                self.assertEqual({'stage':stage,'kind':'TypeError'},d.state['failure'])
+                self.assertEqual(goods=='visible',d.state['goods_visible'])
+                self.assertNotIn('PRIVATE_TOKEN',str(r));self.assertEqual(1,len(d.state['navigation_ms']))
+                if stage=='beat_extract':self.assertEqual(1,len(d.state['beat_extract_ms']))
+                p.write(folder,r);p.read_report(Path(folder)/'report.json','d'*32,now)
+
+    def test_10_cleanup_rechecks_foreground_age_and_pending(self):
+        from test_restart_loop import LiveStub
+        for boundary in ('stale','other_app','pending','deadline','checkpoint_deadline'):
+            with self.subTest(boundary=boundary), tempfile.TemporaryDirectory() as folder:
+                now=5_000_000_000;r=p.new_report(1,'b'*32);r['phase']='walk'
+                d=p.Driver(LiveStub(),r,folder,now+20_000_000_000,folder,clock=lambda:now)
+                d.last=dict(obs(),_captured=now)
+                if boundary=='stale':d.last['_captured']=1
+                elif boundary=='other_app':d.client.system={'foreground_app':'other','screen_locked':False}
+                elif boundary=='pending':d.pending=True;d.state['input_pending']=True
+                elif boundary=='deadline':d.stop_ns=now
+                else:
+                    original=d.checkpoint;calls=[0]
+                    def expire():
+                        calls[0]+=1;original()
+                        if calls[0]==2:d.stop_ns=now
+                    d.checkpoint=expire
+                try:d.finish('walk_analysis_failed',d.last)
+                except ProbeError:pass
+                self.assertNotIn('run_steps',d.client.calls)
+
+    def test_11_worker_handles_internal_failure_before_timer_exit(self):
+        from contextlib import contextmanager, nullcontext
+        import time
+        from necroprobe.protocol import RpcReply
+        from test_restart_loop import LiveStub, P
+        active=[False]
+        @contextmanager
+        def timer():
+            active[0]=True
+            try:yield object()
+            finally:active[0]=False
+        class Client(LiveStub):
+            def call(client,method,params,timeout):
+                if method=='launch_app':return RpcReply({}, {})
+                if method=='run_steps':self.assertTrue(active[0])
+                return super().call(method,params,timeout)
+        for stale in (False, True):
+            with self.subTest(stale=stale), tempfile.TemporaryDirectory() as folder:
+                start=time.monotonic_ns();run_id='9'*32;client=Client()
+                args=p.parser().parse_args(['--worker','--output',folder,'--checkpoint-dir',folder,
+                    '--run-id',run_id,'--start-ns',str(start),'--stop-ns',str(start+20_000_000_000)])
+                p.write(folder,p.new_report(start,run_id))
+                def collect(d,**kwargs):
+                    d.report.update(candidate=True,paused=True,reason='gold_candidate')
+                    d.last=dict(P,_captured=d.clock(),_raw=b'pause',_sha='1'*64)
+                def fail(d):
+                    d.state['started_ns']=d.clock()
+                    d.perform('resume',d.last)
+                    if not stale:d.last=dict(obs(),_captured=d.clock())
+                    raise ValueError('SECRET failure')
+                def paused(d):
+                    d.last=dict(P,_captured=d.clock(),_raw=b'pause',_sha='1'*64)
+                    return d.last
+                with patch.object(p.base,'device_lock',return_value=nullcontext()), \
+                     patch.object(p.base,'load_pairing',return_value=(b'key','token')), \
+                     patch.object(p.base,'Crypto',return_value=type('Crypto',(),{'engine':'python'})()), \
+                     patch.object(p.base,'OwnedRpcTimer',timer), \
+                     patch.object(p,'WalkClient',return_value=client), \
+                     patch.object(p.base,'collect',collect),patch.object(p,'walk',fail), \
+                     patch.object(p.Driver,'observe',paused):
+                    self.assertEqual(0,p.worker(args))
+                r=p.read_report(Path(folder)/'report.json',run_id,start)
+                self.assertEqual('internal_error',r['reason']);self.assertNotIn('SECRET',str(r))
+                self.assertEqual(not stale,r['walk']['paused'])
+                self.assertEqual(['resume'] if stale else ['resume','pause'],
+                                 [a['action'] for a in r['walk']['actions']])
+                self.assertEqual({'stage':'control','kind':'ValueError'},r['walk']['failure'])
+
+    def test_12_diagnostic_schema_rejects_unbounded_values(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for bad in ({'failure':{'stage':'arbitrary','kind':'TypeError'}},
+                        {'failure':{'stage':'navigation','kind':'private message'}},
+                        {'failure':{'stage':'navigation','kind':[]}},
+                        {'failure':{'stage':{},'kind':'TypeError'}},
+                        {'pillow_version':'x'*33}, {'navigation_ms':[float('inf')]}):
+                r=p.new_report(1,'8'*32);r['walk'].update(bad)
+                # allow_nan=False itself rejects Infinity before persistence.
+                with self.assertRaises((ValueError,ProbeError)):
+                    p.write(folder,r);p.read_report(Path(folder)/'report.json','8'*32,1)
+
     def test_01_goods_latches_before_motion_and_no_more_input(self):
         d=Fake([obs(),obs('visible')],['unexpected'])
         p.walk(d)
