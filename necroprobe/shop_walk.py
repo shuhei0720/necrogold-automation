@@ -1,4 +1,4 @@
-"""TEST-023: 測定済み1-1周期範囲とライブHUDから商品可視まで進む限定版。
+"""TEST-024: ライブ拍の未送信再選択と局所明度差に強い商品接近の限定版。
 
 HTTP中点と150ms先行は未校正の推定。予定拍での実受付を保証しない。
 """
@@ -18,7 +18,7 @@ import uuid
 from . import VERSION, restart_loop as base
 from .validation import ProbeError, json_object
 
-REVISION='shop-walk-v8'
+REVISION='shop-walk-v9'
 MOVE_POINTS={'up':(290,838),'down':(124,838),'left':(207,49),'right':(207,838)}
 DIRECTIONS={'up':(0,-1),'down':(0,1),'left':(-1,0),'right':(1,0)}
 MAX_STEPS=16
@@ -30,6 +30,7 @@ MAX_RESTARTS=12
 LEAD_NS=150_000_000
 # 予定送信時刻からのホスト待機遅れ上限。ゲームの入力受付幅/精度保証ではない。
 DISPATCH_LATE_NS=10_000_000
+MAX_TARGET_ATTEMPTS=2
 RPC_TIMING_FIELDS=('request_start_ns','http_start_ns','http_end_ns','response_end_ns')
 REASONS={'goods_visible','goods_partial','no_safe_path','movement_unconfirmed','unexpected_movement',
          'beat_unconfirmed','beat_sync_timeout','walk_limit','gold_not_found','approach','navigation_unknown',
@@ -80,7 +81,7 @@ def new_walk():
 
 
 def new_report(start,run_id):
-    return {'version':VERSION,'test_id':'TEST-023','revision':REVISION,'run_id':run_id,
+    return {'version':VERSION,'test_id':'TEST-024','revision':REVISION,'run_id':run_id,
         'start_ns':start,'end_ns':None,'phase':'search','status':'running','reason':None,
         'control_reason':None,'control_end_ns':None,'worker_returncode':None,'worker_exit_confirmed':None,
         'search':base.new_report(start,run_id),'walk':new_walk()}
@@ -94,7 +95,7 @@ def read_report(path,run_id,start):
     with Path(path).open('rb') as source:r=json_object(source.read(131073),131072)
     req=base.supervisor.require
     req(type(r) is dict and set(r)==set(new_report(start,run_id)))
-    for k,v in [('version',VERSION),('test_id','TEST-023'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
+    for k,v in [('version',VERSION),('test_id','TEST-024'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
         req(type(r[k]) is type(v) and r[k]==v)
     req(r['phase'] in ('search','walk','done'))
     req(r['status'] in ('running','completed','stopped'))
@@ -123,11 +124,18 @@ def read_report(path,run_id,start):
     req(all(beat_sync._sample_valid(sample) for sample in w['samples']))
     req(all(beat_sync._model_valid(model,required_profile=beat_sync.ZONE1_1_PROFILE) for model in w['models']))
     for a in w['actions']:
-        req(set(a)=={'action','outcome','reason','requested_ns','issued_ns','completed_ns','target_ns','rpc_timings'})
+        req(set(a)=={'action','outcome','reason','requested_ns','issued_ns','completed_ns','target_ns','rpc_timings','target_checks'})
         timings=a['rpc_timings']
         req(type(timings) is dict and set(timings)<=set(RPC_TIMING_FIELDS))
         req(all(type(value) is int and start<=value<2**63 for value in timings.values()))
         req(a['action'] in (*MOVE_POINTS,'resume','pause'))
+        checks=a['target_checks']
+        req(type(checks) is list and len(checks)<=MAX_TARGET_ATTEMPTS)
+        req(a['action'] in MOVE_POINTS or not checks)
+        for check in checks:
+            req(type(check) is dict and set(check)=={'target_ns','checked_ns','status'})
+            req(all(type(check[key]) is int and start<=check[key]<2**63 for key in ('target_ns','checked_ns')))
+            req(type(check['status']) is str and check['status'] in ('ready','late','expired'))
         req(a['outcome'] in ('not_requested','unknown','not_sent','acknowledged'))
         req(a['reason'] is None or type(a['reason']) is str and code(a['reason'])==a['reason'])
         for k in ('requested_ns','issued_ns','completed_ns','target_ns'):
@@ -331,55 +339,79 @@ class Driver(base.RuntimeDriver):
         if moving:
             if (not beat_sync._model_valid(model,required_profile=beat_sync.ZONE1_1_PROFILE)
                     or beat_sync.next_target(model,self.clock()) is None):raise ProbeError('beat_unconfirmed')
-            # 入力前専用099へ実際に使うfull画像を保持。保存費用も後段の鮮度/期限検査に含める。
-            self.save('run-099.jpg',obs)
         front=self.guard()
         entry={'action':action,'outcome':'not_requested','reason':None,'requested_ns':self.clock(),
-               'issued_ns':None,'completed_ns':None,'target_ns':target,'rpc_timings':{}}
+               'issued_ns':None,'completed_ns':None,'target_ns':target,'rpc_timings':{},'target_checks':[]}
         self.state['actions'].append(entry)
         # 復帰失敗・unknownでも以前のポーズを最終状態に流用しない。
         if action=='resume':self.state['paused']=False
         entry['outcome']='unknown';self.pending=True;self.state['input_pending']=True
         self.checkpoint()
-        try:
+        reserved=None
+        def current_checks(now):
+            if obs is not self.last or self.state['goods_visible'] and action!='pause':
+                raise ProbeError('method_not_allowed')
+            if (action=='resume' and obs['state']!='pause') or (action!='resume' and obs['state']!='floor'):
+                raise ProbeError('screen_unconfirmed')
             if moving:
-                self.budget();now=self.clock()
+                if self.scene(obs) is None:raise ProbeError('navigation_unknown')
+                if self.goods(obs)=='visible':raise ProbeError('method_not_allowed')
+                if not beat_sync._model_valid(model,required_profile=beat_sync.ZONE1_1_PROFILE):
+                    raise ProbeError('beat_unconfirmed')
                 if self.state['started_ns'] is not None and now-self.state['started_ns']>=WALK_SECONDS*1_000_000_000:
                     raise ProbeError('walk_limit')
-                # 前面確認とpending保存を終えてから、最も近い未来の拍を選ぶ。
-                target=beat_sync.next_target(model,now,LEAD_NS)
-                if target is None:
-                    # 準備中の鮮度切れだけを再取得可能にする。無効モデルは別の失敗。
-                    sample_ns=model.get('last_sample_ns') if type(model) is dict else None
-                    expired=(type(sample_ns) is int and now-sample_ns>beat_sync.FRESH_NS
-                             and beat_sync.next_target(model,sample_ns,LEAD_NS) is not None)
-                    raise ProbeError('dispatch_window_expired' if expired else 'beat_unconfirmed')
-                entry['target_ns']=target
-                until=target-LEAD_NS
-                if now>until:raise ProbeError('beat_unconfirmed')
-                if not (0<=until-obs['_captured']<=beat_sync.FRESH_NS
-                        and 0<=until-model['last_sample_ns']<=beat_sync.FRESH_NS
-                        and 0<=until-front<=1_000_000_000
-                        and until<=self.stop_ns-1_000_000
-                        and (self.state['started_ns'] is None
-                             or until<self.state['started_ns']+WALK_SECONDS*1_000_000_000)):
-                    raise ProbeError('dispatch_window_expired')
-                while self.clock()<until:
-                    remain=self.budget();self.sleeper(min(.05,remain,max(0,(until-self.clock())/1e9)))
-            # 待機中の取消/期限/観測鮮度を、最後の待機から戻った後に再確認する。
-            timeout=self.budget();now=self.clock()
-            if moving and self.state['started_ns'] is not None and now-self.state['started_ns']>=WALK_SECONDS*1_000_000_000:
-                raise ProbeError('walk_limit')
-            if not(0<=now-obs['_captured']<=3_000_000_000 and 0<=now-front<=1_000_000_000):raise ProbeError('host_observation_expired')
-            if moving and now>target-LEAD_NS+DISPATCH_LATE_NS:
-                print('拍入力: 待機が予定より%.1fms遅れたため未送信。'%((now-(target-LEAD_NS))/1e6),flush=True)
-                raise ProbeError('beat_unconfirmed')
-            if moving and (not beat_sync._model_valid(model,required_profile=beat_sync.ZONE1_1_PROFILE)
-                           or beat_sync.next_target(model,now) is None
-                           or now>target or target-now>model['period_ns']):raise ProbeError('beat_unconfirmed')
+        def restore_reserved():
+            if reserved is not None:
+                self.images,self.report['omitted_images']=reserved
+        try:
+            if moving:
+                # bytesを複製せずRAMの参照を保持。未送信なら容量退避も含めて戻す。
+                reserved=(self.images.copy(),self.report['omitted_images'][:])
+                self.save('run-099.jpg',obs)
+            for attempt in range(MAX_TARGET_ATTEMPTS if moving else 1):
+                timeout=self.budget();now=self.clock();current_checks(now)
+                if moving:
+                    # 前面確認・pending保存・画像予約後に、現在からの未来拍を選ぶ。
+                    target=beat_sync.next_target(model,now,LEAD_NS)
+                    if target is None:
+                        expired=now-model['last_sample_ns']>beat_sync.FRESH_NS
+                        raise ProbeError('dispatch_window_expired' if expired else 'beat_unconfirmed')
+                    entry['target_ns']=target;until=target-LEAD_NS
+                    check={'target_ns':target,'checked_ns':now,'status':'expired'}
+                    entry['target_checks'].append(check)
+                    if not (now<=until and 0<=until-obs['_captured']<=beat_sync.FRESH_NS
+                            and 0<=until-model['last_sample_ns']<=beat_sync.FRESH_NS
+                            and 0<=until-front<=1_000_000_000
+                            and until<=self.stop_ns-1_000_000
+                            and (self.state['started_ns'] is None
+                                 or until<self.state['started_ns']+WALK_SECONDS*1_000_000_000)):
+                        raise ProbeError('dispatch_window_expired')
+                    while self.clock()<until:
+                        remain=self.budget();self.sleeper(min(.05,remain,max(0,(until-self.clock())/1e9)))
+                # 各待機後に取消/同一観測/商品/モデル/期限を再検査。遅れより優先する。
+                if moving:check['checked_ns']=self.clock()
+                timeout=self.budget();now=self.clock()
+                if moving:check['checked_ns']=now
+                current_checks(now)
+                if moving and now>until+DISPATCH_LATE_NS:
+                    check['status']='late'
+                    print('拍入力: 待機が予定より%.1fms遅れたため未送信。'%((now-until)/1e6),flush=True)
+                    if attempt+1>=MAX_TARGET_ATTEMPTS:raise ProbeError('dispatch_window_expired')
+                    continue
+                if not(0<=now-obs['_captured']<=3_000_000_000 and 0<=now-front<=1_000_000_000):
+                    raise ProbeError('host_observation_expired')
+                if moving:
+                    if beat_sync.next_target(model,now) is None or now>target or target-now>model['period_ns']:
+                        raise ProbeError('beat_unconfirmed')
+                    check['status']='ready'
+                break
         except ProbeError as exc:
+            restore_reserved()
             entry['outcome']='not_requested';entry['reason']=code(exc.code)
             self.pending=False;self.state['input_pending']=False;raise
+        except BaseException:
+            # 未送信画像は戻すが、予期しない準備例外を再試行可能にしない。
+            restore_reserved();raise
         entry['issued_ns']=now
         # 入力より前の観測を、入力後の停止確認や再送判断に流用しない。
         self.last=None
@@ -391,6 +423,7 @@ class Driver(base.RuntimeDriver):
                 if type(reply.timings.get(key)) is int and self.outer['start_ns']<=reply.timings[key]<2**63}
         outcome=gesture_evidence(reply.result) if moving else base.resume.batch_evidence(reply.result)[0]
         entry['outcome']=outcome
+        if outcome=='not_sent':restore_reserved()
         self.pending=outcome=='unknown';self.state['input_pending']=self.pending
         self.checkpoint()
         if outcome!='acknowledged':raise ProbeError('batch_unknown')
@@ -485,8 +518,8 @@ def walk(driver):
 
 
 def parser():
-    ap=base.parser();ap.description='TEST-023: 金壁発見後、測定済み1-1周期範囲とHUDで商品が見える位置へ。'
-    ap.set_defaults(output='runtime/test-023');return ap
+    ap=base.parser();ap.description='TEST-024: 金壁発見後、測定済み1-1周期範囲とHUDで商品が見える位置へ。'
+    ap.set_defaults(output='runtime/test-024');return ap
 
 
 def worker(args):
@@ -546,7 +579,7 @@ def run(args):
         '--run-id',run_id,'--start-ns',str(start),'--stop-ns',str(start+180_000_000_000),'--token-store',args.token_store]
     if args.store_key is not None:command+=['--store-key',args.store_key]
     if args.python_crypto:command.append('--python-crypto')
-    print('TEST-023: 金壁→測定済み1-1周期範囲とライブHUD→新鮮な地形で商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
+    print('TEST-024: 金壁→測定済み1-1周期範囲とライブHUD→新鮮な地形で商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
     diagnostics={};reason=base.supervisor.supervise(command,max(.001,180-(time.monotonic_ns()-start)/1e9),diagnostics)
     try:r=read_report(control/'report.json',run_id,start)
     except (ValueError,OSError,ProbeError):r['search']['counts_certain']=False;reason=reason or 'report_read_failed'
@@ -571,8 +604,8 @@ def main(argv=None):
         def interrupt(_sig,_frame):base.supervisor._cancel_requested=True
         for sig in (signal.SIGINT,signal.SIGTERM):previous[sig]=signal.getsignal(sig);signal.signal(sig,interrupt)
     try:return run(args)
-    except ProbeError as exc:print('TEST-023停止: '+code(exc.code),file=sys.stderr);return 2
-    except OSError:print('TEST-023: 結果保存に失敗しました。',file=sys.stderr);return 2
+    except ProbeError as exc:print('TEST-024停止: '+code(exc.code),file=sys.stderr);return 2
+    except OSError:print('TEST-024: 結果保存に失敗しました。',file=sys.stderr);return 2
     finally:
         for sig,handler in previous.items():signal.signal(sig,handler)
 

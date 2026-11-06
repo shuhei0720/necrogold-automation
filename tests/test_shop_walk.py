@@ -100,7 +100,7 @@ class ExpiringFake(Fake):
         return {'direction':frame.get('direction','left'),'target':[-1,0],'reason':'approach'}
     def perform(self,action,frame,model=None):
         entry={'action':action,'outcome':'not_requested','reason':None,'requested_ns':self.clock(),
-               'issued_ns':None,'completed_ns':None,'target_ns':None,'rpc_timings':{}}
+               'issued_ns':None,'completed_ns':None,'target_ns':None,'rpc_timings':{},'target_checks':[]}
         self.state['actions'].append(entry)
         if action in p.MOVE_POINTS:
             result=next(self.outcomes)
@@ -327,6 +327,7 @@ class WalkTests(unittest.TestCase):
             with self.assertRaises((ValueError,ProbeError)):p.read_report(Path(folder)/'report.json','c'*32,1)
 
     def test_06_runtime_unknown_gesture_keeps_pending_and_blocks_cleanup(self):
+        from types import SimpleNamespace
         from test_restart_loop import LiveStub
         from test_beat_sync import observations
         from necroprobe import beat_sync
@@ -336,7 +337,8 @@ class WalkTests(unittest.TestCase):
             d=p.Driver(LiveStub(),r,folder,now[0]+20_000_000_000,folder,clock=lambda:now[0])
             d.state['started_ns']=now[0]
             d.sleeper=lambda seconds:now.__setitem__(0,now[0]+round(seconds*1e9))
-            d.last=dict(obs(),_captured=now[0]);target=now[0]+600_000_000
+            d.last=dict(obs(),_captured=now[0],_extra={'scene':SimpleNamespace(goods='unknown')})
+            target=now[0]+600_000_000
             # tapと名付けられた応答はgesture成功と扱わない。
             with patch.object(beat_sync,'next_target',return_value=target):
                 with self.assertRaises(ProbeError):d.perform('left',d.last,model)
@@ -540,13 +542,13 @@ class SyncDeadlineTests(unittest.TestCase):
             self.assertGreater(after['_http_start_ns'],before['_http_end_ns'])
             self.assertFalse(d.state['device_timing_verified'])
 
-    def test_19_test023_report_engine_enum(self):
+    def test_19_test024_report_engine_enum(self):
         from types import SimpleNamespace
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-023',r['test_id']);self.assertEqual('shop-walk-v8',r['revision'])
-            self.assertEqual('runtime/test-023',p.parser().parse_args([]).output)
+            self.assertEqual('TEST-024',r['test_id']);self.assertEqual('shop-walk-v9',r['revision'])
+            self.assertEqual('runtime/test-024',p.parser().parse_args([]).output)
             self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
             self.assertEqual(motion_stats.ENGINE,r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):
@@ -981,7 +983,7 @@ class SyncDeadlineTests(unittest.TestCase):
                 with patch.object(d,'checkpoint',side_effect=late_checkpoint), \
                      patch.object(beat_sync,'next_target',return_value=target):
                     with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
-                self.assertEqual('beat_unconfirmed',caught.exception.code)
+                self.assertEqual('dispatch_window_expired',caught.exception.code)
                 self.assertEqual([],sent);self.assertIsNone(d.state['actions'][-1]['issued_ns'])
                 self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
 
@@ -1037,7 +1039,7 @@ class SyncDeadlineTests(unittest.TestCase):
         from necroprobe import beat_sync
         expected={'cancel':'cancelled','session':'session_deadline','walk':'walk_limit',
                   'frame':'host_observation_expired','model':'beat_unconfirmed',
-                  'foreground':'host_observation_expired','oversleep':'beat_unconfirmed'}
+                  'foreground':'dispatch_window_expired','oversleep':'dispatch_window_expired'}
         for boundary,reason in expected.items():
             with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
                  self.measured_runtime(folder) as (d,now,captures,scenes,sent), \
@@ -1054,7 +1056,7 @@ class SyncDeadlineTests(unittest.TestCase):
                     elif boundary=='frame':before['_captured']=now[0]-beat_sync.FRESH_NS-1
                     elif boundary=='model':model['last_sample_ns']=now[0]-beat_sync.FRESH_NS-1
                     elif boundary=='foreground':now[0]+=1_000_000_001
-                    elif boundary=='oversleep':now[0]=target+1
+                    elif boundary=='oversleep':now[0]=max(now[0],d.state['actions'][-1]['target_ns']+1)
                 with patch.object(d,'sleeper',side_effect=wait):
                     with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
                 self.assertTrue(waits);self.assertEqual(reason,caught.exception.code)
@@ -1103,7 +1105,7 @@ class SyncDeadlineTests(unittest.TestCase):
                  self.measured_runtime(folder) as (d,now,captures,scenes,sent):
                 before,model=d.synchronize(d.observe())
                 target=beat_sync.next_target(model,now[0],p.LEAD_NS+120_000_000)
-                def wait(seconds):now[0]=target-p.LEAD_NS+lateness
+                def wait(seconds):now[0]=max(now[0],d.state['actions'][-1]['target_ns']-p.LEAD_NS+lateness)
                 with patch.object(d,'sleeper',side_effect=wait):
                     if accepted:d.perform('left',before,model)
                     else:
@@ -1286,6 +1288,211 @@ class SyncDeadlineTests(unittest.TestCase):
                         saved=p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])
                         self.assertEqual(model,saved['walk']['models'][-1])
                     self.assertEqual([True,True,True,True,False],captures)
+
+    def test_55_late_target_skips_without_rpc_then_next_target_is_checked(self):
+        for second_late in (False,True):
+            with self.subTest(second_late=second_late),tempfile.TemporaryDirectory() as folder, \
+                 self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                before,model=d.synchronize(d.observe());waits=[];checkpoints=[];checkpoint=d.checkpoint
+                def persist():
+                    if d.pending:checkpoints.append(now[0])
+                    checkpoint()
+                def wait(seconds):
+                    self.assertEqual([],sent)
+                    target=d.state['actions'][-1]['target_ns'];waits.append(target)
+                    now[0]=target-p.LEAD_NS+(20_000_000 if len(waits)==1 or second_late else 0)
+                with patch.object(d,'sleeper',side_effect=wait),patch.object(d,'checkpoint',side_effect=persist):
+                    if second_late:
+                        with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
+                        self.assertEqual('dispatch_window_expired',caught.exception.code)
+                    else:d.perform('left',before,model)
+                self.assertEqual(2,len(waits));self.assertEqual(model['period_ns'],waits[1]-waits[0])
+                self.assertEqual(1,len(checkpoints));self.assertEqual(1,len(d.state['actions']))
+                self.assertEqual([] if second_late else [p.move_batch('left')],sent)
+                entry=d.state['actions'][-1]
+                self.assertEqual([{'target_ns':waits[0],'checked_ns':waits[0]-p.LEAD_NS+20_000_000,'status':'late'},
+                                  {'target_ns':waits[1],'checked_ns':now[0],'status':'late' if second_late else 'ready'}],
+                                 entry['target_checks'])
+                self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
+                self.assertEqual('not_requested' if second_late else 'acknowledged',entry['outcome'])
+                self.assertEqual(None if second_late else waits[1]-p.LEAD_NS,entry['issued_ns'])
+                p.write(folder,d.outer)
+                self.assertEqual(entry,p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])['walk']['actions'][-1])
+
+    def test_56_each_target_rechecks_cancel_identity_goods_profile_and_deadlines(self):
+        expected={'cancel':'cancelled','identity':'method_not_allowed','goods':'method_not_allowed',
+                  'scene':'navigation_unknown','screen':'screen_unconfirmed','profile':'beat_unconfirmed',
+                  'session':'session_deadline','walk':'walk_limit'}
+        for attempt in (1,2):
+            for boundary,reason in expected.items():
+                with self.subTest(attempt=attempt,boundary=boundary),tempfile.TemporaryDirectory() as folder, \
+                     self.measured_runtime(folder) as (d,now,captures,scenes,sent), \
+                     patch.object(p.base.supervisor,'_cancel_requested',False):
+                    before,model=d.synchronize(d.observe());waits=[]
+                    def wait(seconds):
+                        target=d.state['actions'][-1]['target_ns'];waits.append(target)
+                        now[0]=target-p.LEAD_NS+20_000_000
+                        if len(waits)!=attempt:return
+                        if boundary=='cancel':p.base.supervisor._cancel_requested=True
+                        elif boundary=='identity':d.last=deepcopy(before)
+                        elif boundary=='goods':d.state['goods_visible']=True
+                        elif boundary=='scene':before['_extra']['scene']=None
+                        elif boundary=='screen':before['state']='pause'
+                        elif boundary=='profile':model['cadence_profile']['id']='invalid'
+                        elif boundary=='session':d.stop_ns=now[0]
+                        elif boundary=='walk':d.state['started_ns']=now[0]-p.WALK_SECONDS*1_000_000_000
+                    with patch.object(d,'sleeper',side_effect=wait):
+                        with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
+                    self.assertEqual(reason,caught.exception.code);self.assertEqual(attempt,len(waits))
+                    self.assertEqual([],sent);self.assertIsNone(d.state['actions'][-1]['issued_ns'])
+                    self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
+
+    def test_57_late_with_expired_frame_is_refreshable_only_after_genuine_lateness(self):
+        from necroprobe import beat_sync
+        for late in (False,True):
+            with self.subTest(late=late),tempfile.TemporaryDirectory() as folder, \
+                 self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                before,model=d.synchronize(d.observe());waits=[]
+                def wait(seconds):
+                    target=d.state['actions'][-1]['target_ns'];waits.append(target)
+                    now[0]=target-p.LEAD_NS+(20_000_000 if late else 0)
+                    before['_captured']=now[0]-beat_sync.FRESH_NS-1
+                with patch.object(d,'sleeper',side_effect=wait):
+                    with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
+                self.assertEqual('dispatch_window_expired' if late else 'host_observation_expired',caught.exception.code)
+                self.assertEqual(1,len(waits));self.assertEqual([],sent)
+                checks=d.state['actions'][-1]['target_checks']
+                self.assertEqual('late' if late else 'expired',checks[0]['status'])
+                self.assertLessEqual(len(checks),2);self.assertFalse(d.pending)
+
+    def test_58_late_target_with_no_fresh_future_slot_stops_before_second_wait(self):
+        from necroprobe import beat_sync
+        with tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+            before,model=d.synchronize(d.observe())
+            target=beat_sync.next_target(model,now[0],p.LEAD_NS+120_000_000)
+            before['_captured']=target-p.LEAD_NS-beat_sync.FRESH_NS+300_000_000
+            waits=[]
+            def wait(seconds):
+                waits.append(now[0]);now[0]=d.state['actions'][-1]['target_ns']-p.LEAD_NS+20_000_000
+            with patch.object(d,'sleeper',side_effect=wait):
+                with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
+            self.assertEqual('dispatch_window_expired',caught.exception.code)
+            self.assertEqual(1,len(waits));self.assertEqual([],sent)
+            self.assertEqual(['late','expired'],[check['status'] for check in d.state['actions'][-1]['target_checks']])
+            self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
+
+    def test_59_unsent_restores_before_image_and_all_evicted_evidence(self):
+        for boundary in ('late','save_error','save_probe','target_error','interrupt','unknown_rpc'):
+            with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
+                 self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                before,model=d.synchronize(d.observe());before['_raw']=b'new-before'
+                d.images={'run-001.jpg':b'old-evidence','run-099.jpg':b'old'}
+                d.report['omitted_images']=['run-002.jpg'];images=d.images.copy();omitted=d.report['omitted_images'][:]
+                save=d.save;call=d.client.call;from necroprobe import beat_sync
+                next_target=beat_sync.next_target
+                def reserve(name,frame):
+                    self.assertTrue(d.pending);self.assertTrue((Path(folder)/'report.json').exists())
+                    save(name,frame)
+                    self.assertNotIn('run-001.jpg',d.images)
+                    if boundary=='save_error':raise RuntimeError('save failed')
+                    if boundary=='save_probe':raise ProbeError('observation_limit')
+                def target(*args,**kwargs):
+                    if boundary=='target_error' and d.pending:raise RuntimeError('target failed')
+                    return next_target(*args,**kwargs)
+                def wait(seconds):
+                    if boundary=='interrupt':raise KeyboardInterrupt()
+                    now[0]=d.state['actions'][-1]['target_ns']-p.LEAD_NS+(20_000_000 if boundary=='late' else 0)
+                def transport(method,params,timeout):
+                    if boundary=='unknown_rpc' and method=='run_steps':raise ProbeError('connection_error')
+                    return call(method,params,timeout)
+                with patch.object(p.base,'MAX_EVIDENCE_BYTES',20),patch.object(d,'save',side_effect=reserve), \
+                     patch.object(d,'sleeper',side_effect=wait),patch.object(beat_sync,'next_target',side_effect=target), \
+                     patch.object(d.client,'call',side_effect=transport):
+                    with self.assertRaises(KeyboardInterrupt if boundary=='interrupt' else (ProbeError,RuntimeError)):
+                        d.perform('left',before,model)
+                if boundary=='unknown_rpc':
+                    self.assertEqual(before['_raw'],d.images['run-099.jpg']);self.assertNotIn('run-001.jpg',d.images)
+                    self.assertEqual(['run-002.jpg','run-001.jpg'],d.report['omitted_images']);self.assertTrue(d.pending)
+                else:
+                    self.assertEqual(images,d.images);self.assertEqual(omitted,d.report['omitted_images'])
+                    self.assertEqual([],sent);self.assertIsNone(d.state['actions'][-1]['issued_ns'])
+                    self.assertEqual(boundary in ('save_error','target_error','interrupt'),d.pending)
+                    self.assertEqual(d.pending,d.state['input_pending'])
+
+    def test_60_target_checks_report_schema_rejects_unbounded_or_nonmove_values(self):
+        with tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+            before,model=d.synchronize(d.observe());d.perform('left',before,model)
+            original=deepcopy(d.outer);check=original['walk']['actions'][-1]['target_checks'][0]
+            bad_values=[None,{},[check]*3,[dict(check,target_ns=True)],[dict(check,checked_ns=False)],
+                        [dict(check,target_ns=1.5)],[dict(check,checked_ns=-1)],
+                        [dict(check,status='unknown')],[dict(check,extra='private')],
+                        [{key:value for key,value in check.items() if key!='checked_ns'}]]
+            for bad in bad_values:
+                with self.subTest(checks=bad):
+                    report=deepcopy(original);report['walk']['actions'][-1]['target_checks']=bad;p.write(folder,report)
+                    with self.assertRaises((ValueError,ProbeError)):
+                        p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])
+            for action in ('resume','pause'):
+                report=deepcopy(original);report['walk']['actions'][-1]['action']=action;p.write(folder,report)
+                with self.assertRaises((ValueError,ProbeError)):
+                    p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])
+
+    def test_61_guard_and_checkpoint_failure_never_replace_before_image(self):
+        for boundary in ('guard','checkpoint'):
+            with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
+                 self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                before,model=d.synchronize(d.observe());d.images={'run-099.jpg':b'last-sent-before'}
+                guard=d.guard;checkpoint=d.checkpoint
+                def guard_result():
+                    if boundary=='guard':raise ProbeError('foreground_not_verified')
+                    return guard()
+                def persist():checkpoint();raise OSError('checkpoint failed')
+                with patch.object(d,'guard',side_effect=guard_result),patch.object(d,'checkpoint',side_effect=persist), \
+                     patch.object(d,'save',side_effect=AssertionError('image reserved before preparation finished')):
+                    with self.assertRaises(ProbeError if boundary=='guard' else OSError):d.perform('left',before,model)
+                self.assertEqual({'run-099.jpg':b'last-sent-before'},d.images)
+                self.assertEqual([],sent);self.assertEqual(boundary=='checkpoint',d.pending)
+
+    def test_62_second_target_freshness_boundaries_do_not_send_stale_inputs(self):
+        from necroprobe import beat_sync
+        for boundary in ('frame','model'):
+            for excess in (0,1):
+                with self.subTest(boundary=boundary,excess=excess),tempfile.TemporaryDirectory() as folder, \
+                     self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                    before,model=d.synchronize(d.observe());waits=[]
+                    def wait(seconds):
+                        target=d.state['actions'][-1]['target_ns'];waits.append(target)
+                        now[0]=target-p.LEAD_NS+(20_000_000 if len(waits)==1 else 0)
+                        if len(waits)==2:
+                            old=now[0]-beat_sync.FRESH_NS-excess
+                            if boundary=='frame':before['_captured']=old
+                            else:model.update(last_sample_ns=old,first_sample_ns=old-2_000_000_000)
+                    with patch.object(d,'sleeper',side_effect=wait):
+                        if excess:
+                            with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
+                            self.assertEqual('host_observation_expired' if boundary=='frame' else 'beat_unconfirmed',caught.exception.code)
+                        else:d.perform('left',before,model)
+                    self.assertEqual(2,len(waits));self.assertEqual(0 if excess else 1,len(sent))
+                    self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
+
+    def test_63_definitely_not_sent_rpc_restores_previous_before_without_retry(self):
+        from necroprobe.protocol import RpcReply
+        with tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+            before,model=d.synchronize(d.observe());d.images={'run-099.jpg':b'last-sent-before'}
+            call=d.client.call;attempts=[]
+            def transport(method,params,timeout):
+                if method=='run_steps':
+                    attempts.append(params)
+                    return RpcReply({'completed':0,'failed_step':0,'not_sent':[1],
+                                     'steps':[{'i':0,'method':'wait_for','ok':False,
+                                               'error':{'code':1,'message':'not foreground'}}]}, {})
+                return call(method,params,timeout)
+            with patch.object(d.client,'call',side_effect=transport):
+                with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
+            self.assertEqual('batch_unknown',caught.exception.code)
+            self.assertEqual([p.move_batch('left')],attempts)
+            self.assertEqual('not_sent',d.state['actions'][-1]['outcome'])
+            self.assertEqual({'run-099.jpg':b'last-sent-before'},d.images);self.assertFalse(d.pending)
 
     def test_53_report_rejects_changed_profile_and_missing_four_sample_profile(self):
         from test_beat_sync import test022_samples

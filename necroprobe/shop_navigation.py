@@ -279,20 +279,52 @@ def _pillow_motion_scores(before_signature, after_signature):
     return candidates
 
 
+def _motion_view(signature):
+    """明るさの緩やかな変化を除く。元画像・原署名は変更しない。"""
+    raw = Image.frombytes('L', _SIGNATURE_SIZE, signature)
+    active = raw.point([0] * 7 + [255] * 249)
+    detail = ImageChops.subtract(raw, raw.filter(ImageFilter.BoxBlur(1)), offset=128)
+    normalized = ImageChops.multiply(detail, active).tobytes()
+    # 無地の照明境界だけが動いた場合を除外するため、原画側の質感を要求。
+    # 3x3中央値から3以上離れた細部だけを支持票にする。
+    # 単調な明暗勾配や、ぼけた照明の境界を質感と数えない。
+    median = raw.filter(ImageFilter.MedianFilter(3))
+    detail_mask = ImageChops.difference(raw, median)
+    texture = ImageChops.darker(detail_mask.point([0] * 3 + [255] * 253), active)
+    positive = ImageChops.subtract(raw, median).point([0] * 3 + [255] * 253)
+    valid = Image.new('L', _SIGNATURE_SIZE)
+    valid.paste(255, (40, 20, 179, 79))
+    valid.paste(0, (90, 36, 139, 79))
+    return normalized, ImageChops.darker(texture, valid), positive
+
+
 def motion(before, after, direction):
     if (direction not in DIRECTIONS or len(before.signature) != 224 * 104 or
             len(after.signature) != 224 * 104):
         return "unknown"
     from . import motion_stats
-    candidates = motion_stats.scores(before.signature, after.signature)
+    old, old_texture, old_positive = _motion_view(before.signature)
+    new, new_texture, new_positive = _motion_view(after.signature)
+    candidates = motion_stats.scores(old, new)
     if candidates is None:
-        candidates = _pillow_motion_scores(before.signature, after.signature)
+        candidates = _pillow_motion_scores(old, new)
     candidates.sort()
     best, sx, sy = candidates[0]
-    # Provisional thresholds include the recorded 119→124 one-tile movement
-    # with newly revealed shop terrain; they are not unseen-device calibration.
+    # 元の閾値は維持するが、正規化後の未知実画像での精度保証ではない。
     if best > .45 or candidates[1][0] - best < .08:
         return "unknown"
+    box = (max(0, -sx), max(0, -sy), min(224, 224 - sx), min(104, 104 - sy))
+    other = (box[0] + sx, box[1] + sy, box[2] + sx, box[3] + sy)
+    matched = ImageChops.darker(old_texture.crop(box), new_texture.crop(other))
+    support = matched.histogram()[255]
+    if support < 300:
+        return 'unknown'
+    # 質感が存在するだけでは不十分。同じ変位で明暗の細部が対応すること。
+    # 静止した床の上で照明だけが移る場合は、独立な質感の符号が揃わない。
+    opposite = ImageChops.darker(matched, ImageChops.difference(
+        old_positive.crop(box), new_positive.crop(other))).histogram()[255]
+    if 4 * opposite > support:
+        return 'unknown'
     dx, dy = DIRECTIONS[direction]
     if sx == sy == 0:
         next_point = (dx, dy)

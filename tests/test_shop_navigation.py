@@ -5,7 +5,7 @@ import random
 import unittest
 from unittest.mock import patch
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from necroprobe import shop_navigation as nav
 
@@ -51,6 +51,89 @@ def shop_image():
 
 
 class ShopNavigationTests(unittest.TestCase):
+    def test_08_test023_up_step_with_changing_illumination(self):
+        folder = os.environ.get('NECRO_TEST023_FRAMES')
+        if not folder:
+            self.skipTest('external TEST023 second-run images not supplied')
+        import hashlib
+        frames = []
+        for name, expected in (
+                ('run-099.jpg', '7fb69b5fbb860f0b50f6d119048852e2f4bfdc1f7cc0ce20de627095fbf6ece5'),
+                ('run-101.jpg', '4283d30c80506c7a59e165d0a13c242f5471a8efd4885ae809f8b648a840f3f5')):
+            path = Path(folder) / name
+            self.assertEqual(expected, hashlib.sha256(path.read_bytes()).hexdigest())
+            with Image.open(path) as image:
+                frames.append(nav.scan(image.convert('RGB')))
+        # Door/walls move down36px while player remains centered: one up step.
+        self.assertEqual('moved', nav.motion(*frames, 'up'))
+        self.assertEqual('unexpected', nav.motion(*frames, 'down'))
+        self.assertEqual('blocked', nav.motion(frames[0], frames[0], 'up'))
+
+    def test_09_local_light_changes_do_not_create_or_hide_displacement(self):
+        rng = random.Random(24024)
+        width, height = 224, 104
+        raw = bytes(rng.randrange(20, 80) for _ in range(width * height))
+        def frame(data):
+            return nav.Scene({}, set(), 'unknown', set(), data)
+        def light(data):
+            # Smooth illumination varies across space, not the terrain texture.
+            return bytes(min(255, v + (i % width) // 4 + (i // width) // 3)
+                         if v > 6 else v for i, v in enumerate(data))
+        before = frame(raw)
+        original = Image.frombytes('L', (width, height), raw)
+        for direction, (dx, dy) in nav.DIRECTIONS.items():
+            for amount, expected in ((0, 'blocked'), (9, 'moved'), (8, 'tween'),
+                                     (-9, 'unexpected'), (18, 'unexpected')):
+                with self.subTest(direction=direction, amount=amount):
+                    moved = Image.new('L', original.size)
+                    moved.paste(original, (-dx * amount, -dy * amount))
+                    self.assertEqual(expected, nav.motion(before, frame(light(moved.tobytes())), direction))
+        for a, b in ((bytes(width * height), raw), (bytes([20]) * len(raw), bytes([80]) * len(raw)),
+                     (raw, bytes(rng.randrange(20, 80) for _ in raw))):
+            self.assertEqual('unknown', nav.motion(frame(a), frame(b), 'up'))
+        repeated = bytes(20 + (i % width % 9) * 5 for i in range(len(raw)))
+        self.assertEqual('unknown', nav.motion(frame(repeated), frame(repeated), 'left'))
+
+    def test_10_moving_light_on_textureless_surface_is_not_movement(self):
+        for background in (0, 5, 7, 20, 60):
+            for shape in ('rectangle', 'ellipse'):
+                for sx, sy in ((9, 0), (-9, 0), (0, 9), (0, -9)):
+                    with self.subTest(background=background, shape=shape, shift=(sx, sy)):
+                        images = []
+                        for dx, dy in ((0, 0), (sx, sy)):
+                            im = Image.new('L', (224, 104), background)
+                            getattr(ImageDraw.Draw(im), shape)((45+dx, 25+dy, 165+dx, 76+dy), fill=150)
+                            images.append(nav.Scene({}, set(), 'unknown', set(), im.tobytes()))
+                        for direction in nav.DIRECTIONS:
+                            self.assertNotEqual('moved', nav.motion(*images, direction))
+
+    def test_11_soft_light_boundary_is_not_terrain_texture(self):
+        for shape in ('rectangle', 'ellipse'):
+            for radius in (.5, 1, 2, 3, 5):
+                with self.subTest(shape=shape, blur=radius):
+                    a = Image.new('L', (224, 104), 20)
+                    getattr(ImageDraw.Draw(a), shape)((45, 25, 165, 76), fill=220)
+                    a = a.filter(ImageFilter.GaussianBlur(radius))
+                    b = Image.new('L', a.size, 20); b.paste(a, (9, 0))
+                    scenes = [nav.Scene({}, set(), 'unknown', set(), im.tobytes()) for im in (a, b)]
+                    self.assertEqual('unknown', nav.motion(*scenes, 'left'))
+
+    def test_12_light_moves_but_weak_ground_texture_stays_still(self):
+        rng = random.Random(24024)
+        base = Image.frombytes('L', (224, 104), bytes(
+            round(30 + 5 * rng.uniform(-1, 1)) for _ in range(224 * 104)))
+        for shape in ('rectangle', 'ellipse'):
+            light = Image.new('L', base.size)
+            getattr(ImageDraw.Draw(light), shape)((45, 25, 165, 76), fill=190)
+            light = light.filter(ImageFilter.GaussianBlur(.5))
+            for direction, (dx, dy) in nav.DIRECTIONS.items():
+                with self.subTest(shape=shape, direction=direction):
+                    moved_light = Image.new('L', base.size)
+                    moved_light.paste(light, (-9 * dx, -9 * dy))
+                    frames = [nav.Scene({}, set(), 'unknown', set(), im.tobytes()) for im in
+                              (ImageChops.add(base, light), ImageChops.add(base, moved_light))]
+                    self.assertNotEqual('moved', nav.motion(*frames, direction))
+
     def test_06_bright_floor_keeps_stone_dirt_and_unknown_blocked(self):
         def patch_cell(image, color, texture=True):
             cell=Image.new('RGB',(25,25))
