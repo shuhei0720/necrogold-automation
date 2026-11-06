@@ -1,4 +1,4 @@
-"""TEST-022: HUDを軽量観測し、新鮮な地形で1歩ずつ商品可視まで進む限定版。
+"""TEST-023: 測定済み1-1周期範囲とライブHUDから商品可視まで進む限定版。
 
 HTTP中点と150ms先行は未校正の推定。予定拍での実受付を保証しない。
 """
@@ -18,7 +18,7 @@ import uuid
 from . import VERSION, restart_loop as base
 from .validation import ProbeError, json_object
 
-REVISION='shop-walk-v7'
+REVISION='shop-walk-v8'
 MOVE_POINTS={'up':(290,838),'down':(124,838),'left':(207,49),'right':(207,838)}
 DIRECTIONS={'up':(0,-1),'down':(0,1),'left':(-1,0),'right':(1,0)}
 MAX_STEPS=16
@@ -80,7 +80,7 @@ def new_walk():
 
 
 def new_report(start,run_id):
-    return {'version':VERSION,'test_id':'TEST-022','revision':REVISION,'run_id':run_id,
+    return {'version':VERSION,'test_id':'TEST-023','revision':REVISION,'run_id':run_id,
         'start_ns':start,'end_ns':None,'phase':'search','status':'running','reason':None,
         'control_reason':None,'control_end_ns':None,'worker_returncode':None,'worker_exit_confirmed':None,
         'search':base.new_report(start,run_id),'walk':new_walk()}
@@ -94,7 +94,7 @@ def read_report(path,run_id,start):
     with Path(path).open('rb') as source:r=json_object(source.read(131073),131072)
     req=base.supervisor.require
     req(type(r) is dict and set(r)==set(new_report(start,run_id)))
-    for k,v in [('version',VERSION),('test_id','TEST-022'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
+    for k,v in [('version',VERSION),('test_id','TEST-023'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
         req(type(r[k]) is type(v) and r[k]==v)
     req(r['phase'] in ('search','walk','done'))
     req(r['status'] in ('running','completed','stopped'))
@@ -119,6 +119,9 @@ def read_report(path,run_id,start):
     for key in ('moves_confirmed','door_changes'):req(type(w[key]) is int and 0<=w[key]<=MAX_STEPS)
     for key,limit in [('actions',MAX_ACTIONS),('events',MAX_STEPS),('samples',12),('models',MAX_STEPS+1)]:
         req(type(w[key]) is list and len(w[key])<=limit and all(type(v) is dict for v in w[key]))
+    from . import beat_sync
+    req(all(beat_sync._sample_valid(sample) for sample in w['samples']))
+    req(all(beat_sync._model_valid(model,required_profile=beat_sync.ZONE1_1_PROFILE) for model in w['models']))
     for a in w['actions']:
         req(set(a)=={'action','outcome','reason','requested_ns','issued_ns','completed_ns','target_ns','rpc_timings'})
         timings=a['rpc_timings']
@@ -137,6 +140,9 @@ def read_report(path,run_id,start):
 
 class Driver(base.RuntimeDriver):
     def __init__(self,client,outer,folder,stop_ns,control,clock=time.monotonic_ns):
+        # 初回importの準備費用を撮影済み画像の鮮度へ持ち込まない。
+        # TEST022初回fullの遅延原因がimportだけだったとは未確定。
+        from . import beat_sync,shop_navigation
         self.outer=outer;self.state=outer['walk'];self.model=None;self.samples=[];self.visits={(0,0):1}
         self.analysis_failed=False;self.finishing=False;self.finish_refresh_attempted=False;self.sync_deadline=None
         self.beat_only=False
@@ -207,8 +213,10 @@ class Driver(base.RuntimeDriver):
             self.state['motion_ms'].append((self.clock()-before_ns)/1e6)
             self.state['motion_engine']=motion_stats.ENGINE
     def fit_beat(self):
-        from .beat_sync import fit
-        before=self.clock();result=fit(self.samples)
+        from .beat_sync import fit,ZONE1_1_PROFILE
+        # gold_scanのfloor分類はfooter/zone_one/floor_one確認済みの1-1だけ。
+        before=self.clock()
+        result=fit(self.samples,profile=ZONE1_1_PROFILE) if self.last and self.last['state']=='floor' else None
         self.state['beat_fit_ms'].append((self.clock()-before)/1e6);return result
     def track_beat(self,model):
         from .beat_sync import track
@@ -249,7 +257,7 @@ class Driver(base.RuntimeDriver):
             self.remember_model(model)
             # 採用モデルは入力前のpending checkpointでまとめて永続化する。
             self.model=model
-            print('拍同期: 周期%.3f秒（推定）'%(model['period_ns']/1e9),flush=True)
+            print('拍同期: 周期%.3f秒（実測1-1範囲内の条件付き推定）'%(model['period_ns']/1e9),flush=True)
             return frame,model
         def full_handoff(model):
             # 軽量標本は移動の基準にしない。地形とHUDを同じ新規画像で確認する。
@@ -286,8 +294,8 @@ class Driver(base.RuntimeDriver):
         self.beat_only=True
         for i in range(12):
             check_deadline()
-            print('拍標本: %d/8（取得%d/12）'%(len(self.samples),i),flush=True)
-            if len(self.samples)>=8:
+            print('拍標本: %d/4（取得%d/12）'%(len(self.samples),i),flush=True)
+            if len(self.samples)>=4:
                 model=self.fit_beat();check_deadline()
                 if model:
                     self.remember_model(model)
@@ -321,7 +329,8 @@ class Driver(base.RuntimeDriver):
         if len(self.state['actions'])>=MAX_ACTIONS:raise ProbeError('walk_limit')
         target=None
         if moving:
-            if beat_sync.next_target(model,self.clock()) is None:raise ProbeError('beat_unconfirmed')
+            if (not beat_sync._model_valid(model,required_profile=beat_sync.ZONE1_1_PROFILE)
+                    or beat_sync.next_target(model,self.clock()) is None):raise ProbeError('beat_unconfirmed')
             # 入力前専用099へ実際に使うfull画像を保持。保存費用も後段の鮮度/期限検査に含める。
             self.save('run-099.jpg',obs)
         front=self.guard()
@@ -365,7 +374,8 @@ class Driver(base.RuntimeDriver):
             if moving and now>target-LEAD_NS+DISPATCH_LATE_NS:
                 print('拍入力: 待機が予定より%.1fms遅れたため未送信。'%((now-(target-LEAD_NS))/1e6),flush=True)
                 raise ProbeError('beat_unconfirmed')
-            if moving and (beat_sync.next_target(model,now) is None
+            if moving and (not beat_sync._model_valid(model,required_profile=beat_sync.ZONE1_1_PROFILE)
+                           or beat_sync.next_target(model,now) is None
                            or now>target or target-now>model['period_ns']):raise ProbeError('beat_unconfirmed')
         except ProbeError as exc:
             entry['outcome']='not_requested';entry['reason']=code(exc.code)
@@ -475,8 +485,8 @@ def walk(driver):
 
 
 def parser():
-    ap=base.parser();ap.description='TEST-022: 金壁発見後、HUDを軽量観測し1歩ずつ商品が見える位置へ。'
-    ap.set_defaults(output='runtime/test-022');return ap
+    ap=base.parser();ap.description='TEST-023: 金壁発見後、測定済み1-1周期範囲とHUDで商品が見える位置へ。'
+    ap.set_defaults(output='runtime/test-023');return ap
 
 
 def worker(args):
@@ -536,7 +546,7 @@ def run(args):
         '--run-id',run_id,'--start-ns',str(start),'--stop-ns',str(start+180_000_000_000),'--token-store',args.token_store]
     if args.store_key is not None:command+=['--store-key',args.store_key]
     if args.python_crypto:command.append('--python-crypto')
-    print('TEST-022: 金壁→軽量の拍推定→新鮮な地形で1歩ずつ商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
+    print('TEST-023: 金壁→測定済み1-1周期範囲とライブHUD→新鮮な地形で商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
     diagnostics={};reason=base.supervisor.supervise(command,max(.001,180-(time.monotonic_ns()-start)/1e9),diagnostics)
     try:r=read_report(control/'report.json',run_id,start)
     except (ValueError,OSError,ProbeError):r['search']['counts_certain']=False;reason=reason or 'report_read_failed'
@@ -561,8 +571,8 @@ def main(argv=None):
         def interrupt(_sig,_frame):base.supervisor._cancel_requested=True
         for sig in (signal.SIGINT,signal.SIGTERM):previous[sig]=signal.getsignal(sig);signal.signal(sig,interrupt)
     try:return run(args)
-    except ProbeError as exc:print('TEST-022停止: '+code(exc.code),file=sys.stderr);return 2
-    except OSError:print('TEST-022: 結果保存に失敗しました。',file=sys.stderr);return 2
+    except ProbeError as exc:print('TEST-023停止: '+code(exc.code),file=sys.stderr);return 2
+    except OSError:print('TEST-023: 結果保存に失敗しました。',file=sys.stderr);return 2
     finally:
         for sig,handler in previous.items():signal.signal(sig,handler)
 

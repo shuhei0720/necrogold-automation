@@ -65,6 +65,26 @@ def _matches(gray, name):
     return intersection >= minimum * max(1, union)
 
 
+
+def _matches_pause_icon(image, gray):
+    """半透明のpause棒を保持し、背後の金壁の強い色だけ除く暫定判定。
+
+    36×36原寸crop内の輝度>=55かつ2*最小RGB>=最大RGB。参照maskは
+    切り詰めず、通常の全unionで形状を照合する。未知画像精度は未検証。
+    """
+    box, table, minimum, reference = _TEMPLATES['icon']
+    with image.crop(box) as crop:
+        red, green, blue = crop.split()
+        low = ImageChops.darker(red, ImageChops.darker(green, blue))
+        high = ImageChops.lighter(red, ImageChops.lighter(green, blue))
+        neutral = ImageChops.subtract(high, low.point([min(255,2*v) for v in range(256)])).point(
+            [255] + [0]*255)
+        observed = ImageChops.darker(gray.crop(box).point(table), neutral)
+    intersection = ImageChops.darker(observed, reference).histogram()[255]
+    union = ImageChops.lighter(observed, reference).histogram()[255]
+    return intersection >= minimum * max(1, union)
+
+
 def _gold_peak(image):
     red, green, blue = image.split()
     mask = red.point(_RED)
@@ -110,7 +130,8 @@ def analyze_image(source):
         with image.convert("L") as gray:
             if _matches(gray, "continue"):
                 answer.update(state="pause", restart_label=_matches(gray, "restart"))
-            elif (all(_matches(gray, name) for name in ("icon", "footer", "zone_one", "floor_one"))
+            elif (_matches_pause_icon(image, gray)
+                  and all(_matches(gray, name) for name in ("footer", "zone_one", "floor_one"))
                   and not _matches(gray, "death")):
                 result = scan(image.tobytes())
                 peak, fingerprint = result if result is not None else (_gold_peak(image), _fingerprint(gray))

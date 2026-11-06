@@ -38,6 +38,97 @@ def observations(count=10, uniform=False, noise=False):
     return result
 
 
+def test022_samples():
+    """TEST022 run54b1f314 の取得HTTP両端/HUD数値。画像・端末秘密を含まない。"""
+    rows = [
+        (132898709232000,132898929621000,.7625897465460014,104.25,445.25),
+        (132899888198000,132900090544000,.4616435319302286,104.83333333333331,445.25),
+        (132901177759000,132901393561000,.9800158124386286,104.25,445.),
+        (132902264285000,132902485431000,.9320550288489993,104.25,445.5),
+        (132903420917000,132903613584000,.7119047619047619,105.,445.25),
+        (132904650625000,132904870980000,.36503241550656784,103.66666666666666,445.275),
+        (132905727819000,132905926985000,.2846802451519779,103.5,445.25),
+        (132906853136000,132907068229000,.11642319724680901,103.5,445.25),
+        (132908211103000,132908437712000,.5105460202070369,105.,445.25),
+        (132909388758000,132909602578000,.2940761304323943,103.5,445.5),
+    ]
+    return [beat_sync.make_sample({'remaining':q,'spacing_px':spacing,'center_px':center},start,end)
+            for start,end,q,spacing,center in rows]
+
+
+class MeasuredCadenceTests(unittest.TestCase):
+    PROFILE = 'zone1-1-measured-v1'
+
+    def test_022_alias_failure_and_four_live_sample_profile_acquisition(self):
+        samples=test022_samples()
+        self.assertIsNone(beat_sync.fit(samples[:8]))
+        self.assertIsNone(beat_sync.fit(samples[:9]))
+        self.assertIsNotNone(beat_sync.fit(samples))
+        model=beat_sync.fit(samples[:4],profile=self.PROFILE)
+        self.assertIsNotNone(model)
+        self.assertEqual(4,model['sample_count'])
+        self.assertAlmostEqual(520_659_934,model['period_ns'],delta=1)
+        self.assertLess(model['residual_cycles'],.025)
+        self.assertEqual(self.PROFILE,model['cadence_profile']['id'])
+        self.assertFalse(model['device_timing_verified'])
+        self.assertIsNotNone(beat_sync.next_target(model,samples[3]['http_end_ns']))
+        # 動画のepochを転用せず、今回のHTTP時計と位相から再取得する。
+        shifted=[]
+        for sample in samples[:4]:
+            offset=57_123_456_789
+            shifted.append(beat_sync.make_sample(
+                dict(sample,remaining=(sample['q']+.31)%1),
+                sample['http_start_ns']+offset,sample['http_end_ns']+offset))
+        updated=beat_sync.fit(shifted,profile=self.PROFILE)
+        self.assertEqual(model['period_ns'],updated['period_ns'])
+        phase_shift=(updated['epoch_ns']-model['epoch_ns']-offset)%model['period_ns']
+        self.assertAlmostEqual(.31*model['period_ns'],phase_shift,delta=2)
+
+    def test_profile_rejects_wrong_cadence_bad_samples_and_out_of_range_span(self):
+        values=test022_samples()[:4]
+        for period in (360_000_000,700_000_000,514_000_000,531_000_000):
+            samples=[beat_sync.make_sample(dict(s,remaining=(.23-(s['midpoint_ns']-values[0]['midpoint_ns'])/period)%1),
+                       s['http_start_ns'],s['http_end_ns']) for s in values]
+            self.assertIsNone(beat_sync.fit(samples,profile=self.PROFILE))
+        for samples in (values[:3],values[::-1],
+                        [dict(s,q=.3,remaining=.3) for s in values],
+                        [dict(s,midpoint_ns=True) for s in values],
+                        values[:2]+[dict(values[2],q=(values[2]['q']+.3)%1,
+                              remaining=(values[2]['q']+.3)%1)]+values[3:]):
+            self.assertIsNone(beat_sync.fit(samples,profile=self.PROFILE))
+        self.assertIsNone(beat_sync.fit(values,profile='unrecognized'))
+        # 均等取得でglobal別枝が同等残差なら、既知範囲だけで都合よく選ばない。
+        self.assertIsNone(beat_sync.fit(observations(4,uniform=True),profile=self.PROFILE))
+
+    def test_profile_bounds_and_metadata_are_enforced_during_tracking_and_dispatch(self):
+        samples=test022_samples();model=beat_sync.fit(samples[:4],profile=self.PROFILE)
+        tracked=beat_sync.track(model,samples[:5]);self.assertIsNotNone(tracked)
+        self.assertEqual(model['cadence_profile'],tracked['cadence_profile'])
+        for period in (514_999_999,530_000_001):
+            self.assertIsNone(beat_sync.next_target(dict(model,period_ns=period),model['last_sample_ns']))
+        for metadata in ({},dict(model['cadence_profile'],period_min_ns=320_000_000),
+                         dict(model['cadence_profile'],id='unknown')):
+            self.assertIsNone(beat_sync.next_target(dict(model,cadence_profile=metadata),model['last_sample_ns']))
+        for changes in ({'cadence_profile':None},{'sample_count':3},{'sample_count':13},{'mode':'unknown'},
+                        {'first_sample_ns':model['last_sample_ns']},
+                        {'first_sample_ns':model['last_sample_ns']-20_000_000_001}):
+            self.assertIsNone(beat_sync.next_target(dict(model,**changes),model['last_sample_ns']))
+        with patch.object(beat_sync,'_candidate',return_value={
+                'frequency':1e9/531_000_000,'intercept':.2,'rms':.001,'maximum':.001}):
+            self.assertIsNone(beat_sync.track(model,samples[:5]))
+
+    def test_profile_period_bounds_use_model_nanosecond_precision(self):
+        for period,accepted in ((514_999_999,False),(515_000_000,True),
+                                (530_000_000,True),(530_000_001,False)):
+            with self.subTest(period=period):
+                samples=observations(5);origin=samples[0]['midpoint_ns']
+                for sample in samples:
+                    sample['q']=sample['remaining']=(.23-(sample['midpoint_ns']-origin)/period)%1
+                model=beat_sync.fit(samples,profile=self.PROFILE)
+                self.assertEqual(accepted,model is not None)
+                if accepted:self.assertEqual(period,model['period_ns'])
+
+
 class BeatSyncTests(unittest.TestCase):
     def test_05_scalar_only_pillow_and_vertical_coverage_boundary(self):
         # Pillow 9.5 ImageFilter.BoxBlur.__init__ begins with `radius < 0`.

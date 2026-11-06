@@ -2,11 +2,11 @@
 
 iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に金壁が見える回の金商人の商品を高速に確認し、目的の「呪いの指輪」の候補で停止するためのプロジェクトです。
 
-**TEST-021は周期を追跡できましたが、画像の期限切れで方向入力前に止まり、0歩でした。** TEST-022では、入力前の準備を済ませてから次の拍を選びます。2本の動画の心臓の膨張51回を直接測り、約0.522秒/拍を確認しました。[測定方法と時刻表](docs/video-2-analysis.md#2026-11-06-心臓の膨張を直接測定test-022)。実機での継続歩行と、人より速い性能は未合格です。
+**TEST-022の2回は方向入力0件でした。** 1回目は初期同期の時間切れ、2回目は金壁背景によるポーズアイコンの誤判定。TEST-023では動画で測定した通常1-1の周期範囲を明示して4枚からライブ同期し、背景色が混じるアイコンを認識します。周期・起点は現在のHUDで検査し、画像鮮度・不明入力の再送禁止は維持します。[結果と手順](docs/device-tests/README.md#test-022受領結果2026-11-06)。実機での継続歩行・商品到達・人より速い性能は未合格です。
 
 - [計測ツールの使い方と結果の見方](docs/p1-probe-guide.md)
-- **現在P1.5 / TEST-022**: [実行手順](docs/device-tests/README.md#test-022実行手順)。導入済みNG-G1をそのまま使用し、画像は896×414の横長原寸で判定します。開発ブランチは`work/p1-capture-probe`です。
-- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_beat_sync test_shop_walk test_restart_loop test_restart_speed -v`
+- **現在P1.5 / TEST-023**: [実行手順](docs/device-tests/README.md#test-023実行手順)。導入済みNG-G1をそのまま使用し、画像は896×414の横長原寸で判定します。開発ブランチは`work/p1-capture-probe`です。
+- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_beat_sync test_shop_walk test_gold_scan test_restart_loop test_restart_speed -v`
 - 完全な新規ソース: `necroprobe/`。旧版40ファイルは未変更。
 - P1.1の検証: ホスト54試験と3観点の相互レビューを通過しましたが、[TEST-001](docs/device-tests/001-capture.md)の実機3実行はworker_failedでした。3reportを受領し、最初のdevice_infoの開始記録までで完了していないことを確認。ホスト通過を実機合格とは扱いません。
 - P1.2の[TEST-002](docs/device-tests/002-worker-diagnostics.md)はPython暗号でもゲーム起動前にSIGSYSで終了しました。

@@ -1,4 +1,4 @@
-"""TEST-021: HUDの拍の初期取得と、確立した周期の継続追跡。
+"""TEST-023: 実測範囲を明示したHUDの拍取得と、確立した周期の継続追跡。
 
 HTTP区間は画像生成時刻でも保証された誤差範囲でもない。固定の取得遅延・
 入力遅延は未校正であり、良い回帰残差も実機の拍受付を証明しない。
@@ -18,6 +18,12 @@ DEFAULT_LEAD_NS = 150_000_000
 MAX_RESIDUAL_CYCLES = 0.055
 MAX_SINGLE_RESIDUAL_CYCLES = 0.13
 MIN_ALIAS_GAP_CYCLES = 0.04
+ZONE1_1_PROFILE = 'zone1-1-measured-v1'
+_ZONE1_1_METADATA = {
+    'id': ZONE1_1_PROFILE, 'period_min_ns': 515_000_000, 'period_max_ns': 530_000_000,
+    'minimum_samples': 4, 'minimum_span_ns': 2_000_000_000, 'maximum_span_ns': 20_000_000_000,
+    'evidence': 'two-known-videos-51-heart-expansions', 'scope': 'recognized-zone1-floor1',
+}
 _TAU = 2 * math.pi
 _POSITIVE = [0] + [255] * 255
 _GREEN = [255 if value >= 75 else 0 for value in range(256)]
@@ -151,13 +157,20 @@ def _candidate(times, phases, frequency):
             "rms": rms, "maximum": max(abs(value) for value in errors)}
 
 
-def fit(samples):
-    """8〜12標本から周期とHTTP中点基準のepochを推定。別解競合はNone。
+def fit(samples, profile=None):
+    """ライブ標本から周期とHTTP中点基準のepochを推定。別解競合はNone。
 
     端点間の整数拍数と半拍ずれの初期候補を全列挙するため、探索量は有限。
     residualは中点への当てはまりであり、capture遅延の上限を表さない。
+    通常は8〜12標本/2〜20秒。測定済み1-1 profileは4〜12標本/2〜20秒で
+    .515〜.530秒へ限定する条件付き推定。同等以上の範囲外別解があれば拒否。
+    既知動画の範囲は未知曲の保証ではなく、epochも周期も今回の標本で回帰する。
     """
-    if type(samples) is not list or not 8 <= len(samples) <= 12 or not all(map(_sample_valid, samples)):
+    if profile is not None and (type(profile) is not str or profile != ZONE1_1_PROFILE):
+        return None
+    metadata = dict(_ZONE1_1_METADATA) if profile is not None else None
+    minimum_samples = 4 if metadata is not None else 8
+    if type(samples) is not list or not minimum_samples <= len(samples) <= 12 or not all(map(_sample_valid, samples)):
         return None
     mids = [sample["midpoint_ns"] for sample in samples]
     if any(b <= a for a, b in zip(mids, mids[1:])):
@@ -190,7 +203,16 @@ def fit(samples):
             distinct.append(candidate)
     if not distinct:
         return None
+    outside = []
+    if metadata is not None:
+        # modelと同じ整数nsで境界を比較し、回帰の浮動小数点丸めで端を落とさない。
+        outside = [c for c in distinct if not metadata['period_min_ns'] <= round(1e9/c['frequency']) <= metadata['period_max_ns']]
+        distinct = [c for c in distinct if metadata['period_min_ns'] <= round(1e9/c['frequency']) <= metadata['period_max_ns']]
+        if not distinct:
+            return None
     best = distinct[0]
+    if outside and outside[0]['rms'] <= best['rms'] + 1e-9:
+        return None
     alternate = distinct[1]["rms"] if len(distinct) > 1 else None
     if (best["rms"] > MAX_RESIDUAL_CYCLES or best["maximum"] > MAX_SINGLE_RESIDUAL_CYCLES
             or (alternate is not None and alternate - best["rms"] < MIN_ALIAS_GAP_CYCLES)):
@@ -208,7 +230,8 @@ def fit(samples):
             "clock_source": "http_midpoint_unverified", "device_timing_verified": False,
             "dispatch_lead_ns": DEFAULT_LEAD_NS, "dispatch_timing_calibrated": False,
             "mode": "acquired", "tracking_error_cycles": None,
-            "extrapolation_budget_cycles": None, "gap_ns": 0, "prediction_span_ns": 0}
+            "extrapolation_budget_cycles": None, "gap_ns": 0, "prediction_span_ns": 0,
+            "cadence_profile": metadata}
 
 
 def track(model, samples):
@@ -257,6 +280,9 @@ def track(model, samples):
             or abs(candidate["frequency"] - frequency) * (old_span / 1e9) >= 0.5):
         return None
     period = round(1e9 / candidate["frequency"])
+    profile = model.get('cadence_profile')
+    if profile is not None and not profile['period_min_ns'] <= period <= profile['period_max_ns']:
+        return None
     epoch = window[0]["midpoint_ns"] + round(candidate["intercept"] * period)
     epoch += ((mids[-1] - epoch) // period) * period
     updated = dict(model)
@@ -271,7 +297,26 @@ def track(model, samples):
     return updated
 
 
-def _model_valid(model):
+def _model_valid(model, required_profile=None):
+    if type(model) is not dict:
+        return False
+    profile = model.get('cadence_profile')
+    if required_profile is not None and (type(profile) is not dict or profile.get('id') != required_profile):
+        return False
+    if profile is not None:
+        if (type(profile) is not dict or set(profile) != set(_ZONE1_1_METADATA)
+                or any(type(profile[key]) is not type(value) or profile[key] != value
+                       for key, value in _ZONE1_1_METADATA.items())
+                or model.get('mode') not in ('acquired', 'tracking')
+                or type(model.get('sample_count')) is not int
+                or not (4 if model['mode'] == 'acquired' else 3) <= model['sample_count'] <= 12
+                or not _ns(model.get('first_sample_ns')) or not _ns(model.get('last_sample_ns'))
+                or not 2_000_000_000 <= model['last_sample_ns'] - model['first_sample_ns'] <= 20_000_000_000
+                or not _ns(model.get('period_ns'))
+                or not profile['period_min_ns'] <= model['period_ns'] <= profile['period_max_ns']):
+            return False
+    elif model.get('mode') == 'acquired' and (type(model.get('sample_count')) is not int or model['sample_count'] < 8):
+        return False
     return (type(model) is dict and _ns(model.get("period_ns"))
             and MIN_PERIOD_NS <= model["period_ns"] <= MAX_PERIOD_NS
             and _ns(model.get("epoch_ns")) and _ns(model.get("last_sample_ns"))

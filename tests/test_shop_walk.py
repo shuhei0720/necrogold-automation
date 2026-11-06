@@ -328,20 +328,22 @@ class WalkTests(unittest.TestCase):
 
     def test_06_runtime_unknown_gesture_keeps_pending_and_blocks_cleanup(self):
         from test_restart_loop import LiveStub
+        from test_beat_sync import observations
         from necroprobe import beat_sync
         with tempfile.TemporaryDirectory() as folder:
-            now=[1_000_000_000];r=p.new_report(now[0],'e'*32);r['phase']='walk'
+            samples=observations(5);model=beat_sync.fit(samples,profile=beat_sync.ZONE1_1_PROFILE)
+            start=samples[-1]['http_end_ns'];now=[start];r=p.new_report(start,'e'*32);r['phase']='walk'
             d=p.Driver(LiveStub(),r,folder,now[0]+20_000_000_000,folder,clock=lambda:now[0])
             d.state['started_ns']=now[0]
             d.sleeper=lambda seconds:now.__setitem__(0,now[0]+round(seconds*1e9))
             d.last=dict(obs(),_captured=now[0]);target=now[0]+600_000_000
             # tapと名付けられた応答はgesture成功と扱わない。
             with patch.object(beat_sync,'next_target',return_value=target):
-                with self.assertRaises(ProbeError):d.perform('left',d.last,{'period_ns':520_000_000,'last_sample_ns':now[0]})
+                with self.assertRaises(ProbeError):d.perform('left',d.last,model)
             self.assertTrue(d.pending);self.assertTrue(d.state['input_pending'])
             calls=len(d.client.calls);d.finish('batch_unknown',d.last)
             self.assertEqual(calls,len(d.client.calls))
-            p.read_report(Path(folder)/'report.json','e'*32,1_000_000_000)
+            p.read_report(Path(folder)/'report.json','e'*32,start)
 
     def test_07_pause_ack_then_capture_failure_does_not_toggle_again(self):
         from test_restart_loop import LiveStub
@@ -431,8 +433,9 @@ class SyncDeadlineTests(unittest.TestCase):
                     result=original_track(model);self.assertIsNotNone(result)
                     now[0]=start+12_000_000_000;return result
                 def delayed_fit():
-                    result=original_fit();self.assertIsNotNone(result)
-                    now[0]=start+12_000_000_000;return result
+                    result=original_fit()
+                    if result is not None:now[0]=start+12_000_000_000
+                    return result
                 if boundary=='compatible_track':
                     d.samples=samples[:-1];d.model=beat_sync.fit(samples[:-1])
                     first=frames[-1]
@@ -525,7 +528,7 @@ class SyncDeadlineTests(unittest.TestCase):
             with patch.object(gold_scan,'analyze_image',side_effect=lambda image:deepcopy(A)), \
                  patch.object(shop_navigation,'scan',return_value=SimpleNamespace(goods='unknown')):
                 first=d.observe();before,model=d.synchronize(first)
-                self.assertIsNotNone(model);self.assertGreaterEqual(model['sample_count'],8)
+                self.assertIsNotNone(model);self.assertGreaterEqual(model['sample_count'],5)
                 self.assertLess(now[0]-origin,12_000_000_000)
                 self.assertAlmostEqual(520_000_000,model['period_ns'],delta=2_000_000)
                 d.perform('left',before,model);self.assertIsNone(d.last)
@@ -537,13 +540,13 @@ class SyncDeadlineTests(unittest.TestCase):
             self.assertGreater(after['_http_start_ns'],before['_http_end_ns'])
             self.assertFalse(d.state['device_timing_verified'])
 
-    def test_19_test022_report_engine_enum(self):
+    def test_19_test023_report_engine_enum(self):
         from types import SimpleNamespace
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-022',r['test_id']);self.assertEqual('shop-walk-v7',r['revision'])
-            self.assertEqual('runtime/test-022',p.parser().parse_args([]).output)
+            self.assertEqual('TEST-023',r['test_id']);self.assertEqual('shop-walk-v8',r['revision'])
+            self.assertEqual('runtime/test-023',p.parser().parse_args([]).output)
             self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
             self.assertEqual(motion_stats.ENGINE,r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):
@@ -647,10 +650,10 @@ class SyncDeadlineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,captures,scenes,sent):
             first=d.observe();start=now[0]
             before,model=d.synchronize(first)
-            self.assertIsNotNone(model);self.assertGreaterEqual(model['sample_count'],9)
+            self.assertIsNotNone(model);self.assertEqual(5,model['sample_count'])
             self.assertAlmostEqual(520_000_000,model['period_ns'],delta=2_000_000)
             self.assertLess(now[0]-start,12_000_000_000)
-            self.assertEqual(2,len(scenes));self.assertEqual(7,sum(light for _,light in captures))
+            self.assertEqual(2,len(scenes));self.assertEqual(3,sum(light for _,light in captures))
             self.assertIs(before,d.last);self.assertIsNot(before,first)
             self.assertIs(before['_extra']['scene'],scenes[-1])
             self.assertIsNot(before['_extra']['scene'],first['_extra']['scene'])
@@ -694,7 +697,7 @@ class SyncDeadlineTests(unittest.TestCase):
                     'stale':'navigation_unknown','light_capture':'connection_error',
                     'sync':'beat_sync_timeout','session':'session_deadline','walk':'walk_limit',
                     'capture':'connection_error','foreground':'foreground_not_verified',
-                    'tracking':'beat_unconfirmed'}
+                    'tracking':'beat_sync_timeout'}
         for boundary,expected in boundaries.items():
             with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
                  self.measured_runtime(folder) as (d,now,captures,scenes,sent):
@@ -800,7 +803,7 @@ class SyncDeadlineTests(unittest.TestCase):
             self.assertIsNot(before,old);self.assertIs(before,d.last)
             self.assertFalse(captures[count][1]);self.assertFalse(captures[-1][1])
             self.assertTrue(all(light for _,light in captures[count+1:-1]))
-            self.assertEqual(7,len(captures[count+1:-1]))
+            self.assertEqual(3,len(captures[count+1:-1]))
             self.assertTrue(all(item['http_start_ns']>sample['http_end_ns'] for item in d.samples))
             self.assertLess(now[0]-start,12_000_000_000)
             self.assertEqual(['acquired','tracking'],[item['mode'] for item in d.state['models']])
@@ -945,10 +948,10 @@ class SyncDeadlineTests(unittest.TestCase):
                     return d.last
                 with patch.object(d,'observe',side_effect=observe):
                     before,model=d.synchronize(frames[0])
-                self.assertIs(before,frames[-1]);self.assertIs(model,d.model)
+                self.assertIs(before,frames[len(captures)]);self.assertIs(model,d.model)
                 self.assertEqual('tracking',model['mode'])
-                self.assertEqual([True]*(len(samples)-2)+[False],captures)
-                self.assertEqual(samples,d.samples);self.assertEqual([],d.state['actions'])
+                self.assertEqual([True]*(len(captures)-1)+[False],captures)
+                self.assertEqual(samples[:len(captures)+1],d.samples);self.assertEqual([],d.state['actions'])
 
     def test_35_preparation_finishes_before_waiting_to_actual_lead(self):
         from necroprobe import beat_sync
@@ -1010,7 +1013,12 @@ class SyncDeadlineTests(unittest.TestCase):
     def test_38_stale_after_uses_one_new_full_and_tracks_for_next_step(self):
         from necroprobe import beat_sync
         with tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,captures,scenes,sent):
-            before,model=d.synchronize(d.observe());d.perform('left',before,model)
+            # 長い8標本windowで確立済みの追跡契約を維持する回帰。
+            # 新4標本windowは同じ遅延でgap上限へ届き、再取得する場合がある。
+            with patch.object(d,'fit_beat',side_effect=lambda:beat_sync.fit(d.samples,profile=beat_sync.ZONE1_1_PROFILE)
+                              if len(d.samples)>=8 else None):
+                before,model=d.synchronize(d.observe())
+            d.perform('left',before,model)
             after=d.observe();now[0]+=1_500_000_000
             self.assertGreater(now[0]-after['_captured'],beat_sync.FRESH_NS)
             old_samples=deepcopy(d.samples);count=len(captures);start=now[0]
@@ -1080,7 +1088,7 @@ class SyncDeadlineTests(unittest.TestCase):
                      patch.object(shop_navigation,'scan',side_effect=goods), \
                      patch.object(d,'observe',side_effect=collect):
                     before,updated=d.synchronize(current)
-                self.assertEqual(count+8,len(captures));self.assertTrue(all(light for _,light in captures[count:-1]))
+                self.assertEqual(count+4,len(captures));self.assertTrue(all(light for _,light in captures[count:-1]))
                 self.assertFalse(captures[-1][1]);self.assertLess(now[0]-start,12_000_000_000)
                 self.assertFalse(any(sample in old_samples for sample in d.samples))
                 self.assertEqual(visible,d.state['goods_visible']);self.assertIs(before,d.last)
@@ -1213,5 +1221,105 @@ class SyncDeadlineTests(unittest.TestCase):
                     with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
                 self.assertEqual('beat_unconfirmed' if invalid else 'dispatch_window_expired',caught.exception.code)
                 self.assertEqual([],sent);self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
+
+    def test_52_test022_samples_warm_cost_full_handoff_real_target_and_rpc(self):
+        """既知標本+既知工程費用の合算仮説。初回full実費は期限を緩めず拒否する。"""
+        from necroprobe import shop_navigation
+        from test_beat_sync import test022_samples
+        from necroprobe.protocol import RpcReply
+        samples=test022_samples()
+        scene=shop_navigation.Scene({(0,0):'floor',(-1,0):'floor',(-2,0):'gold'},
+                                    {(-2,0)},'unknown',set(),b'')
+        for cold in (False,True):
+            with self.subTest(cold=cold),tempfile.TemporaryDirectory() as folder:
+                d,now=self.build(folder);now[0]=132898500000000
+                d.stop_ns=now[0]+100_000_000_000;d.state['started_ns']=now[0]
+                old=dict(d.last,_captured=now[0]-3_465_522_000);d.last=old
+                captures=[];sent=[]
+                def observe():
+                    index=len(captures);sample=samples[index]
+                    start=sample['http_start_ns']-20_000_000
+                    self.assertLessEqual(now[0],start)
+                    light=d.beat_only;captures.append(light)
+                    # TEST022 first-full=585.410+2880.112ms。
+                    # warm仮説=654.666+187.020+1734.235+88.653ms。
+                    cost=961_638_000 if light else 3_465_522_000 if cold else 2_664_574_000
+                    now[0]=start+cost
+                    d.last=dict(obs(),_captured=start,_seen_ns=now[0],
+                        _http_start_ns=sample['http_start_ns'],_http_end_ns=sample['http_end_ns'],
+                        _extra={'scene':None if light else deepcopy(scene),
+                                'beat':{k:sample[k] for k in ('remaining','spacing_px','center_px')}})
+                    return d.last
+                fit=d.fit_beat;track=d.track_beat;checkpoint=d.checkpoint;call=d.client.call
+                def fit_cost():
+                    result=fit();now[0]+=81_074_000;return result
+                def track_cost(model):
+                    result=track(model);now[0]+=19_804_000;return result
+                def checkpoint_cost():checkpoint();now[0]+=105_616_000
+                def transport(method,params,timeout):
+                    if method=='device_info':now[0]+=142_179_000
+                    if method=='run_steps':
+                        sent.append(deepcopy(params));reply=deepcopy(GOOD);reply['steps'][1]['method']='gesture'
+                        return RpcReply(reply,{})
+                    return call(method,params,timeout)
+                with patch.object(d,'observe',side_effect=observe), \
+                     patch.object(d,'fit_beat',side_effect=fit_cost), \
+                     patch.object(d,'track_beat',side_effect=track_cost), \
+                     patch.object(d,'checkpoint',side_effect=checkpoint_cost), \
+                     patch.object(d.client,'call',side_effect=transport):
+                    if cold:
+                        with self.assertRaises(ProbeError) as caught:d.synchronize(old)
+                        self.assertEqual('navigation_unknown',caught.exception.code)
+                        self.assertEqual([],sent);self.assertIsNone(d.model)
+                    else:
+                        before,model=d.synchronize(old)
+                        self.assertIsNot(before,old);self.assertIs(before,d.last)
+                        self.assertEqual(5,model['sample_count']);self.assertEqual('tracking',model['mode'])
+                        direction=d.choose(before)['direction'];self.assertEqual('left',direction)
+                        d.perform(direction,before,model)
+                        self.assertEqual([p.move_batch('left')],sent)
+                        action=d.state['actions'][-1]
+                        self.assertEqual(2_940_185_306,action['issued_ns']-before['_captured'])
+                        self.assertEqual(p.LEAD_NS,action['target_ns']-action['issued_ns'])
+                        self.assertEqual('acknowledged',action['outcome'])
+                        p.write(folder,d.outer)
+                        saved=p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])
+                        self.assertEqual(model,saved['walk']['models'][-1])
+                    self.assertEqual([True,True,True,True,False],captures)
+
+    def test_53_report_rejects_changed_profile_and_missing_four_sample_profile(self):
+        from test_beat_sync import test022_samples
+        from necroprobe import beat_sync
+        model=beat_sync.fit(test022_samples()[:4],profile='zone1-1-measured-v1')
+        for change in ('id','bounds','missing'):
+            with self.subTest(change=change),tempfile.TemporaryDirectory() as folder:
+                d,now=self.build(folder);bad=deepcopy(model)
+                if change=='id':bad['cadence_profile']['id']='unrecognized'
+                elif change=='bounds':bad['cadence_profile']['period_max_ns']=800_000_000
+                else:del bad['cadence_profile']
+                d.state['models']=[bad];p.write(folder,d.outer)
+                with self.assertRaises((ValueError,ProbeError)):
+                    p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])
+
+    def test_54_test023_requires_profile_after_tracking_or_removed_acquisition_mode(self):
+        from necroprobe import beat_sync
+        for stage in ('tracking','acquired_without_mode'):
+            for boundary in ('dispatch','report'):
+                with self.subTest(stage=stage,boundary=boundary),tempfile.TemporaryDirectory() as folder, \
+                     self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                    before,tracked=d.synchronize(d.observe())
+                    bad=deepcopy(tracked if stage=='tracking' else d.state['models'][0])
+                    del bad['cadence_profile'];bad['period_ns']=700_000_000
+                    if stage=='acquired_without_mode':del bad['mode']
+                    # generic APIは維持する。TEST023の入力/保存境界だけで必須にする。
+                    self.assertIsNotNone(beat_sync.next_target(bad,now[0]))
+                    if boundary=='dispatch':
+                        with self.assertRaises(ProbeError) as caught:d.perform('left',before,bad)
+                        self.assertEqual('beat_unconfirmed',caught.exception.code)
+                        self.assertEqual([],sent);self.assertEqual([],d.state['actions'])
+                    else:
+                        d.state['models']=[bad];p.write(folder,d.outer)
+                        with self.assertRaises((ValueError,ProbeError)):
+                            p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])
 
 if __name__=='__main__':unittest.main()

@@ -6,6 +6,8 @@ mask出典はTEST-013未加工896×414 JPEG。deathのみ既存R12資料のcrop�
 """
 import base64
 import io
+import os
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 import zlib
@@ -124,6 +126,42 @@ class GoldScanTests(unittest.TestCase):
              patch.object(Image.Image, "rotate", side_effect=AssertionError("rotate forbidden")), \
              patch.object(Image.Image, "transpose", side_effect=AssertionError("transpose forbidden")):
             self.assertEqual("floor", gold_scan.analyze(raw)["state"])
+
+    def test_04_pause_icon_ignores_gold_background_but_requires_gray_glyph(self):
+        box, encoded_mask = FIXTURES['icon']
+        reference = Image.frombytes('1', (36,36), zlib.decompress(base64.b64decode(encoded_mask)))
+        for background in ((210,170,30), (130,85,35), (25,25,25)):
+            with self.subTest(background=background):
+                image=floor()
+                crop=Image.new('RGB',(36,36),background)
+                crop.paste((128,128,128),(0,0,36,36),reference)
+                image.paste(crop,box[:2])
+                self.assertEqual('floor',gold_scan.analyze_image(image)['state'])
+                image.paste((128,128,128),box)
+                self.assertEqual('unknown',gold_scan.analyze_image(image)['state'])
+                crop=Image.new('RGB',(36,36))
+                crop.paste((210,170,30),(0,0,36,36),reference)
+                image.paste(crop,box[:2])
+                self.assertEqual('unknown',gold_scan.analyze_image(image)['state'])
+                crop=Image.new('RGB',(36,36))
+                crop.paste((255,30,100),(0,0,36,36),reference)
+                image.paste(crop,box[:2])
+                self.assertEqual('unknown',gold_scan.analyze_image(image)['state'])
+        image=floor()
+        ImageDraw.Draw(image).rectangle((451,6,465,42), fill='black')
+        self.assertEqual('unknown',gold_scan.analyze_image(image)['state'])
+        for box in ((752,396,856,414), (791,399,804,414), (842,399,855,414)):
+            image=floor()
+            ImageDraw.Draw(image).rectangle(box,fill='black')
+            self.assertEqual('unknown',gold_scan.analyze_image(image)['state'])
+
+    def test_05_test022_device_gold_behind_pause_icon(self):
+        path=os.environ.get('NECRO_TEST022_SCREEN')
+        if not path:self.skipTest('TEST022 device image is kept outside git')
+        with Image.open(Path(path)) as source:
+            self.assertEqual((896,414),source.size)
+            result=gold_scan.analyze_image(source.convert('RGB'))
+        self.assertEqual(('floor','candidate'),(result['state'],result['gold']))
 
 
 if __name__ == "__main__":
