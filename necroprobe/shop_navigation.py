@@ -196,6 +196,20 @@ def scan(image):
     return Scene(tiles, {p for p, kind in tiles.items() if kind == "gold"}, goods, protected, signature)
 
 
+def _floor_paths(scene):
+    """chooseと2入力判定で、同じ最短経路と方向の優先順を使う。"""
+    paths = {(0, 0): ()}
+    queue = deque([(0, 0)])
+    while queue:
+        point = queue.popleft()
+        for name, delta in DIRECTIONS.items():
+            nxt = _add(point, delta)
+            if nxt not in paths and nxt not in scene.protected and scene.tiles.get(nxt) == "floor":
+                paths[nxt] = paths[point] + (name,)
+                queue.append(nxt)
+    return paths
+
+
 def choose(scene, position=(0, 0), visits=None):
     def result(direction=None, reason="no_observed_route", target=None):
         return {"direction": direction, "reason": reason, "target": target}
@@ -206,15 +220,7 @@ def choose(scene, position=(0, 0), visits=None):
     if not scene.gold or scene.tiles.get((0, 0)) != "floor":
         return result(reason="no_visible_gold_or_origin")
     visits = visits or {}
-    paths = {(0, 0): ()}
-    queue = deque([(0, 0)])
-    while queue:
-        point = queue.popleft()
-        for name, delta in DIRECTIONS.items():
-            nxt = _add(point, delta)
-            if nxt not in paths and nxt not in scene.protected and scene.tiles.get(nxt) == "floor":
-                paths[nxt] = paths[point] + (name,)
-                queue.append(nxt)
+    paths = _floor_paths(scene)
     options = []
     for gate, sides in _gates(scene.tiles).items():
         if gate in scene.protected:
@@ -244,6 +250,32 @@ def choose(scene, position=(0, 0), visits=None):
         _, direction, target = min(options)
         return result(direction, "observed_floor_vantage", target)
     return result()
+
+
+def burst_count(scene, decision):
+    """選択済み経路の先頭2床が同方向で安全な場合だけ、2入力を許す。"""
+    if (not isinstance(decision, dict) or scene.goods in ("partial", "visible")
+            or not scene.gold or scene.tiles.get((0, 0)) != "floor"):
+        return 1
+    direction, target = decision.get("direction"), decision.get("target")
+    if (not isinstance(direction, str) or direction not in DIRECTIONS
+            or decision.get("reason") not in ("approach_gate", "observed_floor_vantage")
+            or not isinstance(target, (tuple, list)) or len(target) != 2
+            or any(type(value) is not int for value in target)):
+        return 1
+    path = _floor_paths(scene).get(tuple(target), ())
+    if len(path) < 2 or path[:2] != (direction, direction):
+        return 1
+    gates = _gates(scene.tiles)
+    point = (0, 0)
+    for step in range(3):
+        if (point in scene.protected
+                or any(_add(point, delta) in scene.protected for delta in DIRECTIONS.values())):
+            return 1
+        if step and (scene.tiles.get(point) != "floor" or point in gates):
+            return 1
+        point = _add(point, DIRECTIONS[direction])
+    return 2
 
 
 def _pillow_motion_scores(before_signature, after_signature):
@@ -298,8 +330,9 @@ def _motion_view(signature):
     return normalized, ImageChops.darker(texture, valid), positive
 
 
-def motion(before, after, direction):
-    if (direction not in DIRECTIONS or len(before.signature) != 224 * 104 or
+def motion(before, after, direction, expected_steps=1):
+    if (type(expected_steps) is not int or expected_steps not in (1, 2)
+            or direction not in DIRECTIONS or len(before.signature) != 224 * 104 or
             len(after.signature) != 224 * 104):
         return "unknown"
     from . import motion_stats
@@ -328,12 +361,15 @@ def motion(before, after, direction):
     dx, dy = DIRECTIONS[direction]
     if sx == sy == 0:
         next_point = (dx, dy)
-        if (before.tiles.get(next_point) == "door" and after.tiles.get(next_point) == "floor"
+        if (expected_steps == 1 and before.tiles.get(next_point) == "door"
+                and after.tiles.get(next_point) == "floor"
                 and next_point in _gates(after.tiles)):
             return "door_opened"
         return "blocked"
-    if (sx, sy) == (-9 * dx, -9 * dy):
+    if (sx, sy) == (-9 * expected_steps * dx, -9 * expected_steps * dy):
         return "moved"
-    if any((sx, sy) == (-n * dx, -n * dy) for n in range(1, 9)):
+    if expected_steps == 2 and (sx, sy) == (-9 * dx, -9 * dy):
+        return "partial"
+    if any((sx, sy) == (-n * dx, -n * dy) for n in range(1, 9 * expected_steps)):
         return "tween"
     return "unexpected"

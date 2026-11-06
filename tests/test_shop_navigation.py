@@ -259,5 +259,163 @@ class ShopNavigationTests(unittest.TestCase):
         self.assertEqual("moved", nav.motion(frames[119], frames[124], "left"))
 
 
+class ShopNavigationBurstTests(unittest.TestCase):
+    @staticmethod
+    def corridor(direction, gate_distance=4, goods="unknown"):
+        dx, dy = nav.DIRECTIONS[direction]
+        gate = (gate_distance * dx, gate_distance * dy)
+        tiles = {(i * dx, i * dy): "floor" for i in range(gate_distance)}
+        tiles.update({gate: "door", (gate[0] - dy, gate[1] + dx): "gold",
+                      (gate[0] + dy, gate[1] - dx): "gold"})
+        return scene(tiles, goods=goods)
+
+    def test_01_two_floor_steps_follow_chosen_path_in_all_directions(self):
+        for direction in nav.DIRECTIONS:
+            for gate_distance in (3, 4, 5):
+                with self.subTest(direction=direction, gate_distance=gate_distance):
+                    actual = self.corridor(direction, gate_distance)
+                    decision = nav.choose(actual)
+                    self.assertEqual({"direction", "reason", "target"}, set(decision))
+                    self.assertEqual(direction, decision["direction"])
+                    self.assertEqual(2, nav.burst_count(actual, decision))
+
+    def test_02_never_overrun_target_or_burst_a_gate_probe(self):
+        for direction, (dx, dy) in nav.DIRECTIONS.items():
+            with self.subTest(direction=direction):
+                actual = self.corridor(direction, 2)
+                actual.tiles[(3 * dx, 3 * dy)] = "floor"
+                self.assertEqual(1, nav.burst_count(actual, nav.choose(actual)))
+                actual = self.corridor(direction, 1)
+                decision = nav.choose(actual)
+                self.assertEqual("gate_single_probe", decision["reason"])
+                self.assertEqual(1, nav.burst_count(actual, decision))
+
+    def test_03_turns_or_different_selected_direction_stay_single(self):
+        actual = scene({(0, 0): "floor", (1, 0): "floor", (2, 0): "floor",
+                        (1, 1): "floor", (1, 2): "floor", (1, 3): "gold"})
+        decision = nav.choose(actual)
+        self.assertEqual({"direction": "right", "reason": "observed_floor_vantage",
+                          "target": (1, 2)}, decision)
+        self.assertEqual(1, nav.burst_count(actual, decision))
+        actual = self.corridor("left")
+        decision = nav.choose(actual)
+        decision["direction"] = "right"
+        self.assertEqual(1, nav.burst_count(actual, decision))
+
+    def test_04_unknown_door_and_open_gate_cells_stay_single(self):
+        for direction, (dx, dy) in nav.DIRECTIONS.items():
+            for distance in (1, 2):
+                for obstruction in (None, "unknown", "door", "stone", "dirt", "gate"):
+                    with self.subTest(direction=direction, distance=distance, obstruction=obstruction):
+                        actual = self.corridor(direction)
+                        decision = nav.choose(actual)
+                        point = (distance * dx, distance * dy)
+                        if obstruction is None:
+                            actual.tiles.pop(point)
+                        elif obstruction == "gate":
+                            actual.tiles[(point[0] - dy, point[1] + dx)] = "gold"
+                            actual.tiles[(point[0] + dy, point[1] - dx)] = "gold"
+                        else:
+                            actual.tiles[point] = obstruction
+                        self.assertEqual(1, nav.burst_count(actual, decision))
+
+    def test_05_protected_cells_and_neighbors_prevent_burst(self):
+        for direction, (dx, dy) in nav.DIRECTIONS.items():
+            for distance in (0, 1, 2):
+                point = (distance * dx, distance * dy)
+                for offset in ((0, 0), *nav.DIRECTIONS.values()):
+                    with self.subTest(direction=direction, distance=distance, offset=offset):
+                        actual = self.corridor(direction)
+                        decision = nav.choose(actual)
+                        actual.protected.add((point[0] + offset[0], point[1] + offset[1]))
+                        self.assertEqual(1, nav.burst_count(actual, decision))
+
+    def test_06_partial_visible_or_missing_route_stay_single(self):
+        actual = self.corridor("left")
+        decision = nav.choose(actual)
+        for goods in ("partial", "visible"):
+            actual.goods = goods
+            self.assertEqual(1, nav.burst_count(actual, decision))
+        actual.goods = "unknown"
+        for invalid in ({}, {"direction": None}, dict(decision, target=(0, 0)),
+                        dict(decision, target=(-9, 0)), dict(decision, target=None),
+                        dict(decision, reason="gate_single_probe")):
+            self.assertEqual(1, nav.burst_count(actual, invalid))
+
+    def test_07_two_step_motion_partition_and_opposite_all_directions(self):
+        rng = random.Random(25025)
+        raw = bytes(rng.randrange(20, 80) for _ in range(224 * 104))
+        before = nav.Scene({}, set(), "unknown", set(), raw)
+        original = Image.frombytes("L", (224, 104), raw)
+        for direction, (dx, dy) in nav.DIRECTIONS.items():
+            for amount in range(19):
+                with self.subTest(direction=direction, amount=amount):
+                    image = Image.new("L", original.size)
+                    image.paste(original, (-amount * dx, -amount * dy))
+                    after = nav.Scene({}, set(), "unknown", set(), image.tobytes())
+                    expected = ("blocked" if amount == 0 else "partial" if amount == 9
+                                else "moved" if amount == 18 else "tween")
+                    self.assertEqual(expected, nav.motion(before, after, direction, expected_steps=2))
+            for amount in (-18, -9, -1, 19, 27):
+                with self.subTest(direction=direction, invalid_amount=amount):
+                    image = Image.new("L", original.size)
+                    image.paste(original, (-amount * dx, -amount * dy))
+                    after = nav.Scene({}, set(), "unknown", set(), image.tobytes())
+                    result = nav.motion(before, after, direction, expected_steps=2)
+                    if amount < 0:
+                        self.assertEqual("unexpected", result)
+                    else:
+                        self.assertNotIn(result, ("moved", "partial", "tween"))
+
+    def test_08_motion_steps_are_strict_and_door_opening_is_single_only(self):
+        rng = random.Random(25025)
+        raw = bytes(rng.randrange(20, 80) for _ in range(224 * 104))
+        before = nav.Scene({(1, 0): "door"}, set(), "unknown", set(), raw)
+        after = nav.Scene({(1, 0): "floor", (1, -1): "gold", (1, 1): "gold"},
+                          set(), "unknown", set(), raw)
+        self.assertEqual("door_opened", nav.motion(before, after, "right"))
+        self.assertEqual("door_opened", nav.motion(before, after, "right", expected_steps=1))
+        self.assertEqual("blocked", nav.motion(before, after, "right", expected_steps=2))
+        for invalid in (False, True, 0, 3, -1, 1.0, 2.0, "2", None):
+            with self.subTest(expected_steps=invalid):
+                self.assertEqual("unknown", nav.motion(before, after, "right", expected_steps=invalid))
+
+    def test_09_two_step_motion_preserves_texture_and_lighting_guards(self):
+        rng = random.Random(25025)
+        raw = bytes(rng.randrange(20, 80) for _ in range(224 * 104))
+        original = Image.frombytes("L", (224, 104), raw)
+        before = nav.Scene({}, set(), "unknown", set(), raw)
+        for direction, (dx, dy) in nav.DIRECTIONS.items():
+            moved = Image.new("L", original.size)
+            moved.paste(original, (-18 * dx, -18 * dy))
+            lit = bytes(min(255, value + (index % 224) // 4 + (index // 224) // 3)
+                        if value > 6 else value for index, value in enumerate(moved.tobytes()))
+            after = nav.Scene({}, set(), "unknown", set(), lit)
+            self.assertEqual("moved", nav.motion(before, after, direction, expected_steps=2))
+        flat = Image.new("L", original.size, 20)
+        ImageDraw.Draw(flat).ellipse((45, 25, 165, 76), fill=220)
+        flat = flat.filter(ImageFilter.GaussianBlur(1))
+        shifted_light = Image.new("L", original.size, 20)
+        shifted_light.paste(flat, (18, 0))
+        frames = [nav.Scene({}, set(), "unknown", set(), im.tobytes()) for im in (flat, shifted_light)]
+        self.assertEqual("unknown", nav.motion(*frames, "left", expected_steps=2))
+
+    def test_10_optional_test024_turn_and_straight_route(self):
+        folder = os.environ.get("NECRO_TEST024_FRAMES")
+        if not folder:
+            self.skipTest("external TEST024 run-101/run-103 images not supplied")
+        import hashlib
+        for name, expected_hash, count in (
+                ("run-101.jpg", "114d277a56e6c6a6108d6ba6d87588e2a8736b74387c01bb05229f9b5493c87c", 1),
+                ("run-103.jpg", "c3bdfde05c2beb48b7f76845225b3b8435d8fc8def4b024c6165f15e90cd154e", 2)):
+            path = Path(folder) / name
+            self.assertEqual(expected_hash, hashlib.sha256(path.read_bytes()).hexdigest())
+            with Image.open(path) as image:
+                actual = nav.scan(image.convert("RGB"))
+            decision = nav.choose(actual)
+            self.assertEqual("left", decision["direction"])
+            self.assertEqual(count, nav.burst_count(actual, decision))
+
+
 if __name__ == "__main__":
     unittest.main()

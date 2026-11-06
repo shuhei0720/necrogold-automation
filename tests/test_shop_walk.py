@@ -72,10 +72,12 @@ class Fake:
     def goods(self,o):return o['_extra']['scene']
     def synchronize(self,o):return o,{'period_ns':520_000_000}
     def choose(self,o):return {'direction':'left','target':[-1,0],'reason':'approach'}
-    def movement(self,a,b,d):return next(self.motions)
-    def perform(self,a,o,model=None):
+    def movement(self,a,b,d,expected_steps=1):return next(self.motions)
+    def perform(self,a,o,model=None,count=1):
         self.sent.append(a);self.state['paused']=False
         if self.unknown and a=='left':self.pending=True;raise ProbeError('batch_unknown')
+        return count
+    def burst_count(self,frame,decision,remaining):return 1
     def checkpoint(self):pass
     def save(self,n,o):pass
     def finish(self,reason,o):
@@ -98,9 +100,10 @@ class ExpiringFake(Fake):
     def choose(self,frame):
         self.chosen.append(frame)
         return {'direction':frame.get('direction','left'),'target':[-1,0],'reason':'approach'}
-    def perform(self,action,frame,model=None):
+    def perform(self,action,frame,model=None,count=1):
         entry={'action':action,'outcome':'not_requested','reason':None,'requested_ns':self.clock(),
-               'issued_ns':None,'completed_ns':None,'target_ns':None,'rpc_timings':{},'target_checks':[]}
+               'issued_ns':None,'completed_ns':None,'target_ns':None,'rpc_timings':{},'target_checks':[],
+               'requested_inputs':1 if action in p.MOVE_POINTS else 0,'scheduled_inputs':0,'period_ns':None}
         self.state['actions'].append(entry)
         if action in p.MOVE_POINTS:
             result=next(self.outcomes)
@@ -112,6 +115,8 @@ class ExpiringFake(Fake):
                 raise ProbeError('cancelled' if result=='cancelled' else 'dispatch_window_expired')
         entry.update(outcome='acknowledged',issued_ns=self.clock(),completed_ns=self.clock())
         self.sent.append(action)
+        entry['scheduled_inputs']=1 if action in p.MOVE_POINTS else 0
+        return count
     def finish(self,reason,frame):
         self.state['reason']=reason
         if not self.pending:self.perform('pause',frame);self.state['paused']=True
@@ -547,8 +552,8 @@ class SyncDeadlineTests(unittest.TestCase):
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-024',r['test_id']);self.assertEqual('shop-walk-v9',r['revision'])
-            self.assertEqual('runtime/test-024',p.parser().parse_args([]).output)
+            self.assertEqual('TEST-025',r['test_id']);self.assertEqual('shop-walk-v10',r['revision'])
+            self.assertEqual('runtime/test-025',p.parser().parse_args([]).output)
             self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
             self.assertEqual(motion_stats.ENGINE,r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):
@@ -573,7 +578,7 @@ class SyncDeadlineTests(unittest.TestCase):
                     self.assertEqual('pillow',d.state['navigation_engine'])
                 with self.subTest(motion_failure=fail),patch.object(motion_stats,'ENGINE','native_i386'):
                     d,_=self.build(folder)
-                    def motion_fallback(*args):
+                    def motion_fallback(*args,**kwargs):
                         motion_stats.ENGINE='pillow'
                         if fail:raise RuntimeError('motion failed after fallback')
                         return 'moved'
