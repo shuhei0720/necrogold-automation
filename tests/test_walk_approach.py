@@ -32,7 +32,7 @@ class ApproachTests(unittest.TestCase):
             self.assertTrue(all(d.scene(o) is not None for o in observations))
             self.assertEqual('moved',d.movement(*observations,'right'))
             self.assertEqual('up',d.choose(observations[-1])['direction'])
-            self.assertEqual(2,d.burst_count(observations[-1],d.choose(observations[-1]),16))
+            self.assertEqual(4,d.burst_count(observations[-1],d.choose(observations[-1]),16))
     def test_actual_first_route_aligns_with_observed_corridor(self):
         im=self.frame('run-001.jpg','ee6bf7da75b6d95f68f0087ccf7a7979841646fb3933067d6cc76ec928601921')
         s=nav.scan(im);d=nav.choose(s)

@@ -376,7 +376,9 @@ class ShopNavigationBurstTests(unittest.TestCase):
         self.assertEqual("door_opened", nav.motion(before, after, "right"))
         self.assertEqual("door_opened", nav.motion(before, after, "right", expected_steps=1))
         self.assertEqual("blocked", nav.motion(before, after, "right", expected_steps=2))
-        for invalid in (False, True, 0, 3, -1, 1.0, 2.0, "2", None):
+        self.assertEqual("blocked", nav.motion(before, after, "right", expected_steps=3))
+        self.assertEqual("blocked", nav.motion(before, after, "right", expected_steps=4))
+        for invalid in (False, True, 0, 5, -1, 1.0, 2.0, "2", None):
             with self.subTest(expected_steps=invalid):
                 self.assertEqual("unknown", nav.motion(before, after, "right", expected_steps=invalid))
 

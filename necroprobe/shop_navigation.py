@@ -243,13 +243,33 @@ def _gate_paths(scene):
     return paths,costs
 
 
-def entered_gate(before, after, direction, position, expected_steps, outcome):
+def closed_gate(scene, direction):
+    """閉扉の識別。2入力の許可条件と分け、単発開扉への縮退を防ぐ。"""
+    if not isinstance(scene, Scene) or not isinstance(direction, str) or direction not in DIRECTIONS:
+        return False
+    target = DIRECTIONS[direction]
+    return scene.tiles.get(target) == "door" and target in _gates(scene.tiles)
+
+
+def closed_gate_entry(scene, direction):
+    """観測済みの閉じた商店扉だけ、開扉と入口への1歩を続けて許可する。"""
+    if (not closed_gate(scene, direction) or scene.goods not in ("unknown", "partial")
+            or scene.tiles.get((0, 0)) != "floor"):
+        return False
+    target = DIRECTIONS[direction]
+    return not any(_add(point, delta) in scene.protected
+                   for point in ((0, 0), target) for delta in ((0, 0), *DIRECTIONS.values()))
+
+
+def entered_gate(before, after, direction, position, expected_steps, outcome, door_sequence=False):
     """開いた入口への1歩を地形で確認した時だけ、店内へ進む向きを記憶。"""
     if (not isinstance(before, Scene) or not isinstance(after, Scene)
-            or outcome != "moved" or expected_steps != 1 or direction not in DIRECTIONS):
+            or outcome != "moved" or expected_steps != (2 if door_sequence else 1) or direction not in DIRECTIONS):
+        return None
+    if door_sequence and not closed_gate_entry(before, direction):
         return None
     delta = DIRECTIONS[direction]
-    if (before.tiles.get(delta) != "floor" or after.tiles.get((0, 0)) != "floor"
+    if (before.tiles.get(delta) != ("door" if door_sequence else "floor") or after.tiles.get((0, 0)) != "floor"
             or delta not in _gates(before.tiles) or (0, 0) not in _gates(after.tiles)
             or delta in before.protected or (0, 0) in after.protected):
         return None
@@ -328,8 +348,10 @@ def choose(scene, position=(0, 0), visits=None, entrance=None):
     return result()
 
 
-def burst_count(scene, decision, position=(0, 0), entrance=None):
-    """選択済み経路の先頭2床が同方向で安全な場合だけ、2入力を許す。"""
+def burst_count(scene, decision, position=(0, 0), entrance=None, limit=2):
+    """選択済み経路の安全な直線部分だけを、指定上限まで続ける。"""
+    if type(limit) is not int or not 1 <= limit <= 4:
+        return 1
     if (not isinstance(decision, dict) or scene.goods in ("partial", "visible")
             or not scene.gold or scene.tiles.get((0, 0)) != "floor"):
         return 1
@@ -344,21 +366,20 @@ def burst_count(scene, decision, position=(0, 0), entrance=None):
         return 1
     paths = _gate_paths(scene)[0] if decision.get("reason") == "approach_gate" else _floor_paths(scene)
     path = paths.get(tuple(target), ())
-    if len(path) < 2 or path[:2] != (direction, direction):
-        return 1
     gates = _gates(scene.tiles)
-    point = (0, 0)
-    for step in range(3):
+    point = (0, 0); count = 0
+    for step in range(min(limit, len(path)) + 1):
         if (point in scene.protected
                 or any(_add(point, delta) in scene.protected for delta in DIRECTIONS.values())):
-            return 1
-        if step and (scene.tiles.get(point) != "floor" or point in gates):
-            return 1
+            break
+        if step and (path[step-1] != direction or scene.tiles.get(point) != "floor" or point in gates):
+            break
+        count = step
         point = _add(point, DIRECTIONS[direction])
-    return 2
+    return max(1, count)
 
 
-def _pillow_motion_scores(before_signature, after_signature):
+def _pillow_motion_scores(before_signature, after_signature, extra=False):
     """Native利用不可時の既存73候補。スコア・有効領域・丸めを維持。"""
     old = Image.frombytes("L", _SIGNATURE_SIZE, before_signature)
     new = Image.frombytes("L", _SIGNATURE_SIZE, after_signature)
@@ -383,8 +404,8 @@ def _pillow_motion_scores(before_signature, after_signature):
         b = b.point([min(255, round(v * gain)) for v in range(256)])
         return ImageStat.Stat(ImageChops.difference(a, b), mask).mean[0] / contrast
 
-    candidates = [(score(0, 0), 0, 0)]
-    for amount in range(1, 19):
+    candidates = [] if extra else [(score(0, 0), 0, 0)]
+    for amount in (range(19, 37) if extra else range(1, 19)):
         for dx, dy in DIRECTIONS.values():
             sx, sy = amount * dx, amount * dy
             candidates.append((score(sx, sy), sx, sy))
@@ -461,12 +482,12 @@ def _structural_motion(before, after, candidates, old_texture, new_texture, old_
     return True
 
 
-def _unique_gate_shift(before, after):
+def _unique_gate_shift(before, after, max_steps=2):
     """新しく見えた金壁は許容し、既知の金壁と入口の対応を一意に決める。"""
     if len(before.gold) < 2:
         return None
     old_gates, new_gates = _gates(before.tiles), _gates(after.tiles)
-    shifts = [(0, 0)] + [(dx*n, dy*n) for n in (1, 2) for dx,dy in DIRECTIONS.values()]
+    shifts = [(0, 0)] + [(dx*n, dy*n) for n in range(1, max_steps+1) for dx,dy in DIRECTIONS.values()]
     matches = []
     for tx, ty in shifts:
         if not {(x+tx, y+ty) for x,y in before.gold}.issubset(after.gold):
@@ -481,7 +502,7 @@ def _unique_gate_shift(before, after):
 def _corridor_motion(before, after, candidates, old_texture, new_texture, old_positive, new_positive):
     """通常の質感範囲が狭すぎる入口だけ、地形対応と追加の細部で裏付ける。"""
     _, sx, sy = candidates[0]
-    if _unique_gate_shift(before, after) != (sx, sy):
+    if _unique_gate_shift(before, after, max_steps=4 if len(candidates)>73 else 2) != (sx, sy):
         return False
     old_texture, new_texture = _texture_mask(old_texture, True), _texture_mask(new_texture, True)
     support, opposite, _, _ = _texture_match(old_texture, new_texture, old_positive, new_positive, sx, sy)
@@ -496,7 +517,7 @@ def _corridor_motion(before, after, candidates, old_texture, new_texture, old_po
 
 
 def motion(before, after, direction, expected_steps=1):
-    if (type(expected_steps) is not int or expected_steps not in (1, 2)
+    if (type(expected_steps) is not int or expected_steps not in (1, 2, 3, 4)
             or direction not in DIRECTIONS or len(before.signature) != 224 * 104 or
             len(after.signature) != 224 * 104):
         return "unknown"
@@ -507,6 +528,8 @@ def motion(before, after, direction, expected_steps=1):
     candidates = motion_stats.scores(old, new)
     if candidates is None:
         candidates = _pillow_motion_scores(old, new)
+    if expected_steps > 2:
+        candidates += _pillow_motion_scores(old, new, extra=True)
     candidates.sort()
     best, sx, sy = candidates[0]
     # 元の閾値は維持するが、正規化後の未知実画像での精度保証ではない。
@@ -538,7 +561,7 @@ def motion(before, after, direction, expected_steps=1):
         return "blocked"
     if (sx, sy) == (-9 * expected_steps * dx, -9 * expected_steps * dy):
         return "moved"
-    if expected_steps == 2 and (sx, sy) == (-9 * dx, -9 * dy):
+    if any((sx, sy) == (-9*n*dx, -9*n*dy) for n in range(1, expected_steps)):
         return "partial"
     if any((sx, sy) == (-n * dx, -n * dy) for n in range(1, 9 * expected_steps)):
         return "tween"

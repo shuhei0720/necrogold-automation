@@ -45,7 +45,7 @@ class CorridorTests(unittest.TestCase):
             self.assertEqual('moved',d.movement(*observations,'up'))
             self.assertIsNone(d.entrance)
             decision=d.choose(observations[-1]);self.assertEqual('up',decision['direction'])
-            self.assertEqual('gate_single_probe',decision['reason']);self.assertEqual(1,d.burst_count(observations[-1],decision,16))
+            self.assertEqual('gate_single_probe',decision['reason']);self.assertEqual(2,d.burst_count(observations[-1],decision,16))  # TEST033: open + enter
             self.assertEqual('partial',nav.motion(a,b,'up',2))
             self.assertEqual('unexpected',nav.motion(a,b,'down'))
 

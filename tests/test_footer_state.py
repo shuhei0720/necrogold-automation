@@ -46,7 +46,7 @@ class FooterStateTests(unittest.TestCase):
                 self.assertTrue(all(d.scene(f) is not None for f in frames))
                 self.assertEqual('moved',d.movement(*frames,'up'))
                 decision=d.choose(frames[-1]);self.assertEqual('up',decision['direction']);self.assertEqual('gate_single_probe',decision['reason'])
-                self.assertEqual(1,d.burst_count(frames[-1],decision,16))
+                self.assertEqual(2,d.burst_count(frames[-1],decision,16))  # TEST033: open + enter
 
     def test_bright_colored_background_does_not_erase_white_footer(self):
         for color in COLORS:
