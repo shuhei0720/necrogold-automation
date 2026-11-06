@@ -83,7 +83,88 @@ class Fake:
         if not self.pending:self.sent.append('pause');self.state['paused']=True
     def note_step(self,*args):pass
 
+
+class ExpiringFake(Fake):
+    def __init__(self,frames,outcomes):
+        super().__init__(frames,['moved']*p.MAX_STEPS)
+        self.outcomes=iter(outcomes);self.synced=[];self.chosen=[];self.captures=0
+    def budget(self):
+        if p.base.supervisor._cancel_requested:raise ProbeError('cancelled')
+        return 8
+    def observe(self):
+        self.captures+=1;return super().observe()
+    def synchronize(self,frame):
+        self.synced.append(frame);return super().synchronize(frame)
+    def choose(self,frame):
+        self.chosen.append(frame)
+        return {'direction':frame.get('direction','left'),'target':[-1,0],'reason':'approach'}
+    def perform(self,action,frame,model=None):
+        entry={'action':action,'outcome':'not_requested','reason':None,'requested_ns':self.clock(),
+               'issued_ns':None,'completed_ns':None,'target_ns':None,'rpc_timings':{}}
+        self.state['actions'].append(entry)
+        if action in p.MOVE_POINTS:
+            result=next(self.outcomes)
+            if result=='expired':
+                entry['reason']='dispatch_window_expired';raise ProbeError('dispatch_window_expired')
+            if result in ('unknown','issued','cancelled'):
+                if result=='unknown':self.pending=True;self.state['input_pending']=True;entry['outcome']='unknown'
+                if result=='issued':entry['issued_ns']=self.clock()
+                raise ProbeError('cancelled' if result=='cancelled' else 'dispatch_window_expired')
+        entry.update(outcome='acknowledged',issued_ns=self.clock(),completed_ns=self.clock())
+        self.sent.append(action)
+    def finish(self,reason,frame):
+        self.state['reason']=reason
+        if not self.pending:self.perform('pause',frame);self.state['paused']=True
+
 class WalkTests(unittest.TestCase):
+    def test_46_expired_unsent_action_refreshes_full_sync_and_direction_then_goods_wins(self):
+        for visible in (False,True):
+            with self.subTest(visible=visible):
+                initial=obs();fresh=dict(obs('visible' if visible else 'unknown'),direction='right')
+                d=ExpiringFake([initial,fresh,obs('visible')],['expired','ok'])
+                p.walk(d)
+                self.assertEqual(['resume','pause'] if visible else ['resume','right','pause'],d.sent)
+                self.assertEqual([initial] if visible else [initial,fresh],d.synced)
+                self.assertEqual([initial] if visible else [initial,fresh],d.chosen)
+                self.assertTrue(d.state['goods_visible']);self.assertEqual('goods_visible',d.state['reason'])
+
+    def test_47_only_two_expiry_refreshes_across_entire_walk(self):
+        frames=[obs() for _ in range(6)]
+        d=ExpiringFake(frames,['expired','ok','expired','ok','expired'])
+        with self.assertRaises(ProbeError) as caught:p.walk(d)
+        self.assertEqual('dispatch_window_expired',caught.exception.code)
+        self.assertEqual(5,d.captures);self.assertEqual(2,d.state['moves_confirmed'])
+        self.assertEqual(['resume','left','left'],d.sent)
+        self.assertEqual(1,d.state['started_ns'])
+
+    def test_48_expiry_reason_does_not_allow_refresh_after_pending_issued_or_cancel(self):
+        for outcome in ('unknown','issued','cancelled'):
+            with self.subTest(outcome=outcome):
+                d=ExpiringFake([obs(),obs('visible')],[outcome])
+                with self.assertRaises(ProbeError):p.walk(d)
+                self.assertEqual(1,d.captures);self.assertEqual(['resume'],d.sent)
+
+    def test_49_refresh_does_not_reset_step_time_or_report_action_limits(self):
+        with tempfile.TemporaryDirectory() as folder:
+            d=ExpiringFake([obs() for _ in range(19)],['expired','expired']+['ok']*16)
+            p.walk(d)
+            self.assertEqual(16,d.state['moves_confirmed']);self.assertEqual([-16,0],d.state['position'])
+            self.assertEqual(16,sum(action in p.MOVE_POINTS for action in d.sent))
+            self.assertEqual(20,len(d.state['actions']));self.assertEqual(1,d.state['started_ns'])
+            r=p.new_report(1,'5'*32);r['walk']=d.state
+            p.write(folder,r);p.read_report(Path(folder)/'report.json','5'*32,1)
+            r['walk']['actions'].append(deepcopy(r['walk']['actions'][-1]));p.write(folder,r)
+            with self.assertRaises((ValueError,ProbeError)):p.read_report(Path(folder)/'report.json','5'*32,1)
+            d=ExpiringFake([obs(),obs()],['expired']);now=[1];d.clock=lambda:now[0]
+            observe=d.observe
+            def expire_during_refresh():
+                frame=observe()
+                if d.captures==2:now[0]=1+p.WALK_SECONDS*1_000_000_000
+                return frame
+            d.observe=expire_during_refresh;p.walk(d)
+            self.assertEqual(1,d.state['started_ns']);self.assertEqual('walk_limit',d.state['reason'])
+            self.assertEqual(['resume','pause'],d.sent)
+
     def test_09_analysis_failure_keeps_new_frame_and_pauses_once(self):
         import base64, io
         from types import SimpleNamespace
@@ -124,13 +205,12 @@ class WalkTests(unittest.TestCase):
 
     def test_10_cleanup_rechecks_foreground_age_and_pending(self):
         from test_restart_loop import LiveStub
-        for boundary in ('stale','other_app','pending','deadline','checkpoint_deadline'):
+        for boundary in ('other_app','pending','deadline','checkpoint_deadline'):
             with self.subTest(boundary=boundary), tempfile.TemporaryDirectory() as folder:
                 now=5_000_000_000;r=p.new_report(1,'b'*32);r['phase']='walk'
                 d=p.Driver(LiveStub(),r,folder,now+20_000_000_000,folder,clock=lambda:now)
                 d.last=dict(obs(),_captured=now)
-                if boundary=='stale':d.last['_captured']=1
-                elif boundary=='other_app':d.client.system={'foreground_app':'other','screen_locked':False}
+                if boundary=='other_app':d.client.system={'foreground_app':'other','screen_locked':False}
                 elif boundary=='pending':d.pending=True;d.state['input_pending']=True
                 elif boundary=='deadline':d.stop_ns=now
                 else:
@@ -186,7 +266,7 @@ class WalkTests(unittest.TestCase):
                     self.assertEqual(0,p.worker(args))
                 r=p.read_report(Path(folder)/'report.json',run_id,start)
                 self.assertEqual('internal_error',r['reason']);self.assertNotIn('SECRET',str(r))
-                self.assertEqual(not stale,r['walk']['paused'])
+                self.assertTrue(r['walk']['paused'])
                 self.assertEqual(['resume'] if stale else ['resume','pause'],
                                  [a['action'] for a in r['walk']['actions']])
                 self.assertEqual({'stage':'control','kind':'ValueError'},r['walk']['failure'])
@@ -257,7 +337,7 @@ class WalkTests(unittest.TestCase):
             d.last=dict(obs(),_captured=now[0]);target=now[0]+600_000_000
             # tapと名付けられた応答はgesture成功と扱わない。
             with patch.object(beat_sync,'next_target',return_value=target):
-                with self.assertRaises(ProbeError):d.perform('left',d.last,{'period_ns':520_000_000})
+                with self.assertRaises(ProbeError):d.perform('left',d.last,{'period_ns':520_000_000,'last_sample_ns':now[0]})
             self.assertTrue(d.pending);self.assertTrue(d.state['input_pending'])
             calls=len(d.client.calls);d.finish('batch_unknown',d.last)
             self.assertEqual(calls,len(d.client.calls))
@@ -331,12 +411,12 @@ class SyncDeadlineTests(unittest.TestCase):
                 self.assertTrue(all(t<start+12_000_000_000 for t in captures))
                 self.assertIsNone(d.model);self.assertEqual([],d.state['models'])
 
-    def test_15_fit_and_checkpoint_cannot_return_model_at_deadline(self):
+    def test_15_fit_and_track_cannot_return_model_at_deadline(self):
         from test_beat_sync import observations
         from necroprobe import beat_sync
         from types import SimpleNamespace
         samples=observations(9)
-        for boundary in ('fit','checkpoint','compatible_track'):
+        for boundary in ('fit','compatible_track'):
             with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder:
                 d,now=self.build(folder);now[0]=samples[-1 if boundary=='compatible_track' else 0]['http_end_ns'];start=now[0]
                 d.stop_ns=start+100_000_000_000;d.state['started_ns']=start
@@ -358,8 +438,7 @@ class SyncDeadlineTests(unittest.TestCase):
                     first=frames[-1]
                 else:first=frames[0]
                 d.last=first
-                if boundary=='checkpoint':d.checkpoint=lambda:now.__setitem__(0,start+12_000_000_000)
-                elif boundary=='compatible_track':d.track_beat=delayed_track
+                if boundary=='compatible_track':d.track_beat=delayed_track
                 else:d.fit_beat=delayed_fit
                 def observe():
                     d.last=next(pending_frames);now[0]=d.last['_http_end_ns'];return d.last
@@ -370,13 +449,13 @@ class SyncDeadlineTests(unittest.TestCase):
 
     def test_16_timeout_cleanup_refresh_failure_invalidates_last_and_never_retries(self):
         with tempfile.TemporaryDirectory() as folder:
-            d,now=self.build(folder);old=d.last
+            d,now=self.build(folder);old=d.last;old['_captured']=now[0]-3_000_000_001
             def fail():
                 self.assertIsNone(d.last);self.assertTrue(d.finishing)
                 raise ProbeError('connection_error')
             with patch.object(d,'observe',side_effect=fail) as capture:
                 with self.assertRaises(ProbeError):d.finish('beat_sync_timeout',old)
-                d.finish('beat_sync_timeout',old)
+                d.finish('host_observation_expired',old)
             self.assertEqual(1,capture.call_count);self.assertIsNone(d.last)
             self.assertNotIn('run_steps',d.client.calls);self.assertFalse(d.state['paused'])
 
@@ -394,9 +473,10 @@ class SyncDeadlineTests(unittest.TestCase):
             def call(self,method,params,timeout):
                 if method=='screenshot':self.calls.append(method);return RpcReply(payload,{})
                 return super().call(method,params,timeout)
-        for boundary in ('floor','pause','unknown','pending','state_pending','other_app','deadline','previous_pause'):
-            with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder:
-                d,now=self.build(folder);d.client=Capture();old=d.last
+        for boundary in ('floor','pause','unknown','pending','state_pending','other_app','deadline','previous_pause','cancel'):
+            with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
+                 patch.object(p.base.supervisor,'_cancel_requested',boundary=='cancel'):
+                d,now=self.build(folder);d.client=Capture();old=d.last;old['_captured']=now[0]-3_000_000_001
                 if boundary=='pending':d.pending=True
                 if boundary=='state_pending':d.state['input_pending']=True
                 if boundary=='other_app':d.client.system={'foreground_app':'other','screen_locked':False}
@@ -409,7 +489,7 @@ class SyncDeadlineTests(unittest.TestCase):
                      patch.object(beat_sync,'extract',side_effect=AssertionError('heavy beat extraction')):
                     try:d.finish('beat_sync_timeout',old)
                     except ProbeError:pass
-                    d.finish('beat_sync_timeout',d.last)
+                    d.finish('host_observation_expired',d.last)
                 self.assertEqual(1 if boundary=='floor' else 0,d.client.calls.count('run_steps'))
                 self.assertEqual(boundary in ('floor','pause'),d.state['paused'])
                 self.assertEqual(2 if boundary=='floor' else 1 if boundary in ('pause','unknown') else 0,
@@ -457,13 +537,13 @@ class SyncDeadlineTests(unittest.TestCase):
             self.assertGreater(after['_http_start_ns'],before['_http_end_ns'])
             self.assertFalse(d.state['device_timing_verified'])
 
-    def test_19_test021_report_engine_enum(self):
+    def test_19_test022_report_engine_enum(self):
         from types import SimpleNamespace
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-021',r['test_id']);self.assertEqual('shop-walk-v6',r['revision'])
-            self.assertEqual('runtime/test-021',p.parser().parse_args([]).output)
+            self.assertEqual('TEST-022',r['test_id']);self.assertEqual('shop-walk-v7',r['revision'])
+            self.assertEqual('runtime/test-022',p.parser().parse_args([]).output)
             self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
             self.assertEqual(motion_stats.ENGINE,r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):
@@ -516,7 +596,7 @@ class SyncDeadlineTests(unittest.TestCase):
             self.assertGreater(d.budget(),0)
 
     @contextmanager
-    def measured_runtime(self,folder):
+    def measured_runtime(self,folder,test021=False):
         """TEST-018実測相当の各工程費用。HUD抽出/標本化/fit/拍計算は実物。"""
         import base64,io
         from necroprobe import gold_scan,shop_navigation,beat_sync
@@ -530,9 +610,9 @@ class SyncDeadlineTests(unittest.TestCase):
         validator=p.WalkClient(lambda *a:None);validator.walking=True
         class Transport(LiveStub):
             def call(self,method,params,timeout):
-                if method=='device_info':now[0]+=120_000_000
+                if method=='device_info':now[0]+=130_000_000 if test021 else 120_000_000
                 if method=='screenshot':
-                    self.calls.append(method);start=now[0];now[0]+=450_000_000
+                    self.calls.append(method);start=now[0];now[0]+=622_794_000 if test021 else 450_000_000
                     captures.append((start,getattr(d,'beat_only',False)))
                     midpoint=(start+now[0])//2
                     with hud((.23-(midpoint-origin)/520_000_000)%1) as image:
@@ -547,10 +627,17 @@ class SyncDeadlineTests(unittest.TestCase):
                 return super().call(method,params,timeout)
         def basic(image):now[0]+=125_000_000;return deepcopy(A)
         def navigation(image):
-            now[0]+=1_012_000_000;fresh=deepcopy(scene);scenes.append(fresh);return fresh
+            now[0]+=1_538_909_000 if test021 else 1_012_000_000
+            fresh=deepcopy(scene);scenes.append(fresh);return fresh
         extract=beat_sync.extract
         def beat(image):now[0]+=62_000_000;return extract(image)
         d.client=Transport()
+        if test021:
+            checkpoint=d.checkpoint
+            def save_checkpoint():
+                checkpoint();now[0]+=155_000_000
+                d.report['checkpoint_ms'][-1]=155
+            d.checkpoint=save_checkpoint
         with patch.object(gold_scan,'analyze_image',side_effect=basic), \
              patch.object(shop_navigation,'scan',side_effect=navigation), \
              patch.object(beat_sync,'extract',side_effect=beat):
@@ -607,7 +694,7 @@ class SyncDeadlineTests(unittest.TestCase):
                     'stale':'navigation_unknown','light_capture':'connection_error',
                     'sync':'beat_sync_timeout','session':'session_deadline','walk':'walk_limit',
                     'capture':'connection_error','foreground':'foreground_not_verified',
-                    'tracking':'beat_unconfirmed','checkpoint':OSError}
+                    'tracking':'beat_unconfirmed'}
         for boundary,expected in boundaries.items():
             with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
                  self.measured_runtime(folder) as (d,now,captures,scenes,sent):
@@ -629,10 +716,9 @@ class SyncDeadlineTests(unittest.TestCase):
                     return fresh
                 def tracking(model):return None if boundary=='tracking' else track(model)
                 with patch.object(d,'observe',side_effect=handoff),patch.object(d,'track_beat',side_effect=tracking):
-                    if boundary=='checkpoint':d.checkpoint=lambda:(_ for _ in ()).throw(OSError('write failed'))
-                    with self.assertRaises(OSError if expected is OSError else ProbeError) as caught:
+                    with self.assertRaises(ProbeError) as caught:
                         d.synchronize(first)
-                if expected is not OSError:self.assertEqual(expected,caught.exception.code)
+                self.assertEqual(expected,caught.exception.code)
                 self.assertEqual([],sent);self.assertIsNone(d.model)
                 self.assertFalse(d.beat_only);self.assertIsNone(d.sync_deadline)
 
@@ -687,7 +773,7 @@ class SyncDeadlineTests(unittest.TestCase):
                     d.checkpoint=late_checkpoint
                 self.assertIsNotNone(beat_sync.next_target(model,now[0]))
                 with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
-                self.assertEqual('beat_unconfirmed',caught.exception.code)
+                self.assertEqual('dispatch_window_expired',caught.exception.code)
                 self.assertLess(now[0],target);self.assertLess(now[0]-before['_captured'],3_000_000_000)
                 self.assertEqual([],sent);self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
 
@@ -770,29 +856,39 @@ class SyncDeadlineTests(unittest.TestCase):
                 self.assertEqual(boundary=='pending',d.pending)
                 self.assertEqual(boundary=='pending',d.state['input_pending'])
 
-    def test_31_accept_history_is_bounded_and_rechecks_after_checkpoint(self):
+    def test_31_pending_checkpoint_persists_bounded_model_history_then_rechecks_limits(self):
         from necroprobe import beat_sync
-        for boundary in ('valid','frame','model','walk'):
+        for boundary in ('valid','frame','model','walk','session'):
             with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
                  self.measured_runtime(folder) as (d,now,captures,scenes,sent):
                 d.synchronize(d.observe());current=d.observe()
                 previous=d.model;d.state['models']=[deepcopy(previous) for _ in range(p.MAX_STEPS+1)]
+                with patch.object(d,'checkpoint') as accept_checkpoint:
+                    result,model=d.synchronize(current)
+                accept_checkpoint.assert_not_called()
+                self.assertIs(current,result);self.assertEqual(model,d.state['models'][-1])
                 checkpoint=d.checkpoint
+                saved=[]
                 def check():
                     checkpoint()
+                    if not d.pending:return
+                    saved.append(p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns']))
                     if boundary=='frame':current['_captured']=now[0]-beat_sync.FRESH_NS-1
                     if boundary=='model':d.state['models'][-1]['last_sample_ns']=now[0]-beat_sync.FRESH_NS-1
                     if boundary=='walk':d.state['started_ns']=now[0]-p.WALK_SECONDS*1_000_000_000
+                    if boundary=='session':d.stop_ns=now[0]
                 with patch.object(d,'checkpoint',side_effect=check):
-                    if boundary=='valid':
-                        result,model=d.synchronize(current)
-                        self.assertIs(current,result);self.assertEqual(model,d.state['models'][-1])
+                    if boundary=='valid':d.perform('left',current,model)
                     else:
-                        with self.assertRaises(ProbeError) as caught:d.synchronize(current)
-                        self.assertEqual({'frame':'navigation_unknown','model':'beat_unconfirmed','walk':'walk_limit'}[boundary],caught.exception.code)
-                        self.assertIsNone(d.model)
+                        with self.assertRaises(ProbeError) as caught:d.perform('left',current,model)
+                        self.assertEqual({'frame':'dispatch_window_expired','model':'dispatch_window_expired',
+                                          'walk':'walk_limit','session':'session_deadline'}[boundary],caught.exception.code)
+                self.assertEqual(1,len(saved));self.assertTrue(saved[0]['walk']['input_pending'])
+                self.assertEqual('unknown',saved[0]['walk']['actions'][-1]['outcome'])
+                self.assertIsNone(saved[0]['walk']['actions'][-1]['target_ns'])
+                self.assertEqual(previous['mode'],saved[0]['walk']['models'][-1]['mode'])
                 self.assertEqual(p.MAX_STEPS+1,len(d.state['models']))
-                self.assertEqual([],sent)
+                self.assertEqual(1 if boundary=='valid' else 0,len(sent))
 
     def test_32_input_model_age_three_second_boundary(self):
         from necroprobe import beat_sync
@@ -807,8 +903,8 @@ class SyncDeadlineTests(unittest.TestCase):
                     self.assertEqual([p.move_batch('left')],sent)
                 else:
                     with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
-                    self.assertEqual('beat_unconfirmed',caught.exception.code);self.assertEqual([],sent)
-                self.assertEqual(age,now[0]-model['last_sample_ns'])
+                    self.assertEqual('dispatch_window_expired',caught.exception.code);self.assertEqual([],sent)
+                self.assertEqual(age,target-p.LEAD_NS-model['last_sample_ns'])
                 self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
 
     def test_33_before_frame_export_roundtrip_keeps_report_valid(self):
@@ -859,7 +955,7 @@ class SyncDeadlineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,captures,scenes,sent):
             before,model=d.synchronize(d.observe())
             # 次の前面120ms/保存60msは直前の20ms/10msより遅い。
-            d.report['foreground_ms'][-1]=20;d.report['checkpoint_ms'][-1]=10
+            d.report['foreground_ms'][-1]=20;d.report['checkpoint_ms']=[10]
             target=now[0]+600_000_000;events=[];checkpoint=d.checkpoint;sleeper=d.sleeper
             def save_checkpoint():
                 events.append(('checkpoint',now[0]));checkpoint();now[0]+=60_000_000
@@ -1026,5 +1122,96 @@ class SyncDeadlineTests(unittest.TestCase):
             self.assertTrue(d.state['input_pending']);self.assertIsNone(d.last)
             p.write(folder,d.outer)
             p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])
+
+    def test_43_test021_cost_selects_nearest_beat_after_single_pending_checkpoint(self):
+        with tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder,test021=True) as (d,now,captures,scenes,sent):
+            first=d.observe();checkpoints=len(d.report['checkpoint_ms'])
+            before,model=d.synchronize(first)
+            self.assertEqual(checkpoints,len(d.report['checkpoint_ms']))
+            self.assertEqual(2_348_703_000,now[0]-before['_captured'])
+            stored=[];checkpoint=d.checkpoint
+            def save_pending():
+                checkpoint()
+                if d.pending:stored.append(deepcopy(d.outer))
+            with patch.object(d,'checkpoint',side_effect=save_pending):d.perform('left',before,model)
+            self.assertEqual([p.move_batch('left')],sent)
+            self.assertEqual(1,len(stored));self.assertEqual(model,stored[0]['walk']['models'][-1])
+            entry=d.state['actions'][-1]
+            self.assertLessEqual(entry['issued_ns']-before['_captured'],3_000_000_000)
+            self.assertEqual(p.LEAD_NS,entry['target_ns']-entry['issued_ns'])
+
+    def test_44_infeasible_dispatch_window_stops_before_wait_and_rpc(self):
+        from necroprobe import beat_sync
+        for boundary in ('frame','model','foreground','session','walk'):
+            with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
+                 self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                before,model=d.synchronize(d.observe());model=deepcopy(model)
+                target=now[0]+600_000_000;until=target-p.LEAD_NS
+                if boundary=='frame':before['_captured']=until-beat_sync.FRESH_NS-1
+                elif boundary=='model':model['last_sample_ns']=until-beat_sync.FRESH_NS-1
+                elif boundary=='foreground':target=now[0]+1_400_000_000
+                elif boundary=='session':d.stop_ns=until
+                else:d.state['started_ns']=until-p.WALK_SECONDS*1_000_000_000
+                with patch.object(beat_sync,'next_target',return_value=target), \
+                     patch.object(d,'sleeper',side_effect=AssertionError('infeasible wait started')):
+                    with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
+                self.assertEqual('dispatch_window_expired',caught.exception.code)
+                self.assertEqual([],sent);self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
+                entry=d.state['actions'][-1]
+                self.assertEqual('not_requested',entry['outcome']);self.assertIsNone(entry['issued_ns'])
+                self.assertEqual({},entry['rpc_timings'])
+
+    def test_45_cleanup_refreshes_stale_or_missing_frame_once_for_any_reason(self):
+        for reason in ('host_observation_expired','dispatch_window_expired','internal_error','beat_sync_timeout'):
+            for missing in (False,True):
+                with self.subTest(reason=reason,missing=missing),tempfile.TemporaryDirectory() as folder:
+                    d,now=self.build(folder);old=d.last
+                    if missing:d.last=None;old=None
+                    else:old['_captured']=now[0]-3_000_000_001
+                    def failed_capture():
+                        self.assertIsNone(d.last);self.assertTrue(d.finishing)
+                        raise ProbeError('connection_error')
+                    with patch.object(d,'observe',side_effect=failed_capture) as capture:
+                        with self.assertRaises(ProbeError):d.finish(reason,old)
+                        d.finish('navigation_unknown',old)
+                    self.assertEqual(1,capture.call_count);self.assertIsNone(d.last)
+                    self.assertNotIn('run_steps',d.client.calls)
+
+    def test_50_pending_checkpoint_or_target_exception_cannot_send_or_cleanup(self):
+        from necroprobe import beat_sync
+        for boundary in ('checkpoint','target'):
+            with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
+                 self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                before,model=d.synchronize(d.observe());checkpoint=d.checkpoint;next_target=beat_sync.next_target
+                def persist():
+                    checkpoint()
+                    if boundary=='checkpoint':raise OSError('simulated output failure')
+                def target(*args,**kwargs):
+                    if d.pending:raise RuntimeError('simulated target failure')
+                    return next_target(*args,**kwargs)
+                with patch.object(d,'checkpoint',side_effect=persist),patch.object(beat_sync,'next_target',side_effect=target):
+                    with self.assertRaises(OSError if boundary=='checkpoint' else RuntimeError):d.perform('left',before,model)
+                persisted=p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])
+                self.assertEqual(model,persisted['walk']['models'][-1])
+                self.assertTrue(persisted['walk']['input_pending']);self.assertTrue(d.pending)
+                self.assertEqual('unknown',persisted['walk']['actions'][-1]['outcome'])
+                calls=len(d.client.calls);d.finish('internal_error',d.last)
+                self.assertEqual(calls,len(d.client.calls));self.assertEqual([],sent)
+
+    def test_51_preparation_model_expiry_is_distinct_from_invalid_model(self):
+        from necroprobe import beat_sync
+        for invalid in (False,True):
+            with self.subTest(invalid=invalid),tempfile.TemporaryDirectory() as folder, \
+                 self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                before,model=d.synchronize(d.observe());checkpoint=d.checkpoint
+                def change():
+                    checkpoint()
+                    if invalid:model['residual_cycles']=float('inf')
+                    else:now[0]=model['last_sample_ns']+beat_sync.FRESH_NS+1
+                with patch.object(d,'checkpoint',side_effect=change), \
+                     patch.object(d,'sleeper',side_effect=AssertionError('expired wait started')):
+                    with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
+                self.assertEqual('beat_unconfirmed' if invalid else 'dispatch_window_expired',caught.exception.code)
+                self.assertEqual([],sent);self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
 
 if __name__=='__main__':unittest.main()
