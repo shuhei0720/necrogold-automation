@@ -158,7 +158,7 @@ class WalkTests(unittest.TestCase):
             self.assertEqual(20,len(d.state['actions']));self.assertEqual(1,d.state['started_ns'])
             r=p.new_report(1,'5'*32);r['walk']=d.state
             p.write(folder,r);p.read_report(Path(folder)/'report.json','5'*32,1)
-            r['walk']['actions'].append(deepcopy(r['walk']['actions'][-1]));p.write(folder,r)
+            r['walk']['actions'] += [deepcopy(r['walk']['actions'][-1]) for _ in range(p.MAX_ACTIONS+1-len(r['walk']['actions']))];p.write(folder,r)
             with self.assertRaises((ValueError,ProbeError)):p.read_report(Path(folder)/'report.json','5'*32,1)
             d=ExpiringFake([obs(),obs()],['expired']);now=[1];d.clock=lambda:now[0]
             observe=d.observe
@@ -552,8 +552,8 @@ class SyncDeadlineTests(unittest.TestCase):
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-025',r['test_id']);self.assertEqual('shop-walk-v10',r['revision'])
-            self.assertEqual('runtime/test-025',p.parser().parse_args([]).output)
+            self.assertEqual('TEST-026',r['test_id']);self.assertEqual('shop-walk-v11',r['revision'])
+            self.assertEqual('runtime/test-026',p.parser().parse_args([]).output)
             self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
             self.assertEqual(motion_stats.ENGINE,r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):

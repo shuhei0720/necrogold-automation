@@ -20,40 +20,31 @@ class BurstTests(unittest.TestCase):
         scene.gold = {(-3, 0)}
         return frame
 
-    def test_two_separate_touches_use_live_period_and_exact_allowlist(self):
-        client = p.WalkClient(lambda *a: None);client.walking = True
-        for period in (515_000_000, 521_234_567, 530_000_000):
-            for direction, (x, y) in p.MOVE_POINTS.items():
-                params = p.move_batch(direction, 2, period)
-                paths = params['steps'][1]['params']['fingers']
-                self.assertEqual([[{'x': x, 'y': y, 't': 0}, {'x': x, 'y': y, 't': .05}],
-                                  [{'x': x, 'y': y, 't': period/1e9},
-                                   {'x': x, 'y': y, 't': (period+50_000_000)/1e9}]], paths)
-                client._validate('run_steps', params)
-                for mutate in (lambda q: q['steps'][1]['params']['fingers'].append(paths[0]),
-                               lambda q: q['steps'][1]['params']['fingers'][1][0].update(x=x+1),
-                               lambda q: q['steps'][1]['params']['fingers'][1][0].update(t=float('nan')),
-                               lambda q: q['steps'][1]['params']['fingers'][1][0].update(t=.4),
-                               lambda q: q['steps'][1]['params']['fingers'][1][1].update(t=.99)):
-                    invalid = deepcopy(params);mutate(invalid)
-                    with self.assertRaises(ProbeError):client._validate('run_steps', invalid)
-        for count, period in ((True, None), (0, None), (3, 520_000_000), (2, True),
-                              (2, 514_999_999), (2, 530_000_001), (2, float('inf'))):
-            with self.assertRaises(ProbeError):p.move_batch('left', count, period)
+    def test_only_single_touch_payload_is_authorized(self):
+        client=p.WalkClient(lambda *a:None);client.walking=True
+        for direction,(x,y) in p.MOVE_POINTS.items():
+            params=p.move_batch(direction);client._validate('run_steps',params)
+            self.assertEqual([[{'x':x,'y':y,'t':0},{'x':x,'y':y,'t':.05}]],params['steps'][1]['params']['fingers'])
+            old_pair=deepcopy(params)
+            old_pair['steps'][1]['params']['fingers'].append([{'x':x,'y':y,'t':.522},{'x':x,'y':y,'t':.572}])
+            with self.assertRaises(ProbeError):client._validate('run_steps',old_pair)
+        for count,period in ((2,522_000_000),(True,None),(0,None),(3,520_000_000),(2,True),(2,float('inf'))):
+            with self.assertRaises(ProbeError):p.move_batch('left',count,period)
 
     def test_dispatch_pair_and_report_roundtrip(self):
         with tempfile.TemporaryDirectory() as folder, self.measured_runtime(folder) as (d, now, _, _, sent):
             before, model = d.synchronize(d.observe());self.corridor(before)
             count = d.perform('left', before, model, count=2)
             self.assertEqual(2, count)
-            self.assertEqual(p.move_batch('left', 2, model['period_ns']), sent[-1])
+            self.assertEqual([p.move_batch('left')]*2, sent)
+            self.assertEqual(model['period_ns'], d.state['actions'][1]['target_ns']-d.state['actions'][0]['target_ns'])
             entry = d.state['actions'][-1]
-            self.assertEqual((2, 2, model['period_ns']),
+            self.assertEqual((1, 1, None),
                              (entry['requested_inputs'], entry['scheduled_inputs'], entry['period_ns']))
             p.write(folder, d.outer)
             p.read_report(Path(folder)/'report.json', d.outer['run_id'], d.outer['start_ns'])
-            for field, value in (('scheduled_inputs', 3), ('scheduled_inputs', True),
-                                 ('requested_inputs', 1), ('period_ns', 530_000_001)):
+            for field, value in (('scheduled_inputs', 2), ('scheduled_inputs', True),
+                                 ('requested_inputs', 0), ('period_ns', 530_000_001)):
                 bad = deepcopy(d.outer);bad['walk']['actions'][-1][field] = value;p.write(folder, bad)
                 with self.assertRaises(ValueError):p.read_report(Path(folder)/'report.json', d.outer['run_id'], d.outer['start_ns'])
 
@@ -78,8 +69,9 @@ class BurstTests(unittest.TestCase):
                     with patch.object(beat_sync, 'next_target', return_value=target):
                         count = d.perform('left', before, model, count=2)
                     self.assertEqual(1 if slack < 0 else 2, count)
-                    self.assertEqual(count, len(sent[-1]['steps'][1]['params']['fingers']))
-                    self.assertEqual(count, d.state['actions'][-1]['scheduled_inputs'])
+                    self.assertEqual(count,len(sent))
+                    self.assertTrue(all(len(q['steps'][1]['params']['fingers'])==1 for q in sent))
+                    self.assertEqual(count,sum(a['scheduled_inputs'] for a in d.state['actions']))
 
     def test_pair_cannot_bypass_route_or_input_limit(self):
         with tempfile.TemporaryDirectory() as folder, self.measured_runtime(folder) as (d, now, _, _, sent):
@@ -176,7 +168,7 @@ class BurstTests(unittest.TestCase):
                 with self.assertRaises(ProbeError):d.perform('left',before,model,count=2)
                 d.finish('movement_unconfirmed',before)
             self.assertTrue(d.pending);self.assertEqual(1,len(d.state['actions']))
-            self.assertEqual(2,d.state['actions'][0]['scheduled_inputs'])
+            self.assertEqual(1,d.state['actions'][0]['scheduled_inputs'])
             with self.assertRaises(ProbeError):d.perform('left',before,model,count=2)
 
     def test_failed_early_tracking_never_marks_frame_accepted(self):
