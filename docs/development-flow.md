@@ -1,5 +1,7 @@
 # 採用するAI駆動開発フロー
 
+最新の適用状況: TEST-035は実機TEST034の結果を受けた修正単位。プランの設計/試験/安全レビュー2周、挙動Red→Green、実装の3観点レビューと45秒境界修正を実施。実機での人間レビューは次の試験で行います。以下はフロー原則と過去の適用履歴です。現在の状態は[実機台帳](device-tests/README.md#test-035実行手順)を優先します。
+
 ユーザー指定の [AI-Driven-Development Codex版](https://github.com/shuhei0720/AI-Driven-Development/blob/3cf01c46395e83696ba8900e429297ff5f249e2f/AI-Driven-Development-CAF-ALZ-Codex.md) を確認しました。
 
 参照commit: `3cf01c46395e83696ba8900e429297ff5f249e2f`、文書blob: `646fc7225c3b08d4073b59a4d862b3f52294b800`。2026-11-05（日本時間）確認。

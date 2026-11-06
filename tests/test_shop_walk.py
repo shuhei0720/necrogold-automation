@@ -555,8 +555,8 @@ class SyncDeadlineTests(unittest.TestCase):
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-034',r['test_id']);self.assertEqual('shop-walk-v19',r['revision'])
-            self.assertEqual('runtime/test-034',p.parser().parse_args([]).output)
+            self.assertEqual('TEST-035',r['test_id']);self.assertEqual('shop-walk-v20',r['revision'])
+            self.assertEqual('runtime/test-035',p.parser().parse_args([]).output)
             self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
             self.assertEqual(motion_stats.ENGINE,r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):
@@ -1322,7 +1322,9 @@ class SyncDeadlineTests(unittest.TestCase):
                 entry=d.state['actions'][-1]
                 self.assertEqual([{'target_ns':waits[0],'checked_ns':waits[0]-p.LEAD_NS+20_000_000,'status':'late'},
                                   {'target_ns':waits[1],'checked_ns':now[0],'status':'late' if second_late else 'ready'}],
-                                 entry['target_checks'])
+                                 [{key:check[key] for key in ('target_ns','checked_ns','status')}
+                                  for check in entry['target_checks']])
+                self.assertTrue(all(check['window']['stage']=='dispatch' for check in entry['target_checks']))
                 self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
                 self.assertEqual('not_requested' if second_late else 'acknowledged',entry['outcome'])
                 self.assertEqual(None if second_late else waits[1]-p.LEAD_NS,entry['issued_ns'])

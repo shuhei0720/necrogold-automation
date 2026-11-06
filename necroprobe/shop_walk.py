@@ -1,4 +1,4 @@
-"""TEST-034: 最初の実1歩で先行量を選び、直線を最大4拍続ける限定版。
+"""TEST-035: 有限の先行量試行ごとに全画像を更新する限定版。
 
 HTTP中点と150ms先行は未校正の推定。予定拍での実受付を保証しない。
 """
@@ -19,7 +19,7 @@ from . import VERSION, restart_loop as base
 from .validation import ProbeError, json_object
 from .input_timing import LEADS_NS,OBSERVE_DELAY_NS,eligible as timing_eligible
 
-REVISION='shop-walk-v19'
+REVISION='shop-walk-v20'
 MOVE_POINTS={'up':(290,838),'down':(124,838),'left':(207,49),'right':(207,838)}
 DIRECTIONS={'up':(0,-1),'down':(0,1),'left':(-1,0),'right':(1,0)}
 MAX_STEPS=16
@@ -37,7 +37,7 @@ PAUSE_FRAME_NS=2_000_000_000  # 通常の停止準備へ1秒を残す。最終3�
 RPC_TIMING_FIELDS=('request_start_ns','http_start_ns','http_end_ns','response_end_ns')
 REASONS={'goods_visible','goods_partial','no_safe_path','movement_unconfirmed','unexpected_movement',
          'beat_unconfirmed','beat_sync_timeout','walk_limit','gold_not_found','approach','navigation_unknown',
-         'walk_analysis_failed','dispatch_window_expired','sequence_window_short','timing_not_found'}
+         'walk_analysis_failed','dispatch_window_expired','sequence_window_short','timing_not_found','timing_scene_changed'}
 FAILURE_KINDS={'TypeError','ValueError','AttributeError','IndexError','KeyError','OverflowError','MemoryError','RuntimeError','other'}
 VERSION_PATTERN=r'[0-9][0-9A-Za-z.+_-]{0,31}'
 
@@ -88,7 +88,7 @@ def new_walk():
 
 
 def new_report(start,run_id):
-    return {'version':VERSION,'test_id':'TEST-034','revision':REVISION,'run_id':run_id,
+    return {'version':VERSION,'test_id':'TEST-035','revision':REVISION,'run_id':run_id,
         'start_ns':start,'end_ns':None,'phase':'search','status':'running','reason':None,
         'control_reason':None,'control_end_ns':None,'worker_returncode':None,'worker_exit_confirmed':None,
         'search':base.new_report(start,run_id),'walk':new_walk()}
@@ -102,7 +102,7 @@ def read_report(path,run_id,start):
     with Path(path).open('rb') as source:r=json_object(source.read(131073),131072)
     req=base.supervisor.require
     req(type(r) is dict and set(r)==set(new_report(start,run_id)))
-    for k,v in [('version',VERSION),('test_id','TEST-034'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
+    for k,v in [('version',VERSION),('test_id','TEST-035'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
         req(type(r[k]) is type(v) and r[k]==v)
     req(r['phase'] in ('search','walk','done'))
     req(r['status'] in ('running','completed','stopped'))
@@ -162,9 +162,16 @@ def read_report(path,run_id,start):
         req(type(checks) is list and len(checks)<=MAX_TARGET_ATTEMPTS)
         req(a['action'] in MOVE_POINTS or not checks)
         for check in checks:
-            req(type(check) is dict and set(check)=={'target_ns','checked_ns','status'})
+            req(type(check) is dict and set(check) in ({'target_ns','checked_ns','status'},
+                                                     {'target_ns','checked_ns','status','window'}))
             req(all(type(check[key]) is int and start<=check[key]<2**63 for key in ('target_ns','checked_ns')))
             req(type(check['status']) is str and check['status'] in ('ready','late','expired'))
+            if 'window' in check:
+                window=check['window']
+                req(type(window) is dict and set(window)=={'stage','frame_ns','phase_ns','foreground_ns','required_end_ns'})
+                req(type(window['stage']) is str and window['stage'] in ('preflight','dispatch','followup'))
+                req(all(type(window[key]) is int and 0<=window[key]<2**63
+                        for key in ('frame_ns','phase_ns','foreground_ns','required_end_ns')))
         req(a['outcome'] in ('not_requested','unknown','not_sent','acknowledged'))
         req(a['reason'] is None or type(a['reason']) is str and code(a['reason'])==a['reason'])
         for k in ('requested_ns','issued_ns','completed_ns','target_ns'):
@@ -184,10 +191,16 @@ class Driver(base.RuntimeDriver):
         self.outer=outer;self.state=outer['walk'];self.model=None;self.samples=[];self.visits={(0,0):1}
         self.analysis_failed=False;self.finishing=False;self.finish_refresh_attempted=False;self.sync_deadline=None
         self.beat_only=False;self.tracked_frame=None;self._followup_token=None;self.entrance=None
+        self.timing_anchor=None
         super().__init__(client,outer['search'],folder,stop_ns,clock,control,self.analyze_frame)
     def budget(self):
         if base.supervisor._cancel_requested:raise ProbeError('cancelled')
         remaining=super().budget()
+        # observeの前面照会中にも時間は進む。screenshot直前のbudgetで再検査する。
+        # 終了後のポーズ確認は歩行継続とは別なので、session期限内で従来どおり許可する。
+        if (not self.finishing and self.outer['phase']=='walk' and self.state['started_ns'] is not None
+                and self.clock()-self.state['started_ns']>=WALK_SECONDS*1_000_000_000):
+            raise ProbeError('walk_limit')
         # observe内の前面確認が長引いても、期限後のscreenshotを開始しない。
         if self.sync_deadline is not None and self.clock()>=self.sync_deadline:
             self.model=None
@@ -255,6 +268,14 @@ class Driver(base.RuntimeDriver):
         return (self.state['lead_confirmed'] or not trials or
                 trials[-1]['motion']=='blocked' and direction==trials[-1]['direction']
                 and timing_eligible(self.scene(obs),direction))
+    def check_timing_scene(self,obs):
+        """blocked試行後の基準は、未送信回復と同期をまたいでも保持する。"""
+        if self.timing_anchor is None or self.goods(obs)=='visible':return
+        gold,direction=self.timing_anchor
+        scene=self.scene(obs)
+        if (obs is not self.last or obs.get('state')!='floor' or not timing_eligible(scene,direction)
+                or frozenset(scene.gold)!=gold or self.choose(obs).get('direction')!=direction):
+            raise ProbeError('timing_scene_changed')
     def timing_result(self,before,after,direction,outcome,count):
         state=self.state;trials=state['lead_trials']
         if (state['lead_confirmed'] or self.pending or state['input_pending'] or count!=1
@@ -345,6 +366,7 @@ class Driver(base.RuntimeDriver):
         def accept(frame,model):
             check_deadline()
             if not latest_full(frame):raise ProbeError('navigation_unknown')
+            self.check_timing_scene(frame)
             if beat_sync.next_target(model,self.clock()) is None:raise ProbeError('beat_unconfirmed')
             self.remember_model(model)
             # 採用モデルは入力前のpending checkpointでまとめて永続化する。
@@ -357,6 +379,7 @@ class Driver(base.RuntimeDriver):
             self.beat_only=False
             check_deadline();fresh=self.observe();check_deadline()
             if self.goods(fresh)=='visible':return fresh,None
+            self.check_timing_scene(fresh)
             if not latest_full(fresh):raise ProbeError('navigation_unknown')
             latest=self.add_sample(fresh)
             updated=self.track_beat(model) if latest is not None else None
@@ -365,6 +388,7 @@ class Driver(base.RuntimeDriver):
         print('拍同期: 開始（最大%d秒）'%SYNC_SECONDS,flush=True)
         check_deadline()
         if self.goods(obs)=='visible':return obs,None
+        self.check_timing_scene(obs)
         if self.model is not None:
             if obs is self.tracked_frame and latest_full(obs):return accept(obs,self.model)
             # 地形/位相が古くても周期の根拠は直ちに捨てず、full画像1回で追跡を試す。
@@ -425,6 +449,7 @@ class Driver(base.RuntimeDriver):
         requested=1 if moving else 0
         if moving and self.scene(obs) is None:raise ProbeError('navigation_unknown')
         if moving:
+            self.check_timing_scene(obs)
             if not self.timing_route_allowed(obs,action):raise ProbeError('method_not_allowed')
             if count>1 and not self.state['lead_confirmed'] and timing_eligible(movement_scene,action):raise ProbeError('method_not_allowed')
             remaining=MAX_STEPS-sum(a['scheduled_inputs'] for a in self.state['actions'])
@@ -487,7 +512,9 @@ class Driver(base.RuntimeDriver):
                         expired=now-model['last_sample_ns']>beat_sync.FRESH_NS
                         raise ProbeError('dispatch_window_expired' if expired else 'beat_unconfirmed')
                     entry['target_ns']=target;until=target-lead
-                    check={'target_ns':target,'checked_ns':now,'status':'expired'}
+                    check={'target_ns':target,'checked_ns':now,'status':'expired',
+                           'window':{'stage':'preflight','frame_ns':obs['_captured'],
+                                     'phase_ns':model['last_sample_ns'],'foreground_ns':front,'required_end_ns':until}}
                     entry['target_checks'].append(check)
                     if not (now<=until and 0<=until-obs['_captured']<=beat_sync.FRESH_NS
                             and 0<=until-model['last_sample_ns']<=beat_sync.FRESH_NS
@@ -499,12 +526,15 @@ class Driver(base.RuntimeDriver):
                     while self.clock()<until:
                         remain=self.budget();self.sleeper(min(.05,remain,max(0,(until-self.clock())/1e9)))
                 # 各待機後に取消/同一観測/商品/モデル/期限を再検査。遅れより優先する。
-                if moving:check['checked_ns']=self.clock()
+                if moving:
+                    check['checked_ns']=self.clock()
+                    check['window'].update(stage='dispatch',required_end_ns=check['checked_ns']+lead+50_000_000)
                 timeout=self.budget();now=self.clock()
                 current_checks(now)
                 timeout=self.budget();now=self.clock()
                 if moving:
                     check['checked_ns']=now
+                    check['window'].update(stage='dispatch',required_end_ns=now+lead+50_000_000)
                     if self.state['started_ns'] is not None and now-self.state['started_ns']>=WALK_SECONDS*1_000_000_000:
                         raise ProbeError('walk_limit')
                 if moving and now>until+DISPATCH_LATE_NS:
@@ -615,9 +645,13 @@ class Driver(base.RuntimeDriver):
                'issued_ns':None,'completed_ns':None,'target_ns':target,'rpc_timings':{},'target_checks':[],
                'requested_inputs':1,'scheduled_inputs':0,'period_ns':None,'planned_inputs':0,'dispatch_lead_ns':lead}
         self.state['actions'].append(entry)
-        check={'target_ns':target,'checked_ns':self.clock(),'status':'expired'}
+        check={'target_ns':target,'checked_ns':self.clock(),'status':'expired',
+               'window':{'stage':'followup','frame_ns':obs['_captured'],'phase_ns':model['last_sample_ns'],
+                         'foreground_ns':front,'required_end_ns':max(self.clock(),until)+lead+50_000_000}}
         entry['target_checks'].append(check)
         def validate():
+            check['checked_ns']=self.clock()
+            check['window']['required_end_ns']=max(check['checked_ns'],until)+lead+50_000_000
             timeout=self.budget()
             if (self.last is not None or self.scene(obs) is not scene or scene is None
                     or self.state['dispatch_lead_ns']!=lead or obs['state']!='floor' or self.state['goods_visible'] or self.goods(obs)=='visible'):
@@ -627,6 +661,7 @@ class Driver(base.RuntimeDriver):
                 raise ProbeError('beat_unconfirmed')
             if sum(a['scheduled_inputs'] for a in self.state['actions'])>=MAX_STEPS:raise ProbeError('walk_limit')
             timeout=self.budget();now=self.clock();check['checked_ns']=now
+            check['window']['required_end_ns']=max(now,until)+lead+50_000_000
             if now>until+DISPATCH_LATE_NS:
                 check['status']='late';raise ProbeError('dispatch_window_expired')
             planned_end=max(now,until)+lead+50_000_000
@@ -709,10 +744,14 @@ def walk(driver):
             driver.finish('goods_visible',obs);return
         if driver.clock()-w['started_ns']>=WALK_SECONDS*1_000_000_000:
             driver.finish('walk_limit',obs);return
+        if getattr(driver,'timing_anchor',None) is not None:
+            driver.budget();driver.check_timing_scene(obs)
         obs,model=driver.synchronize(obs)
         if driver.goods(obs)=='visible':
             w['goods_visible']=True;driver.save('found.jpg',obs);driver.checkpoint()
             driver.finish('goods_visible',obs);return
+        if getattr(driver,'timing_anchor',None) is not None:
+            driver.budget();driver.check_timing_scene(obs)
         decision=driver.choose(obs);direction=decision.get('direction')
         if direction not in MOVE_POINTS:
             driver.finish('goods_partial' if driver.goods(obs)=='partial' else 'no_safe_path',obs);return
@@ -755,7 +794,16 @@ def walk(driver):
         timing=driver.timing_result(before,after,direction,outcome,count)
         if timing=='exhausted':driver.finish('timing_not_found',after);return
         if timing=='retry':
-            obs=after;index+=count;continue
+            # 変位照合で約1.2秒古くなったafterを、次候補の入力許可へ流用しない。
+            # 入力済み・blocked確定後の通常観測であり、未送信回復の2回枠はリセットしない。
+            driver.timing_anchor=(frozenset(driver.scene(after).gold),direction)
+            driver.budget()
+            if index+count>MAX_STEPS or driver.clock()-w['started_ns']>=WALK_SECONDS*1_000_000_000:
+                driver.finish('walk_limit',after);return
+            driver.beat_only=False;obs=driver.observe()
+            driver.budget();driver.check_timing_scene(obs)
+            index+=count;continue
+        driver.timing_anchor=None
         print('歩行%d: %s / %d拍入力 / %s / 商品: %s'%(index,direction,count,outcome,driver.goods(after)),flush=True)
         if outcome not in ('moved','gate_entered','door_opened','terrain_opened'):
             driver.finish('unexpected_movement' if outcome=='unexpected' else 'movement_unconfirmed',after);return
@@ -765,8 +813,8 @@ def walk(driver):
 
 
 def parser():
-    ap=base.parser();ap.description='TEST-034: 金壁発見後、測定済み1-1周期範囲とHUDで商品が見える位置へ。'
-    ap.set_defaults(output='runtime/test-034');return ap
+    ap=base.parser();ap.description='TEST-035: 金壁発見後、測定済み1-1周期範囲とHUDで商品が見える位置へ。'
+    ap.set_defaults(output='runtime/test-035');return ap
 
 
 def worker(args):
@@ -826,7 +874,7 @@ def run(args):
         '--run-id',run_id,'--start-ns',str(start),'--stop-ns',str(start+180_000_000_000),'--token-store',args.token_store]
     if args.store_key is not None:command+=['--store-key',args.store_key]
     if args.python_crypto:command.append('--python-crypto')
-    print('TEST-034: 金壁→測定済み1-1周期範囲とライブHUD→新鮮な地形で商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
+    print('TEST-035: 金壁→測定済み1-1周期範囲とライブHUD→新鮮な地形で商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
     diagnostics={};reason=base.supervisor.supervise(command,max(.001,180-(time.monotonic_ns()-start)/1e9),diagnostics)
     try:r=read_report(control/'report.json',run_id,start)
     except (ValueError,OSError,ProbeError):r['search']['counts_certain']=False;reason=reason or 'report_read_failed'
@@ -853,8 +901,8 @@ def main(argv=None):
         def interrupt(_sig,_frame):base.supervisor._cancel_requested=True
         for sig in (signal.SIGINT,signal.SIGTERM):previous[sig]=signal.getsignal(sig);signal.signal(sig,interrupt)
     try:return run(args)
-    except ProbeError as exc:print('TEST-034停止: '+code(exc.code),file=sys.stderr);return 2
-    except OSError:print('TEST-034: 結果保存に失敗しました。',file=sys.stderr);return 2
+    except ProbeError as exc:print('TEST-035停止: '+code(exc.code),file=sys.stderr);return 2
+    except OSError:print('TEST-035: 結果保存に失敗しました。',file=sys.stderr);return 2
     finally:
         for sig,handler in previous.items():signal.signal(sig,handler)
 
