@@ -241,4 +241,201 @@ class WalkTests(unittest.TestCase):
                 with self.assertRaises(OSError):d.observe()
             self.assertTrue(d.state['goods_visible'])
 
+class SyncDeadlineTests(unittest.TestCase):
+    def build(self,folder):
+        from types import SimpleNamespace
+        from test_restart_loop import LiveStub
+        now=[1_000_000_000];r=p.new_report(now[0],'6'*32);r['phase']='walk'
+        d=p.Driver(LiveStub(),r,folder,now[0]+100_000_000_000,folder,clock=lambda:now[0])
+        d.state['started_ns']=now[0]
+        d.sleeper=lambda seconds:now.__setitem__(0,now[0]+round(seconds*1e9))
+        d.last=dict(obs(),_captured=now[0],_extra={'scene':SimpleNamespace(goods='unknown'),'beat':None})
+        return d,now
+
+    def test_13_sync_never_starts_capture_after_deadline_or_sleep_jitter(self):
+        for delay in (11_999_999_999,12_000_000_000,12_000_000_001):
+            with self.subTest(delay=delay),tempfile.TemporaryDirectory() as folder:
+                d,now=self.build(folder);start=now[0];captures=[]
+                d.sleeper=lambda seconds:now.__setitem__(0,now[0]+delay)
+                def capture():
+                    captures.append(now[0]);now[0]+=1;return d.last
+                with patch.object(d,'observe',side_effect=capture):
+                    with self.assertRaises(ProbeError) as caught:d.synchronize(d.last)
+                self.assertEqual('beat_sync_timeout',caught.exception.code)
+                self.assertEqual([start+delay] if delay<12_000_000_000 else [],captures)
+                self.assertIsNone(d.model)
+
+    def test_14_slow_observation_cannot_start_next_capture_or_supply_model(self):
+        for delay,expected in ((4_000_000_000,3),(12_000_000_000,1),(12_000_000_001,1)):
+            with self.subTest(delay=delay),tempfile.TemporaryDirectory() as folder:
+                d,now=self.build(folder);start=now[0];captures=[]
+                def capture():
+                    captures.append(now[0]);now[0]+=delay;return d.last
+                with patch.object(d,'observe',side_effect=capture):
+                    with self.assertRaises(ProbeError) as caught:d.synchronize(d.last)
+                self.assertEqual('beat_sync_timeout',caught.exception.code)
+                self.assertEqual(expected,len(captures))
+                self.assertTrue(all(t<start+12_000_000_000 for t in captures))
+                self.assertIsNone(d.model);self.assertEqual([],d.state['models'])
+
+    def test_15_fit_and_checkpoint_cannot_return_model_at_deadline(self):
+        from test_beat_sync import observations
+        from necroprobe import beat_sync
+        from types import SimpleNamespace
+        samples=observations(8)
+        for boundary in ('fit','checkpoint','compatible_fit'):
+            with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder:
+                d,now=self.build(folder);now[0]=samples[-1]['http_end_ns'];start=now[0]
+                d.stop_ns=start+100_000_000_000;d.state['started_ns']=start
+                def frame(sample):
+                    return dict(obs(),_captured=sample['http_start_ns'],
+                        _http_start_ns=sample['http_start_ns'],_http_end_ns=sample['http_end_ns'],
+                        _extra={'scene':SimpleNamespace(goods='unknown'),'beat':{
+                            'remaining':sample['remaining'],'spacing_px':104.,'center_px':446.}})
+                frames=[frame(sample) for sample in samples]
+                original_fit=d.fit_beat
+                def delayed_fit():
+                    result=original_fit();self.assertIsNotNone(result)
+                    now[0]=start+12_000_000_000;return result
+                if boundary=='compatible_fit':
+                    d.samples=samples[:-1];d.model=beat_sync.fit(samples)
+                    first=frames[-1]
+                else:first=frames[0]
+                if boundary=='checkpoint':d.checkpoint=lambda:now.__setitem__(0,start+12_000_000_000)
+                else:d.fit_beat=delayed_fit
+                with patch.object(d,'observe',side_effect=frames[1:]):
+                    with self.assertRaises(ProbeError) as caught:d.synchronize(first)
+                self.assertEqual('beat_sync_timeout',caught.exception.code);self.assertIsNone(d.model)
+
+    def test_16_timeout_cleanup_refresh_failure_invalidates_last_and_never_retries(self):
+        with tempfile.TemporaryDirectory() as folder:
+            d,now=self.build(folder);old=d.last
+            def fail():
+                self.assertIsNone(d.last);self.assertTrue(d.finishing)
+                raise ProbeError('connection_error')
+            with patch.object(d,'observe',side_effect=fail) as capture:
+                with self.assertRaises(ProbeError):d.finish('beat_sync_timeout',old)
+                d.finish('beat_sync_timeout',old)
+            self.assertEqual(1,capture.call_count);self.assertIsNone(d.last)
+            self.assertNotIn('run_steps',d.client.calls);self.assertFalse(d.state['paused'])
+
+    def test_17_timeout_cleanup_basic_capture_and_safety_boundaries(self):
+        import base64,io
+        from necroprobe import gold_scan,shop_navigation,beat_sync
+        from necroprobe.protocol import RpcReply
+        from test_source_geometry import geometry_payload
+        from test_gold_scan import floor
+        from test_restart_loop import LiveStub,A,P
+        buf=io.BytesIO();floor().save(buf,'JPEG')
+        _,payload=geometry_payload(p.base.resume.CAPTURE_PARAMS,size=(896,414),source_scale=2)
+        payload.update(data=base64.b64encode(buf.getvalue()).decode(),source_orientation=2)
+        class Capture(LiveStub):
+            def call(self,method,params,timeout):
+                if method=='screenshot':self.calls.append(method);return RpcReply(payload,{})
+                return super().call(method,params,timeout)
+        for boundary in ('floor','pause','unknown','pending','state_pending','other_app','deadline','previous_pause'):
+            with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder:
+                d,now=self.build(folder);d.client=Capture();old=d.last
+                if boundary=='pending':d.pending=True
+                if boundary=='state_pending':d.state['input_pending']=True
+                if boundary=='other_app':d.client.system={'foreground_app':'other','screen_locked':False}
+                if boundary=='deadline':d.stop_ns=now[0]
+                if boundary=='previous_pause':d.state['actions']=[{'action':'pause'}]
+                fresh=deepcopy(P if boundary=='pause' else A)
+                if boundary=='unknown':fresh['state']='unknown'
+                with patch.object(gold_scan,'analyze_image',side_effect=[fresh,deepcopy(P)]), \
+                     patch.object(shop_navigation,'scan',side_effect=AssertionError('heavy navigation')), \
+                     patch.object(beat_sync,'extract',side_effect=AssertionError('heavy beat extraction')):
+                    try:d.finish('beat_sync_timeout',old)
+                    except ProbeError:pass
+                    d.finish('beat_sync_timeout',d.last)
+                self.assertEqual(1 if boundary=='floor' else 0,d.client.calls.count('run_steps'))
+                self.assertEqual(boundary in ('floor','pause'),d.state['paused'])
+                self.assertEqual(2 if boundary=='floor' else 1 if boundary in ('pause','unknown') else 0,
+                                 d.client.calls.count('screenshot'))
+
+    def test_18_real_fit_to_fixed_gesture_and_fresh_observation(self):
+        import base64,io
+        from types import SimpleNamespace
+        from necroprobe import gold_scan,shop_navigation
+        from necroprobe.protocol import RpcReply
+        from test_source_geometry import geometry_payload
+        from test_restart_loop import LiveStub,A
+        from test_beat_sync import hud
+        with tempfile.TemporaryDirectory() as folder:
+            d,now=self.build(folder);origin=now[0];sent=[]
+            validator=p.WalkClient(lambda *a:None);validator.walking=True
+            class Transport(LiveStub):
+                def call(self,method,params,timeout):
+                    if method=='screenshot':
+                        self.calls.append(method);start=now[0];now[0]+=600_000_000
+                        midpoint=(start+now[0])//2
+                        with hud((.23-(midpoint-origin)/520_000_000)%1) as image:
+                            buf=io.BytesIO();image.save(buf,'JPEG')
+                        _,payload=geometry_payload(p.base.resume.CAPTURE_PARAMS,size=(896,414),source_scale=2)
+                        payload.update(data=base64.b64encode(buf.getvalue()).decode(),source_orientation=2)
+                        return RpcReply(payload,{'http_start_ns':start,'http_end_ns':now[0]})
+                    if method=='run_steps':
+                        validator._validate(method,params);sent.append(deepcopy(params))
+                        self.calls.append(method);reply=deepcopy(GOOD);reply['steps'][1]['method']='gesture'
+                        return RpcReply(reply,{})
+                    return super().call(method,params,timeout)
+            d.client=Transport()
+            with patch.object(gold_scan,'analyze_image',side_effect=lambda image:deepcopy(A)), \
+                 patch.object(shop_navigation,'scan',return_value=SimpleNamespace(goods='unknown')):
+                first=d.observe();before,model=d.synchronize(first)
+                self.assertIsNotNone(model);self.assertGreaterEqual(model['sample_count'],8)
+                self.assertLess(now[0]-origin,12_000_000_000)
+                self.assertAlmostEqual(520_000_000,model['period_ns'],delta=2_000_000)
+                d.perform('left',before,model);self.assertIsNone(d.last)
+                after=d.observe()
+            self.assertEqual([p.move_batch('left')],sent)
+            self.assertEqual('acknowledged',d.state['actions'][-1]['outcome'])
+            self.assertGreater(d.state['actions'][-1]['target_ns'],d.state['actions'][-1]['issued_ns'])
+            self.assertIs(after,d.last);self.assertIsNot(before,after)
+            self.assertGreater(after['_http_start_ns'],before['_http_end_ns'])
+            self.assertFalse(d.state['device_timing_verified'])
+
+    def test_19_test018_report_engine_enum(self):
+        from types import SimpleNamespace
+        from necroprobe import navigation_stats,shop_navigation,beat_sync
+        with tempfile.TemporaryDirectory() as folder:
+            r=p.new_report(1,'7'*32)
+            self.assertEqual('TEST-018',r['test_id']);self.assertEqual('shop-walk-v3',r['revision'])
+            self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
+            for engine in ('native_i386','pillow'):
+                r['walk']['navigation_engine']=engine;p.write(folder,r)
+                p.read_report(Path(folder)/'report.json','7'*32,1)
+            for engine in ('unknown',None,[],False):
+                r['walk']['navigation_engine']=engine;p.write(folder,r)
+                with self.assertRaises((ValueError,ProbeError)):
+                    p.read_report(Path(folder)/'report.json','7'*32,1)
+            for fail in (False,True):
+                with self.subTest(scan_failure=fail),patch.object(navigation_stats,'ENGINE','native_i386'):
+                    d,_=self.build(folder)
+                    def fallback(image):
+                        navigation_stats.ENGINE='pillow'
+                        if fail:raise RuntimeError('scan failed after fallback')
+                        return SimpleNamespace(goods='unknown')
+                    with patch.object(shop_navigation,'scan',side_effect=fallback), \
+                         patch.object(beat_sync,'extract',return_value=None):
+                        d.analyze_frame(None,{'state':'floor'})
+                    self.assertEqual('pillow',d.state['navigation_engine'])
+
+    def test_20_foreground_delay_cannot_start_capture_at_sync_deadline(self):
+        from test_restart_loop import LiveStub
+        with tempfile.TemporaryDirectory() as folder:
+            d,now=self.build(folder)
+            class SlowGuard(LiveStub):
+                def call(self,method,params,timeout):
+                    if method=='device_info':
+                        now[0]+=12_000_000_000
+                        return super().call(method,params,timeout)
+                    self.calls.append(method);raise ProbeError('connection_error')
+            d.client=SlowGuard()
+            with self.assertRaises(ProbeError) as caught:d.synchronize(d.last)
+            self.assertEqual('beat_sync_timeout',caught.exception.code)
+            self.assertNotIn('screenshot',d.client.calls)
+            self.assertGreater(d.budget(),0)
+
 if __name__=='__main__':unittest.main()

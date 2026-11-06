@@ -139,6 +139,8 @@ def scan(image):
     if not isinstance(image, Image.Image) or image.size != SIZE or image.mode != "RGB":
         return Scene({}, set(), "unknown", set(), b"")
     gray = image.convert("L")
+    from . import navigation_stats
+    fast_stats = navigation_stats.scan(image.tobytes())
     channels = image.split()
     gold_mask = _colour_mask(channels)
     tiles = {(0, 0): "floor"}
@@ -154,15 +156,20 @@ def scan(image):
             if gold_mask.crop(box).histogram()[255] >= 280:
                 tiles[point] = "gold"
                 continue
-            stats = ImageStat.Stat(image.crop(box))
-            r, g, b = stats.median
+            if fast_stats is None:
+                stats = ImageStat.Stat(image.crop(box))
+                r, g, b = stats.median
+                spread_enough = None
+            else:
+                offset = ((j + 5) * 23 + i + 11) * 4
+                r, g, b, spread_enough = fast_stats[offset:offset + 4]
             if r < 6 or g < 3:
                 continue
             # Positive dark-floor evidence. The old catch-all floor branch is
             # deliberately absent; warm dirt and bright grey stone stay blocked.
-            spread = max(stats.stddev)
             if (r <= 38 and 44 * r <= 100 * b <= 90 * r and 40 * r <= 100 * g <= 90 * r
-                    and abs(g - b) <= max(2, .18 * r) and spread >= 2):
+                    and abs(g - b) <= max(2, .18 * r)
+                    and (spread_enough if spread_enough is not None else max(stats.stddev) >= 2)):
                 tiles[point] = "floor"
             elif r > 40 and 100 * b > 53 * r and 100 * g > 69 * r:
                 tiles[point] = "stone"
