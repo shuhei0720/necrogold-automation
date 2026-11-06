@@ -78,6 +78,7 @@ class Fake:
         if self.unknown and a=='left':self.pending=True;raise ProbeError('batch_unknown')
         return count
     def burst_count(self,frame,decision,remaining):return 1
+    def timing_result(self,*args):return None
     def checkpoint(self):pass
     def save(self,n,o):pass
     def finish(self,reason,o):
@@ -103,7 +104,7 @@ class ExpiringFake(Fake):
     def perform(self,action,frame,model=None,count=1):
         entry={'action':action,'outcome':'not_requested','reason':None,'requested_ns':self.clock(),
                'issued_ns':None,'completed_ns':None,'target_ns':None,'rpc_timings':{},'target_checks':[],
-               'requested_inputs':1 if action in p.MOVE_POINTS else 0,'scheduled_inputs':0,'period_ns':None,'planned_inputs':count if action in p.MOVE_POINTS else 0}
+               'requested_inputs':1 if action in p.MOVE_POINTS else 0,'scheduled_inputs':0,'period_ns':None,'planned_inputs':count if action in p.MOVE_POINTS else 0,'dispatch_lead_ns':p.LEAD_NS if action in p.MOVE_POINTS else None}
         self.state['actions'].append(entry)
         if action in p.MOVE_POINTS:
             result=next(self.outcomes)
@@ -390,6 +391,8 @@ class SyncDeadlineTests(unittest.TestCase):
         now=[1_000_000_000];r=p.new_report(now[0],'6'*32);r['phase']='walk'
         d=p.Driver(LiveStub(),r,folder,now[0]+100_000_000_000,folder,clock=lambda:now[0])
         d.state['started_ns']=now[0]
+        d.state['lead_confirmed']=True  # 既存単体試験は先行量選択後の制御を検証。
+        d.state['lead_trials']=[{'lead_ns':p.LEAD_NS,'direction':'left','motion':'moved'}]
         d.sleeper=lambda seconds:now.__setitem__(0,now[0]+round(seconds*1e9))
         d.last=dict(obs(),_captured=now[0],_extra={'scene':SimpleNamespace(goods='unknown'),'beat':None})
         return d,now
@@ -552,8 +555,8 @@ class SyncDeadlineTests(unittest.TestCase):
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-033',r['test_id']);self.assertEqual('shop-walk-v18',r['revision'])
-            self.assertEqual('runtime/test-033',p.parser().parse_args([]).output)
+            self.assertEqual('TEST-034',r['test_id']);self.assertEqual('shop-walk-v19',r['revision'])
+            self.assertEqual('runtime/test-034',p.parser().parse_args([]).output)
             self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
             self.assertEqual(motion_stats.ENGINE,r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):
@@ -902,13 +905,14 @@ class SyncDeadlineTests(unittest.TestCase):
 
     def test_32_input_model_age_three_second_boundary(self):
         from necroprobe import beat_sync
-        for age in (beat_sync.FRESH_NS-1,beat_sync.FRESH_NS,beat_sync.FRESH_NS+1):
+        limit=beat_sync.FRESH_NS-p.LEAD_NS-50_000_000
+        for age in (limit-1,limit,limit+1):
             with self.subTest(age=age),tempfile.TemporaryDirectory() as folder, \
                  self.measured_runtime(folder) as (d,now,captures,scenes,sent):
                 before,model=d.synchronize(d.observe());model=deepcopy(model)
                 target=beat_sync.next_target(model,now[0],p.LEAD_NS+120_000_000)
                 prepared=target-p.LEAD_NS;model['last_sample_ns']=prepared-age
-                if age<=beat_sync.FRESH_NS:
+                if age<=limit:
                     d.perform('left',before,model)
                     self.assertEqual([p.move_batch('left')],sent)
                 else:
@@ -1283,12 +1287,13 @@ class SyncDeadlineTests(unittest.TestCase):
                         self.assertIsNot(before,old);self.assertIs(before,d.last)
                         self.assertEqual(5,model['sample_count']);self.assertEqual('tracking',model['mode'])
                         direction=d.choose(before)['direction'];self.assertEqual('left',direction)
-                        d.perform(direction,before,model)
-                        self.assertEqual([p.move_batch('left')],sent)
+                        with self.assertRaises(ProbeError) as caught:d.perform(direction,before,model)
+                        self.assertEqual('dispatch_window_expired',caught.exception.code)
+                        self.assertEqual([],sent)
                         action=d.state['actions'][-1]
-                        self.assertEqual(2_940_185_306,action['issued_ns']-before['_captured'])
-                        self.assertEqual(p.LEAD_NS,action['target_ns']-action['issued_ns'])
-                        self.assertEqual('acknowledged',action['outcome'])
+                        self.assertEqual(2_940_185_306,action['target_checks'][-1]['checked_ns']-before['_captured'])
+                        self.assertIsNone(action['issued_ns'])
+                        self.assertEqual('not_requested',action['outcome']);self.assertFalse(d.pending)
                         p.write(folder,d.outer)
                         saved=p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])
                         self.assertEqual(model,saved['walk']['models'][-1])
@@ -1469,13 +1474,13 @@ class SyncDeadlineTests(unittest.TestCase):
                         target=d.state['actions'][-1]['target_ns'];waits.append(target)
                         now[0]=target-p.LEAD_NS+(20_000_000 if len(waits)==1 else 0)
                         if len(waits)==2:
-                            old=now[0]-beat_sync.FRESH_NS-excess
+                            old=now[0]-(beat_sync.FRESH_NS-p.LEAD_NS-50_000_000)-excess
                             if boundary=='frame':before['_captured']=old
                             else:model.update(last_sample_ns=old,first_sample_ns=old-2_000_000_000)
                     with patch.object(d,'sleeper',side_effect=wait):
                         if excess:
                             with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
-                            self.assertEqual('host_observation_expired' if boundary=='frame' else 'beat_unconfirmed',caught.exception.code)
+                            self.assertEqual('dispatch_window_expired',caught.exception.code)
                         else:d.perform('left',before,model)
                     self.assertEqual(2,len(waits));self.assertEqual(0 if excess else 1,len(sent))
                     self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
