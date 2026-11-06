@@ -69,7 +69,7 @@ def _matches(gray, name):
 def _matches_pause_icon(image, gray):
     """半透明のpause棒を保持し、背後の金壁の強い色だけ除く暫定判定。
 
-    36×36原寸crop内の輝度>=55かつ2*最小RGB>=最大RGB。参照maskは
+    36×36原寸crop内の輝度>=55（不一致時は85）かつ2*最小RGB>=最大RGB。参照maskは
     切り詰めず、通常の全unionで形状を照合する。未知画像精度は未検証。
     """
     box, table, minimum, reference = _TEMPLATES['icon']
@@ -79,10 +79,15 @@ def _matches_pause_icon(image, gray):
         high = ImageChops.lighter(red, ImageChops.lighter(green, blue))
         neutral = ImageChops.subtract(high, low.point([min(255,2*v) for v in range(256)])).point(
             [255] + [0]*255)
-        observed = ImageChops.darker(gray.crop(box).point(table), neutral)
-    intersection = ImageChops.darker(observed, reference).histogram()[255]
-    union = ImageChops.lighter(observed, reference).histogram()[255]
-    return intersection >= minimum * max(1, union)
+        region = gray.crop(box)
+        # 鉄扉の灰色が55を超えても、より明るい2本の棒の全形状を要求する。
+        # 既存55を先に維持し、背景を切り捨てた部分一致にはしない。
+        for threshold in (table, [255 if value >= 85 else 0 for value in range(256)]):
+            observed = ImageChops.darker(region.point(threshold), neutral)
+            intersection = ImageChops.darker(observed, reference).histogram()[255]
+            union = ImageChops.lighter(observed, reference).histogram()[255]
+            if intersection >= minimum * max(1, union):return True
+    return False
 
 
 def _gold_peak(image):

@@ -1,4 +1,4 @@
-"""TEST-027: 確認済みの直線床で単一タッチを次拍へ2回送る商品接近の限定版。
+"""TEST-028: 確認済みの直線床で単一タッチを次拍へ2回送る商品接近の限定版。
 
 HTTP中点と150ms先行は未校正の推定。予定拍での実受付を保証しない。
 """
@@ -18,7 +18,7 @@ import uuid
 from . import VERSION, restart_loop as base
 from .validation import ProbeError, json_object
 
-REVISION='shop-walk-v12'
+REVISION='shop-walk-v13'
 MOVE_POINTS={'up':(290,838),'down':(124,838),'left':(207,49),'right':(207,838)}
 DIRECTIONS={'up':(0,-1),'down':(0,1),'left':(-1,0),'right':(1,0)}
 MAX_STEPS=16
@@ -85,7 +85,7 @@ def new_walk():
 
 
 def new_report(start,run_id):
-    return {'version':VERSION,'test_id':'TEST-027','revision':REVISION,'run_id':run_id,
+    return {'version':VERSION,'test_id':'TEST-028','revision':REVISION,'run_id':run_id,
         'start_ns':start,'end_ns':None,'phase':'search','status':'running','reason':None,
         'control_reason':None,'control_end_ns':None,'worker_returncode':None,'worker_exit_confirmed':None,
         'search':base.new_report(start,run_id),'walk':new_walk()}
@@ -99,7 +99,7 @@ def read_report(path,run_id,start):
     with Path(path).open('rb') as source:r=json_object(source.read(131073),131072)
     req=base.supervisor.require
     req(type(r) is dict and set(r)==set(new_report(start,run_id)))
-    for k,v in [('version',VERSION),('test_id','TEST-027'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
+    for k,v in [('version',VERSION),('test_id','TEST-028'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
         req(type(r[k]) is type(v) and r[k]==v)
     req(r['phase'] in ('search','walk','done'))
     req(r['status'] in ('running','completed','stopped'))
@@ -648,8 +648,8 @@ def walk(driver):
 
 
 def parser():
-    ap=base.parser();ap.description='TEST-027: 金壁発見後、測定済み1-1周期範囲とHUDで商品が見える位置へ。'
-    ap.set_defaults(output='runtime/test-027');return ap
+    ap=base.parser();ap.description='TEST-028: 金壁発見後、測定済み1-1周期範囲とHUDで商品が見える位置へ。'
+    ap.set_defaults(output='runtime/test-028');return ap
 
 
 def worker(args):
@@ -709,7 +709,7 @@ def run(args):
         '--run-id',run_id,'--start-ns',str(start),'--stop-ns',str(start+180_000_000_000),'--token-store',args.token_store]
     if args.store_key is not None:command+=['--store-key',args.store_key]
     if args.python_crypto:command.append('--python-crypto')
-    print('TEST-027: 金壁→測定済み1-1周期範囲とライブHUD→新鮮な地形で商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
+    print('TEST-028: 金壁→測定済み1-1周期範囲とライブHUD→新鮮な地形で商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
     diagnostics={};reason=base.supervisor.supervise(command,max(.001,180-(time.monotonic_ns()-start)/1e9),diagnostics)
     try:r=read_report(control/'report.json',run_id,start)
     except (ValueError,OSError,ProbeError):r['search']['counts_certain']=False;reason=reason or 'report_read_failed'
@@ -735,8 +735,8 @@ def main(argv=None):
         def interrupt(_sig,_frame):base.supervisor._cancel_requested=True
         for sig in (signal.SIGINT,signal.SIGTERM):previous[sig]=signal.getsignal(sig);signal.signal(sig,interrupt)
     try:return run(args)
-    except ProbeError as exc:print('TEST-027停止: '+code(exc.code),file=sys.stderr);return 2
-    except OSError:print('TEST-027: 結果保存に失敗しました。',file=sys.stderr);return 2
+    except ProbeError as exc:print('TEST-028停止: '+code(exc.code),file=sys.stderr);return 2
+    except OSError:print('TEST-028: 結果保存に失敗しました。',file=sys.stderr);return 2
     finally:
         for sig,handler in previous.items():signal.signal(sig,handler)
 

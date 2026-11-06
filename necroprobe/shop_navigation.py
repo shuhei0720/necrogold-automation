@@ -273,14 +273,19 @@ def choose(scene, position=(0, 0), visits=None):
         return result(direction, reason, target)
     # A partial gold wall may require moving around a corner. Only known floor
     # is eligible; the smallest distance-to-gold and revisit penalty guide it.
+    nearest_gold=min(scene.gold,key=lambda p:(_distance((0,0),p),p))
+    axis=1 if abs(nearest_gold[1])>=abs(nearest_gold[0]) else 0
     for target, path in _floor_paths(scene).items():
         if not path:
             continue
         gap = min(_distance(target, gold) for gold in scene.gold)
         seen = visits.get(_add(position, target), 0)
-        options.append((3 * gap + len(path) + 4 * seen, path[0], target))
+        # 同じ主スコアなら金壁側へ深く進める床を優先し、横へ行き過ぎない。
+        # 非同点・visit加算・床限定は変えず、未知の入口や暗い床を補完しない。
+        axial_gap=abs(target[axis]-nearest_gold[axis])
+        options.append((3 * gap + len(path) + 4 * seen, axial_gap, path[0], target))
     if options:
-        _, direction, target = min(options)
+        _, _, direction, target = min(options)
         return result(direction, "observed_floor_vantage", target)
     return result()
 
