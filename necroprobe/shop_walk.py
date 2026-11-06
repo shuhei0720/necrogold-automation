@@ -1,4 +1,4 @@
-"""TEST-018: 画面端0で1歩ずつ拍に合わせ、商品可視で止める限定実機版。
+"""TEST-019: HUDを軽量観測し、新鮮な地形で1歩ずつ商品可視まで進む限定版。
 
 HTTP中点と150ms先行は未校正の推定。予定拍での実受付を保証しない。
 """
@@ -18,7 +18,7 @@ import uuid
 from . import VERSION, restart_loop as base
 from .validation import ProbeError, json_object
 
-REVISION='shop-walk-v3'
+REVISION='shop-walk-v4'
 MOVE_POINTS={'up':(290,838),'down':(124,838),'left':(207,49),'right':(207,838)}
 DIRECTIONS={'up':(0,-1),'down':(0,1),'left':(-1,0),'right':(1,0)}
 MAX_STEPS=16
@@ -74,7 +74,7 @@ def new_walk():
 
 
 def new_report(start,run_id):
-    return {'version':VERSION,'test_id':'TEST-018','revision':REVISION,'run_id':run_id,
+    return {'version':VERSION,'test_id':'TEST-019','revision':REVISION,'run_id':run_id,
         'start_ns':start,'end_ns':None,'phase':'search','status':'running','reason':None,
         'control_reason':None,'control_end_ns':None,'worker_returncode':None,'worker_exit_confirmed':None,
         'search':base.new_report(start,run_id),'walk':new_walk()}
@@ -88,7 +88,7 @@ def read_report(path,run_id,start):
     with Path(path).open('rb') as source:r=json_object(source.read(131073),131072)
     req=base.supervisor.require
     req(type(r) is dict and set(r)==set(new_report(start,run_id)))
-    for k,v in [('version',VERSION),('test_id','TEST-018'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
+    for k,v in [('version',VERSION),('test_id','TEST-019'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
         req(type(r[k]) is type(v) and r[k]==v)
     req(r['phase'] in ('search','walk','done'))
     req(r['status'] in ('running','completed','stopped'))
@@ -128,6 +128,7 @@ class Driver(base.RuntimeDriver):
     def __init__(self,client,outer,folder,stop_ns,control,clock=time.monotonic_ns):
         self.outer=outer;self.state=outer['walk'];self.model=None;self.samples=[];self.visits={(0,0):1}
         self.analysis_failed=False;self.finishing=False;self.sync_refresh_attempted=False;self.sync_deadline=None
+        self.beat_only=False
         super().__init__(client,outer['search'],folder,stop_ns,clock,control,self.analyze_frame)
     def budget(self):
         remaining=super().budget()
@@ -145,11 +146,12 @@ class Driver(base.RuntimeDriver):
         from . import beat_sync,shop_navigation,navigation_stats
         stage='navigation';scene=None
         try:
-            begin=self.clock()
-            try:scene=shop_navigation.scan(image)
-            finally:
-                self.state['navigation_ms'].append((self.clock()-begin)/1e6)
-                self.state['navigation_engine']=navigation_stats.ENGINE
+            if not self.beat_only:
+                begin=self.clock()
+                try:scene=shop_navigation.scan(image)
+                finally:
+                    self.state['navigation_ms'].append((self.clock()-begin)/1e6)
+                    self.state['navigation_engine']=navigation_stats.ENGINE
             stage='beat_extract';begin=self.clock()
             try:beat=beat_sync.extract(image)
             finally:self.state['beat_extract_ms'].append((self.clock()-begin)/1e6)
@@ -171,16 +173,22 @@ class Driver(base.RuntimeDriver):
             self.checkpoint()
         if self.analysis_failed and not self.finishing:raise ProbeError('walk_analysis_failed')
         return observed
-    def goods(self,obs):
+    def scene(self,obs):
         extra=obs.get('_extra')
-        return extra['scene'].goods if extra else 'unknown'
+        return extra.get('scene') if extra else None
+    def goods(self,obs):
+        scene=self.scene(obs)
+        return scene.goods if scene is not None else 'unknown'
     def choose(self,obs):
         from .shop_navigation import choose
-        return choose(obs['_extra']['scene'],tuple(self.state['position']),self.visits)
+        scene=self.scene(obs)
+        if scene is None:return {'direction':None,'reason':'navigation_unknown','target':None}
+        return choose(scene,tuple(self.state['position']),self.visits)
     def movement(self,before,after,direction):
         from .shop_navigation import motion
-        if not before.get('_extra') or not after.get('_extra'):return 'unknown'
-        before_ns=self.clock();result=motion(before['_extra']['scene'],after['_extra']['scene'],direction)
+        a,b=self.scene(before),self.scene(after)
+        if a is None or b is None:return 'unknown'
+        before_ns=self.clock();result=motion(a,b,direction)
         self.state['motion_ms'].append((self.clock()-before_ns)/1e6);return result
     def fit_beat(self):
         from .beat_sync import fit
@@ -196,7 +204,10 @@ class Driver(base.RuntimeDriver):
     def synchronize(self,obs):
         self.sync_deadline=self.clock()+SYNC_SECONDS*1_000_000_000
         try:return self._synchronize(obs,self.sync_deadline)
-        finally:self.sync_deadline=None
+        except BaseException:
+            self.model=None
+            raise
+        finally:self.beat_only=False;self.sync_deadline=None
     def _synchronize(self,obs,deadline):
         from . import beat_sync
         def check_deadline():
@@ -206,19 +217,43 @@ class Driver(base.RuntimeDriver):
                 self.model=None
                 raise ProbeError('beat_sync_timeout')
             if now-self.state['started_ns']>=WALK_SECONDS*1_000_000_000:raise ProbeError('walk_limit')
+        def latest_full(frame):
+            return (frame is self.last and frame['state']=='floor' and self.scene(frame) is not None
+                    and 0<=self.clock()-frame['_captured']<=beat_sync.FRESH_NS)
+        def accept(frame,model):
+            check_deadline()
+            if not latest_full(frame):raise ProbeError('navigation_unknown')
+            if beat_sync.next_target(model,self.clock()) is None:raise ProbeError('beat_unconfirmed')
+            self.model=model
+            print('拍同期: 周期%.3f秒（推定）'%(model['period_ns']/1e9),flush=True)
+            return frame,model
+        def full_handoff(model):
+            # 軽量標本は移動の基準にしない。地形とHUDを同じ新規画像で確認する。
+            self.beat_only=False
+            check_deadline();fresh=self.observe();check_deadline()
+            if self.goods(fresh)=='visible':return fresh,None
+            if not latest_full(fresh):raise ProbeError('navigation_unknown')
+            latest=self.add_sample(fresh)
+            if latest is None or not beat_sync.compatible(model,latest):raise ProbeError('beat_unconfirmed')
+            updated=self.fit_beat();check_deadline()
+            if updated is None:raise ProbeError('beat_unconfirmed')
+            self.state['models'].append(updated);self.checkpoint()
+            return accept(fresh,updated)
         print('拍同期: 開始（最大%d秒）'%SYNC_SECONDS,flush=True)
         check_deadline()
+        if self.goods(obs)=='visible':return obs,None
         sample=self.add_sample(obs)
         if self.model and sample and beat_sync.compatible(self.model,sample):
             check_deadline()
             updated=self.fit_beat()
             check_deadline()
-            if updated:self.model=updated
-            if beat_sync.next_target(self.model,self.clock()) is not None:
-                check_deadline();return obs,self.model
+            if updated is None:raise ProbeError('beat_unconfirmed')
+            if latest_full(obs):return accept(obs,updated)
+            return full_handoff(updated)
         self.model=None
         # 不均一間隔で別解を減らす。未知画面も含め最大12回で打切り。
         self.samples=[] if sample is None else [sample]
+        self.beat_only=True
         for i in range(12):
             check_deadline()
             print('拍標本: %d/8（取得%d/12）'%(len(self.samples),i),flush=True)
@@ -227,9 +262,7 @@ class Driver(base.RuntimeDriver):
                 model=self.fit_beat()
                 check_deadline()
                 if model:
-                    self.model=model;self.state['models'].append(model);self.checkpoint()
-                    check_deadline()
-                    return obs,model
+                    return full_handoff(model)
             if self.goods(obs)=='visible':
                 check_deadline();return obs,None
             check_deadline();self.sleeper((.0,.07,.17)[i%3])
@@ -245,6 +278,7 @@ class Driver(base.RuntimeDriver):
         from . import beat_sync
         if self.pending or self.state['input_pending'] or obs is not self.last:raise ProbeError('method_not_allowed')
         moving=action in MOVE_POINTS
+        if moving and self.scene(obs) is None:raise ProbeError('navigation_unknown')
         if self.state['goods_visible'] and action!='pause':raise ProbeError('method_not_allowed')
         if (action=='resume' and obs['state']!='pause') or (action!='resume' and obs['state']!='floor'):
             raise ProbeError('screen_unconfirmed')
@@ -274,7 +308,8 @@ class Driver(base.RuntimeDriver):
             if moving and self.state['started_ns'] is not None and now-self.state['started_ns']>=WALK_SECONDS*1_000_000_000:
                 raise ProbeError('walk_limit')
             if not(0<=now-obs['_captured']<=3_000_000_000 and 0<=now-front<=1_000_000_000):raise ProbeError('host_observation_expired')
-            if moving and (now>target or target-now>model['period_ns']):raise ProbeError('beat_unconfirmed')
+            if moving and (beat_sync.next_target(model,now) is None
+                           or now>target or target-now>model['period_ns']):raise ProbeError('beat_unconfirmed')
         except ProbeError:
             entry['outcome']='not_requested';self.pending=False;self.state['input_pending']=False;raise
         entry['issued_ns']=now
@@ -362,8 +397,8 @@ def walk(driver):
 
 
 def parser():
-    ap=base.parser();ap.description='TEST-018: 金壁発見後、拍を推定し1歩ずつ商品が見える位置へ。'
-    ap.set_defaults(output='runtime/test-018');return ap
+    ap=base.parser();ap.description='TEST-019: 金壁発見後、HUDを軽量観測し1歩ずつ商品が見える位置へ。'
+    ap.set_defaults(output='runtime/test-019');return ap
 
 
 def worker(args):
@@ -423,7 +458,7 @@ def run(args):
         '--run-id',run_id,'--start-ns',str(start),'--stop-ns',str(start+180_000_000_000),'--token-store',args.token_store]
     if args.store_key is not None:command+=['--store-key',args.store_key]
     if args.python_crypto:command.append('--python-crypto')
-    print('TEST-018: 金壁→拍の推定→1歩ずつ商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
+    print('TEST-019: 金壁→軽量の拍推定→新鮮な地形で1歩ずつ商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
     diagnostics={};reason=base.supervisor.supervise(command,max(.001,180-(time.monotonic_ns()-start)/1e9),diagnostics)
     try:r=read_report(control/'report.json',run_id,start)
     except (ValueError,OSError,ProbeError):r['search']['counts_certain']=False;reason=reason or 'report_read_failed'
@@ -448,8 +483,8 @@ def main(argv=None):
         def interrupt(_sig,_frame):base.supervisor._cancel_requested=True
         for sig in (signal.SIGINT,signal.SIGTERM):previous[sig]=signal.getsignal(sig);signal.signal(sig,interrupt)
     try:return run(args)
-    except ProbeError as exc:print('TEST-018停止: '+code(exc.code),file=sys.stderr);return 2
-    except OSError:print('TEST-018: 結果保存に失敗しました。',file=sys.stderr);return 2
+    except ProbeError as exc:print('TEST-019停止: '+code(exc.code),file=sys.stderr);return 2
+    except OSError:print('TEST-019: 結果保存に失敗しました。',file=sys.stderr);return 2
     finally:
         for sig,handler in previous.items():signal.signal(sig,handler)
 

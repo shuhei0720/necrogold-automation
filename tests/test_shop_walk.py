@@ -1,5 +1,6 @@
 import tempfile
 from copy import deepcopy
+from contextlib import contextmanager
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -282,7 +283,7 @@ class SyncDeadlineTests(unittest.TestCase):
         from test_beat_sync import observations
         from necroprobe import beat_sync
         from types import SimpleNamespace
-        samples=observations(8)
+        samples=observations(9)
         for boundary in ('fit','checkpoint','compatible_fit'):
             with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder:
                 d,now=self.build(folder);now[0]=samples[-1]['http_end_ns'];start=now[0]
@@ -303,7 +304,10 @@ class SyncDeadlineTests(unittest.TestCase):
                 else:first=frames[0]
                 if boundary=='checkpoint':d.checkpoint=lambda:now.__setitem__(0,start+12_000_000_000)
                 else:d.fit_beat=delayed_fit
-                with patch.object(d,'observe',side_effect=frames[1:]):
+                def observe():
+                    d.last=next(pending_frames);return d.last
+                pending_frames=iter(frames[1:])
+                with patch.object(d,'observe',side_effect=observe):
                     with self.assertRaises(ProbeError) as caught:d.synchronize(first)
                 self.assertEqual('beat_sync_timeout',caught.exception.code);self.assertIsNone(d.model)
 
@@ -396,12 +400,12 @@ class SyncDeadlineTests(unittest.TestCase):
             self.assertGreater(after['_http_start_ns'],before['_http_end_ns'])
             self.assertFalse(d.state['device_timing_verified'])
 
-    def test_19_test018_report_engine_enum(self):
+    def test_19_test019_report_engine_enum(self):
         from types import SimpleNamespace
         from necroprobe import navigation_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-018',r['test_id']);self.assertEqual('shop-walk-v3',r['revision'])
+            self.assertEqual('TEST-019',r['test_id']);self.assertEqual('shop-walk-v4',r['revision'])
             self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
             for engine in ('native_i386','pillow'):
                 r['walk']['navigation_engine']=engine;p.write(folder,r)
@@ -437,5 +441,180 @@ class SyncDeadlineTests(unittest.TestCase):
             self.assertEqual('beat_sync_timeout',caught.exception.code)
             self.assertNotIn('screenshot',d.client.calls)
             self.assertGreater(d.budget(),0)
+
+    @contextmanager
+    def measured_runtime(self,folder):
+        """TEST-018実測相当の各工程費用。HUD抽出/標本化/fit/拍計算は実物。"""
+        import base64,io
+        from necroprobe import gold_scan,shop_navigation,beat_sync
+        from necroprobe.protocol import RpcReply
+        from test_source_geometry import geometry_payload
+        from test_restart_loop import LiveStub,A
+        from test_beat_sync import hud
+        d,now=self.build(folder);origin=now[0];captures=[];scenes=[];sent=[]
+        scene=shop_navigation.Scene({(0,0):'floor',(-1,0):'floor',(-2,0):'gold'},
+                                    {(-2,0)},'unknown',set(),b'')
+        validator=p.WalkClient(lambda *a:None);validator.walking=True
+        class Transport(LiveStub):
+            def call(self,method,params,timeout):
+                if method=='device_info':now[0]+=120_000_000
+                if method=='screenshot':
+                    self.calls.append(method);start=now[0];now[0]+=450_000_000
+                    captures.append((start,getattr(d,'beat_only',False)))
+                    midpoint=(start+now[0])//2
+                    with hud((.23-(midpoint-origin)/520_000_000)%1) as image:
+                        buf=io.BytesIO();image.save(buf,'JPEG')
+                    _,payload=geometry_payload(p.base.resume.CAPTURE_PARAMS,size=(896,414),source_scale=2)
+                    payload.update(data=base64.b64encode(buf.getvalue()).decode(),source_orientation=2)
+                    return RpcReply(payload,{'http_start_ns':start,'http_end_ns':now[0]})
+                if method=='run_steps':
+                    validator._validate(method,params);sent.append(deepcopy(params))
+                    self.calls.append(method);reply=deepcopy(GOOD);reply['steps'][1]['method']='gesture'
+                    return RpcReply(reply,{})
+                return super().call(method,params,timeout)
+        def basic(image):now[0]+=125_000_000;return deepcopy(A)
+        def navigation(image):
+            now[0]+=1_012_000_000;fresh=deepcopy(scene);scenes.append(fresh);return fresh
+        extract=beat_sync.extract
+        def beat(image):now[0]+=62_000_000;return extract(image)
+        d.client=Transport()
+        with patch.object(gold_scan,'analyze_image',side_effect=basic), \
+             patch.object(shop_navigation,'scan',side_effect=navigation), \
+             patch.object(beat_sync,'extract',side_effect=beat):
+            yield d,now,captures,scenes,sent
+
+    def test_21_test018_cost_sync_hands_off_latest_full_scene_and_moves(self):
+        with tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+            first=d.observe();start=now[0]
+            before,model=d.synchronize(first)
+            self.assertIsNotNone(model);self.assertGreaterEqual(model['sample_count'],9)
+            self.assertAlmostEqual(520_000_000,model['period_ns'],delta=2_000_000)
+            self.assertLess(now[0]-start,12_000_000_000)
+            self.assertEqual(2,len(scenes));self.assertEqual(7,sum(light for _,light in captures))
+            self.assertIs(before,d.last);self.assertIsNot(before,first)
+            self.assertIs(before['_extra']['scene'],scenes[-1])
+            self.assertIsNot(before['_extra']['scene'],first['_extra']['scene'])
+            self.assertEqual(before['_http_end_ns']-225_000_000,model['last_sample_ns'])
+            self.assertFalse(d.beat_only);self.assertIsNone(d.sync_deadline)
+            direction=d.choose(before)['direction'];self.assertEqual('left',direction)
+            d.perform(direction,before,model)
+            self.assertEqual([p.move_batch('left')],sent)
+            self.assertFalse(d.state['device_timing_verified'])
+
+    def test_22_light_observation_cannot_supply_goods_route_or_movement(self):
+        from necroprobe import shop_navigation
+        with tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+            full=d.observe();d.beat_only=True;light=d.observe();d.beat_only=False
+            self.assertIsNone(light['_extra']['scene']);self.assertIsNotNone(light['_extra']['beat'])
+            self.assertEqual('unknown',d.goods(light));self.assertIsNone(d.choose(light)['direction'])
+            with patch.object(shop_navigation,'motion',side_effect=AssertionError('light scene used')):
+                self.assertEqual('unknown',d.movement(light,full,'left'))
+                self.assertEqual('unknown',d.movement(full,light,'left'))
+            with self.assertRaises(ProbeError) as caught:d.perform('left',light,{'period_ns':520_000_000})
+            self.assertEqual('navigation_unknown',caught.exception.code)
+            self.assertEqual([],sent);self.assertEqual([],d.state['actions'])
+
+    def test_23_cached_full_reuses_capture_but_light_requires_fresh_full(self):
+        for light in (False,True):
+            with self.subTest(light=light),tempfile.TemporaryDirectory() as folder, \
+                 self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                _,model=d.synchronize(d.observe())
+                d.beat_only=light;current=d.observe();d.beat_only=False
+                count=len(captures);nav_count=len(scenes)
+                result,updated=d.synchronize(current)
+                self.assertIs(result,d.last);self.assertIs(result['_extra']['scene'],scenes[-1])
+                self.assertEqual(count+int(light),len(captures))
+                self.assertEqual(nav_count+int(light),len(scenes))
+                self.assertEqual(not light,result is current)
+                self.assertGreater(updated['last_sample_ns'],model['last_sample_ns'])
+                self.assertFalse(d.beat_only);self.assertIsNone(d.sync_deadline)
+
+    def test_24_full_handoff_failure_never_returns_model_or_leaves_modes(self):
+        boundaries={'phase':'beat_unconfirmed','scene':'navigation_unknown','unknown':'navigation_unknown',
+                    'stale':'navigation_unknown','light_capture':'connection_error',
+                    'sync':'beat_sync_timeout','session':'session_deadline','walk':'walk_limit',
+                    'capture':'connection_error','foreground':'foreground_not_verified',
+                    'refit':'beat_unconfirmed','checkpoint':OSError}
+        for boundary,expected in boundaries.items():
+            with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
+                 self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                first=d.observe();observe=d.observe;fit=d.fit_beat
+                def handoff():
+                    if d.beat_only and boundary=='light_capture':raise ProbeError('connection_error')
+                    if not d.beat_only and boundary=='capture':raise ProbeError('connection_error')
+                    if not d.beat_only and boundary=='foreground':
+                        d.client.system={'foreground_app':'other','screen_locked':False}
+                    fresh=observe()
+                    if not d.beat_only:
+                        if boundary=='phase':fresh['_extra']['beat']['remaining']=(fresh['_extra']['beat']['remaining']+.3)%1
+                        elif boundary=='scene':fresh['_extra']['scene']=None
+                        elif boundary=='unknown':fresh['state']='unknown'
+                        elif boundary=='stale':now[0]+=3_000_000_001
+                        elif boundary=='sync':now[0]=d.sync_deadline
+                        elif boundary=='session':d.stop_ns=now[0]
+                        elif boundary=='walk':d.state['started_ns']=now[0]-p.WALK_SECONDS*1_000_000_000
+                    return fresh
+                def refit():return None if not d.beat_only and boundary=='refit' else fit()
+                with patch.object(d,'observe',side_effect=handoff),patch.object(d,'fit_beat',side_effect=refit):
+                    if boundary=='checkpoint':d.checkpoint=lambda:(_ for _ in ()).throw(OSError('write failed'))
+                    with self.assertRaises(OSError if expected is OSError else ProbeError) as caught:
+                        d.synchronize(first)
+                if expected is not OSError:self.assertEqual(expected,caught.exception.code)
+                self.assertEqual([],sent);self.assertIsNone(d.model)
+                self.assertFalse(d.beat_only);self.assertIsNone(d.sync_deadline)
+
+    def test_25_latest_full_goods_latches_even_when_beat_extraction_fails(self):
+        from necroprobe import shop_navigation,beat_sync
+        for fail in (False,True):
+            with self.subTest(beat_failure=fail),tempfile.TemporaryDirectory() as folder, \
+                 self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                first=d.observe();navigation=shop_navigation.scan.side_effect;extract=beat_sync.extract.side_effect
+                def visible(image):
+                    scene=navigation(image);scene.goods='visible';return scene
+                def beat(image):
+                    if not d.beat_only and fail:raise ValueError('beat failed')
+                    return extract(image)
+                with patch.object(shop_navigation,'scan',side_effect=visible),patch.object(beat_sync,'extract',side_effect=beat):
+                    if fail:
+                        with self.assertRaises(ProbeError) as caught:d.synchronize(first)
+                        self.assertEqual('walk_analysis_failed',caught.exception.code)
+                    else:
+                        result,model=d.synchronize(first)
+                        self.assertIs(result,d.last);self.assertIsNone(model)
+                self.assertTrue(d.state['goods_visible']);self.assertEqual('visible',d.goods(d.last))
+                self.assertEqual([],sent);self.assertFalse(d.beat_only);self.assertIsNone(d.sync_deadline)
+
+    def test_26_cached_model_requires_successful_refit(self):
+        with tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+            d.synchronize(d.observe());current=d.observe();count=len(captures)
+            with patch.object(d,'fit_beat',return_value=None):
+                with self.assertRaises(ProbeError) as caught:d.synchronize(current)
+            self.assertEqual('beat_unconfirmed',caught.exception.code);self.assertEqual(count,len(captures))
+            self.assertIsNone(d.model);self.assertFalse(d.beat_only);self.assertIsNone(d.sync_deadline)
+
+    def test_27_input_rechecks_model_age_after_guard_and_checkpoint(self):
+        from necroprobe import beat_sync
+        for boundary in ('guard','checkpoint'):
+            with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
+                 self.measured_runtime(folder) as (d,now,captures,scenes,sent):
+                before,model=d.synchronize(d.observe());model=deepcopy(model)
+                # 準備後も画面/予定拍は有効だが、モデルの3秒上限だけを越える。
+                target=beat_sync.next_target(model,now[0],p.LEAD_NS+120_000_000)
+                prepared=target-p.LEAD_NS
+                model['last_sample_ns']=prepared-beat_sync.FRESH_NS+1
+                if boundary=='guard':
+                    guard=d.guard
+                    def late_guard():
+                        value=guard();now[0]+=2;return value
+                    d.guard=late_guard
+                else:
+                    checkpoint=d.checkpoint
+                    def late_checkpoint():checkpoint();now[0]+=2
+                    d.checkpoint=late_checkpoint
+                self.assertIsNotNone(beat_sync.next_target(model,now[0]))
+                with self.assertRaises(ProbeError) as caught:d.perform('left',before,model)
+                self.assertEqual('beat_unconfirmed',caught.exception.code)
+                self.assertLess(now[0],target);self.assertLess(now[0]-before['_captured'],3_000_000_000)
+                self.assertEqual([],sent);self.assertFalse(d.pending);self.assertFalse(d.state['input_pending'])
 
 if __name__=='__main__':unittest.main()
