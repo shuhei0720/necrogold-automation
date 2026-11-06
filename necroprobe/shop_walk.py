@@ -1,4 +1,4 @@
-"""TEST-028: 確認済みの直線床で単一タッチを次拍へ2回送る商品接近の限定版。
+"""TEST-030: 確認済みの直線床で単一タッチを次拍へ2回送る商品接近の限定版。
 
 HTTP中点と150ms先行は未校正の推定。予定拍での実受付を保証しない。
 """
@@ -18,7 +18,7 @@ import uuid
 from . import VERSION, restart_loop as base
 from .validation import ProbeError, json_object
 
-REVISION='shop-walk-v13'
+REVISION='shop-walk-v15'
 MOVE_POINTS={'up':(290,838),'down':(124,838),'left':(207,49),'right':(207,838)}
 DIRECTIONS={'up':(0,-1),'down':(0,1),'left':(-1,0),'right':(1,0)}
 MAX_STEPS=16
@@ -85,7 +85,7 @@ def new_walk():
 
 
 def new_report(start,run_id):
-    return {'version':VERSION,'test_id':'TEST-028','revision':REVISION,'run_id':run_id,
+    return {'version':VERSION,'test_id':'TEST-030','revision':REVISION,'run_id':run_id,
         'start_ns':start,'end_ns':None,'phase':'search','status':'running','reason':None,
         'control_reason':None,'control_end_ns':None,'worker_returncode':None,'worker_exit_confirmed':None,
         'search':base.new_report(start,run_id),'walk':new_walk()}
@@ -99,7 +99,7 @@ def read_report(path,run_id,start):
     with Path(path).open('rb') as source:r=json_object(source.read(131073),131072)
     req=base.supervisor.require
     req(type(r) is dict and set(r)==set(new_report(start,run_id)))
-    for k,v in [('version',VERSION),('test_id','TEST-028'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
+    for k,v in [('version',VERSION),('test_id','TEST-030'),('revision',REVISION),('run_id',run_id),('start_ns',start)]:
         req(type(r[k]) is type(v) and r[k]==v)
     req(r['phase'] in ('search','walk','done'))
     req(r['status'] in ('running','completed','stopped'))
@@ -165,7 +165,7 @@ class Driver(base.RuntimeDriver):
         from . import beat_sync,shop_navigation
         self.outer=outer;self.state=outer['walk'];self.model=None;self.samples=[];self.visits={(0,0):1}
         self.analysis_failed=False;self.finishing=False;self.finish_refresh_attempted=False;self.sync_deadline=None
-        self.beat_only=False;self.tracked_frame=None;self._followup_token=None
+        self.beat_only=False;self.tracked_frame=None;self._followup_token=None;self.entrance=None
         super().__init__(client,outer['search'],folder,stop_ns,clock,control,self.analyze_frame)
     def budget(self):
         if base.supervisor._cancel_requested:raise ProbeError('cancelled')
@@ -221,12 +221,12 @@ class Driver(base.RuntimeDriver):
         from .shop_navigation import choose
         scene=self.scene(obs)
         if scene is None:return {'direction':None,'reason':'navigation_unknown','target':None}
-        return choose(scene,tuple(self.state['position']),self.visits)
+        return choose(scene,tuple(self.state['position']),self.visits,entrance=self.entrance)
     def burst_count(self,obs,decision,remaining):
         from .shop_navigation import burst_count
-        return min(remaining,burst_count(self.scene(obs),decision))
+        return min(remaining,burst_count(self.scene(obs),decision,tuple(self.state['position']),entrance=self.entrance))
     def movement(self,before,after,direction,expected_steps=1):
-        from .shop_navigation import motion
+        from .shop_navigation import motion,entered_gate
         from . import motion_stats
         a,b=self.scene(before),self.scene(after)
         if a is None or b is None:return 'unknown'
@@ -237,7 +237,11 @@ class Driver(base.RuntimeDriver):
             self.model=updated;self.tracked_frame=after if updated is not None else None
             if updated is not None:self.remember_model(updated)
         before_ns=self.clock()
-        try:return motion(a,b,direction,expected_steps=expected_steps)
+        try:
+            result=motion(a,b,direction,expected_steps=expected_steps)
+            if self.entrance is None:
+                self.entrance=entered_gate(a,b,direction,tuple(self.state['position']),expected_steps,result)
+            return result
         finally:
             self.state['motion_ms'].append((self.clock()-before_ns)/1e6)
             self.state['motion_engine']=motion_stats.ENGINE
@@ -360,9 +364,9 @@ class Driver(base.RuntimeDriver):
         if moving:
             remaining=MAX_STEPS-sum(a['scheduled_inputs'] for a in self.state['actions'])
             if remaining<1:raise ProbeError('walk_limit')
-            if count==2:
+            if count==2 or self.entrance is not None:
                 planned=self.choose(obs)
-                if planned.get('direction')!=action or self.burst_count(obs,planned,2)!=2:
+                if planned.get('direction')!=action or (count==2 and self.burst_count(obs,planned,2)!=2):
                     raise ProbeError('method_not_allowed')
             count=min(count,remaining)
         if self.state['goods_visible'] and action!='pause':raise ProbeError('method_not_allowed')
@@ -648,8 +652,8 @@ def walk(driver):
 
 
 def parser():
-    ap=base.parser();ap.description='TEST-028: 金壁発見後、測定済み1-1周期範囲とHUDで商品が見える位置へ。'
-    ap.set_defaults(output='runtime/test-028');return ap
+    ap=base.parser();ap.description='TEST-030: 金壁発見後、測定済み1-1周期範囲とHUDで商品が見える位置へ。'
+    ap.set_defaults(output='runtime/test-030');return ap
 
 
 def worker(args):
@@ -709,7 +713,7 @@ def run(args):
         '--run-id',run_id,'--start-ns',str(start),'--stop-ns',str(start+180_000_000_000),'--token-store',args.token_store]
     if args.store_key is not None:command+=['--store-key',args.store_key]
     if args.python_crypto:command.append('--python-crypto')
-    print('TEST-028: 金壁→測定済み1-1周期範囲とライブHUD→新鮮な地形で商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
+    print('TEST-030: 金壁→測定済み1-1周期範囲とライブHUD→新鮮な地形で商品が見える位置へ。画面端0、同じ向きでゲームを表示してください。',flush=True)
     diagnostics={};reason=base.supervisor.supervise(command,max(.001,180-(time.monotonic_ns()-start)/1e9),diagnostics)
     try:r=read_report(control/'report.json',run_id,start)
     except (ValueError,OSError,ProbeError):r['search']['counts_certain']=False;reason=reason or 'report_read_failed'
@@ -735,8 +739,8 @@ def main(argv=None):
         def interrupt(_sig,_frame):base.supervisor._cancel_requested=True
         for sig in (signal.SIGINT,signal.SIGTERM):previous[sig]=signal.getsignal(sig);signal.signal(sig,interrupt)
     try:return run(args)
-    except ProbeError as exc:print('TEST-028停止: '+code(exc.code),file=sys.stderr);return 2
-    except OSError:print('TEST-028: 結果保存に失敗しました。',file=sys.stderr);return 2
+    except ProbeError as exc:print('TEST-030停止: '+code(exc.code),file=sys.stderr);return 2
+    except OSError:print('TEST-030: 結果保存に失敗しました。',file=sys.stderr);return 2
     finally:
         for sig,handler in previous.items():signal.signal(sig,handler)
 

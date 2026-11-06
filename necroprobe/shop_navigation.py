@@ -6,6 +6,7 @@
 """
 from collections import deque
 import heapq
+import math
 from itertools import count
 from dataclasses import dataclass
 
@@ -242,7 +243,41 @@ def _gate_paths(scene):
     return paths,costs
 
 
-def choose(scene, position=(0, 0), visits=None):
+def entered_gate(before, after, direction, position, expected_steps, outcome):
+    """開いた入口への1歩を地形で確認した時だけ、店内へ進む向きを記憶。"""
+    if (not isinstance(before, Scene) or not isinstance(after, Scene)
+            or outcome != "moved" or expected_steps != 1 or direction not in DIRECTIONS):
+        return None
+    delta = DIRECTIONS[direction]
+    if (before.tiles.get(delta) != "floor" or after.tiles.get((0, 0)) != "floor"
+            or delta not in _gates(before.tiles) or (0, 0) not in _gates(after.tiles)
+            or delta in before.protected or (0, 0) in after.protected):
+        return None
+    return {"gate": _add(position, delta), "direction": direction}
+
+
+def _route_scene(scene, position, entrance):
+    """進入後の経路だけを絞る。未知セルの補完や元Sceneの変更はしない。"""
+    if entrance is None:
+        return scene, None
+    if (type(entrance) is not dict or set(entrance) != {"gate", "direction"}
+            or not isinstance(entrance["direction"], str) or entrance["direction"] not in DIRECTIONS
+            or type(entrance["gate"]) not in (tuple, list) or len(entrance["gate"]) != 2
+            or any(type(v) is not int for v in entrance["gate"])
+            or type(position) not in (tuple, list) or len(position) != 2
+            or any(type(v) is not int for v in position)):
+        return None, None
+    dx, dy = DIRECTIONS[entrance["direction"]]
+    gate = (entrance["gate"][0] - position[0], entrance["gate"][1] - position[1])
+    if gate[0]*dx + gate[1]*dy > 0:  # 記録した入口より外側なら整合しない。
+        return None, None
+    # 通過済み入口へ後退しない。横移動は可、未知の店内しかなければ停止。
+    # 金壁は通行不可の目印として保持。横向き入口の両脇を失うと2入力が扉を越える。
+    tiles = {p:kind for p,kind in scene.tiles.items() if kind == "gold" or p[0]*dx + p[1]*dy >= 0}
+    return Scene(tiles, scene.gold, scene.goods, scene.protected, scene.signature), gate
+
+
+def choose(scene, position=(0, 0), visits=None, entrance=None):
     def result(direction=None, reason="no_observed_route", target=None):
         return {"direction": direction, "reason": reason, "target": target}
     if scene.goods == "visible":
@@ -251,11 +286,14 @@ def choose(scene, position=(0, 0), visits=None):
         return result(reason="goods_adjacent_controls_unverified")
     if not scene.gold or scene.tiles.get((0, 0)) != "floor":
         return result(reason="no_visible_gold_or_origin")
+    scene, passed_gate = _route_scene(scene, position, entrance)
+    if scene is None:
+        return result(reason="entrance_unconfirmed")
     visits = visits or {}
     paths,costs = _gate_paths(scene)
     options = []
     for gate, sides in _gates(scene.tiles).items():
-        if gate in scene.protected:
+        if gate == passed_gate or gate in scene.protected:
             continue
         for near in sides:
             if near not in paths:
@@ -276,7 +314,7 @@ def choose(scene, position=(0, 0), visits=None):
     nearest_gold=min(scene.gold,key=lambda p:(_distance((0,0),p),p))
     axis=1 if abs(nearest_gold[1])>=abs(nearest_gold[0]) else 0
     for target, path in _floor_paths(scene).items():
-        if not path:
+        if not path or target == passed_gate:
             continue
         gap = min(_distance(target, gold) for gold in scene.gold)
         seen = visits.get(_add(position, target), 0)
@@ -290,7 +328,7 @@ def choose(scene, position=(0, 0), visits=None):
     return result()
 
 
-def burst_count(scene, decision):
+def burst_count(scene, decision, position=(0, 0), entrance=None):
     """選択済み経路の先頭2床が同方向で安全な場合だけ、2入力を許す。"""
     if (not isinstance(decision, dict) or scene.goods in ("partial", "visible")
             or not scene.gold or scene.tiles.get((0, 0)) != "floor"):
@@ -300,6 +338,9 @@ def burst_count(scene, decision):
             or decision.get("reason") not in ("approach_gate", "observed_floor_vantage")
             or not isinstance(target, (tuple, list)) or len(target) != 2
             or any(type(value) is not int for value in target)):
+        return 1
+    scene, _ = _route_scene(scene, position, entrance)
+    if scene is None:
         return 1
     paths = _gate_paths(scene)[0] if decision.get("reason") == "approach_gate" else _floor_paths(scene)
     path = paths.get(tuple(target), ())
@@ -369,6 +410,48 @@ def _motion_view(signature):
     return normalized, ImageChops.darker(texture, valid), positive
 
 
+def _translated_closed_gate(before, after, sx, sy):
+    """強度比較が不成立の時だけ使う、金壁全体と閉扉の独立な対応。"""
+    if (sx == sy == 0 or sx % 9 or sy % 9 or len(before.gold) < 2
+            or {(x + sx//9, y + sy//9) for x,y in before.gold} != after.gold):
+        return False
+    old_gates, new_gates = _gates(before.tiles), _gates(after.tiles)
+    return any(before.tiles.get(p) == "door"
+               and after.tiles.get((p[0]+sx//9, p[1]+sy//9)) == "door"
+               and (p[0]+sx//9, p[1]+sy//9) in new_gates for p in old_gates)
+
+
+def _texture_match(old_texture, new_texture, old_positive, new_positive, sx, sy):
+    box = (max(0, -sx), max(0, -sy), min(224, 224 - sx), min(104, 104 - sy))
+    other = (box[0] + sx, box[1] + sy, box[2] + sx, box[3] + sy)
+    matched = ImageChops.darker(old_texture.crop(box), new_texture.crop(other))
+    support = matched.histogram()[255]
+    opposite = ImageChops.darker(matched, ImageChops.difference(
+        old_positive.crop(box), new_positive.crop(other))).histogram()[255]
+    return support, opposite, matched, box
+
+
+def _structural_motion(before, after, candidates, old_texture, new_texture, old_positive, new_positive):
+    _, sx, sy = candidates[0]
+    if not _translated_closed_gate(before, after, sx, sy):
+        return False
+    support, opposite, matched, box = _texture_match(
+        old_texture, new_texture, old_positive, new_positive, sx, sy)
+    if support < 300 or 20*opposite > support:  # 95%以上の細部が同じ明暗関係。
+        return False
+    full = Image.new('L', _SIGNATURE_SIZE)
+    full.paste(matched, box[:2])
+    regions = ((40,20,179,36), (40,36,90,79), (139,36,179,79))
+    if sum(full.crop(region).histogram()[255] >= 100 for region in regions) < 2:
+        return False
+    # 低い強度順位や静止候補も含めて照合。一部の領域だけの対応を採用しない。
+    for _, tx, ty in candidates[1:]:
+        count, bad, _, _ = _texture_match(old_texture, new_texture, old_positive, new_positive, tx, ty)
+        if count >= 300 and 20*(bad*support-opposite*count) < 3*count*support:
+            return False  # 符号一致率の差が0.15未満。
+    return True
+
+
 def motion(before, after, direction, expected_steps=1):
     if (type(expected_steps) is not int or expected_steps not in (1, 2)
             or direction not in DIRECTIONS or len(before.signature) != 224 * 104 or
@@ -383,7 +466,10 @@ def motion(before, after, direction, expected_steps=1):
     candidates.sort()
     best, sx, sy = candidates[0]
     # 元の閾値は維持するが、正規化後の未知実画像での精度保証ではない。
-    if best > .45 or candidates[1][0] - best < .08:
+    if not math.isfinite(best) or candidates[1][0] - best < .08:
+        return "unknown"
+    if best > .45 and not _structural_motion(
+            before, after, candidates, old_texture, new_texture, old_positive, new_positive):
         return "unknown"
     box = (max(0, -sx), max(0, -sy), min(224, 224 - sx), min(104, 104 - sy))
     other = (box[0] + sx, box[1] + sy, box[2] + sx, box[3] + sy)

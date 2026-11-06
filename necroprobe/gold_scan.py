@@ -90,6 +90,22 @@ def _matches_pause_icon(image, gray):
     return False
 
 
+def _matches_footer(image, gray, name):
+    """白い文字を照合し、背後の赤いハート等を輝度だけで数字に含めない。"""
+    box, table, minimum, reference = _TEMPLATES[name]
+    with image.crop(box) as crop:
+        red, green, blue = crop.split()
+        low = ImageChops.darker(red, ImageChops.darker(green, blue))
+        high = ImageChops.lighter(red, ImageChops.lighter(green, blue))
+        neutral = ImageChops.subtract(high, low.point([min(255, 2*v) for v in range(256)])).point(
+            [255] + [0]*255)
+        observed = ImageChops.darker(gray.crop(box).point(table), neutral)
+        # 参照の白い部分だけを見ない。全cropの余分な白画素もunionへ含める。
+        intersection = ImageChops.darker(observed, reference).histogram()[255]
+        union = ImageChops.lighter(observed, reference).histogram()[255]
+        return intersection >= minimum * max(1, union)
+
+
 def _gold_peak(image):
     red, green, blue = image.split()
     mask = red.point(_RED)
@@ -136,7 +152,7 @@ def analyze_image(source):
             if _matches(gray, "continue"):
                 answer.update(state="pause", restart_label=_matches(gray, "restart"))
             elif (_matches_pause_icon(image, gray)
-                  and all(_matches(gray, name) for name in ("footer", "zone_one", "floor_one"))
+                  and all(_matches_footer(image, gray, name) for name in ("footer", "zone_one", "floor_one"))
                   and not _matches(gray, "death")):
                 result = scan(image.tobytes())
                 peak, fingerprint = result if result is not None else (_gold_peak(image), _fingerprint(gray))
