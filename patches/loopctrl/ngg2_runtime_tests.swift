@@ -42,6 +42,45 @@ func diagnoseFixture(_ id: String) {
             "path_count": .int(NG2Fake.paths().count), "touch_count": .int(NG2Fake.countTouches())]
     }
 }
+func admitFirstFixtureMove(_ id: String, expectedID: UInt64? = nil) {
+    let current = report(id)
+    let currentID = current["current_command_id"]?.intValue ?? 0
+    let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    guard (expectedID == nil || currentID == Int(expectedID!)),
+        let command = events.first(where: { $0["id"]?.intValue == currentID && $0["kind"]?.intValue == 4 }) else {
+        // A stale callback may return before this hook is reached. Never let
+        // its setup clock operation leak into a later holding PAUSE.
+        NG2RuntimeTestHooks.beforeMainAuthority = nil
+        return
+    }
+    let at = UInt64(command["not_before_ns"]!.intValue!)
+    let deadline = UInt64(command["deadline_ns"]!.intValue!)
+    NG2Fake.lock.lock(); NG2Fake.walkObservationAfter = UInt64(command["target_ns"]!.intValue!)+80_000_000; NG2Fake.lock.unlock()
+    require(NG2Fake.changeClockAtCaptureBoundary {
+        let now = NG2Fake.virtualClock()
+        require(now <= deadline, "fixture_current_move_not_late_before_admission")
+        if now < at { NG2Fake.advance(at-now) }
+    }, "fixture_move_admission_capture_boundary")
+    NG2RuntimeTestHooks.beforeMainAuthority = nil
+}
+func alignInitialFixtureMove(_ id: String) {
+    NG2RuntimeTestHooks.beforeControlTick = {
+        let current = report(id)
+        guard (current["beat_period_ns"]?.intValue ?? 0) > 0 &&
+            !(current["events"]?.arrayValue ?? []).contains(where: { $0.objectValue?["kind"]?.intValue == 4 }) else { return }
+        // Move the known world/clock together between complete captures. The
+        // real planner then has about420ms until its own next dispatch point,
+        // enough for a later capture boundary or a changed-frame observation.
+        require(NG2Fake.changeClockAtCaptureBoundary {
+            let now = NG2Fake.virtualClock()
+            NG2Fake.lock.lock(); let epoch = NG2Fake.phaseBase; NG2Fake.lock.unlock()
+            let period: UInt64 = 520_000_000
+            let position = (now-epoch+150_000_000) % period
+            NG2Fake.advance((period+100_000_000-position) % period)
+        }, "fixture_initial_alignment_capture_boundary")
+        NG2RuntimeTestHooks.beforeControlTick = nil
+    }
+}
 
 // The cancellation is deliberately placed after the capture loop's outer
 // condition and before its admission lock. This catches deletion at the actual
@@ -297,6 +336,21 @@ require(call("necro_native_status", captureRace, keepalive: true).1 == nil, "old
 // motion observation and goods holding against procedural (non-device) frames.
 NG2Fake.reset(.walk)
 let walk = identity()
+diagnoseFixture(walk)
+NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
+alignInitialFixtureMove(walk)
+NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(walk) }
+NG2RuntimeTestHooks.scheduleTicket = { id, callback in
+    let current = report(walk)
+    let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    guard current["inputs"]?.intValue == 0,
+        events.contains(where: { $0["id"]?.intValue == Int(id) && $0["kind"]?.intValue == 4 }) else { return false }
+    // Test real C begin/main admission without depending on a GCD timer wake
+    // landing in a 10ms window while unrelated fixture analysis is queued.
+    callback()
+    return true
+}
 require(call("necro_native_start", walk).1 == nil, "native_walk_start")
 pump("native_walk_first_input", timeout: 12) {
     let snapshot = call("necro_native_status", walk, keepalive: true).0?["report"]?.objectValue ?? [:]
@@ -309,13 +363,6 @@ if let fingers = paths.first, fingers.count == 1, let finger = fingers.first, fi
     validDirectionPath = validDirectionPath && finger[1].point == finger[0].point
     validDirectionPath = validDirectionPath && finger[0].t == 0 && finger[1].t == 0.05
 } else { validDirectionPath = false }
-if !validDirectionPath {
-    let diagnostic: [String: JSONValue] = ["report": .object(report(walk)), "path_count": .int(paths.count),
-        "touch_count": .int(NG2Fake.countTouches()), "fake_now_ns": .int(Int(NG2Fake.virtualClock()))]
-    if let bytes = try? JSONEncoder().encode(diagnostic), let line = String(data: bytes, encoding: .utf8) {
-        print("DIAGNOSTIC native_walk_fixture " + line)
-    }
-}
 require(validDirectionPath, "native_walk_uses_single_50ms_direction_gesture")
 pump("native_walk_goods_hold_drained", timeout: 8) {
     _ = call("necro_native_status", walk, keepalive: true)
@@ -337,6 +384,7 @@ require(walked["missing_capture_ids"]?.arrayValue?.isEmpty == true && (walked["p
 let walkResult = call("necro_native_results", walk)
 require(walkResult.1 == nil && (walkResult.0?["images"]?.arrayValue?.count ?? 0) >= 4 &&
     walkResult.0?["omitted_capture_ids"]?.arrayValue?.isEmpty == true, "native_walk_initial_motion_goods_stop_images_exported")
+fixtureFailureSnapshot = nil
 
 // Revoke the original queued first-move ticket using one real remote-cell
 // change. Execute its actual callback before/after the replacement callback.
@@ -347,24 +395,7 @@ for staleFirst in [true, false] {
     let replan = identity()
     diagnoseFixture(replan)
     NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
-    var aligned = false
-    NG2RuntimeTestHooks.beforeControlTick = {
-        let current = report(replan)
-        if !aligned && (current["beat_period_ns"]?.intValue ?? 0) > 0 &&
-            !(current["events"]?.arrayValue ?? []).contains(where: { $0.objectValue?["kind"]?.intValue == 4 }) {
-            // Give the real next-target calculation nearly a full period so
-            // a second image can arrive before the original 10ms deadline.
-            require(NG2Fake.changeClockAtCaptureBoundary {
-                let now = NG2Fake.virtualClock()
-                NG2Fake.lock.lock(); let epoch = NG2Fake.phaseBase; NG2Fake.lock.unlock()
-                let period: UInt64 = 520_000_000
-                let position = (now-epoch+150_000_000) % period
-                NG2Fake.advance((period+100_000_000-position) % period)
-            }, "replan_fixture_alignment_capture_boundary")
-            aligned = true
-            NG2RuntimeTestHooks.beforeControlTick = nil
-        }
-    }
+    alignInitialFixtureMove(replan)
     NG2RuntimeTestHooks.scheduleTicket = { id, callback in
         let current = report(replan)
         let moves = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
@@ -417,15 +448,7 @@ for staleFirst in [true, false] {
             afterOld["cancel_requested"]?.boolValue == false && NG2Fake.countTouches() == 0,
             "replan_old_return_does_not_release_new_ticket")
     }
-    NG2RuntimeTestHooks.beforeMainAuthority = {
-        let at = UInt64(moves[1]["not_before_ns"]!.intValue!)
-        require(NG2Fake.changeClockAtCaptureBoundary {
-            let now = NG2Fake.virtualClock()
-            require(now <= UInt64(moves[1]["deadline_ns"]!.intValue!), "replan_fixture_replacement_not_late")
-            if now < at { NG2Fake.advance(at-now) }
-        }, "replan_fixture_send_capture_boundary")
-        NG2RuntimeTestHooks.beforeMainAuthority = nil
-    }
+    NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(replan, expectedID: newID) }
     NG2Fake.releaseTicket(newID)
     pump("replan_replacement_only_one_input", timeout: 8) {
         let current = call("necro_native_status", replan, keepalive: true).0?["report"]?.objectValue ?? [:]
@@ -462,19 +485,7 @@ NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
 let rejectedDifference = identity()
 diagnoseFixture(rejectedDifference)
 NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
-var rejectedAligned = false
-NG2RuntimeTestHooks.beforeControlTick = {
-    let current = report(rejectedDifference)
-    if !rejectedAligned && (current["beat_period_ns"]?.intValue ?? 0) > 0 {
-        require(NG2Fake.changeClockAtCaptureBoundary {
-            let now = NG2Fake.virtualClock()
-            NG2Fake.lock.lock(); let epoch = NG2Fake.phaseBase; NG2Fake.lock.unlock()
-            let position = (now-epoch+150_000_000) % 520_000_000
-            NG2Fake.advance((620_000_000-position) % 520_000_000)
-        }, "rejected_fixture_alignment_capture_boundary")
-        rejectedAligned = true; NG2RuntimeTestHooks.beforeControlTick = nil
-    }
-}
+alignInitialFixtureMove(rejectedDifference)
 NG2RuntimeTestHooks.scheduleTicket = { id, callback in
     let movements = (report(rejectedDifference)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
     guard movements.contains(where: { $0["id"]?.intValue == Int(id) }) else { return false }

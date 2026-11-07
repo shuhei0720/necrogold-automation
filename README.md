@@ -2,14 +2,14 @@
 
 iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に金壁が見える回の金商人の商品を高速に確認し、目的の「呪いの指輪」の候補で停止するためのプロジェクトです。
 
-**TEST-044の接続確認・診断を改善し、ホスト試験とCIを通過しました。実機確認をお願いします。** TEST043は最初のLoopCtrl接続で止まり、ゲーム起動命令に到達していません。UIを使わないGET /schemaで接続を確認し、開始前だけ期限付きで再接続します。対象92件はホスト・[CI](https://github.com/shuhei0720/necrogold-automation/actions/runs/42343772094)とも全成功。導入済みNG-G2 build20を使用します。画像取得・認識・経路・拍同期・期限付き入力を同じiPhoneの取得元へ移し、iSHは開始・状態照会・取消・結果保存を担当します。API `1.98.14-ngg2` とcapability `necrogold_native_v1` を確認してから開始します。毎拍1歩と人より速い動作は目標のままで、NG-G2の端末受入は未確認です。配布版・CI結果・最終集計は[既存実機台帳](docs/device-tests/README.md)を参照してください。
+**TEST-045の初入力前再計画・結果回収を実装し、検証しています。新IPAが必要です。** TEST044はゲーム起動/続行に成功しましたが、最初の方向予約中の認識差で未送信停止し、結果画像も回収できませんでした。最新の安全な画像から元の拍/期限内で再判断できるようにし、結果RPCだけ最大8秒へ分離しました。native96件/クライアント105件のホスト試験は全成功、[client CI](https://github.com/shuhei0720/necrogold-automation/actions/runs/42347494349)も105件成功。新IPAのSwift/結合/配布検証を進めています。API `1.98.14-ngg2` を維持し、新clientは追加capability `necrogold_native_v2`を要求します。毎拍1歩と人より速い動作は目標のままで、NG-G2の歩行受入は未確認です。最終IPA・CI・配布版は[既存実機台帳](docs/device-tests/README.md)末尾を参照してください。
 
 前版TEST-042は商品表示・最終ポーズに成功しましたが、速度は未合格でした。report開始→初入力23.831秒（04118.587秒）、walk26.229秒（04121.874秒）。拍の再同期で7.329秒、扉前の再観測で4.701秒の空白があり、full撮影＋解析だけで約1.25秒かかりました。[実機結果と原因](docs/device-tests/README.md#test-042受領結果2026-11-07-日本時間)を残し、この観測待ちを短縮するためNG-G2へ進んでいます。配置差があるため全時間差を変更の効果とはしません。
 
 - [計測ツールの使い方と結果の見方](docs/p1-probe-guide.md)
-- **TEST-044の実機確認をお願いします。** [実行手順](docs/device-tests/README.md#test-044実行手順)でLoopCtrlのStart Serverを確認し、新しい通常1-1を画面端操作0・左側が下の向きでポーズして、iSHから `sh test_044.sh` を実行します。終了後は `runtime/test-044` のZIPと、各歩・開扉・商品・最終ポーズの確認結果をこのチャットへ返してください。開発ブランチは`work/p1-capture-probe`です。
-- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_native_perception test_native_navigation test_native_beat test_native_controller test_native_walk test_native_connect test_http_diagnostics -v`。固定したTEST034〜042の画像はGit外に保持し、`NECRO_TEST043_FIXTURE_ROOT`で場所を指定します。TEST043必須画像の不足・hash不一致は失敗にします。旧回帰の外部画像不足によるskipと分け、最終集計は既存実機台帳を参照してください。
-- 完全な新規ソース: [native C/Swiftと取得元パッチ](patches/loopctrl/README.md)、[軽量iSHクライアント](necroprobe/native_walk.py)、[起動スクリプト](test_044.sh)。旧版40ファイルは未変更。
+- **TEST-045の実機確認をお願いします。** [実行手順](docs/device-tests/README.md#test-045実行手順)で新IPAへ更新してLoopCtrlのStart Serverを確認し、新しい通常1-1を画面端操作0・左側が下の向きでポーズして、iSHから `sh test_045.sh` を実行します。終了後は `runtime/test-045` のZIPと、各歩・開扉・商品・最終ポーズの確認結果をこのチャットへ返してください。開発ブランチは`work/p1-capture-probe`です。
+- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_native_perception test_native_navigation test_native_beat test_native_controller test_protocol test_http_and_cli test_http_diagnostics test_native_walk test_native_connect test_native_results -v`。固定したTEST034〜042の画像はGit外に保持し、`NECRO_TEST043_FIXTURE_ROOT`で場所を指定します。TEST043必須画像の不足・hash不一致は失敗にします。旧回帰の外部画像不足によるskipと分け、最終集計は既存実機台帳を参照してください。
+- 完全な新規ソース: [native C/Swiftと取得元パッチ](patches/loopctrl/README.md)、[軽量iSHクライアント](necroprobe/native_walk.py)、[起動スクリプト](test_045.sh)。旧版40ファイルは未変更。
 - P1.1の検証: ホスト54試験と3観点の相互レビューを通過しましたが、[TEST-001](docs/device-tests/001-capture.md)の実機3実行はworker_failedでした。3reportを受領し、最初のdevice_infoの開始記録までで完了していないことを確認。ホスト通過を実機合格とは扱いません。
 - P1.2の[TEST-002](docs/device-tests/002-worker-diagnostics.md)はPython暗号でもゲーム起動前にSIGSYSで終了しました。
 - P1.3の[TEST-003](docs/device-tests/003-ish-timer.md)は`timer_already_in_use`でゲーム起動前に停止、取得0/12でした。

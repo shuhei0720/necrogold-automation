@@ -207,7 +207,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                            'FAIL legacy_timeout_actual_request_blocks_native_run'),
         'stale-cleanup': ('run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }',
                           'run.lock.ng2Locked { run.mainCallbacks.remove(command.id); run.mainCommandID = 0 }',
-                          'FAIL replan_old_return_does_not_release_new_ticket'),
+                          'FAIL replan_replacement_is_only_direction_synth'),
         'callback-drain': ('mainOutstanding: run.mainOutstanding, legacyCaptures: legacy)',
                            'mainOutstanding: false, legacyCaptures: legacy)',
                            'FAIL replan_queued_stale_callback_keeps_core_and_lease'),

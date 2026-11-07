@@ -20,6 +20,7 @@ enum NG2Fake {
     static var walkY: Int32 = 0
     static var walkMoves = 0
     static var walkCapturesAfterMove = 0
+    static var walkObservationAfter: UInt64 = 0
     static var walkPaused = false
     static var phaseBase: UInt64 = 0
     static var remoteVariant: Int32 = 0
@@ -35,7 +36,7 @@ enum NG2Fake {
         lock.fixtureLocked {
             beforeForegroundQuery = nil
             gesturePaths = []; tapPoints = []; walkX = 0; walkY = 0
-            walkMoves = 0; walkCapturesAfterMove = 0; walkPaused = false
+            walkMoves = 0; walkCapturesAfterMove = 0; walkObservationAfter = 0; walkPaused = false
             remoteVariant = 0; heldTickets = [:]; returnedTickets = []; unknownFrames = 0
             boundaryClockChange = nil
             phaseBase = DispatchTime.now().uptimeNanoseconds
@@ -85,18 +86,22 @@ enum NG2Fake {
         }
         change?()
     }
-    static func walkedPNG() -> Data {
+    static func walkedPNG(capturedAt time: UInt64) -> Data {
         let unknown = lock.fixtureLocked { () -> Bool in
             if unknownFrames == 0 { return false }; unknownFrames -= 1; return true
         }
         if unknown { return unknownPNG }
         let state = lock.fixtureLocked { () -> (Int32, Int32, Int32, Bool, UInt64) in
             if walkMoves > 0 { walkCapturesAfterMove += 1 }
-            return (walkX, walkY, walkCapturesAfterMove >= 3 ? 1 : 0, walkPaused, phaseBase)
+            // This known world reveals goods at the first real C ticket's
+            // target+80ms, before its next beat. Eligibility uses this fake
+            // request's entry clock, not the later PNG painting clock. A frame
+            // count alone could beat the motion observation horizon.
+            let goods = walkMoves > 0 && walkObservationAfter > 0 && time >= walkObservationAfter
+            return (walkX, walkY, goods ? 1 : 0, walkPaused, phaseBase)
         }
         if state.3 { return pausePNG }
         let period: UInt64 = 520_000_000
-        let time = virtualClock()
         let elapsed = time >= state.4 ? time-state.4 : 0
         let fraction = Double(period-1-(elapsed % period))/Double(period)
         var rgba = Data(count: 896*414*4)
@@ -181,6 +186,7 @@ enum NG2CaptureBridge {
     static var pendingRequests: UInt { NG2Fake.lock.fixtureLocked { UInt(NG2Fake.pending) } }
     static func prepare() -> Bool { Thread.isMainThread }
     static func requestJPEG(_ reply: @escaping (Data?, String?) -> Void) {
+        let capturedAt = NG2Fake.virtualClock()
         let mode = NG2Fake.lock.fixtureLocked { () -> NG2Fake.Mode in
             NG2Fake.requests += 1; NG2Fake.pending += 1
             if NG2Fake.mode == .hold {
@@ -194,7 +200,7 @@ enum NG2CaptureBridge {
         if mode == .hold { return }
         DispatchQueue.global().asyncAfter(deadline: .now()+0.005) {
             NG2Fake.lock.fixtureLocked { NG2Fake.pending -= 1 }
-            let data: Data? = mode == .walk ? NG2Fake.walkedPNG() : (mode == .pause ? NG2Fake.pausePNG : nil)
+            let data: Data? = mode == .walk ? NG2Fake.walkedPNG(capturedAt: capturedAt) : (mode == .pause ? NG2Fake.pausePNG : nil)
             reply(data, "fixture capture")
         }
     }
