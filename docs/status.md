@@ -2,6 +2,8 @@
 
 更新: 2026-11-07（日本時間）
 
+TEST046受領後、TEST047を実装中。更新後3実行はcap確認成功だが方向0で、EXIF8の回転365.674〜1828.511msが新たに判明した。向き1最適化は使われず、3秒鮮度失効と理由を分離できないgeometry停止があった。既存台帳の8項目プランは設計/安全各1周・試験2周でclose。C単体Red→Greenと、Macの旧Swift Ccalls0/期待1・詳細decode stub・旧Runtime診断欠落の3 assertion Redを観測済。画素同値のC接続と最初の失敗診断を実装し、新IPA/全コードでTEST047実機を依頼する。期限・認識閾値・unknown synth無再送は維持。
+
 最新はTEST046の実装・ホスト/CI・新IPA build30を検証し、実機テストを依頼する段階。TEST045は上1歩・最終ポーズ/8画像回収に成功したが、35pxのUNKNOWNで即停止していた。同入力を元の次拍期限内・最大3回だけ再確認し、画素同値の正規化コピー削減と診断を実装。native112件/client112件はホスト全成功、[native CI42355682441](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441)もSwift本体/15変異/暗号RPC/IPAを通過、CRC/SHA/封印22ソースを照合済み。**[TEST046新IPA build30](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441/artifacts/13567946985)へSideStore更新**し、[TEST046手順](device-tests/README.md#test-046実行手順)でruntime/test-046を返してもらう。初動は045で端末受付5.226708秒、毎拍/人より速い性能はまだ未合格。最終照合・レビューは既存台帳末尾を参照する。
 
 TEST045提出時の履歴: 実装・ホスト/CI・新IPA build25を確認して実機テストを依頼した。元拍/期限を維持した初入力前の最大2再計画と、結果専用最大8秒・固定差分診断を実装。native96件/クライアント105件はホスト全成功、client CI105件/native CI90件もskip0。Swift本体と12実callsite変異、暗号RPC、IPAビルドが[CI42349253984](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984)で成功し、CRC/SHA・全22ソースを照合した。その後上1歩＋ポーズの実機結果を受領した。現在はTEST046の新IPAと[TEST046手順](device-tests/README.md#test-046実行手順)を使う。歩行・速度・毎拍受入は未合格。

@@ -1,11 +1,12 @@
 import Foundation
 import CoreGraphics
+import ImageIO
 
 private extension NSLock {
     func fixtureLocked<T>(_ body: () -> T) -> T { lock(); defer { unlock() }; return body() }
 }
 enum NG2Fake {
-    enum Mode { case empty, pause, hold, walk }
+    enum Mode { case empty, pause, hold, walk, reply }
     static let lock = NSLock()
     static var mode = Mode.empty
     static var requests = 0
@@ -37,9 +38,12 @@ enum NG2Fake {
     static var callbacks: [(Data?, String?) -> Void] = []
     static var offset: UInt64 = 0
     static var pending = 0
+    static var replyData: Data?
+    static var replyError: String?
     static func reset(_ next: Mode) {
         lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; frontPID = 42; callbacks = []; offset = 0; pending = 0 }
         lock.fixtureLocked {
+            replyData = nil; replyError = nil
             beforeForegroundQuery = nil
             gesturePaths = []; tapPoints = []; walkX = 0; walkY = 0
             walkMoves = 0; walkCapturesAfterMove = 0; walkObservationAfter = 0; walkPaused = false
@@ -59,6 +63,8 @@ enum NG2Fake {
         NG2RuntimeTestHooks.scheduleTicket = nil
         NG2RuntimeTestHooks.afterTicketReturned = nil
         NG2RuntimeTestHooks.afterCaptureDrainProcessed = nil
+        NG2RuntimeTestHooks.beforeCaptureFailureCommit = nil
+        NG2RuntimeTestHooks.analysisRGBA = nil
         LockStateMonitor.monitor.isLocked = false
         NG2RuntimeTestHooks.clock = nil
     }
@@ -142,6 +148,20 @@ enum NG2Fake {
         return NG2Raster.png(bytes)!
     }()
     static let unknownPNG = NG2Raster.png(Data(count: 896*414*4))!
+    static let squarePNG: Data = {
+        let bytes = Data(repeating: 0, count: 16)
+        let provider = CGDataProvider(data: bytes as CFData)!
+        let source = CGImage(width: 2, height: 2, bitsPerComponent: 8, bitsPerPixel: 32,
+            bytesPerRow: 8, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Big.rawValue |
+                CGImageAlphaInfo.premultipliedLast.rawValue), provider: provider,
+            decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
+        let output = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(output, "public.png" as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, source, nil)
+        precondition(CGImageDestinationFinalize(destination))
+        return output as Data
+    }()
 }
 final class RemoteSession {
     static let shared = RemoteSession()
@@ -214,6 +234,10 @@ enum NG2CaptureBridge {
         if mode == .hold { return }
         DispatchQueue.global().asyncAfter(deadline: .now()+0.005) {
             NG2Fake.lock.fixtureLocked { NG2Fake.pending -= 1 }
+            if mode == .reply {
+                let value = NG2Fake.lock.fixtureLocked { (NG2Fake.replyData, NG2Fake.replyError) }
+                reply(value.0, value.1); return
+            }
             let data: Data? = mode == .walk ? NG2Fake.walkedPNG(capturedAt: capturedAt) : (mode == .pause ? NG2Fake.pausePNG : nil)
             reply(data, "fixture capture")
         }

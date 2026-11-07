@@ -78,10 +78,44 @@ enum NG2Raster {
         case failure(Failure)
     }
 
-    // Executable baseline for the separate typed-failure contract. The Mac
-    // assertion must observe encoded_empty before this stub is implemented.
-    static func decodeDetailed(_ encoded: Data) -> DecodeResult {
-        return .failure(Failure(stage: .source, code: .sourceOpen, encodedBytes: encoded.count))
+    #if NG2_RASTER_HOST_TEST
+    // Deterministic factory faults for public failure contracts. These fields
+    // and branches are absent from the app and Runtime compilations.
+    enum HostFaults {
+        static var imageCreate = false
+        static var normalizeRender = false
+    }
+    #endif
+
+    private static func boundedMetadata(_ value: Int) -> Int? {
+        return value >= Int(Int32.min) && value <= Int(Int32.max) ? value : nil
+    }
+
+    private static func metadataInteger(_ value: Any?) -> Int? {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+        let numeric = number.doubleValue
+        guard numeric.isFinite, numeric.rounded(.towardZero) == numeric,
+              numeric >= Double(Int32.min), numeric <= Double(Int32.max) else { return nil }
+        return Int(numeric)
+    }
+
+    private static func sourceImage(_ source: CGImageSource) -> CGImage? {
+        #if NG2_RASTER_HOST_TEST
+        if HostFaults.imageCreate { return nil }
+        #endif
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+    }
+
+    private static func bitmapContext(data: UnsafeMutableRawPointer?, width: Int,
+                                      height: Int, space: CGColorSpace) -> CGContext? {
+        #if NG2_RASTER_HOST_TEST
+        if HostFaults.normalizeRender { return nil }
+        #endif
+        return CGContext(data: data, width: width, height: height, bitsPerComponent: 8,
+            bytesPerRow: width * 4, space: space,
+            bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue |
+                CGImageAlphaInfo.premultipliedLast.rawValue)
     }
 
     /// EXIF orientation is applied before sizing. The bitmap is opaque sRGB
@@ -94,38 +128,52 @@ enum NG2Raster {
 
     static func normalizeProfiled(_ image: CGImage, orientation: Int = 1,
                                  outputWidth: Int = width, outputHeight: Int = height) -> ProfiledResult? {
-        return normalizeProfiled(image, orientation: orientation, outputWidth: outputWidth,
-            outputHeight: outputHeight, sourceNs: 0)
+        if case .success(let result) = normalizeDetailed(image, orientation: orientation,
+            outputWidth: outputWidth, outputHeight: outputHeight) { return result }
+        return nil
     }
 
-    private static func normalizeProfiled(_ image: CGImage, orientation: Int,
-                                         outputWidth: Int, outputHeight: Int,
-                                         sourceNs: UInt64) -> ProfiledResult? {
-        guard (1...8).contains(orientation), image.width > 0, image.height > 0,
+    static func normalizeDetailed(_ image: CGImage, orientation: Int = 1,
+                                  outputWidth: Int = width, outputHeight: Int = height) -> DecodeResult {
+        return normalizeDetailed(image, orientation: orientation, outputWidth: outputWidth,
+            outputHeight: outputHeight, sourceNs: 0, encodedBytes: nil,
+            diagnosticWidth: boundedMetadata(image.width), diagnosticHeight: boundedMetadata(image.height),
+            diagnosticOrientation: boundedMetadata(orientation))
+    }
+
+    private static func normalizeDetailed(_ image: CGImage, orientation: Int,
+                                         outputWidth: Int, outputHeight: Int, sourceNs: UInt64,
+                                         encodedBytes: Int?, diagnosticWidth: Int?, diagnosticHeight: Int?,
+                                         diagnosticOrientation: Int?) -> DecodeResult {
+        func failure(_ stage: FailureStage, _ code: FailureCode) -> DecodeResult {
+            return .failure(Failure(stage: stage, code: code, encodedBytes: encodedBytes,
+                sourceWidth: diagnosticWidth, sourceHeight: diagnosticHeight,
+                orientation: diagnosticOrientation))
+        }
+        guard (1...8).contains(orientation) else { return failure(.metadata, .orientation) }
+        guard image.width > 0, image.height > 0,
               image.width <= 4096, image.height <= 4096,
               image.width * image.height <= 8_000_000,
               outputWidth > 0, outputHeight > 0,
               outputWidth <= 4096, outputHeight <= 4096,
-              outputWidth * outputHeight <= 8_000_000,
-              let space = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
+              outputWidth * outputHeight <= 8_000_000 else { return failure(.metadata, .sourceGeometry) }
         let swap = orientation >= 5
         let orientedWidth = swap ? image.height : image.width
         let orientedHeight = swap ? image.width : image.height
-        guard orientedWidth * outputHeight == orientedHeight * outputWidth else { return nil }
+        guard orientedWidth * outputHeight == orientedHeight * outputWidth else { return failure(.metadata, .aspect) }
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB) else { return failure(.normalize, .renderFailed) }
         let drawStart = DispatchTime.now().uptimeNanoseconds
         var original = Data(count: image.width * image.height * 4)
         let decoded = original.withUnsafeMutableBytes { bytes -> Bool in
-            guard let context = CGContext(data: bytes.baseAddress, width: image.width,
-                height: image.height, bitsPerComponent: 8, bytesPerRow: image.width * 4,
-                space: space, bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue |
-                    CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            guard let context = bitmapContext(data: bytes.baseAddress, width: image.width,
+                height: image.height, space: space) else { return false }
             context.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
             context.fill(CGRect(x: 0, y: 0, width: image.width, height: image.height))
             context.setBlendMode(.normal)
             context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
             return true
         }
-        guard decoded else { return nil }
+        guard decoded else { return failure(.normalize, .renderFailed) }
         let drawEnd = DispatchTime.now().uptimeNanoseconds
         // Orient source pixels before CoreGraphics resampling. Explicit maps
         // make all eight EXIF cases testable with asymmetric pixel sentinels.
@@ -136,38 +184,26 @@ enum NG2Raster {
         var oriented = original
         if orientation != 1 {
             oriented = Data(count: orientedWidth * orientedHeight * 4)
-            original.withUnsafeBytes { source in
+            // NG-G2 BEGIN native orientation integer copy.
+            let expectedPixels = image.width * image.height
+            let byteCount = expectedPixels * 4
+            let copied = original.withUnsafeBytes { source in
                 oriented.withUnsafeMutableBytes { destination in
-                    let src = source.bindMemory(to: UInt8.self)
-                    let dst = destination.bindMemory(to: UInt8.self)
-                    for y in 0..<orientedHeight {
-                        for x in 0..<orientedWidth {
-                            let p: (Int, Int)
-                            switch orientation {
-                            case 2: p = (image.width-1-x, y)
-                            case 3: p = (image.width-1-x, image.height-1-y)
-                            case 4: p = (x, image.height-1-y)
-                            case 5: p = (y, x)
-                            case 6: p = (y, image.height-1-x)
-                            case 7: p = (image.width-1-y, image.height-1-x)
-                            case 8: p = (image.width-1-y, x)
-                            default: p = (x, y)
-                            }
-                            let a = (p.1 * image.width + p.0) * 4
-                            let b = (y * orientedWidth + x) * 4
-                            dst[b] = src[a]; dst[b+1] = src[a+1]; dst[b+2] = src[a+2]; dst[b+3] = 255
-                        }
-                        copyPixels += UInt64(orientedWidth)
-                    }
+                    ng2_orient_rgba(source.bindMemory(to: UInt8.self).baseAddress, byteCount,
+                        Int32(image.width), Int32(image.height), Int32(orientation),
+                        destination.bindMemory(to: UInt8.self).baseAddress, byteCount)
                 }
             }
+            guard copied == expectedPixels else { return failure(.normalize, .orientationCopy) }
+            copyPixels = UInt64(copied)
+            // NG-G2 END native orientation integer copy.
         }
         let orientEnd = DispatchTime.now().uptimeNanoseconds
-        func result(_ rgba: Data, scaleNs: UInt64) -> ProfiledResult {
-            return ProfiledResult(rgba: rgba, trace: Trace(sourceWidth: image.width,
+        func result(_ rgba: Data, scaleNs: UInt64) -> DecodeResult {
+            return .success(ProfiledResult(rgba: rgba, trace: Trace(sourceWidth: image.width,
                 sourceHeight: image.height, orientation: orientation, sourceNs: sourceNs,
                 drawNs: drawEnd - drawStart, orientNs: orientEnd - drawEnd,
-                scaleNs: scaleNs, copyPixels: copyPixels))
+                scaleNs: scaleNs, copyPixels: copyPixels)))
         }
         if orientedWidth == outputWidth && orientedHeight == outputHeight {
             return result(oriented, scaleNs: 0)
@@ -177,18 +213,19 @@ enum NG2Raster {
                 bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: orientedWidth * 4,
                 space: space, bitmapInfo: CGBitmapInfo(rawValue:
                     CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue),
-                provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent) else { return nil }
+                provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent) else {
+            return failure(.normalize, .renderFailed)
+        }
         var output = Data(count: outputWidth * outputHeight * 4)
         let scaled = output.withUnsafeMutableBytes { bytes -> Bool in
-            guard let context = CGContext(data: bytes.baseAddress, width: outputWidth,
-                height: outputHeight, bitsPerComponent: 8, bytesPerRow: outputWidth * 4,
-                space: space, bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue |
-                    CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            guard let context = bitmapContext(data: bytes.baseAddress, width: outputWidth,
+                height: outputHeight, space: space) else { return false }
             context.interpolationQuality = .high
             context.draw(orientedImage, in: CGRect(x: 0, y: 0, width: outputWidth, height: outputHeight))
             return true
         }
-        return scaled ? result(output, scaleNs: DispatchTime.now().uptimeNanoseconds - orientEnd) : nil
+        return scaled ? result(output, scaleNs: DispatchTime.now().uptimeNanoseconds - orientEnd) :
+            failure(.normalize, .renderFailed)
     }
 
     static func decode(_ encoded: Data) -> Data? {
@@ -196,16 +233,39 @@ enum NG2Raster {
     }
 
     static func decodeProfiled(_ encoded: Data) -> ProfiledResult? {
+        if case .success(let result) = decodeDetailed(encoded) { return result }
+        return nil
+    }
+
+    static func decodeDetailed(_ encoded: Data) -> DecodeResult {
         let sourceStart = DispatchTime.now().uptimeNanoseconds
-        guard !encoded.isEmpty, encoded.count <= 8 * 1024 * 1024,
-              let source = CGImageSourceCreateWithData(encoded as CFData, nil),
-              CGImageSourceGetCount(source) == 1,
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        func failure(_ code: FailureCode, sourceWidth: Int? = nil,
+                     sourceHeight: Int? = nil, orientation: Int? = nil) -> DecodeResult {
+            return .failure(Failure(stage: .source, code: code, encodedBytes: encoded.count,
+                sourceWidth: sourceWidth, sourceHeight: sourceHeight, orientation: orientation))
+        }
+        guard !encoded.isEmpty else { return failure(.encodedEmpty) }
+        guard encoded.count <= 8 * 1024 * 1024 else { return failure(.encodedLimit) }
+        guard let source = CGImageSourceCreateWithData(encoded as CFData, nil) else { return failure(.sourceOpen) }
+        guard CGImageSourceGetCount(source) == 1 else { return failure(.imageCount) }
+        // Read bounded source metadata before image creation so an image-create
+        // failure still records available geometry. Missing EXIF stays nil in
+        // diagnostics while the processing default remains orientation 1.
         let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        let sourceWidth = metadataInteger(properties?[kCGImagePropertyPixelWidth])
+        let sourceHeight = metadataInteger(properties?[kCGImagePropertyPixelHeight])
+        let diagnosticOrientation = metadataInteger(properties?[kCGImagePropertyOrientation])
         let orientation = (properties?[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
+        guard let image = sourceImage(source) else {
+            return failure(.imageCreate, sourceWidth: sourceWidth,
+                sourceHeight: sourceHeight, orientation: diagnosticOrientation)
+        }
         let sourceEnd = DispatchTime.now().uptimeNanoseconds
-        return normalizeProfiled(image, orientation: orientation, outputWidth: width,
-            outputHeight: height, sourceNs: sourceEnd - sourceStart)
+        return normalizeDetailed(image, orientation: orientation, outputWidth: width,
+            outputHeight: height, sourceNs: sourceEnd - sourceStart, encodedBytes: encoded.count,
+            diagnosticWidth: properties?[kCGImagePropertyPixelWidth] == nil ? boundedMetadata(image.width) : sourceWidth,
+            diagnosticHeight: properties?[kCGImagePropertyPixelHeight] == nil ? boundedMetadata(image.height) : sourceHeight,
+            diagnosticOrientation: diagnosticOrientation)
     }
 
     static func png(_ rgba: Data) -> Data? {

@@ -60,6 +60,44 @@ let nativeOrientationCalls = ng2_raster_spy_calls()
 require(nativeOrientationCalls == 1,
     "orientation_8_uses_native_C actual=\(nativeOrientationCalls) expected=1")
 detailedInputFailureContracts()
+for invalidOrientation in [0, 9, Int(Int32.min), Int(Int32.max)] {
+    let rejected = failure(NG2Raster.normalizeDetailed(original, orientation: invalidOrientation,
+        outputWidth: 3, outputHeight: 2), stage: .metadata, code: .orientation,
+        label: "detailed_invalid_orientation_rejected_\(invalidOrientation)")
+    require(rejected.sourceWidth == 3 && rejected.sourceHeight == 2 &&
+        rejected.orientation == invalidOrientation && rejected.encodedBytes == nil,
+        "detailed_invalid_orientation_preserves_acquired_value_\(invalidOrientation)")
+}
+let unboundedOrientation = failure(NG2Raster.normalizeDetailed(original, orientation: Int(Int32.max) + 1,
+    outputWidth: 3, outputHeight: 2), stage: .metadata, code: .orientation,
+    label: "detailed_out_of_diagnostic_range_orientation_rejected")
+require(unboundedOrientation.orientation == nil,
+    "detailed_out_of_diagnostic_range_metadata_is_null")
+for (outputWidth, outputHeight) in [(0, 0), (-1, 2), (4097, 1), (4096, 2048), (Int.max, 1)] {
+    let rejected = failure(NG2Raster.normalizeDetailed(original, outputWidth: outputWidth,
+        outputHeight: outputHeight), stage: .metadata, code: .sourceGeometry,
+        label: "detailed_invalid_output_geometry_\(outputWidth)_\(outputHeight)")
+    require(rejected.sourceWidth == 3 && rejected.sourceHeight == 2 &&
+        rejected.orientation == 1, "detailed_invalid_output_keeps_source_geometry")
+}
+let invalidAspect = failure(NG2Raster.normalizeDetailed(original, outputWidth: 2, outputHeight: 2),
+    stage: .metadata, code: .aspect, label: "detailed_aspect_failure_is_distinct")
+require(invalidAspect.sourceWidth == 3 && invalidAspect.sourceHeight == 2 && invalidAspect.orientation == 1,
+    "detailed_aspect_failure_keeps_source_metadata")
+#if NG2_RASTER_HOST_TEST
+func forcedRenderFailure(_ source: CGImage) {
+    NG2Raster.HostFaults.normalizeRender = true
+    defer { NG2Raster.HostFaults.normalizeRender = false }
+    let rejected = failure(NG2Raster.normalizeDetailed(source, orientation: 8, outputWidth: 2, outputHeight: 3),
+        stage: .normalize, code: .renderFailed, label: "detailed_render_factory_failure_is_distinct")
+    require(rejected.sourceWidth == 3 && rejected.sourceHeight == 2 &&
+        rejected.orientation == 8 && rejected.encodedBytes == nil,
+        "detailed_render_failure_keeps_acquired_metadata")
+    require(NG2Raster.normalizeProfiled(source, orientation: 8, outputWidth: 2, outputHeight: 3) == nil,
+        "legacy_profiled_wrapper_refuses_render_failure")
+}
+forcedRenderFailure(original)
+#endif
 let expected: [[UInt8]] = [[1,2,3,4,5,6],[3,2,1,6,5,4],[6,5,4,3,2,1],[4,5,6,1,2,3],
     [1,4,2,5,3,6],[4,1,5,2,6,3],[6,3,5,2,4,1],[3,6,2,5,1,4]]
 for orientation in 1...8 {
@@ -118,6 +156,11 @@ require(NG2Raster.normalize(image(wrongGeometry, 895, 414)) == nil, "unknown_pro
 let overLimit: [UInt8] = Array(repeating: pixel, count: 4097).flatMap { $0 }
 require(NG2Raster.normalize(image(overLimit, 4097, 1), outputWidth: 4097, outputHeight: 1) == nil,
     "oversize_source_rejected")
+let invalidSource = failure(NG2Raster.normalizeDetailed(image(overLimit, 4097, 1),
+    outputWidth: 4097, outputHeight: 1), stage: .metadata, code: .sourceGeometry,
+    label: "detailed_oversize_source_geometry_rejected")
+require(invalidSource.sourceWidth == 4097 && invalidSource.sourceHeight == 1,
+    "detailed_failure_keeps_invalid_source_size_beyond_success_limit")
 require(NG2Raster.decode(Data([1, 2, 3])) == nil, "invalid_encoded_image_rejected")
 require(NG2Raster.png(Data(count: 16)) == nil, "invalid_export_raster_rejected")
 var scene = NG2Scene()
@@ -134,6 +177,38 @@ require(invalid < 0 && scene.state == 0, "real_C_short_buffer_refused")
 let encoded = NG2Raster.png(normalized)!
 require(encoded.starts(with: [137,80,78,71,13,10,26,10]), "png_format")
 require(NG2Raster.decode(encoded) == normalized, "opaque_sRGB_roundtrip")
+switch NG2Raster.decodeDetailed(encoded) {
+case .success(let decoded):
+    require(decoded.rgba == normalized && decoded.trace.sourceWidth == 896 &&
+        decoded.trace.sourceHeight == 414, "detailed_success_preserves_legacy_decode_RGBA")
+case .failure:
+    require(false, "detailed_success_preserves_legacy_decode_RGBA")
+}
+
+func encodedImages(_ source: CGImage, type: CFString, count: Int = 1) -> Data {
+    let data = NSMutableData()
+    let destination = CGImageDestinationCreateWithData(data, type, count, nil)!
+    for _ in 0..<count { CGImageDestinationAddImage(destination, source, nil) }
+    require(CGImageDestinationFinalize(destination), "detailed_fixture_encoded")
+    return data as Data
+}
+let multipleImages = encodedImages(original, type: "public.tiff" as CFString, count: 2)
+let multipleSource = CGImageSourceCreateWithData(multipleImages as CFData, nil)!
+require(CGImageSourceGetCount(multipleSource) == 2, "detailed_multiple_image_fixture_has_two_images")
+let rejectedCount = failure(NG2Raster.decodeDetailed(multipleImages), stage: .source, code: .imageCount,
+    label: "detailed_multiple_images_rejected_before_decode")
+require(rejectedCount.encodedBytes == multipleImages.count && rejectedCount.sourceWidth == nil &&
+    rejectedCount.sourceHeight == nil && rejectedCount.orientation == nil,
+    "detailed_image_count_failure_has_unobtained_metadata")
+let smallPNG = encodedImages(original, type: "public.png" as CFString)
+let smallSource = CGImageSourceCreateWithData(smallPNG as CFData, nil)!
+let smallProperties = CGImageSourceCopyPropertiesAtIndex(smallSource, 0, nil) as! [CFString: Any]
+let smallOrientation = (smallProperties[kCGImagePropertyOrientation] as? NSNumber)?.intValue
+let rejectedEncodedAspect = failure(NG2Raster.decodeDetailed(smallPNG), stage: .metadata, code: .aspect,
+    label: "detailed_encoded_aspect_failure_is_distinct")
+require(rejectedEncodedAspect.encodedBytes == smallPNG.count && rejectedEncodedAspect.sourceWidth == 3 &&
+    rejectedEncodedAspect.sourceHeight == 2 && rejectedEncodedAspect.orientation == smallOrientation,
+    "detailed_encoded_aspect_uses_acquired_orientation_without_inventing_default")
 
 enum AlphaFixture: CaseIterable {
     case opaque, transparent, semialpha
@@ -286,6 +361,32 @@ func compareJPEG(_ bytes: Data, expectedWidth: Int, expectedHeight: Int,
 
 let jpegLandscape = patternedImage(896, 414)
 let jpegPortrait = patternedImage(414, 896)
+#if NG2_RASTER_HOST_TEST
+func forcedImageCreateFailure(_ bytes: Data, width: Int, height: Int, orientation: Int?) {
+    NG2Raster.HostFaults.imageCreate = true
+    defer { NG2Raster.HostFaults.imageCreate = false }
+    let rejected = failure(NG2Raster.decodeDetailed(bytes), stage: .source, code: .imageCreate,
+        label: "detailed_image_create_failure_is_distinct")
+    require(rejected.encodedBytes == bytes.count && rejected.sourceWidth == width &&
+        rejected.sourceHeight == height && rejected.orientation == orientation,
+        "detailed_metadata_is_retained_before_image_create_factory")
+    require(NG2Raster.decodeProfiled(bytes) == nil && NG2Raster.decode(bytes) == nil,
+        "legacy_decode_wrappers_refuse_image_create_failure")
+}
+func forcedEncodedRenderFailure(_ bytes: Data) {
+    NG2Raster.HostFaults.normalizeRender = true
+    defer { NG2Raster.HostFaults.normalizeRender = false }
+    let rejected = failure(NG2Raster.decodeDetailed(bytes), stage: .normalize, code: .renderFailed,
+        label: "detailed_encoded_render_failure_is_distinct")
+    require(rejected.encodedBytes == bytes.count && rejected.sourceWidth == 414 &&
+        rejected.sourceHeight == 896 && rejected.orientation == 8,
+        "detailed_encoded_render_failure_retains_acquired_geometry")
+}
+let knownEXIF8 = jpeg(jpegPortrait, orientation: 8)
+forcedImageCreateFailure(knownEXIF8, width: 414, height: 896, orientation: 8)
+forcedImageCreateFailure(smallPNG, width: 3, height: 2, orientation: smallOrientation)
+forcedEncodedRenderFailure(knownEXIF8)
+#endif
 for orientation in 1...8 {
     let source = orientation >= 5 ? jpegPortrait : jpegLandscape
     compareJPEG(jpeg(source, orientation: orientation), expectedWidth: source.width,

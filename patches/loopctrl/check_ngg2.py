@@ -130,7 +130,7 @@ def raster_contract(upstream, output, *, expect_red=False, expect_native_red=Fal
             '-c',str(path),'-o',str(target)],capture_output=True,text=True,timeout=120)
         (output/(target.stem+'-compile.txt')).write_text(built.stdout+built.stderr)
         checked(built);spy_objects.append(target)
-    extra = ['-Xcc','-I'+str(native),'-import-objc-header',stage/'NG2RasterHost.h',
+    extra = ['-D','NG2_RASTER_HOST_TEST','-Xcc','-I'+str(native),'-import-objc-header',stage/'NG2RasterHost.h',
              *[o for o in objects if o.name!='NG2Perception.o'],*spy_objects]
     label = ('raster-baseline-red' if expect_red else
              'raster-native-baseline-red' if expect_native_red else 'raster-production-green')
@@ -155,19 +155,44 @@ def raster_contract(upstream, output, *, expect_red=False, expect_native_red=Fal
     if (not green.stdout.startswith('PASS production CoreGraphics')
         or any(line != 'IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver' for line in warnings)):
         raise RuntimeError('raster_production_contract_missing')
-    old = 'case 6: p = (y, image.height-1-x)'
-    if source.count(old) != 1: raise ValueError('raster_mutation_target')
-    (stage / 'NG2Raster.swift').write_text(source.replace(old, 'case 6: p = (y, x)'))
-    red = compile_run(sources, stage / 'raster-mutated-tests', output, 'raster-mutation-red', extra, run_timeout=180)
-    require_red(red, 'FAIL orientation_6_asymmetric_pixels')
+    perception = (native/'NG2Perception.c').read_text()
+    old = 'case 6:sx=y;sy=height-1-x;break;'
+    if perception.count(old)!=1:raise ValueError('raster_C_orientation_mutation_target')
+    mutation_source=stage/'perception-mutation.c'
+    mutation_source.write_text(perception.replace(old,'case 6:sx=y;sy=x;break;'))
+    original_spy_object=(stage/'perception-native.o').read_bytes()
+    try:
+        built=subprocess.run(['clang','-std=c11','-O2','-I',str(native),
+            '-Dng2_orient_rgba=ng2_orient_rgba_real','-c',str(mutation_source),
+            '-o',str(stage/'perception-native.o')],capture_output=True,text=True,timeout=120)
+        (output/'raster-C-orientation-mutation-compile.txt').write_text(built.stdout+built.stderr)
+        checked(built)
+        red=compile_run(sources,stage/'raster-mutated-tests',output,'raster-mutation-red',extra,run_timeout=180)
+        require_red(red,'FAIL orientation_6_asymmetric_pixels')
+    finally:
+        (stage/'perception-native.o').write_bytes(original_spy_object)
     old = '        if orientation != 1 {\n'
     if source.count(old) != 1: raise ValueError('raster_identity_mutation_target')
     (stage / 'NG2Raster.swift').write_text(source.replace(old, '        if true {\n'))
     identity_red = compile_run(sources, stage / 'raster-identity-tests', output,
         'raster-identity-mutation-red', extra, run_timeout=180)
     require_red(identity_red, 'FAIL orientation_1_identity_avoids_pixel_copy actual=6 expected=0')
+    begin='// NG-G2 BEGIN native orientation integer copy.'
+    end='// NG-G2 END native orientation integer copy.'
+    if source.count(begin)!=1 or source.count(end)!=1:raise ValueError('raster_native_copy_boundary')
+    copy_start=source.rfind('\n',0,source.index(begin))+1
+    copy_end=source.index('\n',source.index(end))+1
+    old_loop=reference[reference.index('        original.withUnsafeBytes { source in\n'):
+                       reference.index('        if orientedWidth == outputWidth')]
+    old_loop=''.join('    '+line for line in old_loop.splitlines(keepends=True))
+    old_loop+='            copyPixels = UInt64(orientedWidth * orientedHeight)\n'
+    (stage/'NG2Raster.swift').write_text(source[:copy_start]+old_loop+source[copy_end:])
+    backend_red=compile_run(sources,stage/'raster-backend-tests',output,
+        'raster-native-backend-mutation-red',extra,run_timeout=180)
+    require_red(backend_red,'FAIL orientation_8_uses_native_C actual=0 expected=1')
     return {'production_green': green.stdout.strip(), 'mutation_red': red.stdout.strip(),
             'identity_mutation_red': identity_red.stdout.strip(),
+            'native_backend_mutation_red':backend_red.stdout.strip(),
             'environment_warnings': warnings, 'compiled': True}
 
 
@@ -291,6 +316,18 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                         "scale_ns": number(trace.scaleNs), "copy_pixels": number(trace.copyPixels)]))''',
                          '// mutation: committed raster trace propagation removed',
                          'FAIL raster_trace_first_and_latest_retention_31'),
+        'capture-failure-connection': (
+            'commitCaptureFailure(run, generation: before.3, id: before.0, start: start, end: captureEnd, failure: failure)',
+            '// mutation: actual capture failure diagnostic connection removed',
+            'FAIL capture_failure_actual_nil_reply_is_reported'),
+        'capture-failure-generation': (
+            'guard run.generation == failureGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
+            'guard run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
+            'FAIL capture_failure_generation_only_revocation_does_not_publish'),
+        'capture-failure-first': (
+            'guard run.captureFailure == nil else { return false }',
+            '// mutation: first capture failure immutability removed',
+            'FAIL capture_failure_first_record_is_immutable'),
     }
     reds = {}
     for label,(old,new,expected) in mutations.items():

@@ -124,6 +124,143 @@ require(nilReplyDiagnostic(nilReplyReport["capture_failure"]?.objectValue) &&
     "capture_failure_actual_nil_reply_is_reported")
 // TEST047 RUNTIME FAILURE BASELINE END.
 
+func captureFailureRecord(_ id: String) -> [String: JSONValue]? { report(id)["capture_failure"]?.objectValue }
+func failureRoundtrip(_ id: String) -> Bool {
+    guard let expected = captureFailureRecord(id),
+          let result = call("necro_native_results", id).0?["report"]?.objectValue?["capture_failure"]?.objectValue else { return false }
+    let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+    guard let first = try? encoder.encode(expected), let second = try? encoder.encode(result) else { return false }
+    return first == second
+}
+func captureFailureFixture(_ data: Data?, _ error: String?, stage: String, code: String) -> [String: JSONValue] {
+    NG2Fake.reset(.reply)
+    NG2Fake.lock.lock(); NG2Fake.replyData = data; NG2Fake.replyError = error; NG2Fake.lock.unlock()
+    let id = identity()
+    require(call("necro_native_start", id).1 == nil, "capture_failure_fixture_start_"+code)
+    pump("capture_failure_fixture_drained_"+code) { drained(id) }
+    let snapshot = report(id), value = captureFailureRecord(id)
+    require(NG2Fake.countRequests() == 1 && NG2Fake.countTouches() == 0 && snapshot["reason"]?.intValue == 20 &&
+        snapshot["analyzed_capture_count"]?.intValue == 0 && snapshot["raster_samples"]?.arrayValue?.isEmpty == true,
+        "capture_failure_without_retry_input_or_success_trace_"+code)
+    require(value?["capture_id"]?.intValue == 1 && value?["stage"]?.stringValue == stage &&
+        value?["code"]?.stringValue == code && failureRoundtrip(id), "capture_failure_public_stage_code_"+code)
+    return value!
+}
+let bridgeFailures: [(String?, String)] = [
+    (nil, "missing_data"), ("direct capture API unavailable", "api_unavailable"),
+    ("direct capture session unavailable", "session_unavailable"),
+    ("direct capture display unprepared", "display_unprepared"),
+    ("direct capture request unavailable", "request_unavailable"),
+    ("direct capture failed", "capture_failed"), ("direct capture bytes invalid", "bytes_invalid"),
+    ("direct capture reply exception", "reply_exception"),
+    ("direct capture request exception", "request_exception"),
+    ("PRIVATE-UNEXPECTED-CAPTURE-ERROR", "other")]
+for (error, code) in bridgeFailures {
+    let value = captureFailureFixture(nil, error, stage: "reply", code: code)
+    require(["encoded_bytes", "source_width", "source_height", "orientation"].allSatisfy { diagnosticIsNull(value[$0]) },
+        "capture_failure_reply_unobserved_metadata_stays_null_"+code)
+    let encoded = String(data: try! JSONEncoder().encode(value), encoding: .utf8)!
+    require(!encoded.contains("PRIVATE") && !encoded.contains("direct capture"), "capture_failure_never_saves_bridge_text_"+code)
+}
+for (bytes, code) in [(Data(), "encoded_empty"), (Data([1, 2, 3]), "source_open"),
+                      (Data(count: 8*1024*1024+1), "encoded_limit")] {
+    let value = captureFailureFixture(bytes, nil, stage: "source", code: code)
+    require(value["encoded_bytes"]?.intValue == bytes.count && diagnosticIsNull(value["source_width"]) &&
+        diagnosticIsNull(value["source_height"]) && diagnosticIsNull(value["orientation"]),
+        "capture_failure_source_bytes_and_unknown_metadata_"+code)
+}
+let invalidAspect = captureFailureFixture(NG2Fake.squarePNG, nil, stage: "metadata", code: "aspect")
+require(invalidAspect["encoded_bytes"]?.intValue == NG2Fake.squarePNG.count &&
+    invalidAspect["source_width"]?.intValue == 2 && invalidAspect["source_height"]?.intValue == 2 &&
+    diagnosticIsNull(invalidAspect["orientation"]), "capture_failure_invalid_aspect_preserves_source_metadata")
+
+NG2Fake.reset(.empty)
+NG2RuntimeTestHooks.clock = { 1_000_000_000_000 }
+let invalidInterval = identity()
+require(call("necro_native_start", invalidInterval).1 == nil, "capture_failure_interval_start")
+pump("capture_failure_interval_drained") { drained(invalidInterval) }
+let intervalFailure = captureFailureRecord(invalidInterval)
+require(intervalFailure?["stage"]?.stringValue == "interval" && intervalFailure?["code"]?.stringValue == "invalid_interval" &&
+    intervalFailure?["start_ns"]?.intValue == 1_000_000_000_000 && intervalFailure?["end_ns"]?.intValue == 1_000_000_000_000 &&
+    diagnosticIsNull(intervalFailure?["encoded_bytes"]) && failureRoundtrip(invalidInterval),
+    "capture_failure_equal_interval_is_preserved_without_retry")
+
+NG2Fake.reset(.pause)
+let invalidAnalysis = identity()
+NG2RuntimeTestHooks.analysisRGBA = { _ in Data() }
+require(call("necro_native_start", invalidAnalysis).1 == nil, "capture_failure_analysis_start")
+pump("capture_failure_analysis_drained") { drained(invalidAnalysis) }
+let analysisFailure = captureFailureRecord(invalidAnalysis)
+require(analysisFailure?["stage"]?.stringValue == "analysis" && analysisFailure?["code"]?.stringValue == "invalid_rgba" &&
+    analysisFailure?["capture_id"]?.intValue == 1 && analysisFailure?["encoded_bytes"]?.intValue == NG2Fake.pausePNG.count &&
+    analysisFailure?["source_width"]?.intValue == 896 && analysisFailure?["source_height"]?.intValue == 414 &&
+    diagnosticIsNull(analysisFailure?["orientation"]) && failureRoundtrip(invalidAnalysis) && NG2Fake.countTouches() == 0,
+    "capture_failure_real_C_analysis_rejection_is_reported")
+
+// Change only the generation after decoding failed and before its production
+// commit. Cancellation and owner checks remain true at that exact boundary.
+NG2Fake.reset(.reply)
+let oldFailureGeneration = identity()
+NG2Fake.lock.lock(); NG2Fake.replyError = "direct capture failed"; NG2Fake.lock.unlock()
+var generationChangedWhileActive = false
+NG2RuntimeTestHooks.beforeCaptureFailureCommit = { id in
+    require(id == oldFailureGeneration, "capture_failure_generation_fixture_identity")
+    let old = runtime.testFailureGeneration(id)!
+    let current = runtime.testFailureGeneration(id, advance: true)!
+    generationChangedWhileActive = current == old+1 && report(id)["cancel_requested"]?.boolValue == false && !RemoteSession.shared.paused
+    NG2RuntimeTestHooks.beforeCaptureFailureCommit = nil
+}
+require(call("necro_native_start", oldFailureGeneration).1 == nil, "capture_failure_generation_start")
+pump("capture_failure_generation_drained") { drained(oldFailureGeneration) }
+require(generationChangedWhileActive, "capture_failure_generation_fixture_changes_only_generation")
+require(diagnosticIsNull(report(oldFailureGeneration)["capture_failure"]) &&
+    diagnosticIsNull(call("necro_native_results", oldFailureGeneration).0?["report"]?.objectValue?["capture_failure"]),
+    "capture_failure_generation_only_revocation_does_not_publish")
+
+for revoked in ["cancel", "owner"] {
+    NG2Fake.reset(.reply)
+    NG2Fake.lock.lock(); NG2Fake.replyError = "direct capture failed"; NG2Fake.lock.unlock()
+    let id = identity()
+    NG2RuntimeTestHooks.beforeCaptureFailureCommit = { expected in
+        require(expected == id, "capture_failure_revocation_fixture_identity_"+revoked)
+        if revoked == "cancel" { _ = call("necro_native_cancel", id) }
+        else { RemoteSession.shared.paused = true }
+        NG2RuntimeTestHooks.beforeCaptureFailureCommit = nil
+    }
+    require(call("necro_native_start", id).1 == nil, "capture_failure_revocation_start_"+revoked)
+    pump("capture_failure_revocation_drained_"+revoked) { drained(id) }
+    require(diagnosticIsNull(report(id)["capture_failure"]) && NG2Fake.countTouches() == 0,
+        "capture_failure_revoked_commit_never_publishes_"+revoked)
+    RemoteSession.shared.paused = false
+    require(diagnosticIsNull(call("necro_native_results", id).0?["report"]?.objectValue?["capture_failure"]),
+        "capture_failure_revoked_results_stay_null_"+revoked)
+}
+
+// Competing failures exercise the real first-only gate while a daemon request
+// is held. Setup submits A and B; only public status/results determine success.
+NG2Fake.reset(.hold)
+let firstFailure = identity()
+require(call("necro_native_start", firstFailure).1 == nil, "capture_failure_first_start")
+pump("capture_failure_first_request_held") { NG2Fake.countRequests() == 1 }
+let firstGeneration = runtime.testFailureGeneration(firstFailure)!
+let failureA = NG2Raster.Failure(stage: .metadata, code: .orientation, encodedBytes: 4,
+    sourceWidth: 0, sourceHeight: -1, orientation: 9)
+let failureB = NG2Raster.Failure(stage: .source, code: .sourceOpen, encodedBytes: 3)
+require(runtime.testCommitFailure(firstFailure, generation: firstGeneration, captureID: 11, start: 10, end: 9, failure: failureA),
+    "capture_failure_first_A_fixture_committed")
+let secondAccepted = runtime.testCommitFailure(firstFailure, generation: firstGeneration, captureID: 12, start: 20, end: 21, failure: failureB)
+let firstRecord = captureFailureRecord(firstFailure)
+require(!secondAccepted && firstRecord?["capture_id"]?.intValue == 11 && firstRecord?["code"]?.stringValue == "orientation" &&
+    firstRecord?["source_width"]?.intValue == 0 && firstRecord?["source_height"]?.intValue == -1 && firstRecord?["orientation"]?.intValue == 9,
+    "capture_failure_first_record_is_immutable")
+let nextFailureGeneration = runtime.testFailureGeneration(firstFailure, advance: true)!
+let staleAccepted = runtime.testCommitFailure(firstFailure, generation: firstGeneration, captureID: 13, start: 30, end: 31, failure: failureB)
+let laterAccepted = runtime.testCommitFailure(firstFailure, generation: nextFailureGeneration, captureID: 14, start: 40, end: 41, failure: failureB)
+require(!staleAccepted && !laterAccepted && captureFailureRecord(firstFailure)?["capture_id"]?.intValue == 11,
+    "capture_failure_later_generations_do_not_replace_first_record")
+cancelDrain(firstFailure)
+require(failureRoundtrip(firstFailure), "capture_failure_first_record_survives_drain_and_results")
+
 // The cancellation is deliberately placed after the capture loop's outer
 // condition and before its admission lock. This catches deletion at the actual
 // production capture call site, not merely a helper's standalone behavior.

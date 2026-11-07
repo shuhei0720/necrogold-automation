@@ -18,6 +18,8 @@ enum NG2RuntimeTestHooks {
     static var scheduleTicket: ((UInt64, @escaping () -> Void) -> Bool)?
     static var afterTicketReturned: ((UInt64) -> Void)?
     static var afterCaptureDrainProcessed: ((String) -> Void)?
+    static var beforeCaptureFailureCommit: ((String) -> Void)?
+    static var analysisRGBA: ((Data) -> Data)?
 }
 #endif
 
@@ -37,6 +39,7 @@ private struct NG2Frame {
     let stable: Bool
     let rgba: Data
     let rasterTrace: NG2Raster.Trace
+    let encodedBytes: Int
 }
 
 private final class NG2Run {
@@ -71,6 +74,7 @@ private final class NG2Run {
     var captures: [JSONValue] = []
     var rasterSamples: [JSONValue] = []
     var rasterSamplesDropped: UInt64 = 0
+    var captureFailure: [String: JSONValue]?
     var replacedFrames: UInt64 = 0
     var terminal = false
     var successful = false
@@ -252,6 +256,62 @@ final class NG2Runtime {
     }
     private func number(_ value: UInt64) -> JSONValue { .int(Int(min(value, UInt64(Int64.max)))) }
     private func integer(_ value: Int32) -> JSONValue { .int(Int(value)) }
+    private func failureInteger(_ value: Int?, signed: Bool) -> JSONValue {
+        guard let value else { return .null }
+        guard signed ? (Int(Int32.min)...Int(Int32.max)).contains(value) : value >= 0 else { return .null }
+        return .int(value)
+    }
+    private func replyFailure(_ error: String?) -> NG2Raster.FailureCode {
+        switch error {
+        case "direct capture API unavailable": return .apiUnavailable
+        case "direct capture session unavailable": return .sessionUnavailable
+        case "direct capture display unprepared": return .displayUnprepared
+        case "direct capture request unavailable": return .requestUnavailable
+        case "direct capture failed": return .captureFailed
+        case "direct capture bytes invalid": return .bytesInvalid
+        case "direct capture reply exception": return .replyException
+        case "direct capture request exception": return .requestException
+        case nil: return .missingData
+        default: return .other
+        }
+    }
+    @discardableResult
+    private func commitCaptureFailure(_ run: NG2Run, generation failureGeneration: UInt64,
+                                      id: UInt64, start: UInt64, end: UInt64,
+                                      failure: NG2Raster.Failure) -> Bool {
+        #if NG2_RUNTIME_HOST_TEST
+        NG2RuntimeTestHooks.beforeCaptureFailureCommit?(run.id)
+        #endif
+        return run.lock.ng2Locked {
+            guard run.generation == failureGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }
+            guard run.captureFailure == nil else { return false }
+            run.captureFailure = ["capture_id": number(id), "stage": .string(failure.stage.rawValue),
+                "code": .string(failure.code.rawValue), "start_ns": number(start), "end_ns": number(end),
+                "encoded_bytes": failureInteger(failure.encodedBytes, signed: false),
+                "source_width": failureInteger(failure.sourceWidth, signed: true),
+                "source_height": failureInteger(failure.sourceHeight, signed: true),
+                "orientation": failureInteger(failure.orientation, signed: true)]
+            return true
+        }
+    }
+    #if NG2_RUNTIME_HOST_TEST
+    // Test setup may change only the generation or submit competing failures.
+    // Storage still goes through the exact production commit gate, and tests
+    // observe only the public status/results projection.
+    func testFailureGeneration(_ id: String, advance: Bool = false) -> UInt64? {
+        guard let run = lock.ng2Locked({ current }), run.id == id else { return nil }
+        return run.lock.ng2Locked {
+            if advance { run.generation &+= 1 }
+            return run.generation
+        }
+    }
+    @discardableResult
+    func testCommitFailure(_ id: String, generation: UInt64, captureID: UInt64,
+                           start: UInt64, end: UInt64, failure: NG2Raster.Failure) -> Bool {
+        guard let run = lock.ng2Locked({ current }), run.id == id else { return false }
+        return commitCaptureFailure(run, generation: generation, id: captureID, start: start, end: end, failure: failure)
+    }
+    #endif
     private func response(_ run: NG2Run) -> [String: JSONValue] {
         run.lock.ng2Locked {
             let state = run.terminal ? (run.lease ? "draining" : (run.successful ? "completed" : "stopped")) : (run.report.isEmpty ? "accepted" : "running")
@@ -281,6 +341,7 @@ final class NG2Runtime {
             report["captures"] = .array(run.captures)
             report["raster_samples"] = .array(run.rasterSamples)
             report["raster_samples_dropped"] = number(run.rasterSamplesDropped)
+            report["capture_failure"] = run.captureFailure.map { JSONValue.object($0) } ?? .null
             report["daemon_requests_outstanding"] = .int(Int(NG2CaptureBridge.pendingRequests))
             let retained = Set(run.pinned.keys).union(run.images.map { $0.id })
             report["analyzed_capture_count"] = number(run.analyzedFrames)
@@ -388,6 +449,7 @@ final class NG2Runtime {
             let replyLock = NSLock()
             var answered = false
             var raw: Data?
+            var captureError: String?
             var captureEnd: UInt64 = 0
             var endPrefix: UInt64 = 0
             var endInFlight = true
@@ -401,7 +463,7 @@ final class NG2Runtime {
             }
             guard let before = admission else { return }
             let start = before.4
-            NG2CaptureBridge.requestJPEG { data, _ in
+            NG2CaptureBridge.requestJPEG { data, error in
                 let first = replyLock.ng2Locked { () -> Bool in
                     if answered { return false }; answered = true; return true
                 }
@@ -410,7 +472,7 @@ final class NG2Runtime {
                 run.lock.ng2Locked {
                     endPrefix = run.prefix; endInFlight = run.inFlight
                     run.captureOutstanding = false
-                    if run.generation == before.3 && !run.stopped { raw = data }
+                    if run.generation == before.3 && !run.stopped { raw = data; captureError = error }
                 }
                 finished.signal()
             }
@@ -423,11 +485,25 @@ final class NG2Runtime {
                 return
             }
             if run.lock.ng2Locked({ run.stopped || run.generation != before.3 }) { return }
-            guard captureEnd > start, let raw, let decoded = NG2Raster.decodeProfiled(raw) else { run.cancel(20); return }
+            let decoding: NG2Raster.DecodeResult
+            if captureEnd <= start {
+                decoding = .failure(.init(stage: .interval, code: .invalidInterval, encodedBytes: raw?.count))
+            } else if let raw {
+                decoding = NG2Raster.decodeDetailed(raw)
+            } else {
+                decoding = .failure(.init(stage: .reply, code: replyFailure(captureError)))
+            }
+            let decoded: NG2Raster.ProfiledResult
+            switch decoding {
+            case .success(let value): decoded = value
+            case .failure(let failure):
+                commitCaptureFailure(run, generation: before.3, id: before.0, start: start, end: captureEnd, failure: failure)
+                run.cancel(20); return
+            }
             let frame = NG2Frame(id: before.0, start: start, end: captureEnd, decodeEnd: Self.now(),
                 startPrefix: before.1, prefix: endPrefix, startInFlight: before.2, endInFlight: endInFlight,
                 stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: decoded.rgba,
-                rasterTrace: decoded.trace)
+                rasterTrace: decoded.trace, encodedBytes: raw?.count ?? 0)
             run.lock.ng2Locked {
                 if run.generation == before.3 && !run.stopped {
                     if run.latest != nil { run.replacedFrames += 1 }
@@ -452,8 +528,13 @@ final class NG2Runtime {
         if let frame, cancelled == 0 {
             var scene = NG2Scene()
             let analysisStart = Self.now()
-            let analyzed = frame.rgba.withUnsafeBytes { ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress,
-                frame.rgba.count, NG2Raster.stride, &scene) }
+            #if NG2_RUNTIME_HOST_TEST
+            let analysisRGBA = NG2RuntimeTestHooks.analysisRGBA?(frame.rgba) ?? frame.rgba
+            #else
+            let analysisRGBA = frame.rgba
+            #endif
+            let analyzed = analysisRGBA.withUnsafeBytes { ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress,
+                analysisRGBA.count, NG2Raster.stride, &scene) }
             if analyzed == 0 {
                 #if NG2_RUNTIME_HOST_TEST
                 NG2RuntimeTestHooks.beforeAnalysisCommit?()
@@ -498,7 +579,13 @@ final class NG2Runtime {
                     run.cancel(reason)
                     ng2_controller_cancel(core, Self.now(), reason)
                 }
-            } else { run.cancel(20); ng2_controller_cancel(core, Self.now(), 20) }
+            } else {
+                let trace = frame.rasterTrace
+                commitCaptureFailure(run, generation: analysisGeneration, id: frame.id, start: frame.start, end: frame.end,
+                    failure: .init(stage: .analysis, code: .invalidRGBA, encodedBytes: frame.encodedBytes,
+                        sourceWidth: trace.sourceWidth, sourceHeight: trace.sourceHeight, orientation: trace.orientation))
+                run.cancel(20); ng2_controller_cancel(core, Self.now(), 20)
+            }
         }
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
         if status.terminal != 0 {
