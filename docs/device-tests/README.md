@@ -1793,3 +1793,36 @@ Rasterの最初のMac実行42354420588は、gray画素比較式のSwift type-che
 Runtimeはmotion_wait7項目、同じ解析commit gateのtrace first1＋latest31/droppedと、評価ごとの既存event参照による累積画像pinを接続した。独立の短レビューで、次MOVE予約がqueryを更新するのに最終queryを前MOVEの結果としてassertするfixture P2を修正。MOVED commit後/次予約前の公開queryと元MOVE eventの両方を確認する。新公開結合と3実callsite変異のSwift実行・IPAは、再封印後のCIで別に確認する。ホスト結果を実機毎拍成功へ読み替えない。
 
 初回全CI `e4123d47f97bf51f6698bd75402351b1295cb491` はclient112件成功（30.582秒）、native host102件成功・private7件は明示除外。Macの全画素/実JPEG比較を進めた後、要求EXIF9が保存後も9であると仮定したfixtureが失敗した。fixtureは保存済みpropertiesを独立に読み、有効な向きなら参照全byte/geometry/traceを照合し、無効値または不適合aspectなら拒否を要求する形へ修正。direct normalizeの無効0/9拒否とproduction/凍結参照は変更しない。Mac仮想acceleratorの既知通知`IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver`だけは正確な1行文字列で許可・記録し、他のstderr、失敗returncodeやassertionは拒否する。主Red/変異のstderr空条件は維持する。
+
+`6d116533846f8f228da8acad6925a38fe9247380` / CI42355275073はRasterの全比較とorientation6/恒等copy復元の変異を通過し、保存済みEXIFは実際に1と記録された。Swift Runtimeもコンパイル成功したが、商品と36px移動が同一画像にある既存結合試験でmoves0となった。商品先ラッチ時のfinishがACK待機を先に消費し、実motionへ到達しなかった回帰である。fixtureの実時刻から再生成した実CもMOVEDを返し、旧moves1/lead1 assertionは維持した。
+
+公開Cの同一frame商品＋MOVED試験で期待moves1/実0の1 assertion failure・0errorsを観測し、商品ラッチは先行したまま、stable同prefix FLOORで期限内の実motionを1回評価してから待機を閉じるよう修正した。実MOVEDは加算、UNKNOWN/TWEENも待たず商品保持pauseへ進み、元期限後は加算0/評価0。新しい方向入力は出さない。35px商品fixtureは評価1/last_motion UNKNOWNを検証し、既存36px結合試験の期待は変えない。controller69件成功（6.176秒）、必須74画像を含むnative全112件成功・skip0（27.191秒）。sealは`f56fcfe4178f32122f0200d8d9bee717bc7317b7c7cf055bd453fdd96d41c4a6`へ更新した。
+
+## TEST-046実行手順
+
+**TEST046対応の新IPAへのSideStore更新が必要。** 本台帳のTEST046配布IPA ZIPをSafariでGitHubにログインして保存・展開し、`upstream/release/LoopCtrl.ipa`をSideStoreのMy Apps → ＋から更新する。APIは`1.98.14-ngg2`、capabilityはv1/v2にv3を追加。native-walk-v4はv3のない旧IPAを開始0で拒否する。LoopCtrlでいつものVPN/ディスクイメージ接続を確認し、**Start Serverを押して起動済み表示を確認**する。
+
+完全ソースZIPもSafariから保存・展開し、新しい通常1-1をポーズ、画面端操作0・左側が下の向き。iSHのフォルダ選択では、展開した`test_046.sh`があるフォルダを選ぶ。
+
+```sh
+mkdir -p /mnt/necro_test046
+mount -t ios . /mnt/necro_test046
+cd /mnt/necro_test046 && sh test_046.sh
+```
+
+**TEST046の実機テストを依頼する。** ゲーム起動・最初の一歩までの待ち・一歩目の後も各ビートで続くか・商品表示後のポーズを確認し、終了後の**runtime/test-046全体をZIPでこのチャットへ返す**。動かない/一歩だけ/途中停止でも同じZIPを返す。可能なら心臓と各歩が見える短い動画を添える。最終ポーズ未確認なら手動でポーズする。旧runtime/test-045を混ぜず、別テストを同時実行しない。
+
+次回reportではmotion_waitの評価回数/期限/UNKNOWN画像と、raster_samplesの元寸法・向き・source/draw/orient/scale/copy数を確認する。source stageはJPEG展開単独を意味せず、ImageIOのlazy decodeはdrawへ含まれ得る。取得/入力の時刻はrequest/synth呼出区間であり厳密な画面生成/ゲーム受領ではない。ホストでのCOWコピー0や全画素一致を実機の速度短縮・毎拍成功へ換算しない。人より速い全経路毎拍、目的指輪評価/通知、完全周回と耐久の受入は引き続き必要。
+
+### TEST046検証済みIPAと最終集計
+
+- ビルドコード`139bb20f5a0e04ea3383fd8a88b5441acba444fb`、[native CI42355682441](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441)は全job aggregate success。native host105件全成功・skip0（18.352秒）、private7件は明示除外。ローカルは必須74画像を含む全112件成功・skip0（27.191秒）として分ける。
+- Macで26 pure Swift、16 owner projection、実CoreGraphics/実Cの凍結全画素比較、Raster向き6/恒等copy復元の2変異、実Runtime公開結合と全15実callsite変異を確認。新3件はUNKNOWN画像pin・解析後実時計・trace接続をそれぞれ対応named assertionで検出した。実ObjC callback、LoopCtrlKit tests、実暗号RPC owner注入callsite削除の実行済assertion Redも成功。画像変換のホスト全byte一致を実機速度に換算しない。
+- **[TEST046新IPA ZIP / build30](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441/artifacts/13567946985)** は17,670,818bytes、SHA-256 `b2bb529b4c5a09cf656855a561e37efb8fd3406997afc7b20c1b79efd0db37f0`。内部`upstream/release/LoopCtrl.ipa`はbundle `top.ebato.loopctrl`、表示版0.3.4/build30、SHA-256 `062d7d475d7fe1b2bbcac60cfefc2bddb1c1bc8d58d9b8fda332c162bfe28f59`。nested runner/CLIあり、mobileprovisionなし。旧build25からSideStore更新が必要。
+- [最終Mac検証ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441/artifacts/13568260334)は146,424bytes、SHA-256 `f4d59c7d23a0f2522e502197a5d43f88c87aaf4fb8e73a24c92bc0dd525b4c9a`。IPA ZIP/内部IPA/検証ZIPの全CRCとGitHub digestへのSHA一致、全22sealed source、API1.98.14-ngg2/native_v1/v2/v3、clientcap v3、driver/upstream/patch provenanceをrootが実回収して照合した。sealは`f56fcfe4178f32122f0200d8d9bee717bc7317b7c7cf055bd453fdd96d41c4a6`。別担当も固定上流へのNG-G1→G2実適用全22ソースを独立照合し、R12全40・NG-G1 patch/manifestの不変を確認した。
+- クライアント/共有HTTPはホスト112件成功・skip0（30.685秒）、[client CI42354992777](https://github.com/shuhei0720/necrogold-automation/actions/runs/42354992777)も112件成功・skip0（30.582秒）。[client検証ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42354992777/artifacts/13567465301)は3,512bytes、SHA-256 `f40d67423dc8d4c62c67f068d7b5f447c3ac4ee0d47ddab156a39c998f4ef809`、CRC/SHA一致。CI以後の変更はnative/fixture/既存文書で、client本体・共有protocol・対象試験・test_046.shは当該CI headと全bytes一致。今回不変の旧gameplay回帰はTEST045の407成功/旧画像不足25skipの証拠を引き継ぎ、新たに432件成功したとは記録しない。
+- artifact保持期限は2026-12-07 UTC。完全ソースは全395追跡ファイルを含むGitHub commit archiveで配布する。最終code後の更新は既存5文書だけに限定し、全source ZIPのCRC/追跡全bytesと独立レビューの最終照合結果を本台帳へ記録する。
+
+**新IPA build30と完全ソースを使い、上のTEST046実機テストを依頼する。** 初動・一歩目の後の連続拍・商品後pauseとruntime/test-046全体ZIPを返してもらう。実機毎拍・人より速い性能、指輪/通知/完全周回の受入は未完了。
+
+独立実装レビューの設計・試験は各第2周でcode/CI/IPAをclose、安全も同第2周でcode/IPAにP0/P1/P2なし。3担当が実ZIP/内IPAのCRC・SHA、build30、driver139bb20/seal f56fcf、22ソース、Runtime15/Raster2/RPC変異の実証跡を直接照合した。完全395ファイルのsourcearchiveを次の最終bytes照合対象とし、安全の同第2周で完了確認する。最終更新は上記既存5文書のみ、native/client/test/manifest/IPAは不変。
