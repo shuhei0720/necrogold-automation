@@ -627,6 +627,9 @@ NG2RuntimeTestHooks.beforeCaptureAdmission = {
         NG2Fake.lock.lock()
         if NG2Fake.firstUnknownID == 0 { NG2Fake.firstUnknownID = UInt64(wait["last_capture_id"]!.intValue!) }
         NG2Fake.walkPixelInset = 0
+        // Reveal goods in the very same full36px frame. Enabling them only
+        // after moves1 was published could lose the next dispatch race.
+        NG2Fake.walkGoodsEnabled = true
         NG2Fake.lock.unlock()
         NG2RuntimeTestHooks.beforeControlTick = {
             let snapshot = report(subtile), resolved = report(subtile)["motion_wait"]?.objectValue ?? [:]
@@ -636,9 +639,6 @@ NG2RuntimeTestHooks.beforeCaptureAdmission = {
             NG2Fake.lock.lock(); NG2Fake.subtileResolvedWait = true; NG2Fake.lock.unlock()
             NG2RuntimeTestHooks.beforeControlTick = nil
         }
-    }
-    if current["moves"]?.intValue == 1 {
-        NG2Fake.lock.lock(); NG2Fake.walkGoodsEnabled = true; NG2Fake.lock.unlock()
     }
 }
 alignInitialFixtureMove(subtile)

@@ -1859,3 +1859,21 @@ Mac主Redを`ed36bacb98a4824dce71f3b3ddb8e972ffb51749` / [CI42366177394](https:/
 `564a5c5` / CI42366833705はSwift compile後、不正3byteのImageIO source生成が必ずnilになるというfixture仮定で先に停止した。productionは変更せず、raw ImageIO factoryを独立に照会してsource_open/image_count/image_createの実失敗境界を期待し、encoded実サイズ・未取得metadata・必ず拒否されることを確認する形へRaster/Runtime試験だけを修正する。setup/API/compile失敗は新機能Redと数えない。上記nullable診断の本体修正は公開Red確認後に行う。
 
 `185925cd750087d4d81cb8ad38feef302c7e4119` / [CI42367147317](https://github.com/shuhei0720/necrogold-automation/actions/runs/42367147317)でRaster全画素/3変異を通過後、Swift Runtime compile・PNG EXIF欠落の独立setupに成功し、`FAIL capture_failure_real_C_analysis_rejection_is_reported`を観測。公開診断はanalysis/invalid_rgba、encoded8234、source896×414、orientation1、inputs0/moves0であり、null期待との違いを実値で確認した。その後だけ成功ProfiledResult→Frameにnullable diagnosticOrientationを持ち回してanalysis診断へ渡す最小修正を行った。処理用Trace.orientationや画素/期限は不変。取得済みEXIF8はportrait414×896の単一TIFFでpropertiesを独立確認して保持し、trace.orientationへの復帰変異も同named assertionで拒否する。最終Runtime変異は既存15＋新4の19件を要求する。
+
+`2a1c512` / CI42367434622はproduction Runtime全結合（PNGnull/TIFF8を含む）・Raster全比較/3変異とRuntime18変異を通過したが、最後のmotion-reference変異が想定pin assertionの前にoneMOVE assertionで失敗した。公開模擬reportはmoves1/inputs2/path2で、MOVED画像30後に次MOVEが始まり商品画像32が後着した。fixtureがgoods表示をmoves1後の次capture境界まで遅らせ、約100msの次入力余裕に間に合わない競合だった。UNKNOWN attempt1のcapture境界で36px化とgoods可視を同時設定し、次の実RGBAをMOVED＋goodsとするtest-only修正へ変更。元ACK/実UNKNOWN→MOVED/onegesture/未知画像のrecent4外exportの期待は維持し、3レビュー担当も同第2周で新P0/P1/P2なしを確認。該当実C変異をproductionGreen直後へ先行して確認し、全19変異の要求は維持する。production/seal2925d46…は変更しない。
+
+## TEST-047実行手順
+
+**TEST047の新IPAへの更新が必要。** LoopCtrlでStop Serverを押し、アプリ切替から完全終了する。本台帳のTEST047 IPA ZIPをSafariでGitHubへログインして保存・展開し、`upstream/release/LoopCtrl.ipa`をSideStoreのMy Apps → ＋から更新。新しい同梱サーバーを読み込ませるため、更新後にLoopCtrlを起動し直す。VPN/ディスクイメージのいつもの接続を確認して**Start Serverを押し、起動済み表示を確認**する。APIは1.98.14-ngg2、v1/v2/v3にnative_v4を追加。native-walk-v5はv4不足ならゲーム開始0で拒否する。
+
+完全ソースZIPをSafariで保存・展開し、新しい通常1-1をポーズ。画面端操作0・左側が下の向き。iSHのフォルダ選択では、今回展開した`test_047.sh`のあるフォルダを選ぶ。
+
+```sh
+mkdir -p /mnt/necro_test047
+mount -t ios . /mnt/necro_test047
+cd /mnt/necro_test047 && sh test_047.sh
+```
+
+**TEST047の実機テストを依頼する。** ゲーム起動・初歩までの待ち・各ビートで連続して歩くか・商品後のポーズを確認し、終了後の**runtime/test-047全体をZIPでこのチャットへ返す**。未起動・一歩だけ・途中停止でも同じZIPを返す。可能なら心臓と歩行の短い動画を添える。最終ポーズ未確認なら手動でポーズする。旧runtime/test-046を混ぜず、別テストを同時実行しない。
+
+次回はEXIF8のorient_nsがどこまで短くなるか、初期画面の遷移とsource/phase3秒・元次拍deadline、capture_failureのstage/codeと未取得null/取得値を確認する。今回まで046のdirection0なのでmotion待機の実機効果も引き続き未確認。Cへ移したことやホスト全画素一致を実機速度の改善幅・毎拍合格へ換算しない。指輪評価/通知・完全周回・耐久と人より速い全経路毎拍の受入は必要なまま残す。

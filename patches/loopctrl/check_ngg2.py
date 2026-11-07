@@ -254,6 +254,35 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     checked(green)
     if not green.stdout.startswith('PASS production Runtime public API/') or green.stderr:
         raise RuntimeError('runtime_production_contract_missing')
+    reds = {}
+    # Mutate the actual core assessment reference while retaining production
+    # Runtime behavior. Only staged code and its existing staged object change;
+    # restoring the exact original object also keeps later contracts independent.
+    (stage/'NG2Runtime.swift').write_text(source)
+    controller = (native/'NG2Controller.c').read_text()
+    old = 'if(e){e->observed_capture_id=id;e->motion=motion.kind;'
+    new = ('if(e){if(motion.kind!=NG2_MOTION_UNKNOWN&&motion.kind!=NG2_TWEEN)'
+           'e->observed_capture_id=id;e->motion=motion.kind;')
+    if controller.count(old) != 1: raise ValueError('runtime_motion_reference_mutation_target')
+    controller_objects = [path for path in objects if path.name == 'NG2Controller.o']
+    if len(controller_objects) != 1: raise ValueError('runtime_controller_object_target')
+    controller_object = controller_objects[0]
+    original_object = controller_object.read_bytes()
+    (stage/'NG2Controller.c').write_text(controller.replace(old, new))
+    print('Runtime mutation: motion-reference', flush=True)
+    try:
+        built = subprocess.run(['clang', '-std=c11', '-O2', '-I', str(native),
+            '-c', str(stage/'NG2Controller.c'), '-o', str(controller_object)],
+            capture_output=True, text=True, timeout=120)
+        (output/'runtime-motion-reference-C-compile.txt').write_text(built.stdout+built.stderr)
+        checked(built)
+        result = compile_run(sources, stage/'motion-reference-tests', output,
+            'runtime-motion-reference-mutation-red', extra)
+        require_red(result, 'FAIL motion_first_UNKNOWN_frame_pinned_beyond_recent_window')
+        reds['motion-reference'] = result.stdout.strip()
+        print('Runtime mutation observed: motion-reference / '+result.stdout.strip().splitlines()[-1], flush=True)
+    finally:
+        controller_object.write_bytes(original_object)
     clock_begin = source.index('        DispatchQueue.main.sync {', source.index('    private func execute('))
     clock_end = source.index('                run.inFlight = true', clock_begin)
     clock_gate = source[clock_begin:clock_end]
@@ -333,7 +362,6 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             'orientation: trace.orientation))',
             'FAIL capture_failure_real_C_analysis_rejection_is_reported'),
     }
-    reds = {}
     for label,(old,new,expected) in mutations.items():
         print('Runtime mutation: '+label, flush=True)
         if source.count(old)!=1: raise ValueError('runtime_mutation_target: '+label)
@@ -349,34 +377,6 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     require_red(result, 'FAIL replan_stale_callback_skips_AX_and_shared_authority')
     reds['stale-entry'] = result.stdout.strip()
     print('Runtime mutation observed: stale-entry / '+result.stdout.strip().splitlines()[-1], flush=True)
-    # Mutate the actual core assessment reference while retaining production
-    # Runtime behavior. Only staged code and its existing staged object change;
-    # restoring the exact original object also keeps later contracts independent.
-    (stage/'NG2Runtime.swift').write_text(source)
-    controller = (native/'NG2Controller.c').read_text()
-    old = 'if(e){e->observed_capture_id=id;e->motion=motion.kind;'
-    new = ('if(e){if(motion.kind!=NG2_MOTION_UNKNOWN&&motion.kind!=NG2_TWEEN)'
-           'e->observed_capture_id=id;e->motion=motion.kind;')
-    if controller.count(old) != 1: raise ValueError('runtime_motion_reference_mutation_target')
-    controller_objects = [path for path in objects if path.name == 'NG2Controller.o']
-    if len(controller_objects) != 1: raise ValueError('runtime_controller_object_target')
-    controller_object = controller_objects[0]
-    original_object = controller_object.read_bytes()
-    (stage/'NG2Controller.c').write_text(controller.replace(old, new))
-    print('Runtime mutation: motion-reference', flush=True)
-    try:
-        built = subprocess.run(['clang', '-std=c11', '-O2', '-I', str(native),
-            '-c', str(stage/'NG2Controller.c'), '-o', str(controller_object)],
-            capture_output=True, text=True, timeout=120)
-        (output/'runtime-motion-reference-C-compile.txt').write_text(built.stdout+built.stderr)
-        checked(built)
-        result = compile_run(sources, stage/'motion-reference-tests', output,
-            'runtime-motion-reference-mutation-red', extra)
-        require_red(result, 'FAIL motion_first_UNKNOWN_frame_pinned_beyond_recent_window')
-        reds['motion-reference'] = result.stdout.strip()
-        print('Runtime mutation observed: motion-reference / '+result.stdout.strip().splitlines()[-1], flush=True)
-    finally:
-        controller_object.write_bytes(original_object)
     return {'production_green':green.stdout.strip(),'mutation_red':reds,'compiled':True,
             'scope':'Actual Runtime public API, raster, real C, main ticket and lifecycle with UIKit/XCTest/daemon fakes'}
 
