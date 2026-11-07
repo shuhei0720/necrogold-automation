@@ -451,6 +451,36 @@ def _translated_closed_gate(before, after, sx, sy):
                and (p[0]+sx//9, p[1]+sy//9) in new_gates for p in old_gates)
 
 
+def _translated_partial_gold(before, after, sx, sy):
+    """金壁1個から視界が開けた単発歩行を、非共線の石壁でも裏付ける。"""
+    if (abs(sx) + abs(sy) != 9 or sx * sy or len(before.gold) != 1
+            or len(after.gold) <= 1):
+        return False
+    old_stones = {p for p, kind in before.tiles.items() if kind == "stone"}
+    new_stones = {p for p, kind in after.tiles.items() if kind == "stone"}
+    gold = next(iter(before.gold))
+
+    def matches(tx, ty):
+        def translated(p):
+            return p[0] + tx, p[1] + ty
+        if translated(gold) not in after.gold:
+            return False
+        # 観測範囲外は支持にも矛盾にも数えない。既知ラベルの矛盾は双方向で拒否。
+        if any(after.tiles.get(translated(p), "unknown") not in ("stone", "unknown")
+               for p in old_stones):
+            return False
+        if any(before.tiles.get((p[0]-tx, p[1]-ty), "unknown") not in ("stone", "unknown")
+               for p in new_stones):
+            return False
+        anchors = [p for p in old_stones if translated(p) in new_stones]
+        return any((a[0]-gold[0])*(b[1]-gold[1]) != (a[1]-gold[1])*(b[0]-gold[0])
+                   for i, a in enumerate(anchors) for b in anchors[i+1:])
+
+    # 強度順位や要求方向で絞らず、73候補に含まれる静止と全整数タイルを照合。
+    shifts = [(0, 0)] + [(n*dx, n*dy) for n in (1, 2) for dx, dy in DIRECTIONS.values()]
+    return [p for p in shifts if matches(*p)] == [(sx//9, sy//9)]
+
+
 def _texture_match(old_texture, new_texture, old_positive, new_positive, sx, sy):
     box = (max(0, -sx), max(0, -sy), min(224, 224 - sx), min(104, 104 - sy))
     other = (box[0] + sx, box[1] + sy, box[2] + sx, box[3] + sy)
@@ -461,9 +491,11 @@ def _texture_match(old_texture, new_texture, old_positive, new_positive, sx, sy)
     return support, opposite, matched, box
 
 
-def _structural_motion(before, after, candidates, old_texture, new_texture, old_positive, new_positive):
+def _structural_motion(before, after, candidates, old_texture, new_texture, old_positive, new_positive,
+                       partial_gold=False):
     _, sx, sy = candidates[0]
-    if not _translated_closed_gate(before, after, sx, sy):
+    if not (_translated_partial_gold(before, after, sx, sy) if partial_gold
+            else _translated_closed_gate(before, after, sx, sy)):
         return False
     support, opposite, matched, box = _texture_match(
         old_texture, new_texture, old_positive, new_positive, sx, sy)
@@ -535,8 +567,11 @@ def motion(before, after, direction, expected_steps=1):
     # 元の閾値は維持するが、正規化後の未知実画像での精度保証ではない。
     if not math.isfinite(best) or candidates[1][0] - best < .08:
         return "unknown"
-    if best > .45 and not _structural_motion(
-            before, after, candidates, old_texture, new_texture, old_positive, new_positive):
+    if best > .45 and not (_structural_motion(
+            before, after, candidates, old_texture, new_texture, old_positive, new_positive)
+            or (expected_steps == 1 and _structural_motion(
+                before, after, candidates, old_texture, new_texture, old_positive, new_positive,
+                partial_gold=True))):
         return "unknown"
     support, opposite, _, _ = _texture_match(old_texture, new_texture, old_positive, new_positive, sx, sy)
     if support < 300:
