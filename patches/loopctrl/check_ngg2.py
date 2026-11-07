@@ -127,7 +127,7 @@ def raster_contract(upstream, output):
 def runtime_contract(upstream, output):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
     native = upstream / 'LoopCtrlUITests'
-    (stage / 'NG2RuntimeFixture.h').write_text('#include "NG2Core.h"\nvoid ng2_test_pause(uint8_t *, size_t);\n')
+    (stage / 'NG2RuntimeFixture.h').write_text('#include "NG2Core.h"\n#include "NG2Controller.h"\nvoid ng2_test_pause(uint8_t *, size_t);\n')
     (stage / 'fixture.c').write_text('''#include "NG2Core.h"
 #include "NG2Templates.h"
 #include <string.h>
