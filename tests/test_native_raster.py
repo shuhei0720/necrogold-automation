@@ -108,6 +108,30 @@ class NativeRasterTests(unittest.TestCase):
         for orientation in (-2**31,-1,0,9,2**31-1):
             with self.subTest(orientation=orientation):self.assert_rejected(orientation=orientation)
 
+    def assert_real_packed_extent_rejected(self, width, height):
+        # Keep both length arguments and actual storage valid so a removed
+        # geometry limit cannot be hidden by the separate packed-length guard.
+        length = width*height*4
+        source = (C.c_uint8*(length+2))()
+        destination = (C.c_uint8*(length+2))()
+        C.memset(source,42,C.sizeof(source));C.memset(destination,165,C.sizeof(destination))
+        before_source = C.string_at(source,C.sizeof(source))
+        before_destination = C.string_at(destination,C.sizeof(destination))
+        copied = self.native.ng2_orient_rgba(C.byref(source,1),length,width,height,8,
+                                           C.byref(destination,1),length)
+        self.assertEqual(copied,0)
+        self.assertEqual(C.string_at(source,C.sizeof(source)),before_source)
+        self.assertEqual(C.string_at(destination,C.sizeof(destination)),before_destination)
+
+    def test_width_limit_rejects_real_packed_buffers_without_writes(self):
+        self.assert_real_packed_extent_rejected(4097,1)
+
+    def test_height_limit_rejects_real_packed_buffers_without_writes(self):
+        self.assert_real_packed_extent_rejected(1,4097)
+
+    def test_pixel_limit_rejects_real_packed_buffers_without_writes(self):
+        self.assert_real_packed_extent_rejected(4000,2001)
+
     def test_exact_packed_lengths_required_before_access(self):
         maximum = 2**(C.sizeof(C.c_size_t)*8)-1
         for length in (0,1,23,25,28,2**63,maximum):

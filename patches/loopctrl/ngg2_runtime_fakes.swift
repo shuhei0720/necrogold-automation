@@ -162,6 +162,20 @@ enum NG2Fake {
         precondition(CGImageDestinationFinalize(destination))
         return output as Data
     }()
+    static let portraitTIFF: Data = {
+        let bytes = Data(repeating: 0, count: 414*896*4)
+        let provider = CGDataProvider(data: bytes as CFData)!
+        let source = CGImage(width: 414, height: 896, bitsPerComponent: 8, bitsPerPixel: 32,
+            bytesPerRow: 414*4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Big.rawValue |
+                CGImageAlphaInfo.premultipliedLast.rawValue), provider: provider,
+            decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
+        let output = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(output, "public.tiff" as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, source, [kCGImagePropertyOrientation: 8] as CFDictionary)
+        precondition(CGImageDestinationFinalize(destination))
+        return output as Data
+    }()
 }
 final class RemoteSession {
     static let shared = RemoteSession()

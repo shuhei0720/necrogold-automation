@@ -24,7 +24,28 @@ func detailedInputFailureContracts() {
     let over = failure(NG2Raster.decodeDetailed(Data(count: 8 * 1024 * 1024 + 1)),
         stage: .source, code: .encodedLimit, label: "detailed_encoded_limit_failure")
     require(over.encodedBytes == 8 * 1024 * 1024 + 1, "detailed_encoded_limit_records_actual_size")
-    let invalid = failure(NG2Raster.decodeDetailed(Data([1, 2, 3])), stage: .source, code: .sourceOpen,
+    // ImageIO may create a provisional source for unrecognised bytes and only
+    // reject its image count later. Establish the actual factory boundary
+    // independently instead of presuming source creation always returns nil.
+    let invalidBytes = Data([1, 2, 3])
+    let invalidSource = CGImageSourceCreateWithData(invalidBytes as CFData, nil)
+    let invalidCode: NG2Raster.FailureCode
+    if let source = invalidSource {
+        if CGImageSourceGetCount(source) != 1 {
+            invalidCode = .imageCount
+        } else {
+            require(CGImageSourceCreateImageAtIndex(source, 0, nil) == nil,
+                "detailed_invalid_bytes_fixture_cannot_create_image")
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+            require(properties?[kCGImagePropertyPixelWidth] == nil &&
+                properties?[kCGImagePropertyPixelHeight] == nil && properties?[kCGImagePropertyOrientation] == nil,
+                "detailed_invalid_bytes_fixture_has_no_geometry_metadata")
+            invalidCode = .imageCreate
+        }
+    } else {
+        invalidCode = .sourceOpen
+    }
+    let invalid = failure(NG2Raster.decodeDetailed(invalidBytes), stage: .source, code: invalidCode,
         label: "detailed_invalid_bytes_fail_source_creation")
     require(invalid.encodedBytes == 3 && invalid.sourceWidth == nil && invalid.sourceHeight == nil &&
         invalid.orientation == nil, "detailed_source_failure_keeps_unobtained_metadata_null")

@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 
 var fixtureFailureSnapshot: (() -> [String: JSONValue])?
 func require(_ condition: Bool, _ name: String) {
@@ -162,13 +163,27 @@ for (error, code) in bridgeFailures {
     let encoded = String(data: try! JSONEncoder().encode(value), encoding: .utf8)!
     require(!encoded.contains("PRIVATE") && !encoded.contains("direct capture"), "capture_failure_never_saves_bridge_text_"+code)
 }
-for (bytes, code) in [(Data(), "encoded_empty"), (Data([1, 2, 3]), "source_open"),
-                      (Data(count: 8*1024*1024+1), "encoded_limit")] {
+for (bytes, code) in [(Data(), "encoded_empty"), (Data(count: 8*1024*1024+1), "encoded_limit")] {
     let value = captureFailureFixture(bytes, nil, stage: "source", code: code)
     require(value["encoded_bytes"]?.intValue == bytes.count && diagnosticIsNull(value["source_width"]) &&
         diagnosticIsNull(value["source_height"]) && diagnosticIsNull(value["orientation"]),
         "capture_failure_source_bytes_and_unknown_metadata_"+code)
 }
+// ImageIO can accept a provisional source for incomplete bytes. Observe its
+// actual factory boundary before choosing the expected production failure.
+let incompleteBytes = Data([1, 2, 3])
+let incompleteSource = CGImageSourceCreateWithData(incompleteBytes as CFData, nil)
+let incompleteCode: String
+if let source = incompleteSource {
+    if CGImageSourceGetCount(source) != 1 { incompleteCode = "image_count" }
+    else {
+        require(CGImageSourceCreateImageAtIndex(source, 0, nil) == nil, "capture_failure_incomplete_bytes_fixture_has_no_image")
+        incompleteCode = "image_create"
+    }
+} else { incompleteCode = "source_open" }
+let incompleteFailure = captureFailureFixture(incompleteBytes, nil, stage: "source", code: incompleteCode)
+require(incompleteFailure["encoded_bytes"]?.intValue == incompleteBytes.count,
+    "capture_failure_incomplete_source_keeps_actual_encoded_size")
 let invalidAspect = captureFailureFixture(NG2Fake.squarePNG, nil, stage: "metadata", code: "aspect")
 require(invalidAspect["encoded_bytes"]?.intValue == NG2Fake.squarePNG.count &&
     invalidAspect["source_width"]?.intValue == 2 && invalidAspect["source_height"]?.intValue == 2 &&
@@ -187,6 +202,11 @@ require(intervalFailure?["stage"]?.stringValue == "interval" && intervalFailure?
 
 NG2Fake.reset(.pause)
 let invalidAnalysis = identity()
+diagnoseFixture(invalidAnalysis)
+let untaggedSource = CGImageSourceCreateWithData(NG2Fake.pausePNG as CFData, nil)!
+let untaggedProperties = CGImageSourceCopyPropertiesAtIndex(untaggedSource, 0, nil) as! [CFString: Any]
+require(CGImageSourceGetCount(untaggedSource) == 1 && untaggedProperties[kCGImagePropertyOrientation] == nil,
+    "capture_failure_PNG_fixture_has_no_EXIF_orientation")
 NG2RuntimeTestHooks.analysisRGBA = { _ in Data() }
 require(call("necro_native_start", invalidAnalysis).1 == nil, "capture_failure_analysis_start")
 pump("capture_failure_analysis_drained") { drained(invalidAnalysis) }
@@ -196,6 +216,29 @@ require(analysisFailure?["stage"]?.stringValue == "analysis" && analysisFailure?
     analysisFailure?["source_width"]?.intValue == 896 && analysisFailure?["source_height"]?.intValue == 414 &&
     diagnosticIsNull(analysisFailure?["orientation"]) && failureRoundtrip(invalidAnalysis) && NG2Fake.countTouches() == 0,
     "capture_failure_real_C_analysis_rejection_is_reported")
+
+NG2Fake.reset(.reply)
+let portraitBytes = NG2Fake.portraitTIFF
+let portraitSource = CGImageSourceCreateWithData(portraitBytes as CFData, nil)!
+let portraitProperties = CGImageSourceCopyPropertiesAtIndex(portraitSource, 0, nil) as! [CFString: Any]
+require(CGImageSourceGetCount(portraitSource) == 1 &&
+    (portraitProperties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue == 414 &&
+    (portraitProperties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue == 896 &&
+    (portraitProperties[kCGImagePropertyOrientation] as? NSNumber)?.intValue == 8,
+    "capture_failure_EXIF8_fixture_serializes_real_orientation")
+NG2Fake.lock.lock(); NG2Fake.replyData = portraitBytes; NG2Fake.lock.unlock()
+NG2RuntimeTestHooks.analysisRGBA = { _ in Data() }
+let orientedAnalysis = identity()
+diagnoseFixture(orientedAnalysis)
+require(call("necro_native_start", orientedAnalysis).1 == nil, "capture_failure_EXIF8_analysis_start")
+pump("capture_failure_EXIF8_analysis_drained") { drained(orientedAnalysis) }
+let orientedFailure = captureFailureRecord(orientedAnalysis)
+require(orientedFailure?["stage"]?.stringValue == "analysis" && orientedFailure?["code"]?.stringValue == "invalid_rgba" &&
+    orientedFailure?["encoded_bytes"]?.intValue == portraitBytes.count &&
+    orientedFailure?["source_width"]?.intValue == 414 && orientedFailure?["source_height"]?.intValue == 896 &&
+    orientedFailure?["orientation"]?.intValue == 8 && failureRoundtrip(orientedAnalysis) && NG2Fake.countTouches() == 0,
+    "capture_failure_analysis_preserves_observed_EXIF8")
+fixtureFailureSnapshot = nil
 
 // Change only the generation after decoding failed and before its production
 // commit. Cancellation and owner checks remain true at that exact boundary.
