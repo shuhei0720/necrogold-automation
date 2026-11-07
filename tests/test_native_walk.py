@@ -28,7 +28,9 @@ from timer_support import TimerTestCase
 
 class NativeServer:
     def __init__(self, *, lose=(), input_state=0, capabilities=None, version=None,
-                 finish=False, transform=None, lose_before=(), reject_info_active=False):
+                 finish=False, transform=None, lose_before=(), reject_info_active=False,
+                 reject_info=False, listen=True, schema_transform=None, schema_status=200,
+                 schema_raw=None, start_status=None, bad_start_mac=False):
         self.lose = list(lose)
         self.input_state = input_state
         self.calls = []
@@ -39,12 +41,31 @@ class NativeServer:
         self.transform = transform
         self.lose_before = list(lose_before)
         self.reject_info_active = reject_info_active
+        self.reject_info = reject_info
+        self.listen = listen
+        self.schema_calls = []
+        self.schema_transform = schema_transform
+        self.schema_status = schema_status
+        self.schema_raw = schema_raw
+        self.start_status = start_status
+        self.bad_start_mac = bad_start_mac
 
     def __enter__(self):
         fake = self
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_args):
                 pass
+            def do_GET(self):
+                fake.schema_calls.append(self.path)
+                result = {'server_version':fake.version, 'protocol_version':1,
+                          'capability_tags':fake.capabilities, 'build':'2026-11-07 04:11'}
+                if fake.schema_transform:
+                    result = fake.schema_transform(result)
+                raw = fake.schema_raw if fake.schema_raw is not None else json.dumps(result).encode()
+                self.send_response(fake.schema_status)
+                self.send_header('Content-Length', str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
             def do_POST(self):
                 body = self.rfile.read(int(self.headers['Content-Length']))
                 envelope = json.loads(body)
@@ -54,12 +75,18 @@ class NativeServer:
                 request = json.loads(plain)
                 method, params = request['method'], request['params']
                 fake.calls.append((method, params))
+                if method == 'necro_native_start' and fake.start_status is not None:
+                    self.send_response(fake.start_status)
+                    self.send_header('Content-Length', '0')
+                    self.end_headers()
+                    return
                 if method in fake.lose_before:
                     fake.lose_before.remove(method)
                     self.close_connection = True
                     self.connection.shutdown(socket.SHUT_RDWR)
                     return
-                if method == 'device_info' and fake.reject_info_active and 'running' in fake.runs.values():
+                if method == 'device_info' and (fake.reject_info or
+                        fake.reject_info_active and 'running' in fake.runs.values()):
                     raw = sealed_reply(body, result={'code':-32004,'message':'native lease'}, rpc_error=True)
                     self.send_response(200)
                     self.send_header('Content-Length', str(len(raw)))
@@ -92,19 +119,32 @@ class NativeServer:
                     self.connection.shutdown(socket.SHUT_RDWR)
                     return
                 raw = sealed_reply(body, result=result)
+                if method == 'necro_native_start' and fake.bad_start_mac:
+                    changed = json.loads(raw)
+                    changed['tag'] = '0'*64
+                    raw = json.dumps(changed).encode()
                 self.send_response(200)
                 self.send_header('Content-Length', str(len(raw)))
                 self.end_headers()
                 self.wfile.write(raw)
-        self.server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        self.server = ThreadingHTTPServer(('127.0.0.1', 0), Handler, bind_and_activate=False)
+        self.server.server_bind()
         self.thread = threading.Thread(target=lambda: self.server.serve_forever(poll_interval=.01), daemon=True)
-        self.thread.start()
+        if self.listen:
+            self.activate()
         return self
 
+    def activate(self):
+        if not self.thread.is_alive():
+            self.server.server_activate()
+            self.thread.start()
+
     def __exit__(self, *_args):
-        self.server.shutdown()
+        if self.thread.is_alive():
+            self.server.shutdown()
         self.server.server_close()
-        self.thread.join(timeout=1)
+        if self.thread.ident is not None:
+            self.thread.join(timeout=1)
 
     def client(self, timer):
         return native.NativeClient(HttpTransport(self.server.server_port), KEY, TOK,
@@ -221,7 +261,8 @@ class NativeWalkTests(TimerTestCase):
             native.run_session(client, folder, lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.1)
             self.assertEqual(1, len(snapshots))
             self.assertTrue(snapshots[0]['start_attempted'])
-            self.assertEqual(server.calls[1][1]['run_id'], snapshots[0]['run_id'])
+            start = next(p for m,p in server.calls if m == 'necro_native_start')
+            self.assertEqual(start['run_id'], snapshots[0]['run_id'])
 
     def test_unknown_terminal_is_retained_and_reexecution_cannot_start_again(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(input_state=4) as server:
@@ -299,8 +340,10 @@ class NativeWalkTests(TimerTestCase):
                        {'capabilities': {'necrogold_native_v1': True}}):
             with self.subTest(kwargs=kwargs), tempfile.TemporaryDirectory() as folder, NativeServer(**kwargs) as server:
                 result = self.execute(server, folder)
-                self.assertEqual(['device_info'], [m for m,p in server.calls])
-                self.assertEqual('native_capability_missing', result['stop_reason'])
+                self.assertEqual([], server.calls)
+                self.assertEqual(['/schema'], server.schema_calls)
+                expected = 'native_schema_invalid' if isinstance(kwargs.get('capabilities'), dict) else 'native_capability_missing'
+                self.assertEqual(expected, result['stop_reason'])
                 self.assertTrue(result['resolved'])
 
     def test_minimal_accepted_report_can_progress_into_completed_results(self):
@@ -580,6 +623,19 @@ class NativeImageTests(TimerTestCase):
                    'host_timings':{key:1 for key in ('request_start_ns','http_start_ns','http_end_ns',
                        'decrypt_start_ns','decrypt_end_ns','response_end_ns')}}
             record['events'] = [dict(row) for _ in range(128)]
+            # Four readiness attempts must coexist with the largest native
+            # evidence and HTTP ring without exceeding the JSON node limit.
+            template = record['preflight']['attempts'][0]
+            record['preflight']['attempts'] = []
+            for index in range(1,5):
+                start = record['preflight']['started_ns']+index
+                diagnostic = dict(template['diagnostic'], started_ns=start, ended_ns=start)
+                diagnostic.update(kind='ok' if index == 4 else 'refused',
+                                  errno=None if index == 4 else errno.ECONNREFUSED,
+                                  status=200 if index == 4 else None)
+                record['preflight']['attempts'].append({'attempt':index, 'started_ns':start,
+                    'ended_ns':start, 'error':None if index == 4 else 'connection_error',
+                    'diagnostic':diagnostic})
             native._save(Path(folder), record)
             loaded = native._load(Path(folder))
             self.assertEqual(record, loaded)

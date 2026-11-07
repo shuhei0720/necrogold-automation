@@ -1603,3 +1603,59 @@ cd /mnt/necro_test043 && sh test_043.sh
 ```
 
 実機テストを依頼する。ゲームを表示して、初歩までの待ち・毎ビートの歩行・曲がり角・扉/茶壁・商品表示後のポーズを確認してほしい。終了後の**`runtime/test-043`全体をZIPで返す**。可能なら開始から商品表示まで、心臓と各歩が見える短い動画も添える。途中停止や動かない結果も除外せず返す。ポーズ未確認なら手動でポーズする。今回のnative取得/正規化/入力が実機で成立するか、初動と毎拍が改善するかを結果から確認し、実機合格前に達成済みとはしない。
+
+
+## TEST-043受領結果（2026-11-07 日本時間）
+
+ユーザーは「ゲーム開かず終わった」と報告。ZIP1,518bytes、SHA-256 `5423749711fe4d05555b880f1d886c8babe2acdd71f8b970a238f3a8b6806d2c`。`active.json`と`native-e818708d96b04ea3bca928604b3c71da/report.json`は各600bytesで完全一致。唯一のイベントは`device_info`の`connection_error`。`start_attempted=false`、state=stopped/resolved=true、native_state/report=null、画像0、取消0。native start・ゲーム起動・取得・歩行へ到達していない。停止時刻しかなく要求時間・下位通信エラーが保存されていないため、接続拒否、socket timeout、切断、サーバー未起動のどれかは断定できない。
+
+接続先は旧版と同じ127.0.0.1:8300。043の全RPC timeoutは2秒、旧shop_walk/restart_loopは8秒。actual device_infoはXCTest app.frameを読むUI処理で、043はゲーム起動前に呼ぶためcold処理の影響があり得るが、今回の原因と確定しない。actual version/capabilityキーはclient期待と一致。native C/Swiftの故障を示す証拠もない。独立分析でこの切分けを照合した。
+
+## TEST-044の8項目プラン
+
+1. **概要**: 開始前の接続失敗を診断可能にし、UIを使わない既存`GET /schema`でNG-G2 version/capabilityを確認してから、従来の認証済みnative startを1回だけ送る。新TEST044を配布し、ゲーム起動・歩行・停止の実機テストを依頼する。
+2. **背景**: 043は初回device_info接続失敗だけで終了し、原因の下位分類・elapsedを失った。固定上流のJSONRPCServerはGET /schemaを直接処理し、RPCMethodRegistryからserver_version/build/protocol_version/capability_tagsを返す。XCTest/main/UIを通らず取得できるため、初動のUI照会も省ける。未起動サーバーそのものが自動で直るとはしない。
+3. **詳細設計**: HttpTransportに固定GET /schemaだけのmetadata取得と、既存POST /rpcと共通のHTTP上限/非redirect処理を設ける。schemaは512KiB以下・既存JSON深さ/ノード制限を通し、protocol_version=1、API1.98.14-ngg2、necrogold_native_v1を要求する。認証・操作許可は引き続き暗号native RPCで確認し、公開metadataだけで入力を行わない。開始前だけ最大4照会・総8秒以内・単回最大2秒・backoff最大.5秒で一時的接続失敗を再試行する。総session期限と取消を優先し、状態/認証/不正metadata/版不一致を再試行しない。start_attempted=trueの回復はmetadata照会を省き、元のrun IDのstatus/cancel/resultsへ直行する。unknown startの再送禁止・通算cancel3回・heartbeat/read-only・画像/入力の全制約は維持する。
+4. **影響範囲**: necroprobe/protocol.pyのHTTP helper、native_walk.pyの開始前metadata/診断・表示、test_044.shと対象host試験、既存5文書。NativeClient revisionはnative-walk-v2、出力runtime/test-044。NG-G2 IPA build20、native C/Swift/patch/manifest、旧gameplayとR12はbyte維持。新schema取得は追加URLやユーザー指定host/portを開かず既存loopbackに固定する。
+5. **新規試験**: 公開入口で、非listen→待機時に実HTTP起動→schema確認→暗号start1回のassertion Red、接続拒否の分類・時間保存のRed、UI device_infoなし/旧版・badmetadataはstart0、開始済回復はGET0、応答喪失後start無再送、slow-drip総期限・拒否/timeout/reset/redirect/size/JSON境界、backoff取消、旧journal読込・最大JSON shapeと秘密値不保存を確認。既存native client・protocol/HTTP/timer回帰を通す。
+6. **順序**: 要件と本プランを分離→fresh-context設計/試験/安全プランレビュー→意味あるassertion Red観測→最小実装→Green/回帰→独立実装レビュー最大3周→既承認Git保存・完全sourceZIP照合→必ずユーザー実機依頼。コンパイル/API不足のエラーはRedとしない。
+7. **保存前と実機条件**: AST/sh -n、全対象回帰、sanitized診断・全上限・旧資産hash・GitHub完全ZIPを確認。LoopCtrlでStart Serverを確認したうえ、新1-1ポーズ/画面端0/左側が下からTEST044を実行しruntime/test-044を返す。導入済みNG-G2はそのまま利用し、未更新なら検出して停止する。
+8. **スコープ外・残る受入**: 接続エラーだけからサーバー未起動や2秒不足を断定、pairing書換/自動再pair、任意endpoint、start再送、既存native入力・拍/期限の緩和、未検証の速度合格、指輪/通知/完全周回は追加しない。現ログから分からない環境状態はユーザー回答・次の診断から確認する。
+
+
+### TEST044プランレビュー補足
+
+設計P2・試験P1/P2・安全P1/P2を反映。固定上流自身もRPCMethod.swiftのconnection_reliabilityで、開始前は短いGET /schemaをpollし、cold /rpcを避ける契約を示している。
+
+- 各GETとJSON検査は既存OwnedRpcTimerで囲み、timeout=min(2秒, readiness残り, session残り, client単回上限)。8秒にはbackoff/保存待ちを含み、deadlineと等しい時刻に新GET/startを送らない。OwnedRpcTimerはnested禁止のまま、各試行へ残時間を渡す。backoffは50ms以下で取消/両絶対期限を再検査する。schema成功後・start意図保存後・start送信直前に取消と両期限を確認し、保存中に失効してもstart0。すでに保存したsent/unknown意図bitを取り消して再送可能にしない。許可期限を超えたfsync等の後も新入力0とし、OSの非割込I/Oが必ず8秒内に戻るとは保証しない。
+- 再試行は開始前metadata取得だけ。closed transport kindがrefused/timeout/reset/disconnected/unreachable、またはOwnedRpcTimerのrpc_deadlineのみ、残予算内で再試行可。permissionを含む未分類io_error、HTTP全非200（401/500/503/redirect含む）、HTTP構文、body上限/欠落、不正JSON/schema・版/capability不一致は1回で拒否。共通HTTP helperと暗号POSTにはretryを入れず、start後の失敗はschemaへ戻らない。
+- HTTP診断はstage(connect/request/headers/body/complete)、kind(ok/refused/timeout/reset/disconnected/unreachable/deadline/http_status/body_limit/body_truncated/protocol_error/io_error)、errno（数値0..4095またはnull）、status（100..599またはnull）、started_ns/ended_nsだけ。例外文・ヘッダー・body・URL・host/IPを保存しない。schemaはprotocol_versionを厳密int1、server_versionを期待API、capability_tagsを上限付き文字列配列として検査。保存は確認済version/protocol/必要cap有無だけとし、任意build値をコピーしない。buildはあれば正しいYYYY-MM-DD HH:MMの時刻だけ保存し、不明値は省く。
+- 診断はrecord.preflightの最大4attempt行へ厳密projectionし、active.json/run別reportに保存して再読込でも一致させる。旧journalのpreflight欠落を許容し、eventsも既存の閉じたkey/値へ投影して任意fieldsを再保存しない。最大native captures256/events64/HTTPring128+preflight4で既存JSON10,000nodesを超えないことを確認する。
+- GET/schema上限512KiB、既存POST/rpc上限12MiBを共通helperの別引数とする。512KiB超の正常POSTが通る回帰、有効schemaのGET512KiB丁度は許可、+1は拒否。Content-Lengthなし、nonredirect、slowdrip、JSON深さ/ノード/重複、bool/float protocol、欠落/旧capキー/悪型/旧APIはGET1/start0・再試行0を試験する。保存中取消・deadline等号、旧prepared(start_attempted=false)はmetadata後に初start最大1回、started/unknown(start_attempted=true)はGET0回復、認証401/MAC/応答喪失のnative start通算1回も維持する。
+
+TEST044のプランレビューは設計・試験・安全の各2周で指摘を反映した。preparedの判定はstate名でなくstart_attemptedで区別し、falseだけmetadata後の初回startを許可、trueはGET0で回復する。有効512KiB丁度は許可、超過/不正は拒否。追加P0/P1/P2残件なしとして実行可能なRedへ進む。
+
+TEST044の検証はstdlibだけの専用Ubuntu client CIにも同じHTTP/暗号通信/取消/回復試験を追加する。既存IPA workflowは変更せず、同じNG-G2 build20を使用する。
+
+
+## TEST-044の実装・検証
+
+TEST044 / native-walk-v2を実装。固定GET /schemaを開始前の接続確認に使い、nativeの暗号start/status/cancel/resultsを維持した。HttpTransportはGET512KiB/POST12MiBを分け、非redirect、応答サイズ/完全性、closed transport診断を共通処理する。未読エラーresponseもcloseし、その後必ずconnectionをcloseする。schemaの本文や任意文字列を保存せず、protocol/API/必要cap確認と厳密なbuild時刻だけを保存する。
+
+開始前だけ最大4照会/8秒、各照会とJSON検査はOwnedRpcTimerで残時間を制限し、backoffは50ms以下で取消・両deadlineを確認する。schema後とstart意図保存後にも検査し、暗号化の後・transport admission直前にも同じguardを通す。ローカルguardで未送信が確定した場合はintent bitを戻さずlocal stopped/resolved true/native_state Noneとし、存在しないnative runを取消追跡しない。送信済み・応答不明は従来の同run回復へ進み、startを再送しない。start_attempted=trueはstate名にかかわらずGET0で回復する。
+
+公開run_session主Redは、非listen→待機中listenで初start期待1/実0、device_info拒否＋schema経路のstart期待1/実0、保存診断の欠落、start意図保存中取消のstart期待0/実1、保存中deadline等号のstart期待0/実1の**5 assertion failures・0errors**。初期fixtureの未開始thread join errorは修正して再観測し、Red証拠に混ぜない。HTTP helperは実行可能stubのGET期待にPOST、接続拒否診断の欠落の**2 assertion failures・0errors**から実装した。未読response.isclosed falseの**1 assertion failure・0errors**も観測してcloseを修正した。
+
+clientの新24＋既存33＝57件全成功・skip0（6.875秒）。HTTP/共有protocol回帰32件全成功（1.094秒）。GETサイズ丁度/+1、bad metadata/JSON、HTTP non200 noRetry、secret/build projection、保存/crypto中取消と期限、401/MAC/喪失後start1回、recoverGET0、旧journal・最大JSON shapeを確認した。JSON処理中の実OwnedRpcTimer発火はrpc_deadlineを保持して上限内retryへ進む。旧gameplay対象432件は407成功・旧外部画像不足25skip（32.735秒）。host/mock HTTPの成功と実機のゲーム起動・歩行は分ける。
+
+## TEST-044実行手順
+
+導入済みNG-G2 build20を使用する。LoopCtrlでいつものVPN/ディスクイメージ接続を確認し、**Start Serverを押して起動済み表示を確認**する。TEST044は新しい通常1-1をポーズ、画面端0・左側が下で開始する。全コードZIPをSafariでGitHubへログインして保存・展開し、iSHのフォルダ選択ではtest_044.shがある展開先を選ぶ。
+
+```sh
+mkdir -p /mnt/necro_test044
+mount -t ios . /mnt/necro_test044
+cd /mnt/necro_test044 && sh test_044.sh
+```
+
+**実機テストを依頼する。** ゲームが開くか、初動と各歩/拍、商品後のポーズを確認し、終了後の**runtime/test-044全体をZIPで返す**。接続に失敗した場合も診断が入るため同じZIPを返す。ゲームが開いた場合は、可能なら心臓と歩行が見える短い動画も添える。ポーズ未確認なら手動でポーズする。未起動・接続timeout等のどれが043の直接原因だったかは現資料では未確定で、次の診断を根拠にする。

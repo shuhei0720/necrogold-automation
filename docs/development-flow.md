@@ -96,3 +96,10 @@ TEST042の⑦で実機ZIPと「まだ遅い」を受領。商品/最終ポーズ
 ⑦では新NG-G2 IPAと完全ソースを提示し、[TEST043の実行手順](device-tests/README.md#test-043実行手順)に従いiPhone上で `sh test_043.sh` を実行し `runtime/test-043` を返してもらう。API `1.98.14-ngg2` / capability `necrogold_native_v1` が必要。取得元の画像変換・取得時刻範囲・入力の成立と連続拍・商品優先・停止を実画面で確認する。ホスト差分やCI成功から端末性能へ換算しない。⑧の実機結果を受けた整理、目的指輪の未知評価/通知、対象なし確認後の自動周回と全受入は残る。
 
 TEST043の⑥は設計・試験・安全の各3周以内で終了し、最終P0/P1/P2残件なし。主Redと修正後の公開結合・実callsite変異、最終IPAのCRC/SHA/封印22source/manifestを照合済み。⑦として新NG-G2 IPAと完全ソースを渡し、具体的な実機TEST043とZIP返却を依頼する段階。ホスト・CIの成功と実機受入を分け、詳細は既存台帳末尾へ保存した。
+
+
+## TEST-044 開始前の接続確認と診断
+
+TEST043の⑦で「ゲーム開かず」と最初の接続エラーを受領した。native start未送信を確認し、①既存台帳の8項目プランへ戻った。②③設計・試験・安全はfresh-contextの各2周で、UI-free schemaと暗号認証の境界、retry表、総期限、保存後の取消/期限検査、診断projectionと旧journal互換を明示した。④⑤は既存公開run_session/実HTTPを用いる5 assertions Redと、GET method/接続分類の2 assertions Red（すべて0errors）を観測してから最小Greenへ進んだ。HTTP non200時の未読response.close不足も実response.isclosedの1assertion Redで再現して修正した。詳細と最終集計・実装レビューは既存台帳末尾に保存する。
+
+⑦では同じNG-G2 IPAと完全sourceを使い、新1-1ポーズからsh test_044.shを実行してruntime/test-044を返す実機テストを必ず依頼する。接続回復のホスト成功をゲーム起動/歩行/速度の実機合格としない。送信済み・unknown startの再送禁止や要件は維持する。

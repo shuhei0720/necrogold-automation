@@ -20,7 +20,7 @@ from .protocol import Client
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v1'
+REVISION = 'native-walk-v2'
 API_VERSION = '1.98.14-ngg2'
 CAPABILITY = 'necrogold_native_v1'
 PROFILE = 'normal-1-1-v1'
@@ -31,6 +31,17 @@ MAX_HTTP_EVENTS = 128
 MAX_CAPTURES = 256
 MAX_NATIVE_EVENTS = 64
 MAX_CANCEL_ATTEMPTS = 3
+MAX_SCHEMA = 512 * 1024
+MAX_SCHEMA_ATTEMPTS = 4
+SCHEMA_BUDGET_NS = 8_000_000_000
+DIAGNOSTIC_STAGES = frozenset(('connect', 'request', 'headers', 'body', 'complete'))
+DIAGNOSTIC_KINDS = frozenset(('ok', 'refused', 'timeout', 'reset', 'disconnected', 'unreachable',
+    'deadline', 'http_status', 'body_limit', 'body_truncated', 'protocol_error', 'io_error'))
+RETRY_KINDS = frozenset(('refused', 'timeout', 'reset', 'disconnected', 'unreachable'))
+RPC_METHODS = frozenset(('necro_native_start', 'necro_native_status',
+                         'necro_native_cancel', 'necro_native_results'))
+HTTP_TIMING_KEYS = frozenset(('request_start_ns', 'http_start_ns', 'http_end_ns',
+    'decrypt_start_ns', 'decrypt_end_ns', 'response_end_ns'))
 STATES = frozenset(('accepted', 'running', 'completed', 'stopped', 'draining'))
 TERMINAL = frozenset(('completed', 'stopped'))
 REASONS = frozenset(('none', 'goods', 'cancelled', 'foreground', 'locked', 'owner_paused',
@@ -66,7 +77,7 @@ ERROR_CODES = frozenset(('connection_error', 'rpc_deadline', 'rpc_error', 'respo
     'response_id_mismatch', 'http_body_limit', 'http_body_truncated', 'invalid_native_status',
     'invalid_native_report', 'invalid_native_images', 'native_capability_missing',
     'cancel_requested', 'host_deadline', 'rpc_failed', 'native_input_unresolved',
-    'native_results_unavailable'))
+    'native_results_unavailable', 'native_schema_invalid', 'schema_http_status'))
 
 
 def _require(value, reason):
@@ -82,10 +93,29 @@ def _error(exc):
     return exc.code if isinstance(exc, ProbeError) and exc.code in ERROR_CODES else 'rpc_failed'
 
 
+class _StartNotSent(ProbeError):
+    """Only a local admission guard can establish this before transport entry."""
+
+
 class NativeClient(Client):
+    def call(self, method, params=None, *, timeout=None):
+        guard = getattr(self, '_before_start_post', None)
+        if method != 'necro_native_start' or guard is None:
+            return super().call(method, params, timeout=timeout)
+        transport = self.transport
+        def guarded_post(body, rpc_timeout):
+            try:
+                guard()
+            except ProbeError as exc:
+                raise _StartNotSent(exc.code) from None
+            return transport(body, rpc_timeout)
+        self.transport = guarded_post
+        try:
+            return super().call(method, params, timeout=timeout)
+        finally:
+            self.transport = transport
+
     def _validate(self, method, params):
-        if method == 'device_info' and params == {}:
-            return
         expected = ({'run_id', 'profile'} if method == 'necro_native_start'
                     else {'run_id', 'keepalive'} if method == 'necro_native_status' else {'run_id'})
         if (method not in ('necro_native_start', 'necro_native_status',
@@ -96,6 +126,121 @@ class NativeClient(Client):
                 or ('keepalive' in params and type(params['keepalive']) is not bool)
                 or ('profile' in params and params['profile'] != PROFILE)):
             raise ProbeError('method_not_allowed')
+
+    def read_server_schema(self, timeout):
+        """Read only fixed local metadata; native RPC still supplies authentication."""
+        self.last_server_schema = None
+        self.transport.last_diagnostic = None
+        number(timeout, .001, min(2, self.timeout))
+        _require(isinstance(self.deadline_owner, OwnedRpcTimer), 'timer_owner_required')
+        with self.deadline_owner.deadline(timeout):
+            raw = self.transport.schema(timeout)
+            try:
+                value = json_object(raw, MAX_SCHEMA)
+                metadata = _schema_metadata(value)
+            except ProbeError as exc:
+                if exc.code == 'rpc_deadline':
+                    raise
+                raise ProbeError('native_schema_invalid') from None
+            self.last_server_schema = metadata
+            _require(metadata['server_version'] == API_VERSION and metadata['native_capability'],
+                     'native_capability_missing')
+        return metadata
+
+
+def _ns(value):
+    return type(value) is int and 0 <= value < 2**63
+
+
+def _build_stamp(value):
+    if type(value) is not str or re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}', value) is None:
+        return None
+    year, month, day, hour, minute = (int(value[a:b]) for a,b in ((0,4),(5,7),(8,10),(11,13),(14,16)))
+    if not (1 <= year <= 9999 and 1 <= month <= 12 and hour < 24 and minute < 60):
+        return None
+    days = (31, 29 if year%4 == 0 and (year%100 != 0 or year%400 == 0) else 28,
+            31,30,31,30,31,31,30,31,30,31)
+    return value if 1 <= day <= days[month-1] else None
+
+
+def _schema_metadata(value):
+    _require(type(value) is dict and type(value.get('server_version')) is str
+             and len(value['server_version']) <= 128
+             and type(value.get('protocol_version')) is int and value['protocol_version'] == 1
+             and type(value.get('capability_tags')) is list and len(value['capability_tags']) <= 256
+             and all(type(v) is str and len(v) <= 128 for v in value['capability_tags']),
+             'native_schema_invalid')
+    result = {'server_version': API_VERSION if value['server_version'] == API_VERSION else 'other',
+              'protocol_version': 1, 'native_capability': CAPABILITY in value['capability_tags']}
+    stamp = _build_stamp(value.get('build'))
+    if stamp is not None:
+        result['build'] = stamp
+    return result
+
+
+def _diagnostic(value):
+    _require(type(value) is dict and set(value) == {'stage','kind','errno','status','started_ns','ended_ns'}
+             and type(value.get('stage')) is str and value['stage'] in DIAGNOSTIC_STAGES
+             and type(value.get('kind')) is str and value['kind'] in DIAGNOSTIC_KINDS
+             and (value.get('errno') is None or type(value['errno']) is int and 0 <= value['errno'] <= 4095)
+             and (value.get('status') is None or type(value['status']) is int and 100 <= value['status'] <= 599)
+             and _ns(value.get('started_ns')) and _ns(value.get('ended_ns'))
+             and value['started_ns'] <= value['ended_ns'], 'native_journal_invalid')
+    return {key:value[key] for key in ('stage','kind','errno','status','started_ns','ended_ns')}
+
+
+def _preflight(value):
+    _require(type(value) is dict and set(value) == {'schema','started_ns','deadline_ns','state','attempts','server'}
+             and value.get('schema') == 'ngg2-connect-v1'
+             and _ns(value.get('started_ns')) and _ns(value.get('deadline_ns'))
+             and value['started_ns'] <= value['deadline_ns']
+             and value.get('state') in ('pending','ready','failed','cancelled')
+             and type(value.get('attempts')) is list and len(value['attempts']) <= MAX_SCHEMA_ATTEMPTS,
+             'native_journal_invalid')
+    rows = []
+    end = value['started_ns']
+    for index,row in enumerate(value['attempts'], 1):
+        _require(type(row) is dict and set(row) == {'attempt','started_ns','ended_ns','error','diagnostic'}
+                 and type(row.get('attempt')) is int and row['attempt'] == index
+                 and _ns(row.get('started_ns')) and _ns(row.get('ended_ns'))
+                 and end <= row['started_ns'] <= row['ended_ns']
+                 and row['started_ns'] < value['deadline_ns']
+                 and (row.get('error') is None or row['error'] in ERROR_CODES), 'native_journal_invalid')
+        diagnostic = _diagnostic(row['diagnostic'])
+        _require(diagnostic == row['diagnostic'], 'native_journal_invalid')
+        rows.append(dict(row, diagnostic=diagnostic))
+        end = row['ended_ns']
+    server = value['server']
+    if server is not None:
+        _require(type(server) is dict and set(server) <= {'server_version','protocol_version','native_capability','build'}
+                 and set(server) >= {'server_version','protocol_version','native_capability'}
+                 and server.get('server_version') in (API_VERSION, 'other')
+                 and type(server.get('protocol_version')) is int and server['protocol_version'] == 1
+                 and type(server.get('native_capability')) is bool
+                 and ('build' not in server or _build_stamp(server['build']) == server['build']),
+                 'native_journal_invalid')
+    if value['state'] == 'ready':
+        _require(rows and rows[-1]['error'] is None and server is not None
+                 and server['server_version'] == API_VERSION and server['native_capability'],
+                 'native_journal_invalid')
+    return dict(value, attempts=rows, server=None if server is None else dict(server))
+
+
+def _events(value):
+    """Project legacy journal diagnostics before anything can save them again."""
+    rows = []
+    for row in value:
+        _require(type(row) is dict and _uuid(row.get('invocation'))
+                 and row.get('method') in RPC_METHODS | {'device_info'}
+                 and _ns(row.get('host_ns')), 'native_journal_invalid')
+        clean = {key:row[key] for key in ('invocation','method','host_ns')}
+        clean['error'] = row.get('error') if row.get('error') in ERROR_CODES | {None} else 'rpc_failed'
+        if 'host_timings' in row:
+            _require(type(row['host_timings']) is dict, 'native_journal_invalid')
+            clean['host_timings'] = {k:v for k,v in row['host_timings'].items()
+                                     if k in HTTP_TIMING_KEYS and _ns(v)}
+        rows.append(clean)
+    return rows
 
 
 @contextmanager
@@ -167,7 +312,7 @@ def _load(base):
         allowed = ('schema', 'revision', 'run_id', 'profile', 'state', 'resolved', 'start_attempted',
                    'cancel_attempted', 'stop_reason', 'native_state', 'native_report', 'images',
                    'host_clock_domain', 'native_clock_domain', 'events')
-        optional = {'cancel_attempts', 'cancel_confirmed', 'events_dropped', 'result_metadata'}
+        optional = {'cancel_attempts', 'cancel_confirmed', 'events_dropped', 'result_metadata', 'preflight'}
         _require(set(allowed) <= set(record) <= set(allowed) | optional, 'native_journal_invalid')
         record.setdefault('cancel_attempts', int(record['cancel_attempted']))
         record.setdefault('cancel_confirmed', False)
@@ -178,7 +323,12 @@ def _load(base):
                  and 0 <= record['events_dropped'] < 2**63, 'native_journal_invalid')
         excess = max(0, len(record['events']) - MAX_HTTP_EVENTS)
         record['events_dropped'] += excess
-        record['events'] = record['events'][excess:]
+        record['events'] = _events(record['events'][excess:])
+        _require(record.get('revision') in ('native-walk-v1', REVISION)
+                 and record.get('host_clock_domain') == 'python.monotonic_ns'
+                 and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
+        if 'preflight' in record:
+            record['preflight'] = _preflight(record['preflight'])
         _require(record['state'] in STATES | {'prepared', 'unknown'}
                  and record['native_state'] in STATES | {None}
                  and record['stop_reason'] in ERROR_CODES | {None}, 'native_journal_invalid')
@@ -335,7 +485,9 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
         recovering = record['start_attempted']
         run_id = record['run_id']
         invocation = uuid.uuid4().hex
-        deadline = clock() + int(max_seconds * 1e9)
+        began = clock()
+        deadline = began + int(max_seconds * 1e9)
+        readiness_deadline = min(deadline, began + SCHEMA_BUDGET_NS)
         cleanup_deadline = None
         cancel_required = record['cancel_attempted']
         status_before_retry = False
@@ -402,26 +554,87 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
             keepalive = not recovering and not cancel_required and not cancelled()
             return request('necro_native_status', {'run_id': run_id, 'keepalive': keepalive})
 
+        def readiness_check():
+            if cancelled():
+                raise ProbeError('cancel_requested')
+            now = clock()
+            if now >= deadline or now >= readiness_deadline:
+                raise ProbeError('host_deadline')
+            return now
+
+        def start_admission():
+            try:
+                return readiness_check()
+            except ProbeError as exc:
+                raise _StartNotSent(exc.code) from None
+
+        def schema_readiness():
+            prepared = {'schema':'ngg2-connect-v1', 'started_ns':began, 'deadline_ns':readiness_deadline,
+                        'state':'pending', 'attempts':[], 'server':None}
+            record['preflight'] = prepared
+            for attempt in range(1, MAX_SCHEMA_ATTEMPTS+1):
+                start = readiness_check()
+                timeout = min(2, client.timeout, (deadline-start)/1e9, (readiness_deadline-start)/1e9)
+                if timeout < .001:
+                    raise ProbeError('host_deadline')
+                failure = None
+                try:
+                    prepared['server'] = client.read_server_schema(timeout)
+                except ProbeError as exc:
+                    failure = exc
+                    prepared['server'] = getattr(client, 'last_server_schema', None)
+                diagnostic = client.transport.last_diagnostic
+                if diagnostic is None:
+                    diagnostic = {'stage':'connect', 'kind':'deadline' if failure is not None
+                                  and failure.code == 'rpc_deadline' else 'io_error',
+                                  'errno':None, 'status':None, 'started_ns':start, 'ended_ns':clock()}
+                diagnostic = _diagnostic(diagnostic)
+                error = _error(failure)
+                if failure is None:
+                    error = None
+                elif re.fullmatch(r'http_status_[0-9]{3}', failure.code):
+                    error = 'schema_http_status'
+                prepared['attempts'].append({'attempt':attempt, 'started_ns':start, 'ended_ns':clock(),
+                                             'error':error, 'diagnostic':diagnostic})
+                if failure is None:
+                    prepared['state'] = 'ready'
+                _save(base, record)
+                readiness_check()
+                if failure is None:
+                    return
+                if not (failure.code == 'rpc_deadline' or diagnostic['kind'] in RETRY_KINDS):
+                    raise ProbeError(error)
+                if attempt == MAX_SCHEMA_ATTEMPTS:
+                    raise ProbeError(error)
+                retry_at = min(clock()+500_000_000, readiness_deadline, deadline)
+                while True:
+                    now = readiness_check()
+                    if now >= retry_at:
+                        break
+                    sleep(min(.05, (retry_at-now)/1e9))
+                readiness_check()
+
         try:
             _save(base, record)
             if not recovering:
-                info = request('device_info', {})
-                _require(info.get('server_version') == API_VERSION
-                         and type(info.get('capabilities')) is list and CAPABILITY in info['capabilities'],
-                         'native_capability_missing')
-                if cancelled():
-                    record.update(state='stopped', resolved=True, stop_reason='cancel_requested')
-                    _save(base, record)
-                    return record
+                schema_readiness()
+                readiness_check()
                 # A prepared journal with this bit false has never issued start.
                 # The same UUID may make its first attempt after capability checks.
                 record['start_attempted'] = True
                 _save(base, record)
+                start_admission()
                 try:
+                    start_admission()
+                    client._before_start_post = start_admission
                     accept(request('necro_native_start', {'run_id': run_id, 'profile': PROFILE}))
+                except _StartNotSent:
+                    raise
                 except ProbeError as exc:
                     record['state'] = 'unknown'
                     stop(_error(exc))
+                finally:
+                    client._before_start_post = None
                 _save(base, record)
             else:
                 # device_info is a UI method rejected by the active native lease.
@@ -476,8 +689,12 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                     stop(_error(exc))
                 status_before_retry = False
                 _save(base, record)
+        except _StartNotSent as exc:
+            record.update(stop_reason=_error(exc), state='stopped', resolved=True, native_state=None)
         except ProbeError as exc:
             record['stop_reason'] = _error(exc)
+            if not recovering and 'preflight' in record and record['preflight']['state'] != 'ready':
+                record['preflight']['state'] = 'cancelled' if exc.code == 'cancel_requested' else 'failed'
             if not record['start_attempted']:
                 record.update(state='stopped', resolved=True)
             else:
@@ -493,8 +710,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST043: NG-G2端末内制御の開始・取消・結果保存')
-    ap.add_argument('--output', default='runtime/test-043')
+    ap = argparse.ArgumentParser(description='TEST044: 接続準備を確認してNG-G2端末内制御を実行')
+    ap.add_argument('--output', default='runtime/test-044')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')
@@ -519,6 +736,18 @@ def main(argv=None):
             record = run_session(client, args.output, cancelled=lambda: stopped[0])
         print('NG-G2終了: ' + record['state'] + ' / ' + (record['stop_reason'] or 'none'))
         print('保存先: ' + str(Path(args.output).resolve()/('native-'+record['run_id'])))
+        if not record['start_attempted'] and record['stop_reason'] != 'cancel_requested':
+            attempts = record.get('preflight', {}).get('attempts', [])
+            kind = attempts[-1]['diagnostic']['kind'] if attempts else None
+            if record['stop_reason'] == 'native_capability_missing':
+                print('NG-G2の版・機能が一致しません。build20のIPAとLoopCtrlの起動状態を確認してください。')
+            elif kind == 'refused':
+                print('LoopCtrlへの接続が拒否されました。まだゲームの開始要求は送っていません。')
+            elif record['stop_reason'] in ('rpc_deadline', 'host_deadline') or kind in ('timeout','deadline'):
+                print('LoopCtrlの接続準備待ちが期限に達しました。まだゲームの開始要求は送っていません。')
+            else:
+                print('LoopCtrlの接続準備を確認できず停止しました。まだゲームの開始要求は送っていません。')
+            print('LoopCtrlを開いて「Start Server」を押し、いつものVPN/ディスクイメージ接続を確認してから再実行してください。')
         if not record['resolved']:
             print('入力・終了結果は未確定です。同じ実行IDを保持しています。手動でゲームを確認してください。')
         return 0 if record['resolved'] and record['native_state'] == 'completed' else 2
@@ -527,7 +756,7 @@ def main(argv=None):
             'pairing_missing', 'pairing_ambiguous', 'invalid_pairing_record', 'already_running',
             'native_journal_invalid', 'timer_already_in_use', 'timer_handler_in_use',
             'timer_unusable', 'timer_setup_failed') else 'client_failed'
-        print('TEST043停止: ' + reason, file=sys.stderr)
+        print('TEST044停止: ' + reason, file=sys.stderr)
         return 2
     finally:
         for sig, handler in previous.items():

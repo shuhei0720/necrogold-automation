@@ -1,6 +1,7 @@
 """既存ペアリングを使う計測通信。タップを送るAPIは提供しない。"""
 import base64
 from dataclasses import dataclass
+import errno
 import hashlib
 import hmac
 import http.client
@@ -16,6 +17,7 @@ from .validation import MAX_HTTP, MAX_PLAIN, ProbeError, b64, json_object, numbe
 
 GAME = "jp.co.spike-chunsoft.necrodancerjp"
 HOST = "127.0.0.1:8300"
+SCHEMA_LIMIT = 512 * 1024
 
 
 
@@ -23,34 +25,86 @@ HOST = "127.0.0.1:8300"
 class HttpTransport:
     def __init__(self, port=8300):
         self.port = int(number(port, 1, 65535))
+        self.last_diagnostic = {}
+
+    def schema(self, timeout):
+        """Read fixed, public readiness metadata; never send pairing material."""
+        number(timeout, .001, 30)
+        return self._exchange("GET", "/schema", None, timeout, SCHEMA_LIMIT)
 
     def __call__(self, body, timeout):
+        return self._exchange("POST", "/rpc", body, timeout, MAX_HTTP)
+
+    @staticmethod
+    def _error_kind(exc):
+        if isinstance(exc, TimeoutError):
+            return "timeout"
+        code = getattr(exc, "errno", None)
+        if code == errno.ECONNREFUSED:
+            return "refused"
+        if code in (errno.ECONNRESET, errno.ECONNABORTED, errno.EPIPE):
+            return "reset"
+        if code in (errno.EHOSTUNREACH, errno.ENETUNREACH):
+            return "unreachable"
+        if isinstance(exc, http.client.RemoteDisconnected):
+            return "disconnected"
+        if isinstance(exc, http.client.IncompleteRead):
+            return "body_truncated"
+        if isinstance(exc, (http.client.HTTPException, ValueError)):
+            return "protocol_error"
+        return "io_error"
+
+    def _exchange(self, method, path, body, timeout, limit):
+        diagnostic = {"stage": "connect", "kind": "io_error", "errno": None,
+                      "status": None, "started_ns": time.monotonic_ns(), "ended_ns": 0}
+        self.last_diagnostic = diagnostic
         conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=timeout)
+        response = None
         try:
-            conn.request("POST", "/rpc", body=body, headers={"Content-Type": "application/json", "Connection": "close"})
+            conn.connect()
+            diagnostic["stage"] = "request"
+            headers = {"Connection": "close"}
+            headers["Accept" if method == "GET" else "Content-Type"] = "application/json"
+            conn.request(method, path, body=body, headers=headers)
+            diagnostic["stage"] = "headers"
             response = conn.getresponse()
+            diagnostic["status"] = response.status if 100 <= response.status <= 599 else None
             if response.status != 200:
                 raise ProbeError("http_status_" + str(response.status))
             length = response.getheader("Content-Length")
-            if length is not None and (not length.isdigit() or int(length) > MAX_HTTP):
+            if length is not None and (not length.isdigit() or int(length) > limit):
                 raise ProbeError("http_body_limit")
+            diagnostic["stage"] = "body"
             chunks = bytearray()
             while True:
-                part = response.read1(min(65536, MAX_HTTP + 1 - len(chunks)))
+                part = response.read1(min(65536, limit + 1 - len(chunks)))
                 if not part:
                     break
                 chunks.extend(part)
-                if len(chunks) > MAX_HTTP:
+                if len(chunks) > limit:
                     raise ProbeError("http_body_limit")
             if length is not None and len(chunks) != int(length):
                 raise ProbeError("http_body_truncated")
+            diagnostic.update(stage="complete", kind="ok")
             return bytes(chunks)
-        except ProbeError:
+        except ProbeError as exc:
+            diagnostic["kind"] = {"rpc_deadline": "deadline", "http_body_limit": "body_limit",
+                                  "http_body_truncated": "body_truncated"}.get(
+                                      exc.code, "http_status" if exc.code.startswith("http_status_")
+                                      else "protocol_error")
             raise
-        except (OSError, http.client.HTTPException, ValueError):
+        except (OSError, http.client.HTTPException, ValueError) as exc:
+            diagnostic["kind"] = self._error_kind(exc)
+            code = getattr(exc, "errno", None)
+            diagnostic["errno"] = code if type(code) is int and 0 <= code <= 4095 else None
             raise ProbeError("connection_error") from None
         finally:
-            conn.close()
+            diagnostic["ended_ns"] = time.monotonic_ns()
+            try:
+                if response is not None:
+                    response.close()
+            finally:
+                conn.close()
 
 
 def select_record(store, store_key=None):
