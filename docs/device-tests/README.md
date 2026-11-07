@@ -1881,3 +1881,16 @@ cd /mnt/necro_test047 && sh test_047.sh
 **TEST047の実機テストを依頼する。** ゲーム起動・初歩までの待ち・各ビートで連続して歩くか・商品後のポーズを確認し、終了後の**runtime/test-047全体をZIPでこのチャットへ返す**。未起動・一歩だけ・途中停止でも同じZIPを返す。可能なら心臓と歩行の短い動画を添える。最終ポーズ未確認なら手動でポーズする。旧runtime/test-046を混ぜず、別テストを同時実行しない。
 
 次回はEXIF8のorient_nsがどこまで短くなるか、初期画面の遷移とsource/phase3秒・元次拍deadline、capture_failureのstage/codeと未取得null/取得値を確認する。今回まで046のdirection0なのでmotion待機の実機効果も引き続き未確認。Cへ移したことやホスト全画素一致を実機速度の改善幅・毎拍合格へ換算しない。指輪評価/通知・完全周回・耐久と人より速い全経路毎拍の受入は必要なまま残す。
+
+### TEST047検証済みIPAと最終集計
+
+- 最終ビルドコード`d62a7be1b0aac9f3dcb9eb9fe61448cf27a93893`、[native CI42369174973](https://github.com/shuhei0720/necrogold-automation/actions/runs/42369174973)はaggregate success。native host120件全成功・skip0（20.271秒）とprivate8件明示除外、ローカルは必須79画像を含む128件全成功・skip0（28.377秒）。C単体15件には3上限の実packed buffer/guard単独削除故障検出、実寸ASan/UBSan/-O0同値を含む。
+- Macの26 pure Swift/16 owner projection、凍結144小matrix＋24実寸・全8向き/alpha/stride/P3/gray/実JPEG/EXIF全byte比較とRaster3変異（向き6 map、向き1 COW削除、旧Swift loop復元）を確認。Runtime公開結合・全19実callsite変異は、未知画像pin/取消/世代/owner/期限/first-only/nullable EXIFと既存replan/drainを対応named assertionで検出した。同期変更後watchdog3条件とmain非pump/起動0を保持。実ObjC callback、LoopCtrlKit tests、実暗号RPC owner注入callsite削除のコンパイル・実行済assertion Redも成功。
+- **[TEST047新IPA ZIP / build37](https://github.com/shuhei0720/necrogold-automation/actions/runs/42369174973/artifacts/13573640558)** は17,691,795bytes、SHA-256 `1128a25e0985b056e817c6ed81fc9cce074b1c6b0f48e0688c530f79d0d72626`。内部`upstream/release/LoopCtrl.ipa`はbundle `top.ebato.loopctrl`、版0.3.4/build37、SHA-256 `f21cba9c3fe5b7dda6b83f3ad00f640bf0ea65a78914f734995bb7a1c2e4184f`。nested runner/CLIあり、mobileprovisionなし。TEST046のbuild30からSideStore更新し、新しい同梱サーバーを完全終了/起動で読み込ませる。
+- [最終Mac検証ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42369174973/artifacts/13573635531)は147,865bytes、SHA-256 `a08984fb6a2820a813e49afae4ab32d0223119425252dd85340cc795ce94d1aa`。IPA ZIP/内部IPA/検証ZIP/host ZIPの全CRCとGitHub digestのSHA一致、全22封印source、driver/upstream/patch provenance、API1.98.14-ngg2/native_v1/v2/v3/v4/client_v4をrootが実回収して照合。app debug dylibとrunnerの実Mach-OにもAPI/native_v4文字列を確認した。source sealは`ab245b389ac3a0eb908f01d4135ba7891c358ca0b48fe5b3117b0753004fc8d7`。別担当も固定上流NG-G1→G2全22source・spy非混入・HOST_TEST境界・R12全40/NG-G1不変を再照合した。
+- client/共有HTTPはホスト118件成功・skip0（30.738秒）、[client CI42366177389](https://github.com/shuhei0720/necrogold-automation/actions/runs/42366177389)も118件成功・skip0（30.305秒）。[client検証ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42366177389/artifacts/13571424642)は3,656bytes/SHA-256 `a2f3718c02b75a8320aaba3d5233dc5b87d9bb7982adfb684cf4b20829c7c7da`、CRC/SHA一致。client本体・共有protocol・対象試験・test_047.shは当該CI以後全bytes不変。旧gameplay不変の432件は前回407成功/旧画像不足25skipの証拠を引き継ぎ、新規全成功とは数えない。
+- artifact保持期限は2026-12-07 UTC。完全ソースは全399追跡ファイルのGitHub commit archiveで配布する。code/IPA以後は既存5文書だけ更新し、全source ZIPのCRC/全追跡bytesを照合して最終記録を追記する。独立実装レビューは3観点とも第2周でcode/fixtureにP0/P1/P2残件なし、最終artifact/source実照合も同周で閉じる。
+
+**TEST047の実機テストを依頼する。** build37と完全ソースから上記手順で実行し、初動/毎ビートの連続歩行/商品後pauseとruntime/test-047全ZIPを返してもらう。今回Cへ移した実機の短縮幅・毎拍・人より速い性能は未確認であり、全体受入はまだ完了していない。
+
+独立実装レビューは設計/試験の各第2周でcode/CI/IPAをclose、安全も同第2周で新sealと実配布物にP0/P1/P2なし。3担当が実ZIP/内部IPAのCRC・SHA、driver d62a7be/seal ab245、全22ソース、Runtime19/Raster3/RPC変異の実証跡を直接照合した。実binaryには試験用spy/afterWatchdogCheckが入っていないことも確認。完全399ファイルのarchiveを最後のbytes照合対象とし、安全の同第2周で完了する。以後code/tests/manifest/IPAを変えず、既存5文書だけ更新する。
