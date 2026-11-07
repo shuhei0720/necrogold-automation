@@ -127,3 +127,13 @@ TEST037実機は左1・左1・下2・左2の6歩を確認後、最後の下1入�
 TEST038 / shop-walk-v23は追加の部分金壁補強だけを実装する。expected_steps=1・強度失敗後・有限/次点差.08以上・正味1cardinalタイル・before金壁ちょうど1個/after増加に限定。既知金壁と非共線のstone2点以上が同じ変位で対応し、相互に観測済み位置でstone矛盾を双方向拒否する。未知/範囲外は支持にも矛盾にも数えない。静止と上下左右1/2タイルの全9候補を要求方向や強度順位によらず列挙し、一意かつ強度勝者と一致する時だけ既存の300支持/95%/全候補15pp差/二領域100支持を通す。旧閉扉補強・partial・入力/guard/取消/期限/拍/経路/native/IPA/R12は維持する。
 
 実画像をgold解析→Driver.analyze_frame→movementへ渡す主試験で、実装前1assertion failure/0errors→実装後成功。これは調整用画像再生であり実機E2Eや未知評価ではない。全73scoreのhost native/Pillow一致と逆方向unexpectedを確認し、今回i386全算術試験を再実施したとはしない。実装レビューで幾何±1競合と除外外の大きい移動物体の負例を強化済み。新規17件を含む関連229件は204成功/旧外部画像不足25skip（21.042秒）。設計/安全各1周・試験第2周でP0/P1/P2残件なし。独立担当は±1候補省略・質感競合省略の変異に対する各assertion失敗を確認した。コード・必要試験・既存記録だけを既承認のwork/p1-capture-probeへ保存し、生画像/ZIP/logはGit外。TEST038は現在のポーズから実行し、扉・商品・ポーズをユーザーに確認依頼する。配布はSafariで開けるprivate GitHubのcommit archiveを使い、失敗したworkspace sandboxリンクを再利用しない。
+
+## TEST039 increment
+
+TEST038は商品3点（価格38/100/175）と最終ポーズを実画像・ユーザーで確認。報告5歩の後、終端2RPCは開扉＋進入の正味1歩でgoods優先終了のため未加算。歩行23.508294秒、report開始→制御45.927055秒、親終了53.194583秒。初回画像取得まで18.810852秒は未分離で原因断定不可。checkpoint40回/3710.831ms（18.671→176.675ms）と増大が測定され、人より速い受入は未達。第3拍のguard遅れや10ms超過による未送信回復は別問題で、compact化が直接直すとは言わない。
+
+TEST039 / shop-walk-v24はshop_walk.writeのindent=2をseparators=(',',':')へ置換するだけ。全内容/件数/時刻/UTF-8/ensure_ascii=False/allow_nan=False/path/name/atomic_writeと全checkpoint呼出し位置を維持する。C encoderなしでもstdlib fallbackを使い、入力前pending保存・未知入力無再送・取消/期限を省かない。旧standalone write、入力/画像/拍/native/IPA/R12は不変。実装前public writeのPython逐次encoder call期待0に実際1のassertion Red（0errors）→最小変更後Green。host CPython3.12.14の実038report交互7群×1000回でserialization中央値0.642305→0.161176ms、34680→23485bytes、JSON意味同値。これはI/O抜きのホスト測定で、実機3.711秒への短縮率換算は禁止。
+
+TEST038の商品保持済みランでは即停止が正しいため、TEST039は手動クイックリスタート後の新1-1ポーズで実行する。実機でcheckpoint件数/分布、歩行/商品/ポーズ、未完了分母と停止理由を測り次の費用を選ぶ。候補はwalkで重複する金壁/fingerprint解析、金壁発見の中間pause→resume、初期化の段階計測。未実装の改善を達成済みとしない。既承認work/p1-capture-probeへ完全ソース/必要試験/既存記録を保存し、生report/画像/ZIP/ログはGit外。private GitHub commit archiveをSafariで配布する。
+
+TEST039検証: 新規10件（実038report付き）はskip0、関連239件は214成功/旧外部画像不足25skip。設計/試験/安全のプラン・実装レビュー各1周、P0/P1/P2なし。旧indent=2をメモリ上で復元した独立主試験でも同じ1assertion failure/0errors。型/float.hex/大整数/UTF-8/schema/Cなしfallback/非有限値の保存前拒否/部分書込とreplace障害/旧file維持/tmp除去/実Driverのpending先行とunknown無再送を確認。ホスト成功を実機の時間短縮に読み替えない。

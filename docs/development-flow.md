@@ -1,6 +1,6 @@
 # 採用するAI駆動開発フロー
 
-最新の適用状況: TEST-037の人間レビューで2連続歩行と途中ポーズを受領。TEST-038は最後の実移動の画像判定だけを修正単位とし、fresh-contextの設計/試験/安全プランレビューと、実画像Driver判定の挙動Red→Greenを実施。関連229試験（204成功・25skip）と独立実装レビューを完了。試験レビューの軽微2件は負例を強化して第2周で解消し、商品到達の人間レビューを次の試験で行います。以下はフロー原則と過去の適用履歴です。現在の状態は[実機台帳](device-tests/README.md#test-038実行手順)を優先します。
+最新の適用状況: TEST-038の人間レビューで商品到達とポーズを受領し、ユーザーは人より速い性能の改善を指示。TEST-039は記録のserializationだけを同値な高速経路へ変更する単位とし、fresh-context設計/試験/安全プランレビュー、挙動Red→Greenを実施。新規10件を含む関連239件（214成功・25skip）と独立実装レビュー各1周を完了し、速度の実機確認を依頼します。以下はフロー原則と過去の適用履歴です。現在の状態は[実機台帳](device-tests/README.md#test-039実行手順)を優先します。
 
 ユーザー指定の [AI-Driven-Development Codex版](https://github.com/shuhei0720/AI-Driven-Development/blob/3cf01c46395e83696ba8900e429297ff5f249e2f/AI-Driven-Development-CAF-ALZ-Codex.md) を確認しました。
 
