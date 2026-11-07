@@ -193,6 +193,8 @@ jobs:
             upstream/LoopCtrlKit/JSONRPCServer.swift
             upstream/LoopCtrlKit/RemoteSession.swift
             driver/patches/loopctrl/ngg2-manifest.json
+            driver/patches/loopctrl/ngg2_runtime_scene_fixtures.c
+            driver/patches/loopctrl/ngg2_runtime_scene_fixtures.h
           if-no-files-found: error
           retention-days: 30
       - name: Save test and build diagnostics

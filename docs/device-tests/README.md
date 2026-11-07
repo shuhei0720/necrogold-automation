@@ -1554,7 +1554,7 @@ capture排他の補足: native leaseは既存ScreenStream等の非RPC captureの
 
 perception・navigation・beat・controller・thin CLI・guarded applierは、公開入口を実行できるstubで挙動assertion Redを観測してから実装した。Swift ticketも先にmacOSでコンパイル成功後の`FAIL cancelled_ticket_not_sent`（exit1）を観測した。証拠はcommit `9995371259135f33919df7ef50d538c46d7f985d` / Actions run [42332613748](https://github.com/shuhei0720/necrogold-automation/actions/runs/42332613748)。コンパイル失敗・API不足はRedに数えない。controllerの初期fixtureがcreate前時刻を使っていた試行は証拠から除外し、create後の有効なSceneを与えたstubで1 assertion failure・0errorsを再確認した。
 
-`tests/test043-fixtures.json`にTEST034〜042の66枚の名前とSHA-256を固定し、必須ローカル検証では不足を失敗にする。認識13件、経路/変位17件、拍12件、controller34件を対象とする。画像の状態・restart・金壁peak・fingerprint・全tiles・商品・保護セル・signature・HUD、73候補の全motion scoreを既存Python/Pillowと比較する。Cのstrict C99/警告エラーとASan/UBSanを含む。ptrace環境で使用できないLeakSanitizerだけを無効にした試行は、その制約を残す。
+`tests/test043-fixtures.json`にTEST034〜042の66枚の名前とSHA-256を固定し、必須ローカル検証では不足を失敗にする。認識13件、経路/変位17件、拍12件、controller34件の**合計76件が全成功・skip0（24.688秒）**。画像の状態・restart・金壁peak・fingerprint・全tiles・商品・保護セル・signature・HUD、73候補の全motion scoreを既存Python/Pillowと比較する。Cのstrict C99/警告エラーとASan/UBSanを含む。ptrace環境で使用できないLeakSanitizerだけを無効にした試行は、その制約を残す。
 
 公開controller試験は直接続行、無金壁→pause/restart→changed→金壁→同期→移動→商品pause、4方向の実変位、開通と進入の区別、固定連続ordinal、遅いmain/ACK/画像・位相不整合・取消・unknown、16方向/45/180秒の境界を通す。実装レビューで見つかった開通だけの先行量校正は2 assertions、末尾期限は3 assertionsのRed→Greenで修正した。2^63直前の次目標が保存可能範囲を越える境界も挙動Redから停止へ修正した。端末内処理をfake clockで通した成功は実機の毎拍成功ではない。
 
@@ -1562,7 +1562,11 @@ perception・navigation・beat・controller・thin CLI・guarded applierは、�
 
 ### レビューと配布前の確認
 
-プランの独立レビューは設計3周、試験/安全各2周で指摘を反映した。capture全経路の排他・owner pause・unknown UI・正規化/実C・実server認証入口の試験条件を明文化してから実装した。実装レビュー第1周では取消要求の到達前喪失、保存障害時の取消、native lease中の復旧、capture取消競合・旧daemon callback、開通校正、末尾期限、診断の保存上限と画像保持が指摘された。修正・最終集計・独立レビューの残件は配布確定時にこの節へ追記する。
+プランの独立レビューは設計3周、試験/安全各2周で指摘を反映した。capture全経路の排他・owner pause・unknown UI・正規化/実C・実server認証入口の試験条件を明文化してから実装した。実装レビュー第1周では取消要求の到達前喪失、保存障害時の取消、native lease中の復旧、capture取消競合・旧daemon callback、開通校正、末尾期限、診断の保存上限と画像保持が指摘された。第2周は第1周の解消を確認したが、main admissionでlock前の時計/権限を使うP1、解析中取消後の結果commit、Runtimeで実CのMOVE/50ms方向gestureまで通していないP1が残った。main時計の負例はcommit `10a7868` / Actions run [42335682199](https://github.com/shuhei0720/necrogold-automation/actions/runs/42335682199)で、コンパイル成功後に`FAIL expired_during_main_admission_no_synth`（exit1、2026-11-07 12:50:01 JST）を観測してから修正する。解析中取消の負例もcommit `3cbbb13` / Actions run [42335883242](https://github.com/shuhei0720/necrogold-automation/actions/runs/42335883242)で、コンパイル成功後に`FAIL revoked_analysis_never_observed_or_retained_cancel`（exit1、2026-11-07 12:52:48 JST）を観測してから修正する。最終集計・第3周と残件は配布確定時にこの節へ追記する。
+
+配布関連のapplier/旧patch/package/RPC mutation検証器は44件全成功・skip0（0.122秒）。thin CLIは実暗号HTTPを使い、取消到達前喪失・lease中復旧・prepared UUID・復旧開始保存故障・取消意図保存故障・ring飽和の6 assertions Red（0errors）から修正し、最終33件全成功・skip0（1.770秒）。共有通信/時計回帰を含むauthor集計80件も全成功（4.006秒）で、33件を二重加算しない。captures最大256件・native events64件・HTTP診断ring128件を保存し、全shapeをJSONの10,000ノード制限内で再読込/回収する。画像省略数/IDs、decode/analysis時刻、取得両端prefix/inflightも保持する。
+
+最初のiOS実コンパイル・packageと実server契約はcommit `2a07067` / Actions run [42335165682](https://github.com/shuhei0720/necrogold-automation/actions/runs/42335165682)で成功した。Swift production ticket20・認証owner helper16・CoreGraphics正規化＋実C・実Runtime＋実C/偽UIKit取得/入力/lifecycle・実ObjC daemon callbackを実行し、対応する取消/owner投影/回転/入場/legacy pending/callbackの呼出削除変異が挙動失敗することも確認した。実JSONRPCServerの暗号loopback6試験とowner投影呼出削除変異も通した。この先行IPAは第2周の修正前なので最終配布には使わない。
 
 ## TEST-043実行手順
 

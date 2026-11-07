@@ -127,7 +127,7 @@ def raster_contract(upstream, output):
 def runtime_contract(upstream, output):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
     native = upstream / 'LoopCtrlUITests'
-    (stage / 'NG2RuntimeFixture.h').write_text('#include "NG2Core.h"\n#include "NG2Controller.h"\nvoid ng2_test_pause(uint8_t *, size_t);\n')
+    (stage / 'NG2RuntimeFixture.h').write_text('#include "NG2Core.h"\n#include "NG2Controller.h"\n#include "ngg2_runtime_scene_fixtures.h"\nvoid ng2_test_pause(uint8_t *, size_t);\n')
     (stage / 'fixture.c').write_text('''#include "NG2Core.h"
 #include "NG2Templates.h"
 #include <string.h>
@@ -146,14 +146,20 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     built = subprocess.run(['clang', '-std=c11', '-O2', '-I', str(native), '-c', str(stage/'fixture.c'),
                             '-o', str(stage/'fixture.o')], capture_output=True, text=True, timeout=60)
     (output/'runtime-fixture-compile.txt').write_text(built.stdout+built.stderr); checked(built)
+    scene_object = stage/'scene-fixtures.o'
+    fixture_build = subprocess.run(['clang', '-std=c11', '-O2', '-I', str(native),
+        '-c', str(HERE/'ngg2_runtime_scene_fixtures.c'), '-o', str(scene_object)],
+        capture_output=True, text=True, timeout=60)
+    (output/'runtime-scene-fixtures-compile.txt').write_text(fixture_build.stdout+fixture_build.stderr)
+    checked(fixture_build)
     shutil.copyfile(HERE/'ngg2_runtime_fakes.swift', stage/'Fakes.swift')
     shutil.copyfile(HERE/'ngg2_runtime_tests.swift', stage/'main.swift')
     source = (native/'NG2Runtime.swift').read_text()
     (stage/'NG2Runtime.swift').write_text(source)
     sources = [output/'api/RPCTypes.swift', native/'NG2Ticket.swift', native/'NG2Raster.swift',
                stage/'Fakes.swift', stage/'NG2Runtime.swift', stage/'main.swift']
-    objects = sorted((output/'raster').glob('NG2*.o'))+[stage/'fixture.o']
-    extra = ['-D', 'NG2_RUNTIME_HOST_TEST', '-Xcc', '-I'+str(native), '-import-objc-header', stage/'NG2RuntimeFixture.h', *objects]
+    objects = sorted((output/'raster').glob('NG2*.o'))+[stage/'fixture.o', scene_object]
+    extra = ['-D', 'NG2_RUNTIME_HOST_TEST', '-Xcc', '-I'+str(native), '-Xcc', '-I'+str(HERE), '-import-objc-header', stage/'NG2RuntimeFixture.h', *objects]
     green = compile_run(sources, stage/'runtime-tests', output, 'runtime-production-green', extra)
     checked(green)
     if not green.stdout.startswith('PASS production Runtime public API/') or green.stderr:
@@ -175,7 +181,16 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                     locked: locked, now: now, notBefore: command.not_before_ns, deadline: command.deadline_ns),
                     ng2_controller_begin''', 'guard ng2_controller_begin',
                            'FAIL production_capture_C_ticket_main_cancel_no_synth'),
+        'analysis-commit': ('guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
+                            '// mutation: revoked analysis commit exclusion removed',
+                            'FAIL revoked_analysis_never_observed_or_retained_cancel'),
+        'analysis-owner': ('guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
+                           'guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped else { return false }',
+                           'FAIL revoked_analysis_never_observed_or_retained_owner'),
         'main-clock': (clock_gate, stale_clock_gate, 'FAIL expired_during_main_admission_no_synth'),
+        'move-input': ('result = run.fast?.fastGesture([[(point: point, t: 0.0), (point: point, t: 0.05)]]) ?? (nil, .internalError)',
+                       'result = run.fast?.fastTap(x: Double(command.x), y: Double(command.y)) ?? (nil, .internalError)',
+                       'FAIL native_walk_uses_single_50ms_direction_gesture'),
         'legacy-pending': ('if NG2CaptureBridge.pendingRequests != 0 { return failure("Previous daemon capture is still outstanding.") }',
                            '// mutation: legacy pending start exclusion removed',
                            'FAIL legacy_timeout_actual_request_blocks_native_run'),

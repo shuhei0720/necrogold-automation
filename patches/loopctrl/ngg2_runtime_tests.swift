@@ -76,7 +76,8 @@ for revoked in ["cancel", "owner"] {
     let analysisRace = identity()
     NG2RuntimeTestHooks.beforeAnalysisCommit = {
         if revoked == "cancel" { _ = call("necro_native_cancel", analysisRace) }
-        else { RemoteSession.shared.paused = true; runtime.ownerChanged() }
+        // Pause is visible before its off-lock notification is delivered.
+        else { RemoteSession.shared.paused = true }
         NG2RuntimeTestHooks.beforeAnalysisCommit = nil
     }
     require(call("necro_native_start", analysisRace).1 == nil, "analysis_race_start_"+revoked)
@@ -202,6 +203,44 @@ require(recovered.1 == nil && recovered.0?["report"]?.objectValue?["historical_m
 require(recovered.0?["images"]?.arrayValue?.isEmpty == true && recovered.0?["retained_images"]?.intValue == 0,
     "old_run_images_explicitly_omitted")
 require(call("necro_native_status", captureRace, keepalive: true).1 == nil, "old_status_read_does_not_touch_current_run")
+// Run real perception, beat fitting, BFS, timed direction input, translated
+// motion observation and goods holding against procedural (non-device) frames.
+NG2Fake.reset(.walk)
+let walk = identity()
+require(call("necro_native_start", walk).1 == nil, "native_walk_start")
+pump("native_walk_first_input", timeout: 12) {
+    let snapshot = call("necro_native_status", walk, keepalive: true).0?["report"]?.objectValue ?? [:]
+    return (snapshot["inputs"]?.intValue ?? 0) >= 1 || snapshot["workers_drained"]?.boolValue == true
+}
+let paths = NG2Fake.paths()
+var validDirectionPath = paths.count == 1
+if let fingers = paths.first, fingers.count == 1, let finger = fingers.first, finger.count == 2 {
+    validDirectionPath = validDirectionPath && finger[0].point == CGPoint(x: 290, y: 838)
+    validDirectionPath = validDirectionPath && finger[1].point == finger[0].point
+    validDirectionPath = validDirectionPath && finger[0].t == 0 && finger[1].t == 0.05
+} else { validDirectionPath = false }
+require(validDirectionPath, "native_walk_uses_single_50ms_direction_gesture")
+pump("native_walk_goods_hold_drained", timeout: 8) {
+    _ = call("necro_native_status", walk, keepalive: true)
+    return drained(walk)
+}
+let walked = report(walk)
+require(walked["moves"]?.intValue == 1 && walked["inputs"]?.intValue == 1 &&
+    walked["lead_confirmed"]?.intValue == 1 && walked["goods"]?.intValue == 1 && walked["paused"]?.intValue == 1,
+    "native_walk_real_perception_fit_BFS_motion_goods_pause")
+require(call("necro_native_status", walk).0?["state"]?.stringValue == "completed", "native_walk_completed")
+let taps = NG2Fake.taps()
+require(taps.count == 1 && taps.first == CGPoint(x: 390, y: 448) && NG2Fake.countTouches() == 2,
+    "native_walk_one_direction_one_holding_pause")
+let movementEvents = (walked["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+require(movementEvents.count == 1 && movementEvents.first?["outcome"]?.intValue == 2 &&
+    (movementEvents.first?["observed_capture_id"]?.intValue ?? 0) > 0, "native_walk_ACK_has_motion_observation")
+require(walked["missing_capture_ids"]?.arrayValue?.isEmpty == true && (walked["pinned_image_count"]?.intValue ?? 0) >= 4,
+    "native_walk_event_images_pinned")
+let walkResult = call("necro_native_results", walk)
+require(walkResult.1 == nil && (walkResult.0?["images"]?.arrayValue?.count ?? 0) >= 4 &&
+    walkResult.0?["omitted_capture_ids"]?.arrayValue?.isEmpty == true, "native_walk_initial_motion_goods_stop_images_exported")
+
 NG2Fake.reset(.pause)
 NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()
 let unknown = identity()

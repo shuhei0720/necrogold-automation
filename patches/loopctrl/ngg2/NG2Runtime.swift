@@ -422,7 +422,11 @@ final class NG2Runtime {
         let now = Self.now()
         let cancelled = run.lock.ng2Locked { run.cancelReason }
         if cancelled != 0 { ng2_controller_cancel(core, now, cancelled) }
-        let frame: NG2Frame? = run.lock.ng2Locked { let frame = run.latest; run.latest = nil; return frame }
+        var analysisGeneration: UInt64 = 0
+        let frame: NG2Frame? = run.lock.ng2Locked {
+            analysisGeneration = run.generation
+            let frame = run.latest; run.latest = nil; return frame
+        }
         if let frame, cancelled == 0 {
             var scene = NG2Scene()
             let analysisStart = Self.now()
@@ -432,8 +436,11 @@ final class NG2Runtime {
                 #if NG2_RUNTIME_HOST_TEST
                 NG2RuntimeTestHooks.beforeAnalysisCommit?()
                 #endif
-                ng2_controller_observe(core, &scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0)
-                run.lock.ng2Locked {
+                // Commit observation and image evidence at one cancellation
+                // gate. Analysis runs outside this gate; stale results do not.
+                let committed = run.lock.ng2Locked { () -> Bool in
+                    guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }
+                    ng2_controller_observe(core, &scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0)
                     run.captures.append(.object(["id": number(frame.id), "start_ns": number(frame.start),
                         "end_ns": number(frame.end), "decode_end_ns": number(frame.decodeEnd),
                         "analysis_start_ns": number(analysisStart), "analysis_end_ns": number(Self.now()),
@@ -449,9 +456,16 @@ final class NG2Runtime {
                         let removed = run.images.removeFirst()
                         if run.pinned[removed.id] == nil { run.evictedFrames += 1 }
                     }
+                    return true
                 }
-                var observedStatus = NG2ControllerStatus(); ng2_controller_status(core, &observedStatus)
-                cache(run, observedStatus)
+                if committed {
+                    var observedStatus = NG2ControllerStatus(); ng2_controller_status(core, &observedStatus)
+                    cache(run, observedStatus)
+                } else {
+                    let reason = run.lock.ng2Locked { run.cancelReason == 0 ? Int32(5) : run.cancelReason }
+                    run.cancel(reason)
+                    ng2_controller_cancel(core, Self.now(), reason)
+                }
             } else { run.cancel(20); ng2_controller_cancel(core, Self.now(), 20) }
         }
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
