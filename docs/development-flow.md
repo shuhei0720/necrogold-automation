@@ -1,6 +1,6 @@
 # 採用するAI駆動開発フロー
 
-最新の適用状況: TEST-039でJSON保存の実機短縮と商品到達を確認したが、ユーザーは初動と各歩の遅さを指摘。TEST-040は重複解析・事前importの削減と固定startup計測を変更単位にした。独立3観点プランレビュー、機能別の挙動Red→Greenを実施し、新規34件を含む関連286件（261成功・25skip）と独立実装レビューを完了。計画の時刻契約/実装試験のimport禁止範囲は各第2周で解消した。人より速い性能と全経路毎拍の受入は未達。以下はフロー原則と過去の適用履歴です。現在の状態は[実機台帳](device-tests/README.md#test-040実行手順)を優先します。
+最新の適用状況: TEST-040で商品到達・ポーズと体感の短縮を受領。ユーザーの依頼で、実report・人の既存動画計測・sourceの3観点で比較し、約4拍の区間間待ち、重複する親子準備、中間pause/resumeを改善候補として整理した。今回は比較調査でTEST041は未実装。次の変更単位では8項目プラン、独立レビュー、Red→Green、実機確認へ進む。人より速い受入はまだ達成していない。現在の結果は[人との比較](device-tests/README.md#test-040と手動操作の比較)を優先する。以下はフロー原則と過去の適用履歴。
 
 ユーザー指定の [AI-Driven-Development Codex版](https://github.com/shuhei0720/AI-Driven-Development/blob/3cf01c46395e83696ba8900e429297ff5f249e2f/AI-Driven-Development-CAF-ALZ-Codex.md) を確認しました。
 

@@ -147,3 +147,11 @@ TEST040 / shop-walk-v25: gold_scan.analyze_image(...,scan_gold=False)は全状�
 外側startupの固定12nullable nsは台帳のexactkeys/採取点/順序/start/end境界に従い既存checkpointで保存。parent module時計はstart以前、他stageはstart以上、全値0以上2^63未満・非bool・非減少・end以下。初回captureはbudget後/最初screenshot前に記録し、first_seenは初回正常観測の_seen_ns、後の観測で上書きしない。Noneは未到達または保存前異常で未記録、費用0ではない。追加RPC/保存は禁止。旧report原本は変更せずテスト用現schemaコピーだけstartup初期値を補う。
 
 3機能各1assertion Red/0errors→Green。新規34件含む関連286件261成功/旧外部画像不足25skip（21.515秒）。035〜039実画像、新規の商品保持/guard失敗/全準備失敗/追加RPC保存なしを検証。プラン設計P2時刻契約と実装試験P2import禁止漏れは各第2周で解消、P0/P1/P2なし。preflight以外の全necroprobe submodule禁止をnative_scan/crypto注入失敗で独立確認。host分類3.519629→0.818948ms、preflight123.196109→66.606487msはiSH実測ではない。全経路毎拍・人より速い受入は未達。待機遅れ10ms超過/第3拍guard/重複中間pauseは別課題として残す。新1-1ポーズからTEST040をユーザー実機確認し、完全ソースは既承認work/p1-capture-probeへ保存、生媒体/ZIP/logはGit外。
+
+## TEST040 device review / human comparison
+
+TEST040実機は商品125/100/125・ポーズtrue、5歩確認＋終端開扉/進入は未加算。未送信/late/回復0回。歩行18.368515秒（03922.377729秒、別配置）、最初方向はreport開始29.171752秒・walkresumeACKから5.103735秒。通常の送信間隔2.078〜2.096秒が4区間、2連続内.523/.525秒。人の画面移動15区間中央値.500秒はtouch時刻ではなく自動RPC時刻との参考比較。人の商品9例3.763秒はHUD→初観測で040の再開/同期/停止込み18.369秒と時計・配置・開幕可視方針が違うため「4.9倍遅い」と同条件評価しない。人の起動待ち・店舗/分も未計測。
+
+新stageはparent module開始→report.start11.847191秒、親report準備3.066458秒、spawn側gap1.956401秒、子module→entry6.465009秒、子report検証2.595463秒、pairing.033362/crypto.178130/Driver.003891/launch2.309546/firstobserve→capture1.472533/capture→seen.751922秒。複合stageをimport/native単独費用と断定しない。scriptpreflightは親module以前で未計測。新startupでcold費用と周回毎費用を分ける。
+
+userは今回人比較/改善点調査を依頼。比較を既存台帳へ保存しTEST041未実装。優先課題は約4拍の観測/再判断待ち、親子の重複準備、副作用のあるschema生成、中間pause→resume（候補検出→walkresumeACK1.962968秒）。入力7回のfirst→last9.401367秒 vs連続拍なら参考3.13秒は約6.27秒の待ち位置を示すだけで短縮保証/turn連打許可ではない。親を軽量化しnative検証はworkerで一度だけ、ただしhash/selfcheck/排他/監督/取消は維持。新floorhandoffはfresh完全Scene/HUD/商品優先と同期4点/2秒を保つ。mixed方向は入力不受理全位置の安全/保護と2Dmotion/token/reportが前提。最後ACK→pause2.729323秒はgoods認識時刻なしで候補保持遅延とは呼ばない。今回の残る2.09秒をlatewake原因へ誤帰属しない。
