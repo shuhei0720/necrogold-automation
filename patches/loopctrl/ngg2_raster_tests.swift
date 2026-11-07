@@ -205,9 +205,14 @@ compareReference(grayImage, orientation: 1, outputWidth: 4, outputHeight: 3, lab
 let grayRGBA = NG2Raster.normalize(grayImage, outputWidth: 4, outputHeight: 3)!
 require(grayRGBA.prefix(8) == Data([0, 0, 0, 255, 255, 255, 255, 255]),
     "gray_black_white_independent_expected_bytes")
-require(stride(from: 0, to: grayRGBA.count, by: 4).allSatisfy {
-    grayRGBA[$0] == grayRGBA[$0 + 1] && grayRGBA[$0 + 1] == grayRGBA[$0 + 2]
-}, "gray_has_equal_RGB_channels")
+var grayChannelsEqual = true
+for offset in stride(from: 0, to: grayRGBA.count, by: 4) {
+    let red: UInt8 = grayRGBA[offset]
+    let green: UInt8 = grayRGBA[offset + 1]
+    let blue: UInt8 = grayRGBA[offset + 2]
+    if red != green || green != blue { grayChannelsEqual = false }
+}
+require(grayChannelsEqual, "gray_has_equal_RGB_channels")
 
 func jpeg(_ source: CGImage, orientation: Int?) -> Data {
     let encoded = NSMutableData()
