@@ -90,6 +90,7 @@ jobs:
               'test_actual037_single_partial_gold_step_retains_stone_evidence',
               'test_required_test045_subtile_motion_replay',
               'test_required_test046_capture_replay',
+              'test_required_test048_strict_optimization_parity',
           }
           suite = unittest.defaultTestLoader.loadTestsFromNames([
               'test_native_perception', 'test_native_navigation',
@@ -150,10 +151,12 @@ jobs:
         run: |
           python3 driver/patches/loopctrl/apply_patch.py upstream
           python3 driver/patches/loopctrl/check_geometry.py upstream "$RUNNER_TEMP/geometry-ngg1"
-      - name: Apply sealed native source and run production Swift contracts
+      - name: Apply sealed native source and verify generated Perception configuration
         run: |
           python3 driver/patches/loopctrl/apply_ngg2.py upstream
-          python3 driver/patches/loopctrl/check_ngg2.py upstream "$RUNNER_TEMP/ngg2"
+          brew install xcodegen
+          (cd upstream && xcodegen generate --spec project.yml)
+          python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
       - name: Install build tools
         run: |
           brew install xcodegen
@@ -171,6 +174,10 @@ jobs:
           set -euo pipefail
           make ipa UNSIGNED=1 EXTRA_BUILD_SETTINGS="CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER" 2>&1 | tee "$RUNNER_TEMP/ngg2/ios-build.txt"
           Scripts/package-release.sh 2>&1 | tee "$RUNNER_TEMP/ngg2/ios-package.txt"
+      - name: Verify actual source-specific Perception compiler profile
+        run: python3 driver/patches/loopctrl/check_perception_build.py --compile-profile upstream "$RUNNER_TEMP/ngg2/ios-build.txt" "$RUNNER_TEMP/ngg2/perception-build"
+      - name: Run production Swift native contracts with the verified build profile
+        run: python3 driver/patches/loopctrl/check_ngg2.py upstream "$RUNNER_TEMP/ngg2"
       - name: Run existing LoopCtrlKit tests
         working-directory: upstream
         run: |
@@ -188,6 +195,8 @@ jobs:
             upstream/release/LoopCtrl.ipa
             upstream/release/SHA256SUMS.txt
             upstream/release/build-manifest.json
+            upstream/release/native-perception-profile.json
+            upstream/LoopCtrl.xcodeproj/project.pbxproj
             upstream/LICENSE
             upstream/NOTICE.md
             driver/patches/loopctrl/NOTICE-LoopCtrl.md
@@ -220,5 +229,6 @@ jobs:
             ${{ runner.temp }}/geometry-ngg1/*.txt
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt
+            ${{ runner.temp }}/ngg2/perception-build/
           if-no-files-found: error
           retention-days: 30

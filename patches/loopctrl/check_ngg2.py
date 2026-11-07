@@ -3,11 +3,13 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import platform
 import shutil
 import subprocess
 import sys
 
 HERE = Path(__file__).resolve().parent
+STRICT_PERCEPTION_FP = ['-fno-fast-math', '-ffp-contract=off']
 EXPECTED_RED = 'FAIL cancelled_ticket_not_sent'
 # The original permits() stub was successfully compiled and produced this
 # assertion Red in Actions run42332613748 / commit9995371259135f33919df7ef50d538c46d7f985d.
@@ -104,7 +106,9 @@ def raster_contract(upstream, output, *, expect_red=False, expect_native_red=Fal
     objects = []
     for source in sorted(native.glob('NG2*.c')):
         target = stage / (source.stem + '.o')
-        result = subprocess.run(['clang', '-std=c11', '-O2', '-I', str(native), '-c', str(source), '-o', str(target)],
+        result = subprocess.run(['clang', '-std=c11', '-O2',
+                                *(STRICT_PERCEPTION_FP if source.name == 'NG2Perception.c' else []),
+                                '-I', str(native), '-c', str(source), '-o', str(target)],
                                 capture_output=True, text=True, timeout=120)
         (output / (source.stem+'-compile.txt')).write_text(result.stdout+result.stderr)
         checked(result); objects.append(target)
@@ -126,7 +130,8 @@ def raster_contract(upstream, output, *, expect_red=False, expect_native_red=Fal
     for path,target,flags in [(native/'NG2Perception.c',stage/'perception-native.o',
             ['-Dng2_orient_rgba=ng2_orient_rgba_real']),
             (HERE/'ngg2_raster_spy.c',stage/'orientation-spy.o',[])]:
-        built = subprocess.run(['clang','-std=c11','-O2','-I',str(native),*flags,
+        built = subprocess.run(['clang','-std=c11','-O2',
+            *(STRICT_PERCEPTION_FP if path.name == 'NG2Perception.c' else []),'-I',str(native),*flags,
             '-c',str(path),'-o',str(target)],capture_output=True,text=True,timeout=120)
         (output/(target.stem+'-compile.txt')).write_text(built.stdout+built.stderr)
         checked(built);spy_objects.append(target)
@@ -162,7 +167,7 @@ def raster_contract(upstream, output, *, expect_red=False, expect_native_red=Fal
     mutation_source.write_text(perception.replace(old,'case 6:sx=y;sy=x;break;'))
     original_spy_object=(stage/'perception-native.o').read_bytes()
     try:
-        built=subprocess.run(['clang','-std=c11','-O2','-I',str(native),
+        built=subprocess.run(['clang','-std=c11','-O2',*STRICT_PERCEPTION_FP,'-I',str(native),
             '-Dng2_orient_rgba=ng2_orient_rgba_real','-c',str(mutation_source),
             '-o',str(stage/'perception-native.o')],capture_output=True,text=True,timeout=120)
         (output/'raster-C-orientation-mutation-compile.txt').write_text(built.stdout+built.stderr)
@@ -194,6 +199,69 @@ def raster_contract(upstream, output, *, expect_red=False, expect_native_red=Fal
             'identity_mutation_red': identity_red.stdout.strip(),
             'native_backend_mutation_red':backend_red.stdout.strip(),
             'environment_warnings': warnings, 'compiled': True}
+
+
+def perception_profile_contract(upstream, output, *, compiler='clang'):
+    """Apple Clang compares complete outputs, using the unchanged O0 reference."""
+    stage = output / 'perception-profile'; stage.mkdir(exist_ok=True)
+    native = upstream / 'LoopCtrlUITests'
+    reference_object = stage / 'reference.o'
+    renames = ['-Dng2_analyze_rgba=ref_ng2_analyze_rgba',
+               '-Dng2_fingerprint_changed=ref_ng2_fingerprint_changed',
+               '-Dng2_orient_rgba=ref_ng2_orient_rgba']
+    reference_command = [compiler, '-std=c11', '-O0', '-I', str(native), *renames,
+                         '-c', str(native/'NG2Perception.c'), '-o', str(reference_object)]
+    built = subprocess.run(reference_command, capture_output=True, text=True, timeout=120)
+    (output/'perception-profile-reference-compile.txt').write_text(built.stdout+built.stderr)
+    checked(built)
+    production_object = output/'raster/NG2Perception.o'
+    if not production_object.is_file():
+        raise ValueError('perception_profile_production_object_missing')
+
+    def run(label, object_path):
+        executable = stage/(label+'-tests')
+        command = [compiler, '-std=c11', '-O2', *STRICT_PERCEPTION_FP,
+            '-Wall', '-Wextra', '-Werror', '-pedantic', '-I', str(native), '-I', str(HERE),
+            str(HERE/'ngg2_perception_profile_tests.c'), str(HERE/'ngg2_runtime_scene_fixtures.c'),
+            str(reference_object), str(object_path), '-lm', '-o', str(executable)]
+        built = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        (output/('perception-profile-'+label+'-compile.txt')).write_text(built.stdout+built.stderr)
+        checked(built)
+        result = subprocess.run([str(executable.resolve())], capture_output=True, text=True, timeout=120)
+        (output/('perception-profile-'+label+'-tests.txt')).write_text(result.stdout+result.stderr)
+        return result
+
+    green = run('production-green', production_object)
+    checked(green)
+    if not green.stdout.startswith('PASS strict O2 perception matches unchanged O0;') or green.stderr:
+        raise RuntimeError('perception_profile_production_contract_missing')
+    # A one-field difference exercises the whole-Scene comparison, even while
+    # basic state and movement thresholds remain unchanged. Runtime's four
+    # production objects are never overwritten by this profile-only mutant.
+    original = (native/'NG2Perception.c').read_text()
+    old = 'out->gold_peak=(int32_t)peak;'
+    if original.count(old) != 1:
+        raise ValueError('perception_profile_whole_scene_mutation_target')
+    mutation_source = stage/'perception-mutated.c'
+    mutation_source.write_text(original.replace(old, 'out->gold_peak=(int32_t)peak+1;'))
+    mutation_object = stage/'perception-mutated.o'
+    built = subprocess.run([compiler, '-std=c11', '-O2', *STRICT_PERCEPTION_FP,
+        '-I', str(native), '-c', str(mutation_source), '-o', str(mutation_object)],
+        capture_output=True, text=True, timeout=120)
+    (output/'perception-profile-whole-scene-mutation-compile.txt').write_text(built.stdout+built.stderr)
+    checked(built)
+    red = run('whole-scene-mutation-red', mutation_object)
+    require_red(red, 'FAIL strict_O2_and_unchanged_O0_entire_scene_bytes')
+    return {'production_green': green.stdout.strip(), 'mutation_red': red.stdout.strip(),
+            'compiled': True, 'reference_flags': ['-O0'],
+            'optimized_flags': ['-O2', *STRICT_PERCEPTION_FP],
+            'compiler': subprocess.check_output([compiler, '--version'], text=True, timeout=30).strip(),
+            'architecture': platform.machine(),
+            'source_sha256': hashlib.sha256((native/'NG2Perception.c').read_bytes()).hexdigest(),
+            'test_source_sha256': {name: hashlib.sha256((HERE/name).read_bytes()).hexdigest()
+                for name in ('ngg2_perception_profile_tests.c', 'ngg2_runtime_scene_fixtures.c',
+                             'ngg2_runtime_scene_fixtures.h')},
+            'scope': 'same production C file, unchanged O0 and strict O2 complete synthetic Scene/RGBA output parity'}
 
 
 def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False):
@@ -531,7 +599,8 @@ def main():
         (output/'api/RPCTypes.swift').write_text(types[0])
         native=HERE/'ngg2'
         for source in sorted(native.glob('NG2*.c')):
-            result=subprocess.run(['clang','-std=c11','-O2','-I',str(native),'-c',str(source),
+            result=subprocess.run(['clang','-std=c11','-O2',
+                *(STRICT_PERCEPTION_FP if source.name == 'NG2Perception.c' else []),'-I',str(native),'-c',str(source),
                 '-o',str(output/'raster'/(source.stem+'.o'))],capture_output=True,text=True,timeout=120)
             (output/(source.stem+'-compile.txt')).write_text(result.stdout+result.stderr)
             checked(result)
@@ -597,6 +666,7 @@ def main():
                   'ticket_mutation_red': mutation.stdout.strip(),
                   'authority_freshness_mutation_red': authority_mutation.stdout.strip(),
                   'api': api_contract(upstream, output), 'raster': raster_contract(upstream, output),
+                  'perception_profile': perception_profile_contract(upstream, output),
                   'runtime': runtime_contract(upstream, output), 'daemon':capture_contract(upstream, output),
                   'source_sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                       for p in sorted((upstream/'LoopCtrlUITests').glob('NG2*')) if p.is_file()},

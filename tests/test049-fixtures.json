@@ -1,0 +1,48 @@
+{
+  "schema": "ngg2-test049-fixtures-v1",
+  "source_zip_sha256": "17222871b89b8c81cfc171bafd433201eb1ba28df02ef3b5e006936f13704c07",
+  "count": 8,
+  "purpose": "known TEST048 strict optimization output parity, not unseen evaluation or device performance acceptance",
+  "images": [
+    {
+      "path": "test048-received/test-048/native-04b0862b291a4af1b5112d07b2d135aa/images/capture-000001.png",
+      "sha256": "aab68071b5dc10787e80298d9073d0fa4bb7364b3b6b9ebf2a79b1b017e1b135",
+      "state": 0
+    },
+    {
+      "path": "test048-received/test-048/native-04b0862b291a4af1b5112d07b2d135aa/images/capture-000002.png",
+      "sha256": "e3a01abc9bdd58156b122f5fea53d22dba895264f075be1afdf46a5da8c56ff2",
+      "state": 1
+    },
+    {
+      "path": "test048-received/test-048/native-04b0862b291a4af1b5112d07b2d135aa/images/capture-000005.png",
+      "sha256": "2c6e462162b1e1a7152c59873d2c3421ae8912981d9e07d9a191a5aa546e68be",
+      "state": 2
+    },
+    {
+      "path": "test048-received/test-048/native-04b0862b291a4af1b5112d07b2d135aa/images/capture-000012.png",
+      "sha256": "2e719b7e77fad66bde0a5e586beea3e58f31289d71c3e167bc437d192c95f3a6",
+      "state": 2
+    },
+    {
+      "path": "test048-received/test-048/native-04b0862b291a4af1b5112d07b2d135aa/images/capture-000016.png",
+      "sha256": "964c38653cb53d5ec7d6f9a6bcd5daf991b41ab23b82fbaf615a9e2e08991450",
+      "state": 2
+    },
+    {
+      "path": "test048-received/test-048/native-04b0862b291a4af1b5112d07b2d135aa/images/capture-000017.png",
+      "sha256": "ded20323db73411a7b9987d4ffc37f439c66427cfa6a7150948e1f775c428367",
+      "state": 2
+    },
+    {
+      "path": "test048-received/test-048/native-04b0862b291a4af1b5112d07b2d135aa/images/capture-000018.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "state": 1
+    },
+    {
+      "path": "test048-received/test-048/native-04b0862b291a4af1b5112d07b2d135aa/images/capture-000019.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "state": 1
+    }
+  ]
+}

@@ -61,7 +61,8 @@ class NativePerceptionTests(unittest.TestCase):
     def setUpClass(cls):
         cls.directory = tempfile.TemporaryDirectory(prefix="ngg2-perception-")
         output = Path(cls.directory.name) / "perception.so"
-        subprocess.run(["cc", "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror", "-fPIC", "-shared",
+        subprocess.run(["cc", "-std=c99", "-O2", "-fno-fast-math", "-ffp-contract=off",
+                        "-Wall", "-Wextra", "-Werror", "-fPIC", "-shared",
                         str(CORE / "NG2Perception.c"), "-lm", "-o", str(output)], check=True)
         cls.native = C.CDLL(str(output))
         cls.native.ng2_analyze_rgba.argtypes = [C.c_void_p, C.c_size_t, C.c_size_t, C.POINTER(NativeScene)]
@@ -155,6 +156,91 @@ class NativePerceptionTests(unittest.TestCase):
                 self.assertEqual(entry["state"], self.assert_reference(image).state)
                 states.append(entry["state"])
         self.assertEqual((2, 3), (states.count(0), states.count(1)))
+
+    def test_required_test048_strict_optimization_parity(self):
+        """87 mandatory known images: unchanged O0 and strict O2 agree byte-for-byte."""
+        sets = (("test043-fixtures.json", "NECRO_TEST043_FIXTURE_ROOT", 66),
+                ("test046-fixtures.json", "NECRO_TEST046_FIXTURE_ROOT", 8),
+                ("test047-fixtures.json", "NECRO_TEST047_FIXTURE_ROOT", 5),
+                ("test049-fixtures.json", "NECRO_TEST049_FIXTURE_ROOT", 8))
+        self.assertEqual(23864, C.sizeof(NativeScene))
+        with tempfile.TemporaryDirectory(prefix="ngg2-strict-profile-") as directory:
+            directory = Path(directory)
+            reference_path = directory / "unchanged-o0.so"
+            # The reference retains the original O0 profile. Strict FP switches
+            # belong only to the new optimized side, never the reference.
+            subprocess.run(["cc", "-std=c99", "-O0", "-fPIC", "-shared",
+                            str(CORE / "NG2Perception.c"), "-lm", "-o", str(reference_path)], check=True)
+            reference = C.CDLL(str(reference_path))
+            reference.ng2_analyze_rgba.argtypes = self.native.ng2_analyze_rgba.argtypes
+            reference.ng2_analyze_rgba.restype = C.c_int
+            test048 = {}
+            count = 0
+            for manifest_name, variable, expected_count in sets:
+                manifest = json.loads((ROOT / "tests" / manifest_name).read_text())
+                self.assertEqual(expected_count, manifest["count"])
+                self.assertEqual(expected_count, len(manifest["images"]))
+                self.assertEqual(expected_count, len({entry["path"] for entry in manifest["images"]}))
+                if manifest_name == "test049-fixtures.json":
+                    self.assertEqual("ngg2-test049-fixtures-v1", manifest["schema"])
+                    self.assertEqual("17222871b89b8c81cfc171bafd433201eb1ba28df02ef3b5e006936f13704c07",
+                                     manifest["source_zip_sha256"])
+                fixture_root = Path(os.environ.get(variable, "/workspace/analysis-evidence"))
+                for entry in manifest["images"]:
+                    relative = Path(entry["path"])
+                    self.assertFalse(relative.is_absolute())
+                    self.assertNotIn("..", relative.parts)
+                    path = fixture_root / relative
+                    with self.subTest(manifest=manifest_name, path=entry["path"]):
+                        self.assertTrue(path.is_file(), f"missing required strict-profile fixture: {path}")
+                        self.assertEqual(entry["sha256"], hashlib.sha256(path.read_bytes()).hexdigest(),
+                                         f"strict-profile fixture hash mismatch: {path}")
+                        with Image.open(path) as source:
+                            image = source.convert("RGB")
+                        self.assertEqual((896, 414), image.size)
+                        rgba = image.convert("RGBA").tobytes()
+                        old = NativeScene()
+                        self.assertEqual(0, reference.ng2_analyze_rgba(rgba, len(rgba), 3584, C.byref(old)))
+                        optimized = self.assert_reference(image)
+                        self.assertEqual(bytes(old), bytes(optimized), "full Scene bytes changed under strict O2")
+                        if "state" in entry:
+                            self.assertEqual(entry["state"], optimized.state)
+                        if manifest_name == "test049-fixtures.json":
+                            test048[int(path.stem.split("-")[1])] = (optimized, image)
+                        count += 1
+            self.assertEqual(87, count)
+
+            # Reuse the established navigation harness for the five actual
+            # TEST048 pairs. Input scenes originate in the strict O2 detector.
+            from test_native_navigation import NativeNavigationTests, Scene, Motion, MOTIONS
+            from necroprobe import motion_stats
+            NativeNavigationTests.setUpClass()
+            try:
+                lib = NativeNavigationTests.lib
+                for before_id, after_id, kind in ((5, 12, "blocked"), (5, 16, "moved"),
+                                                  (12, 16, "moved"), (12, 17, "moved"),
+                                                  (16, 17, "blocked")):
+                    before, before_image = test048[before_id]
+                    after, after_image = test048[after_id]
+                    a, b = Scene.from_buffer_copy(bytes(before)), Scene.from_buffer_copy(bytes(after))
+                    result = Motion()
+                    self.assertEqual(1, lib.ng2_motion(C.byref(a), C.byref(b), 1, C.byref(result)))
+                    self.assertEqual(MOTIONS[kind], result.kind)
+                    self.assertEqual((-1, 0) if kind == "moved" else (0, 0), (result.dx, result.dy))
+                    with patch.object(native_scan, "_native", None), patch.object(navigation_stats, "_native", None), \
+                            patch.object(motion_stats, "_native", None):
+                        pillow_before = shop_navigation.scan(before_image)
+                        pillow_after = shop_navigation.scan(after_image)
+                        self.assertEqual(kind, shop_navigation.motion(pillow_before, pillow_after, "left"))
+                        old_view = shop_navigation._motion_view(pillow_before.signature)[0]
+                        new_view = shop_navigation._motion_view(pillow_after.signature)[0]
+                        expected_scores = shop_navigation._pillow_motion_scores(old_view, new_view)
+                    values = (C.c_double * 73)()
+                    lib.ng2_test_scores(bytes(before.signature), bytes(after.signature), values)
+                    for actual, (expected, _, _) in zip(values, expected_scores):
+                        self.assertAlmostEqual(expected, actual, places=12)
+            finally:
+                NativeNavigationTests.tearDownClass()
 
     def test_fixture_check_fails_on_missing(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, NECRO_TEST043_FIXTURE_ROOT=directory):

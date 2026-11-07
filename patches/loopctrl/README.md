@@ -1,6 +1,6 @@
 # LoopCtrl取得元の画像寸法修正 NG-G1
 
-TEST048では、TEST047の最初の方向入力が画像解析待ちで未送信となった結果を受け、無状態の画像走査を既存撮影workerへ移し、controllerの直列所有を保つ。前面アプリの照会は予約直後、最終段では現在時刻/lock/owner/取消/世代と照会開始から1秒を再確認し、元の拍/10ms期限で単一入力を送る。最初のlive MOVE拒否だけを固定dispatch_failure8項目へ保存する。画素/認識/元の各期限/unknown再送禁止と画像予算は維持。新capability `necrogold_native_v5` をv1..v4と併記し、native-walk-v6はv5必須のため、新IPAへのSideStore更新が必要。API `1.98.14-ngg2` と旧journal回復を維持する。更新後はLoopCtrlを完全終了/起動してStart Server。新IPA/ホスト・CIの最終検証と実機確認は[既存台帳](../../docs/device-tests/README.md)末尾のTEST048を参照する。
+TEST049では、初LEFTを送信できた一方で移動確認画像の変換/解析が次拍期限を超えた結果を受け、NG2Perception.cだけを -O2 -fno-fast-math -ffp-contract=off でビルドする。C/Swiftの算法や全体Debug設定、撮影prefix/世代/取消/goods優先と元の各期限は維持する。生成PBXの一意性と実Clangのresponse-file展開後の有効flagsを保存し、package provenanceでも必須検証する。API1.98.14-ngg2にnative_v6を追加し、clientv7/test_049.shは新IPAを必要とする。更新理由はアプリ内C処理のコンパイル方法変更。SideStore更新後はLoopCtrlを完全終了/起動してStart Server。新IPA/全sourceの証跡と実機依頼は[既存台帳](../../docs/device-tests/README.md)末尾のTEST049を参照する。
 
 ## NG-G2 / TEST043 native制御の追加
 

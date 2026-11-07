@@ -233,10 +233,10 @@ class NGG2ApplyTests(unittest.TestCase):
         driver = self.native_report_fixture()
         path = driver / 'patches/loopctrl/ngg2-manifest.json'
         manifest = json.loads(path.read_text())
-        manifest['client_capability'] = 'necrogold_native_v5'
+        manifest['client_capability'] = 'necrogold_native_v6'
         path.write_text(json.dumps(manifest))
         report = verifier.inspect_native_sources(self.root, driver)
-        self.assertEqual('necrogold_native_v5', report.get('client_capability'))
+        self.assertEqual('necrogold_native_v6', report.get('client_capability'))
 
     def test_package_provenance_preserves_native_v3_client_capability(self):
         import json
