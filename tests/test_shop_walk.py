@@ -263,6 +263,7 @@ class WalkTests(unittest.TestCase):
                     d.last=dict(P,_captured=d.clock(),_raw=b'pause',_sha='1'*64)
                     return d.last
                 with patch.object(p.base,'device_lock',return_value=nullcontext()), \
+                     patch.object(p,'_MODULE_STARTED_NS',start), \
                      patch.object(p.base,'load_pairing',return_value=(b'key','token')), \
                      patch.object(p.base,'Crypto',return_value=type('Crypto',(),{'engine':'python'})()), \
                      patch.object(p.base,'OwnedRpcTimer',timer), \
@@ -535,7 +536,7 @@ class SyncDeadlineTests(unittest.TestCase):
                         return RpcReply(reply,{})
                     return super().call(method,params,timeout)
             d.client=Transport()
-            with patch.object(gold_scan,'analyze_image',side_effect=lambda image:deepcopy(A)), \
+            with patch.object(gold_scan,'analyze_image',side_effect=lambda image, **kwargs:deepcopy(A)), \
                  patch.object(shop_navigation,'scan',return_value=SimpleNamespace(goods='unknown')):
                 first=d.observe();before,model=d.synchronize(first)
                 self.assertIsNotNone(model);self.assertGreaterEqual(model['sample_count'],5)
@@ -555,8 +556,8 @@ class SyncDeadlineTests(unittest.TestCase):
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-039',r['test_id']);self.assertEqual('shop-walk-v24',r['revision'])
-            self.assertEqual('runtime/test-039',p.parser().parse_args([]).output)
+            self.assertEqual('TEST-040',r['test_id']);self.assertEqual('shop-walk-v25',r['revision'])
+            self.assertEqual('runtime/test-040',p.parser().parse_args([]).output)
             self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
             self.assertEqual(motion_stats.ENGINE,r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):
@@ -638,7 +639,7 @@ class SyncDeadlineTests(unittest.TestCase):
                     self.calls.append(method);reply=deepcopy(GOOD);reply['steps'][1]['method']='gesture'
                     return RpcReply(reply,{})
                 return super().call(method,params,timeout)
-        def basic(image):now[0]+=125_000_000;return deepcopy(A)
+        def basic(image, **kwargs):now[0]+=125_000_000;return deepcopy(A)
         def navigation(image):
             now[0]+=1_538_909_000 if test021 else 1_012_000_000
             fresh=deepcopy(scene);scenes.append(fresh);return fresh

@@ -137,3 +137,13 @@ TEST039 / shop-walk-v24はshop_walk.writeのindent=2をseparators=(',',':')へ�
 TEST038の商品保持済みランでは即停止が正しいため、TEST039は手動クイックリスタート後の新1-1ポーズで実行する。実機でcheckpoint件数/分布、歩行/商品/ポーズ、未完了分母と停止理由を測り次の費用を選ぶ。候補はwalkで重複する金壁/fingerprint解析、金壁発見の中間pause→resume、初期化の段階計測。未実装の改善を達成済みとしない。既承認work/p1-capture-probeへ完全ソース/必要試験/既存記録を保存し、生report/画像/ZIP/ログはGit外。private GitHub commit archiveをSafariで配布する。
 
 TEST039検証: 新規10件（実038report付き）はskip0、関連239件は214成功/旧外部画像不足25skip。設計/試験/安全のプラン・実装レビュー各1周、P0/P1/P2なし。旧indent=2をメモリ上で復元した独立主試験でも同じ1assertion failure/0errors。型/float.hex/大整数/UTF-8/schema/Cなしfallback/非有限値の保存前拒否/部分書込とreplace障害/旧file維持/tmp除去/実Driverのpending先行とunknown無再送を確認。ホスト成功を実機の時間短縮に読み替えない。
+
+## TEST040 increment
+
+TEST039は商品3点（8/125/100）・ポーズtrueだが初動と各歩が遅い。checkpoint43回1113.646ms（0383710.831ms）へ短縮しても制御45.942017秒はほぼ同じ。方向初回はreportから30.698473秒、歩行22.377729秒、多くの入力間隔2〜4秒。初回画像以前19.242548秒は未分離で、script版確認/Pillow/parent importはreport開始前。歩行中の基本分類残余178〜215msを全量削減可能と誤称しない。
+
+TEST040 / shop-walk-v25: gold_scan.analyze_image(...,scan_gold=False)は全状態guardを保ちgoldunknown/peak0/fingerprint[]のみ返す。歩行Driverだけ選択し基本分類engineはpillow、search/standaloneは従来の完全解析。RuntimeDriverのclassify_frameとcapture_started小hookで原画像/geometry/fullnav/商品/保護セル/HUD/handoff/入力/期限/未知無再送は維持。preflightはVERSION/REVISIONの一意なtop-level literalをAST確認しPillowも同processで確認、shop_walk/RPC/nativeをimportしない。悪意あるsourceのsecurity boundaryではない。
+
+外側startupの固定12nullable nsは台帳のexactkeys/採取点/順序/start/end境界に従い既存checkpointで保存。parent module時計はstart以前、他stageはstart以上、全値0以上2^63未満・非bool・非減少・end以下。初回captureはbudget後/最初screenshot前に記録し、first_seenは初回正常観測の_seen_ns、後の観測で上書きしない。Noneは未到達または保存前異常で未記録、費用0ではない。追加RPC/保存は禁止。旧report原本は変更せずテスト用現schemaコピーだけstartup初期値を補う。
+
+3機能各1assertion Red/0errors→Green。新規34件含む関連286件261成功/旧外部画像不足25skip（21.515秒）。035〜039実画像、新規の商品保持/guard失敗/全準備失敗/追加RPC保存なしを検証。プラン設計P2時刻契約と実装試験P2import禁止漏れは各第2周で解消、P0/P1/P2なし。preflight以外の全necroprobe submodule禁止をnative_scan/crypto注入失敗で独立確認。host分類3.519629→0.818948ms、preflight123.196109→66.606487msはiSH実測ではない。全経路毎拍・人より速い受入は未達。待機遅れ10ms超過/第3拍guard/重複中間pauseは別課題として残す。新1-1ポーズからTEST040をユーザー実機確認し、完全ソースは既承認work/p1-capture-probeへ保存、生媒体/ZIP/logはGit外。

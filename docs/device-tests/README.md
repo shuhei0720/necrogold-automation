@@ -1231,3 +1231,54 @@ SafariでGitHub ZIPを開いて展開し、フォルダ選択では`test_039.sh`
 関連歩行・停止の既存229件は204成功/旧外部実画像不足25skip（20.491秒）。新規10件と合わせた関連239件は214成功/25skip。TEST034/035/036/037実画像と038実reportを使用し、今回取得していない旧実画像を合格に数えない。新規主試験だけが実装前Red→Greenであり、残りは実装後の回帰。nativeは変更せず全i386算術検証を再実施したとは扱わない。
 
 設計/試験/安全の独立実装レビュー各1周でP0/P1/P2の指摘なし。設計担当は許可されたserialization/識別変更を除いた旧新ASTと起動scriptが同じであることを確認。試験担当は旧indent=2だけをメモリ上で復元し、Python逐次encoder call期待0に実際1の主試験失敗（1assertion/0errors）を再現。安全担当も独立に非有限値・fallback・置換失敗・出力名・pending/取消/無再送を確認した。追加リファクタリングは行わない。R12・全native/IPA・shop_navigation・拍/入力のbyte不変、構文・秘密値形式・全コードZIPの照合を行って配布する。実機の速度改善と商品到達・ポーズはTEST039で確認する。
+
+## TEST-039受領結果（2026-11-07 日本時間）
+
+ユーザーは「最初の動き出しが遅い、一歩ずつも遅い」と指摘。ZIP472,079bytes、SHA-256 `c8fdf96b2a27038bc503be674fadaf7ff0af903eba9df10aa2e51a7f3045aa50`、report SHA-256 `2a99db797f0adb34b515638064172ffc16f7e308f873f433efc740f7e7884c0f`、run `shop-walk-20261107T002832Z-db3121e8`。goods_visible/completed/paused=true、親子report一致、正常終了。商品3点・価格8/125/100と最終GAME PAUSEを実画像で確認。報告4歩、終端の開扉＋進入は商品優先で加算前。
+
+checkpointは43回1113.646ms/中央値31.132ms（038は40回3710.831ms/104.8275ms）。件数増でも累計約2.60秒減ったが別配置であり、制御全体は45.942017秒で038の45.927055秒とほぼ同じ。歩行は22.377729秒、最初の方向入力はreport開始から30.698473秒/歩行開始から7.134185秒/歩行resume ACKから6.562831秒。最初の画像取得開始まで19.242548秒は依然未分離。起動scriptの版確認import、Pillow確認、parentのmodule importはreport開始より前で、この値に含まれない。
+
+方向送信間隔3131.337/4174.900/2079.386/2088.543/525.378ms。最初の2方向入力の第1候補が15.508/13.712ms遅れ、次拍へ持ち越した。第2入力は予定3から実1へ縮退し、送信時の原画像年齢2555.162ms＋先行150ms＋次周期約523ms＋touch50msでは3秒を超える。次の左入力も10.454ms遅れ、次候補の予定前面年齢1003.521msで拒否され全画像再取得。待機精度と第3拍guardは別課題で、期限緩和しない。
+
+walk中11floor画像の解析5620.167msはnavigation2809.208ms/beat744.237ms/残余2066.722ms。beat-only3枚でも解析289.050/263.745/246.854msからbeatを引いた残余は約215/196/181ms。残余に含まれる基本状態判定も必要なため、この全量を削減可能とは数えない。walkではScene.goldと商品/保護セルを改めて解析しており、開幕検索用gold_peak/fingerprintの重複計算は入力判断に使っていない。
+
+## TEST-040の8項目プラン
+
+1. **概要**: 歩行画像の重複する開幕検索解析を省き、起動前の版確認から重い実行importを外す。残る初期化を段階時刻で測り、最初の一歩と各歩の費用を短縮・分離する。
+2. **背景**: TEST039でJSON保存は短縮したが初動30.7秒・多くの方向間隔2〜4秒が残る。歩行中の画像は安全状態判定に加え不要なgold_peak/fingerprintも計算している。scriptの版確認でもshop_walk全体をimportした後、別processでPillowをimportし、さらにparent/workerが再importする。最初の画像以前19.2秒の原因は未確定なので、推測で一括削除しない。
+3. **詳細設計**: gold_scan.analyze_imageに既定Trueのkeyword scan_goldを追加する。Falseでもcontinue・pause棒・footer/zone/floor・death・寸法/modeの条件は同じまま、floorを確認してgold=unknown/peak0/fingerprint[]を返し、native_scan/全画面gold/fingerprintへ入らない。RuntimeDriver.observeは小さいclassify_frame hookを使い、既定は従来の完全解析。歩行Driverはphase=walkだけFalseとしsearchは完全解析、基本分類エンジンはpillowとして正しく記録する。原寸画像・navigation・商品/保護セル・HUD・full_handoffと再取得は維持する。起動版確認は新しい軽量preflightで__init__.pyのVERSIONとshop_walk.pyのREVISIONの一意なtop-level literalをAST確認し、欠落/非literal/複数/不一致はkeeperや試験開始前に拒否。Pillow import確認も同じpreflight内で行い、shop_walk/RPC/nativeをimportしない。これは版/依存確認であり悪意あるコードのsecurity boundaryとは称しない。startupは12個の固定nullable monotonic ns（parent module開始/report準備、worker module開始/entry/report検証、pairing/crypto/Driver/launch準備、初回observe/capture/seen）だけを外側reportへ追加し既存checkpointで保存する。追加保存/RPCはせず、型・上限・存在時の時系列を検証。失敗前の未到達stageはNoneのまま。module時刻はreport開始より前も正しく扱う。
+4. **影響範囲**: gold_scan、restart_loopの分類hook、shop_walkのoverride/engine/固定startupとTEST040識別、軽量preflightと起動script、必要試験/既存資料。native/C/IPA/R12、入力・座標・拍・wait・期限・回復回数は不変。searchのgold/fingerprint・既存standalone分類は同じ。旧実reportのraw fixtureは変更せず、現schemaの検証用コピーにだけstartup初期値と現在の識別を補う。
+5. **新規試験**: state-onlyで重いscan/peak/fingerprintへ入らない挙動Red→Green、search既定結果とpause/floor/footer/zone/death/無効画像の分類同値、RGB変換/原画像不変、実035〜039画像とDriverのfull/beat_only/finishingでの商品優先・完全Scene条件を確認。軽量preflightは重いimportを禁止した旧guard実行のRed→新AST確認Green、正しい版/誤った版/不在/複数/非literal/不可読/Pillowなしの早期拒否、実scriptでkeeper前の順序を確認。固定startupは未到達None・exact keys/type/非負/2^63未満/時系列・report開始より前のparent時刻・失敗stage・追加checkpoint/RPCなし、親子読戻しを検証。既存pending/未知ACK/取消/期限/未送信回復/商品の無再送を回帰し、ホスト速度を実機へ換算しない。
+6. **順序**: fresh-context設計/試験/安全プランレビュー→機能別の挙動Red→最小Green→対象回帰/既知実画像/ホスト参考測定→独立実装レビュー最大3周→Git保存/全コードZIP→ユーザーの実機確認。新API未存在や構文errorだけをRedにしない。
+7. **コミット前・実機条件**: 変更した契約と記録の意味同値/unknown扱い、分類/商品/鮮度、metadataの型/時系列、旧資産/秘密値/ZIP全内容を照合。実機は新1-1のポーズから開始し、最初の動きまで・各歩の間隔・analysis/同期/初期化stage・商品/ポーズ・未完了分母を比較する。未到達stageは未実施とし、初期化の空白を架空のimport費用へ割り当てない。
+8. **スコープ外**: 全経路毎拍・人より速い性能の合格宣言、guard/RPCの並列化、送信遅れ10msの緩和、mixed方向列、検索からの中間pause/resumeの除去、native検証の省略、指輪識別。目標時刻直前の待機精度と残る重複初期化は次の実測に基づく別変更とする。
+
+TEST040計測契約補足: startupのキーは順に `parent_module_started_ns`, `parent_report_ready_ns`, `worker_module_started_ns`, `worker_entered_ns`, `worker_validated_ns`, `pairing_ready_ns`, `crypto_ready_ns`, `driver_ready_ns`, `launch_ready_ns`, `first_observe_ns`, `first_capture_ns`, `first_seen_ns` の12個。module開始はtimeだけをimportした直後、parent準備はnew_report完了後、worker entryはworker関数冒頭、validatedはread_report後、各readyは対応処理が成功した直後。first_observeは最初のobserve呼出し、first_captureはbudget検査後で最初のscreenshot RPCを出す直前（値は従来のcaptured開始時計）、first_seenは最初に正常なobserve結果が戻った画像のseen時刻。後の観測で上書きしない。Noneは未到達、または保存前異常で未記録であり費用0とは読まない。存在する値は非bool整数0以上2^63未満、上記順で非減少。parent_module<=report.start<=parent_report_ready、存在するend_nsを超えるstageは拒否する。初回capture失敗後の終了観測だけが成功した場合も、最初のcaptureと最初の正常seenを分けて読む。初期化stageだけのため、追加checkpoint/RPCは不要。
+
+TEST040時刻境界の補足: parent_module_started_ns以外の全stageはreport.start_ns以上を要求する。親stageがNoneでもworker/観測stageをstartより前の値で受け入れない。
+
+### TEST-040の実装・検証
+
+P1.5/shop-walk-v25。歩行phaseだけscan_gold=Falseを選び、基本分類はpillowと記録する。検索・standaloneは既定の完全解析を維持。RuntimeDriverの小さい分類/取得通知hookを使い、初回の分類module importは従来どおり取得開始時刻より前に済ませる。完全なnavigation/商品/保護セル/HUD、同期handoff、入力・期限・取消は維持した。起動scriptはASTの版確認とPillow確認を1processへまとめ、重いshop_walk/RPC/nativeを事前importしない。startupの12時刻は既存reportだけに保存し、追加RPC/checkpointはない。
+
+3機能それぞれで実装前の振る舞いRedを観測した。state-onlyは実Driver.observeがopening native scan期待0に実際1で1assertion failure/0errors（0.031秒）。preflightは旧実script guardが通常return0だが重いimport禁止下ではreturn1となり1assertion failure/0errors（0.015秒）。startupはnew_reportの固定12未到達キー期待に空集合を返し1assertion failure/0errors（0.001秒）。新keyword未存在や初期PNGfixtureの形式不一致をRedに数えていない。最小実装後は各主試験が成功した。
+
+新規34メソッドはstate-only16/preflight8/startup10で全実行・成功。state-onlyは基本状態の全guard、検索default・native/Pillow fallback・bool flag・原画像/mode、完全Scene/beat-only/finishing、実035〜039のhash付き10画像と商品優先/beat失敗時の保持を検証。preflightは誤版・欠落・複数・非literal/annotation/augmented/nested・syntax/不可読/過大・Pillow失敗とkeeper未開始を確認。startupは型/範囲/順序/start/end・未到達None・一度だけの採取・親子読戻し、pairing/Crypto/Driver/launch/guard/screenshot/decode/classifierの失敗stageと追加RPC/保存なしを検証した。既存の同process worker試験では子module開始時計をfixture startへ置き換え、模擬条件を正した。旧実reportは原本を変えず、現schemaの検証コピーへ識別とstartup=None初期値だけを補う。
+
+プランは独立3観点、設計P2の時刻契約を補足へ明文化して第2周で解消。実装の設計/安全レビューは各第1周で指摘なし、試験レビュー第1周のP2はpreflightのimport禁止対象がnative_scan/cryptoを漏らす点。禁止対象をpreflight以外の全necroprobeサブmoduleへ広げ、第2周で解消した。独立担当も一時コピーにnative_scan/crypto importを各注入すると各1assertion failure/0errorsで検出することを確認。3機能の旧挙動をメモリ/一時コピーで再現した独立主試験も、それぞれ1assertion failure/0errorsだった。残存P0/P1/P2なし。画像再生・模擬RPC・ホスト試験を実機成功と呼ばない。
+
+最終の関連286試験は261成功・旧外部実画像不足25skip（21.515秒）。新規34件はskip0。従来の歩行/停止/未知入力/再取得に加え、変更したRuntimeDriverのstandalone検索試験と変更していないgold Cのhost parity試験も実行した。全i386算術検証を今回再実施したとは扱わない。raw画像/report/ZIP/生成ログはGit外、旧R12/native/IPA/経路/拍/入力の不変と構文・秘密値形式・ZIP全内容を確認して保存する。
+
+host CPython3.12.14で実039 run101（SHA-256 `a31459d560c9937a27696cfb0ac4813dc9ad1d84f43a9e1de731797a5e48b36f`）を、変更していないgold Cのhostビルドで分類すると、交互7群×100回の中央値はfull3.519629ms/state-only0.818948ms。新鮮な別processで旧版確認＋Pillow確認と新preflightを交互7組比較した中央値は123.196109→66.606487ms。どちらもcapture/navigation/beat/RPCを含まないホスト参考値であり、iSHの短縮量・改善率へ換算しない。人より速い性能・全経路毎拍は未達のまま。
+
+## TEST-040実行手順
+
+TEST039の商品表示済みランからは、**手動でクイックリスタートし、新しい通常1-1をポーズしてから**実行する。画面端0、いつもの左側を下にした向き。導入済みNG-G1を使い、IPA入れ替え・端末コンパイルは不要。
+
+```sh
+mkdir -p /mnt/necro_test040
+mount -t ios . /mnt/necro_test040
+cd /mnt/necro_test040 && sh test_040.sh
+```
+
+SafariでGitHub ZIPを開いて展開し、`test_040.sh`があるフォルダを選ぶ。ゲームを表示して待ち、終了後の`runtime/test-040`をZIPで返す。確認点は「開始から最初の一歩まで」「その後の歩行間隔」「商品表示と最終ポーズ」「途中停止」。可能なら開始から最初の数歩の短い動画も添える。scriptの事前確認とparent importはreport.startより前なので、全体の体感をreportの時間だけで説明しない。未完了も分母から除かず、追加したstartupで残る準備時間を分解する。ポーズ未確認の場合は手動でポーズする。

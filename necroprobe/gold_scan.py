@@ -160,12 +160,11 @@ def analyze(raw):
         return answer
 
 
-def analyze_image(source):
-    """既に検証・復号した原寸RGBを受け取り、二重decodeを避ける。"""
-    from .native_scan import scan
+def analyze_image(source, *, scan_gold=True):
+    """原寸画像を分類。scan_gold=Falseも全状態条件を保ち、開幕検索値だけ省く。"""
     answer = {"state": "unknown", "gold": "unknown", "fingerprint": [],
               "gold_peak": 0, "restart_label": False}
-    if not isinstance(source, Image.Image) or source.size != SIZE:
+    if type(scan_gold) is not bool or not isinstance(source, Image.Image) or source.size != SIZE:
         return answer
     image = source if source.mode == "RGB" else source.convert("RGB")
     try:
@@ -175,10 +174,13 @@ def analyze_image(source):
             elif (_matches_pause_icon(image, gray)
                   and all(_matches_footer(image, gray, name) for name in ("footer", "zone_one", "floor_one"))
                   and not _matches(gray, "death")):
-                result = scan(image.tobytes())
-                peak, fingerprint = result if result is not None else (_gold_peak(image), _fingerprint(gray))
-                answer.update(state="floor", gold="candidate" if peak >= 135 else "clear" if peak < 100 else "unknown",
-                              gold_peak=peak, fingerprint=fingerprint)
+                answer['state'] = 'floor'
+                if scan_gold:
+                    from .native_scan import scan
+                    result = scan(image.tobytes())
+                    peak, fingerprint = result if result is not None else (_gold_peak(image), _fingerprint(gray))
+                    answer.update(gold="candidate" if peak >= 135 else "clear" if peak < 100 else "unknown",
+                                  gold_peak=peak, fingerprint=fingerprint)
             return answer
     finally:
         if image is not source:

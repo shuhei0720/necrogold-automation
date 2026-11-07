@@ -171,13 +171,23 @@ class RuntimeDriver:
         if info['foreground']!='game' or info['screen_locked'] is not False: raise ProbeError('foreground_not_verified')
         if not all(c in info['advertised_known_capabilities'] for c in resume.CAPABILITIES): raise ProbeError('capabilities_missing')
         return replied
+    def classify_frame(self,image):
+        """標準は開幕検索も含む完全分類。歩行版は基本状態だけを選べる。"""
+        from .gold_scan import analyze_image
+        return analyze_image(image)
+    def capture_started(self,started):
+        """既存取得の直前通知。標準版は記録・I/Oを追加しない。"""
+        pass
     def observe(self):
+        # 分類hookでも初回importを原画像の取得時刻より前に済ませる。
         from .gold_scan import analyze_image
         from . import native_scan
         if len(self.report['capture_ms'])>=MAX_OBSERVATIONS: raise ProbeError('observation_limit')
         self.guard()
         started=self.clock()
-        reply=self.client.call('screenshot',dict(resume.CAPTURE_PARAMS),timeout=self.budget())
+        timeout=self.budget()
+        self.capture_started(started)
+        reply=self.client.call('screenshot',dict(resume.CAPTURE_PARAMS),timeout=timeout)
         payload=reply.result
         raw,image,rgb=inspect_payload(payload,include_rgb=True)
         try:
@@ -186,7 +196,7 @@ class RuntimeDriver:
             if (image['pixel_width'],image['pixel_height'],g['source_orientation'],g['point_width'],g['point_height'])!=(896,414,2,414,896):
                 raise ProbeError('source_geometry_invalid')
             decoded=self.clock()
-            obs=analyze_image(rgb)
+            obs=self.classify_frame(rgb)
             if self.frame_analyzer is not None:
                 obs['_extra']=self.frame_analyzer(rgb,obs)
                 obs['_http_start_ns']=reply.timings.get('http_start_ns',started)
