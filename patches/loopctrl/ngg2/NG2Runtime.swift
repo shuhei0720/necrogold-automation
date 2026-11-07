@@ -318,6 +318,7 @@ final class NG2Runtime {
         }
     }
     #if NG2_RUNTIME_HOST_TEST
+    static var testFrameStride: Int { MemoryLayout<NG2Frame>.stride }
     // Test setup may change only the generation or submit competing failures.
     // Storage still goes through the exact production commit gate, and tests
     // observe only the public status/results projection.

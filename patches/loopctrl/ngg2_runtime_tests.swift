@@ -181,6 +181,8 @@ cancelDrain(preparedMove)
 fixtureFailureSnapshot = nil
 // TEST048 RUNTIME DISPATCH BASELINE END.
 
+require(NG2Runtime.testFrameStride < 512, "published_Frame_keeps_large_C_scene_off_value_stack")
+
 // Generation alone can revoke a still-owned final callback. No cancellation,
 // owner loss or old command ID may mask this final admission requirement.
 NG2Fake.reset(.walk)
