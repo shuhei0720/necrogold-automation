@@ -83,6 +83,16 @@ func alignInitialFixtureMove(_ id: String) {
         NG2RuntimeTestHooks.beforeControlTick = nil
     }
 }
+func scheduleFirstFixtureMove(_ run: String, holdingPause: Bool = false) {
+    NG2RuntimeTestHooks.scheduleTicket = { id, callback in
+        let current = report(run)
+        let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        guard let event = events.first(where: { $0["id"]?.intValue == Int(id) }) else { return false }
+        if event["kind"]?.intValue == 4 && current["inputs"]?.intValue == 0 { callback(); return true }
+        if holdingPause && event["kind"]?.intValue == 2 { NG2Fake.holdTicket(id, callback); return true }
+        return false
+    }
+}
 
 // The cancellation is deliberately placed after the capture loop's outer
 // condition and before its admission lock. This catches deletion at the actual
@@ -145,6 +155,8 @@ for revoked in ["cancel", "owner"] {
     let snapshot = report(analysisRace)
     require(snapshot["accepted_frames"]?.intValue == 0 && snapshot["analyzed_capture_count"]?.intValue == 0 &&
         snapshot["retained_image_count"]?.intValue == 0, "revoked_analysis_never_observed_or_retained_"+revoked)
+    require(snapshot["raster_samples"]?.arrayValue?.isEmpty == true && snapshot["raster_samples_dropped"]?.intValue == 0,
+        "revoked_analysis_never_commits_raster_trace_"+revoked)
     require(NG2Fake.countTouches() == 0, "revoked_analysis_no_input_"+revoked)
 }
 
@@ -388,6 +400,145 @@ require(walkResult.1 == nil && (walkResult.0?["images"]?.arrayValue?.count ?? 0)
     walkResult.0?["omitted_capture_ids"]?.arrayValue?.isEmpty == true, "native_walk_initial_motion_goods_stop_images_exported")
 fixtureFailureSnapshot = nil
 
+// The same procedural world is genuinely UNKNOWN at35px and MOVED at36px.
+// Keep the holding PAUSE callback queued while later FLOOR images evict the
+// first ambiguous observation from recent4; only cumulative event pins save it.
+NG2Fake.reset(.walk)
+let subtile = identity()
+diagnoseFixture(subtile)
+NG2Fake.lock.lock(); NG2Fake.walkPixelInset = 1; NG2Fake.walkGoodsEnabled = false; NG2Fake.lock.unlock()
+NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+NG2RuntimeTestHooks.beforeCaptureAdmission = {
+    NG2Fake.performBoundaryClockChange()
+    let current = report(subtile), wait = report(subtile)["motion_wait"]?.objectValue ?? [:]
+    if wait["active"]?.boolValue == true && wait["attempts"]?.intValue == 1 {
+        require(wait["last_motion"]?.intValue == 0 && current["input_state"]?.intValue == 3 &&
+            NG2Fake.paths().count == 1, "subtile_UNKNOWN_ACK_wait_has_no_followup_MOVE")
+        NG2Fake.lock.lock()
+        if NG2Fake.firstUnknownID == 0 { NG2Fake.firstUnknownID = UInt64(wait["last_capture_id"]!.intValue!) }
+        NG2Fake.walkPixelInset = 0
+        NG2Fake.lock.unlock()
+        NG2RuntimeTestHooks.beforeControlTick = {
+            let snapshot = report(subtile), resolved = report(subtile)["motion_wait"]?.objectValue ?? [:]
+            guard snapshot["moves"]?.intValue == 1 else { return }
+            require(resolved["active"]?.boolValue == false && (resolved["attempts"]?.intValue ?? 0) >= 2 &&
+                resolved["last_motion"]?.intValue == 1, "subtile_original_ACK_query_resolves_after_UNKNOWN")
+            NG2Fake.lock.lock(); NG2Fake.subtileResolvedWait = true; NG2Fake.lock.unlock()
+            NG2RuntimeTestHooks.beforeControlTick = nil
+        }
+    }
+    if current["moves"]?.intValue == 1 {
+        NG2Fake.lock.lock(); NG2Fake.walkGoodsEnabled = true; NG2Fake.lock.unlock()
+    }
+}
+alignInitialFixtureMove(subtile)
+NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(subtile) }
+scheduleFirstFixtureMove(subtile, holdingPause: true)
+require(call("necro_native_start", subtile).1 == nil, "subtile_walk_start")
+pump("subtile_UNKNOWN_then_MOVED_and_goods_holding_pause", timeout: 12) {
+    let current = call("necro_native_status", subtile, keepalive: true).0?["report"]?.objectValue ?? [:]
+    NG2Fake.lock.lock(); let held = !NG2Fake.heldTickets.isEmpty, unknownID = Int(NG2Fake.firstUnknownID); NG2Fake.lock.unlock()
+    let recent = (current["captures"]?.arrayValue ?? []).suffix(4).compactMap { $0.objectValue?["id"]?.intValue }
+    return held && unknownID > 0 && recent.count == 4 && !recent.contains(unknownID) && current["moves"]?.intValue == 1
+}
+let subtileReport = report(subtile)
+NG2Fake.lock.lock()
+let subtileUnknownID = Int(NG2Fake.firstUnknownID), subtileTickets = Array(NG2Fake.heldTickets.keys), subtileResolved = NG2Fake.subtileResolvedWait
+NG2Fake.lock.unlock()
+let subtileMove = (subtileReport["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.first { $0["kind"]?.intValue == 4 }
+require(subtileResolved && subtileMove?["motion"]?.intValue == 1 && subtileReport["inputs"]?.intValue == 1 && NG2Fake.paths().count == 1,
+    "subtile_36px_confirms_original_ACK_without_extra_MOVE")
+_ = call("necro_native_cancel", subtile)
+for id in subtileTickets { NG2Fake.releaseTicket(id) }
+pump("subtile_held_callback_drained") { drained(subtile) }
+let subtileResult = call("necro_native_results", subtile)
+let subtileExports = Set((subtileResult.0?["images"]?.arrayValue ?? []).compactMap { $0.objectValue?["capture_id"]?.intValue })
+require(subtileResult.1 == nil && subtileExports.contains(subtileUnknownID), "motion_first_UNKNOWN_frame_pinned_beyond_recent_window")
+fixtureFailureSnapshot = nil
+
+// Cross the original motion deadline during real analysis, while the image's
+// request interval is still before that deadline. The next production tick
+// must use its actual clock. A second tick may never repair a missed first one.
+NG2Fake.reset(.walk)
+let motionLate = identity()
+diagnoseFixture(motionLate)
+NG2Fake.lock.lock(); NG2Fake.walkPixelInset = 1; NG2Fake.walkGoodsEnabled = false; NG2Fake.lock.unlock()
+NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange(); NG2Fake.waitForCapturePermit() }
+alignInitialFixtureMove(motionLate)
+NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(motionLate) }
+scheduleFirstFixtureMove(motionLate, holdingPause: true)
+var crossedMotionDeadline = false
+var deadlineTicks = 0
+NG2RuntimeTestHooks.beforeAnalysisCommit = {
+    let wait = report(motionLate)["motion_wait"]?.objectValue ?? [:]
+    guard !crossedMotionDeadline, wait["active"]?.boolValue == true && wait["attempts"]?.intValue == 1 else { return }
+    let deadline = UInt64(wait["deadline_ns"]!.intValue!)
+    require(NG2Fake.virtualClock() < deadline, "motion_deadline_fixture_analysis_starts_before_original_deadline")
+    require(NG2Fake.changeClockAtCaptureBoundary {
+        let now = NG2Fake.virtualClock()
+        if now <= deadline { NG2Fake.advance(deadline+1-now) }
+        NG2Fake.lock.lock(); NG2Fake.captureLimit = NG2Fake.requests; NG2Fake.lock.unlock()
+    }, "motion_deadline_fixture_crosses_at_capture_boundary")
+    crossedMotionDeadline = true
+    NG2RuntimeTestHooks.beforeControlTick = {
+        deadlineTicks += 1
+        if deadlineTicks > 1 {
+            let events = (report(motionLate)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+            require(events.contains(where: { $0["kind"]?.intValue == 2 }), "motion_deadline_rechecked_after_analysis_before_next_tick")
+        }
+    }
+}
+require(call("necro_native_start", motionLate).1 == nil, "motion_deadline_walk_start")
+pump("motion_deadline_fresh_prefix_holding_pause", timeout: 12) {
+    _ = call("necro_native_status", motionLate, keepalive: true)
+    NG2Fake.lock.lock(); let held = !NG2Fake.heldTickets.isEmpty; NG2Fake.lock.unlock()
+    return held
+}
+let lateReport = report(motionLate), lateWait = report(motionLate)["motion_wait"]?.objectValue ?? [:]
+let lateEvents = (lateReport["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+let lateMove = lateEvents.first { $0["kind"]?.intValue == 4 }!
+let latePause = lateEvents.first { $0["kind"]?.intValue == 2 }!
+let lateSource = (lateReport["captures"]?.arrayValue ?? []).compactMap { $0.objectValue }.first {
+    $0["id"]?.intValue == latePause["source_capture_id"]?.intValue
+}
+require(lateReport["reason"]?.intValue == 9 && lateWait["active"]?.boolValue == false &&
+    lateReport["inputs"]?.intValue == 1 && lateReport["moves"]?.intValue == 0 && NG2Fake.paths().count == 1 &&
+    latePause["source_capture_id"]?.intValue != lateMove["source_capture_id"]?.intValue &&
+    lateSource?["stable"]?.boolValue == true && lateSource?["completed_prefix_end"]?.intValue == lateMove["id"]?.intValue,
+    "motion_deadline_rechecked_after_analysis_before_next_tick")
+NG2RuntimeTestHooks.beforeAnalysisCommit = nil
+NG2RuntimeTestHooks.beforeControlTick = nil
+NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; let lateTickets = Array(NG2Fake.heldTickets.keys); NG2Fake.lock.unlock()
+for id in lateTickets { NG2Fake.releaseTicket(id) }
+pump("motion_deadline_known_ACK_fresh_cleanup_drained") { drained(motionLate) }
+require(report(motionLate)["paused"]?.intValue == 1 && NG2Fake.taps().count == 1 && NG2Fake.paths().count == 1,
+    "motion_deadline_cleanup_uses_new_prefix_once_without_followup_MOVE")
+fixtureFailureSnapshot = nil
+
+// A fresh matching-prefix goods frame takes priority even while its35px
+// camera position has not established displacement for the known synth ACK.
+NG2Fake.reset(.walk)
+let ambiguousGoods = identity()
+diagnoseFixture(ambiguousGoods)
+NG2Fake.lock.lock(); NG2Fake.walkPixelInset = 1; NG2Fake.lock.unlock()
+NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
+alignInitialFixtureMove(ambiguousGoods)
+NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(ambiguousGoods) }
+scheduleFirstFixtureMove(ambiguousGoods)
+require(call("necro_native_start", ambiguousGoods).1 == nil, "motion_goods_priority_start")
+pump("motion_goods_priority_drained", timeout: 12) {
+    _ = call("necro_native_status", ambiguousGoods, keepalive: true)
+    return drained(ambiguousGoods)
+}
+let goodsWait = report(ambiguousGoods)["motion_wait"]?.objectValue ?? [:]
+require(report(ambiguousGoods)["goods"]?.intValue == 1 && report(ambiguousGoods)["paused"]?.intValue == 1 &&
+    report(ambiguousGoods)["moves"]?.intValue == 0 && goodsWait["active"]?.boolValue == false &&
+    goodsWait["attempts"]?.intValue == 0 && NG2Fake.paths().count == 1 && NG2Fake.taps().count == 1,
+    "motion_UNKNOWN_position_goods_priority_holds_without_followup_MOVE")
+fixtureFailureSnapshot = nil
+
 // Revoke the original queued first-move ticket using one real remote-cell
 // change. Execute its actual callback before/after the replacement callback.
 // All perception, same-position proof, new planning and begin calls are real.
@@ -525,6 +676,56 @@ let rejectedResult = call("necro_native_results", rejectedDifference)
 let rejectedExports = Set((rejectedResult.0?["images"]?.arrayValue ?? []).compactMap { $0.objectValue?["capture_id"]?.intValue })
 require(rejectedResult.1 == nil && rejectedExports.contains(rejected["source_capture_id"]!.intValue!) &&
     rejectedExports.contains(rejected["observed_capture_id"]!.intValue!), "rejected_difference_frames_pinned_beyond_recent_window")
+fixtureFailureSnapshot = nil
+
+// Public trace telemetry is committed with each actual analysis, bounded to
+// first1+latest31. Hold the real RESUME callback and admit captures one at a
+// time so31/32/33 are observable states rather than timer-dependent guesses.
+NG2Fake.reset(.pause)
+let traceRun = identity()
+diagnoseFixture(traceRun)
+NG2Fake.lock.lock(); NG2Fake.captureLimit = 31; NG2Fake.lock.unlock()
+NG2RuntimeTestHooks.beforeCaptureAdmission = {
+    while true {
+        NG2Fake.lock.lock(); let limit = NG2Fake.captureLimit, requested = NG2Fake.requests; NG2Fake.lock.unlock()
+        guard let limit else { return }
+        if requested < limit && (report(traceRun)["analyzed_capture_count"]?.intValue ?? 0) >= requested { return }
+        Thread.sleep(forTimeInterval: 0.001)
+    }
+}
+NG2RuntimeTestHooks.scheduleTicket = { id, callback in NG2Fake.holdTicket(id, callback); return true }
+require(call("necro_native_start", traceRun).1 == nil, "raster_trace_start")
+for total in [31, 32, 33] {
+    NG2Fake.lock.lock(); NG2Fake.captureLimit = total; NG2Fake.lock.unlock()
+    pump("raster_trace_exact_\(total)_analyses", timeout: 12) {
+        let current = call("necro_native_status", traceRun, keepalive: true).0?["report"]?.objectValue ?? [:]
+        return current["analyzed_capture_count"]?.intValue == total
+    }
+    let current = report(traceRun)
+    let captures = (current["captures"]?.arrayValue ?? []).compactMap { $0.objectValue?["id"]?.intValue }
+    let samples = (current["raster_samples"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    let sampleIDs = samples.compactMap { $0["capture_id"]?.intValue }
+    let expected = total <= 32 ? captures : Array(captures.prefix(1)) + Array(captures.suffix(31))
+    require(samples.count == min(total, 32) && sampleIDs == expected && Set(sampleIDs).count == sampleIDs.count &&
+        current["raster_samples_dropped"]?.intValue == max(total-32, 0), "raster_trace_first_and_latest_retention_\(total)")
+    let traceKeys = Set(["capture_id", "source_width", "source_height", "orientation", "source_ns", "draw_ns", "orient_ns", "scale_ns", "copy_pixels"])
+    require(samples.allSatisfy { sample in
+        Set(sample.keys) == traceKeys && sample["source_width"]?.intValue == 896 && sample["source_height"]?.intValue == 414 &&
+        sample["orientation"]?.intValue == 1 && ["source_ns", "draw_ns", "orient_ns", "scale_ns", "copy_pixels"].allSatisfy { (sample[$0]?.intValue ?? -1) >= 0 }
+    }, "raster_trace_immutable_source_geometry_and_fixed_schema_\(total)")
+}
+let traceBeforeResults = report(traceRun)["raster_samples"]
+_ = call("necro_native_cancel", traceRun)
+NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; let traceTickets = Array(NG2Fake.heldTickets.keys); NG2Fake.lock.unlock()
+for id in traceTickets { NG2Fake.releaseTicket(id) }
+pump("raster_trace_cancel_callback_and_capture_drained") { drained(traceRun) }
+let traceResult = call("necro_native_results", traceRun)
+let traceAfterResults = traceResult.0?["report"]?.objectValue?["raster_samples"]
+let traceEncoder = JSONEncoder()
+traceEncoder.outputFormatting = [.sortedKeys]
+require(traceResult.1 == nil && (try? traceEncoder.encode(traceBeforeResults)) == (try? traceEncoder.encode(traceAfterResults)) &&
+    traceResult.0?["report"]?.objectValue?["raster_samples_dropped"]?.intValue == 1 && NG2Fake.countTouches() == 0,
+    "raster_trace_public_results_preserves_retained_samples")
 fixtureFailureSnapshot = nil
 
 NG2Fake.reset(.pause)

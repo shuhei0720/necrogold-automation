@@ -42,6 +42,9 @@ class SceneChange(C.Structure):
     _fields_=[*[(k,C.c_uint64) for k in ('command_id','source_capture_id','observed_capture_id','target_ns','deadline_ns')],
               *[(k,C.c_int32) for k in ('change_mask','changed_tiles','changed_protected','state_before','state_after',
                                       'goods_before','goods_after','replan_count','replan_allowed')]]
+class MotionWait(C.Structure):
+    _fields_=[*[(k,C.c_uint64) for k in ('command_id','source_capture_id','last_capture_id','deadline_ns')],
+              *[(k,C.c_int32) for k in ('attempts','last_motion','active')]]
 KINDS={'floor':1,'gold':2,'stone':3,'dirt':4,'door':5,'item':6}
 DIRS={1:(-1,0),2:(1,0),3:(0,-1),4:(0,1)}
 
@@ -80,6 +83,7 @@ class NativeControllerTests(unittest.TestCase):
         l.ng2_controller_status.argtypes=[C.c_void_p,C.POINTER(Status)]
         l.ng2_controller_events.argtypes=[C.c_void_p,C.POINTER(Event),C.c_size_t]
         l.ng2_controller_events.restype=C.c_size_t
+        l.ng2_controller_motion_wait.argtypes=[C.c_void_p,C.POINTER(MotionWait)]
         l.ng2_reason_name.argtypes=[C.c_int32];l.ng2_reason_name.restype=C.c_char_p
     @classmethod
     def tearDownClass(cls):cls.temp.cleanup()
@@ -111,6 +115,8 @@ class NativeControllerTests(unittest.TestCase):
         out=Status();self.lib.ng2_controller_status(self.engine,C.byref(out));return out
     def events(self):
         out=(Event*64)();n=self.lib.ng2_controller_events(self.engine,out,64);return list(out)[:n]
+    def motion_wait(self):
+        out=MotionWait();self.lib.ng2_controller_motion_wait(self.engine,C.byref(out));return out
     def ack(self,command):
         self.now=max(self.now,command.not_before_ns)
         self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,command.id,self.now,1,0,1))
@@ -558,19 +564,219 @@ class NativeControllerTests(unittest.TestCase):
         self.assertEqual((self.status().moves,self.status().input_state),(0,3))
         self.now+=10_000_000;self.observe(self.scene(2,2,after,beat=True))
         self.assertEqual((self.status().moves,self.status().input_state),(1,0))
-    def test_unknown_motion_stops_without_lead_retry(self):
+    def test_three_unknown_motion_observations_stop_without_lead_retry(self):
         terrain=self.fit();command=self.next_move();self.ack(command)
         after=deepcopy(terrain);after.signature=bytes([40])*23296
-        self.observed_result(command,after)
+        for n in range(3):self.observed_result(command,after,offset=80_000_002+n*10_000_000)
         self.assertEqual((self.status().reason,self.status().lead_ns,self.status().lead_confirmed),(10,150_000_000,0))
         self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+        self.assertEqual((3,0),(self.motion_wait().attempts,self.motion_wait().active))
+        self.now+=10_000_000;self.observe(self.scene(2,2,translated(terrain,3),beat=True))
+        self.assertEqual(0,self.status().moves)
+        self.assertEqual(3,self.motion_wait().attempts)
+    def test_acknowledged_unknown_waits_for_same_command_moved_observation(self):
+        terrain=self.fit();command=self.next_move();self.ack(command)
+        unknown=translated(terrain,command.direction);unknown.signature=bytes([40])*23296
+        self.observed_result(command,unknown)
+        self.assertEqual((self.status().inputs,self.status().moves,self.status().input_state,self.status().reason),(1,0,3,0))
+        self.assertEqual(command.id,self.status().current_command_id)
+        self.assertEqual(0,self.tick()[0])
+        self.now+=10_000_000
+        self.observe(self.scene(2,2,translated(terrain,command.direction),beat=True))
+        self.assertEqual((self.status().inputs,self.status().moves,self.status().input_state,self.status().reason),(1,1,0,0))
+        self.assertEqual(command.id,self.events()[-1].command.id)
+    def test_motion_wait_diagnostic_retains_each_eligible_capture_and_fixed_deadline(self):
+        self.assertEqual(bytes(MotionWait()),bytes(self.motion_wait()))
+        terrain=self.fit();command=self.next_move();reserved=self.motion_wait()
+        self.assertEqual((command.id,command.source_capture_id,0,0,0),
+                         (reserved.command_id,reserved.source_capture_id,reserved.last_capture_id,reserved.attempts,reserved.active))
+        self.assertEqual(command.target_ns+PERIOD-150_000_000+10_000_000,reserved.deadline_ns)
+        self.ack(command);self.assertEqual(1,self.motion_wait().active)
+        unknown=translated(terrain,command.direction);unknown.signature=bytes([40])*23296
+        for n in range(2):
+            self.observed_result(command,unknown,offset=80_000_002+n*10_000_000)
+            record=self.motion_wait()
+            self.assertEqual((command.id,command.source_capture_id,self.number,reserved.deadline_ns,n+1,0,1),
+                             (record.command_id,record.source_capture_id,record.last_capture_id,record.deadline_ns,
+                              record.attempts,record.last_motion,record.active))
+            self.assertEqual(self.number,self.events()[-1].observed_capture_id)
+        self.observed_result(command,translated(terrain,command.direction),offset=100_000_002)
+        record=self.motion_wait()
+        self.assertEqual((3,1,0,self.number),(record.attempts,record.last_motion,record.active,record.last_capture_id))
+        self.assertEqual((1,1),(self.status().inputs,self.status().moves))
+    def test_full_resolution_thirty_five_then_thirty_six_pixels_all_four_directions(self):
+        # Raster at full resolution before taking the real 4px sparse signature.
+        # 35px changes the sampling phase; it is neither the existing 32px tween
+        # nor proof of a completed tile. No threshold is modified for this test.
+        rng=random.Random(46046)
+        raster=Image.frombytes('L',(896,414),bytes(rng.randrange(20,100) for _ in range(896*414)))
+        def signature(image):
+            raw=image.tobytes()
+            return b''.join(raw[y*896:(y+1)*896:4] for y in range(0,414,4))
+        for direction,(dx,dy) in DIRS.items():
+            with self.subTest(direction=direction):
+                self.fresh_engine()
+                source=textured()
+                tiles={(-dy*x-dx*y,dx*x-dy*y):kind for (x,y),kind in source.tiles.items()}
+                terrain=nav.Scene(tiles,{p for p,k in tiles.items() if k=='gold'},'unknown',set(),signature(raster))
+                self.fit(terrain);command=self.next_move();self.assertEqual(direction,command.direction);self.ack(command)
+                for attempt,pixels in enumerate((35,36),1):
+                    changed=translated(terrain,direction)
+                    image=Image.new('L',raster.size);image.paste(raster,(-pixels*dx,-pixels*dy));changed.signature=signature(image)
+                    self.observed_result(command,changed,offset=100_000_002+attempt*10_000_000)
+                    if pixels==35:
+                        self.assertEqual((0,3,0),(self.status().moves,self.status().input_state,self.motion_wait().last_motion))
+                        self.assertEqual(0,self.tick()[0])
+                    else:
+                        self.assertEqual((1,dx,dy,0),(self.status().moves,self.status().x,self.status().y,self.motion_wait().active))
+                self.assertEqual((1,2),(self.status().inputs,self.motion_wait().attempts))
+    def test_old_crossed_and_early_frames_do_not_spend_visual_attempts(self):
+        terrain=self.fit();command=self.next_move();self.ack(command)
+        after=translated(terrain,command.direction)
+        self.observed_result(command,after,offset=79_000_000)
+        self.assertEqual(0,self.motion_wait().attempts)
+        self.now=command.target_ns+90_000_000
+        for prefix,stable in ((0,1),(command.id,0),(command.id+1,1)):
+            self.now+=10_000_000
+            self.observe(self.scene(2,2,after,beat=True),prefix=prefix,stable=stable)
+            self.assertEqual((0,3,0),(self.motion_wait().attempts,self.status().input_state,self.status().moves))
+        self.now+=10_000_000;self.observe(self.scene(2,2,after,beat=True))
+        self.assertEqual((1,1),(self.motion_wait().attempts,self.status().moves))
+    def test_unknown_and_tween_share_three_attempt_budget(self):
+        terrain=self.fit();command=self.next_move();self.ack(command)
+        unknown=translated(terrain,3);unknown.signature=bytes([40])*23296
+        for n,after in enumerate((unknown,translated(terrain,3,amount=8),unknown)):
+            self.observed_result(command,after,offset=90_000_002+n*10_000_000)
+            self.assertEqual(n+1,self.motion_wait().attempts)
+            if n<2:self.assertEqual((3,0),(self.status().input_state,self.status().reason))
+        self.assertEqual((10,0,0),(self.status().reason,self.status().moves,self.motion_wait().active))
+        self.now+=2;self.observe(self.scene(2,2,translated(terrain,3),beat=True))
+        self.assertEqual((3,0),(self.motion_wait().attempts,self.status().moves))
+    def test_first_and_continuous_visual_deadline_equality_and_one_ns_late(self):
+        for confirmed in (False,True):
+            for late in (0,1):
+                with self.subTest(confirmed=confirmed,late=late):
+                    self.fresh_engine();terrain=self.fit();command=self.next_move();self.ack(command)
+                    if confirmed:
+                        terrain=translated(terrain,3);self.observed_result(command,terrain)
+                        command=self.next_move();self.ack(command)
+                    deadline=self.motion_wait().deadline_ns
+                    self.now=deadline+late
+                    self.observe(self.scene(2,2,translated(terrain,3),beat=True))
+                    self.assertEqual(int(confirmed)+(not late),self.status().moves)
+                    self.assertEqual(9 if late else 0,self.status().reason)
+                    self.assertEqual(int(confirmed)+1,self.status().inputs)
+                    if late:
+                        ready,cleanup=self.tick();self.assertEqual((ready,cleanup.kind),(1,2))
+                        self.assertEqual(0,self.motion_wait().active)
+    def test_analysis_completion_after_fixed_deadline_cannot_send_another_move(self):
+        terrain=self.fit();command=self.next_move();self.ack(command)
+        deadline=self.motion_wait().deadline_ns
+        self.now=command.target_ns+100_000_002
+        self.observe(self.scene(2,2,translated(terrain,3),beat=True))
+        self.assertEqual(1,self.status().moves)
+        # The capture timestamp precedes the bound. Analysis may finish later.
+        self.now=deadline+1;ready,cleanup=self.tick()
+        self.assertEqual(0,ready)  # tick first records lateness, then next tick cleans up.
+        self.assertEqual(9,self.status().reason)
+        ready,cleanup=self.tick();self.assertEqual((ready,cleanup.kind),(1,2))
+        self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+    def test_visual_wait_keeps_original_source_phase_walk_and_session_horizons(self):
+        for horizon in ('source','phase','walk','session'):
+            with self.subTest(horizon=horizon):
+                self.fresh_engine();terrain=textured()
+                if horizon in ('source','phase'):
+                    self.fit(terrain);old_source=self.status().last_capture_start_ns;old_phase=self.now-1
+                    self.now+=2_400_000_000
+                    if horizon=='phase':self.observe(self.scene(2,2,terrain,beat=False))
+                    bound=(old_source if horizon=='source' else old_phase)+3*SECOND
+                else:
+                    if horizon=='walk':
+                        self.fit(terrain);base=self.status().walk_started_ns
+                        first=base+42_200_000_000;epoch=base+44_800_000_000;bound=base+45*SECOND
+                    else:
+                        base=self.status().started_ns
+                        first=base+177_200_000_000;epoch=base+179_800_000_000;bound=base+180*SECOND
+                    for n in range(25 if horizon=='walk' else 24):
+                        self.now=first+n*100_000_000;scene=self.scene(2,2,terrain,beat=True)
+                        scene.beat_remaining=((epoch-(self.now-1))%PERIOD)/PERIOD;self.observe(scene)
+                command=self.next_move();record=self.motion_wait()
+                self.assertEqual(bound,record.deadline_ns)
+                self.assertLess(bound,command.target_ns+PERIOD-150_000_000+10_000_000)
+                self.ack(command);unknown=deepcopy(terrain);unknown.signature=bytes([40])*23296
+                self.observed_result(command,unknown)
+                self.assertEqual(bound,self.motion_wait().deadline_ns)
+                self.now=bound+1
+                self.assertNotEqual(4,self.tick()[1].kind)
+                self.assertEqual(0,self.motion_wait().active)
+                self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+    def test_wrong_direction_and_two_tiles_stop_without_visual_retry(self):
+        for amount in (-9,18):
+            with self.subTest(amount=amount):
+                self.fresh_engine();terrain=self.fit();command=self.next_move();self.ack(command)
+                self.observed_result(command,translated(terrain,3,amount=amount))
+                self.assertEqual((10,0,0),(self.status().reason,self.status().moves,self.motion_wait().active))
+                self.assertEqual((1,6),(self.motion_wait().attempts,self.motion_wait().last_motion))
+                self.now+=10_000_000;self.observe(self.scene(2,2,translated(terrain,3),beat=True))
+                self.assertEqual(0,self.status().moves)
+                self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+    def test_visual_timeout_needs_new_matching_ack_prefix_before_cleanup(self):
+        terrain=self.fit();command=self.next_move();self.ack(command)
+        self.now=self.motion_wait().deadline_ns+1
+        self.assertEqual(0,self.tick()[0]);self.assertEqual((0,0,9),(self.status().terminal,self.status().input_state,self.status().reason))
+        self.assertEqual(0,self.motion_wait().active)
+        for prefix,stable in ((0,1),(command.id,0)):
+            self.now+=2;self.observe(self.scene(2,2,terrain,beat=True),prefix=prefix,stable=stable)
+            self.assertEqual(0,self.tick()[0])
+        self.now+=2;self.observe(self.scene(2,2,terrain,beat=True))
+        ready,cleanup=self.tick();self.assertEqual((ready,cleanup.kind),(1,2))
+        self.assertEqual(self.number,cleanup.source_capture_id)
+        self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+    def test_goods_during_unknown_visual_wait_hold_without_direction_retry(self):
+        for crossed in (False,True):
+            with self.subTest(crossed=crossed):
+                self.fresh_engine();terrain=self.fit();command=self.next_move();self.ack(command)
+                unknown=translated(terrain,3);unknown.signature=bytes([40])*23296
+                self.observed_result(command,unknown)
+                goods=deepcopy(unknown);goods.goods='visible';self.now+=10_000_000
+                self.observe(self.scene(2,2,goods,beat=True),stable=int(not crossed))
+                self.assertEqual((1,1,0),(self.status().goods,self.status().reason,self.motion_wait().active))
+                ready,cleanup=self.tick()
+                if crossed:
+                    self.assertEqual(0,ready)
+                    self.now+=10_000_000;self.observe(self.scene(2,2,goods,beat=True));ready,cleanup=self.tick()
+                self.assertEqual((ready,cleanup.kind),(1,2))
+                self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+    def test_cancel_foreground_owner_and_unknown_synth_never_retry_waited_direction(self):
+        for reason in (2,3,4,5,11):
+            with self.subTest(reason=reason):
+                self.fresh_engine();terrain=self.fit();command=self.next_move()
+                if reason==11:
+                    self.now=command.not_before_ns
+                    self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,command.id,self.now,1,0,1))
+                    self.now+=50_000_000
+                    self.assertEqual(1,self.lib.ng2_controller_complete(self.engine,command.id,self.now,-1))
+                else:
+                    self.ack(command);unknown=deepcopy(terrain);unknown.signature=bytes([40])*23296
+                    self.observed_result(command,unknown)
+                    if reason==2:self.lib.ng2_controller_cancel(self.engine,self.now,2)
+                    elif reason==3:self.tick(front=0)
+                    elif reason==4:self.tick(locked=1)
+                    else:self.tick(owner=0)
+                self.assertEqual((1,0),(self.status().terminal,self.motion_wait().active))
+                self.now+=10_000_000;self.observe(self.scene(2,2,translated(terrain,3),beat=True))
+                self.assertEqual(0,self.tick()[0])
+                self.assertEqual(1,len(self.events()))
     def test_late_unobserved_prefix_stops_at_original_next_beat(self):
         terrain=self.fit();first=self.next_move();self.ack(first)
         after=translated(terrain,3);self.observed_result(first,after)
         second=self.next_move();self.ack(second)
         self.now=second.target_ns+PERIOD-150_000_000+10_000_001
         self.assertEqual(0,self.tick()[0])
-        self.assertEqual((self.status().terminal,self.status().reason,self.status().moves),(1,9,1))
+        self.assertEqual((self.status().terminal,self.status().reason,self.status().moves),(0,9,1))
+        self.assertEqual(0,self.tick()[0])  # Last floor predates the second ACK.
+        self.now+=2;self.observe(self.scene(2,2,translated(after,3),beat=True))
+        ready,pause=self.tick();self.assertEqual((ready,pause.kind),(1,2))
     def test_phase_discontinuity_never_reacquires_after_confirmation(self):
         terrain=self.fit();first=self.next_move();self.ack(first)
         after=translated(terrain,3);self.observed_result(first,after)
@@ -645,12 +851,12 @@ class NativeControllerTests(unittest.TestCase):
         after=translated(terrain,second.direction);self.observed_result(second,after)
         self.assertEqual((self.status().lead_confirmed,self.status().moves,self.status().last_ordinal),(1,1,1))
         third=self.next_move();self.assertEqual(2,third.ordinal)
-    def test_seven_blocked_initial_trials_exhaust_without_unknown_retry(self):
+    def test_blocked_initial_trials_stop_when_original_next_beat_cannot_fit_observation(self):
         terrain=self.fit()
-        for lead in (150,75,225,300,375,450,25):
+        for lead in (150,75,225,300,375,450):
             self.assertEqual(lead*1_000_000,self.status().lead_ns)
             command=self.next_move();self.ack(command);self.observed_result(command,terrain)
-        self.assertEqual((self.status().reason,self.status().lead_confirmed,self.status().inputs),(10,0,7))
+        self.assertEqual((self.status().reason,self.status().lead_confirmed,self.status().inputs),(9,0,6))
         self.assertEqual(0,self.status().moves)
     def test_stale_old_id_and_observation_before_creation_are_rejected(self):
         self.assertEqual(0,self.observe(self.scene(),start=SECOND-2,end=SECOND))
@@ -682,10 +888,8 @@ class NativeControllerTests(unittest.TestCase):
             scene=self.scene(2,2,terrain,beat=True)
             scene.beat_remaining=((epoch-(self.now-1))%PERIOD)/PERIOD
             self.observe(scene)
-        command=self.next_move();self.ack(command)
-        self.now=command.target_ns+80_000_002;after=translated(terrain,3)
-        scene=self.scene(2,2,after,beat=True);scene.beat_remaining=((epoch-(self.now-1))%PERIOD)/PERIOD
-        self.observe(scene)
+        self.assertEqual(0,self.tick()[0])
+        self.assertEqual((self.status().reason,self.status().inputs),(15,0))
         self.assertLess(self.status().next_target_ns,2**63)
     def test_sanitized_full_real_core_walk_and_goods_hold(self):
         harness=r'''

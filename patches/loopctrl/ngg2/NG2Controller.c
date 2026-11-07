@@ -22,10 +22,11 @@ struct NG2Controller {
     NG2Command command;
     NG2Command initial_ticket;
     NG2ControllerSceneChange scene_changes[3];
+    NG2ControllerMotionWait motion_wait;
     uint16_t visits[NG2_VISIT_COUNT];
     uint8_t restart_fingerprint[48];
     uint64_t seen_id,seen_start,seen_end,last_now,transition_ns,sync_ns;
-    uint64_t ack_ns,command_period,next_nominal,next_deadline,next_period;
+    uint64_t ack_ns,command_period,next_nominal,next_deadline,next_period,last_observed_prefix;
     uint64_t finish_ns;
     size_t sample_count,event_count;
     size_t scene_change_count;
@@ -50,17 +51,24 @@ static int valid_scene(const NG2Scene *s){
 }
 static NG2ControllerEvent *event(NG2Controller *p){return p->event_count?&p->events[p->event_count-1]:NULL;}
 static void terminal(NG2Controller *p,uint64_t now,int reason){
-    if(!p->s.terminal){p->s.reason=reason;p->s.terminal=1;p->s.phase=NG2_PHASE_DONE;p->s.ended_ns=now;}
+    if(!p->s.terminal){p->motion_wait.active=0;p->s.reason=reason;p->s.terminal=1;p->s.phase=NG2_PHASE_DONE;p->s.ended_ns=now;}
 }
 static void not_sent(NG2Controller *p,uint64_t now,int reason){
     NG2ControllerEvent *e=event(p);
     if(p->s.input_state==1){if(e){e->outcome=3;e->reason=reason;e->end_ns=now;}
         p->s.input_state=0;p->s.current_command_id=0;}
 }
+/* Only the ACK-known visual confirmation is consumed here. Started or
+ * unknown synth states must never be converted into cleanup permission. */
+static void end_visual_wait(NG2Controller *p){
+    p->motion_wait.active=0;p->s.input_state=0;p->s.current_command_id=0;
+}
 static void finish(NG2Controller *p,uint64_t now,int reason){
     if(p->s.terminal)return;
     if(!p->finish_requested){p->finish_requested=1;p->finish_ns=now;p->s.reason=reason;}
     if(reason==NG2_REASON_GOODS){p->s.reason=reason;p->s.goods=1;}
+    if(p->command.kind==NG2_ACTION_MOVE)p->motion_wait.active=0;
+    if(p->s.input_state==3&&p->command.kind==NG2_ACTION_MOVE)end_visual_wait(p);
     if(p->s.input_state==1)not_sent(p,now,p->s.reason);
     p->s.phase=NG2_PHASE_FINISH;
 }
@@ -186,10 +194,15 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
     uint64_t earliest=maximum(p->ack_ns,p->command.target_ns+80000000);
     int direction=p->command.direction;
     if(start<earliest)return;
+    if(end>p->motion_wait.deadline_ns){
+        end_visual_wait(p);
+        finish(p,end,NG2_REASON_LATE);return;
+    }
     if(!ng2_motion(&p->before,scene,direction,&motion)){motion.kind=NG2_MOTION_UNKNOWN;motion.dx=motion.dy=0;}
-    if(motion.kind==NG2_TWEEN)return;
-    p->s.input_state=0;p->s.current_command_id=0;
+    ++p->motion_wait.attempts;p->motion_wait.last_capture_id=id;p->motion_wait.last_motion=motion.kind;
     if(e){e->observed_capture_id=id;e->motion=motion.kind;e->dx=motion.dx;e->dy=motion.dy;}
+    if((motion.kind==NG2_TWEEN||motion.kind==NG2_MOTION_UNKNOWN)&&p->motion_wait.attempts<3)return;
+    end_visual_wait(p);
     if(motion.kind==NG2_MOVED){
         if(motion.dx!=dx[direction]||motion.dy!=dy[direction]){finish(p,end,NG2_REASON_MOVEMENT);return;}
         if(ng2_entered_gate(&p->before,scene,direction,p->s.x,p->s.y,motion.kind,&entered))p->entrance=entered;
@@ -259,7 +272,7 @@ int ng2_controller_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,
         if(allowed){++p->replan_count;p->replan_pending=1;p->before=*scene;}
         else {p->replan_pending=0;finish(p,end,NG2_REASON_SCREEN);}
     }
-    p->scene=*scene;p->have_scene=1;p->need_fresh_cleanup=0;
+    p->scene=*scene;p->have_scene=1;p->need_fresh_cleanup=0;p->last_observed_prefix=prefix;
     p->s.paused=scene->state==NG2_PAUSE;
     p->s.last_capture_id=id;p->s.last_capture_start_ns=start;p->s.last_capture_end_ns=end;++p->s.accepted_frames;
     if(!p->s.goods)p->s.goods=scene->goods==NG2_GOODS_VISIBLE;
@@ -267,6 +280,9 @@ int ng2_controller_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,
         pending_kind=p->command.kind;
         if(pending_kind==NG2_ACTION_MOVE){
             if(scene->state!=NG2_FLOOR){p->s.input_state=0;p->s.current_command_id=0;finish(p,end,NG2_REASON_SCREEN);}
+            else if(p->s.goods){
+                event(p)->observed_capture_id=id;end_visual_wait(p);
+            }
             else {add_sample(p,scene,start,end);resolve_move(p,scene,id,start,end);}
         }else if(start>=p->ack_ns){
             if(pending_kind==NG2_ACTION_RESUME&&scene->state==NG2_FLOOR){
@@ -334,6 +350,17 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
     }else if(kind==NG2_ACTION_MOVE&&!p->initial_ticket_valid){
         p->initial_ticket=p->command;p->initial_period=p->command_period;p->initial_ticket_valid=1;
     }
+    if(kind==NG2_ACTION_MOVE){
+        uint64_t next,wait_horizon=minimum(p->command.source_start_ns+FRESH,p->command.phase_sample_ns+FRESH);
+        if(p->command.target_ns>=NS_LIMIT-p->command_period){finish(p,now,NG2_REASON_SESSION);return 0;}
+        next=p->command.target_ns+p->command_period;
+        if(next<p->s.lead_ns||next-p->s.lead_ns>=NS_LIMIT-10000000){finish(p,now,NG2_REASON_SESSION);return 0;}
+        wait_horizon=minimum(wait_horizon,p->s.walk_started_ns+45*SECOND);
+        wait_horizon=minimum(wait_horizon,p->s.started_ns+180*SECOND);
+        memset(&p->motion_wait,0,sizeof(p->motion_wait));
+        p->motion_wait.command_id=p->command.id;p->motion_wait.source_capture_id=p->command.source_capture_id;
+        p->motion_wait.deadline_ns=minimum(next-p->s.lead_ns+10000000,wait_horizon);
+    }
     p->s.input_state=1;p->s.current_command_id=p->command.id;
     e=&p->events[p->event_count++];memset(e,0,sizeof(*e));e->command=p->command;
     *out=p->command;return 1;
@@ -356,14 +383,17 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
     }
     if(p->s.input_state==3){
         uint64_t timeout=p->command.kind==NG2_ACTION_PAUSE&&p->finish_requested?FRESH:TRANSITION;
-        if(p->command.kind==NG2_ACTION_MOVE&&p->s.lead_confirmed&&now>p->command.target_ns+p->command_period-p->s.lead_ns+10000000){
-            terminal(p,now,NG2_REASON_LATE);return 0;}
-        if(now>=p->ack_ns&&now-p->ack_ns>=timeout){terminal(p,now,p->command.kind==NG2_ACTION_RESTART?NG2_REASON_RESTART:NG2_REASON_CAPTURE);}
-        return 0;
+        if(p->command.kind==NG2_ACTION_MOVE&&now>p->motion_wait.deadline_ns){
+            end_visual_wait(p);finish(p,now,NG2_REASON_LATE);
+        }else{
+            if(now>=p->ack_ns&&now-p->ack_ns>=timeout){terminal(p,now,p->command.kind==NG2_ACTION_RESTART?NG2_REASON_RESTART:NG2_REASON_CAPTURE);}
+            return 0;
+        }
     }
     if(p->finish_requested){
         if(p->have_scene&&p->scene.state==NG2_PAUSE&&fresh(p,now)){p->s.paused=1;terminal(p,now,p->s.reason);return 0;}
-        if(!p->final_pause_attempted&&!p->need_fresh_cleanup&&fresh(p,now)&&p->scene.state==NG2_FLOOR){
+        if(!p->final_pause_attempted&&!p->need_fresh_cleanup&&fresh(p,now)&&p->scene.state==NG2_FLOOR
+            &&p->last_observed_prefix==p->s.last_completed_id){
             p->final_pause_attempted=1;return reserve(p,now,NG2_ACTION_PAUSE,0,0,out);}
         if(now>=p->finish_ns&&now-p->finish_ns>=TRANSITION)terminal(p,now,p->s.reason);
         return 0;
@@ -457,6 +487,7 @@ int ng2_controller_complete(NG2Controller *p,uint64_t id,uint64_t now,int32_t ou
     if(p->command.kind==NG2_ACTION_MOVE)++p->s.inputs;
     if(outcome==-1){e->outcome=4;e->reason=NG2_REASON_UNKNOWN_INPUT;p->s.input_state=4;terminal(p,now,NG2_REASON_UNKNOWN_INPUT);return 1;}
     e->outcome=2;p->ack_ns=now;p->transition_ns=now;p->s.last_completed_id=id;p->s.input_state=3;
+    if(p->command.kind==NG2_ACTION_MOVE)p->motion_wait.active=1;
     p->s.paused=0;
     if(p->command.kind==NG2_ACTION_RESUME)p->s.phase=NG2_PHASE_FLOOR;
     else if(p->command.kind==NG2_ACTION_PAUSE)p->s.phase=p->finish_requested?NG2_PHASE_FINISH:NG2_PHASE_PAUSE;
@@ -480,6 +511,9 @@ size_t ng2_controller_events(const NG2Controller *p,NG2ControllerEvent *out,size
 size_t ng2_controller_scene_changes(const NG2Controller *p,NG2ControllerSceneChange *out,size_t capacity){
     size_t n;if(!p||!out)return 0;n=p->scene_change_count<capacity?p->scene_change_count:capacity;
     memcpy(out,p->scene_changes,n*sizeof(*out));return n;
+}
+void ng2_controller_motion_wait(const NG2Controller *p,NG2ControllerMotionWait *out){
+    if(out){if(p)*out=p->motion_wait;else memset(out,0,sizeof(*out));}
 }
 const char *ng2_reason_name(int32_t reason){
     static const char *const names[]={"none","goods","cancelled","foreground","locked","owner_paused","capture",

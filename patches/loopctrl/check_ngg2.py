@@ -133,7 +133,14 @@ def raster_contract(upstream, output, *, expect_red=False):
     (stage / 'NG2Raster.swift').write_text(source.replace(old, 'case 6: p = (y, x)'))
     red = compile_run(sources, stage / 'raster-mutated-tests', output, 'raster-mutation-red', extra, run_timeout=180)
     require_red(red, 'FAIL orientation_6_asymmetric_pixels')
-    return {'production_green': green.stdout.strip(), 'mutation_red': red.stdout.strip(), 'compiled': True}
+    old = '        if orientation != 1 {\n'
+    if source.count(old) != 1: raise ValueError('raster_identity_mutation_target')
+    (stage / 'NG2Raster.swift').write_text(source.replace(old, '        if true {\n'))
+    identity_red = compile_run(sources, stage / 'raster-identity-tests', output,
+        'raster-identity-mutation-red', extra, run_timeout=180)
+    require_red(identity_red, 'FAIL orientation_1_identity_avoids_pixel_copy actual=6 expected=0')
+    return {'production_green': green.stdout.strip(), 'mutation_red': red.stdout.strip(),
+            'identity_mutation_red': identity_red.stdout.strip(), 'compiled': True}
 
 
 def runtime_contract(upstream, output):
@@ -226,6 +233,18 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                 required.insert(change.source_capture_id); required.insert(change.observed_capture_id)
             }''', '// mutation: rejected scene difference image references removed',
                                  'FAIL rejected_difference_frames_pinned_beyond_recent_window'),
+        # Keep the earlier initial-alignment fixture's clock barrier intact;
+        # regress the real callsite's clock specifically while an ACK waits.
+        'motion-clock': ('ng2_controller_tick(core, Self.now(), run.foreground',
+                         'ng2_controller_tick(core, status.input_state == 3 && status.inputs > 0 ? now : Self.now(), run.foreground',
+                         'FAIL motion_deadline_rechecked_after_analysis_before_next_tick'),
+        'raster-trace': ('''                    run.rasterSamples.append(.object(["capture_id": number(frame.id),
+                        "source_width": .int(trace.sourceWidth), "source_height": .int(trace.sourceHeight),
+                        "orientation": .int(trace.orientation), "source_ns": number(trace.sourceNs),
+                        "draw_ns": number(trace.drawNs), "orient_ns": number(trace.orientNs),
+                        "scale_ns": number(trace.scaleNs), "copy_pixels": number(trace.copyPixels)]))''',
+                         '// mutation: committed raster trace propagation removed',
+                         'FAIL raster_trace_first_and_latest_retention_31'),
     }
     reds = {}
     for label,(old,new,expected) in mutations.items():
@@ -243,6 +262,34 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     require_red(result, 'FAIL replan_stale_callback_skips_AX_and_shared_authority')
     reds['stale-entry'] = result.stdout.strip()
     print('Runtime mutation observed: stale-entry / '+result.stdout.strip().splitlines()[-1], flush=True)
+    # Mutate the actual core assessment reference while retaining production
+    # Runtime behavior. Only staged code and its existing staged object change;
+    # restoring the exact original object also keeps later contracts independent.
+    (stage/'NG2Runtime.swift').write_text(source)
+    controller = (native/'NG2Controller.c').read_text()
+    old = 'if(e){e->observed_capture_id=id;e->motion=motion.kind;'
+    new = ('if(e){if(motion.kind!=NG2_MOTION_UNKNOWN&&motion.kind!=NG2_TWEEN)'
+           'e->observed_capture_id=id;e->motion=motion.kind;')
+    if controller.count(old) != 1: raise ValueError('runtime_motion_reference_mutation_target')
+    controller_objects = [path for path in objects if path.name == 'NG2Controller.o']
+    if len(controller_objects) != 1: raise ValueError('runtime_controller_object_target')
+    controller_object = controller_objects[0]
+    original_object = controller_object.read_bytes()
+    (stage/'NG2Controller.c').write_text(controller.replace(old, new))
+    print('Runtime mutation: motion-reference', flush=True)
+    try:
+        built = subprocess.run(['clang', '-std=c11', '-O2', '-I', str(native),
+            '-c', str(stage/'NG2Controller.c'), '-o', str(controller_object)],
+            capture_output=True, text=True, timeout=120)
+        (output/'runtime-motion-reference-C-compile.txt').write_text(built.stdout+built.stderr)
+        checked(built)
+        result = compile_run(sources, stage/'motion-reference-tests', output,
+            'runtime-motion-reference-mutation-red', extra)
+        require_red(result, 'FAIL motion_first_UNKNOWN_frame_pinned_beyond_recent_window')
+        reds['motion-reference'] = result.stdout.strip()
+        print('Runtime mutation observed: motion-reference / '+result.stdout.strip().splitlines()[-1], flush=True)
+    finally:
+        controller_object.write_bytes(original_object)
     return {'production_green':green.stdout.strip(),'mutation_red':reds,'compiled':True,
             'scope':'Actual Runtime public API, raster, real C, main ticket and lifecycle with UIKit/XCTest/daemon fakes'}
 

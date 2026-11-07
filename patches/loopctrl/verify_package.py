@@ -55,7 +55,7 @@ def inspect_native_sources(upstream, driver):
             or manifest.get('api_version') != '1.98.14-ngg2'
             or manifest.get('capability') != 'necrogold_native_v1'
             or manifest.get('client_capability', 'necrogold_native_v1')
-               not in ('necrogold_native_v1', 'necrogold_native_v2')):
+               not in ('necrogold_native_v1', 'necrogold_native_v2', 'necrogold_native_v3')):
         raise ValueError('native_manifest_identity')
     patch = driver / 'patches/loopctrl/ngg2.patch'
     if hashlib.sha256(patch.read_bytes()).hexdigest() != manifest['patch_sha256']:

@@ -21,6 +21,8 @@ enum NG2Fake {
     static var walkMoves = 0
     static var walkCapturesAfterMove = 0
     static var walkObservationAfter: UInt64 = 0
+    static var walkGoodsEnabled = true
+    static var walkPixelInset: Int32 = 0
     static var walkPaused = false
     static var phaseBase: UInt64 = 0
     static var remoteVariant: Int32 = 0
@@ -29,6 +31,9 @@ enum NG2Fake {
     static var unknownFrames = 0
     static var boundaryClockChange: (() -> Void)?
     static var captureDrainedRuns = Set<String>()
+    static var captureLimit: Int?
+    static var firstUnknownID: UInt64 = 0
+    static var subtileResolvedWait = false
     static var callbacks: [(Data?, String?) -> Void] = []
     static var offset: UInt64 = 0
     static var pending = 0
@@ -38,6 +43,7 @@ enum NG2Fake {
             beforeForegroundQuery = nil
             gesturePaths = []; tapPoints = []; walkX = 0; walkY = 0
             walkMoves = 0; walkCapturesAfterMove = 0; walkObservationAfter = 0; walkPaused = false
+            walkGoodsEnabled = true; walkPixelInset = 0; captureLimit = nil; firstUnknownID = 0; subtileResolvedWait = false
             remoteVariant = 0; heldTickets = [:]; returnedTickets = []; unknownFrames = 0
             boundaryClockChange = nil
             captureDrainedRuns = []
@@ -89,6 +95,11 @@ enum NG2Fake {
         }
         change?()
     }
+    static func waitForCapturePermit() {
+        while lock.fixtureLocked({ captureLimit.map { requests >= $0 } ?? false }) {
+            Thread.sleep(forTimeInterval: 0.001)
+        }
+    }
     static func walkedPNG(capturedAt time: UInt64) -> Data {
         let unknown = lock.fixtureLocked { () -> Bool in
             if unknownFrames == 0 { return false }; unknownFrames -= 1; return true
@@ -100,8 +111,8 @@ enum NG2Fake {
             // target+80ms, before its next beat. Eligibility uses this fake
             // request's entry clock, not the later PNG painting clock. A frame
             // count alone could beat the motion observation horizon.
-            let goods = walkMoves > 0 && walkObservationAfter > 0 && time >= walkObservationAfter
-            return (walkX, walkY, goods ? 1 : 0, walkPaused, phaseBase)
+            let goods = walkGoodsEnabled && walkMoves > 0 && walkObservationAfter > 0 && time >= walkObservationAfter
+            return (36*walkX, 36*walkY + (walkMoves > 0 ? walkPixelInset : 0), goods ? 1 : 0, walkPaused, phaseBase)
         }
         if state.3 { return pausePNG }
         let period: UInt64 = 520_000_000
@@ -110,7 +121,7 @@ enum NG2Fake {
         var rgba = Data(count: 896*414*4)
         let count = rgba.count
         let valid = rgba.withUnsafeMutableBytes {
-            ng2_fixture_floor_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, state.0, state.1, fraction, state.2)
+            ng2_fixture_floor_pixels_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, state.0, state.1, fraction, state.2)
         }
         precondition(valid == 1)
         let remote = lock.fixtureLocked { remoteVariant }

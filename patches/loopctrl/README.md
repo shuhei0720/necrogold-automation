@@ -1,6 +1,6 @@
 # LoopCtrl取得元の画像寸法修正 NG-G1
 
-TEST045ではNG-G2を更新する。初方向が確実未送信の場合だけ最新sceneで安全床と同方向を再検証し、元拍/期限内の再計画を通算2回まで許可する。旧callbackはcommand IDで隔離し、実終了まではdrainへ計上する。差分元/差分後の画像と固定診断を保持する。新capability `necrogold_native_v2` をv1と併記し、新clientはv2を必須とするため、新IPAへのSideStore更新が必要。API `1.98.14-ngg2` と旧v1契約は維持する。新IPA/ホスト・CIの最終検証と実機確認は[既存台帳](../../docs/device-tests/README.md)末尾を参照する。
+TEST046では、ACK済みMOVEのUNKNOWN/TWEENだけを元の次拍期限内・最大3評価で再観測する。35pxを移動確定とせず、36pxの証拠で歩数を加算する。元期限を延ばさず、停止後のpauseも現在の完了prefixに合う新しい床画像を必要とする。orientation1の画像は不透明sRGB描画後の恒等コピーを省き、他の向き・縮小・全画素の同値を維持する。固定motion_wait診断と最大32件の画像変換計測を保存する。新capability `necrogold_native_v3` をv1/v2と併記し、native-walk-v4はv3を必須とするため、新IPAへのSideStore更新が必要。API `1.98.14-ngg2` と旧契約は維持する。新IPA/ホスト・CIの最終検証と実機確認は[既存台帳](../../docs/device-tests/README.md)末尾のTEST046を参照する。
 
 ## NG-G2 / TEST043 native制御の追加
 
@@ -21,7 +21,7 @@ python3 patches/loopctrl/check_ngg2.py /path/to/LoopCtrl /tmp/ngg2-contracts
 
 macOS workflowはmanifestのない先行段階ではコンパイル可能なSwift stubの挙動Redだけを実行する。manifest保存後はNG-G1/NG-G2契約、unsigned IPAと既存LoopCtrlKit試験、構成・来歴検査へ進み、IPA・SHA-256・manifest・改変取得元と追加ソースの全文をprivate Actions artifactへ保存する。SideStoreでの更新とTEST043実機確認が別途必要で、CI成功を実機合格にはしない。
 
-native Cのsynthetic契約はUbuntu CIでも実行する。private実画像が必要な6試験はCIの明示除外一覧に記録し、既知画像全件の比較と実画像sanitizerはローカルの必須試験で実行する。画像不足をskipして全件成功にはしない。
+native Cのsynthetic契約はUbuntu CIでも実行する。private実画像が必要な7試験はCIの明示除外一覧に記録し、既知66画像とTEST045の8画像の比較・実画像sanitizerはローカルの必須試験で実行する。画像不足をskipして全件成功にはしない。
 
 公式v0.3.4 commit `6e25cf6a9f65bc86c372cdce94bdb151d0cf6767` に適用する診断用パッチ。API版は `1.98.14-ngg1`、新capabilityは `screenshot_image_geometry_v1`。変更済みの取得元3ファイルはActionsの配布artifactにも全文を含める。
 

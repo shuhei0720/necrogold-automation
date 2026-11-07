@@ -36,6 +36,7 @@ private struct NG2Frame {
     let endInFlight: Bool
     let stable: Bool
     let rgba: Data
+    let rasterTrace: NG2Raster.Trace
 }
 
 private final class NG2Run {
@@ -68,6 +69,8 @@ private final class NG2Run {
     var found: NG2Frame?
     var report: [String: JSONValue] = [:]
     var captures: [JSONValue] = []
+    var rasterSamples: [JSONValue] = []
+    var rasterSamplesDropped: UInt64 = 0
     var replacedFrames: UInt64 = 0
     var terminal = false
     var successful = false
@@ -276,6 +279,8 @@ final class NG2Runtime {
             report["native_capture_requests"] = number(run.captureID)
             report["latest_frames_replaced"] = number(run.replacedFrames)
             report["captures"] = .array(run.captures)
+            report["raster_samples"] = .array(run.rasterSamples)
+            report["raster_samples_dropped"] = number(run.rasterSamplesDropped)
             report["daemon_requests_outstanding"] = .int(Int(NG2CaptureBridge.pendingRequests))
             let retained = Set(run.pinned.keys).union(run.images.map { $0.id })
             report["analyzed_capture_count"] = number(run.analyzedFrames)
@@ -418,10 +423,11 @@ final class NG2Runtime {
                 return
             }
             if run.lock.ng2Locked({ run.stopped || run.generation != before.3 }) { return }
-            guard captureEnd > start, let raw, let rgba = NG2Raster.decode(raw) else { run.cancel(20); return }
+            guard captureEnd > start, let raw, let decoded = NG2Raster.decodeProfiled(raw) else { run.cancel(20); return }
             let frame = NG2Frame(id: before.0, start: start, end: captureEnd, decodeEnd: Self.now(),
                 startPrefix: before.1, prefix: endPrefix, startInFlight: before.2, endInFlight: endInFlight,
-                stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: rgba)
+                stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: decoded.rgba,
+                rasterTrace: decoded.trace)
             run.lock.ng2Locked {
                 if run.generation == before.3 && !run.stopped {
                     if run.latest != nil { run.replacedFrames += 1 }
@@ -464,6 +470,16 @@ final class NG2Runtime {
                         "inflight_start": .bool(frame.startInFlight), "inflight_end": .bool(frame.endInFlight),
                         "stable": .bool(frame.stable)]))
                     if run.captures.count > 256 { run.captures.removeFirst(run.captures.count - 256) }
+                    let trace = frame.rasterTrace
+                    run.rasterSamples.append(.object(["capture_id": number(frame.id),
+                        "source_width": .int(trace.sourceWidth), "source_height": .int(trace.sourceHeight),
+                        "orientation": .int(trace.orientation), "source_ns": number(trace.sourceNs),
+                        "draw_ns": number(trace.drawNs), "orient_ns": number(trace.orientNs),
+                        "scale_ns": number(trace.scaleNs), "copy_pixels": number(trace.copyPixels)]))
+                    if run.rasterSamples.count > 32 {
+                        run.rasterSamples.remove(at: 1)
+                        run.rasterSamplesDropped += 1
+                    }
                     if run.initial == nil { run.initial = frame }
                     if scene.goods == 2 && run.found == nil { run.found = frame }
                     run.analyzedFrames += 1
@@ -631,6 +647,8 @@ final class NG2Runtime {
         let count = events.withUnsafeMutableBufferPointer { ng2_controller_events(core, $0.baseAddress, $0.count) }
         var changes = [NG2ControllerSceneChange](repeating: NG2ControllerSceneChange(), count: 3)
         let changeCount = changes.withUnsafeMutableBufferPointer { ng2_controller_scene_changes(core, $0.baseAddress, $0.count) }
+        var motionWait = NG2ControllerMotionWait()
+        ng2_controller_motion_wait(core, &motionWait)
         run.lock.ng2Locked {
             var required = Set<UInt64>()
             for event in events.prefix(min(count, events.count)) {
@@ -689,7 +707,11 @@ final class NG2Runtime {
             "last_ordinal": number(s.last_ordinal), "next_target_ns": number(s.next_target_ns), "lead_ns": number(s.lead_ns),
             "capture_count": number(s.capture_count), "accepted_frames": number(s.accepted_frames),
             "discarded_frames": number(s.discarded_frames), "beat_period_ns": number(s.beat_period_ns),
-            "events": .array(encoded), "scene_changes": .array(encodedChanges)]
+            "events": .array(encoded), "scene_changes": .array(encodedChanges),
+            "motion_wait": .object(["command_id": number(motionWait.command_id),
+                "source_capture_id": number(motionWait.source_capture_id), "last_capture_id": number(motionWait.last_capture_id),
+                "deadline_ns": number(motionWait.deadline_ns), "attempts": integer(motionWait.attempts),
+                "last_motion": integer(motionWait.last_motion), "active": .bool(motionWait.active == 1)])]
         run.lastCache = Self.now()
         run.lock.ng2Locked { run.report = report }
     }

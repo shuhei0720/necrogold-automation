@@ -20,9 +20,9 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v3'
+REVISION = 'native-walk-v4'
 API_VERSION = '1.98.14-ngg2'
-CAPABILITY = 'necrogold_native_v2'
+CAPABILITY = 'necrogold_native_v3'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -30,6 +30,7 @@ MAX_TOTAL_IMAGES = 4 * 1024 * 1024
 MAX_HTTP_EVENTS = 128
 MAX_CAPTURES = 256
 MAX_NATIVE_EVENTS = 64
+MAX_RASTER_SAMPLES = 32
 MAX_CANCEL_ATTEMPTS = 3
 MAX_SCHEMA = 512 * 1024
 MAX_SCHEMA_ATTEMPTS = 4
@@ -330,7 +331,7 @@ def _load(base):
         excess = max(0, len(record['events']) - MAX_HTTP_EVENTS)
         record['events_dropped'] += excess
         record['events'] = _events(record['events'][excess:])
-        _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', REVISION)
+        _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', 'native-walk-v3', REVISION)
                  and record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -371,6 +372,39 @@ def _scene_changes(value):
     return rows
 
 
+def _motion_wait(value):
+    keys = ('command_id', 'source_capture_id', 'last_capture_id', 'deadline_ns',
+            'attempts', 'last_motion', 'active')
+    _require(type(value) is dict and set(keys) <= set(value), 'invalid_native_report')
+    for key in keys[:-1]:
+        _require(_ns(value[key]), 'invalid_native_report')
+    _require(value['attempts'] <= 3 and value['last_motion'] <= 7
+             and type(value['active']) is bool, 'invalid_native_report')
+    return {key:value[key] for key in keys}
+
+
+def _raster_samples(value):
+    keys = ('capture_id', 'source_width', 'source_height', 'orientation',
+            'source_ns', 'draw_ns', 'orient_ns', 'scale_ns', 'copy_pixels')
+    _require(type(value) is list and len(value) <= MAX_RASTER_SAMPLES, 'invalid_native_report')
+    rows, seen = [], set()
+    for row in value:
+        _require(type(row) is dict and set(keys) <= set(row)
+                 and all(_ns(row[key]) for key in keys), 'invalid_native_report')
+        width, height, orientation = row['source_width'], row['source_height'], row['orientation']
+        _require(0 < row['capture_id'] and row['capture_id'] not in seen
+                 and 1 <= width <= 4096 and 1 <= height <= 4096
+                 and width * height <= 8_000_000 and 1 <= orientation <= 8
+                 and row['copy_pixels'] <= width * height, 'invalid_native_report')
+        oriented_width, oriented_height = (height, width) if orientation >= 5 else (width, height)
+        _require(oriented_width * 414 == oriented_height * 896
+                 and sum(row[key] for key in ('source_ns','draw_ns','orient_ns','scale_ns')) < 2**63,
+                 'invalid_native_report')
+        seen.add(row['capture_id'])
+        rows.append({key:row[key] for key in keys})
+    return rows
+
+
 def _report(value, depth=0):
     _require(type(value) is dict and depth <= 3 and len(value) <= 128, 'invalid_native_report')
     result = {}
@@ -405,6 +439,13 @@ def _report(value, depth=0):
             result[key] = [_report(event, depth+1) for event in item]
         elif key == 'scene_changes':
             result[key] = _scene_changes(item)
+        elif key == 'motion_wait':
+            result[key] = _motion_wait(item)
+        elif key == 'raster_samples':
+            result[key] = _raster_samples(item)
+        elif key == 'raster_samples_dropped':
+            _require(_ns(item), 'invalid_native_report')
+            result[key] = item
         elif key in ID_LIST_KEYS:
             _require(type(item) is list and len(item) <= MAX_CAPTURES
                      and all(type(v) is int and 0 <= v < 2**63 for v in item), 'invalid_native_report')
@@ -791,8 +832,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST045: NG-G2の初歩再計画と結果回収を実行')
-    ap.add_argument('--output', default='runtime/test-045')
+    ap = argparse.ArgumentParser(description='TEST046: NG-G2の移動再観測と画像処理を検証')
+    ap.add_argument('--output', default='runtime/test-046')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')
@@ -821,7 +862,7 @@ def main(argv=None):
             attempts = record.get('preflight', {}).get('attempts', [])
             kind = attempts[-1]['diagnostic']['kind'] if attempts else None
             if record['stop_reason'] == 'native_capability_missing':
-                print('NG-G2の版・機能が一致しません。TEST045用の新IPAとLoopCtrlの起動状態を確認してください。')
+                print('NG-G2の版・機能が一致しません。TEST046用の新IPAとLoopCtrlの起動状態を確認してください。')
             elif kind == 'refused':
                 print('LoopCtrlへの接続が拒否されました。まだゲームの開始要求は送っていません。')
             elif record['stop_reason'] in ('rpc_deadline', 'host_deadline') or kind in ('timeout','deadline'):

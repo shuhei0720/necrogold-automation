@@ -71,29 +71,35 @@ enum NG2Raster {
         // Orient source pixels before CoreGraphics resampling. Explicit maps
         // make all eight EXIF cases testable with asymmetric pixel sentinels.
         var copyPixels: UInt64 = 0
-        var oriented = Data(count: orientedWidth * orientedHeight * 4)
-        original.withUnsafeBytes { source in
-            oriented.withUnsafeMutableBytes { destination in
-                let src = source.bindMemory(to: UInt8.self)
-                let dst = destination.bindMemory(to: UInt8.self)
-                for y in 0..<orientedHeight {
-                    for x in 0..<orientedWidth {
-                        let p: (Int, Int)
-                        switch orientation {
-                        case 2: p = (image.width-1-x, y)
-                        case 3: p = (image.width-1-x, image.height-1-y)
-                        case 4: p = (x, image.height-1-y)
-                        case 5: p = (y, x)
-                        case 6: p = (y, image.height-1-x)
-                        case 7: p = (image.width-1-y, image.height-1-x)
-                        case 8: p = (image.width-1-y, x)
-                        default: p = (x, y)
+        // The black fill and source-over draw already made original opaque.
+        // Orientation 1 is the identity, so Data can share its storage until a
+        // mutation; the remaining path only reads it while resampling.
+        var oriented = original
+        if orientation != 1 {
+            oriented = Data(count: orientedWidth * orientedHeight * 4)
+            original.withUnsafeBytes { source in
+                oriented.withUnsafeMutableBytes { destination in
+                    let src = source.bindMemory(to: UInt8.self)
+                    let dst = destination.bindMemory(to: UInt8.self)
+                    for y in 0..<orientedHeight {
+                        for x in 0..<orientedWidth {
+                            let p: (Int, Int)
+                            switch orientation {
+                            case 2: p = (image.width-1-x, y)
+                            case 3: p = (image.width-1-x, image.height-1-y)
+                            case 4: p = (x, image.height-1-y)
+                            case 5: p = (y, x)
+                            case 6: p = (y, image.height-1-x)
+                            case 7: p = (image.width-1-y, image.height-1-x)
+                            case 8: p = (image.width-1-y, x)
+                            default: p = (x, y)
+                            }
+                            let a = (p.1 * image.width + p.0) * 4
+                            let b = (y * orientedWidth + x) * 4
+                            dst[b] = src[a]; dst[b+1] = src[a+1]; dst[b+2] = src[a+2]; dst[b+3] = 255
                         }
-                        let a = (p.1 * image.width + p.0) * 4
-                        let b = (y * orientedWidth + x) * 4
-                        dst[b] = src[a]; dst[b+1] = src[a+1]; dst[b+2] = src[a+2]; dst[b+3] = 255
+                        copyPixels += UInt64(orientedWidth)
                     }
-                    copyPixels += UInt64(orientedWidth)
                 }
             }
         }

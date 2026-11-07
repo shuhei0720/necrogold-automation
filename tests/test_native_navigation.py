@@ -7,10 +7,12 @@ from collections import defaultdict
 from copy import deepcopy
 import math
 import hashlib
+import json
+import os
 import random
 from unittest.mock import patch
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageStat
 from necroprobe import shop_navigation as nav, motion_stats
 from test_native_perception import required_fixtures
 from pathlib import Path
@@ -135,6 +137,7 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
 ''')
         subprocess.run(['cc', '-std=c99', '-O2', '-Wall', '-Wextra', '-Werror', '-pedantic',
                         '-fPIC', '-shared', '-I' + str(CORE), str(wrapper),
+                        str(CORE / 'NG2Perception.c'),
                         '-lm', '-o', str(cls.library)], check=True)
         cls.lib = C.CDLL(str(cls.library))
         cls.lib.ng2_choose.argtypes = [C.POINTER(Scene), C.c_int32, C.c_int32,
@@ -150,6 +153,7 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
         cls.lib.ng2_test_strong.argtypes = [C.c_char_p, C.c_char_p, C.c_int, C.c_int]
         cls.lib.ng2_test_texture_strength.argtypes = [C.c_int]*3
         cls.lib.ng2_test_texture_lead.argtypes = [C.c_int]*4
+        cls.lib.ng2_analyze_rgba.argtypes = [C.c_void_p, C.c_size_t, C.c_size_t, C.POINTER(Scene)]
 
     @classmethod
     def tearDownClass(cls):
@@ -162,6 +166,52 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
         self.assertEqual(1, self.lib.ng2_choose(C.byref(s), 0, 0, visits, 1089, None, C.byref(out)))
         self.assertEqual(3, out.direction)
         self.assertEqual((0, -1), (out.target_x, out.target_y))
+
+    def test_required_test045_subtile_motion_replay(self):
+        """Known calibration images stay outside git and are mandatory locally."""
+        root=Path(os.environ.get('NECRO_TEST046_FIXTURE_ROOT','/workspace/analysis-evidence'))
+        manifest=json.loads((ROOT/'tests/test046-fixtures.json').read_text())
+        self.assertEqual(('ngg2-test046-fixtures-v1',8), (manifest['schema'],manifest['count']))
+        self.assertEqual(8,len(manifest['images']))
+        self.assertEqual(8,len({entry['path'] for entry in manifest['images']}))
+        images={}
+        for entry in manifest['images']:
+            path=root/entry['path']
+            self.assertTrue(path.is_file(),f'missing required TEST046 fixture: {path}')
+            self.assertEqual(entry['sha256'],hashlib.sha256(path.read_bytes()).hexdigest())
+            images[path.name]=Image.open(path).convert('RGBA')
+        native={};reference={}
+        for capture_id in (13,16,17):
+            image=images[f'capture-{capture_id:06d}.png'];raw=image.tobytes();out=Scene()
+            self.assertEqual(0,self.lib.ng2_analyze_rgba(raw,len(raw),3584,C.byref(out)))
+            native[capture_id]=out;reference[capture_id]=canonical(nav.scan(image.convert('RGB')))
+            self.assertEqual(2,out.state)
+            self.assertEqual(reference[capture_id].signature,bytes(out.signature))
+            self.assertEqual(bytes(as_native(reference[capture_id]).tiles),bytes(out.tiles))
+            self.assertEqual(bytes(as_native(reference[capture_id]).protected_cells),bytes(out.protected_cells))
+            self.assertEqual(as_native(reference[capture_id]).goods,out.goods)
+        # Independent original-pixel landmarks establish the one-pixel residual;
+        # the sparse verifier itself intentionally retains UNKNOWN for 35px.
+        for after,displacement in ((16,35),(17,36)):
+            old=images['capture-000013.png'].convert('L');new=images[f'capture-{after:06d}.png'].convert('L')
+            for box in ((503,9,534,37),(322,153,355,287),(360,143,394,282)):
+                x0,y0,x1,y1=box
+                errors=[(ImageStat.Stat(ImageChops.difference(old.crop(box),new.crop((x0,y0+sy,x1,y1+sy)))).mean[0],sy)
+                        for sy in range(30,41)]
+                self.assertEqual(displacement,min(errors)[1])
+        for after,kind,score in ((16,0,.5591420100727641),(17,1,.13238347244935728)):
+            before=native[13];changed=native[after];result=Motion()
+            self.assertEqual(1,self.lib.ng2_motion(C.byref(before),C.byref(changed),3,C.byref(result)))
+            self.assertEqual(kind,result.kind)
+            self.assertEqual('unknown' if kind==0 else 'moved',nav.motion(reference[13],reference[after],'up'))
+            native_scores=(C.c_double*73)()
+            self.lib.ng2_test_scores(bytes(before.signature),bytes(changed.signature),native_scores)
+            old=nav._motion_view(reference[13].signature)[0];new=nav._motion_view(reference[after].signature)[0]
+            pillow=nav._pillow_motion_scores(old,new)
+            for actual,(expected,_,_) in zip(native_scores,pillow):self.assertAlmostEqual(expected,actual,places=12)
+            ranked=sorted((value,*point) for value,point in zip(native_scores,CANDIDATES))
+            self.assertEqual((0,9),ranked[0][1:]);self.assertAlmostEqual(score,ranked[0][0],places=12)
+            self.assertGreaterEqual(ranked[1][0]-ranked[0][0],.08)
 
     def choose(self, scene, position=(0, 0), visits=None, entrance=None):
         native = as_native(canonical(scene))

@@ -29,16 +29,16 @@ static void template_mask(uint8_t *out,const NG2Template *t){
         if((t->mask[y*((t->w+7)/8)+x/8]>>(7-x%8))&1)
             pixel(out,t->x+x,t->y+y,180,180,180);
 }
-int ng2_fixture_floor_rgba(uint8_t *out,size_t length,int32_t player_x,
-                          int32_t player_y,double q,int32_t goods){
+int ng2_fixture_floor_pixels_rgba(uint8_t *out,size_t length,int32_t world_x,
+                                 int32_t world_y,double q,int32_t goods){
     int x,y,k;
-    if(!out||length!=FS||player_x < -16||player_x>16||player_y < -16||player_y>16
+    if(!out||length!=FS||world_x < -576||world_x>576||world_y < -576||world_y>576
        ||!isfinite(q)||q<0||q>=1||(goods!=0&&goods!=1))return 0;
     /* Referencing the unused menu masks keeps this shared fixed-mask header
      * warning-clean under GCC/Clang's strict unused-const diagnostics. */
     (void)&ng2_template_continue;(void)&ng2_template_restart;(void)&ng2_template_death;
     for(y=0;y<FH;++y)for(x=0;x<FW;++x){
-        int wx=x+36*player_x,wy=y+36*player_y;
+        int wx=x+world_x,wy=y+world_y;
         int tx=floor_div(wx-448+18,36),ty=floor_div(wy-207+18,36);
         uint32_t hash=(uint32_t)wx*UINT32_C(0x9e3779b9)^(uint32_t)wy*UINT32_C(0x85ebca6b);
         int noise,r=26,g=16,b=16;
@@ -66,6 +66,11 @@ int ng2_fixture_floor_rgba(uint8_t *out,size_t length,int32_t player_x,
         }
     }
     return 1;
+}
+int ng2_fixture_floor_rgba(uint8_t *out,size_t length,int32_t player_x,
+                          int32_t player_y,double q,int32_t goods){
+    if(player_x < -16||player_x>16||player_y < -16||player_y>16)return 0;
+    return ng2_fixture_floor_pixels_rgba(out,length,36*player_x,36*player_y,q,goods);
 }
 int ng2_fixture_remote_cell(uint8_t *out,size_t length,int32_t variant){
     if(!out||length!=FS||variant<0||variant>2)return 0;
