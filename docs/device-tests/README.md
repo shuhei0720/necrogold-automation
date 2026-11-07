@@ -1946,3 +1946,5 @@ cd /mnt/necro_test048 && sh test_048.sh
 - artifact保持期限は2026-12-07 UTC。完全sourceは全400追跡ファイルの固定commit archiveで配布する。code/IPA以後は既存5文書だけ更新し、全ZIP CRCと全追跡bytesを照合する。独立実装3観点は第2周でcode/testにP0/P1/P2なし、実配布物と最終sourceの実照合も同周で終了する。
 
 **TEST048の実機テストを依頼する。** 上記build43と完全sourceから実行し、`runtime/test-048`全ZIPと、起動/初歩までの待ち・各ビートで連続して歩くか・商品到達・最後のポーズをこのチャットへ返してもらう。毎拍/人より速い性能、指輪/通知/完全周回・耐久の受入は実機証拠まで未完了。
+
+完全source最終照合: GitHub commit `a7dfcaf1f3f0bae317c8c58dc9861e29dc412231` のAPI取得ZIPは6,797,004bytes/SHA-256 `9bcda96c144c220e60c7f5900c96b91ba3dfc104af82530b14fa1e34d0a9d787`。root・設計・安全が全CRC/安全なinventoryと400/400追跡ファイルの全bytes一致を独立確認し、重複/欠落/余分/不一致はすべて0。独立実装レビュー3観点は各第2周でP0/P1/P2残件なしとして終了。この1段落だけを既存台帳へ追記し、返却する最終commit archiveもrootで全400ファイルを再照合する。code/tests/manifest/IPAはbuild43から不変で、実機未受入の区別も維持する。
