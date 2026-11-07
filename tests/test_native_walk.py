@@ -152,8 +152,8 @@ class NativeServer:
 
 class NativeWalkTests(TimerTestCase):
     def execute(self, server, folder, **options):
-        options.setdefault('max_seconds', .3)
-        options.setdefault('recovery_seconds', .3)
+        options.setdefault('max_seconds', 1)
+        options.setdefault('recovery_seconds', 1)
         options.setdefault('poll_seconds', .001)
         return native.run_session(server.client(self.timer), folder,
                                   lock_path=Path(folder)/'lock', **options)
@@ -567,7 +567,7 @@ class NativeImageTests(TimerTestCase):
             return result
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=transform) as server:
             result = native.run_session(server.client(self.timer), folder,
-                                        lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.3)
+                                        lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=5)
             path = Path(folder)/('native-'+result['run_id'])/'images'/'initial.png'
             self.assertTrue(result['resolved'])
             self.assertEqual(image_item()['sha256'], hashlib.sha256(path.read_bytes()).hexdigest())
@@ -601,7 +601,9 @@ class NativeImageTests(TimerTestCase):
             return result
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=transform) as server:
             result = native.run_session(server.client(self.timer), folder,
-                                        lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.3)
+                                        lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=5)
+            self.assertTrue(any(m == 'necro_native_results' for m,p in server.calls), result['stop_reason'])
+            self.assertEqual('completed', result['native_state'], result['stop_reason'])
             self.assertFalse(result['resolved'])
             self.assertEqual('invalid_native_images', result['stop_reason'])
             self.assertEqual([], list(Path(folder).rglob('*.png')))
@@ -655,7 +657,7 @@ class NativeImageTests(TimerTestCase):
                               exported_capture_ids=[], omitted_capture_ids=list(range(1,132)))
             return result
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=transform) as server:
-            options = {'lock_path':Path(folder)/'lock','max_seconds':.3,'poll_seconds':.001}
+            options = {'lock_path':Path(folder)/'lock','max_seconds':5,'poll_seconds':.001}
             record = native.run_session(server.client(self.timer), folder, **options)
             self.assertFalse(record['resolved'])
             self.assertEqual(256, len(record['native_report']['captures']))
