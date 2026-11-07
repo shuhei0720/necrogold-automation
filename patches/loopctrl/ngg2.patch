@@ -1,14 +1,19 @@
 --- a/LoopCtrlUITests/ActionHandler.swift
 +++ b/LoopCtrlUITests/ActionHandler.swift
-@@ -728,6 +728,7 @@
+@@ -1,3 +1,4 @@
++// Modified for NecroGold NG-G2: bounded native controller, 2026-11-07.
+ // Modified for NecroGold NG-G1: opt-in screenshot image geometry, 2026-11-05.
+ import XCTest
+ import UIKit
+@@ -728,6 +729,7 @@
      }
- 
+
      func dispatch(method: String, params: [String: JSONValue]?) -> ([String: JSONValue]?, JSONRPCError?) {
 +        if let blocked = NG2Runtime.shared.leaseError(method) { return (nil, blocked) }
          let cmd = ActionCommand(method: method, params: params)
          readFrame = nil
          if let t = cmd.elementType, let raws = Self.typeFilterRaws(t), raws.isEmpty {
-@@ -8662,6 +8663,9 @@
+@@ -8662,6 +8664,9 @@
          } else {
              out["hint"] = .string("All \(raw.count) steps completed — the settled screen is attached under `observe`; don't re-read it.")
          }
@@ -20,7 +25,12 @@
              read.visibleOnly = true
 --- a/LoopCtrlUITests/LoopCtrlUITests.swift
 +++ b/LoopCtrlUITests/LoopCtrlUITests.swift
-@@ -1512,7 +1512,14 @@
+@@ -1,3 +1,4 @@
++// Modified for NecroGold NG-G2: bounded native controller, 2026-11-07.
+ import XCTest
+ import UserNotifications
+ import UIKit
+@@ -1512,7 +1513,14 @@
                  if status == .advertising { self.setLocalNetworkAccess("granted") }
              }
          }
@@ -35,7 +45,7 @@
              guard let self = self else {
                  completion(nil, .internalError)
                  return
-@@ -1589,7 +1596,9 @@
+@@ -1589,7 +1597,9 @@
                  // wrap it in an Obj-C @try/@catch so a stale/non-hittable element
                  // turns into a JSON-RPC error instead of a SIGABRT.
                  let work = {
@@ -46,7 +56,7 @@
                          result = self.handleConfig(params)
                      } else if let handler = self.actionHandler {
                          // Touches made now are drawn on viewers' pages as this sender's.
-@@ -1701,6 +1710,7 @@
+@@ -1701,6 +1711,7 @@
              self.updateRemoteNotification()
          }
          RemoteSession.shared.onChange = { [weak self] in
@@ -56,8 +66,13 @@
          }
 --- a/LoopCtrlKit/RPCMethod.swift
 +++ b/LoopCtrlKit/RPCMethod.swift
-@@ -26,6 +26,20 @@
- 
+@@ -1,3 +1,4 @@
++// Modified for NecroGold NG-G2: bounded native controller, 2026-11-07.
+ // Modified for NecroGold NG-G1: opt-in screenshot image geometry, 2026-11-05.
+ import Foundation
+
+@@ -26,6 +27,20 @@
+
  struct RPCMethodRegistry {
      static let methods: [RPCMethodDef] = [
 +        RPCMethodDef(name: "necro_native_start",
@@ -77,16 +92,16 @@
          RPCMethodDef(
              name: "config",
              description: "Read or update server settings and manage authorized sessions. With no params: returns current config plus the list of authorized sessions (client name, masked token prefix, granted/expiry times). Pass allow_remote_access and/or listen_port to change settings (persisted; server restarts, dropping the connection — reconnect at the returned address). Pass revoke_session_id to remove one session, or clear_sessions=true to revoke ALL tokens (including your own). Pass stop_server=true to SHUT DOWN the service (stops listening after replying; re-launch the runner to restart — tokens are preserved so no re-auth is needed).",
-@@ -549,7 +563,7 @@
+@@ -549,7 +564,7 @@
      /// release that added the encrypted auth channel plus the docs/Skill,
      /// clear-text, page-source, and reliability improvements. Single source of
      /// truth for /schema AND device_info.
 -    static let serverVersion = "1.98.14-ngg1"
 +    static let serverVersion = "1.98.14-ngg2"
- 
+
      /// When this binary was built, as "YYYY-MM-DD HH:MM".
      ///
-@@ -569,6 +583,7 @@
+@@ -569,6 +584,7 @@
      /// call (no separate /schema fetch needed). Keep in sync with what the server
      /// actually implements.
      static let capabilityTags: [String] = [
@@ -96,7 +111,8 @@
          "video_stream",        // GET /stream (framed H.264, docs/remote-control.md)
 --- a/LoopCtrlKit/JSONRPCServer.swift
 +++ b/LoopCtrlKit/JSONRPCServer.swift
-@@ -1,6 +1,22 @@
+@@ -1,6 +1,23 @@
++// Modified for NecroGold NG-G2: bounded native controller, 2026-11-07.
  import CryptoKit
  import Foundation
  import Network
@@ -116,19 +132,19 @@
 +    }
 +}
 +// NG-G2 END authenticated owner projection.
- 
+
  class JSONRPCServer {
      private var listener: NWListener?
-@@ -35,6 +51,8 @@
+@@ -35,6 +52,8 @@
      private let queue = DispatchQueue(label: "top.ebato.loopctrl.server")
      private(set) var isRunning = false
- 
+
 +    /// Admission gate for the native UI lease; evaluated after authentication.
 +    var onRPCLeaseCheck: ((String) -> JSONRPCError?)?
      var onRPCRequest: ((String, [String: JSONValue]?, @escaping ([String: JSONValue]?, JSONRPCError?) -> Void) -> Void)?
      var onStateChange: ((Bool) -> Void)?
      /// Hand off an authorized connection to the screen stream (the host owns
-@@ -1223,6 +1241,10 @@
+@@ -1223,6 +1242,10 @@
                  data: ["code": .string("paused_by_owner"), "outcome": .string("not_sent"), "retry_safe": .bool(true)])))
              return
          }
@@ -139,8 +155,8 @@
          let controlled = Self.uiMutatingMethods.contains(rpcRequest.method)
          var actionID = 0
          var actor: [String: JSONValue] = [:]
-@@ -1243,6 +1265,8 @@
- 
+@@ -1243,6 +1266,8 @@
+
          let method = rpcRequest.method
          var params = rpcRequest.params
 +        // Never trust a caller-provided owner or actor for native operations.
@@ -150,28 +166,43 @@
          // from; set here, after authentication, and overwriting any value the
 --- a/LoopCtrlKit/RemoteSession.swift
 +++ b/LoopCtrlKit/RemoteSession.swift
-@@ -246,6 +246,7 @@
+@@ -1,3 +1,4 @@
++// Modified for NecroGold NG-G2: bounded native controller, 2026-11-07.
+ import Foundation
+
+ /// Who is watching and driving the phone right now, what each of them did,
+@@ -246,6 +247,7 @@
      /// reads or touches the screen.
      static let allowedWhilePaused: Set<String> = [
          "control", "device_info", "logs", "config", "stream_ack", "stream_ticket", "is_locked", "wait",
 +        "necro_native_status", "necro_native_cancel",
      ]
- 
+
      /// A short, non-sensitive description of an action for the logs: where
 --- a/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
 +++ b/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
-@@ -10,6 +10,8 @@
+@@ -1,3 +1,4 @@
++// Modified for NecroGold NG-G2: bounded native controller, 2026-11-07.
+ #ifndef XCTestPrivate_Bridging_Header_h
+ #define XCTestPrivate_Bridging_Header_h
+
+@@ -10,6 +11,8 @@
  #import "ObjCException.h"
  #import "AutomationSession.h"
  #import "DeviceKeys.h"
 +#import "NG2Controller.h"
 +#import "NG2CaptureBridge.h"
- 
+
  @interface EarlyURLHook : NSObject
  + (NSArray<NSURL *> *)drainURLs;
 --- a/LoopCtrlUITests/ScreenStream.swift
 +++ b/LoopCtrlUITests/ScreenStream.swift
-@@ -612,8 +612,14 @@
+@@ -1,3 +1,4 @@
++// Modified for NecroGold NG-G2: bounded native controller, 2026-11-07.
+ import CoreGraphics
+ import CoreMedia
+ import CoreVideo
+@@ -612,8 +613,14 @@
              let wait = slot - CACurrentMediaTime()
              // A nudge (an action just changed the screen) captures at once.
              if wait > 0 { _ = wake.wait(timeout: .now() + wait) }
@@ -187,6 +218,41 @@
                  misses += 1
                  if misses == 3 {
                      // Captures that overlap may be what fails on this OS:
+--- a/LoopCtrlUITests/ObjCException.m
++++ b/LoopCtrlUITests/ObjCException.m
+@@ -1,8 +1,14 @@
++// Modified for NecroGold NG-G2: bounded native controller, 2026-11-07.
+ #import "ObjCException.h"
++#import "NG2CaptureBridge.h"
+ #import <objc/message.h>
+ #import <CoreGraphics/CoreGraphics.h>
+ #import <objc/runtime.h>
++#ifndef NG2_CAPTURE_HOST_TEST
+ #import <XCTest/XCTest.h>
++#else
++#import "NG2CaptureHostTest.h"
++#endif
+
+ // performSelector on a runtime-resolved selector: ARC cannot see the
+ // ownership convention, and these all follow the standard one.
+@@ -76,7 +82,17 @@
+         __block id image = nil;
+         __block NSError *error = nil;
+         void (*send)(id, SEL, id, id) = (void (*)(id, SEL, id, id))objc_msgSend;
++        NSLock *completionLock = [NSLock new];
++        __block BOOL completed = NO;
++        // The real request remains pending after a legacy wait timeout. Only
++        // its actual daemon callback releases native capture exclusion.
++        [NG2CaptureBridge legacyRequestBegan];
+         send(session, request, req, ^(id img, NSError *err) {
++            [completionLock lock];
++            BOOL first = !completed; completed = YES;
++            [completionLock unlock];
++            if (!first) { return; }
++            [NG2CaptureBridge legacyRequestEnded];
+             image = img; error = err;
+             dispatch_semaphore_signal(done);
+         });
 --- a/project.yml
 +++ b/project.yml
 @@ -227,6 +227,11 @@
