@@ -177,6 +177,7 @@ class DoorwayTests(unittest.TestCase):
                     scene=walk.Driver.scene;goods=walk.Driver.goods;choose=walk.Driver.choose
                     movement=walk.Driver.movement;note_step=walk.Driver.note_step
                     track_observation=walk.Driver.track_observation
+                    route_context=walk.Driver.route_context
                     def __init__(self):
                         super().__init__([]);self.images_in=iter(frames);self.n=0
                         self.entrance=None;self.visits={(0,0):1};self.model=None;self.snapshots=[]

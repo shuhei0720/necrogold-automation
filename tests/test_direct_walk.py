@@ -257,7 +257,9 @@ class DirectWalkTests(unittest.TestCase):
             self.assertTrue(any(s['http_start_ns'] == candidate['_http_start_ns'] for s in driver.samples))
             self.assertIsNot(final_frame, candidate)
             self.assertIsNotNone(driver.scene(final_frame))
-            self.assertGreaterEqual(sum(light for _, light in captures), 3)
+            self.assertEqual(2,sum(light for _, light in captures))
+            self.assertEqual(4,len(captures))
+            self.assertEqual(4,model['sample_count'])
             self.assertEqual([], sent); self.assertEqual([], driver.state['actions'])
 
     def test_actual_goods_candidate_with_beat_failure_is_directly_held(self):

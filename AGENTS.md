@@ -165,3 +165,13 @@ new_report/new_walk/read_reportの未準備schemaはPillow/nativeをimportしな
 fresh候補は先にlatch/checkpointし、厳密Trueのhandoff時だけ同一floor/完全Scene/HUDを通常同期の初標本にして中間pause/resumeを省く。4点/2秒・fresh full・入力guardは維持。callback拒否/解析失敗はpause保持し自動resumeしない。商品は拍解析失敗でも優先保持。候補受渡し後のsource変更はnavigation_unknownとして金壁不在にしない。
 
 3機能とpure factoryで実装前assertion Red/0errors→Green。レビュー指摘修正にも挙動Redと変異検出を追加。関連400件375成功/旧外部画像不足25skip（32.994秒）、新規64件skip0。プラン設計2周・試験/安全各1周、実装設計/安全各2周・試験3周でP0/P1/P2残件なし。詳細は既存台帳末尾。R12全40・native/C/IPA・座標・拍算術/期限/入力上限は不変。全経路毎拍・人より速い受入は未達。新通常1-1を手動restart/pauseしてTEST041を依頼。全コードは同じ既承認ブランチへ保存しprivate GitHub commit archiveで配布、生画像/report/ZIP/logはGit外。
+
+## TEST042 increment
+
+TEST041はfork/直接handoff・商品/最終pause成功。初方向reportから18.587216秒、親moduleから30.987308秒。全左6RPCの間隔3.109378/4.169256/.523790/4.693463/.524907秒、未送信2回/late検査3回・予定3→1縮退が残り、userは『理想はビートスキップなし』と指示。撮影中央値.537063秒は拍~.522秒以上で、毎歩full観測を直列に行う方式で全経路毎拍は達成できない。今回mixedは未使用。人より速い/全経路毎拍の要件を下げず、観測済み区間を期限内で長く連続実行する余裕を作る。
+
+TEST042/shop-walk-v27/runtime/test-042: choose時のobs/Scene内容・position/visits/entrance・modelidentity+deep内容・lead/trials・issued数をsnapshotし、正規decision identity+内容からだけprivate使い切りproofをmint。mint時・perform前・guard/checkpoint/最終待機後・各followupに拘束を持ち回り、issued数は元+ordinalで検査。proofなしは旧完全検証。同値copy/別obs/他Driver/任意dictを信頼せず、変化した新contextの後付snapshotで正当化しない。直線count>=2でmixedを再探索せず、helperは撮影前に読む。
+
+最後25msのみclockを読む待機を初回/全followupへ適用。tuple(timeout,validated_ns)は検査済時刻から残時間を計算し、検査後clockが得た時刻を捨てる分岐を作らない。未到達ならspin後再検査。10ms超過・取消/期限は未送信。画像/位相/session/walkが有効で前面だけが古い未送信候補はperform内一度だけguard更新、同じtargetを再検査し過ぎていたら別候補追加なし。新frontでも1秒+10ms予約を維持。全体2回full更新・未知/発行済み無再送は不変。
+
+初期同期は3標本後の撮影をfullとし、fitの最新HTTP標本と同一のfresh完全Scene/HUDならそのままaccept。4点/2秒・profile/閾値は不変。全新規observeは初期引数を除きlight/full/既存model handoffを合算12回、12秒枠内。主4点の挙動Red全0errors→Green、独立レビューP1には9assertion Red→Green/独立変異。関連432件407成功/旧外部画像不足25skip（33.893秒）、新規32件skip0。プラン/実装の設計/試験/安全各2周で残P0/P1/P2なし。全C/native/IPA/R12/座標/拍算術は不変。新1-1を手動restart/pauseしてTEST042を依頼し、初動・3/4連続の適用・間隔・商品/停止と全未完了分母を調べる。今回は画像/制御並列化未実装。生画像/report/ZIP/logはGit外、既承認work/p1-capture-probeへ保存しprivate commit archiveで全コード配布。

@@ -100,7 +100,11 @@ class TimingSelectionTests(unittest.TestCase):
                 from necroprobe.input_timing import LEADS_NS
                 d.state['lead_trials']=[{'lead_ns':value,'direction':'left','motion':'moved' if value==lead else 'blocked'}
                                         for value in LEADS_NS[:LEADS_NS.index(lead)+1]]
-                self.assertEqual(2,d.perform('left',before,model,count=2))
+                # 同期短縮でepochが変わっても、先行量の伝播を同じ前面期限内で検証する。
+                # 前面1秒/10ms境界はtest_foreground_windowで独立して検証する。
+                target=now[0]+lead+300_000_000
+                with patch.object(beat_sync,'next_target',return_value=target):
+                    self.assertEqual(2,d.perform('left',before,model,count=2))
                 for a in d.state['actions']:
                     self.assertEqual(lead,a['dispatch_lead_ns']);self.assertEqual(lead,a['target_ns']-a['issued_ns'])
                 self.assertEqual(model['period_ns'],d.state['actions'][1]['target_ns']-d.state['actions'][0]['target_ns'])

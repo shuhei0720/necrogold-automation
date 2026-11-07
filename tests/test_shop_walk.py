@@ -344,6 +344,7 @@ class WalkTests(unittest.TestCase):
             d=p.Driver(LiveStub(),r,folder,now[0]+20_000_000_000,folder,clock=lambda:now[0])
             d.state['started_ns']=now[0]
             d.sleeper=lambda seconds:now.__setitem__(0,now[0]+round(seconds*1e9))
+            d.spin_wait=lambda until:d.sleeper(max(0,(until-d.clock())/1e9))
             d.last=dict(obs(),_captured=now[0],_extra={'scene':SimpleNamespace(goods='unknown')})
             target=now[0]+600_000_000
             # tapと名付けられた応答はgesture成功と扱わない。
@@ -395,6 +396,8 @@ class SyncDeadlineTests(unittest.TestCase):
         d.state['lead_confirmed']=True  # 既存単体試験は先行量選択後の制御を検証。
         d.state['lead_trials']=[{'lead_ns':p.LEAD_NS,'direction':'left','motion':'moved'}]
         d.sleeper=lambda seconds:now.__setitem__(0,now[0]+round(seconds*1e9))
+        # 仮想clockはsleepで進む。末尾spinも同じsleep hookへ正確に進める。
+        d.spin_wait=lambda until:d.sleeper(max(0,(until-d.clock())/1e9))
         d.last=dict(obs(),_captured=now[0],_extra={'scene':SimpleNamespace(goods='unknown'),'beat':None})
         return d,now
 
@@ -539,7 +542,7 @@ class SyncDeadlineTests(unittest.TestCase):
             with patch.object(gold_scan,'analyze_image',side_effect=lambda image, **kwargs:deepcopy(A)), \
                  patch.object(shop_navigation,'scan',return_value=SimpleNamespace(goods='unknown')):
                 first=d.observe();before,model=d.synchronize(first)
-                self.assertIsNotNone(model);self.assertGreaterEqual(model['sample_count'],5)
+                self.assertIsNotNone(model);self.assertGreaterEqual(model['sample_count'],4)
                 self.assertLess(now[0]-origin,12_000_000_000)
                 self.assertAlmostEqual(520_000_000,model['period_ns'],delta=2_000_000)
                 d.perform('left',before,model);self.assertIsNone(d.last)
@@ -556,8 +559,8 @@ class SyncDeadlineTests(unittest.TestCase):
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-041',r['test_id']);self.assertEqual('shop-walk-v26',r['revision'])
-            self.assertEqual('runtime/test-041',p.parser().parse_args([]).output)
+            self.assertEqual('TEST-042',r['test_id']);self.assertEqual('shop-walk-v27',r['revision'])
+            self.assertEqual('runtime/test-042',p.parser().parse_args([]).output)
             self.assertIsNone(r['walk']['navigation_engine'])
             self.assertIsNone(r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):
@@ -661,10 +664,10 @@ class SyncDeadlineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder,self.measured_runtime(folder) as (d,now,captures,scenes,sent):
             first=d.observe();start=now[0]
             before,model=d.synchronize(first)
-            self.assertIsNotNone(model);self.assertEqual(5,model['sample_count'])
+            self.assertIsNotNone(model);self.assertEqual(4,model['sample_count'])
             self.assertAlmostEqual(520_000_000,model['period_ns'],delta=2_000_000)
             self.assertLess(now[0]-start,12_000_000_000)
-            self.assertEqual(2,len(scenes));self.assertEqual(3,sum(light for _,light in captures))
+            self.assertEqual(2,len(scenes));self.assertEqual(2,sum(light for _,light in captures))
             self.assertIs(before,d.last);self.assertIsNot(before,first)
             self.assertIs(before['_extra']['scene'],scenes[-1])
             self.assertIsNot(before['_extra']['scene'],first['_extra']['scene'])
@@ -704,7 +707,7 @@ class SyncDeadlineTests(unittest.TestCase):
                 self.assertFalse(d.beat_only);self.assertIsNone(d.sync_deadline)
 
     def test_24_full_handoff_failure_never_returns_model_or_leaves_modes(self):
-        boundaries={'phase':'beat_unconfirmed','scene':'navigation_unknown','unknown':'navigation_unknown',
+        boundaries={'phase':'beat_sync_timeout','scene':'navigation_unknown','unknown':'navigation_unknown',
                     'stale':'navigation_unknown','light_capture':'connection_error',
                     'sync':'beat_sync_timeout','session':'session_deadline','walk':'walk_limit',
                     'capture':'connection_error','foreground':'foreground_not_verified',
@@ -712,7 +715,11 @@ class SyncDeadlineTests(unittest.TestCase):
         for boundary,expected in boundaries.items():
             with self.subTest(boundary=boundary),tempfile.TemporaryDirectory() as folder, \
                  self.measured_runtime(folder) as (d,now,captures,scenes,sent):
-                first=d.observe();observe=d.observe;track=d.track_beat
+                first=d.observe()
+                if boundary!='light_capture':
+                    # 初期取得は同じfullで完了する。ここは既存modelのfull追跡を検証。
+                    d.synchronize(first);d.beat_only=True;first=d.observe();d.beat_only=False
+                observe=d.observe;track=d.track_beat;fit=d.fit_beat
                 def handoff():
                     if d.beat_only and boundary=='light_capture':raise ProbeError('connection_error')
                     if not d.beat_only and boundary=='capture':raise ProbeError('connection_error')
@@ -729,7 +736,9 @@ class SyncDeadlineTests(unittest.TestCase):
                         elif boundary=='walk':d.state['started_ns']=now[0]-p.WALK_SECONDS*1_000_000_000
                     return fresh
                 def tracking(model):return None if boundary=='tracking' else track(model)
-                with patch.object(d,'observe',side_effect=handoff),patch.object(d,'track_beat',side_effect=tracking):
+                def acquisition():return None if boundary in ('phase','tracking') else fit()
+                with patch.object(d,'observe',side_effect=handoff), \
+                     patch.object(d,'track_beat',side_effect=tracking),patch.object(d,'fit_beat',side_effect=acquisition):
                     with self.assertRaises(ProbeError) as caught:
                         d.synchronize(first)
                 self.assertEqual(expected,caught.exception.code)
@@ -814,10 +823,10 @@ class SyncDeadlineTests(unittest.TestCase):
             self.assertIsNot(before,old);self.assertIs(before,d.last)
             self.assertFalse(captures[count][1]);self.assertFalse(captures[-1][1])
             self.assertTrue(all(light for _,light in captures[count+1:-1]))
-            self.assertEqual(3,len(captures[count+1:-1]))
+            self.assertEqual(2,len(captures[count+1:-1]))
             self.assertTrue(all(item['http_start_ns']>sample['http_end_ns'] for item in d.samples))
             self.assertLess(now[0]-start,12_000_000_000)
-            self.assertEqual(['acquired','tracking'],[item['mode'] for item in d.state['models']])
+            self.assertEqual(['acquired'],[item['mode'] for item in d.state['models']])
             self.assertEqual(fresh_model,d.state['models'][-1])
             d.perform('left',before,fresh_model)
             self.assertEqual([p.move_batch('left')],sent)
@@ -829,7 +838,10 @@ class SyncDeadlineTests(unittest.TestCase):
         for age in (beat_sync.FRESH_NS-1,beat_sync.FRESH_NS,beat_sync.FRESH_NS+1,-1):
             with self.subTest(age=age),tempfile.TemporaryDirectory() as folder, \
                  self.measured_runtime(folder) as (d,now,captures,scenes,sent):
-                d.synchronize(d.observe());current=d.observe();count=len(captures)
+                # 境界以外の追跡gap条件が変わらないよう、確立済み8点windowを使う。
+                with patch.object(d,'fit_beat',side_effect=lambda:beat_sync.fit(d.samples,profile=beat_sync.ZONE1_1_PROFILE)
+                                  if len(d.samples)>=8 else None):d.synchronize(d.observe())
+                current=d.observe();count=len(captures)
                 current['_captured']=now[0]-age;old_samples=deepcopy(d.samples)
                 original=d.observe;first=[True]
                 def fresh():
@@ -843,7 +855,7 @@ class SyncDeadlineTests(unittest.TestCase):
                 stale=not 0<=age<=beat_sync.FRESH_NS
                 self.assertEqual(not stale,result is current)
                 self.assertEqual(count+int(stale),len(captures))
-                self.assertEqual(3,len(d.state['models']))
+                self.assertEqual(2,len(d.state['models']))
                 self.assertEqual(model,d.state['models'][-1])
                 self.assertTrue(any(sample in old_samples for sample in d.samples))
                 self.assertEqual([],sent);self.assertFalse(d.pending)
@@ -900,7 +912,7 @@ class SyncDeadlineTests(unittest.TestCase):
                 self.assertEqual(1,len(saved));self.assertTrue(saved[0]['walk']['input_pending'])
                 self.assertEqual('unknown',saved[0]['walk']['actions'][-1]['outcome'])
                 self.assertIsNone(saved[0]['walk']['actions'][-1]['target_ns'])
-                self.assertEqual(previous['mode'],saved[0]['walk']['models'][-1]['mode'])
+                self.assertEqual(model['mode'],saved[0]['walk']['models'][-1]['mode'])
                 self.assertEqual(p.MAX_STEPS+1,len(d.state['models']))
                 self.assertEqual(1 if boundary=='valid' else 0,len(sent))
 
@@ -950,20 +962,23 @@ class SyncDeadlineTests(unittest.TestCase):
                         _http_start_ns=sample['http_start_ns'],_http_end_ns=sample['http_end_ns'],
                         _extra={'scene':SimpleNamespace(goods='unknown'),'beat':{
                             key:sample[key] for key in ('remaining','spacing_px','center_px')}})
-                frames=[frame(sample) for sample in samples];d.last=frames[0]
-                now[0]=frames[0]['_http_end_ns']+1_200_000_000
+                frames=[frame(sample) for sample in samples]
+                # 初期取得の4点目fullは別試験。ここは旧020の既存lock追跡を維持。
+                d.last=frames[-2];d.last['_extra']['scene']=None
+                d.model=initial;d.samples=deepcopy(samples[:-1]);d.state['samples']=d.samples
+                now[0]=frames[-1]['_http_start_ns']-1
                 d.state['started_ns']=now[0];d.stop_ns=now[0]+100_000_000_000
-                captures=[];pending=iter(frames[1:])
+                captures=[];pending=iter(frames[-1:])
                 def observe():
                     d.last=next(pending);captures.append(d.beat_only)
                     now[0]=d.last['_http_end_ns']+(250_000_000 if d.beat_only else 1_200_000_000)
                     return d.last
                 with patch.object(d,'observe',side_effect=observe):
-                    before,model=d.synchronize(frames[0])
-                self.assertIs(before,frames[len(captures)]);self.assertIs(model,d.model)
+                    before,model=d.synchronize(frames[-2])
+                self.assertIs(before,frames[-1]);self.assertIs(model,d.model)
                 self.assertEqual('tracking',model['mode'])
-                self.assertEqual([True]*(len(captures)-1)+[False],captures)
-                self.assertEqual(samples[:len(captures)+1],d.samples);self.assertEqual([],d.state['actions'])
+                self.assertEqual([False],captures)
+                self.assertEqual(samples,d.samples);self.assertEqual([],d.state['actions'])
 
     def test_35_preparation_finishes_before_waiting_to_actual_lead(self):
         from necroprobe import beat_sync
@@ -1043,7 +1058,7 @@ class SyncDeadlineTests(unittest.TestCase):
             d.perform('left',before,updated)
             self.assertEqual([p.move_batch('left')]*2,sent)
             self.assertEqual(before['_raw'],d.images['run-099.jpg'])
-            self.assertEqual(['acquired','tracking','tracking'],[m['mode'] for m in d.state['models']])
+            self.assertEqual(['acquired','tracking'],[m['mode'] for m in d.state['models']])
 
     def test_39_final_wait_rechecks_every_stop_boundary_before_rpc(self):
         from necroprobe import beat_sync
@@ -1100,12 +1115,12 @@ class SyncDeadlineTests(unittest.TestCase):
                      patch.object(shop_navigation,'scan',side_effect=goods), \
                      patch.object(d,'observe',side_effect=collect):
                     before,updated=d.synchronize(current)
-                self.assertEqual(count+4,len(captures));self.assertTrue(all(light for _,light in captures[count:-1]))
+                self.assertEqual(count+3,len(captures));self.assertTrue(all(light for _,light in captures[count:-1]))
                 self.assertFalse(captures[-1][1]);self.assertLess(now[0]-start,12_000_000_000)
                 self.assertFalse(any(sample in old_samples for sample in d.samples))
                 self.assertEqual(visible,d.state['goods_visible']);self.assertIs(before,d.last)
                 if visible:self.assertIsNone(updated);self.assertEqual('visible',d.goods(before))
-                else:self.assertEqual('tracking',updated['mode']);self.assertIs(updated,d.model)
+                else:self.assertEqual('acquired',updated['mode']);self.assertIs(updated,d.model)
                 self.assertEqual([],sent);self.assertFalse(d.beat_only);self.assertIsNone(d.sync_deadline)
 
     def test_42_final_wait_lateness_budget_is_not_the_game_acceptance_window(self):
@@ -1286,19 +1301,20 @@ class SyncDeadlineTests(unittest.TestCase):
                     else:
                         before,model=d.synchronize(old)
                         self.assertIsNot(before,old);self.assertIs(before,d.last)
-                        self.assertEqual(5,model['sample_count']);self.assertEqual('tracking',model['mode'])
+                        self.assertEqual(4,model['sample_count']);self.assertEqual('acquired',model['mode'])
                         direction=d.choose(before)['direction'];self.assertEqual('left',direction)
                         with self.assertRaises(ProbeError) as caught:d.perform(direction,before,model)
                         self.assertEqual('dispatch_window_expired',caught.exception.code)
                         self.assertEqual([],sent)
                         action=d.state['actions'][-1]
-                        self.assertEqual(2_940_185_306,action['target_checks'][-1]['checked_ns']-before['_captured'])
+                        self.assertEqual(2_664_574_000+81_074_000+142_179_000+105_616_000,
+                                         action['target_checks'][-1]['checked_ns']-before['_captured'])
                         self.assertIsNone(action['issued_ns'])
                         self.assertEqual('not_requested',action['outcome']);self.assertFalse(d.pending)
                         p.write(folder,d.outer)
                         saved=p.read_report(Path(folder)/'report.json',d.outer['run_id'],d.outer['start_ns'])
                         self.assertEqual(model,saved['walk']['models'][-1])
-                    self.assertEqual([True,True,True,True,False],captures)
+                    self.assertEqual([True,True,True,False],captures)
 
     def test_55_late_target_skips_without_rpc_then_next_target_is_checked(self):
         for second_late in (False,True):
@@ -1528,6 +1544,7 @@ class SyncDeadlineTests(unittest.TestCase):
                 with self.subTest(stage=stage,boundary=boundary),tempfile.TemporaryDirectory() as folder, \
                      self.measured_runtime(folder) as (d,now,captures,scenes,sent):
                     before,tracked=d.synchronize(d.observe())
+                    if stage=='tracking':before,tracked=d.synchronize(d.observe())
                     bad=deepcopy(tracked if stage=='tracking' else d.state['models'][0])
                     del bad['cadence_profile'];bad['period_ns']=700_000_000
                     if stage=='acquired_without_mode':del bad['mode']

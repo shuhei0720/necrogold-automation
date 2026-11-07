@@ -1417,3 +1417,64 @@ cd /mnt/necro_test041 && sh test_041.sh
 ```
 
 ゲームを表示して待ち、終了後の**`runtime/test-041`をZIPで返す**。最初の一歩までの待ち、途中の歩行間隔、商品表示と最終ポーズ、途中停止を確認する。可能なら開始から曲がり角までの短い動画も添える。ポーズ未確認なら手動でポーズする。`worker_mode`とstartup、実方向列/観測数をこちらで分析し、未完了試行も結果に含める。全経路毎拍・人より速い性能は今回まだ達成宣言しない。
+
+## TEST-041受領結果（2026-11-07 日本時間）
+
+ユーザーは「歩行開始と歩行がまだ遅い。理想はビートスキップなし」と報告。ZIP417,248bytes、SHA-256 `f1554dcd4732d2edbba6959e8f0255292dd4b929fbcf1b2e9826f13dacd436c1`、report SHA-256 `caf7072847f794be02067ba8738b63f334dbe82f59a88d02f0e62c0210c6133b`、run `shop-walk-20261107T015727Z-27180009`。親子report一致、goods_visible/paused=true、worker_mode=fork。全6方向RPCは左でmixedは未適用。確認4歩、終端開扉/進入2RPCは商品優先で歩数未加算。
+
+report開始→初方向18.587216秒（04029.171752）、親module開始→初方向30.987308秒（04041.018943）。parent report準備0.087164秒、子module→entry0.000085秒、子検証0.047263秒。必要な解析準備はDriver3.551901秒に移っており、旧検証の全時間を削減とは数えない。候補→walk開始0.036060秒で直接handoff成立、候補→初方向5.459193秒。親module→report開始12.400092秒は複合stage、script preflightはさらに前で未計測。
+
+walk21.874078秒、実方向間隔3.109378/4.169256/0.523790/4.693463/0.524907秒。040とは別配置のため時間差を変更の因果効果にしない。直線予定3入力は画像年齢2.503秒となり1入力へ縮退し、2入力終了見込みでも3.224131451秒で3秒を超えた。最終dispatch検査の遅れ13.262367/23.292969/10.382015msで10ms上限を超え、うち後2回は未送信後full再取得した。これはsleep起床だけの遅れとは未分離。1回目の次候補は前面年齢1.015727683秒だけが期限外で、画像2.547726683/位相2.464382183秒は有効。2回目は画像3.090880707/位相3.005729707秒でfull更新が必要だった。
+
+capture中央値0.537063秒、navigation中央値0.347368秒、方向RPC約0.410〜0.450秒。motionは196.523/214.550/949.121ms。各歩ごとのfull観測を直列に処理して全経路毎拍にはできない。初期同期は候補+軽量3画像で4点fit後に別full画像を追加しており、4→5点の中点差0.880345秒。直線の計画でもchoose/burst/mixed/performで同じSceneのBFSを最大5回行っている。ホスト実run101の参考中央値は現構成0.560162ms、choose+burst0.205877ms（各7群×1000回）。実機の未分離準備区間を全てBFS費用と断定しない。
+
+## TEST-042の8項目プラン
+
+1. **概要**: 毎拍歩行へ向け、観測済み連続区間の実行準備と初期同期の不要な待ちを減らす。安全な直線3〜4入力が元画像/位相3秒内に収まる機会を増やす。全経路で拍飛ばし0は実機で別途判定し、今回の達成を約束しない。
+2. **背景**: TEST041でforkと直接handoffは成立したが、重複計画と期限間近の待機が残り、予定3→1縮退と未送信2回が発生。連続2入力は約1拍で成立しており、入力間の重い処理を増やさず準備の余裕を作る。
+3. **詳細設計**: (A) Driver.route_directionsはcount>=2の直線ではmixed_pairを呼ばない。正規のchoose→route_directionsが決めた列をprivate使い切りproofへ保存し、performは同一obs/Sceneの内容、position/visits/entrance、lead/trials、model内容、残り入力数と列/要求の完全一致を再検査してから消費する。一致時だけ重複choose/burst/mixedを省く。変異・使い回しは入力前拒否。proofのないpublic performは従来の完全検証を保つ。helperはDriver初期化時に読み込み、初回撮影後へcold importを持ち込まない。(B) dispatchの最後の25ms以内だけclockを読みながら待つ。長い部分は既存の短いsleepとbudget/取消検査、最後の短い待機の前後にも取消/全入力条件を確認し、10ms許容・時刻の意味を保つ。busy待機は1入力25ms以下を目安とし、実行遅延が増えれば送信せず従来どおり停止/更新する。次候補の失効が前面1秒だけで、画像/位相・session/walkが有効な未送信準備中なら、perform1回につき一度だけguardを更新し同じ候補を再検査する。guard後にその候補を過ぎていれば次の別候補を追加せず未送信。元の2候補/全体2回full更新は増やさず、既送信/unknown後はこの回復を使わない。(C) 初期同期で3標本を持った次の撮影をfullにする。4点以上/2秒以上のfitが成立し、その最新画像自身が完全Scene/HUD・last identity・fresh full・goodsなし・同一1-1であれば、その画像をacceptして余分なfull取得を省く。不成立は同じ12秒/12取得枠で継続し、軽量画像しかない時や既存model追跡のfull handoffは従来経路を維持する。商品は常に先に保持する。
+4. **影響範囲**: shop_walkの計画proof/最終待機/前面だけの未送信更新/同期、必要なら小さな待機helper、TEST042識別/起動script、必要試験と既存資料。旧R12・全C/native/IPA・座標・fit/track/閾値・3秒/1秒/10ms・16入力/45秒・未知入力無再送は不変。fork/既定collect/候補保持を崩さない。旧raw fixtureは不変で現schemaコピーだけ識別を補う。
+5. **新規試験**: 公開walk/Driver入口で重複探索、遅いsleepによる未送信、前面だけでのfull再取得、同期の余分なfull撮影を対象に、挙動Redを観測してからGreen。proofの使い回し・Scene/position/visits/entrance/model/lead/actual countの変異、partial goods/閉扉/混在/初回lead未確認は従来安全契約。待機は早い/遅いsleep・遅い検査・取消・期限・境界を人工時計で再現し、未知ACK/例外/2候補限度を確認。guard更新は成功/guard失敗/時間消費/画像期限切れを分ける。同期は4点/2秒未達、fit失敗、full不在/古い/identity変更、商品、black/pause、取消/12秒を確認。ホストclockをiSHの実受付や速度に読み替えない。
+6. **順序**: fresh-context設計/試験/安全プランレビュー→各機能の意味あるassertion Red→最小実装/担当分割→Green/既存回帰→独立実装レビュー最大3周→Git保存/全コードZIP→ユーザー実機テスト。rootは計画proofと前面更新統合、担当は待機helperと同期の限定関数を分担し、編集箇所を明示する。
+7. **保存前・実機条件**: 全対象試験/構文/preflight/秘密値/旧資産/全コードZIP照合。次の実機では初歩まで、連続入力数・間隔・未送信/縮退、観測数、商品/最終pauseと未完了試行を記録する。商品保持済みなので新しい通常1-1を手動restart/pauseしてTEST042。IPA変更なし。
+8. **スコープ外・残る課題**: 無条件連打、未知床への推測移動、3秒等の緩和、同時RPCや画像/制御の並列化、nativeバイナリ変更、初期4点/2秒の短縮、受付時刻の保証、指輪判定/完成周回。全経路の毎拍歩行には取得/解析と制御を並行させる別設計が必要であり、今回は観測済み区間の安全な連続化を先に実機で評価する。
+
+TEST042プラン補足: proofは正規Driver.chooseが保持したdecisionのidentityと内容からだけ作り、choose時点のobs/Scene内容・position/visits/entrance・model/lead状態をmint時にも照合する。途中で変化した新状態を後付けsnapshotして正当化しない。perform初送信前と全followupでも拘束を保ち、既送信数だけは元の記録数＋ordinalと照合する。busy待機のspinは依存注入可能にし、旧仮想時計fixtureには正確な末尾進行を与え、新規Driver統合時計ではclock読取も進めsleep overshootを再現する。初回だけでなく2/3/4入力目も検証する。同期の12取得上限は呼び出し時に渡された初期画像を除く新規observe開始総数とし、light/full/追跡handoffの全取得を数える。前面回復で期待が変わる旧境界試験は、新guardの期限・同じtarget・更新一度限度を期待値にする。
+
+試験期待の追加: decisionのcopy/同値任意dict/別obsの正規decision/内容変異/別Driverのdecisionはproof経路を使わず、従来完全検証または入力0を確認する。guard回復後もuntil+10ms<=新front+1秒を要求し、guardの時間消費で元targetを過ぎれば未送信として別targetを加えない。ACK遅延・最終検査自体の遅延で10msを超える対照例は、新待機でも必ず未送信とする。
+
+## TEST-042の実装・検証
+
+2026-11-07（日本時間）。TEST042 / shop-walk-v27を実装した。実機での毎拍歩行・短縮量は未確認。
+
+- **経路準備**: 正規choose時に記録したdecision identity/内容と全contextを使い切りproofへ渡し、performで同じ経路を再探索する処理を省く。直線count>=2ではmixed探索も不要。実public Driverで3入力を同じ固定拍に送り、choose/burst/mixedの回数が2/2/1→1/1/0になった。proofはchoose→mint、mint→perform、guard/checkpoint/待機、各ACK後の変異を拒否し、他Driverやdecisionのcopyで検証を省略しない。最初のlead未確認・商品partial・閉扉は旧制限を維持する。
+- **送信待機と前面確認**: `dispatch_wait`で長い部分は最大50msずつsleepし、最後25msだけclockを読む。初回と2/3/4入力に適用し、遅いACKや検査・取消・期限は従来どおり未送信。未送信候補の画像/位相等が有効で前面だけ古い時は、一度だけguardを更新して元のtargetを再検査する。guardが間に合わなければその候補は送らず、追加の別targetを作らない。元の2候補/全体2回full更新は増やさない。
+- **同期**: 4点目以降をfull撮影し、その画像自身のHUDを使った4点以上/2秒以上のfitが成立すれば同じSceneから歩行へ進む。軽量画像や別HTTP標本で地形を承認しない。既存model追跡のfull handoffも含め、新規observe開始は合算12回まで（呼出し時の初期画像を除く）。商品・12秒期限を優先する。
+
+### Red・レビューと期待値
+
+実装前の主Redは、公開Driverの重複探索回数1assertion failure、初回/2/3/4入力×13/23ms sleep遅れの8assertion failures、同期4撮影期待に旧5撮影の1assertion failure、前面だけ更新すれば送れる候補の送信不可1assertion failure。すべて0errorsで、最小実装後にGreenを確認した。ホストのclock/RPC模型は端末の受付保証ではない。
+
+fresh-contextのプラン設計/試験/安全各2周で、choose時contextのmint前検査、全followup拘束、同期12取得合算、全入力の待機負例、同じtarget・新frontの1秒境界を明示。実装レビューも3観点各2周でP0/P1/P2残件なし。第1周の共通P1は、validate後の追加clockだけが時刻を進めた時に古い認可を返してfollowupを送信できる分岐。検査済tuple時刻を残時間計算に使い、未到達ならspin後に再検査する修正を行った。2/3/4入力×late/cancel/sessionの計9assertion failures・0errors→Greenを観測し、独立担当も旧1行をメモリで戻すと9件全て失敗することを確認した。別の独立変異ではproof拘束省略、13撮影許可、前面10ms予約省略も対応試験が検出した。
+
+### 最終ホスト検証
+
+READMEの対象コマンドへTEST041と同じ外部fixture環境を渡し、**432試験407成功・旧外部画像不足25skip（33.893秒）**。新規32件（route preparation10、precise dispatch8、sync handoff10、foreground refresh4）は全成功・skip0。初回の旧fixtureでは、静止仮想clockのspin進行、doorway fakeの実choose依存method不足、旧5点/light3の同期期待、先行450ms試験のepoch依存前面境界が判明した。元の試験目的を維持する依存注入/実method結合、新4点/4撮影/light2への厳密化、先行量伝播だけを同一予定時刻へ固定する修正後、全432件を再実行した。これらfixture不整合を機能のRedとは数えない。
+
+既存追跡試験は既存modelと追跡windowを明示してtracking経路を保ち、初期4点の高速経路で通っただけにしない。前面だけの失効が回復する旧期待は、同じtarget・guard追加一度・新frontの1秒/10ms境界へ置換。画像も本当に期限切れにした試験で全体2回のfull更新上限を維持する。実機TEST041の撮影中央値0.537秒と直列処理の限界は残り、全経路で拍飛ばし0を達成したとはしない。
+
+保存前に変更PythonのAST、`sh -n test_042.sh`、実preflight P1.5/v27、差分空白、変更18ファイルの秘密値形式0件を確認。R12全40のmanifest SHA-256が一致し、全C/native/IPA・navigation/beat/bootstrap/collect/supervisorは元HEADとbyte一致。配布は全追跡349ファイルを含むcommit archiveとし、生資料・ZIP・試験ログはGit外に保つ。
+
+## TEST-042実行手順
+
+商品表示済みランから**手動でクイックリスタートし、新しい通常1-1をポーズしてから**実行する。画面端0、いつもの左側を下にした向き。IPA交換・端末コンパイルは不要。
+
+SafariでGitHubへログインして配布のcommit archive ZIPを保存・展開する。iSHのフォルダ選択では`test_042.sh`がある展開先を選ぶ。
+
+```sh
+mkdir -p /mnt/necro_test042
+mount -t ios . /mnt/necro_test042
+cd /mnt/necro_test042 && sh test_042.sh
+```
+
+ゲームを表示して待ち、終了後の**`runtime/test-042`をZIPで返す**。開始までの待ち、連続して歩く長さと間隔、商品表示・最終ポーズ、途中停止を確認する。可能なら開始から数歩〜曲がり角までの短い動画も添える。ポーズ未確認なら手動でポーズする。こちらで送信間隔・連続入力数・未送信/縮退と全未完了試行を分析し、次の改善を判断する。

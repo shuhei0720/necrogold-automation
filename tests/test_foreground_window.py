@@ -33,7 +33,7 @@ class ForegroundWindowTests(unittest.TestCase):
             with patch.object(driver, 'guard', side_effect=observed_front):
                 yield driver, now, before, model, front, captures, sent
 
-    def test_test036_late_first_target_rejects_second_window_before_wait(self):
+    def test_test036_late_first_target_refreshes_foreground_for_same_second_window(self):
         with self.prepared() as (d, now, before, model, front, _, sent):
             original = beat_sync.next_target
             targets, waits = [], []
@@ -49,22 +49,21 @@ class ForegroundWindowTests(unittest.TestCase):
                 waits.append(d.state['actions'][-1]['target_ns'])
                 now[0] = waits[-1] - d.state['dispatch_lead_ns'] + (11_171_897 if index == 0 else 9_384_870)
             with patch.object(beat_sync, 'next_target', side_effect=target), patch.object(d, 'sleeper', side_effect=wake):
-                with self.assertRaises(ProbeError) as caught:
-                    d.perform('left', before, model)
-            self.assertEqual('dispatch_window_expired', caught.exception.code)
+                self.assertEqual(1,d.perform('left', before, model))
             self.assertEqual(2, len(targets))
-            self.assertEqual([targets[0]], waits)
+            self.assertEqual(targets, waits)
             action = d.state['actions'][-1]
-            self.assertEqual(['late', 'expired'], [v['status'] for v in action['target_checks']])
-            self.assertEqual('preflight', action['target_checks'][-1]['window']['stage'])
-            self.assertEqual('not_requested', action['outcome'])
-            self.assertIsNone(action['issued_ns']); self.assertIsNone(action['completed_ns'])
-            self.assertEqual({}, action['rpc_timings']); self.assertEqual([], sent)
+            self.assertEqual(['late', 'ready'], [v['status'] for v in action['target_checks']])
+            self.assertEqual('dispatch', action['target_checks'][-1]['window']['stage'])
+            self.assertEqual('acknowledged', action['outcome']);self.assertEqual(1,len(sent))
+            self.assertEqual(2,len(front))
+            self.assertEqual(front[-1],action['target_checks'][-1]['window']['foreground_ns'])
+            self.assertLessEqual(action['issued_ns']-front[-1],1_000_000_000)
             self.assertFalse(d.pending); self.assertFalse(d.state['input_pending'])
 
     def test_990ms_boundary_reserves_ten_ms_without_changing_dispatch_tolerance(self):
         self.assertEqual(10_000_000, walk.DISPATCH_LATE_NS)
-        for age, accepted in ((990_000_000, True), (990_000_001, False), (995_217_130, False)):
+        for age, refreshed in ((990_000_000, False), (990_000_001, True), (995_217_130, True)):
             with self.subTest(foreground_age=age), self.prepared() as (d, now, before, model, front, _, sent):
                 original = beat_sync.next_target
                 waits = []
@@ -74,21 +73,16 @@ class ForegroundWindowTests(unittest.TestCase):
                     waits.append(d.state['actions'][-1]['target_ns'])
                     now[0] = waits[-1]-d.state['dispatch_lead_ns']+10_000_000
                 with patch.object(beat_sync, 'next_target', side_effect=target), patch.object(d, 'sleeper', side_effect=wake):
-                    if accepted:
-                        self.assertEqual(1, d.perform('left', before, model))
-                    else:
-                        with self.assertRaises(ProbeError) as caught:
-                            d.perform('left', before, model)
-                        self.assertEqual('dispatch_window_expired', caught.exception.code)
-                self.assertEqual(int(accepted), len(waits)); self.assertEqual(int(accepted), len(sent))
+                    self.assertEqual(1, d.perform('left', before, model))
+                self.assertEqual(1,len(waits));self.assertEqual(1,len(sent))
+                self.assertEqual(2 if refreshed else 1,len(front))
                 check = d.state['actions'][-1]['target_checks'][-1]
-                self.assertEqual('dispatch' if accepted else 'preflight', check['window']['stage'])
-                if accepted:
+                self.assertEqual('dispatch',check['window']['stage'])
+                self.assertEqual(front[-1],check['window']['foreground_ns'])
+                self.assertLessEqual(check['target_ns']-150_000_000+10_000_000,front[-1]+1_000_000_000)
+                if not refreshed:
                     self.assertEqual(1_000_000_000, check['checked_ns']-front[-1])
-                    self.assertEqual(10_000_000, check['checked_ns']-(check['target_ns']-150_000_000))
-                else:
-                    self.assertEqual('not_requested', d.state['actions'][-1]['outcome'])
-                    self.assertEqual({}, d.state['actions'][-1]['rpc_timings'])
+                self.assertEqual(10_000_000, check['checked_ns']-(check['target_ns']-150_000_000))
 
     @contextmanager
     def recovering_walk(self, third_failure=False, unknown_ack=False):
@@ -120,6 +114,9 @@ class ForegroundWindowTests(unittest.TestCase):
                 checkpoint()
                 if (d.pending and not first_failure and d.state['actions'][-1]['action'] in walk.MOVE_POINTS):
                     first_failure.append(True); now[0] += 3_000_000_001
+                elif (d.pending and third_failure and d.state['actions'][-1]['action'] in walk.MOVE_POINTS
+                        and sum(a['action'] in walk.MOVE_POINTS for a in d.state['actions'])>=4):
+                    now[0]+=3_000_000_001
             def target(*args):
                 if len(args) != 3 or len(sent) != 1:
                     return original_target(*args)
@@ -137,7 +134,8 @@ class ForegroundWindowTests(unittest.TestCase):
             def wake(seconds):
                 if trigger_entry and d.state['actions'][-1] is trigger_entry[0]:
                     waits.append(d.state['actions'][-1]['target_ns'])
-                    now[0] = waits[-1]-d.state['dispatch_lead_ns']+(11_171_897 if len(waits) == 1 else 9_384_870)
+                    # 前面だけの失効は回復するため、full更新枠の試験は画像も本当に失効させる。
+                    now[0] = waits[-1]-d.state['dispatch_lead_ns']+3_000_000_001
                 else:
                     original_sleep(seconds)
             def finish(reason, _frame):
