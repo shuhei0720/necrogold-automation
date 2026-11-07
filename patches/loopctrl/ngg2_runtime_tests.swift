@@ -47,6 +47,28 @@ require(call("necro_native_start", ticketRace).1 == nil, "ticket_race_start")
 pump("main_cancel_drained") { drained(ticketRace) }
 require(NG2Fake.countRequests() > 0 && NG2Fake.countTouches() == 0, "production_capture_C_ticket_main_cancel_no_synth")
 
+// Time can advance after main was entered while its final admission lock is
+// pending. The authorization must sample the clock at begin, not before it.
+NG2Fake.reset(.pause)
+NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+let staleMainClock = identity()
+var advancedAtAdmission = false
+NG2RuntimeTestHooks.beforeMainAdmission = {
+    let events = report(staleMainClock)["events"]?.arrayValue ?? []
+    let deadline = events.last?.objectValue?["deadline_ns"]?.intValue ?? 0
+    let current = NG2Fake.virtualClock()
+    require(deadline > 0 && UInt64(deadline) >= current, "main_clock_fixture_ticket_still_valid")
+    NG2Fake.advance(UInt64(deadline)-current+1)
+    advancedAtAdmission = true
+    NG2RuntimeTestHooks.beforeMainAdmission = nil
+}
+require(call("necro_native_start", staleMainClock).1 == nil, "main_clock_start")
+pump("main_clock_admission_completed") {
+    advancedAtAdmission && report(staleMainClock)["main_ticket_outstanding"]?.boolValue == false
+}
+require(NG2Fake.countTouches() == 0, "expired_during_main_admission_no_synth")
+cancelDrain(staleMainClock)
+
 // Fresh main-thread authority checks are made after a ticket has already been
 // reserved, and cancel before any synth rather than planning a cleanup input.
 for lost in ["foreground", "lock", "owner"] {
