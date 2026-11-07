@@ -2004,3 +2004,5 @@ cd /mnt/necro_test049 && sh test_049.sh
 - artifact保持期限は2026-12-07 UTC。code/IPA凍結後の更新は既存5文書だけ。完全sourceは405追跡ファイルの固定commit archiveを回収して全CRC/全bytesを照合する。独立実装レビュー3観点は同第2周で実配布物・最終sourceまで確認して閉じる。毎拍/人より速い性能、商品後の全周回・指輪/通知・耐久は未受入。
 
 **上記build49と完全sourceを用いたTEST049の実機テストを依頼する。** `runtime/test-049`全ZIPと、初動・毎ビート連続で歩くか・商品到達・最後のポーズを返してもらい、次の改善はその実測から判断する。
+
+完全source最終照合: GitHub commit `7a4290cca81188566d2d9e11428aa7b86f6d65d4` のAPI取得ZIPは6,836,159bytes/SHA-256 `553cb634a4c84ad1a657ad66cda4676564b51a0369a59b26cdbc790b867f4c94`。root・設計・試験・安全が全CRC/安全なinventoryと405/405追跡ファイルの全bytes一致を独立確認し、重複/unsafe/symlink/欠落/余分/不一致はすべて0。実IPA/全22封印source/実PBX・raw compiler argv・response/判定同値・入力停止/RPCの実証跡も独立確認し、実装レビュー3観点は同第2周でP0/P1/P2残件なしとして終了。この1段落だけを台帳へ追記し、返却する最終commit archiveもrootで全405ファイルを再照合する。code/tests/manifest/IPAはbuild49から不変で、実機の毎拍・速度・全周回は未受入のまま。
