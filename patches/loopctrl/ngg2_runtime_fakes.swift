@@ -65,6 +65,7 @@ enum NG2Fake {
         NG2RuntimeTestHooks.afterCaptureDrainProcessed = nil
         NG2RuntimeTestHooks.beforeCaptureFailureCommit = nil
         NG2RuntimeTestHooks.analysisRGBA = nil
+        NG2RuntimeTestHooks.afterWatchdogCheck = nil
         LockStateMonitor.monitor.isLocked = false
         NG2RuntimeTestHooks.clock = nil
     }

@@ -1864,6 +1864,8 @@ Mac主Redを`ed36bacb98a4824dce71f3b3ddb8e972ffb51749` / [CI42366177394](https:/
 
 `db096c7` / CI42368141653はproductionGreenと修正後のmotion-reference named pin assertionを通過したが、別のmove-input変異の前半で既存`hard_session_limit_despite_keepalive`が失敗した。watchdog周期100msの通知をmainを止めて固定150msだけ待つfixtureが不安定だったため、mainを回さず公開cancel_requestedを5msごと/最大3秒で待つ形へ変更する。仮想181秒・keepalive後もreason15/activation0・drainの全期待と本体180秒制限は維持し、watchdogの正常取消を実際に確認してから次へ進む。production/19変異の内容/sealは不変。
 
+`309270a` / CI42368653397では同じ固定150msのreadonly watchdog試験が先行失敗したため、関連3例の同期をまとめて修正した。HOST_TEST限定afterWatchdogCheck(id,time)を実watchdog判定完了後へ置き、NSLockで同runの判定時刻を観測。readonly/hardLimitはmain非pumpの公開cancel待機、aliveは仮想4秒→keepalive→2秒の後の実判定完了を確認してから取消falseをassertする。startup scheduler費用をheartbeat originから分離するsetup更新1回のみ加え、周期100ms/5秒/180秒・理由19/15・起動0・drainの期待は不変。queuedも20ms推測を公開main待機barrierへ置換。3担当が同第2周で同期とifdef境界を確認し追加P0/P1/P2なし。HostTestソース追加を含めsealは`ab245b389ac3a0eb908f01d4135ba7891c358ca0b48fe5b3117b0753004fc8d7`へ更新し、固定上流/配布sourceを再照合する。
+
 ## TEST-047実行手順
 
 **TEST047の新IPAへの更新が必要。** LoopCtrlでStop Serverを押し、アプリ切替から完全終了する。本台帳のTEST047 IPA ZIPをSafariでGitHubへログインして保存・展開し、`upstream/release/LoopCtrl.ipa`をSideStoreのMy Apps → ＋から更新。新しい同梱サーバーを読み込ませるため、更新後にLoopCtrlを起動し直す。VPN/ディスクイメージのいつもの接続を確認して**Start Serverを押し、起動済み表示を確認**する。APIは1.98.14-ngg2、v1/v2/v3にnative_v4を追加。native-walk-v5はv4不足ならゲーム開始0で拒否する。

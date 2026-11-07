@@ -125,6 +125,27 @@ require(nilReplyDiagnostic(nilReplyReport["capture_failure"]?.objectValue) &&
     "capture_failure_actual_nil_reply_is_reported")
 // TEST047 RUNTIME FAILURE BASELINE END.
 
+// This wait deliberately never pumps main: queued bootstrap work must stay
+// queued while the independent watchdog and public status lane are exercised.
+func waitWithoutMain(_ name: String, timeout: Double = 3, _ condition: () -> Bool) {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition() && Date() < deadline { Thread.sleep(forTimeInterval: 0.005) }
+    require(condition(), name)
+}
+final class WatchdogObservation {
+    private let lock = NSLock()
+    private var last: UInt64?
+    func record(_ time: UInt64) { lock.lock(); last = time; lock.unlock() }
+    func latest() -> UInt64? { lock.lock(); defer { lock.unlock() }; return last }
+}
+func observeWatchdog(_ id: String) -> WatchdogObservation {
+    let observation = WatchdogObservation()
+    NG2RuntimeTestHooks.afterWatchdogCheck = { checkedID, time in
+        if checkedID == id { observation.record(time) }
+    }
+    return observation
+}
+
 func captureFailureRecord(_ id: String) -> [String: JSONValue]? { report(id)["capture_failure"]?.objectValue }
 func failureRoundtrip(_ id: String) -> Bool {
     guard let expected = captureFailureRecord(id),
@@ -459,7 +480,7 @@ for lost in ["foreground", "lock", "owner"] {
 NG2Fake.reset(.empty)
 let queued = identity()
 require(call("necro_native_start", queued).1 == nil, "queued_start")
-Thread.sleep(forTimeInterval: 0.02)
+waitWithoutMain("queued_bootstrap_fixture_reached_main_barrier") { report(queued)["main_ticket_outstanding"]?.boolValue == true }
 require(runtime.leaseError("gesture") != nil && runtime.leaseError("device_info") != nil, "legacy_UI_receipt_blocked")
 require(runtime.leaseError("necro_native_status") == nil && runtime.leaseError("necro_native_cancel") == nil, "status_cancel_nonUI_lane")
 require(call("necro_native_status", queued).1 == nil, "status_answers_while_main_not_pumped")
@@ -470,11 +491,12 @@ require(NG2Fake.countActivations() == 0 && NG2Fake.countRequests() == 0, "queued
 NG2Fake.reset(.empty)
 NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
 let readOnly = identity()
+let readOnlyWatchdog = observeWatchdog(readOnly)
 require(call("necro_native_start", readOnly).1 == nil, "readonly_start")
-Thread.sleep(forTimeInterval: 0.02)
+waitWithoutMain("readonly_watchdog_fixture_started") { readOnlyWatchdog.latest() != nil }
 NG2Fake.advance(6_000_000_000)
 require(call("necro_native_status", readOnly).1 == nil, "readonly_status")
-Thread.sleep(forTimeInterval: 0.15)
+waitWithoutMain("readonly_watchdog_cancel_observed_without_main") { report(readOnly)["cancel_requested"]?.boolValue == true }
 require(report(readOnly)["cancel_requested"]?.boolValue == true, "status_default_does_not_extend_watchdog")
 pump("readonly_drained") { drained(readOnly) }
 require(report(readOnly)["reason"]?.intValue == 19 && NG2Fake.countActivations() == 0, "heartbeat_stops_queued_bootstrap")
@@ -482,30 +504,32 @@ require(report(readOnly)["reason"]?.intValue == 19 && NG2Fake.countActivations()
 NG2Fake.reset(.empty)
 NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
 let alive = identity()
+let aliveWatchdog = observeWatchdog(alive)
 require(call("necro_native_start", alive).1 == nil, "keepalive_start")
-Thread.sleep(forTimeInterval: 0.02)
+waitWithoutMain("keepalive_watchdog_fixture_started") { aliveWatchdog.latest() != nil }
+// Establish the heartbeat origin after startup scheduling has completed.
+require(call("necro_native_status", alive, keepalive: true).1 == nil, "keepalive_fixture_heartbeat_origin")
 // Renew before expiry; advancing beyond expiry before sending the renewal
 // would race the independent watchdog and legitimately allow cancellation.
 NG2Fake.advance(4_000_000_000)
 require(call("necro_native_status", alive, keepalive: true).1 == nil, "explicit_keepalive")
 NG2Fake.advance(2_000_000_000)
-Thread.sleep(forTimeInterval: 0.15)
+let aliveCheckAfter = NG2Fake.virtualClock()
+waitWithoutMain("active_keepalive_watchdog_checked_after_advance") {
+    aliveWatchdog.latest().map { $0 >= aliveCheckAfter } ?? false
+}
 require(report(alive)["cancel_requested"]?.boolValue == false, "active_explicit_keepalive_renews")
 cancelDrain(alive)
 
 NG2Fake.reset(.empty)
 NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
 let hardLimit = identity()
+let hardLimitWatchdog = observeWatchdog(hardLimit)
 require(call("necro_native_start", hardLimit).1 == nil, "session_limit_start")
-Thread.sleep(forTimeInterval: 0.02)
+waitWithoutMain("hard_limit_watchdog_fixture_started") { hardLimitWatchdog.latest() != nil }
 NG2Fake.advance(181_000_000_000)
 _ = call("necro_native_status", hardLimit, keepalive: true)
-// Keep main blocked so the queued bootstrap cannot activate. Wait for the
-// independent watchdog's public cancellation rather than one timer interval.
-let hardLimitWatchdogWait = Date().addingTimeInterval(3)
-while report(hardLimit)["cancel_requested"]?.boolValue != true && Date() < hardLimitWatchdogWait {
-    Thread.sleep(forTimeInterval: 0.005)
-}
+waitWithoutMain("hard_limit_watchdog_cancel_observed_without_main") { report(hardLimit)["cancel_requested"]?.boolValue == true }
 require(report(hardLimit)["cancel_requested"]?.boolValue == true, "hard_session_limit_despite_keepalive")
 pump("hard_limit_drained") { drained(hardLimit) }
 require(report(hardLimit)["reason"]?.intValue == 15 && NG2Fake.countActivations() == 0, "independent_limit_prevents_late_activation")

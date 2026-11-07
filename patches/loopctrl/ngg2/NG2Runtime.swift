@@ -20,6 +20,7 @@ enum NG2RuntimeTestHooks {
     static var afterCaptureDrainProcessed: ((String) -> Void)?
     static var beforeCaptureFailureCommit: ((String) -> Void)?
     static var analysisRGBA: ((Data) -> Data)?
+    static var afterWatchdogCheck: ((String, UInt64) -> Void)?
 }
 #endif
 
@@ -391,6 +392,9 @@ final class NG2Runtime {
             let stale = run.lock.ng2Locked { time > run.heartbeat && time - run.heartbeat > 5_000_000_000 }
             if stale { run.cancel(19) }
             self.controlQueue.async { self.cycle(run) }
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeTestHooks.afterWatchdogCheck?(run.id, time)
+            #endif
         }
         run.watchdog = watchdog; watchdog.resume()
         // Barrier behind any UI call already executing when start was accepted.
