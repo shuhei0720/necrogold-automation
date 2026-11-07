@@ -1,7 +1,12 @@
 import Foundation
 
+var fixtureFailureSnapshot: (() -> [String: JSONValue])?
 func require(_ condition: Bool, _ name: String) {
-    if !condition { print("FAIL \(name)"); exit(1) }
+    if !condition {
+        if let diagnostic = fixtureFailureSnapshot?(), let bytes = try? JSONEncoder().encode(diagnostic),
+            let line = String(data: bytes, encoding: .utf8) { print("DIAGNOSTIC runtime_fixture " + line) }
+        print("FAIL \(name)"); exit(1)
+    }
 }
 let runtime = NG2Runtime.shared
 var sequence = 0
@@ -22,6 +27,20 @@ func drained(_ id: String) -> Bool { report(id)["workers_drained"]?.boolValue ==
 func cancelDrain(_ id: String) {
     _ = call("necro_native_cancel", id); NG2Fake.release()
     pump("run_drained") { drained(id) }
+}
+func diagnoseFixture(_ id: String) {
+    fixtureFailureSnapshot = {
+        let snapshot = report(id)
+        NG2Fake.lock.lock()
+        let held = NG2Fake.heldTickets.keys.sorted(), returned = NG2Fake.returnedTickets.sorted()
+        let phase = NG2Fake.phaseBase, pending = NG2Fake.pending, variant = NG2Fake.remoteVariant
+        NG2Fake.lock.unlock()
+        return ["report": .object(snapshot), "held_ticket_ids": .array(held.map { .int(Int($0)) }),
+            "returned_ticket_ids": .array(returned.map { .int(Int($0)) }),
+            "fake_now_ns": .int(Int(NG2Fake.virtualClock())), "phase_base_ns": .int(Int(phase)),
+            "pending_captures": .int(pending), "remote_variant": .int(Int(variant)),
+            "path_count": .int(NG2Fake.paths().count), "touch_count": .int(NG2Fake.countTouches())]
+    }
 }
 
 // The cancellation is deliberately placed after the capture loop's outer
@@ -326,6 +345,8 @@ for staleFirst in [true, false] {
     NG2Fake.reset(.walk)
     NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
     let replan = identity()
+    diagnoseFixture(replan)
+    NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
     var aligned = false
     NG2RuntimeTestHooks.beforeControlTick = {
         let current = report(replan)
@@ -333,11 +354,13 @@ for staleFirst in [true, false] {
             !(current["events"]?.arrayValue ?? []).contains(where: { $0.objectValue?["kind"]?.intValue == 4 }) {
             // Give the real next-target calculation nearly a full period so
             // a second image can arrive before the original 10ms deadline.
-            let now = NG2Fake.virtualClock()
-            NG2Fake.lock.lock(); let epoch = NG2Fake.phaseBase; NG2Fake.lock.unlock()
-            let period: UInt64 = 520_000_000
-            let position = (now-epoch+150_000_000) % period
-            NG2Fake.advance((period+5_000_000-position) % period)
+            require(NG2Fake.changeClockAtCaptureBoundary {
+                let now = NG2Fake.virtualClock()
+                NG2Fake.lock.lock(); let epoch = NG2Fake.phaseBase; NG2Fake.lock.unlock()
+                let period: UInt64 = 520_000_000
+                let position = (now-epoch+150_000_000) % period
+                NG2Fake.advance((period+100_000_000-position) % period)
+            }, "replan_fixture_alignment_capture_boundary")
             aligned = true
             NG2RuntimeTestHooks.beforeControlTick = nil
         }
@@ -365,7 +388,10 @@ for staleFirst in [true, false] {
     require(changes.count == 1 && changes[0].objectValue?["replan_allowed"]?.boolValue == true,
         "replan_runtime_remote_change_uses_new_observation")
     let moves = (prepared["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
-    require(moves.count == 2 && moves[0]["outcome"]?.intValue == 3 && moves[0]["begin_ns"]?.intValue == 0,
+    NG2Fake.lock.lock(); let preparedHeld = Set(NG2Fake.heldTickets.keys); NG2Fake.lock.unlock()
+    require(moves.count == 2 && moves.allSatisfy({ preparedHeld.contains(UInt64($0["id"]!.intValue!)) }),
+        "replan_fixture_two_move_tickets_are_queued")
+    require(moves[0]["outcome"]?.intValue == 3 && moves[0]["begin_ns"]?.intValue == 0,
         "replan_runtime_old_ticket_definitely_unsent")
     let oldID = UInt64(moves[0]["id"]!.intValue!)
     let newID = UInt64(moves[1]["id"]!.intValue!)
@@ -392,10 +418,12 @@ for staleFirst in [true, false] {
             "replan_old_return_does_not_release_new_ticket")
     }
     NG2RuntimeTestHooks.beforeMainAuthority = {
-        let now = NG2Fake.virtualClock()
         let at = UInt64(moves[1]["not_before_ns"]!.intValue!)
-        require(now <= UInt64(moves[1]["deadline_ns"]!.intValue!), "replan_fixture_replacement_not_late")
-        if now < at { NG2Fake.advance(at-now) }
+        require(NG2Fake.changeClockAtCaptureBoundary {
+            let now = NG2Fake.virtualClock()
+            require(now <= UInt64(moves[1]["deadline_ns"]!.intValue!), "replan_fixture_replacement_not_late")
+            if now < at { NG2Fake.advance(at-now) }
+        }, "replan_fixture_send_capture_boundary")
         NG2RuntimeTestHooks.beforeMainAuthority = nil
     }
     NG2Fake.releaseTicket(newID)
@@ -423,6 +451,7 @@ for staleFirst in [true, false] {
     let change = changes[0].objectValue!
     require(result.1 == nil && exported.contains(change["source_capture_id"]!.intValue!) &&
         exported.contains(change["observed_capture_id"]!.intValue!), "replan_difference_source_and_after_images_pinned")
+    fixtureFailureSnapshot = nil
 }
 
 // A rejected UNKNOWN difference must retain its own frame even when later
@@ -431,14 +460,18 @@ for staleFirst in [true, false] {
 NG2Fake.reset(.walk)
 NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
 let rejectedDifference = identity()
+diagnoseFixture(rejectedDifference)
+NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
 var rejectedAligned = false
 NG2RuntimeTestHooks.beforeControlTick = {
     let current = report(rejectedDifference)
     if !rejectedAligned && (current["beat_period_ns"]?.intValue ?? 0) > 0 {
-        let now = NG2Fake.virtualClock()
-        NG2Fake.lock.lock(); let epoch = NG2Fake.phaseBase; NG2Fake.lock.unlock()
-        let position = (now-epoch+150_000_000) % 520_000_000
-        NG2Fake.advance((525_000_000-position) % 520_000_000)
+        require(NG2Fake.changeClockAtCaptureBoundary {
+            let now = NG2Fake.virtualClock()
+            NG2Fake.lock.lock(); let epoch = NG2Fake.phaseBase; NG2Fake.lock.unlock()
+            let position = (now-epoch+150_000_000) % 520_000_000
+            NG2Fake.advance((620_000_000-position) % 520_000_000)
+        }, "rejected_fixture_alignment_capture_boundary")
         rejectedAligned = true; NG2RuntimeTestHooks.beforeControlTick = nil
     }
 }
@@ -469,6 +502,7 @@ let rejectedResult = call("necro_native_results", rejectedDifference)
 let rejectedExports = Set((rejectedResult.0?["images"]?.arrayValue ?? []).compactMap { $0.objectValue?["capture_id"]?.intValue })
 require(rejectedResult.1 == nil && rejectedExports.contains(rejected["source_capture_id"]!.intValue!) &&
     rejectedExports.contains(rejected["observed_capture_id"]!.intValue!), "rejected_difference_frames_pinned_beyond_recent_window")
+fixtureFailureSnapshot = nil
 
 NG2Fake.reset(.pause)
 NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()

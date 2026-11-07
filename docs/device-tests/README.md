@@ -1733,3 +1733,7 @@ clientは公開CLIと実暗号HTTPで2.15秒results回収を含む**13 assertion
 試験P2は、元source期限で10ms未満に狭まったdeadlineを新画像で広げる退行の検出不足。短縮deadlineを実公開入口で作るfixtureを追加し、本実装Green・元deadline cap単独削除mutantで1 assertion failure/0errorsを独立確認した。拒否差分の画像pinも、後のrecent4から落ちる条件と専用参照block削除mutantを追加した。最終controller54件全成功・skip0（5.333秒）。
 
 初回CI保存点`bb685db`では、client105件中1件がホスト2秒内に4拒否試行を収められず3回となった。該当する正常診断fixtureだけmax_seconds8へ変更し、全期待・helper既定2秒・注入時計の境界は維持、connect25件成功（10.098秒）。nativeのSwift compileは成功したが、通常歩行の公開結合assertionが失敗した。期待値/期限は緩めず、失敗時の模擬report診断を加え、次CIで原因を確認する。これらを機能の主Redとは数えない。
+
+第2保存点`a65a146`のclient [CI42347494349](https://github.com/shuhei0720/necrogold-automation/actions/runs/42347494349)は**105件全成功・skip0（30.998秒）**。全nativeホストも**96件全成功・skip0（25.432秒）**。native [CI42347494283](https://github.com/shuhei0720/necrogold-automation/actions/runs/42347494283)は通常歩行caseを通過したが、新fixtureで再予約2件の成立確認に失敗した。初回通常walkの原因はこの成功から遡って確定しない。
+
+独立の設計/試験レビューで、テスト用clock advanceがcapture.start→PNGのHUD時刻→capture.endの途中へ入る競合を確認した。公開Cで200〜400msの仮想jumpを取得区間に跨がせると、差分allowed=trueの後に正しくmodel不整合で止まり、MOVE1件だけとなる同じ失敗形を再現した。fixtureをbeforeCaptureAdmissionの境界でclockを進めるbarrierへ変更し、予約整列と送信時advanceの双方へ適用。整列はraw拍境界から100ms進んだ位置とし、元target/10ms上限を変更せず新しい画像が間に合うsetupを作る。2MOVEが実際にqueuedされたことを別assertし、失敗時は模擬reportの数値診断を保存する。本番C/Runtimeにはこのfixture修正を入れない。

@@ -26,6 +26,7 @@ enum NG2Fake {
     static var heldTickets: [UInt64: () -> Void] = [:]
     static var returnedTickets = Set<UInt64>()
     static var unknownFrames = 0
+    static var boundaryClockChange: (() -> Void)?
     static var callbacks: [(Data?, String?) -> Void] = []
     static var offset: UInt64 = 0
     static var pending = 0
@@ -36,6 +37,7 @@ enum NG2Fake {
             gesturePaths = []; tapPoints = []; walkX = 0; walkY = 0
             walkMoves = 0; walkCapturesAfterMove = 0; walkPaused = false
             remoteVariant = 0; heldTickets = [:]; returnedTickets = []; unknownFrames = 0
+            boundaryClockChange = nil
             phaseBase = DispatchTime.now().uptimeNanoseconds
         }
         RemoteSession.shared.paused = false
@@ -65,6 +67,23 @@ enum NG2Fake {
     static func releaseTicket(_ id: UInt64) {
         let callback = lock.fixtureLocked { heldTickets.removeValue(forKey: id) }
         callback?()
+    }
+    // The production capture loop invokes beforeCaptureAdmission only after
+    // the preceding raw callback, decode and publication have completed.
+    // Clock jumps used by these fixtures must occur at that exact boundary.
+    static func changeClockAtCaptureBoundary(_ change: @escaping () -> Void) -> Bool {
+        let finished = DispatchSemaphore(value: 0)
+        lock.fixtureLocked {
+            precondition(boundaryClockChange == nil)
+            boundaryClockChange = { change(); finished.signal() }
+        }
+        return finished.wait(timeout: .now()+2) == .success
+    }
+    static func performBoundaryClockChange() {
+        let change = lock.fixtureLocked { () -> (() -> Void)? in
+            let old = boundaryClockChange; boundaryClockChange = nil; return old
+        }
+        change?()
     }
     static func walkedPNG() -> Data {
         let unknown = lock.fixtureLocked { () -> Bool in
