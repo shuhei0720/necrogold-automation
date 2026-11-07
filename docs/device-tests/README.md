@@ -1826,3 +1826,5 @@ cd /mnt/necro_test046 && sh test_046.sh
 **新IPA build30と完全ソースを使い、上のTEST046実機テストを依頼する。** 初動・一歩目の後の連続拍・商品後pauseとruntime/test-046全体ZIPを返してもらう。実機毎拍・人より速い性能、指輪/通知/完全周回の受入は未完了。
 
 独立実装レビューの設計・試験は各第2周でcode/CI/IPAをclose、安全も同第2周でcode/IPAにP0/P1/P2なし。3担当が実ZIP/内IPAのCRC・SHA、build30、driver139bb20/seal f56fcf、22ソース、Runtime15/Raster2/RPC変異の実証跡を直接照合した。完全395ファイルのsourcearchiveを次の最終bytes照合対象とし、安全の同第2周で完了確認する。最終更新は上記既存5文書のみ、native/client/test/manifest/IPAは不変。
+
+完全ソース照合: GitHub commit `d9618a84a897eaa1185fc54f483e6bbf5e763454` のZIP6,753,451bytes/SHA-256 `4d3343d83bf3de2b967b70b51b9774617d88aaaef9d6985545ddc817c1406490`は、rootと安全担当が独立に全CRCと395/395追跡ファイルの全bytesを照合し、missing/extra/mismatchすべて0。設計・試験・安全の実装レビューは各第2周でP0/P1/P2残件なし。この記録1段落だけを既存台帳へ追記し、返却する最終commit archiveもrootで全395ファイルを再照合する。code/tests/IPA/manifestは上記検証済みbytesを維持する。
