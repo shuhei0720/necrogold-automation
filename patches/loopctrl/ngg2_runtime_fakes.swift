@@ -22,6 +22,9 @@ enum NG2Fake {
     static var walkCapturesAfterMove = 0
     static var walkPaused = false
     static var phaseBase: UInt64 = 0
+    static var remoteVariant: Int32 = 0
+    static var heldTickets: [UInt64: () -> Void] = [:]
+    static var returnedTickets = Set<UInt64>()
     static var callbacks: [(Data?, String?) -> Void] = []
     static var offset: UInt64 = 0
     static var pending = 0
@@ -31,6 +34,7 @@ enum NG2Fake {
             beforeForegroundQuery = nil
             gesturePaths = []; tapPoints = []; walkX = 0; walkY = 0
             walkMoves = 0; walkCapturesAfterMove = 0; walkPaused = false
+            remoteVariant = 0; heldTickets = [:]; returnedTickets = []
             phaseBase = DispatchTime.now().uptimeNanoseconds
         }
         RemoteSession.shared.paused = false
@@ -39,6 +43,9 @@ enum NG2Fake {
         NG2RuntimeTestHooks.beforeMainAuthority = nil
         NG2RuntimeTestHooks.beforeAnalysisCommit = nil
         NG2RuntimeTestHooks.afterForegroundQuery = nil
+        NG2RuntimeTestHooks.beforeControlTick = nil
+        NG2RuntimeTestHooks.scheduleTicket = nil
+        NG2RuntimeTestHooks.afterTicketReturned = nil
         LockStateMonitor.monitor.isLocked = false
         NG2RuntimeTestHooks.clock = nil
     }
@@ -51,6 +58,13 @@ enum NG2Fake {
     }
     static func paths() -> [[[(point: CGPoint, t: Double)]]] { lock.fixtureLocked { gesturePaths } }
     static func taps() -> [CGPoint] { lock.fixtureLocked { tapPoints } }
+    static func holdTicket(_ id: UInt64, _ callback: @escaping () -> Void) {
+        lock.fixtureLocked { heldTickets[id] = callback }
+    }
+    static func releaseTicket(_ id: UInt64) {
+        let callback = lock.fixtureLocked { heldTickets.removeValue(forKey: id) }
+        callback?()
+    }
     static func walkedPNG() -> Data {
         let state = lock.fixtureLocked { () -> (Int32, Int32, Int32, Bool, UInt64) in
             if walkMoves > 0 { walkCapturesAfterMove += 1 }
@@ -67,6 +81,13 @@ enum NG2Fake {
             ng2_fixture_floor_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, state.0, state.1, fraction, state.2)
         }
         precondition(valid == 1)
+        let remote = lock.fixtureLocked { remoteVariant }
+        if state.0 == 0 && state.1 == 0 {
+            let changed = rgba.withUnsafeMutableBytes {
+                ng2_fixture_remote_cell($0.bindMemory(to: UInt8.self).baseAddress, count, remote)
+            }
+            precondition(changed == 1)
+        }
         return NG2Raster.png(rgba)!
     }
     static func virtualClock() -> UInt64 { lock.fixtureLocked { DispatchTime.now().uptimeNanoseconds + offset } }

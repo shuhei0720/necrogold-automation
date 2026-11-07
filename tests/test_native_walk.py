@@ -638,6 +638,11 @@ class NativeImageTests(TimerTestCase):
             value['recent_image_count'] = 4
             value['referenced_capture_ids'] = list(range(1,132))
             value['missing_capture_ids'] = list(range(21,132))
+            value['scene_changes'] = [dict(command_id=i+1, source_capture_id=20,
+                observed_capture_id=21+i, change_mask=15, changed_tiles=230,
+                changed_protected=230, state_before=0, state_after=2,
+                goods_before=0, goods_after=2, replan_count=min(i,2),
+                replan_allowed=i<2, target_ns=1000, deadline_ns=900) for i in range(3)]
             for i in range(256):
                 value['captures'].append({'id':i+1,'start_ns':100*i,'end_ns':100*i+1,
                     'decode_end_ns':100*i+2,'analysis_start_ns':100*i+3,'analysis_end_ns':100*i+4,
@@ -664,6 +669,7 @@ class NativeImageTests(TimerTestCase):
             self.assertEqual(64, len(record['native_report']['events']))
             self.assertEqual(300, record['result_metadata']['omitted_image_count'])
             row = {'invocation':'0'*32,'method':'necro_native_status','host_ns':1,'error':None,
+                   'rpc_stage':'result_json',
                    'host_timings':{key:1 for key in ('request_start_ns','http_start_ns','http_end_ns',
                        'decrypt_start_ns','decrypt_end_ns','response_end_ns')}}
             record['events'] = [dict(row) for _ in range(128)]
@@ -689,6 +695,7 @@ class NativeImageTests(TimerTestCase):
             self.assertFalse(recovered['resolved'])
             self.assertEqual(256, len(recovered['native_report']['captures']))
             self.assertEqual(64, len(recovered['native_report']['events']))
+            self.assertEqual(3, len(recovered['native_report']['scene_changes']))
             self.assertEqual(131, len(recovered['result_metadata']['omitted_capture_ids']))
             self.assertLessEqual(len(recovered['events']), 128)
             self.assertGreater(recovered['events_dropped'], record['events_dropped'])

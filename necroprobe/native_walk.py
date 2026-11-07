@@ -16,13 +16,13 @@ import uuid
 
 from .crypto import Crypto
 from .deadlines import OwnedRpcTimer
-from .protocol import Client
+from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v2'
+REVISION = 'native-walk-v3'
 API_VERSION = '1.98.14-ngg2'
-CAPABILITY = 'necrogold_native_v1'
+CAPABILITY = 'necrogold_native_v2'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -99,6 +99,8 @@ class _StartNotSent(ProbeError):
 
 class NativeClient(Client):
     def call(self, method, params=None, *, timeout=None):
+        ceiling = min(self.timeout, 8 if method == 'necro_native_results' else 2)
+        timeout = ceiling if timeout is None else number(timeout, .001, ceiling)
         guard = getattr(self, '_before_start_post', None)
         if method != 'necro_native_start' or guard is None:
             return super().call(method, params, timeout=timeout)
@@ -239,6 +241,10 @@ def _events(value):
             _require(type(row['host_timings']) is dict, 'native_journal_invalid')
             clean['host_timings'] = {k:v for k,v in row['host_timings'].items()
                                      if k in HTTP_TIMING_KEYS and _ns(v)}
+        if 'rpc_stage' in row:
+            _require(type(row['rpc_stage']) is str and row['rpc_stage'] in RPC_STAGES,
+                     'native_journal_invalid')
+            clean['rpc_stage'] = row['rpc_stage']
         rows.append(clean)
     return rows
 
@@ -324,7 +330,7 @@ def _load(base):
         excess = max(0, len(record['events']) - MAX_HTTP_EVENTS)
         record['events_dropped'] += excess
         record['events'] = _events(record['events'][excess:])
-        _require(record.get('revision') in ('native-walk-v1', REVISION)
+        _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', REVISION)
                  and record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -332,13 +338,37 @@ def _load(base):
         _require(record['state'] in STATES | {'prepared', 'unknown'}
                  and record['native_state'] in STATES | {None}
                  and record['stop_reason'] in ERROR_CODES | {None}, 'native_journal_invalid')
-        _require(record['native_report'] is None or _report(record['native_report']) == record['native_report'],
-                 'native_journal_invalid')
+        if record['native_report'] is not None:
+            record['native_report'] = _report(record['native_report'])
         _require(_result_metadata(record['result_metadata']) == record['result_metadata'], 'native_journal_invalid')
         record['images'] = _stored_images(record['images'])
         return record
     except (OSError, ProbeError, ValueError, TypeError, RecursionError):
         raise ProbeError('native_journal_invalid') from None
+
+
+def _scene_changes(value):
+    keys = ('command_id', 'source_capture_id', 'observed_capture_id', 'change_mask',
+        'changed_tiles', 'changed_protected', 'state_before', 'state_after',
+        'goods_before', 'goods_after', 'replan_count', 'replan_allowed', 'target_ns', 'deadline_ns')
+    _require(type(value) is list and len(value) <= 3, 'invalid_native_report')
+    rows = []
+    limits = {'change_mask':(1,15), 'changed_tiles':(0,230), 'changed_protected':(0,230),
+        'state_before':(0,2), 'state_after':(0,2), 'goods_before':(0,2),
+        'goods_after':(0,2), 'replan_count':(0,2)}
+    for row in value:
+        _require(type(row) is dict and set(keys) <= set(row), 'invalid_native_report')
+        clean = {}
+        for key in keys:
+            item = row[key]
+            if key == 'replan_allowed':
+                _require(type(item) is bool, 'invalid_native_report')
+            else:
+                low, high = limits.get(key, (0,2**63-1))
+                _require(type(item) is int and low <= item <= high, 'invalid_native_report')
+            clean[key] = item
+        rows.append(clean)
+    return rows
 
 
 def _report(value, depth=0):
@@ -373,6 +403,8 @@ def _report(value, depth=0):
             limit = MAX_NATIVE_EVENTS if key == 'events' else MAX_CAPTURES
             _require(type(item) is list and len(item) <= limit, 'invalid_native_report')
             result[key] = [_report(event, depth+1) for event in item]
+        elif key == 'scene_changes':
+            result[key] = _scene_changes(item)
         elif key in ID_LIST_KEYS:
             _require(type(item) is list and len(item) <= MAX_CAPTURES
                      and all(type(v) is int and 0 <= v < 2**63 for v in item), 'invalid_native_report')
@@ -503,11 +535,12 @@ def _images(value):
 
 def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic_ns,
                 sleep=time.sleep, poll_seconds=.25, max_seconds=185, recovery_seconds=6,
-                lock_path=None):
+                results_seconds=8, lock_path=None):
     """Start once; recover known work with read-only status and bounded cancel."""
     number(poll_seconds, .001, 1)
     number(max_seconds, .01, 200)
     number(recovery_seconds, .01, 10)
+    number(results_seconds, .001, 8)
     base = Path(output).resolve()
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
     with device_lock(lock_path):
@@ -531,24 +564,27 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
         status_before_retry = False
         cancel_calls = 0
 
-        def event(method, error=None, timings=None):
+        def event(method, error=None, timings=None, stage=None):
             row = {'invocation': invocation, 'method': method, 'host_ns': clock(), 'error': error}
             if timings:
                 row['host_timings'] = {key: value for key, value in timings.items()
-                                       if key.endswith('_ns') and type(value) is int and 0 <= value < 2**63}
+                                       if key in HTTP_TIMING_KEYS and type(value) is int and 0 <= value < 2**63}
+            if stage in RPC_STAGES:
+                row['rpc_stage'] = stage
             record['events'].append(row)
             excess = max(0, len(record['events']) - MAX_HTTP_EVENTS)
             if excess:
                 del record['events'][:excess]
                 record['events_dropped'] += excess
 
-        def request(method, params):
+        def request(method, params, timeout=None):
             try:
-                reply = client.call(method, params)
+                reply = client.call(method, params, timeout=timeout)
                 event(method, timings=reply.timings)
                 return reply.result
             except ProbeError as exc:
-                event(method, _error(exc))
+                failure = getattr(client, 'last_failure', None) or {}
+                event(method, _error(exc), timings=failure.get('host_timings'), stage=failure.get('stage'))
                 raise
 
         def accept(value):
@@ -695,7 +731,14 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                     cancel_attempt()
                 if record['state'] in TERMINAL:
                     try:
-                        value = request('necro_native_results', {'run_id': run_id})
+                        # Read-only export gets its own whole-call budget only
+                        # after terminal status. It cannot extend this invocation.
+                        invocation_deadline = cleanup_deadline if cleanup_deadline is not None else deadline
+                        results_deadline = min(invocation_deadline, clock()+int(results_seconds*1e9))
+                        remaining = (results_deadline-clock())/1e9
+                        _require(remaining >= .001, 'host_deadline')
+                        value = request('necro_native_results', {'run_id': run_id},
+                                        timeout=min(client.timeout, 8, remaining))
                         state, report = _status(value, run_id)
                         _require(state in TERMINAL, 'invalid_native_status')
                         images = _images(value.get('images'))
@@ -748,8 +791,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST044: 接続準備を確認してNG-G2端末内制御を実行')
-    ap.add_argument('--output', default='runtime/test-044')
+    ap = argparse.ArgumentParser(description='TEST045: NG-G2の初歩再計画と結果回収を実行')
+    ap.add_argument('--output', default='runtime/test-045')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')
@@ -769,7 +812,7 @@ def main(argv=None):
     try:
         key, tok = load_pairing(args.token_store, args.store_key)
         with OwnedRpcTimer() as timer:
-            client = NativeClient(HttpTransport(), key, tok, timeout=2,
+            client = NativeClient(HttpTransport(), key, tok, timeout=8,
                                   crypto=Crypto(native=not args.python_crypto), deadline_owner=timer)
             record = run_session(client, args.output, cancelled=lambda: stopped[0])
         print('NG-G2終了: ' + record['state'] + ' / ' + (record['stop_reason'] or 'none'))
@@ -778,7 +821,7 @@ def main(argv=None):
             attempts = record.get('preflight', {}).get('attempts', [])
             kind = attempts[-1]['diagnostic']['kind'] if attempts else None
             if record['stop_reason'] == 'native_capability_missing':
-                print('NG-G2の版・機能が一致しません。build20のIPAとLoopCtrlの起動状態を確認してください。')
+                print('NG-G2の版・機能が一致しません。TEST045用の新IPAとLoopCtrlの起動状態を確認してください。')
             elif kind == 'refused':
                 print('LoopCtrlへの接続が拒否されました。まだゲームの開始要求は送っていません。')
             elif record['stop_reason'] in ('rpc_deadline', 'host_deadline') or kind in ('timeout','deadline'):
@@ -787,14 +830,19 @@ def main(argv=None):
                 print('LoopCtrlの接続準備を確認できず停止しました。まだゲームの開始要求は送っていません。')
             print('LoopCtrlを開いて「Start Server」を押し、いつものVPN/ディスクイメージ接続を確認してから再実行してください。')
         if not record['resolved']:
-            print('入力・終了結果は未確定です。同じ実行IDを保持しています。手動でゲームを確認してください。')
+            report = record['native_report'] or {}
+            if record['native_state'] in TERMINAL and report.get('input_state') in (0,3) \
+                    and report.get('workers_drained') is True and not report.get('native_inflight',False):
+                print('端末側の停止は確認済みですが、結果の回収は未完了です。同じ実行IDを保持しています。')
+            else:
+                print('入力・終了結果は未確定です。同じ実行IDを保持しています。手動でゲームを確認してください。')
         return 0 if record['resolved'] and record['native_state'] == 'completed' else 2
     except (ProbeError, OSError) as exc:
         reason = exc.code if isinstance(exc, ProbeError) and exc.code in (
             'pairing_missing', 'pairing_ambiguous', 'invalid_pairing_record', 'already_running',
             'native_journal_invalid', 'timer_already_in_use', 'timer_handler_in_use',
             'timer_unusable', 'timer_setup_failed') else 'client_failed'
-        print('TEST044停止: ' + reason, file=sys.stderr)
+        print('TEST045停止: ' + reason, file=sys.stderr)
         return 2
     finally:
         for sig, handler in previous.items():

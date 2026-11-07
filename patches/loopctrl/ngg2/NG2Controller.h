@@ -36,6 +36,12 @@ typedef struct {
     uint64_t begin_ns, end_ns, observed_capture_id;
     int32_t outcome, reason, motion, dx, dy;
 } NG2ControllerEvent;
+/* Bounded TEST045 diagnostics, separate from the existing status/event ABI. */
+typedef struct {
+    uint64_t command_id, source_capture_id, observed_capture_id, target_ns, deadline_ns;
+    int32_t change_mask, changed_tiles, changed_protected, state_before, state_after;
+    int32_t goods_before, goods_after, replan_count, replan_allowed;
+} NG2ControllerSceneChange;
 /* Defaults: 16 directions, 12 restarts, 45s walking, 180s session. */
 NG2Controller *ng2_controller_create(uint64_t now);
 void ng2_controller_destroy(NG2Controller *controller);
@@ -57,5 +63,6 @@ int ng2_controller_complete(NG2Controller *, uint64_t command_id, uint64_t now, 
 void ng2_controller_cancel(NG2Controller *, uint64_t now, int32_t reason);
 void ng2_controller_status(const NG2Controller *, NG2ControllerStatus *out);
 size_t ng2_controller_events(const NG2Controller *, NG2ControllerEvent *out, size_t capacity);
+size_t ng2_controller_scene_changes(const NG2Controller *, NG2ControllerSceneChange *out, size_t capacity);
 const char *ng2_reason_name(int32_t reason);
 #endif

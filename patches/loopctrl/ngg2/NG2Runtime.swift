@@ -14,6 +14,9 @@ enum NG2RuntimeTestHooks {
     static var beforeMainAuthority: (() -> Void)?
     static var beforeAnalysisCommit: (() -> Void)?
     static var afterForegroundQuery: (() -> Void)?
+    static var beforeControlTick: (() -> Void)?
+    static var scheduleTicket: ((UInt64, @escaping () -> Void) -> Bool)?
+    static var afterTicketReturned: ((UInt64) -> Void)?
 }
 #endif
 
@@ -46,7 +49,10 @@ private final class NG2Run {
     var lease = true
     var captureOutstanding = false
     var captureWorkerDone = false
-    var mainOutstanding = false
+    var bootstrapOutstanding = false
+    var mainCommandID: UInt64 = 0
+    var mainCallbacks = Set<UInt64>()
+    var mainOutstanding: Bool { bootstrapOutstanding || !mainCallbacks.isEmpty }
     var stopped = false
     var inFlight = false
     var prefix: UInt64 = 0
@@ -321,7 +327,7 @@ final class NG2Runtime {
         run.watchdog = watchdog; watchdog.resume()
         // Barrier behind any UI call already executing when start was accepted.
         // Queued legacy calls are independently refused at their execution site.
-        run.lock.ng2Locked { run.mainOutstanding = true }
+        run.lock.ng2Locked { run.bootstrapOutstanding = true }
         DispatchQueue.main.sync {
             if run.lock.ng2Locked({ run.cancelReason == 0 }) && self.ownerActive(run) && !LockStateMonitor.shared().isLocked {
                 // One nonblocking LaunchServices activation also launches the
@@ -338,18 +344,18 @@ final class NG2Runtime {
                 if !NG2CaptureBridge.prepare() { run.cancel(6) }
             }
         }
-        run.lock.ng2Locked { run.mainOutstanding = false }
+        run.lock.ng2Locked { run.bootstrapOutstanding = false }
         let activationDeadline = Self.now() + 3_000_000_000
         while !run.foreground && !run.lock.ng2Locked({ run.stopped }) && Self.now() < activationDeadline {
             Thread.sleep(forTimeInterval: 0.05)
-            run.lock.ng2Locked { run.mainOutstanding = true }
+            run.lock.ng2Locked { run.bootstrapOutstanding = true }
             DispatchQueue.main.sync {
                 guard run.lock.ng2Locked({ run.cancelReason == 0 }), self.ownerActive(run),
                       !LockStateMonitor.shared().isLocked else { return }
                 run.expectedPID = ForegroundApp.processID(forBundleID: Self.game)
                 run.foreground = run.expectedPID > 0 && ForegroundApp.frontmostPID() == run.expectedPID
             }
-            run.lock.ng2Locked { run.mainOutstanding = false }
+            run.lock.ng2Locked { run.bootstrapOutstanding = false }
         }
         if !run.foreground { run.cancel(3) }
         let timer = DispatchSource.makeTimerSource(queue: controlQueue)
@@ -471,7 +477,7 @@ final class NG2Runtime {
         }
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
         if status.terminal != 0 {
-            run.lock.ng2Locked { run.terminal = true; run.successful = status.goods == 1 && status.paused == 1; run.stopped = true; run.latest = nil }
+            run.lock.ng2Locked { run.terminal = true; run.successful = status.goods == 1 && status.paused == 1; run.stopped = true; run.mainCommandID = 0; run.latest = nil }
             cache(run, status)
             let legacy = lock.ng2Locked { streamCaptures } + Int(NG2CaptureBridge.pendingRequests)
             let drained = run.lock.ng2Locked {
@@ -496,16 +502,43 @@ final class NG2Runtime {
             }
             return
         }
-        if !run.lock.ng2Locked({ run.mainOutstanding }) {
+        // The live ticket and its actual queued callback have separate lives.
+        // A revoked callback retains the core/lease but cannot own a later one.
+        run.lock.ng2Locked {
+            if run.mainCommandID != 0 && run.mainCommandID != status.current_command_id { run.mainCommandID = 0 }
+        }
+        if run.lock.ng2Locked({ run.mainCommandID == 0 && !run.bootstrapOutstanding }) {
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeTestHooks.beforeControlTick?()
+            #endif
             var command = NG2Command()
             let ticket = ng2_controller_tick(core, Self.now(), run.foreground ? 1 : 0,
                 LockStateMonitor.shared().isLocked ? 1 : 0, ownerActive(run) ? 1 : 0, &command)
             if ticket == 1 {
-                let generation = run.lock.ng2Locked { run.mainOutstanding = true; return run.generation }
+                let generation = run.lock.ng2Locked {
+                    run.mainCommandID = command.id; run.mainCallbacks.insert(command.id); return run.generation
+                }
                 let at = Self.now()
                 let delay = command.not_before_ns > at ? Double(command.not_before_ns - at) / 1e9 : 0
-                controlQueue.asyncAfter(deadline: .now() + delay) { self.execute(run, command, generation: generation) }
                 ng2_controller_status(core, &status); cache(run, status)
+                let callback = {
+                    self.execute(run, command, generation: generation)
+                    // This following queue item executes only after the exact
+                    // callback has returned, including its main/AX work.
+                    self.controlQueue.async {
+                        run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }
+                        #if NG2_RUNTIME_HOST_TEST
+                        NG2RuntimeTestHooks.afterTicketReturned?(command.id)
+                        #endif
+                        self.cycle(run)
+                    }
+                }
+                #if NG2_RUNTIME_HOST_TEST
+                if NG2RuntimeTestHooks.scheduleTicket?(command.id, { self.controlQueue.async(execute: callback) }) == true {
+                    return
+                }
+                #endif
+                controlQueue.asyncAfter(deadline: .now() + delay, execute: callback)
             }
         }
         if now - min(now, run.lastCache) >= 50_000_000 { ng2_controller_status(core, &status); cache(run, status) }
@@ -513,6 +546,7 @@ final class NG2Runtime {
 
     private func execute(_ run: NG2Run, _ command: NG2Command, generation: UInt64) {
         guard let core = run.core else { return }
+        guard run.lock.ng2Locked({ run.mainCommandID == command.id }) else { return }
         var outcome: Int32 = 0
         DispatchQueue.main.sync {
             #if NG2_RUNTIME_HOST_TEST
@@ -521,6 +555,7 @@ final class NG2Runtime {
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.beforeMainAdmission?()
             #endif
+            guard run.lock.ng2Locked({ run.mainCommandID == command.id }) else { return }
             // XCTest foreground IPC can stall. It must never hold the lock
             // used by status, cancel, capture invalidation or the watchdog.
             let authorityQueryStart = Self.now()
@@ -531,6 +566,7 @@ final class NG2Runtime {
             NG2RuntimeTestHooks.afterForegroundQuery?()
             #endif
             let permitted = run.lock.ng2Locked { () -> Bool in
+                guard run.mainCommandID == command.id else { return false }
                 let ownerActive = self.ownerActive(run)
                 let now = Self.now()
                 let authorityFresh = NG2TicketGuard.authoritySampleIsFresh(
@@ -562,15 +598,16 @@ final class NG2Runtime {
             }
             if raised == nil && result.1 == nil { outcome = 1 }
             run.lock.ng2Locked {
-                if outcome == 1 { run.prefix = command.id; run.inFlight = false }
+                if run.mainCommandID == command.id && outcome == 1 { run.prefix = command.id; run.inFlight = false }
                 // A started failure remains inflight: never certify a later
                 // frame prefix or issue an automatic cleanup tap from it.
             }
         }
+        guard run.lock.ng2Locked({ run.mainCommandID == command.id }) else { return }
         let cancelled = run.lock.ng2Locked { run.cancelReason }
         if outcome == 0 && cancelled != 0 { ng2_controller_cancel(core, Self.now(), cancelled) }
         ng2_controller_complete(core, command.id, Self.now(), outcome)
-        run.lock.ng2Locked { run.mainOutstanding = false }
+        run.lock.ng2Locked { if run.mainCommandID == command.id { run.mainCommandID = 0 } }
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status); cache(run, status)
         cycle(run)
     }
@@ -583,11 +620,16 @@ final class NG2Runtime {
         }
         var events = [NG2ControllerEvent](repeating: NG2ControllerEvent(), count: 64)
         let count = events.withUnsafeMutableBufferPointer { ng2_controller_events(core, $0.baseAddress, $0.count) }
+        var changes = [NG2ControllerSceneChange](repeating: NG2ControllerSceneChange(), count: 3)
+        let changeCount = changes.withUnsafeMutableBufferPointer { ng2_controller_scene_changes(core, $0.baseAddress, $0.count) }
         run.lock.ng2Locked {
             var required = Set<UInt64>()
             for event in events.prefix(min(count, events.count)) {
                 if event.command.source_capture_id != 0 { required.insert(event.command.source_capture_id) }
                 if event.observed_capture_id != 0 { required.insert(event.observed_capture_id) }
+            }
+            for change in changes.prefix(min(changeCount, changes.count)) {
+                required.insert(change.source_capture_id); required.insert(change.observed_capture_id)
             }
             for frame in [run.initial, run.found].compactMap({ $0 }) { required.insert(frame.id) }
             if s.terminal != 0 && s.last_capture_id != 0 { required.insert(s.last_capture_id) }
@@ -617,6 +659,15 @@ final class NG2Runtime {
                 "outcome": integer(event.outcome), "reason": integer(event.reason), "motion": integer(event.motion),
                 "dx": integer(event.dx), "dy": integer(event.dy)])
         }
+        let encodedChanges = changes.prefix(min(changeCount, changes.count)).map { c -> JSONValue in
+            .object(["command_id": number(c.command_id), "source_capture_id": number(c.source_capture_id),
+                "observed_capture_id": number(c.observed_capture_id), "target_ns": number(c.target_ns),
+                "deadline_ns": number(c.deadline_ns), "change_mask": integer(c.change_mask),
+                "changed_tiles": integer(c.changed_tiles), "changed_protected": integer(c.changed_protected),
+                "state_before": integer(c.state_before), "state_after": integer(c.state_after),
+                "goods_before": integer(c.goods_before), "goods_after": integer(c.goods_after),
+                "replan_count": integer(c.replan_count), "replan_allowed": .bool(c.replan_allowed == 1)])
+        }
         let report: [String: JSONValue] = ["abi_version": .int(Int(s.abi_version)), "struct_size": .int(Int(s.struct_size)),
             "phase": integer(s.phase), "reason": integer(s.reason), "reason_name": .string(String(cString: ng2_reason_name(s.reason))),
             "terminal": integer(s.terminal), "goods": integer(s.goods), "paused": integer(s.paused), "input_state": integer(s.input_state),
@@ -628,7 +679,8 @@ final class NG2Runtime {
             "last_completed_id": number(s.last_completed_id), "current_command_id": number(s.current_command_id),
             "last_ordinal": number(s.last_ordinal), "next_target_ns": number(s.next_target_ns), "lead_ns": number(s.lead_ns),
             "capture_count": number(s.capture_count), "accepted_frames": number(s.accepted_frames),
-            "discarded_frames": number(s.discarded_frames), "beat_period_ns": number(s.beat_period_ns), "events": .array(encoded)]
+            "discarded_frames": number(s.discarded_frames), "beat_period_ns": number(s.beat_period_ns),
+            "events": .array(encoded), "scene_changes": .array(encodedChanges)]
         run.lastCache = Self.now()
         run.lock.ng2Locked { run.report = report }
     }

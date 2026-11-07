@@ -228,6 +228,26 @@ class NGG2ApplyTests(unittest.TestCase):
         self.assertEqual(set(report['native_source_sha256']), {self.name, self.added})
         self.assertEqual(report['capability'], 'necrogold_native_v1')
 
+    def test_package_provenance_records_required_client_capability(self):
+        import json
+        driver = self.native_report_fixture()
+        path = driver / 'patches/loopctrl/ngg2-manifest.json'
+        manifest = json.loads(path.read_text())
+        manifest['client_capability'] = 'necrogold_native_v2'
+        path.write_text(json.dumps(manifest))
+        report = verifier.inspect_native_sources(self.root, driver)
+        self.assertEqual('necrogold_native_v2', report.get('client_capability'))
+
+    def test_package_provenance_rejects_unknown_client_capability(self):
+        import json
+        driver = self.native_report_fixture()
+        path = driver / 'patches/loopctrl/ngg2-manifest.json'
+        manifest = json.loads(path.read_text())
+        manifest['client_capability'] = 'unknown'
+        path.write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, 'native_manifest_identity'):
+            verifier.inspect_native_sources(self.root, driver)
+
     def test_package_provenance_rejects_changed_native_source(self):
         driver = self.native_report_fixture()
         (self.root / self.added).write_text('changed after sealed installation\n')

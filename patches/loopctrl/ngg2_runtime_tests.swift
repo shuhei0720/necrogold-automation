@@ -312,6 +312,112 @@ let walkResult = call("necro_native_results", walk)
 require(walkResult.1 == nil && (walkResult.0?["images"]?.arrayValue?.count ?? 0) >= 4 &&
     walkResult.0?["omitted_capture_ids"]?.arrayValue?.isEmpty == true, "native_walk_initial_motion_goods_stop_images_exported")
 
+// Revoke the original queued first-move ticket using one real remote-cell
+// change. Execute its actual callback before/after the replacement callback.
+// All perception, same-position proof, new planning and begin calls are real.
+for staleFirst in [true, false] {
+    NG2Fake.reset(.walk)
+    NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+    let replan = identity()
+    var aligned = false
+    NG2RuntimeTestHooks.beforeControlTick = {
+        let current = report(replan)
+        if !aligned && (current["beat_period_ns"]?.intValue ?? 0) > 0 &&
+            !(current["events"]?.arrayValue ?? []).contains(where: { $0.objectValue?["kind"]?.intValue == 4 }) {
+            // Give the real next-target calculation nearly a full period so
+            // a second image can arrive before the original 10ms deadline.
+            let now = NG2Fake.virtualClock()
+            NG2Fake.lock.lock(); let epoch = NG2Fake.phaseBase; NG2Fake.lock.unlock()
+            let period: UInt64 = 520_000_000
+            let position = (now-epoch+150_000_000) % period
+            NG2Fake.advance((period+5_000_000-position) % period)
+            aligned = true
+            NG2RuntimeTestHooks.beforeControlTick = nil
+        }
+    }
+    NG2RuntimeTestHooks.scheduleTicket = { id, callback in
+        let current = report(replan)
+        let moves = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+        guard moves.contains(where: { $0["id"]?.intValue == Int(id) }),
+            (current["inputs"]?.intValue ?? 0) == 0 else { return false }
+        NG2Fake.holdTicket(id, callback)
+        NG2Fake.lock.lock(); NG2Fake.remoteVariant = 1; NG2Fake.lock.unlock()
+        return true
+    }
+    NG2RuntimeTestHooks.afterTicketReturned = { id in
+        NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(id); NG2Fake.lock.unlock()
+    }
+    require(call("necro_native_start", replan).1 == nil, "replan_runtime_start")
+    pump("replan_runtime_replacement_reserved", timeout: 12) {
+        let current = call("necro_native_status", replan, keepalive: true).0?["report"]?.objectValue ?? [:]
+        NG2Fake.lock.lock(); let held = NG2Fake.heldTickets.count; NG2Fake.lock.unlock()
+        return held >= 2 || current["terminal"]?.intValue == 1
+    }
+    let prepared = report(replan)
+    let changes = prepared["scene_changes"]?.arrayValue ?? []
+    require(changes.count == 1 && changes[0].objectValue?["replan_allowed"]?.boolValue == true,
+        "replan_runtime_remote_change_uses_new_observation")
+    let moves = (prepared["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+    require(moves.count == 2 && moves[0]["outcome"]?.intValue == 3 && moves[0]["begin_ns"]?.intValue == 0,
+        "replan_runtime_old_ticket_definitely_unsent")
+    let oldID = UInt64(moves[0]["id"]!.intValue!)
+    let newID = UInt64(moves[1]["id"]!.intValue!)
+    require(moves[0]["target_ns"]?.intValue == moves[1]["target_ns"]?.intValue &&
+        moves[0]["not_before_ns"]?.intValue == moves[1]["not_before_ns"]?.intValue &&
+        moves[1]["deadline_ns"]!.intValue! <= moves[0]["deadline_ns"]!.intValue!, "replan_runtime_original_beat_and_deadline")
+    var oldQueries = 0
+    func releaseOld() {
+        NG2Fake.lock.lock(); NG2Fake.frontPID = 0
+        NG2Fake.beforeForegroundQuery = { oldQueries += 1 }; NG2Fake.lock.unlock()
+        NG2Fake.releaseTicket(oldID)
+        pump("replan_stale_callback_returned") {
+            NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }; return NG2Fake.returnedTickets.contains(oldID)
+        }
+        require(oldQueries == 0, "replan_stale_callback_skips_AX_and_shared_authority")
+        NG2Fake.lock.lock(); NG2Fake.frontPID = 42; NG2Fake.beforeForegroundQuery = nil; NG2Fake.lock.unlock()
+    }
+    if staleFirst {
+        releaseOld()
+        let afterOld = report(replan)
+        require(afterOld["current_command_id"]?.intValue == Int(newID) &&
+            afterOld["input_state"]?.intValue == 1 && afterOld["main_ticket_outstanding"]?.boolValue == true &&
+            afterOld["cancel_requested"]?.boolValue == false && NG2Fake.countTouches() == 0,
+            "replan_old_return_does_not_release_new_ticket")
+    }
+    NG2RuntimeTestHooks.beforeMainAuthority = {
+        let now = NG2Fake.virtualClock()
+        let at = UInt64(moves[1]["not_before_ns"]!.intValue!)
+        require(now <= UInt64(moves[1]["deadline_ns"]!.intValue!), "replan_fixture_replacement_not_late")
+        if now < at { NG2Fake.advance(at-now) }
+        NG2RuntimeTestHooks.beforeMainAuthority = nil
+    }
+    NG2Fake.releaseTicket(newID)
+    pump("replan_replacement_only_one_input", timeout: 8) {
+        let current = call("necro_native_status", replan, keepalive: true).0?["report"]?.objectValue ?? [:]
+        return (current["inputs"]?.intValue ?? 0) > 0 || current["terminal"]?.intValue == 1
+    }
+    require(report(replan)["inputs"]?.intValue == 1 && NG2Fake.paths().count == 1,
+        "replan_replacement_is_only_direction_synth")
+    pump("replan_terminal_hold", timeout: 8) {
+        _ = call("necro_native_status", replan, keepalive: true)
+        return report(replan)["terminal"]?.intValue == 1
+    }
+    if !staleFirst {
+        require(!drained(replan) && runtime.hasLease && call("necro_native_start", identity()).1 != nil,
+            "replan_queued_stale_callback_keeps_core_and_lease")
+        releaseOld()
+    }
+    pump("replan_all_callbacks_drained") { drained(replan) }
+    let final = report(replan)
+    require(final["paused"]?.intValue == 1 && final["cancel_requested"]?.boolValue == false && NG2Fake.paths().count == 1,
+        "replan_stale_callback_never_cancels_or_synthesizes")
+    let result = call("necro_native_results", replan)
+    let exported = Set((result.0?["images"]?.arrayValue ?? []).compactMap { $0.objectValue?["capture_id"]?.intValue })
+    let change = changes[0].objectValue!
+    require(result.1 == nil && exported.contains(change["source_capture_id"]!.intValue!) &&
+        exported.contains(change["observed_capture_id"]!.intValue!), "replan_difference_source_and_after_images_pinned")
+}
+
 NG2Fake.reset(.pause)
 NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()
 let unknown = identity()

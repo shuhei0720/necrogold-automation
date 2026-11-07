@@ -67,3 +67,9 @@ int ng2_fixture_floor_rgba(uint8_t *out,size_t length,int32_t player_x,
     }
     return 1;
 }
+int ng2_fixture_remote_cell(uint8_t *out,size_t length,int32_t variant){
+    if(!out||length!=FS||variant<0||variant>2)return 0;
+    if(variant==1)rectangle(out,71,226,106,261,80,80,80);
+    if(variant==2)rectangle(out,71,226,106,261,100,40,10);
+    return 1;
+}

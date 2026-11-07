@@ -1,5 +1,7 @@
 # LoopCtrl取得元の画像寸法修正 NG-G1
 
+TEST045ではNG-G2を更新する。初方向が確実未送信の場合だけ最新sceneで安全床と同方向を再検証し、元拍/期限内の再計画を通算2回まで許可する。旧callbackはcommand IDで隔離し、実終了まではdrainへ計上する。差分元/差分後の画像と固定診断を保持する。新capability `necrogold_native_v2` をv1と併記し、新clientはv2を必須とするため、新IPAへのSideStore更新が必要。API `1.98.14-ngg2` と旧v1契約は維持する。新IPA/ホスト・CIの最終検証と実機確認は[既存台帳](../../docs/device-tests/README.md)末尾を参照する。
+
 ## NG-G2 / TEST043 native制御の追加
 
 固定上流とNG-G1の画像幾何を保持し、NG-G2ではiPhone内のC判定・拍同期とSwiftの取得・期限付き単発入力を組み合わせる。API版は`1.98.14-ngg2`、capabilityは`necrogold_native_v1`。iSHは`necro_native_start/status/cancel/results`から実行と記録を管理し、capabilityのないNG-G1へ新しい入力を要求しない。商品候補を保持し、自動購入しない。実機の毎拍成功・所要時間はTEST043で確認する。

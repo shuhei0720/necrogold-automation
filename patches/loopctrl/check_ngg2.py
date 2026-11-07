@@ -205,6 +205,12 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         'legacy-pending': ('if NG2CaptureBridge.pendingRequests != 0 { return failure("Previous daemon capture is still outstanding.") }',
                            '// mutation: legacy pending start exclusion removed',
                            'FAIL legacy_timeout_actual_request_blocks_native_run'),
+        'stale-cleanup': ('run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }',
+                          'run.lock.ng2Locked { run.mainCallbacks.remove(command.id); run.mainCommandID = 0 }',
+                          'FAIL replan_old_return_does_not_release_new_ticket'),
+        'callback-drain': ('mainOutstanding: run.mainOutstanding, legacyCaptures: legacy)',
+                           'mainOutstanding: false, legacyCaptures: legacy)',
+                           'FAIL replan_queued_stale_callback_keeps_core_and_lease'),
     }
     reds = {}
     for label,(old,new,expected) in mutations.items():
@@ -212,6 +218,12 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         (stage/'NG2Runtime.swift').write_text(source.replace(old,new))
         result = compile_run(sources, stage/(label+'-tests'), output, 'runtime-'+label+'-mutation-red', extra)
         require_red(result, expected); reds[label]=result.stdout.strip()
+    ownership = 'guard run.lock.ng2Locked({ run.mainCommandID == command.id }) else { return }'
+    if source.count(ownership) != 3: raise ValueError('runtime_stale_entry_mutation_target')
+    (stage/'NG2Runtime.swift').write_text(source.replace(ownership, '// mutation: stale callback early ownership removed'))
+    result = compile_run(sources, stage/'stale-entry-tests', output, 'runtime-stale-entry-mutation-red', extra)
+    require_red(result, 'FAIL replan_stale_callback_skips_AX_and_shared_authority')
+    reds['stale-entry'] = result.stdout.strip()
     return {'production_green':green.stdout.strip(),'mutation_red':reds,'compiled':True,
             'scope':'Actual Runtime public API, raster, real C, main ticket and lifecycle with UIKit/XCTest/daemon fakes'}
 

@@ -115,6 +115,32 @@ final class NG2RPCContractsTests: XCTestCase {
         return try XCTUnwrap(answer)
     }
 
+    func testPublicSchemaAdvertisesCompatibleNativeCapabilitiesWithoutRPCDispatch() throws {
+        let reply = expectation(description: "public native schema")
+        var answer: [String: Any]?
+        var failure: Error?
+        var request = URLRequest(url: URL(string: "http://127.0.0.1:\(server.port)/schema")!)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        client.dataTask(with: request) { data, response, error in
+            do {
+                if let error { throw error }
+                XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+                answer = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(data)) as? [String: Any])
+            } catch { failure = error }
+            reply.fulfill()
+        }.resume()
+        wait(for: [reply], timeout: 8)
+        if let failure { throw failure }
+        let schema = try XCTUnwrap(answer)
+        XCTAssertEqual(schema["server_version"] as? String, "1.98.14-ngg2")
+        XCTAssertEqual(schema["protocol_version"] as? Int, 1)
+        let capabilities = try XCTUnwrap(schema["capability_tags"] as? [String])
+        XCTAssertTrue(capabilities.contains("necrogold_native_v1"))
+        XCTAssertTrue(capabilities.contains("necrogold_native_v2"))
+        receivedLock.lock(); let dispatched = received.count; receivedLock.unlock()
+        XCTAssertEqual(dispatched, 0)
+    }
+
     func testAuthenticatedOwnerProjectionUsesEnvelopeIdentityAtActualCallsite() throws {
         for method in ["necro_native_start", "necro_native_status", "necro_native_cancel", "necro_native_results"] {
             let response = try rpc(method, params: ["run_id": UUID().uuidString,

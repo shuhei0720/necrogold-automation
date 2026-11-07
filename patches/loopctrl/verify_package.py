@@ -53,7 +53,9 @@ def inspect_native_sources(upstream, driver):
     manifest = json.loads(manifest_raw)
     if (manifest.get('upstream_commit') != '6e25cf6a9f65bc86c372cdce94bdb151d0cf6767'
             or manifest.get('api_version') != '1.98.14-ngg2'
-            or manifest.get('capability') != 'necrogold_native_v1'):
+            or manifest.get('capability') != 'necrogold_native_v1'
+            or manifest.get('client_capability', 'necrogold_native_v1')
+               not in ('necrogold_native_v1', 'necrogold_native_v2')):
         raise ValueError('native_manifest_identity')
     patch = driver / 'patches/loopctrl/ngg2.patch'
     if hashlib.sha256(patch.read_bytes()).hexdigest() != manifest['patch_sha256']:
@@ -68,6 +70,7 @@ def inspect_native_sources(upstream, driver):
         if source.is_symlink() or hashlib.sha256(source.read_bytes()).hexdigest() != digest:
             raise ValueError('native_source_hash: ' + name)
     return {'api_version': manifest['api_version'], 'capability': manifest['capability'],
+        'client_capability': manifest.get('client_capability', 'necrogold_native_v1'),
         'native_manifest_sha256': hashlib.sha256(manifest_raw).hexdigest(),
         'native_source_sha256': expected}
 

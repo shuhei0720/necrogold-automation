@@ -20,12 +20,17 @@ struct NG2Controller {
     NG2BeatSample samples[13];
     NG2ControllerEvent events[EVENT_CAP];
     NG2Command command;
+    NG2Command initial_ticket;
+    NG2ControllerSceneChange scene_changes[3];
     uint16_t visits[NG2_VISIT_COUNT];
     uint8_t restart_fingerprint[48];
     uint64_t seen_id,seen_start,seen_end,last_now,transition_ns,sync_ns;
     uint64_t ack_ns,command_period,next_nominal,next_deadline,next_period;
     uint64_t finish_ns;
     size_t sample_count,event_count;
+    size_t scene_change_count;
+    uint64_t initial_period;
+    int initial_ticket_valid,replan_pending,replan_count;
     int have_scene,finish_requested,final_pause_attempted,need_fresh_cleanup;
     int restart_pending,lead_index,retune_direction,have_anchor,beat_failed;
 };
@@ -143,6 +148,30 @@ static void start_floor(NG2Controller *p,const NG2Scene *scene,uint64_t end){
         memcpy(p->restart_fingerprint,scene->fingerprint,48);p->s.phase=NG2_PHASE_FLOOR;
     }
 }
+static int scene_change(const NG2Scene *before,const NG2Scene *after,int *tiles,int *protected_cells){
+    int i,mask=(before->state!=after->state?1:0)|(before->goods!=after->goods?2:0);
+    *tiles=0;*protected_cells=0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        *tiles+=before->tiles[i]!=after->tiles[i];
+        *protected_cells+=before->protected_cells[i]!=after->protected_cells[i];
+    }
+    return mask|(*tiles?4:0)|(*protected_cells?8:0);
+}
+static int can_replan(NG2Controller *p,const NG2Scene *scene){
+    NG2Decision choice;NG2Motion motion;uint64_t aligned;
+    int direction=p->command.direction;
+    if(p->s.input_state!=1||p->replan_pending||p->finish_requested||p->replan_count>=2
+        ||p->s.inputs||p->s.moves||p->s.lead_confirmed||!p->initial_ticket_valid
+        ||p->command.kind!=NG2_ACTION_MOVE||direction<1||direction>4
+        ||!safe_floor(&p->before,direction)||!safe_floor(scene,direction)
+        ||!same_gold(&p->before,scene)||!ng2_beat_model_valid(&p->model)
+        ||!corrected(p,p->initial_ticket.target_ns,p->initial_period,&aligned)
+        ||!ng2_choose(scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&choice)
+        ||choice.direction!=direction
+        ||!ng2_motion(&p->before,scene,direction,&motion)||motion.kind!=NG2_BLOCKED
+        ||motion.dx||motion.dy)return 0;
+    return 1;
+}
 NG2Controller *ng2_controller_create(uint64_t now){
     NG2Controller *p;
     if(!valid_time(now)||now>NS_LIMIT-180*SECOND-1)return NULL;
@@ -197,7 +226,7 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
 }
 int ng2_controller_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t prefix,int32_t stable){
-    int pending_kind;
+    int pending_kind,mask=0,changed_tiles=0,changed_protected=0;
     if(!p)return -1;
     if(p->s.terminal)return 0;
     ++p->s.capture_count;
@@ -205,16 +234,30 @@ int ng2_controller_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,
         ||(p->seen_id&&(start<=p->seen_start||end<=p->seen_end))){++p->s.discarded_frames;return 0;}
     p->seen_id=id;p->seen_start=start;p->seen_end=end;
     if(!valid_scene(scene)||stable<0||stable>1){++p->s.discarded_frames;terminal(p,end,NG2_REASON_GEOMETRY);return 0;}
+    if((p->s.input_state==1||p->replan_pending)&&p->command.kind==NG2_ACTION_MOVE)
+        mask=scene_change(&p->before,scene,&changed_tiles,&changed_protected);
     /* A current goods observation latches before prefix/phase checks. Only a
      * subsequent stable matching prefix may authorize the holding pause. */
     if(scene->goods==NG2_GOODS_VISIBLE){finish(p,end,NG2_REASON_GOODS);p->need_fresh_cleanup=1;}
     if(!stable||prefix!=p->s.last_completed_id||p->s.input_state==2||p->s.input_state==4){
         ++p->s.discarded_frames;return 0;}
-    if(p->s.input_state==1&&p->command.kind==NG2_ACTION_MOVE
-        &&(scene->state!=p->before.state||scene->goods!=p->before.goods
-           ||memcmp(scene->tiles,p->before.tiles,sizeof(scene->tiles))
-           ||memcmp(scene->protected_cells,p->before.protected_cells,sizeof(scene->protected_cells)))){
-        not_sent(p,end,NG2_REASON_SCREEN);finish(p,end,NG2_REASON_SCREEN);
+    if(mask){
+        int allowed=can_replan(p,scene);
+        if(p->scene_change_count<3){
+            NG2ControllerSceneChange *change=&p->scene_changes[p->scene_change_count++];
+            memset(change,0,sizeof(*change));
+            change->command_id=p->command.id;
+            change->source_capture_id=p->replan_pending?p->s.last_capture_id:p->command.source_capture_id;
+            change->observed_capture_id=id;change->target_ns=p->command.target_ns;
+            change->deadline_ns=p->initial_ticket_valid?p->initial_ticket.deadline_ns:p->command.deadline_ns;
+            change->change_mask=mask;change->changed_tiles=changed_tiles;change->changed_protected=changed_protected;
+            change->state_before=p->before.state;change->state_after=scene->state;
+            change->goods_before=p->before.goods;change->goods_after=scene->goods;
+            change->replan_count=p->replan_count+allowed;change->replan_allowed=allowed;
+        }
+        not_sent(p,end,NG2_REASON_SCREEN);
+        if(allowed){++p->replan_count;p->replan_pending=1;p->before=*scene;}
+        else {p->replan_pending=0;finish(p,end,NG2_REASON_SCREEN);}
     }
     p->scene=*scene;p->have_scene=1;p->need_fresh_cleanup=0;
     p->s.paused=scene->state==NG2_PAUSE;
@@ -266,6 +309,7 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
      * beyond image, phase, walk, or session validity. */
     if(horizon<tail||p->command.not_before_ns>horizon-tail){finish(p,now,NG2_REASON_STALE);return 0;}
     deadline=kind==NG2_ACTION_MOVE?p->command.not_before_ns+10000000:now+SECOND;
+    if(kind==NG2_ACTION_MOVE&&p->replan_pending)deadline=minimum(deadline,p->initial_ticket.deadline_ns);
     if(kind==NG2_ACTION_MOVE&&p->s.lead_confirmed)deadline=minimum(deadline,p->next_deadline);
     deadline=minimum(deadline,horizon-tail);
     deadline=minimum(deadline,p->s.last_capture_start_ns+FRESH);
@@ -281,6 +325,15 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
         direction==NG2_UP?290:direction==NG2_DOWN?124:207;
     p->command.y=kind==NG2_ACTION_MOVE?(direction==NG2_LEFT?49:838):448;
     p->before=p->scene;p->command_period=p->model.period_ns;
+    if(kind==NG2_ACTION_MOVE&&p->replan_pending){
+        p->command.target_ns=p->initial_ticket.target_ns;
+        p->command.not_before_ns=p->initial_ticket.not_before_ns;
+        p->command.ordinal=p->initial_ticket.ordinal;
+        p->command.direction=p->initial_ticket.direction;
+        p->command_period=p->initial_period;p->replan_pending=0;
+    }else if(kind==NG2_ACTION_MOVE&&!p->initial_ticket_valid){
+        p->initial_ticket=p->command;p->initial_period=p->command_period;p->initial_ticket_valid=1;
+    }
     p->s.input_state=1;p->s.current_command_id=p->command.id;
     e=&p->events[p->event_count++];memset(e,0,sizeof(*e));e->command=p->command;
     *out=p->command;return 1;
@@ -336,6 +389,10 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         else if(now-p->transition_ns>=TRANSITION)finish(p,now,NG2_REASON_SCREEN);
         return 0;
     }
+    if(p->replan_pending&&(!ng2_beat_model_valid(&p->model)||now>p->initial_ticket.deadline_ns)){
+        int reason=now>p->initial_ticket.deadline_ns?NG2_REASON_LATE:NG2_REASON_BEAT;
+        p->replan_pending=0;finish(p,now,reason);return 0;
+    }
     if(!ng2_beat_model_valid(&p->model)){
         if(now-p->sync_ns>=12*SECOND)finish(p,now,NG2_REASON_BEAT);
         return 0;
@@ -346,7 +403,15 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         finish(p,now,choice.reason==2?NG2_REASON_PARTIAL_GOODS:NG2_REASON_NO_PATH);return 0;}
     if(p->have_anchor&&!p->s.lead_confirmed&&(!same_gold(&p->retune_anchor,&p->scene)||choice.direction!=p->retune_direction
         ||!safe_floor(&p->scene,choice.direction))){finish(p,now,NG2_REASON_MOVEMENT);return 0;}
-    if(p->s.lead_confirmed){
+    if(p->replan_pending){
+        uint64_t aligned;
+        if(p->s.inputs||p->s.moves||p->s.lead_confirmed||choice.direction!=p->initial_ticket.direction
+            ||!safe_floor(&p->scene,choice.direction)||now>p->initial_ticket.deadline_ns
+            ||!corrected(p,p->initial_ticket.target_ns,p->initial_period,&aligned)){
+            p->replan_pending=0;finish(p,now,NG2_REASON_SCREEN);return 0;
+        }
+        p->s.next_target_ns=p->initial_ticket.target_ns;
+    }else if(p->s.lead_confirmed){
         if(!p->s.next_target_ns||now>p->next_deadline){finish(p,now,NG2_REASON_LATE);return 0;}
     }else p->s.next_target_ns=ng2_next_target(&p->model,now,p->s.lead_ns);
     if(!p->s.next_target_ns){finish(p,now,NG2_REASON_BEAT);return 0;}
@@ -407,6 +472,10 @@ void ng2_controller_cancel(NG2Controller *p,uint64_t now,int32_t reason){
 void ng2_controller_status(const NG2Controller *p,NG2ControllerStatus *out){if(out){if(p)*out=p->s;else memset(out,0,sizeof(*out));}}
 size_t ng2_controller_events(const NG2Controller *p,NG2ControllerEvent *out,size_t capacity){
     size_t n;if(!p||!out)return 0;n=p->event_count<capacity?p->event_count:capacity;memcpy(out,p->events,n*sizeof(*out));return n;
+}
+size_t ng2_controller_scene_changes(const NG2Controller *p,NG2ControllerSceneChange *out,size_t capacity){
+    size_t n;if(!p||!out)return 0;n=p->scene_change_count<capacity?p->scene_change_count:capacity;
+    memcpy(out,p->scene_changes,n*sizeof(*out));return n;
 }
 const char *ng2_reason_name(int32_t reason){
     static const char *const names[]={"none","goods","cancelled","foreground","locked","owner_paused","capture",

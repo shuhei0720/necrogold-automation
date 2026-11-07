@@ -9,4 +9,6 @@
  * Returns1 on success,0 on invalid arguments. No device image is embedded. */
 int ng2_fixture_floor_rgba(uint8_t *out,size_t length,int32_t player_x,
                           int32_t player_y,double q,int32_t goods);
+/* Change one remote observed cell without affecting the motion-signature ROI. */
+int ng2_fixture_remote_cell(uint8_t *out,size_t length,int32_t variant);
 #endif

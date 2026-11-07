@@ -18,6 +18,10 @@ from .validation import MAX_HTTP, MAX_PLAIN, ProbeError, b64, json_object, numbe
 GAME = "jp.co.spike-chunsoft.necrodancerjp"
 HOST = "127.0.0.1:8300"
 SCHEMA_LIMIT = 512 * 1024
+RPC_STAGES = frozenset(('request_crypto', 'http', 'response_json', 'response_auth',
+                        'response_crypto', 'result_json', 'complete'))
+RPC_TIMING_KEYS = frozenset(('request_start_ns', 'http_start_ns', 'http_end_ns',
+                            'decrypt_start_ns', 'decrypt_end_ns', 'response_end_ns'))
 
 
 
@@ -187,6 +191,19 @@ class Client:
         raise ProbeError("method_not_allowed")
 
     def call(self, method, params=None, *, timeout=None):
+        self.last_failure = None
+        self._rpc_stage = 'request_crypto'
+        self._rpc_timings = {}
+        try:
+            return self._call(method, params, timeout=timeout)
+        except ProbeError:
+            self.last_failure = {
+                'stage': self._rpc_stage if self._rpc_stage in RPC_STAGES else 'request_crypto',
+                'host_timings': {key:value for key,value in self._rpc_timings.items()
+                    if key in RPC_TIMING_KEYS and type(value) is int and 0 <= value < 2**63}}
+            raise
+
+    def _call(self, method, params=None, *, timeout=None):
         params = {} if params is None else params
         self._validate(method, params)
         if not isinstance(self.key, bytes) or len(self.key) != 32 or not isinstance(self.tok, str):
@@ -197,6 +214,7 @@ class Client:
         self.sequence += 1
         rpc_id = self.sequence
         times = {"request_start_ns": time.monotonic_ns(), "crypto_engine": self.crypto.engine}
+        self._rpc_timings = times
         if not isinstance(self.deadline_owner, OwnedRpcTimer):
             raise ProbeError("timer_owner_required")
         with self.deadline_owner.deadline(timeout):
@@ -209,9 +227,12 @@ class Client:
             sealed = json.dumps({"v": 1, "tok": self.tok, "ts": ts, "nonce": nonce.hex(),
                                  "ct": base64.b64encode(ct).decode(), "tag": tag.hex()}).encode()
             times["http_start_ns"] = time.monotonic_ns()
+            self._rpc_stage = 'http'
             response = self.transport(sealed, timeout)
             times["http_end_ns"] = time.monotonic_ns()
+            self._rpc_stage = 'response_json'
             envelope = json_object(response, MAX_HTTP)
+            self._rpc_stage = 'response_auth'
             cipher = b64(envelope.get("ct"), MAX_PLAIN)
             tag_text = envelope.get("tag")
             try:
@@ -223,8 +244,10 @@ class Client:
             if not hmac.compare_digest(mac(k_mac, b"resp" + nonce + cipher), response_tag):
                 raise ProbeError("response_mac_mismatch")
             times["decrypt_start_ns"] = time.monotonic_ns()
+            self._rpc_stage = 'response_crypto'
             plain = self.crypto.xor(mac(self.key, b"loopctrl-v1|enc-resp" + nonce), nonce, cipher)
             times["decrypt_end_ns"] = time.monotonic_ns()
+            self._rpc_stage = 'result_json'
             response = json_object(plain)
             if response.get("jsonrpc") != "2.0" or type(response.get("id")) is not int or response["id"] != rpc_id:
                 raise ProbeError("response_id_mismatch")
@@ -235,4 +258,5 @@ class Client:
             times["response_end_ns"] = time.monotonic_ns()
             times["request_bytes"] = len(sealed)
             times["encrypted_response_bytes"] = len(cipher)
+            self._rpc_stage = 'complete'
             return RpcReply(response["result"], times)

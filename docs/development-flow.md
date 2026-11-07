@@ -2,6 +2,8 @@
 
 最新の適用状況: TEST043の開始前接続失敗を受け、TEST044のUI-free接続確認・診断を実装し、対象92件のホスト/CI検証を完了した。[既存実機台帳の8項目プラン](device-tests/README.md#test-044の8項目プラン)と末尾の検証記録に従い、同じNG-G2 build20と完全ソースで実機確認を依頼する。CI成功と実機受入を区別し、毎拍歩行・人より速い動作は未合格。開発結果の返却ではユーザー指示により毎回具体的な実機確認を依頼する。以下はフロー原則と過去の適用履歴。
 
+TEST044受領後は、ゲーム起動/続行成功・方向入力前のscene差停止・結果回収rpc_deadlineを切り分け、TEST045の8項目へ戻った。プランの設計/安全各2周・試験網羅1周をfresh-contextで終了し、P0/P1/P2残件なし。元拍/期限を固定した初入力前だけの最大2再計画、旧callbackのID隔離と実終了までのdrain、結果専用8秒とhost残期限、固定差分診断/保持、native_v2新IPAを実装する。閉じたTEST044レビューの追加周ではなく、新実機不具合に対する工程①からの反復とする。
+
 ユーザー指定の [AI-Driven-Development Codex版](https://github.com/shuhei0720/AI-Driven-Development/blob/3cf01c46395e83696ba8900e429297ff5f249e2f/AI-Driven-Development-CAF-ALZ-Codex.md) を確認しました。
 
 参照commit: `3cf01c46395e83696ba8900e429297ff5f249e2f`、文書blob: `646fc7225c3b08d4073b59a4d862b3f52294b800`。2026-11-05（日本時間）確認。

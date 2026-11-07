@@ -2,6 +2,8 @@
 
 更新: 2026-11-07（日本時間）
 
+最新の実機結果はTEST044。ゲーム起動と続行に成功したが、初方向の予約後にscene差を検出し、未送信のまま停止した（inputs/moves0、最終pause確認）。結果画像の一括回収は2秒枠で失敗したため、具体的差分は不明。TEST045で元の拍/期限を延ばさない初入力前の再計画と、結果専用枠/差分診断を実装する。[8項目と独立プランレビュー](device-tests/README.md#test-044受領結果とtest-045の8項目プラン)に従い、新IPAと完全ソースで具体的な実機確認を依頼する。歩行・速度・毎拍受入は未合格。
+
 前回到達点（TEST-009実施前）: 受信後の縦横比補正案をユーザーの性能要件により撤回。取得元から横長で受け取る方針へ変更した。実機の版/buildが未記録のため、[TEST-009](device-tests/009-source-info.md)の読み取り専用補助を追加。診断本体P1.4・原画像保存・R12は変更しない。横長取得の本体修正と性能合格は未完了。[計画](plans/p1-geometry-validation.md) / [レビュー](reviews/p1-source-info.md)。
 
 最新（2026-11-07 日本時間）: **TEST043は初回device_infoでconnection_errorとなり、ゲーム起動命令未送信。TEST044の接続確認・診断は実装とホスト/CI検証を完了し、実機確認を依頼する段階。** refused/timeout/切断などの下位情報がなく直接原因は未確定。既存UI-free GET /schemaへ変更し、開始前だけ上限付き再試行と固定enum/時間の診断を保存する。native start無再送・started回復GET0・取消/全期限を保つ。対象92件はホスト24.688秒・[CI](https://github.com/shuhei0720/necrogold-automation/actions/runs/42343772094)24.410秒で全成功・skip0。旧回帰432件は407成功/旧画像不足25skip。設計/安全の実装レビュー各2周、試験3周でP0/P1/P2残件なし。IPA/native/R12は変更せずNG-G2 build20を使用し、[TEST044](device-tests/README.md#test-044実行手順)でゲーム起動・歩行・商品/停止を実機確認してruntime/test-044を返してもらう。

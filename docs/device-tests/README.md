@@ -1676,3 +1676,54 @@ TEST044実装レビュー第1周では設計P0/P1/P2なし、安全の旧画像m
 - NG-G2 build20のIPAはTEST043配布版を使用する。native C/Swift、取得元patch、IPA workflow、既存gameplay、R12全40はTEST043提出時から変更しない。NG-G2 source manifest SHA-256は`9330051d4f8fd9432c7ad4463aaca6e5d5276799b15208ce1e2a3215a98930a0`。完全ソースは**全390追跡ファイル**を含む最終GitHub commit archiveで配布する。CI以後の最終更新は既存5文書のみ。
 
 ホスト/CIが確認したのは接続準備・診断・無再送/取消/期限・回復の契約であり、今回の実機のゲーム起動・入力・毎拍歩行の成功はまだ確認していない。上のTEST044手順で実機テストを依頼し、成功/停止を問わずruntime/test-044の全体ZIPと観察結果を受け取る。目的指輪の評価/通知、完全周回、人比較/耐久の受入も残る。
+
+## TEST-044受領結果とTEST-045の8項目プラン
+
+ユーザーは「ゲームは開いたけど、歩かなかった」と報告。ZIP7,078bytes、SHA-256 `801d5fee491593a3592992a0eea554ae63df07403fc16d638b3a378db03044de`。schema確認1回とnative startは成功。nativeは24画像を解析し、resume成立後に上方向の最初のticketを予約したが、capture20から21でstate/goods/全tiles/protectedのいずれかの差を検出し、reason17=screenで送信前に失効した。directionのbegin_ns=0、inputs=0、moves=0。main/前面/10ms遅延を直接原因とはしない。差の具体的内容は未記録で確定できない。最終pause=1/input_state=0/workers_drained=true/native_inflight=falseを確認し、nativeのrunは10.514706秒、walk開始から停止確認画像まで7.621982秒。host/nativeは異なる時計域で直接引き算しない。
+
+一括resultsは全RPC共通2秒枠でrpc_deadlineとなり、保持8画像の回収0。PNG化/転送/暗号/JSONのどこで時間を使ったかは旧失敗ログでは不明。resolved=falseはこの回収失敗であり、方向入力が送信済みunknownだった意味ではない。raw ZIP/reportはGit外に保持する。
+
+1. **概要**: 初歩の予約後にsceneが変わった場合も、旧入力の失効を維持したうえで最新の観測から同じ拍へ限定的に再計画できるようにする。結果画像を回収する読取専用RPCの時間枠と失敗診断も分離する。新IPAと完全ソースのTEST045で実機確認を依頼する。
+2. **背景**: 現行は経路外の1tile/保護セルの差でも初入力前に停止する。今回の差の種類は不明なので、全scene比較を無効化せず、条件を満たす確実未送信だけを新しく判断する。画像未回収も修正し、次回は予約元と差分画像を確認可能にする。
+3. **詳細設計**: 再計画は方向入力通算0・moves0・lead未確認、最初の安全床方向だけ、最大2回。差が出た旧ticketをnot_sentとして永久に失効させ、最新のstable同prefix画像のFLOOR/goods unknown/同gold・安全床/保護/入口/同方向の新chooseと、旧sceneに対するBLOCKED（変位なし）を要求する。unknown/partial/visible/位置不明/経路不成立では停止する。最初のtarget/ordinal/deadline上限を固定し、同拍補正も既存.08周期内、元期限を延ばさず次拍へ移さない。新sceneとsourceを新ticket/motion基準にする。送信済み/unknown/lead確認後には適用しない。Runtimeは予約command IDで所有し、失効した旧callbackはbegin・complete・新ticketのoutstanding解除を行わない。差分は固定bitmask・capture ID・上限付き数値だけ記録し、その画像を既存20枚/4MiB枠内でpinする。
+4. **影響範囲**: NG2Controller/RuntimeとC・Swift公開結合試験、native clientのresults枠/診断、test_045.sh、新capability `necrogold_native_v2`の追加とsealed manifest、既存IPA/client CI、既存5文書と取得元README。API1.98.14-ngg2/native_v1の互換を保ち、新clientはv2を要求して旧IPA開始を防ぐ。R12、認識/経路/拍の閾値・座標・入力16/歩行45/session180秒は維持する。
+5. **新規試験**: 実行可能な公開C入口で、経路外変化後の同拍・同方向再予約と旧ID begin0をRed観測してから実装する。差分2回/3回境界、元target/deadline・遅延/取消/前面/owner/商品/unknown/保護/方向変化/動いた画面・入力済み・lead確認後を検証。実Swift Runtimeの旧callbackと新ticket、診断/画像pinを結合試験する。実暗号HTTPで2秒超のresults成功と専用上限、普通RPC短枠維持、失敗時stage保存・同UUID回復GET0/start0を検証する。API欠落/コンパイルエラーはRedにしない。
+6. **順序**: 本8項目をfresh-context設計/試験/安全レビュー→公開入口の挙動Red→分担実装/Green→旧回帰/必須画像/Swift/IPA CI→独立実装レビュー最大3周→GitHub保存・IPA/完全source全bytes照合→必ず具体的な実機依頼。core+Runtime、client、rootのmanifest/統合/docsで編集所有を分ける。
+7. **保存前と実機条件**: C警告/境界、全対象回帰、sanitize/上限/無再送/元期限、R12全40、manifest/IPA provenanceを検証する。新IPAをSideStoreで更新し、LoopCtrlのStart Server起動済みを確認、新1-1ポーズ・画面端0・左側が下でtest045を実行。ゲーム起動・初歩・各拍・商品・pauseとruntime/test-045全体ZIPを返してもらう。
+8. **スコープ外・残る受入**: 今回のscene差を無害なアニメーションと断定しない。全scene比較の削除、無観測での入力、元期限延長/次々拍再開、started/unknown再送、pairing変更、R12改変はしない。結果RPCだけを最大8秒に分離し、操作/metadataの2秒とreadiness総8秒、nativeの入力期限は維持する。毎拍/人より速い動作、指輪/通知/完全周回の実機受入は未合格のまま残す。
+
+TEST045プラン補足: 再予約のtargetは最初の予約と完全同値とし、最新modelとの整合は最初のperiodに対する.08周期以内を要求するだけでtargetを逐次補正しない。元not_before/deadline上限も固定し、最新画像/位相の期限でさらに短くできるが延長しない。旧IDのbegin/completeと新ticket所有は別にし、旧callbackをlogical失効しても実際のqueue callbackが戻るまでdrain/leaseの分母に数える。結果枠8秒はHTTPだけでなく認証/復号/JSONを含む単回全体をOwnedRpcTimerで制限し、terminal/drained確認後に設定する独立の読取専用絶対期限内に限る。操作sessionや取消/通常RPCの枠は延長しない。結果回収失敗時のstageは固定enum、時間は有効な単調時計の数値だけとする。
+
+診断/保持の補足: scene差分は最大3行（再計画2回と停止1回）、固定bitmask/セル数/前後state・goods/command・capture ID/元target・期限/再計画結果だけとし、本文や任意文字列を保存しない。clientは受信時と旧journal再読込時の双方で同じschemaへ投影し、不正必須値を拒否する。保持RGBAは既存pin20＋recent4/initial/foundの枠を増やさず、PNG公開の各512KiB/総4MiB/最大20枚と区別する。欠落/evictionは既存missing/omitted IDsへ数える。失敗stageはrequest_crypto/http/response_json/response_auth/response_crypto/result_json/completeの固定enumを使い、実HTTPの2秒超resultsに加え、HTTP後の復号/JSON処理中timer発火でも対応stage・途中数値timingsだけが残ることを検証する。
+
+設計/安全第1周のP1/P2補足: 旧callbackはAX照会前と照会後のgateで所有IDを確認し、ID不一致なら取消/generation/prefix/inflight/latestを含む共有状態へ触れない。残callback集合はcore破棄/lease解放の条件にも使う。元target/period/ordinal/direction/not_before/deadlineを不変で保持し、通算2回を新ticketでリセットしない。モデル不正・元期限切れ・3差分目では通常next_target計算へ戻らない。resultsの単回8秒はhost invocation残絶対期限でさらに短縮し、terminal/drained/active owner・heartbeat不更新を維持する。新v2はv1と併記し、開始済journalのGET0/start0回復を妨げない。元sourceと差分captureは再計画拒否時も同じ観測commitで参照・重複排除pinし、initial/found/final優先と既存の保持/export枠・欠落報告を維持する。
+
+`scene_changes`は最大3行、keyはcommand_id/source_capture_id/observed_capture_id/change_mask/changed_tiles/changed_protected/state_before/state_after/goods_before/goods_after/replan_count/replan_allowed/target_ns/deadline_ns。ID/時刻はint0以上2^63未満、maskはstate=1/goods=2/tiles=4/protected=8の合成1..15、セル数0..230、state/goods0..2、count0..2、allowedは厳密bool。未知extraは保存しない。最大native events64/captures256/HTTP events128と合わせJSON10,000nodes内を実fixtureで確認する。
+
+既存回復枠との関係: 操作max_seconds到達後も、従来の有限cleanup_deadline内では同runの取消/読取回収を許可していた。この契約を保ち、resultsのhost残絶対期限はcleanup中なら既に設定したcleanup_deadline、通常終了なら操作deadlineとする。resultsのためにどちらの期限も延長/再設定しない。8秒とこの残りの小さい方でwhole-callを切り、cleanup期限等号では送信0。開始/metadataは従来の操作deadlineを使う。
+
+TEST045プランレビューは設計/安全各2周、試験網羅1周で終了し、P0/P1/P2残件なし。旧callbackの共有状態無作用と実drain、target完全固定、診断schema/保持とexportの区別を補足して実行可能な主Redへ進んだ。
+
+## TEST-045実行手順
+
+今回は**TEST045対応の新IPAへの更新が必要**。配布する`loopctrl-ngg2-unsigned` ZIP内の`upstream/release/LoopCtrl.ipa`をSideStoreのMy Apps → ＋から更新する。新IPAはAPI `1.98.14-ngg2` と`necrogold_native_v1`/`necrogold_native_v2`を公開し、新clientはv2不足なら開始0で停止する。LoopCtrlでいつものVPN/ディスクイメージ接続を確認し、**Start Serverを押して起動済み表示を確認**する。
+
+完全ソースZIPをSafariでGitHubへログインして保存・展開する。新しい通常1-1をポーズし、画面端操作0・左側が下の向き。iSHのフォルダ選択では、展開した`test_045.sh`があるフォルダを選ぶ。
+
+```sh
+mkdir -p /mnt/necro_test045
+mount -t ios . /mnt/necro_test045
+cd /mnt/necro_test045 && sh test_045.sh
+```
+
+**実機テストを依頼する。** ゲーム起動・最初の1歩・各歩とビートの対応・商品表示後のポーズを確認し、終了後の**runtime/test-045全体をZIPでこのチャットへ返す**。動かない/途中停止も同じZIPを返す。ゲームが動いた場合は、可能なら心臓と各歩が見える短い動画を添える。最終ポーズ未確認なら手動でポーズする。旧runtime/test-044を混ぜたり、同時に別のテストを動かしたりしない。ホスト/CIから実機の歩行・毎拍・人より速い性能を合格にはしない。
+
+## TEST-045の実装・検証
+
+主機能の公開C Redは、経路外の認識変化後に同じ拍の新MOVE予約を期待したところ、旧実装がPAUSEを返した**1 assertion failure・0errors**。最小修正後のGreenから、最新sourceでの動きの照合・最大2再計画/3差分目停止・元target/period/ordinal/not_before/deadline上限・期限等号/超過・model不正・保護/商品/unknown/移動画面/既入力を追加検証した。Cの既存status/event ABIは維持し、別queryの固定3行scene_changesを追加。具体的に044のどの項目が変わったかは依然不明で、無害だったと断定していない。
+
+clientは公開CLIと実暗号HTTPで2.15秒results回収を含む**13 assertion failures・0errors**から実装し、最小Green7件4.440秒。結果RPCの最大8秒/host残期限、通常RPC最大2秒、既存有限cleanup、HTTP後の認証/復号/JSON中のtimerと固定stage、旧v1/v2journalの同UUID GET0/start0回復、全最大JSON shapeを確認した。初回Redのoperation期限等号ケースは、既存cleanupを維持する上記合意に従いcleanup期限等号と操作max後の有限回収へ分けた。診断stage追加は共有Clientの既定timeoutを変えない。
+
+配布provenanceの新client_capabilityは、記録欠落/未知値受入の**2 assertion failures・0errors**から修正し、既存v1互換を含む24件全成功（0.068秒）。新manifestは旧native_v1 API契約と別にv2クライアント要件を記録し、適用ソースhash・IPA build-manifestで照合する。
+
+現時点のホスト検証は、必須TEST034〜042の66画像の全存在/SHA一致を確認し、native4 modules **93件全成功・skip0（25.610秒）**、client/共有HTTP **105件全成功・skip0（29.858秒）**。共有HTTP変更後の旧回帰は**432件中407成功・旧画像不足25skip（33.453秒）**。初回の旧回帰は実画像用環境変数未設定で48skipだったため、既存の34〜42実画像を明示して再実行し、最終25skipへ戻した。どちらも機能のRedではない。Swift/macOS・IPAと独立実装レビューの最終結果は完了後に本節へ保存する。
