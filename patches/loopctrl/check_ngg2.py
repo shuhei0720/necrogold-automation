@@ -60,12 +60,12 @@ def require_red(result, expected=EXPECTED_RED):
         raise RuntimeError('compiled_behavioral_red_not_observed')
 
 
-def compile_run(sources, executable, output, label, extra=()):
+def compile_run(sources, executable, output, label, extra=(), *, run_timeout=60):
     built = subprocess.run(['swiftc', *map(str, sources), *map(str, extra), '-o', str(executable)],
                            capture_output=True, text=True, timeout=180)
     (output / (label + '-compile.txt')).write_text(built.stdout + built.stderr)
     checked(built)
-    result = subprocess.run([str(executable.resolve())], capture_output=True, text=True, timeout=60)
+    result = subprocess.run([str(executable.resolve())], capture_output=True, text=True, timeout=run_timeout)
     (output / (label + '-tests.txt')).write_text(result.stdout + result.stderr)
     return result
 
@@ -97,9 +97,10 @@ def api_contract(upstream, output):
     return {'production_green': green.stdout.strip(), 'mutation_red': red.stdout.strip(), 'compiled': True}
 
 
-def raster_contract(upstream, output):
+def raster_contract(upstream, output, *, expect_red=False):
+    output.mkdir(parents=True, exist_ok=True)
     stage = output / 'raster'; stage.mkdir(exist_ok=True)
-    native = upstream / 'LoopCtrlUITests'
+    native = HERE / 'ngg2' if expect_red else upstream / 'LoopCtrlUITests'
     objects = []
     for source in sorted(native.glob('NG2*.c')):
         target = stage / (source.stem + '.o')
@@ -110,17 +111,27 @@ def raster_contract(upstream, output):
     if len(objects) != 4: raise ValueError('native_C_source_set')
     source = (native / 'NG2Raster.swift').read_text()
     (stage / 'NG2Raster.swift').write_text(source)
+    reference = (HERE / 'ngg2_raster_reference.swift').read_text()
+    frozen = reference[reference.index('import Foundation\n'):].replace('enum NG2RasterReference', 'enum NG2Raster')
+    if hashlib.sha256(frozen.encode()).hexdigest() != '2c526132b673fa26a0b18390eee24cf76fe19756a7c24906fb0ad17b58e1a3b7':
+        raise ValueError('raster_frozen_reference_hash')
+    (stage / 'NG2RasterReference.swift').write_text(reference)
     shutil.copyfile(HERE / 'ngg2_raster_tests.swift', stage / 'main.swift')
-    sources = [stage / 'NG2Raster.swift', stage / 'main.swift']
+    sources = [stage / 'NG2Raster.swift', stage / 'NG2RasterReference.swift', stage / 'main.swift']
     extra = ['-import-objc-header', native / 'NG2Core.h', *objects]
-    green = compile_run(sources, stage / 'raster-tests', output, 'raster-production-green', extra)
+    label = 'raster-baseline-red' if expect_red else 'raster-production-green'
+    green = compile_run(sources, stage / 'raster-tests', output, label, extra, run_timeout=180)
+    if expect_red:
+        require_red(green, 'FAIL orientation_1_identity_avoids_pixel_copy actual=6 expected=0')
+        return {'baseline_red': green.stdout.strip(), 'compiled': True, 'returncode': 1,
+                'scope': 'public normalizeProfiled with unchanged pixel loop and real copy accounting'}
     checked(green)
     if not green.stdout.startswith('PASS production CoreGraphics') or green.stderr:
         raise RuntimeError('raster_production_contract_missing')
     old = 'case 6: p = (y, image.height-1-x)'
     if source.count(old) != 1: raise ValueError('raster_mutation_target')
     (stage / 'NG2Raster.swift').write_text(source.replace(old, 'case 6: p = (y, x)'))
-    red = compile_run(sources, stage / 'raster-mutated-tests', output, 'raster-mutation-red', extra)
+    red = compile_run(sources, stage / 'raster-mutated-tests', output, 'raster-mutation-red', extra, run_timeout=180)
     require_red(red, 'FAIL orientation_6_asymmetric_pixels')
     return {'production_green': green.stdout.strip(), 'mutation_red': red.stdout.strip(), 'compiled': True}
 
@@ -273,9 +284,19 @@ def capture_contract(upstream, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--red-only', action='store_true')
+    parser.add_argument('--raster-red-only', action='store_true')
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
-    if args.red_only:
+    if args.raster_red_only:
+        if args.red_only or len(args.paths) != 1:
+            parser.error('--raster-red-only requires output directory')
+        output = args.paths[0]
+        report = raster_contract(None, output, expect_red=True)
+        report['device_test'] = 'not_run'
+        (output / 'ngg2-swift-contract.json').write_text(json.dumps(report, indent=2)+'\n')
+        print(report['baseline_red'])
+        return
+    elif args.red_only:
         if len(args.paths) != 1:
             parser.error('--red-only requires output directory')
         output = args.paths[0]

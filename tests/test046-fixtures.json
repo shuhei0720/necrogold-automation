@@ -1,0 +1,40 @@
+{
+  "schema": "ngg2-test046-fixtures-v1",
+  "source_zip_sha256": "4a3756a44c4d7cbd7613b2c7bafcae1e568f3e9d6182cd51c6e2b18af2fab0be",
+  "count": 8,
+  "purpose": "known TEST045 movement calibration replay, not unseen evaluation",
+  "images": [
+    {
+      "path": "test045-received/capture-000001.png",
+      "sha256": "4dcea182f15911590e4e82c9a2a2e4c14362b6693798771a08d507bb4a7224f2"
+    },
+    {
+      "path": "test045-received/capture-000002.png",
+      "sha256": "e1bc53f2a1bd159af115ec29c5c337a065545771d486a9ab786007977977ead0"
+    },
+    {
+      "path": "test045-received/capture-000005.png",
+      "sha256": "22d9f30404e7c62e4bc7df3c6e281de9c9f580ea2e323fc7dade2b0997e97894"
+    },
+    {
+      "path": "test045-received/capture-000013.png",
+      "sha256": "088aa31c87d7c3c8e855d7f1c4e92059c1e034cf61d53d2186b5f68fdb659259"
+    },
+    {
+      "path": "test045-received/capture-000016.png",
+      "sha256": "83c6e60842c748252ba7da92bab82570fce485b51d77aaf99401930449205f98"
+    },
+    {
+      "path": "test045-received/capture-000017.png",
+      "sha256": "7c2843f8f7017bfd8a59c3f7a9f532c2c4223c54087c2b5f29f2206c7d2da850"
+    },
+    {
+      "path": "test045-received/capture-000018.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b"
+    },
+    {
+      "path": "test045-received/capture-000019.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b"
+    }
+  ]
+}

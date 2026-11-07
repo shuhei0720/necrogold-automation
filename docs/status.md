@@ -2,6 +2,8 @@
 
 更新: 2026-11-07（日本時間）
 
+現在はTEST046を実装中。TEST045はユーザー確認の上1歩・最終ポーズと画像8/8回収に成功した。35pxの終了直前画像をUNKNOWNとして即停止し、次の36px画像ならMOVEDになることを実C/Pythonで確認。初方向は端末受付5.226708秒。UNKNOWN/TWEENの短い再観測と画素同値の正規化コピー削減を[8項目プラン](device-tests/README.md#test-045受領結果とtest-046の8項目プラン)で進める。毎拍に間に合う速度は未合格、新IPAと完全ソースでTEST046実機を依頼する。
+
 最新（TEST045）: **実装・ホスト/CI・新IPA build25を確認し、実機テストを依頼する段階。** 元拍/期限を維持した初入力前の最大2再計画と、結果専用最大8秒・固定差分診断を実装した。native96件/クライアント105件はホスト全成功、client CI105件/native CI90件もskip0。Swift本体と12実callsite変異、暗号RPC、IPAビルドが[CI42349253984](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984)で成功。配布IPA/ZIPのCRC・SHA・全22ソースとmanifestを照合済み。**[新IPA build25](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984/artifacts/13564434908)へSideStoreで更新**し、[TEST045手順](device-tests/README.md#test-045実行手順)でruntime/test-045を返してもらう。コード/IPAの独立レビューは3観点各2周で指摘なし、完全ソースの照合記録は既存台帳末尾にまとめる。歩行・速度・毎拍受入は未合格。
 
 直前のTEST044実機ではゲーム起動/続行成功、初方向のscene差で未送信停止、最終pause確認。結果画像回収が2秒枠で失敗し具体的差分は不明。この結果をTEST045の修正根拠とした。

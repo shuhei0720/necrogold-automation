@@ -7,10 +7,41 @@ enum NG2Raster {
     static let height = 414
     static let stride = width * 4
 
+    /// ImageIO may defer JPEG decompression until the opaque draw. The source
+    /// stage therefore measures source/image creation, not JPEG decoding alone.
+    struct Trace {
+        let sourceWidth: Int
+        let sourceHeight: Int
+        let orientation: Int
+        let sourceNs: UInt64
+        let drawNs: UInt64
+        let orientNs: UInt64
+        let scaleNs: UInt64
+        let copyPixels: UInt64
+    }
+
+    struct ProfiledResult {
+        let rgba: Data
+        let trace: Trace
+    }
+
     /// EXIF orientation is applied before sizing. The bitmap is opaque sRGB
     /// RGBA8 with explicit byte order; no input-coordinate transform is inferred.
     static func normalize(_ image: CGImage, orientation: Int = 1,
                           outputWidth: Int = width, outputHeight: Int = height) -> Data? {
+        return normalizeProfiled(image, orientation: orientation,
+            outputWidth: outputWidth, outputHeight: outputHeight)?.rgba
+    }
+
+    static func normalizeProfiled(_ image: CGImage, orientation: Int = 1,
+                                 outputWidth: Int = width, outputHeight: Int = height) -> ProfiledResult? {
+        return normalizeProfiled(image, orientation: orientation, outputWidth: outputWidth,
+            outputHeight: outputHeight, sourceNs: 0)
+    }
+
+    private static func normalizeProfiled(_ image: CGImage, orientation: Int,
+                                         outputWidth: Int, outputHeight: Int,
+                                         sourceNs: UInt64) -> ProfiledResult? {
         guard (1...8).contains(orientation), image.width > 0, image.height > 0,
               image.width <= 4096, image.height <= 4096,
               image.width * image.height <= 8_000_000,
@@ -22,6 +53,7 @@ enum NG2Raster {
         let orientedWidth = swap ? image.height : image.width
         let orientedHeight = swap ? image.width : image.height
         guard orientedWidth * outputHeight == orientedHeight * outputWidth else { return nil }
+        let drawStart = DispatchTime.now().uptimeNanoseconds
         var original = Data(count: image.width * image.height * 4)
         let decoded = original.withUnsafeMutableBytes { bytes -> Bool in
             guard let context = CGContext(data: bytes.baseAddress, width: image.width,
@@ -35,8 +67,10 @@ enum NG2Raster {
             return true
         }
         guard decoded else { return nil }
+        let drawEnd = DispatchTime.now().uptimeNanoseconds
         // Orient source pixels before CoreGraphics resampling. Explicit maps
         // make all eight EXIF cases testable with asymmetric pixel sentinels.
+        var copyPixels: UInt64 = 0
         var oriented = Data(count: orientedWidth * orientedHeight * 4)
         original.withUnsafeBytes { source in
             oriented.withUnsafeMutableBytes { destination in
@@ -59,10 +93,20 @@ enum NG2Raster {
                         let b = (y * orientedWidth + x) * 4
                         dst[b] = src[a]; dst[b+1] = src[a+1]; dst[b+2] = src[a+2]; dst[b+3] = 255
                     }
+                    copyPixels += UInt64(orientedWidth)
                 }
             }
         }
-        if orientedWidth == outputWidth && orientedHeight == outputHeight { return oriented }
+        let orientEnd = DispatchTime.now().uptimeNanoseconds
+        func result(_ rgba: Data, scaleNs: UInt64) -> ProfiledResult {
+            return ProfiledResult(rgba: rgba, trace: Trace(sourceWidth: image.width,
+                sourceHeight: image.height, orientation: orientation, sourceNs: sourceNs,
+                drawNs: drawEnd - drawStart, orientNs: orientEnd - drawEnd,
+                scaleNs: scaleNs, copyPixels: copyPixels))
+        }
+        if orientedWidth == outputWidth && orientedHeight == outputHeight {
+            return result(oriented, scaleNs: 0)
+        }
         guard let provider = CGDataProvider(data: oriented as CFData),
               let orientedImage = CGImage(width: orientedWidth, height: orientedHeight,
                 bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: orientedWidth * 4,
@@ -79,17 +123,24 @@ enum NG2Raster {
             context.draw(orientedImage, in: CGRect(x: 0, y: 0, width: outputWidth, height: outputHeight))
             return true
         }
-        return scaled ? output : nil
+        return scaled ? result(output, scaleNs: DispatchTime.now().uptimeNanoseconds - orientEnd) : nil
     }
 
     static func decode(_ encoded: Data) -> Data? {
+        return decodeProfiled(encoded)?.rgba
+    }
+
+    static func decodeProfiled(_ encoded: Data) -> ProfiledResult? {
+        let sourceStart = DispatchTime.now().uptimeNanoseconds
         guard !encoded.isEmpty, encoded.count <= 8 * 1024 * 1024,
               let source = CGImageSourceCreateWithData(encoded as CFData, nil),
               CGImageSourceGetCount(source) == 1,
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
         let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
         let orientation = (properties?[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
-        return normalize(image, orientation: orientation)
+        let sourceEnd = DispatchTime.now().uptimeNanoseconds
+        return normalizeProfiled(image, orientation: orientation, outputWidth: width,
+            outputHeight: height, sourceNs: sourceEnd - sourceStart)
     }
 
     static func png(_ rgba: Data) -> Data? {

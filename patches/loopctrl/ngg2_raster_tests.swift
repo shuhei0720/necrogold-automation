@@ -16,6 +16,11 @@ func image(_ pixels: [UInt8], _ width: Int, _ height: Int, bytesPerRow: Int? = n
 }
 let pixels = (1...6).flatMap { [UInt8($0*20), UInt8(0), UInt8(0), UInt8(255)] }
 let original = image(pixels, 3, 2)
+// This assertion is intentionally first: the executable TEST045 pixel body
+// reports six copied pixels, establishing behavior Red before the COW change.
+let identityTrace = NG2Raster.normalizeProfiled(original, outputWidth: 3, outputHeight: 2)!
+require(identityTrace.trace.copyPixels == 0,
+    "orientation_1_identity_avoids_pixel_copy actual=\(identityTrace.trace.copyPixels) expected=0")
 let expected: [[UInt8]] = [[1,2,3,4,5,6],[3,2,1,6,5,4],[6,5,4,3,2,1],[4,5,6,1,2,3],
     [1,4,2,5,3,6],[4,1,5,2,6,3],[6,3,5,2,4,1],[3,6,2,5,1,4]]
 for orientation in 1...8 {
@@ -90,4 +95,172 @@ require(invalid < 0 && scene.state == 0, "real_C_short_buffer_refused")
 let encoded = NG2Raster.png(normalized)!
 require(encoded.starts(with: [137,80,78,71,13,10,26,10]), "png_format")
 require(NG2Raster.decode(encoded) == normalized, "opaque_sRGB_roundtrip")
+
+enum AlphaFixture: CaseIterable {
+    case opaque, transparent, semialpha
+}
+
+func patternedImage(_ width: Int, _ height: Int, padding: Int = 0,
+                    alpha: AlphaFixture = .opaque,
+                    space: CGColorSpace = CGColorSpace(name: CGColorSpace.sRGB)!) -> CGImage {
+    let rowBytes = width * 4 + padding
+    var bytes = Data(repeating: 237, count: rowBytes * height)
+    bytes.withUnsafeMutableBytes { raw in
+        let data = raw.bindMemory(to: UInt8.self)
+        for y in 0..<height {
+            for x in 0..<width {
+                let a: Int
+                switch alpha {
+                case .opaque: a = 255
+                case .transparent: a = 0
+                case .semialpha: a = [1, 64, 128, 192, 254][(x + y * 3) % 5]
+                }
+                let rgb = [(x * 37 + y * 11 + 13) % 256,
+                           (x * 7 + y * 43 + 91) % 256,
+                           (x * 29 + y * 19 + 173) % 256]
+                let p = y * rowBytes + x * 4
+                for channel in 0..<3 { data[p + channel] = UInt8((rgb[channel] * a + 127) / 255) }
+                data[p + 3] = UInt8(a)
+            }
+        }
+    }
+    return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
+        bytesPerRow: rowBytes, space: space,
+        bitmapInfo: CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Big.rawValue |
+            CGImageAlphaInfo.premultipliedLast.rawValue),
+        provider: CGDataProvider(data: bytes as CFData)!, decode: nil,
+        shouldInterpolate: false, intent: .defaultIntent)!
+}
+
+func compareReference(_ source: CGImage, orientation: Int, outputWidth: Int,
+                      outputHeight: Int, label: String) {
+    guard let actual = NG2Raster.normalizeProfiled(source, orientation: orientation,
+              outputWidth: outputWidth, outputHeight: outputHeight),
+          let reference = NG2RasterReference.normalize(source, orientation: orientation,
+              outputWidth: outputWidth, outputHeight: outputHeight) else {
+        require(false, "\(label)_created"); return
+    }
+    require(actual.rgba == reference, "\(label)_all_RGBA_bytes_match_frozen_TEST045")
+    let trace = actual.trace
+    require(trace.sourceWidth == source.width && trace.sourceHeight == source.height &&
+        trace.orientation == orientation, "\(label)_trace_source_geometry")
+    require(trace.sourceNs == 0, "\(label)_direct_normalize_has_no_encoded_source_stage")
+    require(trace.copyPixels == (orientation == 1 ? 0 : UInt64(source.width * source.height)),
+        "\(label)_trace_counts_actual_oriented_copy_pixels")
+    require(stride(from: 3, to: actual.rgba.count, by: 4).allSatisfy { actual.rgba[$0] == 255 },
+        "\(label)_all_alpha_opaque")
+    let orientedWidth = orientation >= 5 ? source.height : source.width
+    let orientedHeight = orientation >= 5 ? source.width : source.height
+    if orientedWidth == outputWidth && orientedHeight == outputHeight {
+        require(trace.scaleNs == 0, "\(label)_no_resize_stage")
+    }
+}
+
+// Cross every orientation/scale/stride/alpha combination with asymmetric,
+// nonconstant pixels. Small custom output sizes exercise the same production
+// function; a second matrix below checks its fixed 896x414 output at all scales.
+var matrixCases = 0
+for orientation in 1...8 {
+    for scale in 1...3 {
+        for padding in [0, 12] {
+            for alpha in AlphaFixture.allCases {
+                let sourceWidth = (orientation >= 5 ? 9 : 17) * scale
+                let sourceHeight = (orientation >= 5 ? 17 : 9) * scale
+                let source = patternedImage(sourceWidth, sourceHeight, padding: padding, alpha: alpha)
+                compareReference(source, orientation: orientation, outputWidth: 17, outputHeight: 9,
+                    label: "matrix_o\(orientation)_s\(scale)_padding\(padding)_alpha\(alpha)")
+                matrixCases += 1
+            }
+        }
+    }
+}
+require(matrixCases == 144, "complete_orientation_scale_stride_alpha_matrix")
+for scale in 1...3 {
+    let landscape = patternedImage(896 * scale, 414 * scale)
+    let portrait = patternedImage(414 * scale, 896 * scale)
+    for orientation in 1...8 {
+        compareReference(orientation >= 5 ? portrait : landscape, orientation: orientation,
+            outputWidth: 896, outputHeight: 414,
+            label: "production_nonconstant_o\(orientation)_s\(scale)")
+    }
+}
+
+let p3 = CGColorSpace(name: CGColorSpace.displayP3)!
+let p3Source = patternedImage(51, 27, padding: 16, alpha: .semialpha, space: p3)
+let sameSamplesSRGB = patternedImage(51, 27, padding: 16, alpha: .semialpha)
+compareReference(p3Source, orientation: 1, outputWidth: 17, outputHeight: 9,
+    label: "display_P3_color_conversion")
+require(NG2Raster.normalize(p3Source, outputWidth: 17, outputHeight: 9) !=
+        NG2Raster.normalize(sameSamplesSRGB, outputWidth: 17, outputHeight: 9),
+    "source_color_space_affects_sRGB_conversion")
+
+let graySpace = CGColorSpaceCreateDeviceGray()
+let grayValues: [UInt8] = [0, 255, 64, 192, 32, 224, 96, 160, 17, 239, 81, 177]
+let grayImage = CGImage(width: 4, height: 3, bitsPerComponent: 8, bitsPerPixel: 8,
+    bytesPerRow: 4, space: graySpace,
+    bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+    provider: CGDataProvider(data: Data(grayValues) as CFData)!, decode: nil,
+    shouldInterpolate: false, intent: .defaultIntent)!
+compareReference(grayImage, orientation: 1, outputWidth: 4, outputHeight: 3, label: "gray_to_sRGB")
+let grayRGBA = NG2Raster.normalize(grayImage, outputWidth: 4, outputHeight: 3)!
+require(grayRGBA.prefix(8) == Data([0, 0, 0, 255, 255, 255, 255, 255]),
+    "gray_black_white_independent_expected_bytes")
+require(stride(from: 0, to: grayRGBA.count, by: 4).allSatisfy {
+    grayRGBA[$0] == grayRGBA[$0 + 1] && grayRGBA[$0 + 1] == grayRGBA[$0 + 2]
+}, "gray_has_equal_RGB_channels")
+
+func jpeg(_ source: CGImage, orientation: Int?) -> Data {
+    let encoded = NSMutableData()
+    let destination = CGImageDestinationCreateWithData(encoded, "public.jpeg" as CFString, 1, nil)!
+    var properties: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.93]
+    if let orientation { properties[kCGImagePropertyOrientation] = orientation }
+    CGImageDestinationAddImage(destination, source, properties as CFDictionary)
+    require(CGImageDestinationFinalize(destination), "ImageIO_JPEG_encoded")
+    return encoded as Data
+}
+
+func compareJPEG(_ bytes: Data, expectedWidth: Int, expectedHeight: Int,
+                 orientation: Int, label: String) {
+    require(bytes.starts(with: [255, 216]), "\(label)_actual_JPEG_stream")
+    let source = CGImageSourceCreateWithData(bytes as CFData, nil)!
+    let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as! [CFString: Any]
+    let exif = (properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
+    require(exif == orientation, "\(label)_EXIF_roundtrip")
+    let decodedImage = CGImageSourceCreateImageAtIndex(source, 0, nil)!
+    require(decodedImage.width == expectedWidth && decodedImage.height == expectedHeight,
+        "\(label)_encoded_source_geometry")
+    guard let actual = NG2Raster.decodeProfiled(bytes), let reference = NG2RasterReference.decode(bytes) else {
+        require(false, "\(label)_decoded"); return
+    }
+    require(actual.rgba == reference, "\(label)_all_RGBA_bytes_match_frozen_TEST045")
+    require(NG2Raster.decode(bytes) == actual.rgba, "\(label)_legacy_decode_wrapper")
+    require(actual.trace.sourceWidth == expectedWidth && actual.trace.sourceHeight == expectedHeight &&
+        actual.trace.orientation == orientation, "\(label)_profiled_source_geometry")
+    require(actual.trace.copyPixels == (orientation == 1 ? 0 : UInt64(expectedWidth * expectedHeight)),
+        "\(label)_actual_copy_pixels")
+}
+
+let jpegLandscape = patternedImage(896, 414)
+let jpegPortrait = patternedImage(414, 896)
+for orientation in 1...8 {
+    let source = orientation >= 5 ? jpegPortrait : jpegLandscape
+    compareJPEG(jpeg(source, orientation: orientation), expectedWidth: source.width,
+        expectedHeight: source.height, orientation: orientation, label: "ImageIO_JPEG_EXIF_\(orientation)")
+}
+for scale in [2, 3] {
+    let source = patternedImage(896 * scale, 414 * scale)
+    compareJPEG(jpeg(source, orientation: 1), expectedWidth: source.width,
+        expectedHeight: source.height, orientation: 1, label: "ImageIO_JPEG_scale_\(scale)")
+}
+compareJPEG(jpeg(jpegLandscape, orientation: nil), expectedWidth: 896, expectedHeight: 414,
+    orientation: 1, label: "ImageIO_JPEG_missing_EXIF_defaults_1")
+require(NG2Raster.decodeProfiled(jpeg(jpegLandscape, orientation: 9)) == nil,
+    "ImageIO_JPEG_invalid_EXIF_rejected")
+require(NG2Raster.normalizeProfiled(original, orientation: 9, outputWidth: 3, outputHeight: 2) == nil,
+    "profiled_invalid_orientation_rejected")
+require(NG2Raster.normalizeProfiled(original, outputWidth: 2, outputHeight: 2) == nil,
+    "profiled_invalid_aspect_rejected")
+require(NG2Raster.decodeProfiled(Data()) == nil &&
+    NG2Raster.decodeProfiled(Data(count: 8 * 1024 * 1024 + 1)) == nil,
+    "profiled_encoded_size_bounds")
 print("PASS production CoreGraphics orientation/RGBA/PNG and real C contracts; device capture not executed")
