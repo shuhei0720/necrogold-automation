@@ -69,6 +69,24 @@ pump("main_clock_admission_completed") {
 require(NG2Fake.countTouches() == 0, "expired_during_main_admission_no_synth")
 cancelDrain(staleMainClock)
 
+// An image decoded and analyzed before cancellation is still untrusted when
+// its result is committed afterwards. Such results must not reach C or export.
+for revoked in ["cancel", "owner"] {
+    NG2Fake.reset(.pause)
+    let analysisRace = identity()
+    NG2RuntimeTestHooks.beforeAnalysisCommit = {
+        if revoked == "cancel" { _ = call("necro_native_cancel", analysisRace) }
+        else { RemoteSession.shared.paused = true; runtime.ownerChanged() }
+        NG2RuntimeTestHooks.beforeAnalysisCommit = nil
+    }
+    require(call("necro_native_start", analysisRace).1 == nil, "analysis_race_start_"+revoked)
+    pump("analysis_race_drained_"+revoked) { drained(analysisRace) }
+    let snapshot = report(analysisRace)
+    require(snapshot["accepted_frames"]?.intValue == 0 && snapshot["analyzed_capture_count"]?.intValue == 0 &&
+        snapshot["retained_image_count"]?.intValue == 0, "revoked_analysis_never_observed_or_retained_"+revoked)
+    require(NG2Fake.countTouches() == 0, "revoked_analysis_no_input_"+revoked)
+}
+
 // Fresh main-thread authority checks are made after a ticket has already been
 // reserved, and cancel before any synth rather than planning a cleanup input.
 for lost in ["foreground", "lock", "owner"] {

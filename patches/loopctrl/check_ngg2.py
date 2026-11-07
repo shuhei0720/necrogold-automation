@@ -158,6 +158,14 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     checked(green)
     if not green.stdout.startswith('PASS production Runtime public API/') or green.stderr:
         raise RuntimeError('runtime_production_contract_missing')
+    clock_begin = source.index('        DispatchQueue.main.sync {', source.index('    private func execute('))
+    clock_end = source.index('                guard NG2TicketGuard.permits', clock_begin)
+    clock_gate = source[clock_begin:clock_end]
+    if clock_gate.count('                let now = Self.now()') != 1:
+        raise ValueError('runtime_clock_mutation_target')
+    stale_clock_gate = clock_gate.replace('        DispatchQueue.main.sync {',
+        '        DispatchQueue.main.sync {\n            let admissionClockSnapshot = Self.now()', 1).replace(
+        '                let now = Self.now()', '                let now = admissionClockSnapshot', 1)
     mutations = {
         'capture-admission': ('guard !run.stopped, run.cancelReason == 0, self.ownerActive(run) else { return nil }',
                               '// mutation: capture admission recheck removed',
@@ -167,6 +175,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                     locked: locked, now: now, notBefore: command.not_before_ns, deadline: command.deadline_ns),
                     ng2_controller_begin''', 'guard ng2_controller_begin',
                            'FAIL production_capture_C_ticket_main_cancel_no_synth'),
+        'main-clock': (clock_gate, stale_clock_gate, 'FAIL expired_during_main_admission_no_synth'),
         'legacy-pending': ('if NG2CaptureBridge.pendingRequests != 0 { return failure("Previous daemon capture is still outstanding.") }',
                            '// mutation: legacy pending start exclusion removed',
                            'FAIL legacy_timeout_actual_request_blocks_native_run'),

@@ -12,6 +12,7 @@ enum NG2RuntimeTestHooks {
     static var beforeCaptureAdmission: (() -> Void)?
     static var beforeMainAdmission: (() -> Void)?
     static var beforeMainAuthority: (() -> Void)?
+    static var beforeAnalysisCommit: (() -> Void)?
 }
 #endif
 
@@ -428,6 +429,9 @@ final class NG2Runtime {
             let analyzed = frame.rgba.withUnsafeBytes { ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress,
                 frame.rgba.count, NG2Raster.stride, &scene) }
             if analyzed == 0 {
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeTestHooks.beforeAnalysisCommit?()
+                #endif
                 ng2_controller_observe(core, &scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0)
                 run.lock.ng2Locked {
                     run.captures.append(.object(["id": number(frame.id), "start_ns": number(frame.start),
@@ -499,19 +503,21 @@ final class NG2Runtime {
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.beforeMainAuthority?()
             #endif
-            let ownerActive = self.ownerActive(run)
-            let foreground = run.expectedPID > 0 && ForegroundApp.frontmostPID() == run.expectedPID
-            let locked = LockStateMonitor.shared().isLocked
-            // A loss of execution authority ends the run, rather than allowing
-            // the control loop to reserve a later cleanup input from old state.
-            if !ownerActive { run.cancel(5) }
-            else if locked { run.cancel(4) }
-            else if !foreground { run.cancel(3) }
-            let now = Self.now()
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.beforeMainAdmission?()
             #endif
             let permitted = run.lock.ng2Locked { () -> Bool in
+                let ownerActive = self.ownerActive(run)
+                let foreground = run.expectedPID > 0 && ForegroundApp.frontmostPID() == run.expectedPID
+                let locked = LockStateMonitor.shared().isLocked
+                // Hold the cancellation gate through the fresh authority and
+                // clock checks and the C begin linearization point.
+                let lostReason: Int32 = !ownerActive ? 5 : (locked ? 4 : (!foreground ? 3 : 0))
+                if lostReason != 0 {
+                    if run.cancelReason == 0 { run.cancelReason = lostReason; run.generation &+= 1 }
+                    run.stopped = true; run.latest = nil
+                }
+                let now = Self.now()
                 guard NG2TicketGuard.permits(expectedGeneration: generation, currentGeneration: run.generation,
                     cancelled: run.cancelReason != 0, ownerActive: ownerActive, foreground: foreground,
                     locked: locked, now: now, notBefore: command.not_before_ns, deadline: command.deadline_ns),
