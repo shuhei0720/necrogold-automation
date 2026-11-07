@@ -1862,6 +1862,8 @@ Mac主Redを`ed36bacb98a4824dce71f3b3ddb8e972ffb51749` / [CI42366177394](https:/
 
 `2a1c512` / CI42367434622はproduction Runtime全結合（PNGnull/TIFF8を含む）・Raster全比較/3変異とRuntime18変異を通過したが、最後のmotion-reference変異が想定pin assertionの前にoneMOVE assertionで失敗した。公開模擬reportはmoves1/inputs2/path2で、MOVED画像30後に次MOVEが始まり商品画像32が後着した。fixtureがgoods表示をmoves1後の次capture境界まで遅らせ、約100msの次入力余裕に間に合わない競合だった。UNKNOWN attempt1のcapture境界で36px化とgoods可視を同時設定し、次の実RGBAをMOVED＋goodsとするtest-only修正へ変更。元ACK/実UNKNOWN→MOVED/onegesture/未知画像のrecent4外exportの期待は維持し、3レビュー担当も同第2周で新P0/P1/P2なしを確認。該当実C変異をproductionGreen直後へ先行して確認し、全19変異の要求は維持する。production/seal2925d46…は変更しない。
 
+`db096c7` / CI42368141653はproductionGreenと修正後のmotion-reference named pin assertionを通過したが、別のmove-input変異の前半で既存`hard_session_limit_despite_keepalive`が失敗した。watchdog周期100msの通知をmainを止めて固定150msだけ待つfixtureが不安定だったため、mainを回さず公開cancel_requestedを5msごと/最大3秒で待つ形へ変更する。仮想181秒・keepalive後もreason15/activation0・drainの全期待と本体180秒制限は維持し、watchdogの正常取消を実際に確認してから次へ進む。production/19変異の内容/sealは不変。
+
 ## TEST-047実行手順
 
 **TEST047の新IPAへの更新が必要。** LoopCtrlでStop Serverを押し、アプリ切替から完全終了する。本台帳のTEST047 IPA ZIPをSafariでGitHubへログインして保存・展開し、`upstream/release/LoopCtrl.ipa`をSideStoreのMy Apps → ＋から更新。新しい同梱サーバーを読み込ませるため、更新後にLoopCtrlを起動し直す。VPN/ディスクイメージのいつもの接続を確認して**Start Serverを押し、起動済み表示を確認**する。APIは1.98.14-ngg2、v1/v2/v3にnative_v4を追加。native-walk-v5はv4不足ならゲーム開始0で拒否する。

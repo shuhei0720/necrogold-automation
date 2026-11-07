@@ -500,7 +500,12 @@ require(call("necro_native_start", hardLimit).1 == nil, "session_limit_start")
 Thread.sleep(forTimeInterval: 0.02)
 NG2Fake.advance(181_000_000_000)
 _ = call("necro_native_status", hardLimit, keepalive: true)
-Thread.sleep(forTimeInterval: 0.15)
+// Keep main blocked so the queued bootstrap cannot activate. Wait for the
+// independent watchdog's public cancellation rather than one timer interval.
+let hardLimitWatchdogWait = Date().addingTimeInterval(3)
+while report(hardLimit)["cancel_requested"]?.boolValue != true && Date() < hardLimitWatchdogWait {
+    Thread.sleep(forTimeInterval: 0.005)
+}
 require(report(hardLimit)["cancel_requested"]?.boolValue == true, "hard_session_limit_despite_keepalive")
 pump("hard_limit_drained") { drained(hardLimit) }
 require(report(hardLimit)["reason"]?.intValue == 15 && NG2Fake.countActivations() == 0, "independent_limit_prevents_late_activation")
