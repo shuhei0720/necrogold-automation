@@ -88,6 +88,46 @@ for revoked in ["cancel", "owner"] {
     require(NG2Fake.countTouches() == 0, "revoked_analysis_no_input_"+revoked)
 }
 
+// The real foreground PID lookup performs synchronous XCTest IPC. Holding it
+// must leave the public non-UI status and cancel endpoints responsive.
+NG2Fake.reset(.pause)
+let heldForeground = identity()
+let enteredForeground = DispatchSemaphore(value: 0)
+let releaseForeground = DispatchSemaphore(value: 0)
+let finishedForegroundProbe = DispatchSemaphore(value: 0)
+let foregroundProbeLock = NSLock()
+var foregroundProbeResponsive = false
+NG2RuntimeTestHooks.beforeMainAdmission = {
+    NG2Fake.lock.lock()
+    NG2Fake.beforeForegroundQuery = {
+        NG2Fake.lock.lock(); NG2Fake.beforeForegroundQuery = nil; NG2Fake.lock.unlock()
+        enteredForeground.signal()
+        _ = releaseForeground.wait(timeout: .now()+2)
+    }
+    NG2Fake.lock.unlock()
+    NG2RuntimeTestHooks.beforeMainAdmission = nil
+    DispatchQueue.global().async {
+        let entered = enteredForeground.wait(timeout: .now()+2) == .success
+        let statusDone = DispatchSemaphore(value: 0)
+        let cancelDone = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async { _ = call("necro_native_status", heldForeground); statusDone.signal() }
+        DispatchQueue.global().async { _ = call("necro_native_cancel", heldForeground); cancelDone.signal() }
+        let statusImmediate = statusDone.wait(timeout: .now()+0.25) == .success
+        let cancelImmediate = cancelDone.wait(timeout: .now()+0.25) == .success
+        foregroundProbeLock.lock()
+        foregroundProbeResponsive = entered && statusImmediate && cancelImmediate
+        foregroundProbeLock.unlock()
+        releaseForeground.signal()
+        finishedForegroundProbe.signal()
+    }
+}
+require(call("necro_native_start", heldForeground).1 == nil, "foreground_IPC_hold_start")
+pump("foreground_IPC_hold_drained") { drained(heldForeground) }
+require(finishedForegroundProbe.wait(timeout: .now()+2) == .success, "foreground_IPC_probe_finished")
+foregroundProbeLock.lock(); let foregroundResponsive = foregroundProbeResponsive; foregroundProbeLock.unlock()
+require(foregroundResponsive, "foreground_IPC_hold_keeps_status_cancel_nonblocking")
+require(NG2Fake.countTouches() == 0, "foreground_IPC_hold_cancel_no_late_synth")
+
 // Fresh main-thread authority checks are made after a ticket has already been
 // reserved, and cancel before any synth rather than planning a cleanup input.
 for lost in ["foreground", "lock", "owner"] {

@@ -13,6 +13,7 @@ enum NG2Fake {
     static var touches = 0
     static var failTouch = false
     static var frontPID: pid_t = 42
+    static var beforeForegroundQuery: (() -> Void)?
     static var gesturePaths: [[[(point: CGPoint, t: Double)]]] = []
     static var tapPoints: [CGPoint] = []
     static var walkX: Int32 = 0
@@ -27,6 +28,7 @@ enum NG2Fake {
     static func reset(_ next: Mode) {
         lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; frontPID = 42; callbacks = []; offset = 0; pending = 0 }
         lock.fixtureLocked {
+            beforeForegroundQuery = nil
             gesturePaths = []; tapPoints = []; walkX = 0; walkY = 0
             walkMoves = 0; walkCapturesAfterMove = 0; walkPaused = false
             phaseBase = DispatchTime.now().uptimeNanoseconds
@@ -93,7 +95,11 @@ final class LockStateMonitor {
 enum ForegroundApp {
     static func openBundleID(_ id: String) -> Bool { NG2Fake.lock.fixtureLocked { NG2Fake.activations += 1 }; return true }
     static func processID(forBundleID id: String) -> pid_t { 42 }
-    static func frontmostPID() -> pid_t { NG2Fake.lock.fixtureLocked { NG2Fake.frontPID } }
+    static func frontmostPID() -> pid_t {
+        let hook = NG2Fake.lock.fixtureLocked { NG2Fake.beforeForegroundQuery }
+        hook?()
+        return NG2Fake.lock.fixtureLocked { NG2Fake.frontPID }
+    }
 }
 final class XCUIApplication { init(bundleIdentifier: String) {} }
 enum ObjCException { static func catching(_ body: () -> Void) -> String? { body(); return nil } }
