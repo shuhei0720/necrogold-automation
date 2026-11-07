@@ -247,6 +247,8 @@ def expand_response_args(args, upstream, proofdir):
     total_bytes = 0
     total_tokens = 0
     previous_token = None
+    compiler_args = args[2:] if len(args) > 2 and tuple(args[:2]) == ('builtin-SwiftDriver', '--') else args
+    swift_loader_literals = bool(compiler_args and Path(compiler_args[0]).name == 'swiftc')
 
     def read_response(relative, before):
         # Walk from an opened source root. Every path component is admitted
@@ -290,10 +292,10 @@ def expand_response_args(args, upstream, proofdir):
         nonlocal total_bytes, total_tokens, previous_token
         result = []
         for token in tokens:
-            # Swift driver link commands contain Mach-O install names/rpaths.
-            # These are linker data only when they are the direct flattened
-            # payload of -Xlinker; every other @ token remains a response file.
-            loader_literal = previous_token == '-Xlinker' and any(
+            # Only the verified Swift driver treats these loader spellings as
+            # linker data. Clang expands @ tokens before option roles; generic
+            # and Clang arguments therefore retain strict response handling.
+            loader_literal = swift_loader_literals and previous_token == '-Xlinker' and any(
                 token == prefix or token.startswith(prefix + '/')
                 for prefix in ('@rpath', '@executable_path', '@loader_path'))
             if token.startswith('@') and not loader_literal:
@@ -501,12 +503,15 @@ def read_compile_profile(upstream):
     records = {SOURCE: profile.get('perception_compiles'), **other}
     actual_responses = {}
     with tempfile.TemporaryDirectory(prefix='perception-profile-check-') as temporary:
-        def check_arguments(record):
+        def check_arguments(record, compiler):
             if not isinstance(record, dict):
                 raise ProfileError('perception_compile_profile_record')
             if not is_digest(record.get('command_sha256')):
                 raise ProfileError('perception_compile_profile_digest')
             args = record.get('raw_arguments')
+            if (not isinstance(args, list) or not args or type(args[0]) is not str
+                    or Path(args[0]).name != compiler or record.get('compiler') != args[0]):
+                raise ProfileError('perception_compile_profile_compiler')
             expanded, used = expand_response_args(args, upstream, temporary)
             if (expanded != record.get('arguments') or not expanded
                     or record.get('compiler') != expanded[0]
@@ -525,7 +530,7 @@ def read_compile_profile(upstream):
             source_path = upstream / 'LoopCtrlUITests' / name
             expected_sha = digest(source_path.read_bytes())
             for row in rows:
-                args = check_arguments(row)
+                args = check_arguments(row, 'clang')
                 expected = '-O2' if name == SOURCE else '-O0'
                 flags = effective_flags(args, expected)
                 if (Path(args[0]).name != 'clang' or row.get('target') != TARGET
@@ -557,7 +562,7 @@ def read_compile_profile(upstream):
             raise ProfileError('perception_compile_profile_swift')
         modules = {}
         for row in swift_rows:
-            args = check_arguments(row)
+            args = check_arguments(row, 'swiftc')
             module = _option(args, '-module-name')
             modes = [value for value in args if value in ('-Onone', '-O', '-Osize', '-Ounchecked')]
             if (Path(args[0]).name != 'swiftc' or module not in SWIFT_TARGETS

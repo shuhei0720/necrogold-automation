@@ -339,7 +339,7 @@ class PerceptionResponseFileTests(unittest.TestCase):
 
     def test_direct_linker_loader_literals_are_data_not_response_paths(self):
         for prefix in ('@rpath', '@executable_path', '@loader_path'):
-            args = ['-Xlinker', prefix + '/LoopCtrlBroadcast.debug.dylib']
+            args = ['/usr/bin/swiftc', '-Xlinker', prefix + '/LoopCtrlBroadcast.debug.dylib']
             with self.subTest(prefix=prefix):
                 try:
                     expanded, evidence = self.expand(args)
@@ -353,12 +353,12 @@ class PerceptionResponseFileTests(unittest.TestCase):
         self.response('literal.rsp', '@loader_path/Frameworks')
         self.response('nested.rsp', '-Xlinker @executable_path/Frameworks')
         for args, expected in (
-                (['@build/linker.rsp', '@rpath/library.dylib'],
-                 ['-Xlinker', '@rpath/library.dylib']),
-                (['-Xlinker', '@build/literal.rsp'],
-                 ['-Xlinker', '@loader_path/Frameworks']),
-                (['@build/nested.rsp'],
-                 ['-Xlinker', '@executable_path/Frameworks'])):
+                (['/usr/bin/swiftc', '@build/linker.rsp', '@rpath/library.dylib'],
+                 ['/usr/bin/swiftc', '-Xlinker', '@rpath/library.dylib']),
+                (['/usr/bin/swiftc', '-Xlinker', '@build/literal.rsp'],
+                 ['/usr/bin/swiftc', '-Xlinker', '@loader_path/Frameworks']),
+                (['/usr/bin/swiftc', '@build/nested.rsp'],
+                 ['/usr/bin/swiftc', '-Xlinker', '@executable_path/Frameworks'])):
             with self.subTest(args=args):
                 expanded, evidence = self.expand(args)
                 self.assertEqual(expanded, expected)
@@ -368,18 +368,33 @@ class PerceptionResponseFileTests(unittest.TestCase):
         for prefix in ('@rpath', '@executable_path', '@loader_path'):
             for before in ([], ['-rpath'], ['-Xlinker', '-rpath'], ['-Xlinker', 'other']):
                 with self.subTest(prefix=prefix, before=before), self.assertRaises(checker.ProfileError):
-                    self.expand([*before, prefix + '/outside'])
+                    self.expand(['/usr/bin/swiftc', *before, prefix + '/outside'])
         for token in ('@rpathish/outside', '@rpathfile', '@unknown/outside', '@/outside'):
             with self.subTest(token=token), self.assertRaises(checker.ProfileError):
-                self.expand(['-Xlinker', token])
+                self.expand(['/usr/bin/swiftc', '-Xlinker', token])
+
+    def test_clang_and_unknown_compiler_loader_tokens_remain_strict_responses(self):
+        outside = self.upstream / 'rpath/hidden.rsp'
+        outside.parent.mkdir()
+        outside.write_text('-ffast-math')
+        for compiler in ([], ['/usr/bin/clang'], ['/usr/bin/not-swiftc']):
+            with self.subTest(compiler=compiler), self.assertRaises(checker.ProfileError):
+                self.expand([*compiler, '-Xlinker', '@rpath/hidden.rsp'])
+
+    def test_builtin_swift_wrapper_allows_only_its_real_swiftc_payload(self):
+        args = ['builtin-SwiftDriver', '--', '/usr/bin/swiftc', '-Xlinker', '@rpath/debug.dylib']
+        self.assertEqual(self.expand(args), (args, []))
+        for compiler in ('/usr/bin/clang', '/usr/bin/not-swiftc'):
+            with self.subTest(compiler=compiler), self.assertRaises(checker.ProfileError):
+                self.expand(['builtin-SwiftDriver', '--', compiler, '-Xlinker', '@rpath/debug.dylib'])
 
     def test_linker_payload_exception_does_not_suppress_later_response_audits(self):
         self.response('ordinary.rsp', '-DRESPONSE=1')
-        args, evidence = self.expand(['-Xlinker', '@rpath/library.dylib', '@build/ordinary.rsp'])
-        self.assertEqual(args, ['-Xlinker', '@rpath/library.dylib', '-DRESPONSE=1'])
+        args, evidence = self.expand(['/usr/bin/swiftc', '-Xlinker', '@rpath/library.dylib', '@build/ordinary.rsp'])
+        self.assertEqual(args, ['/usr/bin/swiftc', '-Xlinker', '@rpath/library.dylib', '-DRESPONSE=1'])
         self.assertEqual(len(evidence), 1)
         with self.assertRaises(checker.ProfileError):
-            self.expand(['-Xlinker', '@rpath/library.dylib', '@loader_path/outside'])
+            self.expand(['/usr/bin/swiftc', '-Xlinker', '@rpath/library.dylib', '@loader_path/outside'])
 
     def test_nested_quoted_response_arguments_and_hashes_are_recorded(self):
         inner = self.response('nested/inner.rsp', '-fno-fast-math -ffp-contract=off')
@@ -797,6 +812,15 @@ class PerceptionCompileLogTests(unittest.TestCase):
         with self.assertRaises(checker.ProfileError):
             self.inspect(lines)
 
+    def test_clang_linker_loader_named_response_cannot_hide_unsafe_math(self):
+        hidden = self.upstream / 'rpath/hidden.rsp'
+        hidden.parent.mkdir()
+        hidden.write_text('-ffast-math')
+        lines = self.commands()
+        lines[0] = self.c_command('NG2Perception', [*checker.FLAGS, '-Xlinker', '@rpath/hidden.rsp'])
+        with self.assertRaises(checker.ProfileError):
+            self.inspect(lines)
+
     def test_missing_perception_or_any_other_c_compile_is_rejected(self):
         for missing in range(len(self.names)):
             lines = self.commands()
@@ -951,6 +975,16 @@ class PerceptionSavedProfileTests(unittest.TestCase):
         raw = self.saved['swift_compiles'][0]['raw_arguments']
         index = raw.index('@rpath/LoopCtrlBroadcast.debug.dylib')
         del raw[index - 1]
+        self.write_profile()
+        with self.assertRaises(checker.ProfileError):
+            self.read_profile()
+
+    def test_saved_clang_loader_named_response_does_not_inherit_swift_exception(self):
+        hidden = self.upstream / 'rpath/hidden.rsp'
+        hidden.parent.mkdir()
+        hidden.write_text('-ffast-math')
+        for key in ('raw_arguments', 'arguments'):
+            self.saved['perception_compiles'][0][key] += ['-Xlinker', '@rpath/hidden.rsp']
         self.write_profile()
         with self.assertRaises(checker.ProfileError):
             self.read_profile()
