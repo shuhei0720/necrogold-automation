@@ -1,0 +1,203 @@
+--- a/LoopCtrlUITests/ActionHandler.swift
++++ b/LoopCtrlUITests/ActionHandler.swift
+@@ -728,6 +728,7 @@
+     }
+ 
+     func dispatch(method: String, params: [String: JSONValue]?) -> ([String: JSONValue]?, JSONRPCError?) {
++        if let blocked = NG2Runtime.shared.leaseError(method) { return (nil, blocked) }
+         let cmd = ActionCommand(method: method, params: params)
+         readFrame = nil
+         if let t = cmd.elementType, let raws = Self.typeFilterRaws(t), raws.isEmpty {
+@@ -8662,6 +8663,9 @@
+         } else {
+             out["hint"] = .string("All \(raw.count) steps completed — the settled screen is attached under `observe`; don't re-read it.")
+         }
++        // A batch already running before the native lease must not perform
++        // its final implicit screen read after that lease was acquired.
++        if let blocked = NG2Runtime.shared.leaseError("run_steps") { return (out, blocked) }
+         if observe != "none" {
+             var read = ActionCommand(method: "page_source", params: nil)
+             read.visibleOnly = true
+--- a/LoopCtrlUITests/LoopCtrlUITests.swift
++++ b/LoopCtrlUITests/LoopCtrlUITests.swift
+@@ -1512,7 +1512,14 @@
+                 if status == .advertising { self.setLocalNetworkAccess("granted") }
+             }
+         }
++        srv.onRPCLeaseCheck = { NG2Runtime.shared.leaseError($0) }
+         srv.onRPCRequest = { [weak self] method, params, completion in
++            if NG2Runtime.methods.contains(method) {
++                let result = NG2Runtime.shared.handle(method: method, params: params)
++                completion(result.0, result.1)
++                return
++            }
++            if let blocked = NG2Runtime.shared.leaseError(method) { completion(nil, blocked); return }
+             guard let self = self else {
+                 completion(nil, .internalError)
+                 return
+@@ -1589,7 +1596,9 @@
+                 // wrap it in an Obj-C @try/@catch so a stale/non-hittable element
+                 // turns into a JSON-RPC error instead of a SIGABRT.
+                 let work = {
+-                    if method == "config" {
++                    if let blocked = NG2Runtime.shared.leaseError(method) {
++                        result = (nil, blocked)
++                    } else if method == "config" {
+                         result = self.handleConfig(params)
+                     } else if let handler = self.actionHandler {
+                         // Touches made now are drawn on viewers' pages as this sender's.
+@@ -1701,6 +1710,7 @@
+             self.updateRemoteNotification()
+         }
+         RemoteSession.shared.onChange = { [weak self] in
++            NG2Runtime.shared.ownerChanged()
+             ScreenStream.shared.broadcastState()
+             DispatchQueue.main.async { self?.updateRemoteNotification() }
+         }
+--- a/LoopCtrlKit/RPCMethod.swift
++++ b/LoopCtrlKit/RPCMethod.swift
+@@ -26,6 +26,20 @@
+ 
+ struct RPCMethodRegistry {
+     static let methods: [RPCMethodDef] = [
++        RPCMethodDef(name: "necro_native_start",
++            description: "Start one bounded native normal-zone1-1 run. UI and capture are exclusively leased until all workers drain. Same owner/run_id is idempotent. No purchase. Native status heartbeat must arrive within 5 seconds.",
++            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Fresh 32 lowercase hex UUID; retain before submitting."),
++                     RPCParamDef(name: "profile", type: "string", required: true, description: "normal-1-1-v1 only")],
++            returns: "{run_id,profile,state,api_version,report:{schema,clock_id,device_now_ns,input_state,...}}"),
++        RPCMethodDef(name: "necro_native_status", description: "Image-free cached native status; default is read-only. Only explicit keepalive:true renews an active uncancelled owner heartbeat. Input state 4 means started unknown; never resend.",
++            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID"), RPCParamDef(name: "keepalive", type: "boolean", required: false, description: "Default false: read-only; true renews the active uncancelled owner heartbeat")],
++            returns: "{run_id,profile,state,api_version,report:{status fields,events,capture_outstanding,workers_drained,...}}"),
++        RPCMethodDef(name: "necro_native_cancel", description: "Invalidate pending native tickets immediately. An already started synth cannot be cancelled; status retains its outcome. No implicit pause input.",
++            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID")],
++            returns: "{run_id,profile,state,api_version,report:{cancel_requested,...}}"),
++        RPCMethodDef(name: "necro_native_results", description: "Export at most 20 retained normalized PNGs only after terminal worker drain and while the phone owner is active. Capture and synth times are call intervals, not exact presentation or gameplay-receipt times.",
++            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID")],
++            returns: "{run_id,profile,state,api_version,report,images:[{name,format,data_base64,pixel_width,pixel_height,sha256,capture_id,capture_start_ns,capture_end_ns,completed_prefix,stable_prefix}]}"),
+         RPCMethodDef(
+             name: "config",
+             description: "Read or update server settings and manage authorized sessions. With no params: returns current config plus the list of authorized sessions (client name, masked token prefix, granted/expiry times). Pass allow_remote_access and/or listen_port to change settings (persisted; server restarts, dropping the connection — reconnect at the returned address). Pass revoke_session_id to remove one session, or clear_sessions=true to revoke ALL tokens (including your own). Pass stop_server=true to SHUT DOWN the service (stops listening after replying; re-launch the runner to restart — tokens are preserved so no re-auth is needed).",
+@@ -549,7 +563,7 @@
+     /// release that added the encrypted auth channel plus the docs/Skill,
+     /// clear-text, page-source, and reliability improvements. Single source of
+     /// truth for /schema AND device_info.
+-    static let serverVersion = "1.98.14-ngg1"
++    static let serverVersion = "1.98.14-ngg2"
+ 
+     /// When this binary was built, as "YYYY-MM-DD HH:MM".
+     ///
+@@ -569,6 +583,7 @@
+     /// call (no separate /schema fetch needed). Keep in sync with what the server
+     /// actually implements.
+     static let capabilityTags: [String] = [
++        "necrogold_native_v1", // bounded native controller; same-clock capture and command intervals
+         "envelope_v1",         // /pair + encrypted /rpc envelopes (HMAC-SHA256)
+         "stream_ticket",       // stream_ticket RPC → single-use ?ticket= for /stream + /logs
+         "video_stream",        // GET /stream (framed H.264, docs/remote-control.md)
+--- a/LoopCtrlKit/JSONRPCServer.swift
++++ b/LoopCtrlKit/JSONRPCServer.swift
+@@ -1,6 +1,22 @@
+ import CryptoKit
+ import Foundation
+ import Network
++
++// NG-G2 BEGIN authenticated owner projection (tested verbatim).
++enum NG2AuthenticatedOwner {
++    static let methods: Set<String> = ["necro_native_start", "necro_native_status", "necro_native_cancel", "necro_native_results"]
++    static func inject(method: String, params: [String: JSONValue]?, owner: String) -> [String: JSONValue]? {
++        var projected = params
++        if methods.contains(method) {
++            var native = projected ?? [:]
++            native["_necro_owner"] = .string(owner)
++            native["_actor"] = nil
++            projected = native
++        } else { projected?["_necro_owner"] = nil }
++        return projected
++    }
++}
++// NG-G2 END authenticated owner projection.
+ 
+ class JSONRPCServer {
+     private var listener: NWListener?
+@@ -35,6 +51,8 @@
+     private let queue = DispatchQueue(label: "top.ebato.loopctrl.server")
+     private(set) var isRunning = false
+ 
++    /// Admission gate for the native UI lease; evaluated after authentication.
++    var onRPCLeaseCheck: ((String) -> JSONRPCError?)?
+     var onRPCRequest: ((String, [String: JSONValue]?, @escaping ([String: JSONValue]?, JSONRPCError?) -> Void) -> Void)?
+     var onStateChange: ((Bool) -> Void)?
+     /// Hand off an authorized connection to the screen stream (the host owns
+@@ -1223,6 +1241,10 @@
+                 data: ["code": .string("paused_by_owner"), "outcome": .string("not_sent"), "retry_safe": .bool(true)])))
+             return
+         }
++        if let blocked = onRPCLeaseCheck?(rpcRequest.method) {
++            sendSealed(ex, seal: seal, json: Self.errorJSON(rpcRequest.id, blocked))
++            return
++        }
+         let controlled = Self.uiMutatingMethods.contains(rpcRequest.method)
+         var actionID = 0
+         var actor: [String: JSONValue] = [:]
+@@ -1243,6 +1265,8 @@
+ 
+         let method = rpcRequest.method
+         var params = rpcRequest.params
++        // Never trust a caller-provided owner or actor for native operations.
++        params = NG2AuthenticatedOwner.inject(method: method, params: params, owner: opened.tokId)
+         // `config` may widen who can reach the device (nearby discovery), which
+         // only a caller on this device may do. Tell it where this request came
+         // from; set here, after authentication, and overwriting any value the
+--- a/LoopCtrlKit/RemoteSession.swift
++++ b/LoopCtrlKit/RemoteSession.swift
+@@ -246,6 +246,7 @@
+     /// reads or touches the screen.
+     static let allowedWhilePaused: Set<String> = [
+         "control", "device_info", "logs", "config", "stream_ack", "stream_ticket", "is_locked", "wait",
++        "necro_native_status", "necro_native_cancel",
+     ]
+ 
+     /// A short, non-sensitive description of an action for the logs: where
+--- a/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
++++ b/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
+@@ -10,6 +10,8 @@
+ #import "ObjCException.h"
+ #import "AutomationSession.h"
+ #import "DeviceKeys.h"
++#import "NG2Controller.h"
++#import "NG2CaptureBridge.h"
+ 
+ @interface EarlyURLHook : NSObject
+ + (NSArray<NSURL *> *)drainURLs;
+--- a/LoopCtrlUITests/ScreenStream.swift
++++ b/LoopCtrlUITests/ScreenStream.swift
+@@ -612,8 +612,14 @@
+             let wait = slot - CACurrentMediaTime()
+             // A nudge (an action just changed the screen) captures at once.
+             if wait > 0 { _ = wake.wait(timeout: .now() + wait) }
++            guard NG2Runtime.shared.beginStreamCapture() else {
++                _ = wake.wait(timeout: .now() + 0.02)
++                continue
++            }
+             let started = CACurrentMediaTime()
+-            guard let grab, let shot = autoreleasepool(invoking: { grab(jpegQuality) }) else {
++            let captured = autoreleasepool { grab?(jpegQuality) }
++            NG2Runtime.shared.endStreamCapture()
++            guard let shot = captured else {
+                 misses += 1
+                 if misses == 3 {
+                     // Captures that overlap may be what fails on this OS:
+--- a/project.yml
++++ b/project.yml
+@@ -227,6 +227,11 @@
+     platform: macOS
+     deploymentTarget: "13.0"
+     sources:
++      - path: LoopCtrlKit/JSONRPCServer.swift
++      - path: LoopCtrlKit/RPCMethod.swift
++      - path: LoopCtrlKit/ServerPort.swift
++      - path: LoopCtrlKit/NearbyService.swift
++      - path: LoopCtrlKit/RemoteIcon.swift
+       - path: LoopCtrlKit/PairRequestLedger.swift
+       - path: LoopCtrlKit/RemoteInvite.swift
+       - path: LoopCtrlKit/RemoteService.swift

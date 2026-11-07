@@ -44,9 +44,38 @@ def command(*args, cwd=None):
     return subprocess.check_output(args, cwd=cwd, text=True, timeout=30).strip()
 
 
+def inspect_native_sources(upstream, driver):
+    """The packaged native build must use every sealed production source."""
+    manifest_path = driver / 'patches/loopctrl/ngg2-manifest.json'
+    if not manifest_path.is_file():
+        raise ValueError('native_manifest_missing')
+    manifest_raw = manifest_path.read_bytes()
+    manifest = json.loads(manifest_raw)
+    if (manifest.get('upstream_commit') != '6e25cf6a9f65bc86c372cdce94bdb151d0cf6767'
+            or manifest.get('api_version') != '1.98.14-ngg2'
+            or manifest.get('capability') != 'necrogold_native_v1'):
+        raise ValueError('native_manifest_identity')
+    patch = driver / 'patches/loopctrl/ngg2.patch'
+    if hashlib.sha256(patch.read_bytes()).hexdigest() != manifest['patch_sha256']:
+        raise ValueError('native_patch_hash')
+    expected = {name: value['patched_sha256'] for name, value in manifest['files'].items()}
+    expected.update({name: value['sha256'] for name, value in manifest['additions'].items()})
+    for name, digest in expected.items():
+        path = Path(name)
+        if path.is_absolute() or '..' in path.parts:
+            raise ValueError('native_unsafe_path')
+        source = upstream / path
+        if source.is_symlink() or hashlib.sha256(source.read_bytes()).hexdigest() != digest:
+            raise ValueError('native_source_hash: ' + name)
+    return {'api_version': manifest['api_version'], 'capability': manifest['capability'],
+        'native_manifest_sha256': hashlib.sha256(manifest_raw).hexdigest(),
+        'native_source_sha256': expected}
+
+
 def main():
     upstream, driver, ipa = map(Path, sys.argv[1:])
     report = inspect_ipa(ipa)
+    report.update(inspect_native_sources(upstream, driver))
     report.update({
         'upstream_commit': command('git', 'rev-parse', 'HEAD', cwd=upstream),
         'driver_commit': command('git', 'rev-parse', 'HEAD', cwd=driver),

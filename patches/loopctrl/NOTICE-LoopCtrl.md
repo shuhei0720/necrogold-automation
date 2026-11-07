@@ -1,5 +1,12 @@
 # Notices
 
+NecroGold NG-G2 modification notice (2026-11-07): the guarded patch adds bounded
+native game observation, beat control, cancellation/status APIs and device-clock
+diagnostics to the fixed LoopCtrl v0.3.4 source. NG-G1 image geometry is retained.
+The added NG2 source files and complete modified upstream files accompany the
+private build artifact. Upstream copyright and third-party notices below are
+preserved. This notice does not relicense the remainder of the NecroGold project.
+
 LoopCtrl
 Copyright 2026 Ebato and the LoopCtrl contributors
 

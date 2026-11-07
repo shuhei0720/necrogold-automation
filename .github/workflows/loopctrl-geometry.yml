@@ -1,4 +1,4 @@
-name: LoopCtrl geometry contract
+name: LoopCtrl native control and geometry
 
 on:
   push:
@@ -13,6 +13,8 @@ permissions:
 
 jobs:
   native-contract-red:
+    needs: native-source-ready
+    if: needs.native-source-ready.outputs.ready != 'true'
     runs-on: macos-26
     timeout-minutes: 10
     steps:
@@ -50,8 +52,69 @@ jobs:
           else
             echo 'ready=false' >> "$GITHUB_OUTPUT"
           fi
-  build:
+  native-host-contracts:
     needs: native-source-ready
+    if: needs.native-source-ready.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install the existing image-test dependency in an isolated environment
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ngg2-host-venv"
+          "$RUNNER_TEMP/ngg2-host-venv/bin/pip" install Pillow==11.3.0
+      - name: Run native algorithm contracts without private image fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e "$RUNNER_TEMP/ngg2-no-private-fixtures"
+          NECRO_TEST043_FIXTURE_ROOT="$RUNNER_TEMP/ngg2-no-private-fixtures" "$RUNNER_TEMP/ngg2-host-venv/bin/python" - <<'PY' 2>&1 | tee "$RUNNER_TEMP/ngg2-native-host.txt"
+          import sys
+          import unittest
+          from pathlib import Path
+          sys.path.insert(0, str(Path('tests').resolve()))
+          fixture_cases = {
+              'test_known_floor_public_entry', 'test_required_known_image_parity',
+              'test_padding_ignored', 'test_sanitized_real_images_and_buffer_boundaries',
+              'test_required034_to042_route_motion_and_all73_score_parity',
+              'test_actual037_single_partial_gold_step_retains_stone_evidence',
+          }
+          suite = unittest.defaultTestLoader.loadTestsFromNames([
+              'test_native_perception', 'test_native_navigation',
+              'test_native_beat', 'test_native_controller',
+          ])
+          def flatten(node):
+              for item in node:
+                  if isinstance(item, unittest.TestSuite):
+                      yield from flatten(item)
+                  else:
+                      yield item
+          selected, excluded = [], set()
+          for case in flatten(suite):
+              name = case.id().rsplit('.', 1)[-1]
+              if name in fixture_cases:
+                  excluded.add(name)
+              else:
+                  selected.append(case)
+          if excluded != fixture_cases:
+              raise RuntimeError('required private replay case list changed: ' + repr(excluded))
+          print('CI excludes these required local private-image replays:', sorted(excluded), flush=True)
+          result = unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(selected))
+          if not result.wasSuccessful() or result.skipped:
+              raise SystemExit(1)
+          PY
+      - name: Save native host diagnostics
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: loopctrl-ngg2-native-host
+          path: ${{ runner.temp }}/ngg2-native-host.txt
+          if-no-files-found: error
+          retention-days: 30
+  build:
+    needs: [native-source-ready, native-host-contracts]
     if: needs.native-source-ready.outputs.ready == 'true'
     runs-on: macos-26
     timeout-minutes: 60
@@ -76,6 +139,10 @@ jobs:
         run: |
           python3 driver/patches/loopctrl/apply_patch.py upstream
           python3 driver/patches/loopctrl/check_geometry.py upstream "$RUNNER_TEMP/geometry-ngg1"
+      - name: Apply sealed native source and run production Swift contracts
+        run: |
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream
+          python3 driver/patches/loopctrl/check_ngg2.py upstream "$RUNNER_TEMP/ngg2"
       - name: Install build tools
         run: |
           brew install xcodegen
@@ -91,39 +158,54 @@ jobs:
         working-directory: upstream
         run: |
           set -euo pipefail
-          make ipa UNSIGNED=1 EXTRA_BUILD_SETTINGS="CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER" 2>&1 | tee "$RUNNER_TEMP/geometry-ngg1/ios-build.txt"
-          Scripts/package-release.sh 2>&1 | tee "$RUNNER_TEMP/geometry-ngg1/ios-package.txt"
+          make ipa UNSIGNED=1 EXTRA_BUILD_SETTINGS="CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER" 2>&1 | tee "$RUNNER_TEMP/ngg2/ios-build.txt"
+          Scripts/package-release.sh 2>&1 | tee "$RUNNER_TEMP/ngg2/ios-package.txt"
       - name: Run existing LoopCtrlKit tests
         working-directory: upstream
         run: |
           set -euo pipefail
-          xcodebuild test -project LoopCtrl.xcodeproj -scheme LoopCtrlKitTests -destination platform=macOS -quiet 2>&1 | tee "$RUNNER_TEMP/geometry-ngg1/loopctrlkit-tests.txt"
+          xcodebuild test -project LoopCtrl.xcodeproj -scheme LoopCtrlKitTests -destination platform=macOS -quiet 2>&1 | tee "$RUNNER_TEMP/ngg2/loopctrlkit-tests.txt"
+      - name: Observe actual encrypted RPC owner-callsite mutation Red
+        run: python3 driver/patches/loopctrl/check_ngg2_rpc.py upstream "$RUNNER_TEMP/ngg2"
       - name: Verify package and record provenance
         run: python3 driver/patches/loopctrl/verify_package.py upstream driver upstream/release/LoopCtrl.ipa
       - name: Save unsigned IPA
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: loopctrl-ngg1-unsigned
+          name: loopctrl-ngg2-unsigned
           path: |
             upstream/release/LoopCtrl.ipa
             upstream/release/SHA256SUMS.txt
             upstream/release/build-manifest.json
             upstream/LICENSE
             upstream/NOTICE.md
+            driver/patches/loopctrl/NOTICE-LoopCtrl.md
             upstream/LoopCtrlUITests/ActionCommand.swift
             upstream/LoopCtrlUITests/ActionHandler.swift
             upstream/LoopCtrlKit/RPCMethod.swift
+            upstream/LoopCtrlUITests/LoopCtrlUITests.swift
+            upstream/LoopCtrlUITests/ScreenStream.swift
+            upstream/LoopCtrlUITests/ObjCException.m
+            upstream/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
+            upstream/LoopCtrlUITests/NG2*
+            upstream/Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift
+            upstream/project.yml
+            upstream/LoopCtrlKit/JSONRPCServer.swift
+            upstream/LoopCtrlKit/RemoteSession.swift
+            driver/patches/loopctrl/ngg2-manifest.json
           if-no-files-found: error
           retention-days: 30
       - name: Save test and build diagnostics
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: loopctrl-ngg1-validation
+          name: loopctrl-ngg2-validation
           path: |
             ${{ runner.temp }}/geometry-baseline/*.json
             ${{ runner.temp }}/geometry-baseline/*.txt
             ${{ runner.temp }}/geometry-ngg1/*.json
             ${{ runner.temp }}/geometry-ngg1/*.txt
+            ${{ runner.temp }}/ngg2/*.json
+            ${{ runner.temp }}/ngg2/*.txt
           if-no-files-found: error
           retention-days: 30

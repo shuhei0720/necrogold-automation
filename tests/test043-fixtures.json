@@ -1,0 +1,271 @@
+{
+  "schema": 1,
+  "source": "Known TEST034\u2013042 device images; no unseen evaluation claim. Images stay outside git. Set NECRO_TEST043_FIXTURE_ROOT to the directory containing test034...test042-device.",
+  "count": 66,
+  "images": [
+    {
+      "path": "test034/test-034/shop-walk-20261106T140451Z-f63e9222/found.jpg",
+      "sha256": "36cdf067d5f4c5924ccc5a5144d02d29ce619fce3bdf3cdb85f45ba796852032"
+    },
+    {
+      "path": "test034/test-034/shop-walk-20261106T140451Z-f63e9222/initial.jpg",
+      "sha256": "db926464b4e62366f189810071131a9c42bc6d082b20c17c6e292820ef631694"
+    },
+    {
+      "path": "test034/test-034/shop-walk-20261106T140451Z-f63e9222/run-099.jpg",
+      "sha256": "764b7b08213fb35285b505eeddfbb272535c9010289c0c6013724405ee1c39aa"
+    },
+    {
+      "path": "test034/test-034/shop-walk-20261106T140451Z-f63e9222/run-101.jpg",
+      "sha256": "a438e194091e83b612b31f8e0ef1da5be8d8f8e54c23b26c20d847e410fbac14"
+    },
+    {
+      "path": "test034/test-034/shop-walk-20261106T140451Z-f63e9222/run-102.jpg",
+      "sha256": "aec873efdab68304405a538f10b238802025b8753dabada652bd53f136812c9c"
+    },
+    {
+      "path": "test035-device/test-035/shop-walk-20261106T191812Z-c714f451/found.jpg",
+      "sha256": "dd94bdc95e4b4ff7647832007e37aca2670bc0ad85dcad32fb2cf0b72e446cc6"
+    },
+    {
+      "path": "test035-device/test-035/shop-walk-20261106T191812Z-c714f451/initial.jpg",
+      "sha256": "bbdbc3d255c639e47bae38a44220b2dc9027fc7062531fd9c61e2ad3ae9d72ea"
+    },
+    {
+      "path": "test035-device/test-035/shop-walk-20261106T191812Z-c714f451/last.jpg",
+      "sha256": "bff223e428cbab1b474d5aa164d68a0d4518e69dbb98854ea6aa348320f10519"
+    },
+    {
+      "path": "test035-device/test-035/shop-walk-20261106T191812Z-c714f451/run-001.jpg",
+      "sha256": "495bcd4ea46d5eebd9b33f725da1365b14ea5bff299da2f893828d98186a76c4"
+    },
+    {
+      "path": "test035-device/test-035/shop-walk-20261106T191812Z-c714f451/run-099.jpg",
+      "sha256": "3205b1e1e6c3bed2d2afe87206a2afa9d602859cb20b4d74788a0278733a5be0"
+    },
+    {
+      "path": "test035-device/test-035/shop-walk-20261106T191812Z-c714f451/run-101.jpg",
+      "sha256": "51bf7ef7a79fedab7c88b82b645c416e515fec5dfcd9605c0827f2ac4017f07d"
+    },
+    {
+      "path": "test035-device/test-035/shop-walk-20261106T191812Z-c714f451/run-102.jpg",
+      "sha256": "b893e3a351c57f347d128189a13830bc90c9ffb4f172dd4db661e98cd620e18a"
+    },
+    {
+      "path": "test035-device/test-035/shop-walk-20261106T191812Z-c714f451/run-103.jpg",
+      "sha256": "0a1c856c826de86d408a787eb89f444298b61980a70896ebb7c4f1c0955b1c6a"
+    },
+    {
+      "path": "test035-device/test-035/shop-walk-20261106T191812Z-c714f451/run-104.jpg",
+      "sha256": "497db2abceaa1dc6e87cd8fa10171c639a91b47d10f21bf0860c9d322b2ba2e2"
+    },
+    {
+      "path": "test035-device/test-035/shop-walk-20261106T191812Z-c714f451/run-105.jpg",
+      "sha256": "47f0fe7f7da0cf1102aaffb6bd271a627cf82b71efd6fbb5633a2d36e3e601bd"
+    },
+    {
+      "path": "test036-device/test-036/shop-walk-20261106T194732Z-79edded7/found.jpg",
+      "sha256": "bc352f7a6e42102d431748427dea7d459b8a88d91ac03282e39cb87741a26cab"
+    },
+    {
+      "path": "test036-device/test-036/shop-walk-20261106T194732Z-79edded7/initial.jpg",
+      "sha256": "dec9a34ab2568915f3ff76813501def484dfb93b95b2ce636612e16d067a29a0"
+    },
+    {
+      "path": "test036-device/test-036/shop-walk-20261106T194732Z-79edded7/last.jpg",
+      "sha256": "4f9c49522b2fc6897d93210e3bdfecdf3202f87a86911e50496e25cd21757bc8"
+    },
+    {
+      "path": "test036-device/test-036/shop-walk-20261106T194732Z-79edded7/run-099.jpg",
+      "sha256": "de9f4b491be6eb2b151977863d25ad9afab3445bb0c42a58566cf62abad9a713"
+    },
+    {
+      "path": "test036-device/test-036/shop-walk-20261106T194732Z-79edded7/run-101.jpg",
+      "sha256": "c5e282b6942443af58a99e63731e10be9843694d35c39bd610a8587dd0d862c9"
+    },
+    {
+      "path": "test036-device/test-036/shop-walk-20261106T194732Z-79edded7/run-102.jpg",
+      "sha256": "089f97d22ce90f55429ada3ba7dccb0ca76899be449cb78d229a573fe64346d4"
+    },
+    {
+      "path": "test036-device/test-036/shop-walk-20261106T194732Z-79edded7/run-103.jpg",
+      "sha256": "59dcfcaf24350339fb99e84113e3e3947e15aa7f1b485306040e0fcb1542a751"
+    },
+    {
+      "path": "test037-device/test-037/shop-walk-20261106T235017Z-cbf3069e/found.jpg",
+      "sha256": "ad76e86d5f2c1b434ca93a656b9b8e3646fbd3228c1525709127bd10d837a6b1"
+    },
+    {
+      "path": "test037-device/test-037/shop-walk-20261106T235017Z-cbf3069e/initial.jpg",
+      "sha256": "b2594b5855afe1e66c1db7ace0d6d7e155ce21a79cf15ad8c1fa0bf14488530b"
+    },
+    {
+      "path": "test037-device/test-037/shop-walk-20261106T235017Z-cbf3069e/run-099.jpg",
+      "sha256": "76cb87a61ba9667e8bd11457f024889299a58d739139a1500a7dc6ee55068a0f"
+    },
+    {
+      "path": "test037-device/test-037/shop-walk-20261106T235017Z-cbf3069e/run-101.jpg",
+      "sha256": "004e25d6ee9004498846bf7a1b5ed878b2cca03276e4c8b6c8724ba1ea39ee9b"
+    },
+    {
+      "path": "test037-device/test-037/shop-walk-20261106T235017Z-cbf3069e/run-102.jpg",
+      "sha256": "94c515fe86d92d6155dc23219a3f0fd0f0f7b8a7e3fecf2bbddf708cce8494a4"
+    },
+    {
+      "path": "test037-device/test-037/shop-walk-20261106T235017Z-cbf3069e/run-103.jpg",
+      "sha256": "67f1ab11361d49b734edbf9864fdb6619a668d34dc19de4c00aca24fa565432c"
+    },
+    {
+      "path": "test037-device/test-037/shop-walk-20261106T235017Z-cbf3069e/run-107.jpg",
+      "sha256": "95071b5d4a42b8c48fcf42f23a4095245da1bd9cd2e1b04d125adc332742d7aa"
+    },
+    {
+      "path": "test038-device/test-038/shop-walk-20261107T001204Z-d092b093/found.jpg",
+      "sha256": "b6d575f244554ba001e537b70f5ac49378f9d1373ad130330d96a0b0e21e2e83"
+    },
+    {
+      "path": "test038-device/test-038/shop-walk-20261107T001204Z-d092b093/initial.jpg",
+      "sha256": "63c32a3eee72976656c2cfe9c3fabf43a86b44aeeda22beaa408c7ab1f4039d7"
+    },
+    {
+      "path": "test038-device/test-038/shop-walk-20261107T001204Z-d092b093/last.jpg",
+      "sha256": "d98fb8f5dd40b55143fe628257dd7e9970399b6b8ce615f853811464a26aa6d0"
+    },
+    {
+      "path": "test038-device/test-038/shop-walk-20261107T001204Z-d092b093/run-001.jpg",
+      "sha256": "fb8250a6b9b1f4a0273111f8102cc70e96bbabff11621093af23404ae5785066"
+    },
+    {
+      "path": "test038-device/test-038/shop-walk-20261107T001204Z-d092b093/run-099.jpg",
+      "sha256": "06970509f5cf88eb0d3c338d5561e7d442678c3c57f3ef05ab94f2174da735c3"
+    },
+    {
+      "path": "test038-device/test-038/shop-walk-20261107T001204Z-d092b093/run-101.jpg",
+      "sha256": "421b7d9257519f6c10efd97f1e371fba7e5c315627c61fb52648c8b4d8661c2c"
+    },
+    {
+      "path": "test038-device/test-038/shop-walk-20261107T001204Z-d092b093/run-102.jpg",
+      "sha256": "ca270667244f507bd6114f7f82a5de4701b82fc3d7d48a53e7471b91eb1b10d4"
+    },
+    {
+      "path": "test038-device/test-038/shop-walk-20261107T001204Z-d092b093/run-104.jpg",
+      "sha256": "8c684c495b6b3643f470bfa3bd9b0552c622a320154e3ff1f09815f8dd1e9587"
+    },
+    {
+      "path": "test039-device/test-039/shop-walk-20261107T002832Z-db3121e8/found.jpg",
+      "sha256": "deeccfd18f30e00bba6a644f3965170998d2973c1295d84f838207c6e774e6ac"
+    },
+    {
+      "path": "test039-device/test-039/shop-walk-20261107T002832Z-db3121e8/initial.jpg",
+      "sha256": "7318d2a5924e3d5091d45b272875283eab7d3716b4c5cb7f161e16e53e7c6584"
+    },
+    {
+      "path": "test039-device/test-039/shop-walk-20261107T002832Z-db3121e8/run-001.jpg",
+      "sha256": "1460f43bb0752826926750aa1a9976f64b4fb44152d34555b54749cd338504f9"
+    },
+    {
+      "path": "test039-device/test-039/shop-walk-20261107T002832Z-db3121e8/run-099.jpg",
+      "sha256": "199cd4edab4fe0b45dc1e55e9a2b082a1c13d50956e126dcadb51501c1d54381"
+    },
+    {
+      "path": "test039-device/test-039/shop-walk-20261107T002832Z-db3121e8/run-101.jpg",
+      "sha256": "a31459d560c9937a27696cfb0ac4813dc9ad1d84f43a9e1de731797a5e48b36f"
+    },
+    {
+      "path": "test039-device/test-039/shop-walk-20261107T002832Z-db3121e8/run-102.jpg",
+      "sha256": "09617ed8c90773334cdbc59fcd4b9bc29684e4deb745d085ae32ce831f325805"
+    },
+    {
+      "path": "test039-device/test-039/shop-walk-20261107T002832Z-db3121e8/run-103.jpg",
+      "sha256": "9254200982435608b39c1452b20d92d3ab8865c57afba4bdef3faee6bec04d7c"
+    },
+    {
+      "path": "test040-device/test-040/shop-walk-20261107T005013Z-1417ec19/found.jpg",
+      "sha256": "ee34a6e350cc7167ecd361b66e1251b2433f32c311ab11412035ea8028654b76"
+    },
+    {
+      "path": "test040-device/test-040/shop-walk-20261107T005013Z-1417ec19/initial.jpg",
+      "sha256": "fe13af20d5c0607889e8315760901c254416a307cb5c87a458480afda3d1263d"
+    },
+    {
+      "path": "test040-device/test-040/shop-walk-20261107T005013Z-1417ec19/run-001.jpg",
+      "sha256": "f60fe48f3839e797f6a9edd27d3af46f4b9628e0dfa46f93c9da939b7e34fab7"
+    },
+    {
+      "path": "test040-device/test-040/shop-walk-20261107T005013Z-1417ec19/run-099.jpg",
+      "sha256": "79af4dd864713fcc54d80628340479ea12ce199924523c5fe8051c1c24d13cbd"
+    },
+    {
+      "path": "test040-device/test-040/shop-walk-20261107T005013Z-1417ec19/run-101.jpg",
+      "sha256": "7171fb1226e34156280a685f1d43fae67c319c66c982b85836770f7a28f44cf7"
+    },
+    {
+      "path": "test040-device/test-040/shop-walk-20261107T005013Z-1417ec19/run-102.jpg",
+      "sha256": "fa5b58668bbe2b1ec06088af73406c089d2bd5b6e227e9444883898696c98f73"
+    },
+    {
+      "path": "test040-device/test-040/shop-walk-20261107T005013Z-1417ec19/run-103.jpg",
+      "sha256": "bfc3f392d4dd1e3f927033ddf2543735c591a8c8407609a7a19dc3d94b3eba5d"
+    },
+    {
+      "path": "test041-device/test-041/shop-walk-20261107T015727Z-27180009/found.jpg",
+      "sha256": "c3ea8ec850073cec5bfa073e3fa688844a608ce7ed339cb33fe832fbd3bf00ce"
+    },
+    {
+      "path": "test041-device/test-041/shop-walk-20261107T015727Z-27180009/initial.jpg",
+      "sha256": "dea99a2877cc3e76b3bbb3d55dc18fe8231989bfe1ffc8ec847259d06ee3732a"
+    },
+    {
+      "path": "test041-device/test-041/shop-walk-20261107T015727Z-27180009/run-001.jpg",
+      "sha256": "7aa042dd739a176a65fbbea74c0aea2dcaadbb1625b60e37293e56a975d2660d"
+    },
+    {
+      "path": "test041-device/test-041/shop-walk-20261107T015727Z-27180009/run-099.jpg",
+      "sha256": "f8083084640b5a793f96c32d3308be9484bc382b6e15bb125bf34ee6c724ebcc"
+    },
+    {
+      "path": "test041-device/test-041/shop-walk-20261107T015727Z-27180009/run-101.jpg",
+      "sha256": "c993e57c4dd37974cb8005608011e43f03a4e72e1970c405ef50b1b7f971b9a3"
+    },
+    {
+      "path": "test041-device/test-041/shop-walk-20261107T015727Z-27180009/run-102.jpg",
+      "sha256": "e9a39b0b4fa811ca037725a15e395b8d10e7fa60422ac9dc2155b890be848f7b"
+    },
+    {
+      "path": "test041-device/test-041/shop-walk-20261107T015727Z-27180009/run-103.jpg",
+      "sha256": "047ed642ea3b383db638aec5c48843ef596bcf13ac2c8ee594008e24390e43ea"
+    },
+    {
+      "path": "test042-device/test-042/shop-walk-20261107T023831Z-8e996bd6/found.jpg",
+      "sha256": "fc82695358e7568685b9ccd244e30478b9efe054e1706a8d232dafe8ff559b4b"
+    },
+    {
+      "path": "test042-device/test-042/shop-walk-20261107T023831Z-8e996bd6/initial.jpg",
+      "sha256": "5e7572018a8560424aab74dc0334298a59efadef4b15233520be9160b58b2647"
+    },
+    {
+      "path": "test042-device/test-042/shop-walk-20261107T023831Z-8e996bd6/last.jpg",
+      "sha256": "1af101a3dc1e0dafad260c44fec417e863a9527893973136576a95a33b4b01f8"
+    },
+    {
+      "path": "test042-device/test-042/shop-walk-20261107T023831Z-8e996bd6/run-001.jpg",
+      "sha256": "8d76cf081e37312aa156f5568e13bd0a69a4744cf64ff2ebaa54374e1c2c7a71"
+    },
+    {
+      "path": "test042-device/test-042/shop-walk-20261107T023831Z-8e996bd6/run-099.jpg",
+      "sha256": "19858869efa5256515bb4c530422c4de098469ebe6497a052a49c5de2eaf5171"
+    },
+    {
+      "path": "test042-device/test-042/shop-walk-20261107T023831Z-8e996bd6/run-101.jpg",
+      "sha256": "d02ee6c35df461198b01a67174967458dc8d13d1d7202ea9385180646451eae5"
+    },
+    {
+      "path": "test042-device/test-042/shop-walk-20261107T023831Z-8e996bd6/run-102.jpg",
+      "sha256": "1fabe05d20b5de662369036c45b1850eda02fe04ebe3bba7c1b2764304147b6a"
+    },
+    {
+      "path": "test042-device/test-042/shop-walk-20261107T023831Z-8e996bd6/run-104.jpg",
+      "sha256": "9123dd07107c3a323d328c09b8bd6e37891a249f7ae60003e7329a7fb69bd5b7"
+    }
+  ]
+}
