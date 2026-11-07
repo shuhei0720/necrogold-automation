@@ -821,6 +821,60 @@ class PerceptionCompileLogTests(unittest.TestCase):
         with self.assertRaises(checker.ProfileError):
             self.inspect(lines)
 
+    def test_actual_clang_link_only_install_names_are_not_compile_evidence(self):
+        output = self.upstream / 'build/Build/Products/Debug-iphoneos/LoopCtrlLiveActivity.appex/__preview.dylib'
+        link = shlex.join(['/usr/bin/clang', '-dynamiclib', '-target', 'arm64-apple-ios16.0',
+            '-install_name', '@rpath/LoopCtrlLiveActivity.debug.dylib',
+            '-Xlinker', '-rpath', '-Xlinker', '@executable_path/Frameworks',
+            '-Xlinker', '-rpath', '-Xlinker', '@executable_path/../../Frameworks',
+            '-Xlinker', '-rpath', '-Xlinker', '@loader_path/Frameworks', '-o', str(output)])
+        try:
+            result = self.inspect([*self.commands(), link])
+        except checker.ProfileError as error:
+            self.fail('actual link-only loader command was rejected: ' + str(error))
+        self.assertEqual(len(result['perception_compiles']), 1)
+
+    def test_clang_link_classification_expands_ordinary_link_response_files(self):
+        response = self.upstream / 'build/link-args.rsp'
+        response.parent.mkdir()
+        response.write_text('-dynamiclib -install_name @rpath/LoopCtrlLiveActivity.debug.dylib')
+        link = shlex.join(['/usr/bin/clang', '@build/link-args.rsp', '-o',
+            str(self.upstream / 'build/Build/Products/Debug-iphoneos/libpreview.dylib')])
+        result = self.inspect([*self.commands(), link])
+        self.assertEqual(len(result['perception_compiles']), 1)
+
+    def test_existing_loader_named_response_cannot_hide_the_only_compile_switch(self):
+        hidden = self.upstream / 'rpath/hidden.rsp'
+        hidden.parent.mkdir()
+        hidden.write_text(shlex.join(shlex.split(self.c_command('NG2Perception', ['-O0']))[1:]))
+        link_shape = shlex.join(['/usr/bin/clang', '-dynamiclib', '-install_name',
+            '@rpath/hidden.rsp', '-o', str(self.upstream / 'build/fake.dylib')])
+        with self.assertRaises(checker.ProfileError):
+            self.inspect([*self.commands(), link_shape])
+
+    def test_compile_switch_in_normal_response_restores_strict_clang_reader(self):
+        response = self.upstream / 'build/hidden-compile.rsp'
+        response.parent.mkdir()
+        args = shlex.split(self.c_command('NG2Perception', [*checker.FLAGS,
+            '-Xlinker', '@rpath/nonexistent-loader.dylib']))[1:]
+        response.write_text(shlex.join(args))
+        with self.assertRaises(checker.ProfileError):
+            self.inspect([*self.commands(), '/usr/bin/clang @build/hidden-compile.rsp'])
+
+    def test_clang_link_loader_parent_symlinks_fail_closed(self):
+        outside = self.base / 'outside-loader'
+        outside.mkdir()
+        (self.upstream / 'rpath').symlink_to(outside, target_is_directory=True)
+        link = '/usr/bin/clang -dynamiclib -install_name @rpath/nonexistent.dylib'
+        with self.assertRaises(checker.ProfileError):
+            self.inspect([*self.commands(), link])
+
+    def test_clang_link_loader_existing_prefix_cannot_traverse_parent(self):
+        (self.upstream / 'executable_path').mkdir()
+        link = '/usr/bin/clang -dynamiclib -Xlinker @executable_path/../../Frameworks'
+        with self.assertRaises(checker.ProfileError):
+            self.inspect([*self.commands(), link])
+
     def test_missing_perception_or_any_other_c_compile_is_rejected(self):
         for missing in range(len(self.names)):
             lines = self.commands()

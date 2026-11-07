@@ -238,7 +238,38 @@ def _safe_build_file(upstream, name):
     return current, current.relative_to(upstream).as_posix()
 
 
-def expand_response_args(args, upstream, proofdir):
+def _require_absent_loader_file(upstream, name):
+    """Clang preserves missing @files; never hide an existing response file."""
+    supplied = Path(name)
+    if supplied.is_absolute() or not supplied.parts:
+        raise ProfileError('perception_clang_loader_path')
+    descriptors = []
+    try:
+        descriptors.append(os.open(upstream, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW))
+        for index, component in enumerate(supplied.parts):
+            # A missing earlier component already proves ENOENT, even for
+            # loader literals such as @executable_path/../../Frameworks.
+            # Never traverse a parent if the existing prefix reaches it.
+            if component == '..':
+                raise ProfileError('perception_clang_loader_path')
+            try:
+                info = os.stat(component, dir_fd=descriptors[-1], follow_symlinks=False)
+            except FileNotFoundError:
+                return
+            if stat.S_ISLNK(info.st_mode):
+                raise ProfileError('perception_clang_loader_symlink')
+            if index == len(supplied.parts) - 1 or not stat.S_ISDIR(info.st_mode):
+                raise ProfileError('perception_clang_loader_file_exists')
+            descriptors.append(os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                       dir_fd=descriptors[-1]))
+    except OSError as error:
+        raise ProfileError('perception_clang_loader_path') from error
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+
+
+def expand_response_args(args, upstream, proofdir, *, clang_link_probe=False):
     """Expand response files as data, relative to the actual command cwd."""
     if not isinstance(args, (list, tuple)) or not all(isinstance(x, str) for x in args):
         raise ProfileError('perception_arguments_type')
@@ -249,6 +280,8 @@ def expand_response_args(args, upstream, proofdir):
     previous_token = None
     compiler_args = args[2:] if len(args) > 2 and tuple(args[:2]) == ('builtin-SwiftDriver', '--') else args
     swift_loader_literals = bool(compiler_args and Path(compiler_args[0]).name == 'swiftc')
+    clang_link_probe = bool(clang_link_probe and compiler_args
+                            and Path(compiler_args[0]).name == 'clang')
 
     def read_response(relative, before):
         # Walk from an opened source root. Every path component is admitted
@@ -292,12 +325,18 @@ def expand_response_args(args, upstream, proofdir):
         nonlocal total_bytes, total_tokens, previous_token
         result = []
         for token in tokens:
-            # Only the verified Swift driver treats these loader spellings as
-            # linker data. Clang expands @ tokens before option roles; generic
-            # and Clang arguments therefore retain strict response handling.
-            loader_literal = swift_loader_literals and previous_token == '-Xlinker' and any(
+            loader_spelling = any(
                 token == prefix or token.startswith(prefix + '/')
                 for prefix in ('@rpath', '@executable_path', '@loader_path'))
+            loader_literal = swift_loader_literals and previous_token == '-Xlinker' and loader_spelling
+            # Clang expands existing @files before interpreting option roles.
+            # Only classify a loader spelling as literal when that file and
+            # all traversed parents are known absent/ordinary directories.
+            # Every actual compile is expanded again without this probe mode.
+            if (clang_link_probe and loader_spelling
+                    and previous_token in ('-install_name', '-rpath', '-Xlinker')):
+                _require_absent_loader_file(upstream, token[1:])
+                loader_literal = True
             if token.startswith('@') and not loader_literal:
                 if len(active) >= MAX_RESPONSE_DEPTH or len(records) >= MAX_RESPONSE_FILES:
                     raise ProfileError('perception_response_expansion_limit')
@@ -398,7 +437,8 @@ def inspect_compile_log(upstream, log, proofdir):
             continue
         # Both compiler selection flags and optimization flags may be hidden
         # entirely in a response file. Expand before looking for -c/module.
-        expanded, used = expand_response_args(args, upstream, proofdir)
+        expanded, used = expand_response_args(args, upstream, proofdir,
+                                               clang_link_probe=executable == 'clang')
         if executable == 'swiftc':
             if '-module-name' not in expanded:
                 continue
@@ -418,6 +458,9 @@ def inspect_compile_log(upstream, log, proofdir):
         # an object and must not become duplicate evidence records.
         if '-c' not in expanded:
             continue
+        # Probe handling is solely for link-only command classification. A -c
+        # hidden anywhere in ordinary responses restores the strict C reader.
+        expanded, used = expand_response_args(args, upstream, proofdir)
         source_name = Path(_option(expanded, '-c')).name
         if source_name not in NATIVE_C:
             continue
