@@ -1894,3 +1894,5 @@ cd /mnt/necro_test047 && sh test_047.sh
 **TEST047の実機テストを依頼する。** build37と完全ソースから上記手順で実行し、初動/毎ビートの連続歩行/商品後pauseとruntime/test-047全ZIPを返してもらう。今回Cへ移した実機の短縮幅・毎拍・人より速い性能は未確認であり、全体受入はまだ完了していない。
 
 独立実装レビューは設計/試験の各第2周でcode/CI/IPAをclose、安全も同第2周で新sealと実配布物にP0/P1/P2なし。3担当が実ZIP/内部IPAのCRC・SHA、driver d62a7be/seal ab245、全22ソース、Runtime19/Raster3/RPC変異の実証跡を直接照合した。実binaryには試験用spy/afterWatchdogCheckが入っていないことも確認。完全399ファイルのarchiveを最後のbytes照合対象とし、安全の同第2周で完了する。以後code/tests/manifest/IPAを変えず、既存5文書だけ更新する。
+
+完全ソース最終照合: GitHub commit `a96b1428d0c68dae8ea21440e2f56682a7800354` のZIP6,781,707bytes/SHA-256 `4ea94ef941e9a5acaf6cc41b21fc5d85f6abafe64e942000a6cfd7240eb285fa`は、root・設計・安全が全CRCと399/399追跡ファイルの全bytes一致を独立確認し、重複/欠落/余分/不一致すべて0。3観点の実装レビューは各第2周でP0/P1/P2残件なしとして終了。この1段落だけを既存台帳へ追記し、返却する最終commit archiveもrootで全399ファイルを再照合する。code/tests/manifest/IPAと実機未受入の区別は不変。
