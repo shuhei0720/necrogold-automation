@@ -12,7 +12,47 @@ permissions:
   contents: read
 
 jobs:
+  native-contract-red:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+      - name: Observe native ticket contract Red after successful compilation
+        run: |
+          swiftc --version
+          python3 driver/patches/loopctrl/check_ngg2.py --red-only "$RUNNER_TEMP/ngg2-baseline"
+      - name: Save native baseline diagnostics
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: loopctrl-ngg2-baseline
+          path: ${{ runner.temp }}/ngg2-baseline/
+          if-no-files-found: error
+          retention-days: 30
+  native-source-ready:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.manifest.outputs.ready }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: manifest
+        name: Require a sealed native source manifest for IPA builds
+        shell: bash
+        run: |
+          if test -f patches/loopctrl/ngg2-manifest.json; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+          fi
   build:
+    needs: native-source-ready
+    if: needs.native-source-ready.outputs.ready == 'true'
     runs-on: macos-26
     timeout-minutes: 60
     steps:
