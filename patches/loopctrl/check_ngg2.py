@@ -166,13 +166,16 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     if not green.stdout.startswith('PASS production Runtime public API/') or green.stderr:
         raise RuntimeError('runtime_production_contract_missing')
     clock_begin = source.index('        DispatchQueue.main.sync {', source.index('    private func execute('))
-    clock_end = source.index('                guard NG2TicketGuard.permits', clock_begin)
+    clock_end = source.index('                run.inFlight = true', clock_begin)
     clock_gate = source[clock_begin:clock_end]
     if clock_gate.count('                let now = Self.now()') != 1:
         raise ValueError('runtime_clock_mutation_target')
     stale_clock_gate = clock_gate.replace('        DispatchQueue.main.sync {',
         '        DispatchQueue.main.sync {\n            let admissionClockSnapshot = Self.now()', 1).replace(
-        '                let now = Self.now()', '                let now = admissionClockSnapshot', 1)
+        'locked: locked, now: now, notBefore: command.not_before_ns',
+        'locked: locked, now: admissionClockSnapshot, notBefore: command.not_before_ns', 1).replace(
+        'ng2_controller_begin(core, command.id, now, foreground ? 1 : 0',
+        'ng2_controller_begin(core, command.id, admissionClockSnapshot, foreground ? 1 : 0', 1)
     query_begin = source.index('            let authorityQueryStart = Self.now()', clock_begin)
     query_end = source.index('            let permitted = run.lock.ng2Locked { () -> Bool in\n', query_begin)
     query_block = source[query_begin:query_end]
