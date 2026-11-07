@@ -93,11 +93,11 @@ for revoked in ["cancel", "owner"] {
 for lost in ["foreground", "lock", "owner"] {
     NG2Fake.reset(.pause)
     let authority = identity()
-    NG2RuntimeTestHooks.beforeMainAuthority = {
+    NG2RuntimeTestHooks.beforeMainAdmission = {
         if lost == "foreground" { NG2Fake.lock.lock(); NG2Fake.frontPID = 0; NG2Fake.lock.unlock() }
         else if lost == "lock" { LockStateMonitor.monitor.isLocked = true }
         else { RemoteSession.shared.paused = true }
-        NG2RuntimeTestHooks.beforeMainAuthority = nil
+        NG2RuntimeTestHooks.beforeMainAdmission = nil
     }
     require(call("necro_native_start", authority).1 == nil, "authority_start_"+lost)
     pump("authority_drained_"+lost) { drained(authority) }
@@ -134,8 +134,11 @@ NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
 let alive = identity()
 require(call("necro_native_start", alive).1 == nil, "keepalive_start")
 Thread.sleep(forTimeInterval: 0.02)
-NG2Fake.advance(6_000_000_000)
+// Renew before expiry; advancing beyond expiry before sending the renewal
+// would race the independent watchdog and legitimately allow cancellation.
+NG2Fake.advance(4_000_000_000)
 require(call("necro_native_status", alive, keepalive: true).1 == nil, "explicit_keepalive")
+NG2Fake.advance(2_000_000_000)
 Thread.sleep(forTimeInterval: 0.15)
 require(report(alive)["cancel_requested"]?.boolValue == false, "active_explicit_keepalive_renews")
 cancelDrain(alive)
