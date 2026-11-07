@@ -2,11 +2,13 @@
 
 更新: 2026-11-07（日本時間）
 
-最新の実機結果はTEST044。ゲーム起動と続行に成功したが、初方向の予約後にscene差を検出し、未送信のまま停止した（inputs/moves0、最終pause確認）。結果画像の一括回収は2秒枠で失敗したため、具体的差分は不明。TEST045で元の拍/期限を延ばさない初入力前の再計画と、結果専用枠/差分診断を実装し検証中。native96件/クライアント105件はホスト全成功、client CIも105件成功。[8項目と独立プランレビュー](device-tests/README.md#test-044受領結果とtest-045の8項目プラン)に従い、新IPAと完全ソースで具体的な実機確認を依頼する。歩行・速度・毎拍受入は未合格。
+最新（TEST045）: **実装・ホスト/CI・新IPA build25を確認し、実機テストを依頼する段階。** 元拍/期限を維持した初入力前の最大2再計画と、結果専用最大8秒・固定差分診断を実装した。native96件/クライアント105件はホスト全成功、client CI105件/native CI90件もskip0。Swift本体と12実callsite変異、暗号RPC、IPAビルドが[CI42349253984](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984)で成功。配布IPA/ZIPのCRC・SHA・全22ソースとmanifestを照合済み。**[新IPA build25](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984/artifacts/13564434908)へSideStoreで更新**し、[TEST045手順](device-tests/README.md#test-045実行手順)でruntime/test-045を返してもらう。コード/IPAの独立レビューは3観点各2周で指摘なし、完全ソースの照合記録は既存台帳末尾にまとめる。歩行・速度・毎拍受入は未合格。
+
+直前のTEST044実機ではゲーム起動/続行成功、初方向のscene差で未送信停止、最終pause確認。結果画像回収が2秒枠で失敗し具体的差分は不明。この結果をTEST045の修正根拠とした。
 
 前回到達点（TEST-009実施前）: 受信後の縦横比補正案をユーザーの性能要件により撤回。取得元から横長で受け取る方針へ変更した。実機の版/buildが未記録のため、[TEST-009](device-tests/009-source-info.md)の読み取り専用補助を追加。診断本体P1.4・原画像保存・R12は変更しない。横長取得の本体修正と性能合格は未完了。[計画](plans/p1-geometry-validation.md) / [レビュー](reviews/p1-source-info.md)。
 
-最新（2026-11-07 日本時間）: **TEST043は初回device_infoでconnection_errorとなり、ゲーム起動命令未送信。TEST044の接続確認・診断は実装とホスト/CI検証を完了し、実機確認を依頼する段階。** refused/timeout/切断などの下位情報がなく直接原因は未確定。既存UI-free GET /schemaへ変更し、開始前だけ上限付き再試行と固定enum/時間の診断を保存する。native start無再送・started回復GET0・取消/全期限を保つ。対象92件はホスト24.688秒・[CI](https://github.com/shuhei0720/necrogold-automation/actions/runs/42343772094)24.410秒で全成功・skip0。旧回帰432件は407成功/旧画像不足25skip。設計/安全の実装レビュー各2周、試験3周でP0/P1/P2残件なし。IPA/native/R12は変更せずNG-G2 build20を使用し、[TEST044](device-tests/README.md#test-044実行手順)でゲーム起動・歩行・商品/停止を実機確認してruntime/test-044を返してもらう。
+TEST044提出時点の履歴（2026-11-07 日本時間）: **TEST043は初回device_infoでconnection_errorとなり、ゲーム起動命令未送信。TEST044の接続確認・診断は実装とホスト/CI検証を完了し、実機確認を依頼する段階。** refused/timeout/切断などの下位情報がなく直接原因は未確定。既存UI-free GET /schemaへ変更し、開始前だけ上限付き再試行と固定enum/時間の診断を保存する。native start無再送・started回復GET0・取消/全期限を保つ。対象92件はホスト24.688秒・[CI](https://github.com/shuhei0720/necrogold-automation/actions/runs/42343772094)24.410秒で全成功・skip0。旧回帰432件は407成功/旧画像不足25skip。設計/安全の実装レビュー各2周、試験3周でP0/P1/P2残件なし。IPA/native/R12は変更せずNG-G2 build20を使用し、当時TEST044を依頼した。現在はTEST045を使う。
 
 前版の到達点（TEST043）: **TEST-043 / NG-G2のnative実装・ホスト試験・新IPAビルドを確認し、実機テストを依頼する段階。新NG-G2 IPAへの更新が必須で、端末受入は未確認。** 同じiPhone内で画像取得と解析・期限付き入力を処理し、iSHは開始・状態・取消・結果保存を担う。C coreに既存の状態判定・金壁/商品/保護セル・経路・単発motion・拍同期を移し、Swift側で取得/入力の交差・世代・前面/取消・予約期限を管理する。API `1.98.14-ngg2` / capability `necrogold_native_v1` を開始前に確認する。初回CI用保存点は `ebc8e2d`。最終配布commit・IPA・CI結果・検証件数は[既存実機台帳](device-tests/README.md)を参照し、保存点だけで合格とはしない。毎拍歩行・人より速い動作の要件は維持する。
 

@@ -2,7 +2,7 @@
 
 iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に金壁が見える回の金商人の商品を高速に確認し、目的の「呪いの指輪」の候補で停止するためのプロジェクトです。
 
-**TEST-045の初入力前再計画・結果回収を実装し、検証しています。新IPAが必要です。** TEST044はゲーム起動/続行に成功しましたが、最初の方向予約中の認識差で未送信停止し、結果画像も回収できませんでした。最新の安全な画像から元の拍/期限内で再判断できるようにし、結果RPCだけ最大8秒へ分離しました。native96件/クライアント105件のホスト試験は全成功、[client CI](https://github.com/shuhei0720/necrogold-automation/actions/runs/42347494349)も105件成功。新IPAのSwift/結合/配布検証を進めています。API `1.98.14-ngg2` を維持し、新clientは追加capability `necrogold_native_v2`を要求します。毎拍1歩と人より速い動作は目標のままで、NG-G2の歩行受入は未確認です。最終IPA・CI・配布版は[既存実機台帳](docs/device-tests/README.md)末尾を参照してください。
+**TEST-045の実装・ホスト/CI・新IPAの検証を完了しました。実機テストをお願いします。** TEST044はゲーム起動/続行に成功しましたが、最初の方向予約中の認識差で未送信停止し、結果画像も回収できませんでした。最新の安全な画像から元の拍/期限内で再判断できるようにし、結果RPCだけ最大8秒へ分離しました。native96件/クライアント105件のホスト試験は全成功、[client CI](https://github.com/shuhei0720/necrogold-automation/actions/runs/42347494349)も105件成功。[native CI](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984)ではSwift本体・全12故障注入・暗号RPC・IPA build25が成功し、配布ZIP/IPAのCRC・SHAと全22ソースを照合しました。**[新IPA ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984/artifacts/13564434908)への更新が必要です。** API `1.98.14-ngg2`を維持し、新clientはcapability `necrogold_native_v2`を要求します。毎拍1歩と人より速い動作は目標のままで、歩行受入は未確認です。詳細は[既存実機台帳](docs/device-tests/README.md)末尾を参照してください。
 
 前版TEST-042は商品表示・最終ポーズに成功しましたが、速度は未合格でした。report開始→初入力23.831秒（04118.587秒）、walk26.229秒（04121.874秒）。拍の再同期で7.329秒、扉前の再観測で4.701秒の空白があり、full撮影＋解析だけで約1.25秒かかりました。[実機結果と原因](docs/device-tests/README.md#test-042受領結果2026-11-07-日本時間)を残し、この観測待ちを短縮するためNG-G2へ進んでいます。配置差があるため全時間差を変更の効果とはしません。
 

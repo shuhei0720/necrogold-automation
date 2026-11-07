@@ -1745,3 +1745,14 @@ clientは公開CLIと実暗号HTTPで2.15秒results回収を含む**13 assertion
 第4native [CI42348578450](https://github.com/shuhei0720/necrogold-automation/actions/runs/42348578450) / `6dcc557`はproduction Runtimeの全公開結合に成功し、stale-cleanup等の期待変異も検出したが、callback-drain変異だけが成功してしまいCIを失敗させた。validation ZIPのCRC/SHAを照合して確認。terminal直後はcapture worker未完の場合があり、旧callbackを待たない壊れた実装でもworker残件に隠れてlease拒否assertを通っていた。
 
 capture workerのdeferがworkerDoneを立て、controlQueueのcycleでdrainを評価し終えた後にだけHOST_TEST限定のrunID通知を出すようにし、旧callbackをheldしたままその通知を待って公開drained/lease/新start拒否を検証する。workerDone直後だけの通知にはしない。本番のrelease条件は変更しないが、Runtime source bytes変更を再sealする。拒否画像fixtureもUNKNOWN10枚とし、解析済みcaptures末尾4に差分IDが含まれないことを明示assertしてrecent窓外の成立を確認する。故意に壊した実callsiteが正しいnamed assertionで失敗するまでCIを完了扱いにしない。
+
+### TEST045検証済みIPAと最終集計
+
+- ビルドコード`c23d977fecfabadd59263e310d604b0bd241f674`、[native CI42349253984](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984)はaggregate success。native host90件全成功/skip0（13.890秒）、private画像の明示除外6件はローカルの必須66画像を含むnative96件全成功/skip0（25.432秒）へ別集計する。
+- Swift Runtimeの公開結合と**全12実callsite変異**の対応assertionを確認。今回のcallback-drain・stale-cleanup・stale-entry・拒否差分pinはそれぞれ公開lease拒否・唯一のreplacement方向入力・旧AX照会禁止・recent窓外画像保持で故障を検出した。26pure Swift、16owner projection、実CoreGraphics/実C、実ObjC callback、暗号loopback/実認証owner callsiteの検証も成功。これらは実機の入力受領・速度の証明ではない。
+- [新IPA ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984/artifacts/13564434908)は17,660,699bytes、SHA-256 `7ba916c64883b48f76e2ef8afe99e72fb8ce55a3bd9bfba8a90ada6819490dc7`。内部`upstream/release/LoopCtrl.ipa`はbundle `top.ebato.loopctrl`、表示版0.3.4/**build25**、SHA-256 `6a23d31a8475b5fd4cf881ddfcd3b1f5b63346135500698bce8a0e6429baed82`。nested runner/CLIあり、mobileprovisionなし。TEST044のbuild20から更新が必要。
+- [最終CI検証ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984/artifacts/13564564710)は117,202bytes、SHA-256 `758afa194cd0324bfd81b3a444a2961547492cc79e57e6947d18bc114cf4ae6a`。配布ZIP/内部IPA/検証ZIPの全CRC、GitHub digestとのSHA一致、全22source、v1/v2 schema、clientcap v2、driver/upstream/patch/source provenanceを照合した。source manifest SHA-256は`dffb56348a77f2a371e2f27c1990b9bac3148f4b30af8f45f9389d0a63438e66`。artifact保持期限は2026-12-07 UTC。
+- クライアント/共有HTTPはホスト105件全成功/skip0（29.858秒）、[client CI42347494349](https://github.com/shuhei0720/necrogold-automation/actions/runs/42347494349)も105件全成功/skip0（30.998秒）。CI以後の変更はnative/fixture/文書で、当該client/code/testsはbyte不変。旧回帰432件は407成功/旧外部画像不足25skip（33.453秒）。R12全40、NG-G1 patch/manifestは元bytesを保持した。
+- 独立実装レビューは設計/試験各2周で終了、安全も第2周のコード/IPAにP0/P1/P2なし。再seal・実固定上流適用・配布22ソースを別担当も直接照合した。完全ソースZIPは**全392追跡ファイル**を含むGitHub commit archiveで配布し、安全レビューの同第2周で最後のbytes照合を行う。最終文書更新は既存5文書のみとする。
+
+**TEST045の実機テストを依頼する。** 上の新IPA build25をSideStoreで更新し、Start Server起動済み・新1-1ポーズ/画面端0/左側が下から`sh test_045.sh`を実行する。最初の1歩・各ビート・商品後のポーズと、成功/途中停止を問わず`runtime/test-045`全体ZIPをこのチャットへ返してもらう。今回の修正で実機の歩行・毎拍・人より速い性能や全要件の合格を先に宣言しない。目的指輪/通知/完全周回の受入も残る。
