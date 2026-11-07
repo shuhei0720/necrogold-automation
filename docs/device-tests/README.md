@@ -1664,3 +1664,15 @@ cd /mnt/necro_test044 && sh test_044.sh
 TEST044実装レビュー第1周では設計P0/P1/P2なし、安全の旧画像metadata検査漏れP2と試験のretry表の故障検出不足P2を修正対象とした。画像metadataは公開_loadの1assertion failure・0errorsから固定schemaへ投影し、任意extraを除去・不正必須値を拒否する。新規retry表は許可5種と禁止3種の8条件を公開run_sessionへ通し、誤表への変異で7assertion failures・0errorsを検出した。authorの最終client60件（native_walk35＋connect25）は全成功・skip0（15.754秒）。
 
 初回CIは旧HTTP回帰のPillow import不足と、通常系fixtureの30ms実時間枠が短く正しくdeadline拒否したことで失敗した。CIの隔離venvにPillow11.3.0を固定し、正常通信/回復のfixtureは0.3〜0.5秒へ変更、境界を狙う注入時計の検査は維持した。JSON処理中の実OwnedRpcTimer試験は0.5秒/parse待機1秒/session8秒とし、4回とbackoffを収める。これは機能Redではない。過去の全応答喪失テストは失われる応答数を増やし、budget補正後も目的を保持する。
+
+### TEST044最終検証と配布
+
+2回目のCIは通常の画像検査fixtureの300ms枠が不足し、results検証前に安全停止したため失敗した。`a1424adf228e5bdac7bf3a064a4431f46cc91dcc`は試験fixtureだけを修正し、通常の成功画像ケース5秒・通常のNativeWalk実行/回復1秒とした。不正な後続画像のケースにはresults RPCへ到達しnative_state=completedとなったことを追加assertし、検査を通らない偽Greenを防いだ。注入時計・期限等号・JSON処理中のOwnedRpcTimer・retry表は不変。本番コードは`ac959db`とbyte一致で、実行時の8秒/2秒・入力/拍の期限を緩めていない。
+
+- 最終対象はprotocol/旧HTTP/新HTTP診断/native_walk/native_connectの**92件全成功・skip0**。ホスト24.688秒、[最終CI run42343772094](https://github.com/shuhei0720/necrogold-automation/actions/runs/42343772094)24.410秒。CIのheadは`a1424adf228e5bdac7bf3a064a4431f46cc91dcc`、client-contractsの全step成功。`sh -n test_044.sh`と`--check`の`native-walk-v2 / 1.98.14-ngg2`も確認。
+- [CI検証ログZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42343772094/artifacts/13562498990)は2,950bytes、GitHub SHA-256 `8640e94d1d97361bfe05cde781bd50531bb6fe1c074f93e7af1afa966f10d30c`。保持期限は2026-12-07 UTC。本文・ログ・実機ZIPはGit外に保存する。
+- 共有HTTP変更後の旧gameplay/timer回帰は**432件中407成功・旧外部画像不足25skip（32.991秒）**。新対象92件のskip0と分け、欠落画像をnative実機合格に数えない。今回不変のC/Swift/画像差分とIPA検証はTEST043の記録を引き継ぐ。
+- 独立実装レビューは設計/安全各2周、試験3周で終了、最終P0/P1/P2残件なし。試験第3周は上記fixture差分と最終CIのhead/92成功を直接照合した。追加第4周は行わない。
+- NG-G2 build20のIPAはTEST043配布版を使用する。native C/Swift、取得元patch、IPA workflow、既存gameplay、R12全40はTEST043提出時から変更しない。NG-G2 source manifest SHA-256は`9330051d4f8fd9432c7ad4463aaca6e5d5276799b15208ce1e2a3215a98930a0`。完全ソースは**全390追跡ファイル**を含む最終GitHub commit archiveで配布する。CI以後の最終更新は既存5文書のみ。
+
+ホスト/CIが確認したのは接続準備・診断・無再送/取消/期限・回復の契約であり、今回の実機のゲーム起動・入力・毎拍歩行の成功はまだ確認していない。上のTEST044手順で実機テストを依頼し、成功/停止を問わずruntime/test-044の全体ZIPと観察結果を受け取る。目的指輪の評価/通知、完全周回、人比較/耐久の受入も残る。

@@ -1,6 +1,6 @@
 # 採用するAI駆動開発フロー
 
-最新の適用状況: TEST042実機の商品・ポーズ成功と速度未達を受け、ユーザーの継続指示でTEST043 / NG-G2を実装・検証している。[既存実機台帳の8項目プラン](device-tests/README.md#test-043--ng-g2の8項目プラン)に基づき、native C/Swift・取得元パッチ・iSH軽量クライアントを分担する。新NG-G2 IPAのCI・配布と実機受入を区別し、最終集計は既存実機台帳を参照する。毎拍歩行・人より速い動作は未合格で、開発結果の返却ではユーザー指示により毎回具体的な実機確認を依頼する。以下はフロー原則と過去の適用履歴。
+最新の適用状況: TEST043の開始前接続失敗を受け、TEST044のUI-free接続確認・診断を実装し、対象92件のホスト/CI検証を完了した。[既存実機台帳の8項目プラン](device-tests/README.md#test-044の8項目プラン)と末尾の検証記録に従い、同じNG-G2 build20と完全ソースで実機確認を依頼する。CI成功と実機受入を区別し、毎拍歩行・人より速い動作は未合格。開発結果の返却ではユーザー指示により毎回具体的な実機確認を依頼する。以下はフロー原則と過去の適用履歴。
 
 ユーザー指定の [AI-Driven-Development Codex版](https://github.com/shuhei0720/AI-Driven-Development/blob/3cf01c46395e83696ba8900e429297ff5f249e2f/AI-Driven-Development-CAF-ALZ-Codex.md) を確認しました。
 
@@ -103,3 +103,5 @@ TEST043の⑥は設計・試験・安全の各3周以内で終了し、最終P0/
 TEST043の⑦で「ゲーム開かず」と最初の接続エラーを受領した。native start未送信を確認し、①既存台帳の8項目プランへ戻った。②③設計・試験・安全はfresh-contextの各2周で、UI-free schemaと暗号認証の境界、retry表、総期限、保存後の取消/期限検査、診断projectionと旧journal互換を明示した。④⑤は既存公開run_session/実HTTPを用いる5 assertions Redと、GET method/接続分類の2 assertions Red（すべて0errors）を観測してから最小Greenへ進んだ。HTTP non200時の未読response.close不足も実response.isclosedの1assertion Redで再現して修正した。詳細と最終集計・実装レビューは既存台帳末尾に保存する。
 
 ⑦では同じNG-G2 IPAと完全sourceを使い、新1-1ポーズからsh test_044.shを実行してruntime/test-044を返す実機テストを必ず依頼する。接続回復のホスト成功をゲーム起動/歩行/速度の実機合格としない。送信済み・unknown startの再送禁止や要件は維持する。
+
+⑥の独立実装レビューは設計/安全各2周・試験3周で終了し、P0/P1/P2残件なし。旧journalの画像metadata検査漏れは公開_loadの1 assertion Redから修正、retry表の試験不足は誤表変異の7 assertion failuresで故障検出を確認した。対象92件はホスト24.688秒・CI24.410秒で全成功/skip0、旧432件は407成功/外部画像不足25skip。最終[CI run42343772094](https://github.com/shuhei0720/necrogold-automation/actions/runs/42343772094)はa1424adに一致する。CIで正常系fixtureの時間枠不足を修正したが、本番コード・注入deadline試験・速度要件は変更していない。native/IPA/R12を維持し、⑦の完全ソース配布と実機依頼へ進む。⑧の整理とゲーム起動・歩行・性能受入は次の実機結果から行う。
