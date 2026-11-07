@@ -96,8 +96,9 @@ final class NG2RPCContractsTests: XCTestCase {
         return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 
-    private func rpc(_ method: String, params: [String: Any] = [:]) throws -> [String: Any] {
-        let (body, nonce, key) = try encrypted(method, params: params)
+    private func rpc(_ method: String, params: [String: Any] = [:],
+                     session: AuthSession? = nil) throws -> [String: Any] {
+        let (body, nonce, key) = try encrypted(method, params: params, session: session)
         let reply = expectation(description: "encrypted " + method)
         var answer: [String: Any]?
         var failure: Error?
@@ -218,6 +219,68 @@ final class NG2RPCContractsTests: XCTestCase {
         XCTAssertNotNil(status["result"], "status must arrive before the pending UI completion is released")
         release.signal()
         wait(for: [uiReply], timeout: 5)
+    }
+
+    func testPoisonedExecutionGateKeepsAuthenticatedRecoveryAndBlocksOtherOwnerUI() throws {
+        AuthManager.shared.armSingleAutoApproval()
+        let paired = expectation(description: "other authenticated owner")
+        var other: AuthSession?
+        AuthManager.shared.requestAuth(clientName: "NG2 other owner " + UUID().uuidString,
+            nearby: false, local: true) { outcome in
+                if case .approved(let identity) = outcome { other = identity }
+                paired.fulfill()
+            }
+        wait(for: [paired], timeout: 5)
+        let second = try XCTUnwrap(other)
+        defer { AuthManager.shared.revokeSession(id: second.id) }
+        let oldRun = UUID().uuidString
+        let oldOwner = auth.id
+        let denied: Set<String> = ["tap", "gesture", "screenshot", "device_info", "run_steps"]
+        // The native runtime's poisoned lease is represented by its callbacks;
+        // this test verifies their actual authenticated HTTP admission path.
+        server.onRPCLeaseCheck = { method in
+            denied.contains(method) ? JSONRPCError(code: -32004, message: "process UI frozen",
+                data: ["outcome": .string("not_sent"), "retry_safe": .bool(false)]) : nil
+        }
+        server.onRPCRequest = { method, params, complete in
+            self.receivedLock.lock()
+            self.received.append((method, params))
+            self.receivedLock.unlock()
+            let owner = params?["_necro_owner"]?.stringValue
+            if owner != oldOwner || params?["run_id"]?.stringValue != oldRun {
+                complete(nil, JSONRPCError(code: -32004, message: "new run refused while UI is frozen",
+                    data: ["outcome": .string("not_sent"), "retry_safe": .bool(false)]))
+                return
+            }
+            complete(["owner": .string(owner!), "run_id": .string(oldRun),
+                "ui_frozen": .bool(true), "workers_drained": .bool(true)], nil)
+        }
+        for method in denied.sorted() {
+            let answer = try rpc(method, params: ["_necro_owner": oldOwner], session: second)
+            XCTAssertEqual((answer["error"] as? [String: Any])?["code"] as? Int, -32004)
+        }
+        for identity in [auth!, second] {
+            let answer = try rpc("necro_native_start", params: ["run_id": UUID().uuidString,
+                "_necro_owner": oldOwner, "profile": "normal-1-1-v1"], session: identity)
+            XCTAssertEqual((answer["error"] as? [String: Any])?["code"] as? Int, -32004)
+        }
+        for method in ["necro_native_start", "necro_native_status", "necro_native_cancel", "necro_native_results"] {
+            let answer = try rpc(method, params: ["run_id": oldRun, "_necro_owner": second.id])
+            let result = try XCTUnwrap(answer["result"] as? [String: Any])
+            XCTAssertEqual(result["owner"] as? String, oldOwner)
+            XCTAssertEqual(result["ui_frozen"] as? Bool, true)
+            XCTAssertEqual(result["workers_drained"] as? Bool, true)
+        }
+        let foreign = try rpc("necro_native_results", params: ["run_id": oldRun,
+            "_necro_owner": oldOwner], session: second)
+        XCTAssertEqual((foreign["error"] as? [String: Any])?["code"] as? Int, -32004)
+        receivedLock.lock()
+        let calls = received
+        receivedLock.unlock()
+        XCTAssertFalse(calls.contains { denied.contains($0.0) })
+        let lastParams = calls.last?.1
+        XCTAssertEqual(lastParams?["_necro_owner"], .string(second.id),
+                       "foreign recovery requests must retain their authenticated identity")
     }
 }
 

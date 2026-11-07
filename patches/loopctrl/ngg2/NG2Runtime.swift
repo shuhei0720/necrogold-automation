@@ -61,6 +61,7 @@ private final class NG2Run {
     var replacedFrames: UInt64 = 0
     var terminal = false
     var successful = false
+    var uiFrozen = false
     var captureTimedOut = false
     var bootstrapUIStarted = false
     var core: OpaquePointer?
@@ -99,6 +100,9 @@ final class NG2Runtime {
     private var history: [String: (owner: String, response: [String: JSONValue])] = [:]
     private var historyOrder: [String] = []
     private var streamCaptures = 0
+    // A started input without a trustworthy ACK freezes all later UI for this
+    // runner process. Worker drain does not certify the game input outcome.
+    private var poisoned = false
     private init() {}
     static func now() -> UInt64 {
         #if NG2_RUNTIME_HOST_TEST
@@ -110,12 +114,13 @@ final class NG2Runtime {
         !RemoteSession.shared.paused && AuthManager.shared.clientName(forTokenId: run.owner) != nil
     }
 
-    var hasLease: Bool { lock.ng2Locked { current?.lock.ng2Locked { current?.lease ?? false } ?? false } }
+    var hasLease: Bool { lock.ng2Locked { poisoned || (current?.lock.ng2Locked { current?.lease ?? false } ?? false) } }
 
     func leaseError(_ method: String) -> JSONRPCError? {
         guard hasLease, !Self.methods.contains(method),
               !["logs", "recent_logs", "is_locked", "stream_ack", "control"].contains(method) else { return nil }
-        return JSONRPCError(code: -32004, message: "Native run owns the UI until its workers drain.",
+        let message = lock.ng2Locked { poisoned ? "Unknown native input freezes UI until the runner process restarts." : "Native run owns the UI until its workers drain." }
+        return JSONRPCError(code: -32004, message: message,
             data: ["outcome": .string("not_sent"), "retry_safe": .bool(false)])
     }
 
@@ -123,7 +128,7 @@ final class NG2Runtime {
     /// running frame drains before native capture starts; new ones are suspended.
     func beginStreamCapture() -> Bool {
         lock.ng2Locked {
-            if current?.lock.ng2Locked({ current?.lease ?? false }) == true { return false }
+            if poisoned || current?.lock.ng2Locked({ current?.lease ?? false }) == true { return false }
             streamCaptures += 1
             return true
         }
@@ -150,6 +155,7 @@ final class NG2Runtime {
             let answer: ([String: JSONValue]?, JSONRPCError?) = lock.ng2Locked {
                 if let old = current, old.owner == owner, old.id == id { return (response(old), nil) }
                 if let archived = history[id], archived.owner == owner { return (historical(archived.response), nil) }
+                if poisoned { return failure("Unknown native input freezes new runs until the runner process restarts.") }
                 if current?.lock.ng2Locked({ current?.lease ?? false }) == true { return failure("Previous native run is still draining.") }
                 if NG2CaptureBridge.pendingRequests != 0 { return failure("Previous daemon capture is still outstanding.") }
                 if seen.contains(id) || seen.count >= 128 { return failure("Run identity was already consumed or process run limit reached.") }
@@ -249,6 +255,7 @@ final class NG2Runtime {
             report["bootstrap_ui_started"] = .bool(run.bootstrapUIStarted)
             report["accepted_started_ns"] = number(run.acceptedStarted)
             report["workers_drained"] = .bool(!run.lease)
+            report["ui_frozen"] = .bool(run.uiFrozen)
             report["main_ticket_outstanding"] = .bool(run.mainOutstanding)
             report["live_completed_prefix"] = number(run.prefix)
             report["native_inflight"] = .bool(run.inFlight)
@@ -529,6 +536,10 @@ final class NG2Runtime {
 
     private func cache(_ run: NG2Run, _ s: NG2ControllerStatus) {
         guard let core = run.core else { return }
+        if s.input_state == 4 {
+            lock.ng2Locked { poisoned = true }
+            run.lock.ng2Locked { run.uiFrozen = true }
+        }
         var events = [NG2ControllerEvent](repeating: NG2ControllerEvent(), count: 64)
         let count = events.withUnsafeMutableBufferPointer { ng2_controller_events(core, $0.baseAddress, $0.count) }
         run.lock.ng2Locked {

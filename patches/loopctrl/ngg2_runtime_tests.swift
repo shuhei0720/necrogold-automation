@@ -6,8 +6,8 @@ func require(_ condition: Bool, _ name: String) {
 let runtime = NG2Runtime.shared
 var sequence = 0
 func identity() -> String { sequence += 1; return String(format: "%032x", sequence) }
-func call(_ method: String, _ id: String, keepalive: Bool? = nil) -> ([String: JSONValue]?, JSONRPCError?) {
-    var params: [String: JSONValue] = ["run_id": .string(id), "_necro_owner": .string("fixture-owner")]
+func call(_ method: String, _ id: String, keepalive: Bool? = nil, owner: String = "fixture-owner") -> ([String: JSONValue]?, JSONRPCError?) {
+    var params: [String: JSONValue] = ["run_id": .string(id), "_necro_owner": .string(owner)]
     if method == "necro_native_start" { params["profile"] = .string("normal-1-1-v1") }
     if let keepalive { params["keepalive"] = .bool(keepalive) }
     return runtime.handle(method: method, params: params)
@@ -103,13 +103,6 @@ require(call("necro_native_start", identity()).1 != nil, "new_run_refused_before
 require(call("necro_native_start", timeout).1 == nil && NG2Fake.countRequests() == 1, "same_run_idempotent_no_second_worker")
 cancelDrain(timeout)
 
-NG2Fake.reset(.pause)
-NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()
-let unknown = identity()
-require(call("necro_native_start", unknown).1 == nil, "unknown_start")
-pump("unknown_terminal_drained") { drained(unknown) }
-require(report(unknown)["input_state"]?.intValue == 4 && NG2Fake.countTouches() == 1, "started_unknown_no_retry_or_cleanup")
-
 NG2Fake.reset(.empty)
 let paused = identity()
 NG2RuntimeTestHooks.beforeCaptureAdmission = {
@@ -145,10 +138,32 @@ cancelDrain(legacyTimeout)
 
 // Starting a later run releases old raw buffers, while metadata remains
 // recoverable under the old owner/run identity with explicit image omissions.
-let recovered = call("necro_native_results", unknown)
+let recovered = call("necro_native_results", captureRace)
 require(recovered.1 == nil && recovered.0?["report"]?.objectValue?["historical_metadata_only"]?.boolValue == true,
     "old_terminal_metadata_recoverable")
 require(recovered.0?["images"]?.arrayValue?.isEmpty == true && recovered.0?["retained_images"]?.intValue == 0,
     "old_run_images_explicitly_omitted")
-require(call("necro_native_status", unknown, keepalive: true).1 == nil, "old_status_read_does_not_touch_current_run")
+require(call("necro_native_status", captureRace, keepalive: true).1 == nil, "old_status_read_does_not_touch_current_run")
+NG2Fake.reset(.pause)
+NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()
+let unknown = identity()
+require(call("necro_native_start", unknown).1 == nil, "unknown_start")
+pump("unknown_terminal_drained") { drained(unknown) }
+require(report(unknown)["input_state"]?.intValue == 4 && NG2Fake.countTouches() == 1, "started_unknown_no_retry_or_cleanup")
+
+require(report(unknown)["ui_frozen"]?.boolValue == true && runtime.hasLease, "unknown_global_UI_freeze_survives_worker_drain")
+require(runtime.leaseError("gesture") != nil && runtime.leaseError("screenshot") != nil && runtime.leaseError("device_info") != nil,
+    "unknown_blocks_all_later_UI_and_capture")
+require(!runtime.beginStreamCapture(), "unknown_blocks_legacy_stream_capture")
+require(call("necro_native_start", identity()).1 != nil, "unknown_blocks_same_owner_new_run")
+require(call("necro_native_start", identity(), owner: "other-owner").1 != nil, "unknown_blocks_other_owner_new_run")
+require(call("necro_native_start", unknown).1 == nil && NG2Fake.countTouches() == 1,
+    "unknown_same_run_recovery_idempotent")
+for method in ["necro_native_status", "necro_native_cancel", "necro_native_results"] {
+    require(runtime.leaseError(method) == nil && call(method, unknown).1 == nil,
+        "unknown_keeps_recovery_lane_"+method)
+    require(call(method, unknown, owner: "other-owner").1 != nil,
+        "unknown_recovery_owner_bound_"+method)
+}
+require(NG2Fake.countTouches() == 1, "unknown_recovery_never_synthesizes")
 print("PASS production Runtime public API/capture/raster/real C/main-input/watchdog/drain integration; UIKit/XCTest/daemon faked")
