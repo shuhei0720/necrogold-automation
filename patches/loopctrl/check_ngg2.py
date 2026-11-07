@@ -302,12 +302,15 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     clock_gate = source[clock_begin:clock_end]
     if clock_gate.count('                let now = Self.now()') != 1:
         raise ValueError('runtime_clock_mutation_target')
+    # The UI RESUME fixture crosses its deadline after main entry. Keep MOVE
+    # clocks real so their independent not-before alignment remains setup,
+    # rather than becoming an earlier rejection that masks this fault.
     stale_clock_gate = clock_gate.replace('        DispatchQueue.main.sync {',
         '        DispatchQueue.main.sync {\n            let admissionClockSnapshot = Self.now()', 1).replace(
         'locked: locked, now: now, notBefore: command.not_before_ns',
-        'locked: locked, now: admissionClockSnapshot, notBefore: command.not_before_ns', 1).replace(
+        'locked: locked, now: command.kind == 4 ? now : admissionClockSnapshot, notBefore: command.not_before_ns', 1).replace(
         'ng2_controller_begin(core, command.id, now, foreground ? 1 : 0',
-        'ng2_controller_begin(core, command.id, admissionClockSnapshot, foreground ? 1 : 0', 1)
+        'ng2_controller_begin(core, command.id, command.kind == 4 ? now : admissionClockSnapshot, foreground ? 1 : 0', 1)
     prepare_begin = source.index('    private func prepare(')
     query_begin = source.index('            let authorityQueryStart = Self.now()', prepare_begin)
     query_end = source.index('\n        }\n        return sample', query_begin)
