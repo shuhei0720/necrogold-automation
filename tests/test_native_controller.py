@@ -747,6 +747,42 @@ class NativeControllerTests(unittest.TestCase):
                     self.now+=10_000_000;self.observe(self.scene(2,2,goods,beat=True));ready,cleanup=self.tick()
                 self.assertEqual((ready,cleanup.kind),(1,2))
                 self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+    def test_goods_frame_preserves_evidenced_move_before_holding_pause(self):
+        terrain=self.fit();command=self.next_move();self.ack(command)
+        after=translated(terrain,command.direction);after.goods='visible'
+        self.observed_result(command,after)
+        s=self.status();record=self.motion_wait();event=self.events()[-1]
+        self.assertEqual((1,1,1,1,1,6,0),(s.inputs,s.moves,s.lead_confirmed,s.goods,s.reason,s.phase,s.input_state))
+        self.assertEqual((1,self.number),(event.motion,event.observed_capture_id))
+        self.assertEqual((1,1,0),(record.attempts,record.last_motion,record.active))
+        ready,pause=self.tick();self.assertEqual((ready,pause.kind),(1,2))
+        self.assertEqual(self.number,pause.source_capture_id)
+        self.ack(pause);self.now+=100_000_000;self.observe(self.scene())
+        self.assertEqual((1,1,1),(self.status().terminal,self.status().paused,self.status().moves))
+        self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+    def test_goods_frame_unknown_motion_is_recorded_once_without_waiting(self):
+        terrain=self.fit();command=self.next_move();self.ack(command)
+        after=translated(terrain,command.direction);after.goods='visible';after.signature=bytes([40])*23296
+        self.observed_result(command,after)
+        s=self.status();record=self.motion_wait()
+        self.assertEqual((1,0,0,1,1,0),(s.inputs,s.moves,s.lead_confirmed,s.goods,s.reason,s.input_state))
+        self.assertEqual((1,0,0,self.number),(record.attempts,record.last_motion,record.active,record.last_capture_id))
+        ready,pause=self.tick();self.assertEqual((ready,pause.kind),(1,2))
+        self.assertEqual(self.number,pause.source_capture_id)
+        self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+    def test_goods_frame_after_original_motion_deadline_holds_without_move_credit(self):
+        terrain=self.fit();command=self.next_move();self.ack(command)
+        deadline=self.motion_wait().deadline_ns
+        after=translated(terrain,command.direction);after.goods='visible'
+        self.now=deadline+1;self.observe(self.scene(2,2,after,beat=True))
+        s=self.status();record=self.motion_wait()
+        self.assertEqual((1,0,0,1,1,6,0),(s.inputs,s.moves,s.lead_confirmed,s.goods,s.reason,s.phase,s.input_state))
+        self.assertEqual((0,0,deadline),(record.attempts,record.active,record.deadline_ns))
+        ready,pause=self.tick();self.assertEqual((ready,pause.kind),(1,2))
+        self.assertEqual(self.number,pause.source_capture_id)
+        self.ack(pause);self.now+=100_000_000;self.observe(self.scene())
+        self.assertEqual((1,1,0),(self.status().terminal,self.status().paused,self.status().moves))
+        self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
     def test_cancel_foreground_owner_and_unknown_synth_never_retry_waited_direction(self):
         for reason in (2,3,4,5,11):
             with self.subTest(reason=reason):

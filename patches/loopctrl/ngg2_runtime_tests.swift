@@ -535,7 +535,8 @@ pump("motion_goods_priority_drained", timeout: 12) {
 let goodsWait = report(ambiguousGoods)["motion_wait"]?.objectValue ?? [:]
 require(report(ambiguousGoods)["goods"]?.intValue == 1 && report(ambiguousGoods)["paused"]?.intValue == 1 &&
     report(ambiguousGoods)["moves"]?.intValue == 0 && goodsWait["active"]?.boolValue == false &&
-    goodsWait["attempts"]?.intValue == 0 && NG2Fake.paths().count == 1 && NG2Fake.taps().count == 1,
+    goodsWait["attempts"]?.intValue == 1 && goodsWait["last_motion"]?.intValue == 0 &&
+    NG2Fake.paths().count == 1 && NG2Fake.taps().count == 1,
     "motion_UNKNOWN_position_goods_priority_holds_without_followup_MOVE")
 fixtureFailureSnapshot = nil
 

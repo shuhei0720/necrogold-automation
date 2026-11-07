@@ -68,7 +68,10 @@ static void finish(NG2Controller *p,uint64_t now,int reason){
     if(!p->finish_requested){p->finish_requested=1;p->finish_ns=now;p->s.reason=reason;}
     if(reason==NG2_REASON_GOODS){p->s.reason=reason;p->s.goods=1;}
     if(p->command.kind==NG2_ACTION_MOVE)p->motion_wait.active=0;
-    if(p->s.input_state==3&&p->command.kind==NG2_ACTION_MOVE)end_visual_wait(p);
+    /* Goods latch before matching-prefix admission. Preserve a known ACK just
+     * long enough to credit real motion in that same eligible frame, then
+     * close even UNKNOWN/TWEEN without postponing the holding pause. */
+    if(p->s.input_state==3&&p->command.kind==NG2_ACTION_MOVE&&reason!=NG2_REASON_GOODS)end_visual_wait(p);
     if(p->s.input_state==1)not_sent(p,now,p->s.reason);
     p->s.phase=NG2_PHASE_FINISH;
 }
@@ -281,7 +284,9 @@ int ng2_controller_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,
         if(pending_kind==NG2_ACTION_MOVE){
             if(scene->state!=NG2_FLOOR){p->s.input_state=0;p->s.current_command_id=0;finish(p,end,NG2_REASON_SCREEN);}
             else if(p->s.goods){
-                event(p)->observed_capture_id=id;end_visual_wait(p);
+                event(p)->observed_capture_id=id;
+                resolve_move(p,scene,id,start,end);
+                end_visual_wait(p);finish(p,end,NG2_REASON_GOODS);
             }
             else {add_sample(p,scene,start,end);resolve_move(p,scene,id,start,end);}
         }else if(start>=p->ack_ns){
