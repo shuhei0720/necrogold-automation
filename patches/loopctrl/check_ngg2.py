@@ -211,6 +211,10 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         'callback-drain': ('mainOutstanding: run.mainOutstanding, legacyCaptures: legacy)',
                            'mainOutstanding: false, legacyCaptures: legacy)',
                            'FAIL replan_queued_stale_callback_keeps_core_and_lease'),
+        'difference-reference': ('''            for change in changes.prefix(min(changeCount, changes.count)) {
+                required.insert(change.source_capture_id); required.insert(change.observed_capture_id)
+            }''', '// mutation: rejected scene difference image references removed',
+                                 'FAIL rejected_difference_frames_pinned_beyond_recent_window'),
     }
     reds = {}
     for label,(old,new,expected) in mutations.items():

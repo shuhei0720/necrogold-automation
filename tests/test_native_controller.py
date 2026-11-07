@@ -150,6 +150,22 @@ class NativeControllerTests(unittest.TestCase):
         self.now+=2;self.observe(self.scene(2,2,changed,beat=True))
         ready,new=self.tick();self.assertEqual((1,4),(ready,new.kind))
         return terrain,changed,old,new
+    def reconstructed_public_beat_model(self,rows):
+        from tests.test_native_beat import NativeSample,NativeModel
+        make=self.lib.ng2_make_sample
+        make.argtypes=[C.c_double,C.c_double,C.c_double,C.c_uint64,C.c_uint64,C.POINTER(NativeSample)]
+        fit=self.lib.ng2_beat_fit;fit.argtypes=[C.POINTER(NativeSample),C.c_size_t,C.POINTER(NativeModel)]
+        track=self.lib.ng2_beat_track
+        track.argtypes=[C.POINTER(NativeModel),C.POINTER(NativeSample),C.c_size_t,C.POINTER(NativeModel)]
+        samples=[];model=NativeModel()
+        for end,q in rows:
+            sample=NativeSample();self.assertEqual(1,make(q,104.,446.,end-2,end,C.byref(sample)));samples.append(sample)
+            if len(samples)>=4:
+                observed=(NativeSample*len(samples))(*samples);updated=NativeModel()
+                if not track(C.byref(model),observed,len(samples),C.byref(updated)):
+                    self.assertEqual(1,fit(observed,len(samples),C.byref(updated)))
+                model=updated
+        return model
     def test_public_native_controller_resumes_directly_from_confirmed_pause(self):
         self.observe(self.scene());ready,c=self.tick()
         self.assertEqual(1,ready);self.assertEqual((1,297,448),(c.kind,c.x,c.y))
@@ -284,6 +300,22 @@ class NativeControllerTests(unittest.TestCase):
                 if late:
                     self.assertEqual((9,0),(self.status().reason,self.status().inputs))
                     self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,new.id,self.now,1))
+    def test_initial_replan_preserves_shorter_original_source_horizon_deadline(self):
+        terrain=self.fit();self.now=4_130_000_002
+        self.observe(self.scene(2,2,terrain,beat=True));self.now=6_929_999_999
+        old=self.next_move()
+        self.assertEqual((7_080_000_000,6_930_000_000,6_930_000_000),
+                         (old.target_ns,old.not_before_ns,old.deadline_ns))
+        changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone';self.now+=1
+        self.observe(self.scene(2,2,changed,beat=True));ready,new=self.tick()
+        self.assertEqual((1,4),(ready,new.kind))
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns),
+                         (new.target_ns,new.not_before_ns,new.deadline_ns))
+        self.assertGreater(new.source_start_ns,old.source_start_ns)
+        self.now=old.deadline_ns+1
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
+        self.assertEqual((9,0),(self.status().reason,self.status().inputs))
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
     def test_initial_replan_guard_and_cancel_still_reject_latest_id(self):
         for case,front,locked,owner,reason in (('foreground',0,0,1,3),('locked',1,1,1,4),
                                              ('owner',1,0,0,5),('cancel',1,0,1,2)):
@@ -376,6 +408,52 @@ class NativeControllerTests(unittest.TestCase):
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
         self.now=old.deadline_ns+PERIOD;self.observe(self.scene(2,2,changed,beat=True))
         self.assertNotEqual(4,self.tick()[1].kind);self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+    def test_initial_replan_rechecks_original_phase_alignment_after_later_hud_updates(self):
+        terrain=textured()
+        for _ in range(4):
+            self.now+=700_000_000;self.observe(self.scene(2,2,terrain,beat=True))
+        old=self.next_move();changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone';self.now+=2
+        self.observe(self.scene(2,2,changed,beat=True));ready,new=self.tick();self.assertEqual((1,4),(ready,new.kind))
+        for _ in range(2):
+            self.now+=2;scene=self.scene(2,2,changed,beat=True)
+            scene.beat_remaining=(scene.beat_remaining+.13)%1;self.observe(scene)
+        self.assertGreater(self.status().beat_period_ns,PERIOD)
+        self.assertEqual((old.target_ns,old.not_before_ns,old.ordinal),(new.target_ns,new.not_before_ns,new.ordinal))
+        self.now=new.not_before_ns
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
+        self.assertEqual(0,self.status().inputs)
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
+    def test_initial_replan_phase_alignment_boundary_is_inclusive_for_original_period(self):
+        # Reconstruct the public fit/track output to establish that the fake
+        # HUD sequence actually reaches before/equal/after the original bound.
+        cases=((0.12831125,529_773_493,41_599_995,1),
+               (0.12831126475488247,529_773_494,41_600_000,1),
+               (0.1283112647548825,529_773_495,41_600_005,0))
+        for bias,expected_period,expected_delta,allowed in cases:
+            with self.subTest(bias=bias):
+                self.fresh_engine();terrain=textured();rows=[]
+                for _ in range(4):
+                    self.now+=700_000_000;scene=self.scene(2,2,terrain,beat=True)
+                    rows.append((self.now,scene.beat_remaining));self.observe(scene)
+                old=self.next_move();self.assertEqual(4_480_000_000,old.target_ns)
+                changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone';self.now+=2
+                scene=self.scene(2,2,changed,beat=True);rows.append((self.now,scene.beat_remaining));self.observe(scene)
+                ready,new=self.tick()
+                self.assertEqual((1,4),(ready,new.kind))
+                for _ in range(2):
+                    self.now+=2;scene=self.scene(2,2,changed,beat=True)
+                    scene.beat_remaining=(scene.beat_remaining+bias)%1
+                    rows.append((self.now,scene.beat_remaining));self.observe(scene)
+                self.assertEqual(expected_period,self.status().beat_period_ns)
+                model=self.reconstructed_public_beat_model(rows)
+                self.assertEqual(expected_period,model.period_ns)
+                forward=(model.epoch_ns-old.target_ns)%model.period_ns
+                aligned=old.target_ns+forward if forward<=model.period_ns//2 else old.target_ns-(model.period_ns-forward)
+                self.assertEqual(expected_delta,abs(aligned-old.target_ns))
+                self.assertEqual((old.target_ns,old.not_before_ns,old.ordinal),(new.target_ns,new.not_before_ns,new.ordinal))
+                self.now=new.not_before_ns
+                self.assertEqual(allowed,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
+                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
     def test_initial_replan_expired_before_reissue_never_moves_to_a_later_beat(self):
         terrain=self.fit();old=self.next_move();changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
         self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.now=old.deadline_ns+1

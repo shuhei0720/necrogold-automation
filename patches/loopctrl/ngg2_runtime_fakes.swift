@@ -25,6 +25,7 @@ enum NG2Fake {
     static var remoteVariant: Int32 = 0
     static var heldTickets: [UInt64: () -> Void] = [:]
     static var returnedTickets = Set<UInt64>()
+    static var unknownFrames = 0
     static var callbacks: [(Data?, String?) -> Void] = []
     static var offset: UInt64 = 0
     static var pending = 0
@@ -34,7 +35,7 @@ enum NG2Fake {
             beforeForegroundQuery = nil
             gesturePaths = []; tapPoints = []; walkX = 0; walkY = 0
             walkMoves = 0; walkCapturesAfterMove = 0; walkPaused = false
-            remoteVariant = 0; heldTickets = [:]; returnedTickets = []
+            remoteVariant = 0; heldTickets = [:]; returnedTickets = []; unknownFrames = 0
             phaseBase = DispatchTime.now().uptimeNanoseconds
         }
         RemoteSession.shared.paused = false
@@ -66,6 +67,10 @@ enum NG2Fake {
         callback?()
     }
     static func walkedPNG() -> Data {
+        let unknown = lock.fixtureLocked { () -> Bool in
+            if unknownFrames == 0 { return false }; unknownFrames -= 1; return true
+        }
+        if unknown { return unknownPNG }
         let state = lock.fixtureLocked { () -> (Int32, Int32, Int32, Bool, UInt64) in
             if walkMoves > 0 { walkCapturesAfterMove += 1 }
             return (walkX, walkY, walkCapturesAfterMove >= 3 ? 1 : 0, walkPaused, phaseBase)
@@ -98,6 +103,7 @@ enum NG2Fake {
         bytes.withUnsafeMutableBytes { ng2_test_pause($0.bindMemory(to: UInt8.self).baseAddress, count) }
         return NG2Raster.png(bytes)!
     }()
+    static let unknownPNG = NG2Raster.png(Data(count: 896*414*4))!
 }
 final class RemoteSession {
     static let shared = RemoteSession()

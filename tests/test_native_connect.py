@@ -42,7 +42,9 @@ class NativeConnectTests(TimerTestCase):
 
     def test_failed_connection_retains_closed_diagnostics_in_both_journals(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(listen=False) as server:
-            result = self.run_native(server, folder, sleep=lambda _seconds: None)
+            # Exercise all four diagnostics rows under CI load. Deadline
+            # boundaries are covered separately with an injected clock.
+            result = self.run_native(server, folder, max_seconds=8, sleep=lambda _seconds: None)
             self.assertIn('preflight', result)
             preflight = result['preflight']
             self.assertEqual(4, len(preflight['attempts']))

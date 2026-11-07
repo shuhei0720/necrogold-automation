@@ -290,6 +290,13 @@ if let fingers = paths.first, fingers.count == 1, let finger = fingers.first, fi
     validDirectionPath = validDirectionPath && finger[1].point == finger[0].point
     validDirectionPath = validDirectionPath && finger[0].t == 0 && finger[1].t == 0.05
 } else { validDirectionPath = false }
+if !validDirectionPath {
+    let diagnostic: [String: JSONValue] = ["report": .object(report(walk)), "path_count": .int(paths.count),
+        "touch_count": .int(NG2Fake.countTouches()), "fake_now_ns": .int(Int(NG2Fake.virtualClock()))]
+    if let bytes = try? JSONEncoder().encode(diagnostic), let line = String(data: bytes, encoding: .utf8) {
+        print("DIAGNOSTIC native_walk_fixture " + line)
+    }
+}
 require(validDirectionPath, "native_walk_uses_single_50ms_direction_gesture")
 pump("native_walk_goods_hold_drained", timeout: 8) {
     _ = call("necro_native_status", walk, keepalive: true)
@@ -417,6 +424,51 @@ for staleFirst in [true, false] {
     require(result.1 == nil && exported.contains(change["source_capture_id"]!.intValue!) &&
         exported.contains(change["observed_capture_id"]!.intValue!), "replan_difference_source_and_after_images_pinned")
 }
+
+// A rejected UNKNOWN difference must retain its own frame even when later
+// UNKNOWN observations evict it from the four-frame recent window. No later
+// movement event can accidentally supply this reference for the pin test.
+NG2Fake.reset(.walk)
+NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+let rejectedDifference = identity()
+var rejectedAligned = false
+NG2RuntimeTestHooks.beforeControlTick = {
+    let current = report(rejectedDifference)
+    if !rejectedAligned && (current["beat_period_ns"]?.intValue ?? 0) > 0 {
+        let now = NG2Fake.virtualClock()
+        NG2Fake.lock.lock(); let epoch = NG2Fake.phaseBase; NG2Fake.lock.unlock()
+        let position = (now-epoch+150_000_000) % 520_000_000
+        NG2Fake.advance((525_000_000-position) % 520_000_000)
+        rejectedAligned = true; NG2RuntimeTestHooks.beforeControlTick = nil
+    }
+}
+NG2RuntimeTestHooks.scheduleTicket = { id, callback in
+    let movements = (report(rejectedDifference)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+    guard movements.contains(where: { $0["id"]?.intValue == Int(id) }) else { return false }
+    NG2Fake.holdTicket(id, callback)
+    NG2Fake.lock.lock(); NG2Fake.unknownFrames = 6; NG2Fake.lock.unlock()
+    return true
+}
+require(call("necro_native_start", rejectedDifference).1 == nil, "rejected_difference_start")
+pump("rejected_difference_terminal", timeout: 12) {
+    let current = call("necro_native_status", rejectedDifference, keepalive: true).0?["report"]?.objectValue ?? [:]
+    return current["terminal"]?.intValue == 1
+}
+let rejectedReport = report(rejectedDifference)
+let rejectedChanges = rejectedReport["scene_changes"]?.arrayValue ?? []
+require(rejectedChanges.count == 1 && rejectedChanges[0].objectValue?["replan_allowed"]?.boolValue == false &&
+    rejectedChanges[0].objectValue?["state_after"]?.intValue == 0 && rejectedReport["inputs"]?.intValue == 0,
+    "unknown_difference_rejects_replan_without_direction")
+let rejected = rejectedChanges[0].objectValue!
+require(rejectedReport["last_capture_id"]!.intValue! - rejected["observed_capture_id"]!.intValue! >= 5,
+    "rejected_difference_fixture_exceeds_recent_window")
+NG2Fake.lock.lock(); let rejectedIDs = Array(NG2Fake.heldTickets.keys); NG2Fake.lock.unlock()
+for id in rejectedIDs { NG2Fake.releaseTicket(id) }
+pump("rejected_difference_drained") { drained(rejectedDifference) }
+let rejectedResult = call("necro_native_results", rejectedDifference)
+let rejectedExports = Set((rejectedResult.0?["images"]?.arrayValue ?? []).compactMap { $0.objectValue?["capture_id"]?.intValue })
+require(rejectedResult.1 == nil && rejectedExports.contains(rejected["source_capture_id"]!.intValue!) &&
+    rejectedExports.contains(rejected["observed_capture_id"]!.intValue!), "rejected_difference_frames_pinned_beyond_recent_window")
 
 NG2Fake.reset(.pause)
 NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()

@@ -1727,3 +1727,9 @@ clientは公開CLIと実暗号HTTPで2.15秒results回収を含む**13 assertion
 配布provenanceの新client_capabilityは、記録欠落/未知値受入の**2 assertion failures・0errors**から修正し、既存v1互換を含む24件全成功（0.068秒）。新manifestは旧native_v1 API契約と別にv2クライアント要件を記録し、適用ソースhash・IPA build-manifestで照合する。
 
 現時点のホスト検証は、必須TEST034〜042の66画像の全存在/SHA一致を確認し、native4 modules **93件全成功・skip0（25.610秒）**、client/共有HTTP **105件全成功・skip0（29.858秒）**。共有HTTP変更後の旧回帰は**432件中407成功・旧画像不足25skip（33.453秒）**。初回の旧回帰は実画像用環境変数未設定で48skipだったため、既存の34〜42実画像を明示して再実行し、最終25skipへ戻した。どちらも機能のRedではない。Swift/macOS・IPAと独立実装レビューの最終結果は完了後に本節へ保存する。
+
+実装レビュー第1周の設計P1は、再予約後のHUDだけの変化で別の有効modelが成立すると、beginで元targetとの整合を再検査しない点。公開observe/beginで.08×元periodを超えても送信許可となる**1 assertion failure・0errors**から、再計画済み/通算inputs0のMOVE beginで整合を再確認する修正を加えた。境界の差41,599,995/41,600,000/41,600,005nsで許可/許可/拒否を確認し、将来の歩行へ歴史的initialtargetの制約を持ち越さない。
+
+試験P2は、元source期限で10ms未満に狭まったdeadlineを新画像で広げる退行の検出不足。短縮deadlineを実公開入口で作るfixtureを追加し、本実装Green・元deadline cap単独削除mutantで1 assertion failure/0errorsを独立確認した。拒否差分の画像pinも、後のrecent4から落ちる条件と専用参照block削除mutantを追加した。最終controller54件全成功・skip0（5.333秒）。
+
+初回CI保存点`bb685db`では、client105件中1件がホスト2秒内に4拒否試行を収められず3回となった。該当する正常診断fixtureだけmax_seconds8へ変更し、全期待・helper既定2秒・注入時計の境界は維持、connect25件成功（10.098秒）。nativeのSwift compileは成功したが、通常歩行の公開結合assertionが失敗した。期待値/期限は緩めず、失敗時の模擬report診断を加え、次CIで原因を確認する。これらを機能の主Redとは数えない。

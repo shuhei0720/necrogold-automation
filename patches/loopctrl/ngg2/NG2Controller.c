@@ -419,7 +419,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
     return reserve(p,now,NG2_ACTION_MOVE,choice.direction,p->s.next_target_ns,out);
 }
 int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front,int32_t locked,int32_t owner){
-    int reason;NG2ControllerEvent *e;uint64_t tail,horizon;
+    int reason;NG2ControllerEvent *e;uint64_t tail,horizon,aligned;
     if(!p||!valid_time(now)||p->s.terminal||p->s.input_state!=1||id!=p->command.id)return 0;
     reason=guards(front,locked,owner);
     tail=p->command.kind==NG2_ACTION_MOVE?p->s.lead_ns+50000000:50000000;
@@ -432,6 +432,10 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
     if(!reason&&p->command.kind==NG2_ACTION_MOVE&&(p->s.goods||p->finish_requested))reason=NG2_REASON_GOODS;
     if(!reason&&p->command.kind==NG2_ACTION_MOVE&&(now<p->command.phase_sample_ns||now-p->command.phase_sample_ns>FRESH
         ||!ng2_beat_model_valid(&p->model)||p->beat_failed))reason=NG2_REASON_BEAT;
+    /* A later HUD-only observation can update the model after reissue. The
+     * original target is immutable, and must still name the same live beat. */
+    if(!reason&&p->command.kind==NG2_ACTION_MOVE&&p->replan_count>0&&p->s.inputs==0
+        &&!corrected(p,p->initial_ticket.target_ns,p->initial_period,&aligned))reason=NG2_REASON_BEAT;
     if(!reason&&now-p->s.started_ns>=180*SECOND)reason=NG2_REASON_SESSION;
     if(!reason&&p->command.kind==NG2_ACTION_MOVE&&(p->s.inputs>=16||now-p->s.walk_started_ns>=45*SECOND))reason=NG2_REASON_LIMIT;
     if(reason){not_sent(p,now,reason);if(reason==NG2_REASON_FOREGROUND||reason==NG2_REASON_LOCKED||reason==NG2_REASON_OWNER_PAUSED)terminal(p,now,reason);
