@@ -2,7 +2,7 @@
 
 更新: 2026-11-07（日本時間）
 
-最新はTEST047受領後のTEST048開発。RESUME後の初LEFTはbegin0で未送信、最終pauseは確認。撮影失敗はなく、capture37の解析/observeが入力予定を6.376ms跨いだ。既存workerへ純粋画像走査を移し、前面確認を先行する[8項目プラン](device-tests/README.md#test-047受領結果とtest-048の8項目プラン)を独立3観点で確認した。旧Runtimeの公開挙動RedはMac CI42375674996でcompile後に観測済み。本体Green/新IPA/完全source検証後、[TEST048](device-tests/README.md#test-048実行手順)を必ず実機依頼する。毎拍/人より速い性能・指輪/通知/全周回の受入は未完了。
+最新はTEST048を実装し、Mac/CIと新IPA build43を検証した段階。TEST047の初LEFT未送信を受け、純粋画像走査を既存capture workerへ移し、前面確認を予約直後へ先行した。大きなSceneはprivate ARC所有のheapへ置き、元拍/10ms・権限/世代/取消・一度だけの入力を保つ。native128件/client124件のホストはskip0、[CI42379084982](https://github.com/shuhei0720/necrogold-automation/actions/runs/42379084982)はRuntime全結合/30変異・Raster3・暗号RPC・IPA成功。CRC/SHA/封印22source/API/native_v5実Mach-Oを照合済み。[IPA build43](https://github.com/shuhei0720/necrogold-automation/actions/runs/42379084982/artifacts/13577347869)へSideStore更新し、LoopCtrl完全終了/起動→Start Serverの後、[TEST048](device-tests/README.md#test-048実行手順)でruntime/test-048全ZIPと初動/各拍/商品/最終pauseを返してもらう。独立3観点の第2周と完全400sourceの最終照合は既存台帳へ記録する。毎拍/人より速い性能・指輪/通知/全周回の実機受入は未完了。
 
 TEST046提出時の履歴: 実装・ホスト/CI・新IPA build30を検証して実機テストを依頼した。35px UNKNOWNの同入力再確認と向き1の画素同値コピー削減を実装し、native112件/client112件ホスト成功、[CI42355682441](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441)でSwift15変異/暗号RPC/build30を確認、CRC/SHA/22ソースを照合。その後の実機は3実行方向0、向き8の処理が重く向き1最適化は未適用だった。その後TEST047も受領し、現在は上記TEST048へ進める。毎拍/人より速い性能は未合格。
 

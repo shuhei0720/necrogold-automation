@@ -116,3 +116,6 @@ TEST043の⑦で「ゲーム開かず」と最初の接続エラーを受領し�
 ## TEST-048 解析と入力準備の分離
 
 TEST047実機で初LEFT未送信/input0・pause確認を受領し、①既存台帳の8項目プランへ戻った。②③設計/安全各1周・試験2周のfresh-contextレビューを閉じた。④⑤は固定TEST047 Runtime＋実C/公開walkのMac compile後に、前面確認が最終callbackの前にないことをnamed assertion Redとして観測した（CI42375674996）。その後にだけ純粋解析をcapture workerへ移し、同一tokenを保った先行前面準備と元拍の最終gateを実装する。新API/compile不足をRedに数えない。最終検証・⑥レビュー・新IPA/完全source・⑦実機依頼は既存実機台帳末尾へ記録する。毎拍/人より速い実機受入・⑧結果を受けた整理は残る。
+
+
+TEST048の④⑤は、先行前面確認/解析分離/固定診断を実装し、Macのproduction全結合Greenと30個の実callsite変異、Raster全画素/3変異、暗号RPCとIPA build43をCI42379084982で検証した。大きなSceneの値コピーによるstack圧迫が疑われるSIGBUSは専用heap所有へ修正し、fixture先行失敗2件は目的の故障が隠れない変異scopeへ直した。setup/compile失敗はRedに数えていない。native128件/client124件ホスト成功・skip0、CI native120件はprivate8再生を明示除外、client124件も成功。⑥は設計/試験/安全の第2周でcode/test P0/P1/P2なし、実IPA/22封印sourceと全400sourceの照合を同周で閉じる。⑦として新IPA/全コードと具体的TEST048を必ず依頼する。実機毎拍/人より速い性能と⑧の結果を受けた整理は未完了。最終証拠の正本は既存実機台帳末尾。
