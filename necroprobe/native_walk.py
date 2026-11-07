@@ -20,9 +20,9 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v6'
+REVISION = 'native-walk-v7'
 API_VERSION = '1.98.14-ngg2'
-CAPABILITY = 'necrogold_native_v5'
+CAPABILITY = 'necrogold_native_v6'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -342,7 +342,7 @@ def _load(base):
         record['events_dropped'] += excess
         record['events'] = _events(record['events'][excess:])
         _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', 'native-walk-v3',
-                                          'native-walk-v4', 'native-walk-v5', REVISION)
+                                          'native-walk-v4', 'native-walk-v5', 'native-walk-v6', REVISION)
                  and record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -880,8 +880,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST048: NG-G2の解析分離と入力準備を検証')
-    ap.add_argument('--output', default='runtime/test-048')
+    ap = argparse.ArgumentParser(description='TEST049: NG-G2の画像処理最適化を検証')
+    ap.add_argument('--output', default='runtime/test-049')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')
@@ -910,7 +910,7 @@ def main(argv=None):
             attempts = record.get('preflight', {}).get('attempts', [])
             kind = attempts[-1]['diagnostic']['kind'] if attempts else None
             if record['stop_reason'] == 'native_capability_missing':
-                print('NG-G2の版・機能が一致しません。TEST048用の新IPAとLoopCtrlの起動状態を確認してください。')
+                print('NG-G2の版・機能が一致しません。TEST049用の新IPAとLoopCtrlの起動状態を確認してください。')
             elif kind == 'refused':
                 print('LoopCtrlへの接続が拒否されました。まだゲームの開始要求は送っていません。')
             elif record['stop_reason'] in ('rpc_deadline', 'host_deadline') or kind in ('timeout','deadline'):
