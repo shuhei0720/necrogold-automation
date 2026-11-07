@@ -125,6 +125,57 @@ require(nilReplyDiagnostic(nilReplyReport["capture_failure"]?.objectValue) &&
     "capture_failure_actual_nil_reply_is_reported")
 // TEST047 RUNTIME FAILURE BASELINE END.
 
+// TEST048 public baseline. The held callback must already own a fresh foreground
+// sample; querying only after release spends the original ten-millisecond window.
+NG2Fake.reset(.walk)
+let preparedMove = identity()
+diagnoseFixture(preparedMove)
+NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
+alignInitialFixtureMove(preparedMove)
+var preparedMoveQueries = 0
+var preparedMoveID: UInt64 = 0
+var preparedMoveCommand: [String: JSONValue] = [:]
+NG2Fake.lock.lock()
+NG2Fake.beforeForegroundQuery = {
+    let current = report(preparedMove)
+    let currentID = current["current_command_id"]?.intValue ?? 0
+    let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    if events.contains(where: { $0["id"]?.intValue == currentID && $0["kind"]?.intValue == 4 }) {
+        NG2Fake.lock.lock(); preparedMoveQueries += 1; NG2Fake.lock.unlock()
+        NG2Fake.advance(20_000_000)
+    }
+}
+NG2Fake.lock.unlock()
+NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(preparedMove) }
+NG2RuntimeTestHooks.scheduleTicket = { id, callback in
+    let current = report(preparedMove)
+    let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    guard let event = events.first(where: { $0["id"]?.intValue == Int(id) && $0["kind"]?.intValue == 4 }) else { return false }
+    NG2Fake.lock.lock(); let queries = preparedMoveQueries; NG2Fake.lock.unlock()
+    require(queries == 1, "move_foreground_prepared_before_final_callback_is_offered")
+    preparedMoveID = id; preparedMoveCommand = event
+    NG2Fake.holdTicket(id, callback)
+    return true
+}
+require(call("necro_native_start", preparedMove).1 == nil, "prepared_move_public_start")
+pump("prepared_move_final_callback_held", timeout: 12) { preparedMoveID != 0 }
+require(runtime.hasLease && report(preparedMove)["main_ticket_outstanding"]?.boolValue == true,
+    "prepared_move_pipeline_retains_lease_between_prepare_and_final")
+NG2Fake.releaseTicket(preparedMoveID)
+pump("prepared_move_single_synth", timeout: 5) { (report(preparedMove)["inputs"]?.intValue ?? 0) == 1 || drained(preparedMove) }
+let preparedEvent = (report(preparedMove)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    .first { $0["id"]?.intValue == Int(preparedMoveID) }
+require(preparedEvent != nil && ["target_ns", "not_before_ns", "deadline_ns"].allSatisfy {
+    preparedEvent?[$0]?.intValue == preparedMoveCommand[$0]?.intValue
+}, "prepared_move_preserves_original_target_and_dispatch_window")
+NG2Fake.lock.lock(); let preparedQueriesAtSend = preparedMoveQueries; NG2Fake.lock.unlock()
+require(preparedQueriesAtSend == 1 && NG2Fake.paths().count == 1 &&
+    NG2Fake.paths().first?.first?.last?.t == 0.05, "prepared_move_final_has_no_AX_and_one_50ms_gesture")
+cancelDrain(preparedMove)
+fixtureFailureSnapshot = nil
+// TEST048 RUNTIME DISPATCH BASELINE END.
+
 // This wait deliberately never pumps main: queued bootstrap work must stay
 // queued while the independent watchdog and public status lane are exercised.
 func waitWithoutMain(_ name: String, timeout: Double = 3, _ condition: () -> Bool) {

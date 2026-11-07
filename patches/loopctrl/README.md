@@ -1,6 +1,6 @@
 # LoopCtrl取得元の画像寸法修正 NG-G1
 
-TEST047では、実機でEXIF8の回転に365〜1829msかかったことを受け、向き2〜8の整数コピーを既存Cへ移した。orientation1のCOW、黒不透明sRGB描画、全画素同値と高品質縮小を維持する。取得/変換/解析の最初の失敗だけを固定9項目へ保存し、EXIF未取得nullと処理既定1を区別する。期限/再送/画像予算と046のmotion_waitは変えない。新capability `necrogold_native_v4` をv1/v2/v3と併記し、native-walk-v5はv4を必須とするため、新IPAへのSideStore更新が必要。API `1.98.14-ngg2` と旧契約を維持する。更新後はLoopCtrlを完全終了/起動してStart Server。新IPA/ホスト・CIの最終検証と実機確認は[既存台帳](../../docs/device-tests/README.md)末尾のTEST047を参照する。
+TEST048では、TEST047の最初の方向入力が画像解析待ちで未送信となった結果を受け、無状態の画像走査を既存撮影workerへ移し、controllerの直列所有を保つ。前面アプリの照会は予約直後、最終段では現在時刻/lock/owner/取消/世代と照会開始から1秒を再確認し、元の拍/10ms期限で単一入力を送る。最初のlive MOVE拒否だけを固定dispatch_failure8項目へ保存する。画素/認識/元の各期限/unknown再送禁止と画像予算は維持。新capability `necrogold_native_v5` をv1..v4と併記し、native-walk-v6はv5必須のため、新IPAへのSideStore更新が必要。API `1.98.14-ngg2` と旧journal回復を維持する。更新後はLoopCtrlを完全終了/起動してStart Server。新IPA/ホスト・CIの最終検証と実機確認は[既存台帳](../../docs/device-tests/README.md)末尾のTEST048を参照する。
 
 ## NG-G2 / TEST043 native制御の追加
 

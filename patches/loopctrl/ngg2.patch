@@ -101,7 +101,7 @@
 
      /// When this binary was built, as "YYYY-MM-DD HH:MM".
      ///
-@@ -569,6 +584,10 @@
+@@ -569,6 +584,11 @@
      /// call (no separate /schema fetch needed). Keep in sync with what the server
      /// actually implements.
      static let capabilityTags: [String] = [
@@ -109,6 +109,7 @@
 +        "necrogold_native_v2", // bounded first-input replan and scene-change evidence
 +        "necrogold_native_v3", // bounded ACKed motion verification and raster diagnostics
 +        "necrogold_native_v4", // native pixel orientation and first capture-failure diagnostics
++        "necrogold_native_v5", // worker perception and prepared deadline-bound input
          "envelope_v1",         // /pair + encrypted /rpc envelopes (HMAC-SHA256)
          "stream_ticket",       // stream_ticket RPC → single-use ?ticket= for /stream + /logs
          "video_stream",        // GET /stream (framed H.264, docs/remote-control.md)
