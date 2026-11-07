@@ -57,10 +57,17 @@ for scale in [2, 3] {
     let scaledPixels: [UInt8] = Array(repeating: pixel, count: 896*414*scale*scale).flatMap { $0 }
     let scaled = NG2Raster.normalize(image(scaledPixels, 896*scale, 414*scale))!
     require(scaled.count == normalized.count, "production_scale_\(scale)_normalized_length")
-    require(stride(from: 0, to: scaled.count, by: 4).allSatisfy {
-        abs(Int(scaled[$0])-10) <= 1 && abs(Int(scaled[$0+1])-20) <= 1 &&
-        abs(Int(scaled[$0+2])-30) <= 1 && scaled[$0+3] == 255
-    }, "production_scale_\(scale)_sRGB_RGBA")
+    var pixelsMatch = true
+    for offset in stride(from: 0, to: scaled.count, by: 4) {
+        let red = Int(scaled[offset])
+        let green = Int(scaled[offset+1])
+        let blue = Int(scaled[offset+2])
+        if abs(red-10) > 1 { pixelsMatch = false }
+        if abs(green-20) > 1 { pixelsMatch = false }
+        if abs(blue-30) > 1 { pixelsMatch = false }
+        if scaled[offset+3] != 255 { pixelsMatch = false }
+    }
+    require(pixelsMatch, "production_scale_\(scale)_sRGB_RGBA")
 }
 let wrongGeometry: [UInt8] = Array(repeating: pixel, count: 895*414).flatMap { $0 }
 require(NG2Raster.normalize(image(wrongGeometry, 895, 414)) == nil, "unknown_production_geometry_rejected")
