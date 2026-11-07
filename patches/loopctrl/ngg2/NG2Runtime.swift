@@ -11,6 +11,7 @@ enum NG2RuntimeTestHooks {
     static var clock: (() -> UInt64)?
     static var beforeCaptureAdmission: (() -> Void)?
     static var beforeMainAdmission: (() -> Void)?
+    static var beforeMainAuthority: (() -> Void)?
 }
 #endif
 
@@ -495,9 +496,17 @@ final class NG2Runtime {
         guard let core = run.core else { return }
         var outcome: Int32 = 0
         DispatchQueue.main.sync {
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeTestHooks.beforeMainAuthority?()
+            #endif
             let ownerActive = self.ownerActive(run)
             let foreground = run.expectedPID > 0 && ForegroundApp.frontmostPID() == run.expectedPID
             let locked = LockStateMonitor.shared().isLocked
+            // A loss of execution authority ends the run, rather than allowing
+            // the control loop to reserve a later cleanup input from old state.
+            if !ownerActive { run.cancel(5) }
+            else if locked { run.cancel(4) }
+            else if !foreground { run.cancel(3) }
             let now = Self.now()
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.beforeMainAdmission?()
@@ -528,6 +537,8 @@ final class NG2Runtime {
                 // frame prefix or issue an automatic cleanup tap from it.
             }
         }
+        let cancelled = run.lock.ng2Locked { run.cancelReason }
+        if outcome == 0 && cancelled != 0 { ng2_controller_cancel(core, Self.now(), cancelled) }
         ng2_controller_complete(core, command.id, Self.now(), outcome)
         run.lock.ng2Locked { run.mainOutstanding = false }
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status); cache(run, status)

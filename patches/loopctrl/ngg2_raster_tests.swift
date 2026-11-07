@@ -5,11 +5,11 @@ import ImageIO
 func require(_ value: Bool, _ label: String) {
     if !value { print("FAIL \(label)"); exit(1) }
 }
-func image(_ pixels: [UInt8], _ width: Int, _ height: Int) -> CGImage {
+func image(_ pixels: [UInt8], _ width: Int, _ height: Int, bytesPerRow: Int? = nil) -> CGImage {
     let space = CGColorSpace(name: CGColorSpace.sRGB)!
     let provider = CGDataProvider(data: Data(pixels) as CFData)!
     return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
-        bytesPerRow: width * 4, space: space,
+        bytesPerRow: bytesPerRow ?? width * 4, space: space,
         bitmapInfo: CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Big.rawValue |
             CGImageAlphaInfo.premultipliedLast.rawValue), provider: provider,
         decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
@@ -39,6 +39,36 @@ let fullImage = image(full, 896, 414)
 let normalized = NG2Raster.normalize(fullImage)!
 require(normalized.count == 896*414*4, "rgba_length")
 require(normalized.prefix(4) == Data([10,20,30,255]), "rgba_byte_order")
+// Padding belongs to the source CGImage, not to the normalized pixel ABI.
+var padded: [UInt8] = []
+for row in 0..<2 {
+    padded.append(contentsOf: pixels[(row*12)..<(row*12+12)])
+    padded.append(contentsOf: [222, 111, 99, 88, 77, 66, 55, 44])
+}
+let paddedImage = image(padded, 3, 2, bytesPerRow: 20)
+require(NG2Raster.normalize(paddedImage, outputWidth: 3, outputHeight: 2) == Data(pixels),
+    "source_padded_stride_not_pixels")
+let alpha: [UInt8] = [0, 0, 0, 0, 64, 32, 16, 128]
+let composited = NG2Raster.normalize(image(alpha, 2, 1), outputWidth: 2, outputHeight: 1)!
+require(composited.prefix(4) == Data([0, 0, 0, 255]), "transparent_composites_opaque_black")
+require(abs(Int(composited[4])-64) <= 1 && abs(Int(composited[5])-32) <= 1 &&
+    abs(Int(composited[6])-16) <= 1 && composited[7] == 255, "semialpha_composites_opaque_black")
+for scale in [2, 3] {
+    let scaledPixels: [UInt8] = Array(repeating: pixel, count: 896*414*scale*scale).flatMap { $0 }
+    let scaled = NG2Raster.normalize(image(scaledPixels, 896*scale, 414*scale))!
+    require(scaled.count == normalized.count, "production_scale_\(scale)_normalized_length")
+    require(stride(from: 0, to: scaled.count, by: 4).allSatisfy {
+        abs(Int(scaled[$0])-10) <= 1 && abs(Int(scaled[$0+1])-20) <= 1 &&
+        abs(Int(scaled[$0+2])-30) <= 1 && scaled[$0+3] == 255
+    }, "production_scale_\(scale)_sRGB_RGBA")
+}
+let wrongGeometry: [UInt8] = Array(repeating: pixel, count: 895*414).flatMap { $0 }
+require(NG2Raster.normalize(image(wrongGeometry, 895, 414)) == nil, "unknown_production_geometry_rejected")
+let overLimit: [UInt8] = Array(repeating: pixel, count: 4097).flatMap { $0 }
+require(NG2Raster.normalize(image(overLimit, 4097, 1), outputWidth: 4097, outputHeight: 1) == nil,
+    "oversize_source_rejected")
+require(NG2Raster.decode(Data([1, 2, 3])) == nil, "invalid_encoded_image_rejected")
+require(NG2Raster.png(Data(count: 16)) == nil, "invalid_export_raster_rejected")
 var scene = NG2Scene()
 let result = normalized.withUnsafeBytes {
     ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress, normalized.count, 3584, &scene)

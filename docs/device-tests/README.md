@@ -1535,3 +1535,45 @@ cd /mnt/necro_test042 && sh test_042.sh
 - **試験分母**: native公開状態機械でpause→直接resume→有効金壁不在→pause/restart→48セルchanged確認→金壁→同期→歩行を通す。Options/別階/黒/同fingerprint/unknown restartと12回境界を含める。実034〜042の必須parity画像は名前/hash/件数を小manifestへ固定し、043必須検証モードでは不足を失敗としskipで配布しない。旧回帰skipとは別集計。Swift実Cfakeだけでなく実server認証/paused allowlist/nonUI振分け入口、queued main競合、capture遅延/期限/世代、API所有権も契約試験する。
 
 capture排他の補足: native leaseは既存ScreenStream等の非RPC captureの新しい取得も休止させる。native captureが未完了/停止処理中も休止を保ち、旧workerが戻って世代破棄された後にだけ通常streamを再開できる。1workerは端末上のこの取得経路全体の意味で、取得RPCの拒否だけに限定しない。競合streamの開始/遅い取得がnativeへ混ざらない試験を置く。
+
+## TEST-043 / NG-G2の実装と検証
+
+2026-11-07（日本時間）。毎拍歩行に向け、取得・認識・拍追跡・経路判断・入力制御を同じiPhone内のLoopCtrlへ移した。`test_043.sh`と`necroprobe.native_walk`は開始・状態・取消・結果保存を担当する。旧iSHの毎歩JPEG転送・Pillow処理を通さない。新IPAは`1.98.14-ngg2` / capability `necrogold_native_v1`、固定profile `normal-1-1-v1`。未更新NG-G1なら開始前に拒否する。既存NG-G1 patchとR12全40を保存し、新しいguarded NG-G2 patchと追加sourceを固定上流`6e25cf6a9f65bc86c372cdce94bdb151d0cf6767`へ適用する。
+
+### 処理と記録の契約
+
+- daemon direct-onlyの非同期取得と専用解析workerを使う。別backend/main threadの取得へfallbackしない。896×414 sRGB opaque RGBA8をCへ渡し、状態・金壁・商品・保護セル・HUD・局所経路・変位照合を行う。取得開始/終了、decode/analysis、入力開始/終了の時計は端末の単調時計で、exact compositor生成時刻やゲームの入力受付時刻ではない。
+- C制御は専用queueで動く。main queueの入力直前にも取消・前面・lock・owner・世代・元Scene/位相の期限を検査し、一度に未完了入力は1件まで。status/cancelはUI queueや画像取得の完了を待たない。captureの開始/終了時点の完了prefixとinflightを記録し、入力が交差した画像で次方向を承認しない。商品表示は交差画像でも先に保持する。
+- 最初は安全床の単発の実MOVEDを確認して先行量を校正する。扉や茶壁を開けただけでは歩数・ordinal・先行量確認を増やさない。以後の方向入力は同じ連続拍のordinal+1だけを予約する。新しい位相による補正も同じ次拍へ束縛し、元の期限を伸ばさない。観測や確認が間に合わなければ理由付き停止とし、次々拍へ黙って移さない。
+- 元の画像/位相3秒・前面1秒・dispatch遅れ10ms、50ms単発方向入力、16方向入力・walk45秒・session180秒を維持する。最終の`now+lead+50ms`が全期限内であることも要求する。初期同期は4点以上/2秒以上、周期profile .515〜.530秒。これらはゲーム受付幅の実証ではない。
+- 初期ポーズから直接続行し、開幕金壁なしを確認した回は最大12リスタートまで。48セルfingerprintのchanged確認を経て次ランを数える。金壁候補から歩き、商品が見えたらポーズして保持し自動購入しない。のろいのゆびわの確定分類・通知・対象なし商品からの完成循環は別の未完了受入であり、この増分で全7項目合格とはしない。
+- tokenに対応したownerを実JSONRPCServerで注入し、caller指定ownerを使わない。同一owner/runのstartは冪等。nativeがUIを所有する間は既存UI RPCを受理時・実行時に拒否し、非RPC ScreenStreamも休止する。旧daemon要求はwrapperのtimeout後も実callbackまで未完了として数える。遅い結果は破棄し、新runを重ねない。
+- 開始前にUUIDとstart意図を原子的保存する。不明なstartの自動再送・新runへの置換をしない。取消・復旧のstatus照会はheartbeatを更新せず、通常のactive pollだけ明示keepaliveする。poll断5秒と独立したsession180秒のwatchdogを持つ。入力の成否unknown後は後続UI入力を禁止し、終了ポーズも実行済みと捏造しない。
+
+### Redとホストの検証範囲
+
+perception・navigation・beat・controller・thin CLI・guarded applierは、公開入口を実行できるstubで挙動assertion Redを観測してから実装した。Swift ticketも先にmacOSでコンパイル成功後の`FAIL cancelled_ticket_not_sent`（exit1）を観測した。証拠はcommit `9995371259135f33919df7ef50d538c46d7f985d` / Actions run [42332613748](https://github.com/shuhei0720/necrogold-automation/actions/runs/42332613748)。コンパイル失敗・API不足はRedに数えない。controllerの初期fixtureがcreate前時刻を使っていた試行は証拠から除外し、create後の有効なSceneを与えたstubで1 assertion failure・0errorsを再確認した。
+
+`tests/test043-fixtures.json`にTEST034〜042の66枚の名前とSHA-256を固定し、必須ローカル検証では不足を失敗にする。認識13件、経路/変位17件、拍12件、controller34件を対象とする。画像の状態・restart・金壁peak・fingerprint・全tiles・商品・保護セル・signature・HUD、73候補の全motion scoreを既存Python/Pillowと比較する。Cのstrict C99/警告エラーとASan/UBSanを含む。ptrace環境で使用できないLeakSanitizerだけを無効にした試行は、その制約を残す。
+
+公開controller試験は直接続行、無金壁→pause/restart→changed→金壁→同期→移動→商品pause、4方向の実変位、開通と進入の区別、固定連続ordinal、遅いmain/ACK/画像・位相不整合・取消・unknown、16方向/45/180秒の境界を通す。実装レビューで見つかった開通だけの先行量校正は2 assertions、末尾期限は3 assertionsのRed→Greenで修正した。2^63直前の次目標が保存可能範囲を越える境界も挙動Redから停止へ修正した。端末内処理をfake clockで通した成功は実機の毎拍成功ではない。
+
+旧TEST042までのREADME対象432件を再実行し、407成功・旧外部画像不足25skip（32.738秒）。旧gameplay sourceは変更していない。新native必須画像の不足をこの25skipへ混ぜない。CIの公開画像なし試験は必須私有画像6メソッドだけを明示除外し、残りはskip0を要求する。全66画像のローカル検証と分母を別に記録する。
+
+### レビューと配布前の確認
+
+プランの独立レビューは設計3周、試験/安全各2周で指摘を反映した。capture全経路の排他・owner pause・unknown UI・正規化/実C・実server認証入口の試験条件を明文化してから実装した。実装レビュー第1周では取消要求の到達前喪失、保存障害時の取消、native lease中の復旧、capture取消競合・旧daemon callback、開通校正、末尾期限、診断の保存上限と画像保持が指摘された。修正・最終集計・独立レビューの残件は配布確定時にこの節へ追記する。
+
+## TEST-043実行手順
+
+今回は**新NG-G2 IPAへの更新が必要**。配布時に指定するGitHub Actionsの`loopctrl-ngg2-unsigned` ZIPからIPAを取り出し、これまでと同じSideStore手順で更新する。新API確認前にはゲーム操作を開始しない。全コードZIPはSafariでGitHubへログインして保存・展開する。アプリ内で開けなければSafariでリンクを開く。
+
+商品表示済みランから手動でクイックリスタートし、**新しい通常1-1をポーズ**する。画面端操作0、いつもの左側を下にした向き。iSHのフォルダ選択では`test_043.sh`がある展開先を選ぶ。
+
+```sh
+mkdir -p /mnt/necro_test043
+mount -t ios . /mnt/necro_test043
+cd /mnt/necro_test043 && sh test_043.sh
+```
+
+実機テストを依頼する。ゲームを表示して、初歩までの待ち・毎ビートの歩行・曲がり角・扉/茶壁・商品表示後のポーズを確認してほしい。終了後の**`runtime/test-043`全体をZIPで返す**。可能なら開始から商品表示まで、心臓と各歩が見える短い動画も添える。途中停止や動かない結果も除外せず返す。ポーズ未確認なら手動でポーズする。今回のnative取得/正規化/入力が実機で成立するか、初動と毎拍が改善するかを結果から確認し、実機合格前に達成済みとはしない。

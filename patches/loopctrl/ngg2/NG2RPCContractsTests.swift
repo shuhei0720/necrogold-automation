@@ -200,6 +200,7 @@ final class NG2RPCContractsTests: XCTestCase {
                 uiStarted.fulfill()
                 DispatchQueue.global().async {
                     _ = release.wait(timeout: .now() + 8)
+                    pending.decrement()
                     complete(["held": .bool(true)], nil)
                 }
             } else {
@@ -288,5 +289,6 @@ private final class AtomicCounter {
     private let lock = NSLock()
     private var storage = 0
     func increment() { lock.lock(); storage += 1; lock.unlock() }
+    func decrement() { lock.lock(); storage -= 1; lock.unlock() }
     var value: Int { lock.lock(); defer { lock.unlock() }; return storage }
 }

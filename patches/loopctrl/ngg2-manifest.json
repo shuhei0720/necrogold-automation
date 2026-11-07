@@ -86,7 +86,7 @@
     },
     "Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift": {
       "source": "NG2RPCContractsTests.swift",
-      "sha256": "096e88883ee8b5fd5c31bdc1446aa1652d32d24c45a32ccf64762fbea3b83fa0"
+      "sha256": "192048f212827d17800f3ba4926a3e601d8a939b4b364a51608ec4e8da493f4c"
     },
     "LoopCtrlUITests/NG2Raster.swift": {
       "source": "NG2Raster.swift",
@@ -94,7 +94,7 @@
     },
     "LoopCtrlUITests/NG2Runtime.swift": {
       "source": "NG2Runtime.swift",
-      "sha256": "310b8ec8bb861fd757911b415afa1be7621913650b7ffc6a813ba39df09ce496"
+      "sha256": "c342fa923a4b80ab61289f2833c993d3ee3ba5e1d4e908389e6d786c648dc402"
     },
     "LoopCtrlUITests/NG2Templates.h": {
       "source": "NG2Templates.h",

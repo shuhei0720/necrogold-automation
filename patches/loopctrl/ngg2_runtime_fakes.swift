@@ -12,14 +12,17 @@ enum NG2Fake {
     static var activations = 0
     static var touches = 0
     static var failTouch = false
+    static var frontPID: pid_t = 42
     static var callbacks: [(Data?, String?) -> Void] = []
     static var offset: UInt64 = 0
     static var pending = 0
     static func reset(_ next: Mode) {
-        lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; callbacks = []; offset = 0; pending = 0 }
+        lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; frontPID = 42; callbacks = []; offset = 0; pending = 0 }
         RemoteSession.shared.paused = false
         NG2RuntimeTestHooks.beforeCaptureAdmission = nil
         NG2RuntimeTestHooks.beforeMainAdmission = nil
+        NG2RuntimeTestHooks.beforeMainAuthority = nil
+        LockStateMonitor.monitor.isLocked = false
         NG2RuntimeTestHooks.clock = nil
     }
     static func countRequests() -> Int { lock.fixtureLocked { requests } }
@@ -56,7 +59,7 @@ final class LockStateMonitor {
 enum ForegroundApp {
     static func openBundleID(_ id: String) -> Bool { NG2Fake.lock.fixtureLocked { NG2Fake.activations += 1 }; return true }
     static func processID(forBundleID id: String) -> pid_t { 42 }
-    static func frontmostPID() -> pid_t { 42 }
+    static func frontmostPID() -> pid_t { NG2Fake.lock.fixtureLocked { NG2Fake.frontPID } }
 }
 final class XCUIApplication { init(bundleIdentifier: String) {} }
 enum ObjCException { static func catching(_ body: () -> Void) -> String? { body(); return nil } }

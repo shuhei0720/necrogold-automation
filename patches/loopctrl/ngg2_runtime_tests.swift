@@ -47,6 +47,24 @@ require(call("necro_native_start", ticketRace).1 == nil, "ticket_race_start")
 pump("main_cancel_drained") { drained(ticketRace) }
 require(NG2Fake.countRequests() > 0 && NG2Fake.countTouches() == 0, "production_capture_C_ticket_main_cancel_no_synth")
 
+// Fresh main-thread authority checks are made after a ticket has already been
+// reserved, and cancel before any synth rather than planning a cleanup input.
+for lost in ["foreground", "lock", "owner"] {
+    NG2Fake.reset(.pause)
+    let authority = identity()
+    NG2RuntimeTestHooks.beforeMainAuthority = {
+        if lost == "foreground" { NG2Fake.lock.lock(); NG2Fake.frontPID = 0; NG2Fake.lock.unlock() }
+        else if lost == "lock" { LockStateMonitor.monitor.isLocked = true }
+        else { RemoteSession.shared.paused = true }
+        NG2RuntimeTestHooks.beforeMainAuthority = nil
+    }
+    require(call("necro_native_start", authority).1 == nil, "authority_start_"+lost)
+    pump("authority_drained_"+lost) { drained(authority) }
+    let reason = lost == "foreground" ? 3 : (lost == "lock" ? 4 : 5)
+    require(report(authority)["reason"]?.intValue == reason && NG2Fake.countTouches() == 0,
+        "final_authority_loss_no_synth_or_cleanup_"+lost)
+}
+
 NG2Fake.reset(.empty)
 let queued = identity()
 require(call("necro_native_start", queued).1 == nil, "queued_start")
