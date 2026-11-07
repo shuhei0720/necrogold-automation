@@ -196,8 +196,8 @@ final class NG2Runtime {
         }
         let frames: [NG2Frame] = run.lock.ng2Locked {
             var selected: [NG2Frame] = []
-            for frame in [run.initial, run.found, run.images.last].compactMap({ $0 })
-                + run.pinned.values.sorted(by: { $0.id < $1.id }) + run.images {
+            for frame in [run.images.last, run.found, run.initial].compactMap({ $0 })
+                + run.pinned.values.sorted(by: { $0.id > $1.id }) + Array(run.images.reversed()) {
                 if !selected.contains(where: { $0.id == frame.id }) { selected.append(frame) }
             }
             return Array(selected.prefix(20))
@@ -205,9 +205,9 @@ final class NG2Runtime {
         var images: [JSONValue] = []
         var totalImageBytes = 0
         var exportedIDs = Set<UInt64>()
-        // The latest stopped frame and its preceding movement evidence are
-        // retained first when the encoded byte budget is reached.
-        for frame in frames.reversed() {
+        // Encode stop/found/initial anchors before event evidence so a byte
+        // budget cannot silently give later ordinary frames their slots.
+        for frame in frames {
             guard let bytes = NG2Raster.png(frame.rgba) else { return failure("Native image encoding failed.") }
             if bytes.count > 512 * 1024 || totalImageBytes + bytes.count > 4 * 1024 * 1024 { continue }
             totalImageBytes += bytes.count
@@ -224,7 +224,7 @@ final class NG2Runtime {
                 "stable_prefix": .bool(frame.stable)]))
         }
         guard ownerActive(run) else { return failure("Owner paused native export.") }
-        var result = response(run); result["images"] = .array(Array(images.reversed()))
+        var result = response(run); result["images"] = .array(images)
         result["retained_images"] = .int(frames.count)
         result["exported_images"] = .int(images.count)
         run.lock.ng2Locked {

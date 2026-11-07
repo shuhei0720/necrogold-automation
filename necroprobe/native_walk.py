@@ -27,6 +27,10 @@ PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
 MAX_TOTAL_IMAGES = 4 * 1024 * 1024
+MAX_HTTP_EVENTS = 128
+MAX_CAPTURES = 256
+MAX_NATIVE_EVENTS = 64
+MAX_CANCEL_ATTEMPTS = 3
 STATES = frozenset(('accepted', 'running', 'completed', 'stopped', 'draining'))
 TERMINAL = frozenset(('completed', 'stopped'))
 REASONS = frozenset(('none', 'goods', 'cancelled', 'foreground', 'locked', 'owner_paused',
@@ -42,7 +46,22 @@ NUMERIC_KEYS = frozenset(('abi_version', 'struct_size', 'phase', 'reason', 'term
     'target_ns', 'not_before_ns', 'deadline_ns', 'source_capture_id', 'source_start_ns',
     'phase_sample_ns', 'kind', 'direction', 'begin_ns', 'end_ns', 'observed_capture_id',
     'outcome', 'motion', 'dx', 'dy', 'capture_id', 'start_ns', 'completed_prefix',
-    'started_prefix', 'inflight', 'generation', 'sequence', 'timeout_ns', 'last_heartbeat_ns'))
+    'started_prefix', 'inflight', 'generation', 'sequence', 'timeout_ns', 'last_heartbeat_ns',
+    'decode_end_ns', 'analysis_start_ns', 'analysis_end_ns', 'completed_prefix_start',
+    'completed_prefix_end', 'accepted_started_ns', 'live_completed_prefix',
+    'native_capture_requests', 'latest_frames_replaced', 'daemon_requests_outstanding',
+    'analyzed_capture_count', 'evicted_capture_count', 'retained_image_count',
+    'pinned_image_count', 'recent_image_count', 'retained_images', 'exported_images',
+    'omitted_image_count'))
+BOOL_KEYS = frozenset(('cancel_requested', 'stable', 'timed_out', 'draining', 'capture_outstanding',
+    'capture_timed_out', 'workers_drained', 'bootstrap_ui_started', 'ui_frozen',
+    'main_ticket_outstanding', 'native_inflight', 'inflight_start', 'inflight_end',
+    'stable_prefix', 'historical_metadata_only'))
+ID_LIST_KEYS = frozenset(('referenced_capture_ids', 'missing_capture_ids', 'exported_capture_ids',
+                         'omitted_capture_ids'))
+FIXED_TEXT = {'capture_backend': 'direct_daemon_jpeg_only', 'analysis_engine': 'native_C_v1',
+    'capture_time_semantics': 'request_call_interval_not_presentation_timestamp',
+    'input_time_semantics': 'synth_call_interval_not_game_receipt_timestamp'}
 ERROR_CODES = frozenset(('connection_error', 'rpc_deadline', 'rpc_error', 'response_mac_mismatch',
     'response_id_mismatch', 'http_body_limit', 'http_body_truncated', 'invalid_native_status',
     'invalid_native_report', 'invalid_native_images', 'native_capability_missing',
@@ -67,12 +86,14 @@ class NativeClient(Client):
     def _validate(self, method, params):
         if method == 'device_info' and params == {}:
             return
-        expected = {'run_id', 'profile'} if method == 'necro_native_start' else {'run_id'}
+        expected = ({'run_id', 'profile'} if method == 'necro_native_start'
+                    else {'run_id', 'keepalive'} if method == 'necro_native_status' else {'run_id'})
         if (method not in ('necro_native_start', 'necro_native_status',
                            'necro_native_cancel', 'necro_native_results')
                 or type(params) is not dict or set(params) != expected
                 or type(params.get('run_id')) is not str
                 or not re.fullmatch('[0-9a-f]{32}', params['run_id'])
+                or ('keepalive' in params and type(params['keepalive']) is not bool)
                 or ('profile' in params and params['profile'] != PROFILE)):
             raise ProbeError('method_not_allowed')
 
@@ -133,7 +154,8 @@ def _load(base):
     if not path.exists():
         return None
     try:
-        raw = path.read_bytes()
+        with path.open('rb') as handle:
+            raw = handle.read(2 * 1024 * 1024 + 1)
         record = json_object(raw, 2 * 1024 * 1024)
         _require(record.get('schema') == 'ngg2-host-v1' and _uuid(record.get('run_id'))
                  and record.get('profile') == PROFILE and type(record.get('resolved')) is bool
@@ -145,19 +167,31 @@ def _load(base):
         allowed = ('schema', 'revision', 'run_id', 'profile', 'state', 'resolved', 'start_attempted',
                    'cancel_attempted', 'stop_reason', 'native_state', 'native_report', 'images',
                    'host_clock_domain', 'native_clock_domain', 'events')
-        _require(set(record) == set(allowed), 'native_journal_invalid')
+        optional = {'cancel_attempts', 'cancel_confirmed', 'events_dropped', 'result_metadata'}
+        _require(set(allowed) <= set(record) <= set(allowed) | optional, 'native_journal_invalid')
+        record.setdefault('cancel_attempts', int(record['cancel_attempted']))
+        record.setdefault('cancel_confirmed', False)
+        record.setdefault('events_dropped', 0)
+        record.setdefault('result_metadata', {})
+        _require(type(record['cancel_attempts']) is int and 0 <= record['cancel_attempts'] <= MAX_CANCEL_ATTEMPTS
+                 and type(record['cancel_confirmed']) is bool and type(record['events_dropped']) is int
+                 and 0 <= record['events_dropped'] < 2**63, 'native_journal_invalid')
+        excess = max(0, len(record['events']) - MAX_HTTP_EVENTS)
+        record['events_dropped'] += excess
+        record['events'] = record['events'][excess:]
         _require(record['state'] in STATES | {'prepared', 'unknown'}
                  and record['native_state'] in STATES | {None}
                  and record['stop_reason'] in ERROR_CODES | {None}, 'native_journal_invalid')
         _require(record['native_report'] is None or _report(record['native_report']) == record['native_report'],
                  'native_journal_invalid')
+        _require(_result_metadata(record['result_metadata']) == record['result_metadata'], 'native_journal_invalid')
         return record
     except (OSError, ProbeError, ValueError, TypeError, RecursionError):
         raise ProbeError('native_journal_invalid') from None
 
 
 def _report(value, depth=0):
-    _require(type(value) is dict and depth <= 3 and len(value) <= 96, 'invalid_native_report')
+    _require(type(value) is dict and depth <= 3 and len(value) <= 128, 'invalid_native_report')
     result = {}
     for key, item in value.items():
         if key in NUMERIC_KEYS:
@@ -177,17 +211,28 @@ def _report(value, depth=0):
         elif key == 'reason_name':
             # Unknown free text is dropped, including remote exception messages.
             result[key] = item if type(item) is str and item in REASONS else 'unclassified'
-        elif key in ('cancel_requested', 'stable', 'timed_out', 'draining', 'capture_outstanding',
-                     'capture_timed_out', 'workers_drained'):
+        elif key in BOOL_KEYS:
             _require(type(item) is bool, 'invalid_native_report')
             result[key] = item
         elif key == 'backend':
             result[key] = item if item in ('daemon_direct', 'daemon', 'none') else 'none'
         elif key in ('capture', 'command'):
             result[key] = _report(item, depth+1)
-        elif key == 'events':
-            _require(type(item) is list and len(item) <= 128, 'invalid_native_report')
+        elif key in ('events', 'captures'):
+            limit = MAX_NATIVE_EVENTS if key == 'events' else MAX_CAPTURES
+            _require(type(item) is list and len(item) <= limit, 'invalid_native_report')
             result[key] = [_report(event, depth+1) for event in item]
+        elif key in ID_LIST_KEYS:
+            _require(type(item) is list and len(item) <= MAX_CAPTURES
+                     and all(type(v) is int and 0 <= v < 2**63 for v in item), 'invalid_native_report')
+            result[key] = list(item)
+        elif key in FIXED_TEXT:
+            _require(item == FIXED_TEXT[key], 'invalid_native_report')
+            result[key] = item
+    for timing in (('start_ns', 'end_ns', 'decode_end_ns', 'analysis_start_ns', 'analysis_end_ns'),
+                   ('capture_start_ns', 'capture_end_ns', 'decode_end_ns')):
+        available = [result[key] for key in timing if key in result]
+        _require(available == sorted(available), 'invalid_native_report')
     if depth == 0:
         _require(result.get('schema') == 'ngg2-native-v1' and _uuid(result.get('clock_id'))
                  and 'input_state' in result and 'device_now_ns' in result, 'invalid_native_report')
@@ -199,7 +244,21 @@ def _status(value, run_id):
              and value.get('profile') == PROFILE and type(value.get('state')) is str
              and value['state'] in STATES,
              'invalid_native_status')
+    _require('api_version' not in value or value['api_version'] == API_VERSION, 'invalid_native_status')
     return value['state'], _report(value.get('report'))
+
+
+def _result_metadata(value):
+    selected = {key: item for key, item in value.items()
+                if key in ('retained_images', 'exported_images', 'omitted_image_count')
+                or key in ID_LIST_KEYS}
+    result = _report(selected, depth=1)
+    if 'api_version' in value:
+        _require(value['api_version'] == API_VERSION, 'invalid_native_status')
+        result['api_version'] = API_VERSION
+    _require(all(result[key] <= MAX_IMAGES for key in ('retained_images', 'exported_images') if key in result),
+             'invalid_native_images')
+    return result
 
 
 def _images(value):
@@ -239,7 +298,17 @@ def _images(value):
         if 'stable_prefix' in item:
             _require(type(item['stable_prefix']) is bool, 'invalid_native_images')
             meta['stable_prefix'] = item['stable_prefix']
+        for key in ('decode_end_ns', 'completed_prefix_start', 'completed_prefix_end'):
+            if key in item:
+                _require(type(item[key]) is int and 0 <= item[key] < 2**63, 'invalid_native_images')
+                meta[key] = item[key]
+        for key in ('inflight_start', 'inflight_end'):
+            if key in item:
+                _require(type(item[key]) is bool, 'invalid_native_images')
+                meta[key] = item[key]
         _require(meta['capture_start_ns'] <= meta['capture_end_ns'], 'invalid_native_images')
+        _require('decode_end_ns' not in meta or meta['capture_end_ns'] <= meta['decode_end_ns'],
+                 'invalid_native_images')
         images.append((meta, raw))
     return images
 
@@ -247,7 +316,7 @@ def _images(value):
 def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic_ns,
                 sleep=time.sleep, poll_seconds=.25, max_seconds=185, recovery_seconds=6,
                 lock_path=None):
-    """Start once; any uncertainty is recovered using only this durable run ID."""
+    """Start once; recover known work with read-only status and bounded cancel."""
     number(poll_seconds, .001, 1)
     number(max_seconds, .01, 200)
     number(recovery_seconds, .01, 10)
@@ -255,28 +324,33 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
     with device_lock(lock_path):
         record = _load(base)
-        recovering = record is not None and not record['resolved']
-        if not recovering:
+        if record is None or record['resolved']:
             record = {'schema': 'ngg2-host-v1', 'revision': REVISION, 'run_id': uuid.uuid4().hex,
                       'profile': PROFILE, 'state': 'prepared', 'resolved': False,
-                      'start_attempted': False, 'cancel_attempted': False, 'stop_reason': None,
-                      'native_state': None, 'native_report': None, 'images': [],
+                      'start_attempted': False, 'cancel_attempted': False, 'cancel_attempts': 0,
+                      'cancel_confirmed': False, 'stop_reason': None, 'events_dropped': 0,
+                      'native_state': None, 'native_report': None, 'images': [], 'result_metadata': {},
                       'host_clock_domain': 'python.monotonic_ns',
                       'native_clock_domain': 'device.monotonic_ns', 'events': []}
+        recovering = record['start_attempted']
         run_id = record['run_id']
         invocation = uuid.uuid4().hex
-        began = clock()
-        deadline = began + int(max_seconds * 1e9)
+        deadline = clock() + int(max_seconds * 1e9)
         cleanup_deadline = None
+        cancel_required = record['cancel_attempted']
+        status_before_retry = False
+        cancel_calls = 0
 
         def event(method, error=None, timings=None):
-            if len(record['events']) >= 1024:
-                raise ProbeError('native_journal_invalid')
             row = {'invocation': invocation, 'method': method, 'host_ns': clock(), 'error': error}
             if timings:
                 row['host_timings'] = {key: value for key, value in timings.items()
                                        if key.endswith('_ns') and type(value) is int and 0 <= value < 2**63}
             record['events'].append(row)
+            excess = max(0, len(record['events']) - MAX_HTTP_EVENTS)
+            if excess:
+                del record['events'][:excess]
+                record['events_dropped'] += excess
 
         def request(method, params):
             try:
@@ -290,53 +364,84 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
         def accept(value):
             state, report = _status(value, run_id)
             record.update(state=state, native_state=state, native_report=report)
+            if state in TERMINAL or report.get('cancel_requested') is True:
+                record['cancel_confirmed'] = True
 
-        def cancel_once(reason):
-            nonlocal cleanup_deadline
+        def stop(reason):
+            nonlocal cleanup_deadline, cancel_required
+            cancel_required = True
             record['stop_reason'] = record['stop_reason'] or reason
-            cleanup_deadline = cleanup_deadline or min(deadline + int(recovery_seconds*1e9),
-                                                       clock() + int(recovery_seconds*1e9))
-            if record['start_attempted'] and not record['cancel_attempted']:
-                record['cancel_attempted'] = True
-                _save(base, record)
-                try:
-                    accept(request('necro_native_cancel', {'run_id': run_id}))
-                except ProbeError:
-                    record['state'] = 'unknown'
+            if cleanup_deadline is None:
+                cleanup_deadline = clock() + int(recovery_seconds*1e9)
 
-        _save(base, record)
+        def cancel_attempt(persist=True):
+            nonlocal cancel_calls, status_before_retry
+            if (not record['start_attempted'] or record['cancel_confirmed']
+                    or record['cancel_attempts'] >= MAX_CANCEL_ATTEMPTS):
+                return
+            record['cancel_attempted'] = True
+            record['cancel_attempts'] += 1
+            save_error = None
+            if persist:
+                try:
+                    _save(base, record)
+                except OSError as exc:
+                    save_error = exc
+            # A failed cancellation checkpoint cannot prevent this idempotent RPC.
+            cancel_calls += 1
+            status_before_retry = True
+            try:
+                accept(request('necro_native_cancel', {'run_id': run_id}))
+                record['cancel_confirmed'] = True
+            except ProbeError:
+                record['state'] = 'unknown'
+            if save_error is not None:
+                raise save_error
+
+        def status():
+            keepalive = not recovering and not cancel_required and not cancelled()
+            return request('necro_native_status', {'run_id': run_id, 'keepalive': keepalive})
+
         try:
-            info = request('device_info', {})
-            _require(info.get('server_version') == API_VERSION
-                     and type(info.get('capabilities')) is list and CAPABILITY in info['capabilities'],
-                     'native_capability_missing')
+            _save(base, record)
             if not recovering:
+                info = request('device_info', {})
+                _require(info.get('server_version') == API_VERSION
+                         and type(info.get('capabilities')) is list and CAPABILITY in info['capabilities'],
+                         'native_capability_missing')
                 if cancelled():
                     record.update(state='stopped', resolved=True, stop_reason='cancel_requested')
                     _save(base, record)
                     return record
-                # This durable bit precedes the first and only start attempt.
+                # A prepared journal with this bit false has never issued start.
+                # The same UUID may make its first attempt after capability checks.
                 record['start_attempted'] = True
                 _save(base, record)
                 try:
                     accept(request('necro_native_start', {'run_id': run_id, 'profile': PROFILE}))
                 except ProbeError as exc:
                     record['state'] = 'unknown'
-                    cancel_once(_error(exc))
+                    stop(_error(exc))
                 _save(base, record)
             else:
-                # Recovery never restarts or silently continues an old walk.
+                # device_info is a UI method rejected by the active native lease.
+                # Recovery must go directly to the authenticated native endpoints.
                 try:
-                    accept(request('necro_native_status', {'run_id': run_id}))
+                    accept(status())
                 except ProbeError as exc:
                     record['state'] = 'unknown'
-                    cancel_once(_error(exc))
+                    stop(_error(exc))
                 if record['state'] not in TERMINAL:
-                    cancel_once('cancel_requested')
+                    stop('cancel_requested')
 
             while True:
                 if cancelled():
-                    cancel_once('cancel_requested')
+                    stop('cancel_requested')
+                if clock() >= deadline:
+                    stop('host_deadline')
+                if (cancel_required and record['state'] not in TERMINAL
+                        and not status_before_retry):
+                    cancel_attempt()
                 if record['state'] in TERMINAL:
                     try:
                         value = request('necro_native_results', {'run_id': run_id})
@@ -347,26 +452,29 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                         image_folder.mkdir(mode=0o700, exist_ok=True)
                         for metadata, raw in images:
                             _atomic(image_folder/metadata['name'], raw)
+                        result_metadata = _result_metadata(value)
                         record.update(state=state, native_state=state, native_report=report,
                                       images=[metadata for metadata, _raw in images],
-                                      resolved=report['input_state'] in (0, 3))
+                                      result_metadata=result_metadata,
+                                      resolved=report['input_state'] in (0, 3)
+                                      and not report.get('ui_frozen', False)
+                                      and report.get('workers_drained', True)
+                                      and not report.get('native_inflight', False))
                         if not record['resolved']:
                             record['stop_reason'] = 'native_input_unresolved'
                     except ProbeError as exc:
                         record['stop_reason'] = _error(exc)
                         record['resolved'] = False
                     break
-                now = clock()
-                if now >= deadline:
-                    cancel_once('host_deadline')
-                if cleanup_deadline is not None and now >= cleanup_deadline:
+                if cleanup_deadline is not None and clock() >= cleanup_deadline:
                     break
                 sleep(poll_seconds)
                 try:
-                    accept(request('necro_native_status', {'run_id': run_id}))
+                    accept(status())
                 except ProbeError as exc:
                     record['state'] = 'unknown'
-                    cancel_once(_error(exc))
+                    stop(_error(exc))
+                status_before_retry = False
                 _save(base, record)
         except ProbeError as exc:
             record['stop_reason'] = _error(exc)
@@ -375,14 +483,10 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
             else:
                 record.update(state='unknown', resolved=False)
         except OSError:
-            # A failed journal must prevent new work, but cannot block cancellation.
-            # The start-attempt record was committed before any native start.
-            if record['start_attempted'] and not record['cancel_attempted']:
-                record['cancel_attempted'] = True
-                try:
-                    request('necro_native_cancel', {'run_id': run_id})
-                except ProbeError:
-                    pass
+            # The initial recovery save and the cancel-intent save are covered.
+            # RAM intent is distinct from a cancel call that was actually attempted.
+            if record['start_attempted'] and cancel_calls == 0:
+                cancel_attempt(persist=False)
             raise
         _save(base, record)
         return record

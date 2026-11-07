@@ -28,7 +28,7 @@ from timer_support import TimerTestCase
 
 class NativeServer:
     def __init__(self, *, lose=(), input_state=0, capabilities=None, version=None,
-                 finish=False, transform=None):
+                 finish=False, transform=None, lose_before=(), reject_info_active=False):
         self.lose = list(lose)
         self.input_state = input_state
         self.calls = []
@@ -37,6 +37,8 @@ class NativeServer:
         self.version = native.API_VERSION if version is None else version
         self.finish = finish
         self.transform = transform
+        self.lose_before = list(lose_before)
+        self.reject_info_active = reject_info_active
 
     def __enter__(self):
         fake = self
@@ -52,6 +54,18 @@ class NativeServer:
                 request = json.loads(plain)
                 method, params = request['method'], request['params']
                 fake.calls.append((method, params))
+                if method in fake.lose_before:
+                    fake.lose_before.remove(method)
+                    self.close_connection = True
+                    self.connection.shutdown(socket.SHUT_RDWR)
+                    return
+                if method == 'device_info' and fake.reject_info_active and 'running' in fake.runs.values():
+                    raw = sealed_reply(body, result={'code':-32004,'message':'native lease'}, rpc_error=True)
+                    self.send_response(200)
+                    self.send_header('Content-Length', str(len(raw)))
+                    self.end_headers()
+                    self.wfile.write(raw)
+                    return
                 if method == 'device_info':
                     result = {'server_version': fake.version, 'capabilities': fake.capabilities}
                 else:
@@ -105,6 +119,84 @@ class NativeWalkTests(TimerTestCase):
         return native.run_session(server.client(self.timer), folder,
                                   lock_path=Path(folder)/'lock', **options)
 
+    def unresolved(self, server, folder):
+        server.input_state = 4
+        record = self.execute(server, folder)
+        record['cancel_attempted'] = False
+        if 'cancel_attempts' in record:
+            record['cancel_attempts'] = 0
+        if 'cancel_confirmed' in record:
+            record['cancel_confirmed'] = False
+        record['state'] = record['native_state'] = 'running'
+        record['native_report'].update(input_state=0, terminal=0)
+        native._save(Path(folder), record)
+        server.runs[record['run_id']] = 'running'
+        server.input_state = 0
+        server.calls.clear()
+        return record
+
+    def test_cancel_lost_before_arrival_is_retried_boundedly_without_keepalive(self):
+        with tempfile.TemporaryDirectory() as folder, NativeServer(lose=['necro_native_status'], lose_before=['necro_native_cancel']) as server:
+            result = self.execute(server, folder)
+            self.assertTrue(result['resolved'])
+            self.assertEqual(2, sum(m == 'necro_native_cancel' for m,p in server.calls))
+            self.assertEqual(2, result['cancel_attempts'])
+            status = [p for m,p in server.calls if m == 'necro_native_status']
+            self.assertTrue(status[0]['keepalive'])
+            self.assertTrue(all(p['keepalive'] is False for p in status[1:]))
+
+    def test_started_recovery_bypasses_lease_rejected_device_info(self):
+        with tempfile.TemporaryDirectory() as folder, NativeServer() as server:
+            record = self.unresolved(server, folder)
+            server.reject_info_active = True
+            result = self.execute(server, folder)
+            self.assertTrue(result['resolved'])
+            self.assertEqual(record['run_id'], result['run_id'])
+            self.assertNotIn('device_info', [m for m,p in server.calls])
+            self.assertTrue(all(p['keepalive'] is False for m,p in server.calls if m == 'necro_native_status'))
+
+    def test_prepared_journal_resumes_the_same_uuid_with_its_first_start(self):
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True) as server:
+            record = self.execute(server, folder, cancelled=lambda: True)
+            record.update(resolved=False, state='prepared', stop_reason=None)
+            native._save(Path(folder), record)
+            result = self.execute(server, folder)
+            starts = [p for m,p in server.calls if m == 'necro_native_start']
+            self.assertEqual(1, len(starts))
+            self.assertEqual(record['run_id'], starts[0]['run_id'])
+            self.assertTrue(result['resolved'])
+
+    def test_recovery_initial_save_failure_still_sends_emergency_cancel(self):
+        with tempfile.TemporaryDirectory() as folder, NativeServer() as server:
+            self.unresolved(server, folder)
+            with patch.object(native, '_save', side_effect=OSError('disk full')):
+                with self.assertRaises(OSError):
+                    self.execute(server, folder, cancelled=lambda: True)
+            self.assertEqual(1, sum(m == 'necro_native_cancel' for m,p in server.calls))
+
+    def test_cancel_intent_save_failure_still_sends_emergency_cancel(self):
+        with tempfile.TemporaryDirectory() as folder, NativeServer() as server:
+            save = native._save
+            def fail_cancel_intent(base, record):
+                if record['cancel_attempted']:
+                    raise OSError('disk full')
+                save(base, record)
+            with patch.object(native, '_save', side_effect=fail_cancel_intent):
+                with self.assertRaises(OSError):
+                    self.execute(server, folder, cancelled=lambda: bool(server.runs))
+            self.assertEqual(1, sum(m == 'necro_native_cancel' for m,p in server.calls))
+
+    def test_full_diagnostic_ring_never_prevents_same_run_recovery(self):
+        with tempfile.TemporaryDirectory() as folder, NativeServer() as server:
+            record = self.unresolved(server, folder)
+            row = {'invocation':'0'*32,'method':'necro_native_status','host_ns':1,'error':None}
+            record['events'] = [dict(row) for _ in range(1024)]
+            native._save(Path(folder), record)
+            result = self.execute(server, folder)
+            self.assertTrue(result['resolved'])
+            self.assertLessEqual(len(result['events']), 128)
+            self.assertGreaterEqual(result['events_dropped'], 896)
+
     def test_lost_start_response_is_never_restarted_and_same_run_is_collected(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(lose=['necro_native_start']) as server:
             result = native.run_session(server.client(self.timer), folder,
@@ -152,17 +244,36 @@ class NativeWalkTests(TimerTestCase):
             self.assertEqual(result, json.loads((Path(folder)/'active.json').read_text()))
 
     def test_lost_cancel_and_poll_responses_reconnect_without_restarting_or_discarding(self):
-        losses = ['necro_native_status']*100 + ['necro_native_cancel']
+        losses = ['necro_native_status']*100 + ['necro_native_cancel']*3
         with tempfile.TemporaryDirectory() as folder, NativeServer(lose=losses) as server:
             first = self.execute(server, folder, max_seconds=.01, recovery_seconds=.01)
             self.assertFalse(first['resolved'])
             self.assertTrue(first['cancel_attempted'])
+            attempted = sum(m == 'necro_native_cancel' for m,p in server.calls)
+            self.assertGreaterEqual(attempted, 1)
+            self.assertLessEqual(attempted, 3)
             server.lose.clear()
             second = self.execute(server, folder)
             self.assertTrue(second['resolved'])
             self.assertEqual(first['run_id'], second['run_id'])
             self.assertEqual(1, sum(m == 'necro_native_start' for m,p in server.calls))
-            self.assertEqual(1, sum(m == 'necro_native_cancel' for m,p in server.calls))
+            self.assertEqual(attempted, sum(m == 'necro_native_cancel' for m,p in server.calls))
+
+    def test_cancel_budget_is_durable_across_reexecution_and_never_renews_lease(self):
+        with tempfile.TemporaryDirectory() as folder, NativeServer(
+                lose=['necro_native_status'], lose_before=['necro_native_cancel']*10) as server:
+            first = self.execute(server, folder, max_seconds=.2, recovery_seconds=.1)
+            self.assertFalse(first['resolved'])
+            self.assertEqual(3, first['cancel_attempts'])
+            count = sum(m == 'necro_native_cancel' for m,p in server.calls)
+            self.assertEqual(3, count)
+            last_call = len(server.calls)
+            second = self.execute(server, folder)
+            self.assertFalse(second['resolved'])
+            self.assertEqual(3, second['cancel_attempts'])
+            self.assertEqual(count, sum(m == 'necro_native_cancel' for m,p in server.calls))
+            self.assertTrue(all(p['keepalive'] is False for m,p in server.calls[last_call:]
+                                if m == 'necro_native_status'))
 
     def test_inflight_and_reserved_ticket_are_not_replaced_by_a_new_run(self):
         for state in (1, 2, 4):
@@ -215,6 +326,8 @@ class NativeWalkTests(TimerTestCase):
                        ('necro_native_start', {'run_id':run_id, 'profile':native.PROFILE, 'x':1}),
                        ('necro_native_start', {'run_id':run_id, 'profile':'arbitrary'}),
                        ('necro_native_status', {'run_id':run_id, 'owner':'a'}),
+                       ('necro_native_status', {'run_id':run_id}),
+                       ('necro_native_status', {'run_id':run_id, 'keepalive':1}),
                        ('necro_native_cancel', {'run_id':run_id, 'actor':'a'}),
                        ('necro_native_results', {'run_id':'../outside'}),
                        ('necro_native_status', {'run_id':True})]
@@ -277,7 +390,7 @@ class NativeWalkTests(TimerTestCase):
                 result = self.execute(server, folder)
                 self.assertFalse(result['resolved'])
                 self.assertEqual(1, sum(m == 'necro_native_start' for m,p in server.calls))
-                self.assertEqual(1, sum(m == 'necro_native_cancel' for m,p in server.calls))
+                self.assertEqual(3, sum(m == 'necro_native_cancel' for m,p in server.calls))
 
     def test_bad_journal_and_busy_lock_do_not_send_network_requests(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer() as server:
@@ -323,8 +436,9 @@ class NativeWalkTests(TimerTestCase):
                     'from necroprobe.protocol import HttpTransport as H; '
                     'n.HttpTransport=lambda:H(%d); '
                     'n.load_pairing=lambda *_:(%r,%r); '
+                    'original_lock=n.device_lock; n.device_lock=lambda _path=None:original_lock(%r); '
                     'raise SystemExit(n.main(["--output",%r,"--python-crypto"]))') % (
-                        server.server.server_port, KEY, TOK, folder)
+                        server.server.server_port, KEY, TOK, str(Path(folder)/'private.lock'), folder)
             process = subprocess.Popen([sys.executable, '-c', code], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             try:
                 deadline = time.monotonic()+5
@@ -409,13 +523,75 @@ class NativeImageTests(TimerTestCase):
 
     def test_capture_prefix_and_stability_metadata_survive_export(self):
         item = image_item()
-        item.update(completed_prefix=7, stable_prefix=False)
+        item.update(completed_prefix=7, stable_prefix=False, decode_end_ns=4,
+                    completed_prefix_start=6, completed_prefix_end=7,
+                    inflight_start=True, inflight_end=False)
         metadata, raw = native._images([item])[0]
         self.assertEqual(7, metadata['completed_prefix'])
         self.assertIs(False, metadata['stable_prefix'])
+        for key in ('decode_end_ns', 'completed_prefix_start', 'completed_prefix_end',
+                    'inflight_start', 'inflight_end'):
+            self.assertEqual(item[key], metadata[key])
         item['stable_prefix'] = 0
         with self.assertRaisesRegex(ProbeError, 'invalid_native_images'):
             native._images([item])
+
+    def test_maximum_native_measurements_and_host_ring_roundtrip_and_recover(self):
+        def measurements(report):
+            value = dict(report)
+            value.update({key:0 for key in native.NUMERIC_KEYS})
+            value.update(schema='ngg2-native-v1', clock_id=report['clock_id'],
+                         device_now_ns=100_000, input_state=4, captures=[], events=[])
+            value.update(native.FIXED_TEXT)
+            value.update({key:False for key in native.BOOL_KEYS})
+            value['workers_drained'] = True
+            value['terminal'] = 1
+            value['retained_image_count'] = 20
+            value['pinned_image_count'] = 16
+            value['recent_image_count'] = 4
+            value['referenced_capture_ids'] = list(range(1,132))
+            value['missing_capture_ids'] = list(range(21,132))
+            for i in range(256):
+                value['captures'].append({'id':i+1,'start_ns':100*i,'end_ns':100*i+1,
+                    'decode_end_ns':100*i+2,'analysis_start_ns':100*i+3,'analysis_end_ns':100*i+4,
+                    'completed_prefix_start':i,'completed_prefix_end':i,
+                    'inflight_start':False,'inflight_end':False,'stable':True})
+            for i in range(64):
+                value['events'].append({key:0 for key in (
+                    'id','ordinal','kind','direction','x','y','target_ns','not_before_ns','deadline_ns',
+                    'source_capture_id','source_start_ns','phase_sample_ns','begin_ns','end_ns',
+                    'observed_capture_id','outcome','reason','motion','dx','dy')})
+            return value
+        def transform(method, result):
+            if 'report' in result:
+                result['report'] = measurements(result['report'])
+            if method == 'necro_native_results':
+                result.update(retained_images=20, exported_images=0, omitted_image_count=300,
+                              exported_capture_ids=[], omitted_capture_ids=list(range(1,132)))
+            return result
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=transform) as server:
+            options = {'lock_path':Path(folder)/'lock','max_seconds':.03,'poll_seconds':.001}
+            record = native.run_session(server.client(self.timer), folder, **options)
+            self.assertFalse(record['resolved'])
+            self.assertEqual(256, len(record['native_report']['captures']))
+            self.assertEqual(64, len(record['native_report']['events']))
+            self.assertEqual(300, record['result_metadata']['omitted_image_count'])
+            row = {'invocation':'0'*32,'method':'necro_native_status','host_ns':1,'error':None,
+                   'host_timings':{key:1 for key in ('request_start_ns','http_start_ns','http_end_ns',
+                       'decrypt_start_ns','decrypt_end_ns','response_end_ns')}}
+            record['events'] = [dict(row) for _ in range(128)]
+            native._save(Path(folder), record)
+            loaded = native._load(Path(folder))
+            self.assertEqual(record, loaded)
+            # The same maximal JSON shape must also be accepted on reconnect.
+            recovered = native.run_session(server.client(self.timer), folder, **options)
+            self.assertEqual(record['run_id'], recovered['run_id'])
+            self.assertFalse(recovered['resolved'])
+            self.assertEqual(256, len(recovered['native_report']['captures']))
+            self.assertEqual(64, len(recovered['native_report']['events']))
+            self.assertEqual(131, len(recovered['result_metadata']['omitted_capture_ids']))
+            self.assertLessEqual(len(recovered['events']), 128)
+            self.assertGreater(recovered['events_dropped'], record['events_dropped'])
 
     def test_atomic_journal_tolerates_only_unsupported_directory_fsync(self):
         with tempfile.TemporaryDirectory() as folder:
