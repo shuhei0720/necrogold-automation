@@ -1951,7 +1951,7 @@ cd /mnt/necro_test048 && sh test_048.sh
 
 ## TEST-048受領結果とTEST-049の8項目プラン
 
-ZIP1,278,288bytes/SHA-256 `17222871b89b8c81cfc171bafd433201eb1ba28df02ef3b5e006936f13704c07`、全CRC正常。接続拒否4回/start前終了1件と、build43/native-v6実行1件を受領した。後者はLEFTがnotBefore+3.694300msにbeginし298.938500msでACK、dispatch_failure/capture_failureなし。ユーザーの左1歩をC/Pillowもcap12→16ですでにMOVEDとして確認するが、motion_wait.attempts0/moves0/reason9で停止し最終pause成立。
+ZIP1,278,288bytes/SHA-256 `17222871b89b8c81cfc171bafd433201eb1ba28df02ef3b5e006936f13704c07`、全CRC正常。接続拒否4回/start前終了1件と、build43/native-walk-v6実行1件を受領した。後者はLEFTがnotBefore+3.694300msにbeginし298.938500msでACK、dispatch_failure/capture_failureなし。ユーザーの左1歩をC/Pillowもcap12→16ですでにMOVEDとして確認するが、motion_wait.attempts0/moves0/reason9で停止し最終pause成立。
 
 ACK後の次拍期限まで224.195868ms、最初の安定・prefix2画像16は期限66.902993ms前に撮影完了。しかしdecode103.373459ms＋純解析88.182416msによりobserveは期限124.778882ms後となり、先行tickがMOVE待機を閉じた。FLOOR5..16の中央値はdecode109.828ms/純解析111.844ms/orient55.947ms。判定閾値の問題ではない。実ビルドの設定はDebug/GCC_OPTIMIZATION_LEVEL=0/Swift-Onone、C個別上書きなし。実Clang共通引数は旧artifact未保存のresp内なので、次版では展開した実引数を保存し、設定値だけで適用を断定しない。受領8PNGはすべてhash/サイズ/C/Pillow一致、Git外。画像16の厳密な完成36pxは断定しないが、従来閾値でMOVEDは成立。
 
@@ -1979,3 +1979,28 @@ TEST049プランレビューは設計/試験各第1周、安全第2周でP0/P1/P
 同第2周の安全レビューでloader例外をClangにも適用するとresponse内のunsafe FPを見落とすP2を検出したため、既知swiftc（実wrapperを含む）だけへ限定した。Clang/未知commandは既定の厳格展開を維持し、package再照合も展開前にcompiler identityを検証する。Clangの`-Xlinker @rpath/hidden.rsp`に隠したunsafe引数を見逃す実行可能1assertion Red/0errorsからGreenを確認し、新114件/全162件はskip0成功（1.256秒）。先行423ab3a/CI42396954207はこの修正を含まないため配布に使わず、Mac/IPA前に取り消して修正版へ進める。
 
 `abfe565d0f02cecbdaeaeeda4a1744fe6a8f8e88` / CI42397211923/build48はIPA作成後、Clangのリンク専用`-install_name @rpath/...`をresponseと誤認して監査で停止した。検査用の分類時だけ既知loader pathの不在をnofollowで確認し、既存file/symlink/実際に辿る親移動は拒否する。通常response内も含め`-c`が見つかれば、全引数を従来の厳格readerで再展開してからcompile証跡へ採用し、packageのC再照合にも例外を持ち込まない。実リンク形式のnamed assertion Red/0errorsからGreen、120新規/全168件成功・skip0。保存した実ログ6,229行・26Clang/5Swift・全12responseのhash/bytes・生成PBX・22sourceを用いた独立2担当の全行再生も成功し、Perception1 strictO2/他C3 O0/Swift5 Onone・package再読込一致を確認した。再生では実行環境のroot pathだけ置き換えており、これは形式の診断証拠であってMacの最終合格ではない。raw検証ZIP13584401417は143,389bytes/SHA-256 `f80a0e752d911b41927f14e744c2f9c6363f7be4edacc7d05ae6f760cbaa3989`、CRC正常。app/封印sourceは不変のまま最終Macへ進める。
+
+## TEST-049実行手順
+
+**TEST049の新IPAへ更新する。** 今回はアプリ内の画像処理Cのコンパイル方法を変えるためIPA更新が必要。LoopCtrlのStop Serverを押して完全終了し、下記の検証済みIPA ZIPをSafariでGitHubへログインして保存・展開する。`upstream/release/LoopCtrl.ipa`をSideStoreのMy Apps → ＋から更新する。LoopCtrlを起動し直し、いつものVPN/ディスクイメージ接続とStart Serverの起動済み表示を確認する。API1.98.14-ngg2/native_v1..v6が必要で、native-walk-v7はv6不足ならゲーム開始前に拒否する。
+
+完全source ZIPを展開し、開幕に金壁が見える新しい通常1-1を画面端操作0・左側が下の向きでポーズする。iSHで次を実行し、フォルダ選択では展開した **test_049.shがある完全sourceフォルダ** を指定する。
+
+```sh
+mkdir -p /mnt/necro_test049
+mount -t ios . /mnt/necro_test049
+cd /mnt/necro_test049 && sh test_049.sh
+```
+
+**TEST049の実機テストをお願いします。** 起動/初歩までの待ち、毎ビートで1歩ずつ続くか、商品が見える位置まで行くか、最後にポーズするかを確認し、終了後の **runtime/test-049全体をZIPでこのチャットへ返す**。未起動/零歩/途中停止でも同じZIPを返す。可能なら心臓と歩行の短い動画も添える。最終ポーズが未確認なら手動でポーズする。旧runtimeは混ぜず、別試験を同時実行しない。毎拍/人より速い性能、指輪/通知/完全周回・耐久は実機での受入まで未完了。
+
+### TEST049検証済みIPAと最終集計（2026-11-08 日本時間）
+
+- 最終codeは`7e388423cdfbd5072a9bf275b4bdc0f712492b5d`、[CI42398487104](https://github.com/shuhei0720/necrogold-automation/actions/runs/42398487104)成功。Macの単体168件（新compiler/package120件を含む）はskip0・1.290秒、生成PBX/実compiler profile・production Runtime全公開結合/30実callsite変異・Raster凍結全画素/実JPEG/3変異・daemon drain・既存LoopCtrlKit・実暗号RPCのowner-callsite変異・unsigned IPA build49が成功した。UIKit/XCTest/daemonの端末境界はhostではfakeであり、歩行の実機受入とは区別する。
+- **[TEST049新IPA ZIP / build49](https://github.com/shuhei0720/necrogold-automation/actions/runs/42398487104/artifacts/13585172254)** は17,740,255bytes/SHA-256 `af1ad9c9facf3e24ae1cb6fd3a21420149f467f71ab0ed24cb7656aa7decedcc`。内部`upstream/release/LoopCtrl.ipa`はbundle `top.ebato.loopctrl`、版0.3.4/build49、SHA-256 `e08731eebbb847f5c5d40032ea9047f11f5686b9a617332887ea68f3c58f6f01`。全ZIP/内部IPAのCRC正常、nested runner/CLIあり、mobileprovisionなし。source sealは`1e56651e42bd9a995938e0252f3bb73552cc271c415d2644aede4546f52334dd`、全22封印source/driver/upstream/patch provenance一致。実app debug dylibとUITest pluginのarm64 Mach-OにAPI1.98.14-ngg2/native_v6があり、HOST hook/Frame stride試験/spyは非混入。APIはv1..v6併記、client v7はv6必須。
+- **[Mac/ビルド検証ZIP13585142285](https://github.com/shuhei0720/necrogold-automation/actions/runs/42398487104/artifacts/13585142285)** は292,932bytes/SHA-256 `33dc53636e02c77313cd89c618be600895a2afe5f008c5e3494c77cce2f1eed4`、CRC正常。実生成PBXでPerception sourceちょうど1個、実raw build logと保存response6個をhash/bytes/command digestで結び、全4 native C compileと5 Swift moduleを独立再展開した。Perceptionだけ`-O2 -fno-fast-math -ffp-contract=off`、他C3個`-O0`、Swift5個`-Onone`。package内profileとmanifest内profile・実PBX・validation profileは一致。Apple Clang21.0.0/arm64で、変更前どおり`-O0`だけの参照とstrict O2を比較し、92Sceneの全23,864bytes・40orientationの全出力画素・129fingerprintが一致、実field変異もnamed assertion Red。合成画像のコンパイラ同値証拠であり実機速度の証明ではない。
+- nativeホスト129件は全87必須実画像を含めskip0成功（36.919秒）。新private1件では元O0 flagsを変えず全Scene bytesの同値、C/Pillow全87認識・TEST048の5組の全73motion score/決定を確認した。CIはprivate9再生を明示除外した120件成功・skip0（17.108秒）。[host検証ZIP13583844624](https://github.com/shuhei0720/necrogold-automation/actions/runs/42398487104/artifacts/13583844624)は3,766bytes/SHA-256 `aae13aab206c74bf45a1bbbecc85e1059e083b93fe2c8cb5c38c47ff348405ef`、CRC正常。
+- client/共有HTTPはホスト125件成功・skip0（30.983秒）、[CI42393511999](https://github.com/shuhei0720/necrogold-automation/actions/runs/42393511999)も125件成功・skip0（30.974秒）。[検証ZIP13583000150](https://github.com/shuhei0720/necrogold-automation/actions/runs/42393511999/artifacts/13583000150)は3,786bytes/SHA-256 `4227bdd77bb39531f449e5ca96a47f6dfebc51fd032716572416064f78815107`、CRC正常。以後client本体/共有protocol/対象試験/test_049.shは全bytes不変。旧v1..v6 started/unknown journalはGET0/start0回復を維持。R12全40とNG-G1は不変。旧gameplay407成功/外部画像不足25skipは過去の証拠として引き継ぎ、今回の全成功へ加算しない。
+- artifact保持期限は2026-12-07 UTC。code/IPA凍結後の更新は既存5文書だけ。完全sourceは405追跡ファイルの固定commit archiveを回収して全CRC/全bytesを照合する。独立実装レビュー3観点は同第2周で実配布物・最終sourceまで確認して閉じる。毎拍/人より速い性能、商品後の全周回・指輪/通知・耐久は未受入。
+
+**上記build49と完全sourceを用いたTEST049の実機テストを依頼する。** `runtime/test-049`全ZIPと、初動・毎ビート連続で歩くか・商品到達・最後のポーズを返してもらい、次の改善はその実測から判断する。

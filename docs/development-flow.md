@@ -1,5 +1,9 @@
 # 採用するAI駆動開発フロー
 
+TEST048の左1歩後の停止を受け、TEST049へ反復した。既存台帳の8項目プランをfresh-context設計/試験各1周・安全2周でcloseし、固定TEST048の実XcodeGen projectにO2設定がないnamed assertion RedをMacで観測してから設定を変更した。C算法・判定・期限を保ち、Perceptionだけstrict O2、client v7/capv6とする。全87必須画像/129native・125clientのホスト成功、Macの実PBX/response展開・168単体・Apple Clangの92Scene/40回転/129fingerprint同値・Runtime30/Raster3/暗号RPC/IPA build49を[CI42398487104](https://github.com/shuhei0720/necrogold-automation/actions/runs/42398487104)で確認した。Mac path aliasとlinker loader形式の検証側不具合は実ログ全行再生を経て直し、app不具合やprimary Redと混同しない。独立実装3観点は同第2周で実配布物と完全405sourceまで照合し、具体的TEST049実機依頼を行う。毎拍/人より速い性能や完全周回の受入・工程⑧は次の実機証拠まで未完了。
+
+以下は過去の適用履歴。
+
 TEST046受領からTEST047へ反復した。更新後方向0/EXIF8回転365〜1829msを根拠に、既存8項目プランをfresh-context設計/安全各1周・試験2周でclose。実行可能C stubの挙動Red→Green、旧Swift呼出0/期待1・詳細decode stub・旧Runtime診断欠落のコンパイル済Mac3Redを観測してから実装した。nullable EXIFのレビューP2も公開PNG試験の実値1/null期待Redから最小修正し、C上限試験のmaskは実packed buffer3ケースとguard単独削除3変異で故障検出を確認した。native128件/client118件はホスト全成功。画像保持fixtureのタイミング競合は本体・期限を変えず同じ画像の実MOVED＋goodsを観測するよう修正し、独立3担当が同第2周で確認。最終Mac/IPA・Runtime19変異・全source照合の証拠は既存台帳末尾へ保存する。工程⑦で新IPA/全コードとTEST047実機テストを依頼し、毎拍・人より速い動作や完全周回の受入は実機結果から判断する。
 
 TEST046提出時の適用履歴: TEST045の上1歩とポーズ/8画像回収を確認し、35px→36pxの間のUNKNOWN即停止と次拍に間に合わない処理費用を切り分けた。8項目プランをfresh-context設計/安全各1周・試験2周で確認。公開C ACK→UNKNOWN→MOVEDとRaster copy数のMac assertion Redから実装し、凍結全画素/2 Raster変異/Runtime15変異を確認。商品同時frameの歩数欠落も公開Redから修正し、旧結合期待を維持した。native112件/client112件はホスト全成功。新IPA/全コードとTEST046実機依頼を渡した後、更新後3実行の方向0/遅いEXIF8を受領して現在のTEST047へ進んだ。
@@ -119,3 +123,10 @@ TEST047実機で初LEFT未送信/input0・pause確認を受領し、①既存台
 
 
 TEST048の④⑤は、先行前面確認/解析分離/固定診断を実装し、Macのproduction全結合Greenと30個の実callsite変異、Raster全画素/3変異、暗号RPCとIPA build43をCI42379084982で検証した。大きなSceneの値コピーによるstack圧迫が疑われるSIGBUSは専用heap所有へ修正し、fixture先行失敗2件は目的の故障が隠れない変異scopeへ直した。setup/compile失敗はRedに数えていない。native128件/client124件ホスト成功・skip0、CI native120件はprivate8再生を明示除外、client124件も成功。⑥は設計/試験/安全の第2周でcode/test P0/P1/P2なし、実IPA/22封印sourceと全400sourceの照合を同周で閉じる。⑦として新IPA/全コードと具体的TEST048を必ず依頼する。実機毎拍/人より速い性能と⑧の結果を受けた整理は未完了。最終証拠の正本は既存実機台帳末尾。
+
+
+## TEST-049 画像処理の限定最適化
+
+実行可能Red→Greenは、旧生成PBXの個別flags欠落、旧capv5で新clientが開始されること、実compile/packageの監査guardを削除した変異で確認した。O0参照側のflagsを変更せず、strict O2との全Scene/全画素比較をhost全87実画像とMacの合成入力へ適用する。通常response内の隠れた-c/後置O0/unsafe FP/Swift後置-O、保存証跡の改変と実package-callsiteも負例で拒否する。Clangのリンク専用loaderは不在をnofollowで確かめて分類するだけで、実compileとpackageのC証跡には厳格readerを必須とする。最終codeは7e388423cdfbd5072a9bf275b4bdc0f712492b5d、R12全40/NG-G1/全C算法/Runtime/Rasterは不変。
+
+工程⑥の同第2周の実IPA/全22封印source/実raw argvとresponse/全405sourceの照合と最終hashは、[既存実機台帳](device-tests/README.md#test-049実行手順)へ記録する。工程⑦として新IPAが必要な理由を説明し、TEST049とruntime/test-049全ZIP・初動/毎ビート/商品/最終pauseを必ず依頼する。ホストやMacの合格を毎拍歩行・人より速い性能の実機合格へ読み替えない。
