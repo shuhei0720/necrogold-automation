@@ -175,3 +175,11 @@ TEST042/shop-walk-v27/runtime/test-042: choose時のobs/Scene内容・position/v
 最後25msのみclockを読む待機を初回/全followupへ適用。tuple(timeout,validated_ns)は検査済時刻から残時間を計算し、検査後clockが得た時刻を捨てる分岐を作らない。未到達ならspin後再検査。10ms超過・取消/期限は未送信。画像/位相/session/walkが有効で前面だけが古い未送信候補はperform内一度だけguard更新、同じtargetを再検査し過ぎていたら別候補追加なし。新frontでも1秒+10ms予約を維持。全体2回full更新・未知/発行済み無再送は不変。
 
 初期同期は3標本後の撮影をfullとし、fitの最新HTTP標本と同一のfresh完全Scene/HUDならそのままaccept。4点/2秒・profile/閾値は不変。全新規observeは初期引数を除きlight/full/既存model handoffを合算12回、12秒枠内。主4点の挙動Red全0errors→Green、独立レビューP1には9assertion Red→Green/独立変異。関連432件407成功/旧外部画像不足25skip（33.893秒）、新規32件skip0。プラン/実装の設計/試験/安全各2周で残P0/P1/P2なし。全C/native/IPA/R12/座標/拍算術は不変。新1-1を手動restart/pauseしてTEST042を依頼し、初動・3/4連続の適用・間隔・商品/停止と全未完了分母を調べる。今回は画像/制御並列化未実装。生画像/report/ZIP/logはGit外、既承認work/p1-capture-probeへ保存しprivate commit archiveで全コード配布。
+
+## TEST042 device review
+
+userは『まだ遅い。結果を確認』。042原report/parent完全一致、現schema検証成功、商品50/63/8・GAME PAUSEを実画像確認。初方向はreport開始23.830929秒/親module39.353369秒、walk26.228841秒（04118.587216/30.987308/21.874078秒）。別配置なので全差をコードに因果帰属しない。全上6RPC gaps7.329184/.513524/2.087272/4.700724/.520309秒、未送信2、3/4連続0、mixed未適用。初期4点full採用・fork・直接handoffは働いたが毎拍/人より速い性能は未合格。
+
+初歩後sampleのq .9800158124に旧model予測.8442919432で差.1357238692周期>.08。trackNone→新4点/span4.7702625秒の再取得が7.329秒間隔を説明する。HTTP中点誤差/抽出/実拍変化の原因は分離不能で許容緩和根拠にしない。冒頭2候補late12.045/13.073ms、spin/睡眠/検査費用は未分離。予定3は終了時frame3.162552468秒で2へ縮退、扉前2入力は3.291885984秒で3秒超過しfull更新。前面は有効で前面のみ更新では解消しない。第3拍guard未実行を縮退原因にしない。
+
+全15capture中央値687.089ms（decodeを内包）、navigation483.502ms、motion317.105/200.493/1004.782ms。source順序対応した歩行full8画像のcapture+analysis中央値1252.335msで、guard/motion/planning/RPC待機は別。逐次full観測を挟む方式の小修正だけでは全経路毎拍に届かない。次は観測/解析と期限付き入力制御の並行化、同時RPC queue/取消/商品優先/実送信prefix/取得側の生成・実行時刻を設計する。今回は結果分析と既存5文書の更新のみ、043コード/ZIP未作成。独立2名で数値と原因式を照合。コード無変更で全試験再実行はしない。生媒体/ZIP/logはGit外、既承認workブランチへ分析保存。
