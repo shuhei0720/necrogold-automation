@@ -1913,3 +1913,19 @@ TEST047 ZIP1,072,816bytes/SHA-256 `4128c40bbe898475a2f797a93696fb393da5ad9b8f48c
 TEST048プランレビュー第1周: 設計/安全はP0/P1/P2なしでclose。試験P2はdispatch_failureの実Swift producer検証不足。追記する受入条件は、公開Runtime status/resultsでlive MOVE拒否前null、独立に誘発する各enum拒否の正確な8key/時刻/元command境界、後の拒否/status/resultsでも最初のrecordのbytes同一、古いIDとgeneration失効callbackがpublish/上書きしないこと。producer接続削除・first-only削除・ID/世代除外削除の実callsite変異をそれぞれ対応named assertion Redで検出する。compile/setup失敗は不可。加えて純粋解析の開始/終了はworker時刻、controller observe終了はadditive `observe_end_ns`として明示projectionへ保存し、以前の解析区間との内訳を区別する。
 
 TEST048プランレビューは設計/安全各第1周・試験第2周でP0/P1/P2なしとして終了。`b282af2c1ad6a889217db27c92632821304724a6` / [Mac CI42375674996](https://github.com/shuhei0720/necrogold-automation/actions/runs/42375674996)でSwift6.3.3のcompile成功後、固定20912df2の実Runtime＋実C/公開walk/scheduleTicketによる`FAIL move_foreground_prepared_before_final_callback_is_offered`をreturncode1・stderr空で観測した。新API不足やsetup失敗ではない。その後だけ本体実装へ進む。clientも実暗号HTTP→保存journalのdispatch_failure欠落1assertion failure/0errorsから最小Greenを確認。native C/Rasterのローカル全128件は既存79必須画像を含め全成功・skip0（29.999秒）。
+
+TEST048実装レビュー第1周: 設計/安全の静的確認はP0/P1/P2なし、最終CI/IPA/封印source待ち。試験P2はproducerの時刻が外部query実区間に結び付かないことと、producer保存gateのID単独削除変異がないこと。fake前面照会entry/exitとfinal hookの既知時刻を別計測し、query_start<=entry<=exit<=query_end<=main_entry<=gate/元command境界と遅延差分を検証する。query_startをquery_endへ置換する変異と、IDのみ削除する変異を対応named assertionで拒否してから第2周で照合する。client124件はホスト30.653秒/CI42375914171で31.810秒に全成功・skip0。client検証ZIP13574964812は3,777bytes/SHA-256 `59703e3b5e2c7afc3ad4aee489a6ca32fde8ea05459523583c8f1a8035d18572`、root実回収CRC/SHA一致。
+
+## TEST-048実行手順
+
+**TEST048の新IPAへ更新する。** LoopCtrlでStop Serverを押して完全終了し、下記の検証済みIPA ZIPをSafariでGitHubへログインして保存・展開する。`upstream/release/LoopCtrl.ipa`をSideStoreのMy Apps → ＋から更新する。LoopCtrlを起動し直し、いつものVPN/ディスクイメージ接続とStart Serverの起動済み表示を確認する。API1.98.14-ngg2/native_v1..v5が必要で、native-walk-v6はv5不足ならゲーム開始前に拒否する。
+
+完全source ZIPを展開し、新しい通常1-1を画面端操作0・左側が下の向きでポーズする。iSHで次を実行し、フォルダ選択では展開した完全sourceフォルダを指定する。
+
+```sh
+mkdir -p /mnt/necro_test048
+mount -t ios . /mnt/necro_test048
+cd /mnt/necro_test048 && sh test_048.sh
+```
+
+**TEST048の実機テストを依頼する。** 起動/初歩までの待ち、各ビートで1歩ずつ続くか、商品が見えるところまで行くか、最後にポーズするかを確認し、終了後の **runtime/test-048全体をZIPでこのチャットへ返す**。未起動/零歩/途中停止でも同じZIPを返す。可能なら心臓と歩行の短い動画も添える。最終ポーズが未確認なら手動でポーズする。旧テストのruntimeは混ぜず、別試験を同時実行しない。

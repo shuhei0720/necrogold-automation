@@ -134,17 +134,22 @@ NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
 NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
 alignInitialFixtureMove(preparedMove)
 var preparedMoveQueries = 0
+var preparedQueryIsMove = false
 var preparedMoveID: UInt64 = 0
 var preparedMoveCommand: [String: JSONValue] = [:]
-NG2Fake.lock.lock()
-NG2Fake.beforeForegroundQuery = {
+NG2RuntimeTestHooks.beforeMainAdmission = {
     let current = report(preparedMove)
     let currentID = current["current_command_id"]?.intValue ?? 0
     let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
-    if events.contains(where: { $0["id"]?.intValue == currentID && $0["kind"]?.intValue == 4 }) {
-        NG2Fake.lock.lock(); preparedMoveQueries += 1; NG2Fake.lock.unlock()
-        NG2Fake.advance(20_000_000)
-    }
+    NG2Fake.lock.lock()
+    preparedQueryIsMove = events.contains(where: { $0["id"]?.intValue == currentID && $0["kind"]?.intValue == 4 })
+    NG2Fake.lock.unlock()
+}
+NG2Fake.lock.lock()
+NG2Fake.beforeForegroundQuery = {
+    NG2Fake.lock.lock(); let isMove = preparedQueryIsMove
+    if isMove { preparedMoveQueries += 1 }; NG2Fake.lock.unlock()
+    if isMove { NG2Fake.advance(20_000_000) }
 }
 NG2Fake.lock.unlock()
 NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(preparedMove) }
@@ -175,6 +180,88 @@ require(preparedQueriesAtSend == 1 && NG2Fake.paths().count == 1 &&
 cancelDrain(preparedMove)
 fixtureFailureSnapshot = nil
 // TEST048 RUNTIME DISPATCH BASELINE END.
+
+// Generation alone can revoke a still-owned final callback. No cancellation,
+// owner loss or old command ID may mask this final admission requirement.
+NG2Fake.reset(.walk)
+let finalGeneration = identity()
+diagnoseFixture(finalGeneration)
+NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
+alignInitialFixtureMove(finalGeneration)
+var generationTicket: UInt64 = 0
+let generationReturnLock = NSLock()
+var generationReturned = false
+NG2RuntimeTestHooks.scheduleTicket = { id, callback in
+    let events = (report(finalGeneration)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    guard events.contains(where: { $0["id"]?.intValue == Int(id) && $0["kind"]?.intValue == 4 }) else { return false }
+    generationTicket = id; NG2Fake.holdTicket(id, callback); return true
+}
+NG2RuntimeTestHooks.afterTicketReturned = { id in
+    if id == generationTicket { generationReturnLock.lock(); generationReturned = true; generationReturnLock.unlock() }
+}
+NG2RuntimeTestHooks.beforeMainAuthority = {
+    admitFirstFixtureMove(finalGeneration)
+    _ = runtime.testFailureGeneration(finalGeneration, advance: true)
+}
+require(call("necro_native_start", finalGeneration).1 == nil, "final_generation_revocation_public_start")
+pump("final_generation_live_ticket_reserved", timeout: 12) { generationTicket != 0 }
+NG2Fake.releaseTicket(generationTicket)
+pump("final_generation_callback_actually_returned") {
+    generationReturnLock.lock(); defer { generationReturnLock.unlock() }; return generationReturned
+}
+require(NG2Fake.paths().isEmpty && report(finalGeneration)["cancel_requested"]?.boolValue == false &&
+    diagnosticIsNull(report(finalGeneration)["dispatch_failure"]), "final_generation_only_revocation_prevents_synth")
+cancelDrain(finalGeneration)
+fixtureFailureSnapshot = nil
+
+// Holding the real pure-perception call must leave the reserved control ticket
+// runnable. The fixed gate clock removes GCD wake-up jitter from this contract.
+NG2Fake.reset(.walk)
+let scanningMove = identity()
+diagnoseFixture(scanningMove)
+NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
+alignInitialFixtureMove(scanningMove)
+let scanningLock = NSLock()
+let scanningRelease = DispatchSemaphore(value: 0)
+var scanningHeld = false
+var scanningMoveID: UInt64 = 0
+var scanningNotBefore: UInt64 = 0
+NG2RuntimeTestHooks.scheduleTicket = { id, callback in
+    let events = (report(scanningMove)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    guard let move = events.first(where: { $0["id"]?.intValue == Int(id) && $0["kind"]?.intValue == 4 }) else { return false }
+    scanningLock.lock(); scanningMoveID = id; scanningNotBefore = UInt64(move["not_before_ns"]!.intValue!); scanningLock.unlock()
+    NG2RuntimeTestHooks.analysisRGBA = { rgba in
+        scanningLock.lock(); let first = !scanningHeld; scanningHeld = true; scanningLock.unlock()
+        if first { _ = scanningRelease.wait(timeout: .now()+5) }
+        return rgba
+    }
+    NG2Fake.holdTicket(id, callback)
+    return true
+}
+require(call("necro_native_start", scanningMove).1 == nil, "pure_analysis_hold_public_start")
+pump("pure_analysis_worker_reaches_hold", timeout: 12) {
+    scanningLock.lock(); defer { scanningLock.unlock() }; return scanningHeld && scanningMoveID != 0
+}
+scanningLock.lock(); let scanningAt = scanningNotBefore, scanningID = scanningMoveID; scanningLock.unlock()
+NG2RuntimeTestHooks.clock = { scanningAt }
+NG2Fake.releaseTicket(scanningID)
+let scanProgressDeadline = Date().addingTimeInterval(2)
+while NG2Fake.paths().isEmpty && Date() < scanProgressDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.005)) }
+require(NG2Fake.paths().count == 1, "pure_analysis_hold_does_not_block_final_MOVE")
+require(runtime.hasLease && report(scanningMove)["workers_drained"]?.boolValue == false,
+    "pure_analysis_worker_keeps_lease_until_actual_return")
+let scanningCurrent = NG2Fake.virtualClock()
+if scanningCurrent < scanningAt { NG2Fake.advance(scanningAt-scanningCurrent) }
+NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+_ = call("necro_native_cancel", scanningMove)
+NG2RuntimeTestHooks.analysisRGBA = nil
+scanningRelease.signal()
+pump("pure_analysis_cancelled_worker_drained") { drained(scanningMove) }
+require(NG2Fake.paths().count == 1 && report(scanningMove)["missing_capture_ids"]?.arrayValue?.isEmpty == true,
+    "pure_analysis_cancel_keeps_one_synth_and_pinned_references")
+fixtureFailureSnapshot = nil
 
 // This wait deliberately never pumps main: queued bootstrap work must stay
 // queued while the independent watchdog and public status lane are exercised.
@@ -405,14 +492,14 @@ NG2Fake.reset(.pause)
 NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
 let staleMainClock = identity()
 var advancedAtAdmission = false
-NG2RuntimeTestHooks.beforeMainAdmission = {
+NG2RuntimeTestHooks.beforeMainAuthority = {
     let events = report(staleMainClock)["events"]?.arrayValue ?? []
     let deadline = events.last?.objectValue?["deadline_ns"]?.intValue ?? 0
     let current = NG2Fake.virtualClock()
     require(deadline > 0 && UInt64(deadline) >= current, "main_clock_fixture_ticket_still_valid")
     NG2Fake.advance(UInt64(deadline)-current+1)
     advancedAtAdmission = true
-    NG2RuntimeTestHooks.beforeMainAdmission = nil
+    NG2RuntimeTestHooks.beforeMainAuthority = nil
 }
 require(call("necro_native_start", staleMainClock).1 == nil, "main_clock_start")
 pump("main_clock_admission_completed") {
@@ -880,11 +967,16 @@ for staleFirst in [true, false] {
     func releaseOld() {
         NG2Fake.lock.lock(); NG2Fake.frontPID = 0
         NG2Fake.beforeForegroundQuery = { oldQueries += 1 }; NG2Fake.lock.unlock()
+        var staleFinalHooks = 0
+        NG2RuntimeTestHooks.beforeMainAuthority = { staleFinalHooks += 1 }
         NG2Fake.releaseTicket(oldID)
         pump("replan_stale_callback_returned") {
             NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }; return NG2Fake.returnedTickets.contains(oldID)
         }
         require(oldQueries == 0, "replan_stale_callback_skips_AX_and_shared_authority")
+        require(staleFinalHooks == 0, "replan_stale_callback_skips_final_authority_hook")
+        NG2RuntimeTestHooks.beforeMainAuthority = nil
+        require(diagnosticIsNull(report(replan)["dispatch_failure"]), "stale_ticket_does_not_publish_dispatch_failure")
         NG2Fake.lock.lock(); NG2Fake.frontPID = 42; NG2Fake.beforeForegroundQuery = nil; NG2Fake.lock.unlock()
     }
     if staleFirst {
@@ -1018,6 +1110,160 @@ require(traceResult.1 == nil && (try? traceEncoder.encode(traceBeforeResults)) =
     traceResult.0?["report"]?.objectValue?["raster_samples_dropped"]?.intValue == 1 && NG2Fake.countTouches() == 0,
     "raster_trace_public_results_preserves_retained_samples")
 fixtureFailureSnapshot = nil
+
+// Each code is induced at the public walk path, never by a client-side
+// fabricated report. Clock changes occur between complete raw captures.
+func sameDispatchFailure(_ a: [String: JSONValue]?, _ b: [String: JSONValue]?) -> Bool {
+    guard let a, let b else { return false }
+    let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+    return (try? encoder.encode(a)) == (try? encoder.encode(b))
+}
+let dispatchFailureKeys = Set(["command_id", "not_before_ns", "deadline_ns", "query_start_ns", "query_end_ns",
+    "main_entry_ns", "gate_ns", "code"])
+for failureCode in ["foreground", "locked", "owner", "authority_stale", "too_early", "too_late", "controller_rejected"] {
+    NG2Fake.reset(.walk)
+    let failedMove = identity()
+    diagnoseFixture(failedMove)
+    NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+    NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
+    alignInitialFixtureMove(failedMove)
+    var failedCommand: [String: JSONValue] = [:]
+    var finalGateVisited = false
+    var externalQueryEntry: UInt64 = 0, externalQueryExit: UInt64 = 0
+    var externalFinalEntry: UInt64 = 0, externalFinalExit: UInt64 = 0
+    NG2Fake.lock.lock()
+    NG2Fake.beforeForegroundQuery = {
+        let entered = NG2Fake.virtualClock()
+        let current = report(failedMove)
+        let currentID = current["current_command_id"]?.intValue ?? 0
+        let commands = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        guard commands.contains(where: { $0["id"]?.intValue == currentID && $0["kind"]?.intValue == 4 }) else { return }
+        if failureCode == "foreground" { NG2Fake.lock.lock(); NG2Fake.frontPID = 0; NG2Fake.lock.unlock() }
+        if failureCode == "authority_stale" { NG2Fake.advance(1_000_000_001) }
+        externalQueryEntry = entered; externalQueryExit = NG2Fake.virtualClock()
+    }
+    NG2Fake.lock.unlock()
+    NG2RuntimeTestHooks.scheduleTicket = { id, callback in
+        let commands = (report(failedMove)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        guard let command = commands.first(where: { $0["id"]?.intValue == Int(id) && $0["kind"]?.intValue == 4 }) else { return false }
+        require(diagnosticIsNull(report(failedMove)["dispatch_failure"]), "dispatch_failure_null_before_first_rejection_"+failureCode)
+        failedCommand = command
+        callback(); return true
+    }
+    NG2RuntimeTestHooks.beforeMainAuthority = {
+        let entered = NG2Fake.virtualClock()
+        let current = report(failedMove)
+        let currentID = current["current_command_id"]?.intValue ?? 0
+        let commands = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        guard let command = commands.first(where: { $0["id"]?.intValue == currentID && $0["kind"]?.intValue == 4 }) else { return }
+        finalGateVisited = true
+        if failureCode == "too_early" {
+            require(NG2Fake.virtualClock() < UInt64(command["not_before_ns"]!.intValue!), "dispatch_early_fixture_precedes_original_notBefore")
+            NG2RuntimeTestHooks.beforeMainAuthority = nil
+        } else if failureCode == "authority_stale" {
+            NG2RuntimeTestHooks.beforeMainAuthority = nil
+        } else {
+            admitFirstFixtureMove(failedMove)
+            if failureCode == "locked" { LockStateMonitor.monitor.isLocked = true }
+            if failureCode == "owner" { RemoteSession.shared.paused = true }
+            if failureCode == "too_late" {
+                let deadline = UInt64(command["deadline_ns"]!.intValue!)
+                require(NG2Fake.changeClockAtCaptureBoundary {
+                    let now = NG2Fake.virtualClock()
+                    if now <= deadline { NG2Fake.advance(deadline-now+1) }
+                }, "dispatch_late_fixture_capture_boundary")
+            }
+            if failureCode == "controller_rejected" {
+                runtime.testInvalidateControllerTicket(failedMove)
+            }
+        }
+        externalFinalEntry = entered; externalFinalExit = NG2Fake.virtualClock()
+    }
+    require(call("necro_native_start", failedMove).1 == nil, "dispatch_failure_public_start_"+failureCode)
+    pump("dispatch_failure_committed_"+failureCode, timeout: 12) {
+        _ = call("necro_native_status", failedMove, keepalive: true)
+        return report(failedMove)["dispatch_failure"]?.objectValue != nil || drained(failedMove)
+    }
+    let firstFailure = report(failedMove)["dispatch_failure"]?.objectValue
+    require(finalGateVisited && firstFailure?["code"]?.stringValue == failureCode && Set(firstFailure?.keys.map { $0 } ?? []) == dispatchFailureKeys &&
+        firstFailure?["command_id"]?.intValue == failedCommand["id"]?.intValue &&
+        ["not_before_ns", "deadline_ns"].allSatisfy { firstFailure?[$0]?.intValue == failedCommand[$0]?.intValue } &&
+        (firstFailure?["query_start_ns"]?.intValue ?? 0) > 0 &&
+        UInt64(firstFailure?["query_start_ns"]?.intValue ?? 0) <= externalQueryEntry &&
+        externalQueryEntry <= externalQueryExit &&
+        externalQueryExit <= UInt64(firstFailure?["query_end_ns"]?.intValue ?? 0) &&
+        (firstFailure?["query_end_ns"]?.intValue ?? 0) <= (firstFailure?["main_entry_ns"]?.intValue ?? 0) &&
+        UInt64(firstFailure?["main_entry_ns"]?.intValue ?? 0) <= externalFinalEntry &&
+        externalFinalEntry <= externalFinalExit && externalFinalExit <= UInt64(firstFailure?["gate_ns"]?.intValue ?? 0),
+        "dispatch_failure_actual_producer_exact_schema_and_reason_"+failureCode)
+    require(NG2Fake.paths().isEmpty && report(failedMove)["inputs"]?.intValue == 0,
+        "dispatch_failure_actual_producer_sends_no_direction_"+failureCode)
+    // Restore public authority solely to let an explicit cancellation drain.
+    NG2Fake.lock.lock(); NG2Fake.frontPID = 42; NG2Fake.beforeForegroundQuery = nil; NG2Fake.lock.unlock()
+    RemoteSession.shared.paused = false; LockStateMonitor.monitor.isLocked = false
+    NG2RuntimeTestHooks.beforeMainAuthority = nil
+    cancelDrain(failedMove)
+    let saved = call("necro_native_results", failedMove)
+    require(saved.1 == nil && sameDispatchFailure(firstFailure, report(failedMove)["dispatch_failure"]?.objectValue) &&
+        sameDispatchFailure(firstFailure, saved.0?["report"]?.objectValue?["dispatch_failure"]?.objectValue),
+        "dispatch_failure_first_record_survives_drain_and_results_"+failureCode)
+    fixtureFailureSnapshot = nil
+}
+
+// Competing records use the real production storage function. Only setup is
+// HOST_TEST: the actual command comes from the public reserved-MOVE event.
+NG2Fake.reset(.walk)
+let competingDispatch = identity()
+diagnoseFixture(competingDispatch)
+NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
+alignInitialFixtureMove(competingDispatch)
+var competingCommand: [String: JSONValue]?
+var competingTicket = NG2Command()
+var immutableDispatch: [String: JSONValue]?
+NG2RuntimeTestHooks.scheduleTicket = { id, callback in
+    let commands = (report(competingDispatch)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    guard let command = commands.first(where: { $0["id"]?.intValue == Int(id) && $0["kind"]?.intValue == 4 }) else { return false }
+    NG2Fake.holdTicket(id, callback)
+    competingTicket.id = id; competingTicket.kind = 4
+    competingTicket.not_before_ns = UInt64(command["not_before_ns"]!.intValue!)
+    competingTicket.deadline_ns = UInt64(command["deadline_ns"]!.intValue!)
+    // Keep these generation-only setup operations inside this exact control
+    // callback, so a timer cannot commit an unrelated old frame between them.
+    let originalDispatchGeneration = runtime.testFailureGeneration(competingDispatch)!
+    let nextDispatchGeneration = runtime.testFailureGeneration(competingDispatch, advance: true)!
+    let competingAt = competingTicket.not_before_ns-1
+    func submit(_ ticket: NG2Command, generation: UInt64, code: String) {
+        runtime.testRecordDispatchFailure(competingDispatch, generation: generation, command: ticket,
+            start: competingAt-2, end: competingAt-1, entry: competingAt, now: competingAt, code: code)
+    }
+    submit(competingTicket, generation: originalDispatchGeneration, code: "too_late")
+    require(diagnosticIsNull(report(competingDispatch)["dispatch_failure"]), "dispatch_failure_stale_generation_does_not_publish")
+    var staleDispatchTicket = competingTicket; staleDispatchTicket.id += 1
+    submit(staleDispatchTicket, generation: nextDispatchGeneration, code: "too_late")
+    require(diagnosticIsNull(report(competingDispatch)["dispatch_failure"]), "dispatch_failure_stale_command_does_not_publish")
+    submit(competingTicket, generation: nextDispatchGeneration, code: "too_early")
+    immutableDispatch = report(competingDispatch)["dispatch_failure"]?.objectValue
+    require(immutableDispatch?["code"]?.stringValue == "too_early", "dispatch_failure_first_record_public_storage")
+    submit(competingTicket, generation: nextDispatchGeneration, code: "too_late")
+    require(sameDispatchFailure(immutableDispatch, report(competingDispatch)["dispatch_failure"]?.objectValue),
+        "dispatch_failure_first_record_is_immutable")
+    competingCommand = command
+    return true
+}
+require(call("necro_native_start", competingDispatch).1 == nil, "dispatch_competing_record_start")
+pump("dispatch_competing_actual_MOVE_reserved", timeout: 12) { competingCommand != nil }
+require(runtime.hasLease && report(competingDispatch)["main_ticket_outstanding"]?.boolValue == true && NG2Fake.paths().isEmpty,
+    "dispatch_generation_revocation_retains_queued_callback_lease")
+_ = call("necro_native_cancel", competingDispatch)
+NG2Fake.releaseTicket(competingTicket.id)
+pump("dispatch_competing_callback_drained") { drained(competingDispatch) }
+let competingResults = call("necro_native_results", competingDispatch)
+require(competingResults.1 == nil && sameDispatchFailure(immutableDispatch,
+    competingResults.0?["report"]?.objectValue?["dispatch_failure"]?.objectValue),
+    "dispatch_failure_immutable_first_record_survives_public_results")
+fixtureFailureSnapshot = nil
+
 
 NG2Fake.reset(.pause)
 NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()

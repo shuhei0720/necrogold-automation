@@ -33,6 +33,10 @@ private struct NG2Frame {
     let start: UInt64
     let end: UInt64
     let decodeEnd: UInt64
+    let generation: UInt64
+    let analysisStart: UInt64
+    let analysisEnd: UInt64
+    let scene: NG2Scene
     let startPrefix: UInt64
     let prefix: UInt64
     let startInFlight: Bool
@@ -77,6 +81,7 @@ private final class NG2Run {
     var rasterSamples: [JSONValue] = []
     var rasterSamplesDropped: UInt64 = 0
     var captureFailure: [String: JSONValue]?
+    var dispatchFailure: [String: JSONValue]?
     var replacedFrames: UInt64 = 0
     var terminal = false
     var successful = false
@@ -100,7 +105,7 @@ private final class NG2Run {
     }
 }
 
-/// One bounded native run. C is used only on controlQueue, except begin()
+/// One bounded native run. Controller C state is used only on controlQueue, except begin()
 /// on main while controlQueue synchronously waits for that exact call.
 /// Status/cancel RPCs read immutable cached dictionaries and never touch C.
 final class NG2Runtime {
@@ -296,6 +301,12 @@ final class NG2Runtime {
             return true
         }
     }
+    private func cancelCaptureFailure(_ run: NG2Run, generation: UInt64) {
+        run.lock.ng2Locked {
+            guard run.generation == generation, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return }
+            run.cancelReason = 20; run.generation &+= 1; run.stopped = true; run.latest = nil
+        }
+    }
     #if NG2_RUNTIME_HOST_TEST
     // Test setup may change only the generation or submit competing failures.
     // Storage still goes through the exact production commit gate, and tests
@@ -312,6 +323,19 @@ final class NG2Runtime {
                            start: UInt64, end: UInt64, failure: NG2Raster.Failure) -> Bool {
         guard let run = lock.ng2Locked({ current }), run.id == id else { return false }
         return commitCaptureFailure(run, generation: generation, id: captureID, start: start, end: end, failure: failure)
+    }
+    func testInvalidateControllerTicket(_ id: String) {
+        guard let run = lock.ng2Locked({ current }), run.id == id, let core = run.core else { return }
+        // Called from final main hook while controlQueue waits for that call.
+        ng2_controller_cancel(core, Self.now(), 1)
+    }
+    func testRecordDispatchFailure(_ id: String, generation: UInt64, command: NG2Command,
+                                   start: UInt64, end: UInt64, entry: UInt64, now: UInt64, code: String) {
+        guard let run = lock.ng2Locked({ current }), run.id == id else { return }
+        run.lock.ng2Locked {
+            recordDispatchFailure(run, command, generation: generation,
+                authority: AuthoritySample(start: start, end: end, foreground: true), entry: entry, now: now, code: code)
+        }
     }
     #endif
     private func response(_ run: NG2Run) -> [String: JSONValue] {
@@ -344,6 +368,7 @@ final class NG2Runtime {
             report["raster_samples"] = .array(run.rasterSamples)
             report["raster_samples_dropped"] = number(run.rasterSamplesDropped)
             report["capture_failure"] = run.captureFailure.map { JSONValue.object($0) } ?? .null
+            report["dispatch_failure"] = run.dispatchFailure.map { JSONValue.object($0) } ?? .null
             report["daemon_requests_outstanding"] = .int(Int(NG2CaptureBridge.pendingRequests))
             let retained = Set(run.pinned.keys).union(run.images.map { $0.id })
             report["analyzed_capture_count"] = number(run.analyzedFrames)
@@ -503,13 +528,33 @@ final class NG2Runtime {
             case .success(let value): decoded = value
             case .failure(let failure):
                 commitCaptureFailure(run, generation: before.3, id: before.0, start: start, end: captureEnd, failure: failure)
-                run.cancel(20); return
+                cancelCaptureFailure(run, generation: before.3); return
             }
-            let frame = NG2Frame(id: before.0, start: start, end: captureEnd, decodeEnd: Self.now(),
+            let decodeEnd = Self.now()
+            var scene = NG2Scene()
+            let analysisStart = Self.now()
+            // Pure image scanning belongs to the existing capture worker. It
+            // never touches the controller or blocks its timed ticket queue.
+            #if NG2_RUNTIME_HOST_TEST
+            let analysisRGBA = NG2RuntimeTestHooks.analysisRGBA?(decoded.rgba) ?? decoded.rgba
+            #else
+            let analysisRGBA = decoded.rgba
+            #endif
+            let analyzed = analysisRGBA.withUnsafeBytes { ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress,
+                analysisRGBA.count, NG2Raster.stride, &scene) }
+            let frame = NG2Frame(id: before.0, start: start, end: captureEnd, decodeEnd: decodeEnd,
+                generation: before.3, analysisStart: analysisStart, analysisEnd: Self.now(), scene: scene,
                 startPrefix: before.1, prefix: endPrefix, startInFlight: before.2, endInFlight: endInFlight,
                 stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: decoded.rgba,
                 rasterTrace: decoded.trace, encodedBytes: raw?.count ?? 0,
                 diagnosticOrientation: decoded.diagnosticOrientation)
+            if analyzed != 0 {
+                let trace = frame.rasterTrace
+                commitCaptureFailure(run, generation: before.3, id: frame.id, start: frame.start, end: frame.end,
+                    failure: .init(stage: .analysis, code: .invalidRGBA, encodedBytes: frame.encodedBytes,
+                        sourceWidth: trace.sourceWidth, sourceHeight: trace.sourceHeight, orientation: frame.diagnosticOrientation))
+                cancelCaptureFailure(run, generation: before.3); return
+            }
             run.lock.ng2Locked {
                 if run.generation == before.3 && !run.stopped {
                     if run.latest != nil { run.replacedFrames += 1 }
@@ -526,22 +571,12 @@ final class NG2Runtime {
         let now = Self.now()
         let cancelled = run.lock.ng2Locked { run.cancelReason }
         if cancelled != 0 { ng2_controller_cancel(core, now, cancelled) }
-        var analysisGeneration: UInt64 = 0
         let frame: NG2Frame? = run.lock.ng2Locked {
-            analysisGeneration = run.generation
             let frame = run.latest; run.latest = nil; return frame
         }
         if let frame, cancelled == 0 {
-            var scene = NG2Scene()
-            let analysisStart = Self.now()
-            #if NG2_RUNTIME_HOST_TEST
-            let analysisRGBA = NG2RuntimeTestHooks.analysisRGBA?(frame.rgba) ?? frame.rgba
-            #else
-            let analysisRGBA = frame.rgba
-            #endif
-            let analyzed = analysisRGBA.withUnsafeBytes { ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress,
-                analysisRGBA.count, NG2Raster.stride, &scene) }
-            if analyzed == 0 {
+            let analysisGeneration = frame.generation
+            var scene = frame.scene
                 #if NG2_RUNTIME_HOST_TEST
                 NG2RuntimeTestHooks.beforeAnalysisCommit?()
                 #endif
@@ -552,7 +587,8 @@ final class NG2Runtime {
                     ng2_controller_observe(core, &scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0)
                     run.captures.append(.object(["id": number(frame.id), "start_ns": number(frame.start),
                         "end_ns": number(frame.end), "decode_end_ns": number(frame.decodeEnd),
-                        "analysis_start_ns": number(analysisStart), "analysis_end_ns": number(Self.now()),
+                        "analysis_start_ns": number(frame.analysisStart), "analysis_end_ns": number(frame.analysisEnd),
+                        "observe_end_ns": number(Self.now()),
                         "completed_prefix_start": number(frame.startPrefix), "completed_prefix_end": number(frame.prefix),
                         "inflight_start": .bool(frame.startInFlight), "inflight_end": .bool(frame.endInFlight),
                         "stable": .bool(frame.stable)]))
@@ -581,17 +617,14 @@ final class NG2Runtime {
                     var observedStatus = NG2ControllerStatus(); ng2_controller_status(core, &observedStatus)
                     cache(run, observedStatus)
                 } else {
-                    let reason = run.lock.ng2Locked { run.cancelReason == 0 ? Int32(5) : run.cancelReason }
-                    run.cancel(reason)
-                    ng2_controller_cancel(core, Self.now(), reason)
+                    // A generation-only replacement discards this old frame;
+                    // it must not cancel or mutate the current generation.
+                    let reason = run.lock.ng2Locked { run.cancelReason != 0 ? run.cancelReason : (self.ownerActive(run) ? Int32(0) : Int32(5)) }
+                    if reason != 0 {
+                        run.cancel(reason)
+                        ng2_controller_cancel(core, Self.now(), reason)
+                    }
                 }
-            } else {
-                let trace = frame.rasterTrace
-                commitCaptureFailure(run, generation: analysisGeneration, id: frame.id, start: frame.start, end: frame.end,
-                    failure: .init(stage: .analysis, code: .invalidRGBA, encodedBytes: frame.encodedBytes,
-                        sourceWidth: trace.sourceWidth, sourceHeight: trace.sourceHeight, orientation: frame.diagnosticOrientation))
-                run.cancel(20); ng2_controller_cancel(core, Self.now(), 20)
-            }
         }
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
         if status.terminal != 0 {
@@ -636,13 +669,14 @@ final class NG2Runtime {
                 let generation = run.lock.ng2Locked {
                     run.mainCommandID = command.id; run.mainCallbacks.insert(command.id); return run.generation
                 }
+                ng2_controller_status(core, &status); cache(run, status)
+                let authority = prepare(run, command, generation: generation)
                 let at = Self.now()
                 let delay = command.not_before_ns > at ? Double(command.not_before_ns - at) / 1e9 : 0
-                ng2_controller_status(core, &status); cache(run, status)
                 let callback = {
-                    self.execute(run, command, generation: generation)
+                    self.execute(run, command, generation: generation, authority: authority)
                     // This following queue item executes only after the exact
-                    // callback has returned, including its main/AX work.
+                    // callback has returned; its earlier AX preparation also returned.
                     self.controlQueue.async {
                         run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }
                         #if NG2_RUNTIME_HOST_TEST
@@ -662,44 +696,85 @@ final class NG2Runtime {
         if now - min(now, run.lastCache) >= 50_000_000 { ng2_controller_status(core, &status); cache(run, status) }
     }
 
-    private func execute(_ run: NG2Run, _ command: NG2Command, generation: UInt64) {
-        guard let core = run.core else { return }
-        guard run.lock.ng2Locked({ run.mainCommandID == command.id }) else { return }
-        var outcome: Int32 = 0
+    private struct AuthoritySample {
+        var start: UInt64 = 0
+        var end: UInt64 = 0
+        var foreground = false
+    }
+    private func ownsTicket(_ run: NG2Run, _ command: NG2Command, generation: UInt64) -> Bool {
+        run.lock.ng2Locked { run.mainCommandID == command.id && run.generation == generation }
+    }
+    private func prepare(_ run: NG2Run, _ command: NG2Command, generation: UInt64) -> AuthoritySample {
+        var sample = AuthoritySample()
+        guard ownsTicket(run, command, generation: generation) else { return sample }
+        // The pipeline token remains held until the delayed callback returns.
+        // main.sync proves the preparation really returned before that handoff.
         DispatchQueue.main.sync {
-            #if NG2_RUNTIME_HOST_TEST
-            NG2RuntimeTestHooks.beforeMainAuthority?()
-            #endif
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.beforeMainAdmission?()
             #endif
-            guard run.lock.ng2Locked({ run.mainCommandID == command.id }) else { return }
-            // XCTest foreground IPC can stall. It must never hold the lock
-            // used by status, cancel, capture invalidation or the watchdog.
+            guard self.ownsTicket(run, command, generation: generation),
+                  run.lock.ng2Locked({ run.cancelReason == 0 && !run.stopped }), self.ownerActive(run),
+                  !LockStateMonitor.shared().isLocked else { return }
+            // Foreground AX IPC must remain outside the status/cancel lock.
             let authorityQueryStart = Self.now()
             let foreground = run.expectedPID > 0 && ForegroundApp.frontmostPID() == run.expectedPID
-            let locked = LockStateMonitor.shared().isLocked
             let authorityQueryEnd = Self.now()
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.afterForegroundQuery?()
             #endif
+            sample = AuthoritySample(start: authorityQueryStart, end: authorityQueryEnd, foreground: foreground)
+        }
+        return sample
+    }
+    // Called under run.lock only for a still-live command/generation. No raw
+    // AX response or arbitrary exception text enters this fixed first record.
+    private func recordDispatchFailure(_ run: NG2Run, _ command: NG2Command, generation: UInt64,
+                                       authority: AuthoritySample, entry: UInt64, now: UInt64, code: String) {
+        guard run.mainCommandID == command.id, run.generation == generation, run.cancelReason == 0 else { return }
+        guard command.kind == 4, run.dispatchFailure == nil else { return }
+        run.dispatchFailure = ["command_id": number(command.id),
+            "not_before_ns": number(command.not_before_ns), "deadline_ns": number(command.deadline_ns),
+            "query_start_ns": authority.start == 0 ? .null : number(authority.start),
+            "query_end_ns": authority.end == 0 ? .null : number(authority.end),
+            "main_entry_ns": entry == 0 ? .null : number(entry), "gate_ns": number(now), "code": .string(code)]
+    }
+
+    private func execute(_ run: NG2Run, _ command: NG2Command, generation: UInt64, authority: AuthoritySample) {
+        guard let core = run.core else { return }
+        guard ownsTicket(run, command, generation: generation) else { return }
+        var outcome: Int32 = 0
+        DispatchQueue.main.sync {
+            let mainEntry = Self.now()
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeTestHooks.beforeMainAuthority?()
+            #endif
+            guard self.ownsTicket(run, command, generation: generation) else { return }
+            let foreground = authority.foreground
+            let locked = LockStateMonitor.shared().isLocked
             let permitted = run.lock.ng2Locked { () -> Bool in
                 guard run.mainCommandID == command.id else { return false }
                 let ownerActive = self.ownerActive(run)
                 let now = Self.now()
                 let authorityFresh = NG2TicketGuard.authoritySampleIsFresh(
-                    start: authorityQueryStart, end: authorityQueryEnd, now: now)
+                    start: authority.start, end: authority.end, now: now)
                 // The gate rechecks cancellation/generation/owner and time
                 // immediately before the C begin linearization point.
                 let lostReason: Int32 = !ownerActive ? 5 : (locked ? 4 : (!foreground ? 3 : (!authorityFresh ? 7 : 0)))
-                if lostReason != 0 {
-                    if run.cancelReason == 0 { run.cancelReason = lostReason; run.generation &+= 1 }
+                if run.generation == generation && run.cancelReason == 0 && lostReason != 0 {
+                    let code = !ownerActive ? "owner" : (locked ? "locked" : (!foreground ? "foreground" : "authority_stale"))
+                    recordDispatchFailure(run, command, generation: generation, authority: authority, entry: mainEntry, now: now, code: code)
+                    run.cancelReason = lostReason; run.generation &+= 1
                     run.stopped = true; run.latest = nil
                 }
                 guard NG2TicketGuard.permits(expectedGeneration: generation, currentGeneration: run.generation,
                     cancelled: run.cancelReason != 0, ownerActive: ownerActive, foreground: foreground,
                     locked: locked, now: now, notBefore: command.not_before_ns, deadline: command.deadline_ns),
-                    ng2_controller_begin(core, command.id, now, foreground ? 1 : 0, locked ? 1 : 0, ownerActive ? 1 : 0) == 1 else { return false }
+                    ng2_controller_begin(core, command.id, now, foreground ? 1 : 0, locked ? 1 : 0, ownerActive ? 1 : 0) == 1 else {
+                    let code = now < command.not_before_ns ? "too_early" : (now > command.deadline_ns ? "too_late" : "controller_rejected")
+                    recordDispatchFailure(run, command, generation: generation, authority: authority, entry: mainEntry, now: now, code: code)
+                    return false
+                }
                 run.inFlight = true
                 return true
             }
@@ -721,7 +796,7 @@ final class NG2Runtime {
                 // frame prefix or issue an automatic cleanup tap from it.
             }
         }
-        guard run.lock.ng2Locked({ run.mainCommandID == command.id }) else { return }
+        guard run.lock.ng2Locked({ run.mainCommandID == command.id && (run.generation == generation || run.cancelReason != 0) }) else { return }
         let cancelled = run.lock.ng2Locked { run.cancelReason }
         if outcome == 0 && cancelled != 0 { ng2_controller_cancel(core, Self.now(), cancelled) }
         ng2_controller_complete(core, command.id, Self.now(), outcome)
