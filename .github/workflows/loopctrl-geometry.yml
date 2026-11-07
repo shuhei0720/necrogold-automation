@@ -174,6 +174,46 @@ jobs:
           set -euo pipefail
           make ipa UNSIGNED=1 EXTRA_BUILD_SETTINGS="CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER" 2>&1 | tee "$RUNNER_TEMP/ngg2/ios-build.txt"
           Scripts/package-release.sh 2>&1 | tee "$RUNNER_TEMP/ngg2/ios-package.txt"
+      - name: Preserve actual compiler inputs for verification diagnostics
+        if: always()
+        env:
+          NATIVE_ARG_PROOF: ${{ runner.temp }}/ngg2/perception-build/raw-build-args
+        run: |
+          python3 - <<'PYPROOF'
+          import hashlib
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('profile_reader', 'driver/patches/loopctrl/check_perception_build.py')
+          reader = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(reader)
+          upstream = Path('upstream').resolve()
+          output = Path(os.environ['NATIVE_ARG_PROOF'])
+          output.mkdir(parents=True, exist_ok=True)
+          snapshot = {'format_version': 1, 'responses': [], 'errors': [], 'truncated': False}
+          budget = 0
+          build = upstream / 'build'
+          for path in sorted(build.rglob('*')) if build.is_dir() else []:
+              if path.is_symlink() or not path.is_file() or not (path.suffix == '.resp' or path.name.endswith('.SwiftFileList')):
+                  continue
+              if len(snapshot['responses']) >= 256 or path.stat().st_size > 2*1024*1024 or budget + path.stat().st_size > 8*1024*1024:
+                  snapshot['truncated'] = True
+                  continue
+              try:
+                  _, records = reader.expand_response_args(['@'+str(path)], upstream, output)
+                  snapshot['responses'].extend(records)
+                  budget += sum(record['bytes'] for record in records)
+              except reader.ProfileError as error:
+                  snapshot['errors'].append({'path': path.relative_to(upstream).as_posix(), 'code': str(error)})
+          project = upstream / 'LoopCtrl.xcodeproj/project.pbxproj'
+          if project.is_file() and not project.is_symlink():
+              raw = project.read_bytes()
+              (output/'project.pbxproj').write_bytes(raw)
+              snapshot['project_sha256'] = hashlib.sha256(raw).hexdigest()
+              (output/'project-model.json').write_text(json.dumps(reader.read_project(project), indent=2)+'\n')
+          (output/'snapshot.json').write_text(json.dumps(snapshot, indent=2)+'\n')
+          PYPROOF
       - name: Verify actual source-specific Perception compiler profile
         run: python3 driver/patches/loopctrl/check_perception_build.py --compile-profile upstream "$RUNNER_TEMP/ngg2/ios-build.txt" "$RUNNER_TEMP/ngg2/perception-build"
       - name: Run production Swift native contracts with the verified build profile

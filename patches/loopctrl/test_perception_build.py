@@ -337,6 +337,50 @@ class PerceptionResponseFileTests(unittest.TestCase):
         self.assertEqual(expanded, args)
         self.assertEqual(evidence, [])
 
+    def test_direct_linker_loader_literals_are_data_not_response_paths(self):
+        for prefix in ('@rpath', '@executable_path', '@loader_path'):
+            args = ['-Xlinker', prefix + '/LoopCtrlBroadcast.debug.dylib']
+            with self.subTest(prefix=prefix):
+                try:
+                    expanded, evidence = self.expand(args)
+                except checker.ProfileError as error:
+                    self.fail('valid direct linker loader literal was rejected: ' + str(error))
+                self.assertEqual(expanded, args)
+                self.assertEqual(evidence, [])
+
+    def test_loader_literal_context_tracks_flattened_nested_response_arguments(self):
+        self.response('linker.rsp', '-Xlinker')
+        self.response('literal.rsp', '@loader_path/Frameworks')
+        self.response('nested.rsp', '-Xlinker @executable_path/Frameworks')
+        for args, expected in (
+                (['@build/linker.rsp', '@rpath/library.dylib'],
+                 ['-Xlinker', '@rpath/library.dylib']),
+                (['-Xlinker', '@build/literal.rsp'],
+                 ['-Xlinker', '@loader_path/Frameworks']),
+                (['@build/nested.rsp'],
+                 ['-Xlinker', '@executable_path/Frameworks'])):
+            with self.subTest(args=args):
+                expanded, evidence = self.expand(args)
+                self.assertEqual(expanded, expected)
+                self.assertTrue(evidence)
+
+    def test_loader_prefixes_outside_direct_linker_payload_remain_rejected(self):
+        for prefix in ('@rpath', '@executable_path', '@loader_path'):
+            for before in ([], ['-rpath'], ['-Xlinker', '-rpath'], ['-Xlinker', 'other']):
+                with self.subTest(prefix=prefix, before=before), self.assertRaises(checker.ProfileError):
+                    self.expand([*before, prefix + '/outside'])
+        for token in ('@rpathish/outside', '@rpathfile', '@unknown/outside', '@/outside'):
+            with self.subTest(token=token), self.assertRaises(checker.ProfileError):
+                self.expand(['-Xlinker', token])
+
+    def test_linker_payload_exception_does_not_suppress_later_response_audits(self):
+        self.response('ordinary.rsp', '-DRESPONSE=1')
+        args, evidence = self.expand(['-Xlinker', '@rpath/library.dylib', '@build/ordinary.rsp'])
+        self.assertEqual(args, ['-Xlinker', '@rpath/library.dylib', '-DRESPONSE=1'])
+        self.assertEqual(len(evidence), 1)
+        with self.assertRaises(checker.ProfileError):
+            self.expand(['-Xlinker', '@rpath/library.dylib', '@loader_path/outside'])
+
     def test_nested_quoted_response_arguments_and_hashes_are_recorded(self):
         inner = self.response('nested/inner.rsp', '-fno-fast-math -ffp-contract=off')
         outer = self.response('outer.rsp', '-O2 -DNAME="two words" @build/nested/inner.rsp')
@@ -732,6 +776,27 @@ class PerceptionCompileLogTests(unittest.TestCase):
         lines[-1] = self.swift_command(driver=True)
         self.inspect(lines)
 
+    def test_real_swift_debug_dylib_linker_loader_arguments_are_preserved(self):
+        lines = self.commands()
+        flags = ['-Onone', '-Xlinker', '-install_name', '-Xlinker',
+                 '@rpath/LoopCtrlBroadcast.debug.dylib', '-Xlinker', '-rpath',
+                 '-Xlinker', '@executable_path/Frameworks']
+        lines[-1] = self.swift_command(flags, driver=True)
+        result = self.inspect(lines)
+        self.assertIn('@rpath/LoopCtrlBroadcast.debug.dylib', result['swift_compiles'][0]['arguments'])
+        self.assertEqual(result['swift_optimization'], '-Onone')
+        self.assertEqual(result['response_files'], [])
+
+    def test_swift_loader_literals_do_not_hide_a_later_response_optimization(self):
+        response = self.upstream / 'build/hidden-after-loader.rsp'
+        response.parent.mkdir(parents=True)
+        response.write_text('-O')
+        lines = self.commands()
+        lines[-1] = self.swift_command(['-Onone', '-Xlinker', '@rpath/debug.dylib',
+                                       '@build/hidden-after-loader.rsp'], driver=True)
+        with self.assertRaises(checker.ProfileError):
+            self.inspect(lines)
+
     def test_missing_perception_or_any_other_c_compile_is_rejected(self):
         for missing in range(len(self.names)):
             lines = self.commands()
@@ -872,6 +937,23 @@ class PerceptionSavedProfileTests(unittest.TestCase):
 
     def test_saved_actual_profile_roundtrip(self):
         self.assertEqual(self.read_profile(), self.saved)
+
+    def test_saved_profile_revalidates_real_swift_loader_literals(self):
+        lines = self.commands()
+        lines[-1] = self.swift_command(['-Onone', '-Xlinker', '-install_name',
+            '-Xlinker', '@rpath/LoopCtrlBroadcast.debug.dylib', '-Xlinker',
+            '@loader_path/Frameworks'], driver=True)
+        self.saved = self.inspect(lines)
+        self.write_profile()
+        self.assertEqual(self.read_profile(), self.saved)
+        # Changing the source context back into an unadmitted @ token must not
+        # inherit the valid loader exception from the earlier proof.
+        raw = self.saved['swift_compiles'][0]['raw_arguments']
+        index = raw.index('@rpath/LoopCtrlBroadcast.debug.dylib')
+        del raw[index - 1]
+        self.write_profile()
+        with self.assertRaises(checker.ProfileError):
+            self.read_profile()
 
     def test_missing_saved_proof_is_rejected(self):
         self.saved_path.unlink()

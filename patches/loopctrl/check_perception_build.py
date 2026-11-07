@@ -246,6 +246,7 @@ def expand_response_args(args, upstream, proofdir):
     records = []
     total_bytes = 0
     total_tokens = 0
+    previous_token = None
 
     def read_response(relative, before):
         # Walk from an opened source root. Every path component is admitted
@@ -286,10 +287,16 @@ def expand_response_args(args, upstream, proofdir):
                 os.close(descriptor)
 
     def expand(tokens, active=()):
-        nonlocal total_bytes, total_tokens
+        nonlocal total_bytes, total_tokens, previous_token
         result = []
         for token in tokens:
-            if token.startswith('@'):
+            # Swift driver link commands contain Mach-O install names/rpaths.
+            # These are linker data only when they are the direct flattened
+            # payload of -Xlinker; every other @ token remains a response file.
+            loader_literal = previous_token == '-Xlinker' and any(
+                token == prefix or token.startswith(prefix + '/')
+                for prefix in ('@rpath', '@executable_path', '@loader_path'))
+            if token.startswith('@') and not loader_literal:
                 if len(active) >= MAX_RESPONSE_DEPTH or len(records) >= MAX_RESPONSE_FILES:
                     raise ProfileError('perception_response_expansion_limit')
                 path, relative = _safe_build_file(upstream, token[1:])
@@ -325,6 +332,7 @@ def expand_response_args(args, upstream, proofdir):
                 if total_tokens > MAX_RESPONSE_TOKENS:
                     raise ProfileError('perception_response_token_limit')
                 result.append(token)
+                previous_token = token
         return result
 
     return expand(args), records
