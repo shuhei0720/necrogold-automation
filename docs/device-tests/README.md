@@ -1562,15 +1562,37 @@ perception・navigation・beat・controller・thin CLI・guarded applierは、�
 
 ### レビューと配布前の確認
 
-プランの独立レビューは設計3周、試験/安全各2周で指摘を反映した。capture全経路の排他・owner pause・unknown UI・正規化/実C・実server認証入口の試験条件を明文化してから実装した。実装レビュー第1周では取消要求の到達前喪失、保存障害時の取消、native lease中の復旧、capture取消競合・旧daemon callback、開通校正、末尾期限、診断の保存上限と画像保持が指摘された。第2周は第1周の解消を確認したが、main admissionでlock前の時計/権限を使うP1、解析中取消後の結果commit、Runtimeで実CのMOVE/50ms方向gestureまで通していないP1が残った。main時計の負例はcommit `10a7868` / Actions run [42335682199](https://github.com/shuhei0720/necrogold-automation/actions/runs/42335682199)で、コンパイル成功後に`FAIL expired_during_main_admission_no_synth`（exit1、2026-11-07 12:50:01 JST）を観測してから修正する。解析中取消の負例もcommit `3cbbb13` / Actions run [42335883242](https://github.com/shuhei0720/necrogold-automation/actions/runs/42335883242)で、コンパイル成功後に`FAIL revoked_analysis_never_observed_or_retained_cancel`（exit1、2026-11-07 12:52:48 JST）を観測してから修正する。最終集計・第3周と残件は配布確定時にこの節へ追記する。
+プランの独立レビューは設計3周、試験/安全各2周で指摘を反映した。capture全経路の排他・owner pause・unknown UI・正規化/実C・実server認証入口の試験条件を明文化してから実装した。実装レビュー第1周では取消要求の到達前喪失、保存障害時の取消、native lease中の復旧、capture取消競合・旧daemon callback、開通校正、末尾期限、診断の保存上限と画像保持が指摘された。第2周は第1周の解消を確認したが、main admissionでlock前の時計/権限を使うP1、解析中取消後の結果commit、Runtimeで実CのMOVE/50ms方向gestureまで通していないP1が残った。main時計の負例はcommit `10a7868` / Actions run [42335682199](https://github.com/shuhei0720/necrogold-automation/actions/runs/42335682199)で、コンパイル成功後に`FAIL expired_during_main_admission_no_synth`（exit1、2026-11-07 12:50:01 JST）を観測してから修正した。解析中取消の負例もcommit `3cbbb13` / Actions run [42335883242](https://github.com/shuhei0720/necrogold-automation/actions/runs/42335883242)で、コンパイル成功後に`FAIL revoked_analysis_never_observed_or_retained_cancel`（exit1、2026-11-07 12:52:48 JST）を観測してから修正した。最終集計・第3周と残件は配布確定時にこの節へ追記する。
 
 配布関連のapplier/旧patch/package/RPC mutation検証器は44件全成功・skip0（0.122秒）。thin CLIは実暗号HTTPを使い、取消到達前喪失・lease中復旧・prepared UUID・復旧開始保存故障・取消意図保存故障・ring飽和の6 assertions Red（0errors）から修正し、最終33件全成功・skip0（1.770秒）。共有通信/時計回帰を含むauthor集計80件も全成功（4.006秒）で、33件を二重加算しない。captures最大256件・native events64件・HTTP診断ring128件を保存し、全shapeをJSONの10,000ノード制限内で再読込/回収する。画像省略数/IDs、decode/analysis時刻、取得両端prefix/inflightも保持する。
 
 最初のiOS実コンパイル・packageと実server契約はcommit `2a07067` / Actions run [42335165682](https://github.com/shuhei0720/necrogold-automation/actions/runs/42335165682)で成功した。Swift production ticket20・認証owner helper16・CoreGraphics正規化＋実C・実Runtime＋実C/偽UIKit取得/入力/lifecycle・実ObjC daemon callbackを実行し、対応する取消/owner投影/回転/入場/legacy pending/callbackの呼出削除変異が挙動失敗することも確認した。実JSONRPCServerの暗号loopback6試験とowner投影呼出削除変異も通した。この先行IPAは第2周の修正前なので最終配布には使わない。
 
+第2周後は、mainの同じgate内で前面・lock・owner・時計を再取得し、C beginまで拘束するよう修正した。解析は開始時generationを保持し、解析終了後にgeneration/cancel/stopped/ownerを再検査してからC observeと画像・計測を一括採用する。cancelと、owner pause通知がまだ来ていない場合の両方で破棄を確認し、元のguard/owner検査を消す変異も検出する。
+
+Runtime結合の追加試験は、小さな手続き的textureと既存templateからRGBAを作り、実取得adapter→CoreGraphics→実C認識/HUD fit/経路→上方向の単一finger・2点・0/50ms（290,838pt）→実36px相当変位の確認→商品→ポーズ→prefix/画像exportまで通す。C fixtureは全4方向MOVED・24 HUD/商品条件・8点/2.1秒fitを別途確認し、生実機画像はGitへ追加しない。MOVEをfastTapへ置換する変異が専用assertionを失敗させる。これはUIKit/daemonを偽実装にしたhost結合であり、実機受付の確認とは区別する。
+
+最終のREADME対象**109件が全成功・skip0（25.569秒）**。先の76件とCLI33件を同じprocessでも実行した集計で、二重加算しない。guarded patch/package検証は最終manifestでも44件全成功（0.096秒）。固定上流の新checkoutへNG-G1→NG-G2を適用し、9 patched＋13 additionsの全22 source SHAを検証した。最終manifest SHA-256 `9330051d4f8fd9432c7ad4463aaca6e5d5276799b15208ce1e2a3215a98930a0`。R12全40一致、旧NG-G1 patch/manifest/apply scriptと既存native/gameplay source不変、変更46ファイルのPython AST/秘密値形式、`sh -n test_043.sh`と軽量版表示も確認した。
+
+最終Swift契約の途中、heartbeat試験が5秒失効後の6秒で更新を送るfixture競合が一度見つかった。4秒→keepalive→2秒として期限内更新を検査する形に直した。これは本番挙動のRedではない。commit `94c7fb0` / Actions run [42336446508](https://github.com/shuhei0720/necrogold-automation/actions/runs/42336446508)では、Runtime walk・期限/解析取消/owner/方向gesture等の全期待変異を含むproduction checkerが成功し、iOS packageまで成功した。最終のIPC修正を含む配布版は以下を使う。
+
+第3周では、中間版のmain gate内に同期AX前面問い合わせまで入れたため、実AX timeout（上流設定5秒）でstatus/cancel/watchdogも待たされ得るP1を発見した。commit `6911df5` / Actions run [42336865401](https://github.com/shuhei0720/necrogold-automation/actions/runs/42336865401)で、コンパイル済みRuntimeを実行して`FAIL foreground_IPC_hold_keeps_status_cancel_nonblocking`（exit1、2026-11-07 13:06:11 JST）を観測した。
+
+最終版はbeforeMainAdmission後の前面・lock問い合わせをrun.lock外に置き、query開始/終了の単調時刻を採る。gate内は取消/generation/ownerとfresh nowを検査し、query開始からnowまで1秒以内かつstart<=end<=nowの場合だけC beginへ進む。問い合わせ中も別laneのstatus/cancelが各250ms以内に応答し、遅い問い合わせが戻っても入力0であることを実Runtimeで試験する。query自体1秒超・query終了後のgate待ちで1秒超はどちらも拒否し、1秒等号は許可する。pure ticketは計26契約へ拡張し、旧query-inside-lock/厳密不等号への変異も検出対象にした。最新固定点は本番`30f1f5f`、checker整合を含む`364707b`。第4周は行わず同じ第3周内で修正を確認した。最終CI/IPAは以下の配布版を照合する。
+
+設計・試験・安全の独立実装レビューは各最大3周で終了し、最終P0/P1/P2残件なし。第3周中に見つかったAX問い合わせのlock回帰も同じ周内で修正・実行証拠・配布実物まで照合した。追加の第4周は行っていない。実機の毎拍/速度・取得/正規化/入力成立と全要件の受入は未確認として残す。
+
+### TEST043の検証済み配布版
+
+- ビルドコード: `364707bf7123fe59ce9769ebe77ba51a690d0812`（本番コードは`30f1f5f`と同一）。[Actions run42337256745](https://github.com/shuhei0720/necrogold-automation/actions/runs/42337256745)は全job成功。native-host、Swift production/全期待変異、iOS build/package、LoopCtrlKit/実RPC6件、owner-callsite変異、source/package/provenanceまで通過。
+- [新NG-G2 IPA ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42337256745/artifacts/13559942785)（17,655,921bytes、ZIP SHA-256 `92cc1482f8325010893d430391e2f08a71e85c7be56764debeb02f5e96aa700d`）。内部`upstream/release/LoopCtrl.ipa`はbundle `top.ebato.loopctrl`、表示版0.3.4/build20。IPA SHA-256 `6d18ba4861bd99f06c9890c5ebe84361cf2cac9ac1e1ceb621faafaef1a9c6ae`。
+- [CI検証ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42337256745/artifacts/13559917834)。Swift pure26・owner projection16・CoreGraphics/実C・実Runtime歩行と8実callsite変異・実ObjC callback/変異、実server暗号loopbackの証拠を保存。個別契約を合算して実機成功率にはしない。
+
+配布2ZIPと内部IPAの全CRCを確認し、ZIPのGitHub digest・IPA実bytesのSHA・build-manifestのdriver/upstream/全22 source SHA・最終manifest SHAを照合した。nested runner/CLIあり、mobileprovisionなし。完全ソースは386追跡ファイルを含むGitHub commit archiveで渡す。最終文書更新は上記ビルド以後のdocsのみとし、コードのbyte一致を保つ。
+
 ## TEST-043実行手順
 
-今回は**新NG-G2 IPAへの更新が必要**。配布時に指定するGitHub Actionsの`loopctrl-ngg2-unsigned` ZIPからIPAを取り出し、これまでと同じSideStore手順で更新する。新API確認前にはゲーム操作を開始しない。全コードZIPはSafariでGitHubへログインして保存・展開する。アプリ内で開けなければSafariでリンクを開く。
+今回は**新NG-G2 IPAへの更新が必要**。配布時に指定するGitHub Actionsの`loopctrl-ngg2-unsigned` ZIPから`upstream/release/LoopCtrl.ipa`を取り出し、SideStoreの **My Apps → ＋** から更新する（[これまでの導入手順](010-source-landscape.md#1-loopctrlを更新する)）。更新したLoopCtrlを開き、いつものVPN/ディスクイメージ接続を確認して **Start Server**。新API確認前にはゲーム操作を開始しない。全コードZIPはSafariでGitHubへログインして保存・展開する。アプリ内で開けなければSafariでリンクを開く。
 
 商品表示済みランから手動でクイックリスタートし、**新しい通常1-1をポーズ**する。画面端操作0、いつもの左側を下にした向き。iSHのフォルダ選択では`test_043.sh`がある展開先を選ぶ。
 
