@@ -1756,3 +1756,5 @@ capture workerのdeferがworkerDoneを立て、controlQueueのcycleでdrainを�
 - 独立実装レビューは設計/試験各2周で終了、安全も第2周のコード/IPAにP0/P1/P2なし。再seal・実固定上流適用・配布22ソースを別担当も直接照合した。完全ソースZIPは**全392追跡ファイル**を含むGitHub commit archiveで配布し、安全レビューの同第2周で最後のbytes照合を行う。最終文書更新は既存5文書のみとする。
 
 **TEST045の実機テストを依頼する。** 上の新IPA build25をSideStoreで更新し、Start Server起動済み・新1-1ポーズ/画面端0/左側が下から`sh test_045.sh`を実行する。最初の1歩・各ビート・商品後のポーズと、成功/途中停止を問わず`runtime/test-045`全体ZIPをこのチャットへ返してもらう。今回の修正で実機の歩行・毎拍・人より速い性能や全要件の合格を先に宣言しない。目的指輪/通知/完全周回の受入も残る。
+
+最終配布照合: GitHub source `fca62f48d9d3226976096a279f6d42914180e30b`のZIP6,725,079bytes/SHA-256 `2bc6e9a4e43fd26dc3b924cd9c0e361625df48d7230c0e0d4f4960d8ce5f80ba`について、全CRCと392/392追跡ファイルの全bytes一致をroot/安全担当が独立確認した。安全も第2周でcloseし、設計/試験/安全の各2周でP0/P1/P2残件なし。本段落だけを照合後の既存台帳へ追記し、code/tests/IPA/manifestは不変。返却時の最終commit archiveもrootで全392ファイルを再照合し、GitHubの完全ソースと上記build25・具体的TEST045手順を渡す。
