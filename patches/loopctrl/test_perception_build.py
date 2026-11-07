@@ -314,7 +314,9 @@ class PerceptionResponseFileTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
-        self.base = Path(temp.name)
+        # macOS temp roots commonly alias /private/var through /var. Match
+        # the production reader's canonical command cwd in every fixture.
+        self.base = Path(temp.name).resolve()
         self.upstream = self.base / 'source'
         self.build = self.upstream / 'build'
         self.build.mkdir(parents=True)
@@ -671,7 +673,7 @@ class PerceptionCompileLogTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory(prefix='perception compiler ')
         self.addCleanup(temp.cleanup)
-        self.base = Path(temp.name)
+        self.base = Path(temp.name).resolve()
         self.upstream = self.base / 'upstream'
         self.sources = self.upstream / 'LoopCtrlUITests'
         self.sources.mkdir(parents=True)
@@ -984,7 +986,7 @@ class PerceptionPackageCallsiteTests(unittest.TestCase):
         spec.loader.exec_module(self.package)
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
-        self.base = Path(temp.name)
+        self.base = Path(temp.name).resolve()
         self.upstream = self.base / 'upstream'
         self.driver = self.base / 'driver'
         patch_dir = self.driver / 'patches/loopctrl'
