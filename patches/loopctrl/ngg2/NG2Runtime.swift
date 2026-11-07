@@ -28,6 +28,16 @@ private extension NSLock {
     func ng2Locked<T>(_ body: () -> T) -> T { lock(); defer { unlock() }; return body() }
 }
 
+// NG2Scene contains a 23,296-byte imported C tuple. Keep its storage on
+// the heap so an unoptimized capture-thread stack never copies that tuple
+// through every Frame/Optional/closure temporary. Only the capture worker
+// writes it, before publishing the immutable Frame; observe copies from const.
+private final class NG2Analysis {
+    let scene = UnsafeMutablePointer<NG2Scene>.allocate(capacity: 1)
+    init() { scene.initialize(to: NG2Scene()) }
+    deinit { scene.deinitialize(count: 1); scene.deallocate() }
+}
+
 private struct NG2Frame {
     let id: UInt64
     let start: UInt64
@@ -36,7 +46,7 @@ private struct NG2Frame {
     let generation: UInt64
     let analysisStart: UInt64
     let analysisEnd: UInt64
-    let scene: NG2Scene
+    let analysis: NG2Analysis
     let startPrefix: UInt64
     let prefix: UInt64
     let startInFlight: Bool
@@ -531,7 +541,8 @@ final class NG2Runtime {
                 cancelCaptureFailure(run, generation: before.3); return
             }
             let decodeEnd = Self.now()
-            var scene = NG2Scene()
+            let analysis = NG2Analysis()
+            let scene = analysis.scene
             let analysisStart = Self.now()
             // Pure image scanning belongs to the existing capture worker. It
             // never touches the controller or blocks its timed ticket queue.
@@ -541,9 +552,9 @@ final class NG2Runtime {
             let analysisRGBA = decoded.rgba
             #endif
             let analyzed = analysisRGBA.withUnsafeBytes { ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress,
-                analysisRGBA.count, NG2Raster.stride, &scene) }
+                analysisRGBA.count, NG2Raster.stride, scene) }
             let frame = NG2Frame(id: before.0, start: start, end: captureEnd, decodeEnd: decodeEnd,
-                generation: before.3, analysisStart: analysisStart, analysisEnd: Self.now(), scene: scene,
+                generation: before.3, analysisStart: analysisStart, analysisEnd: Self.now(), analysis: analysis,
                 startPrefix: before.1, prefix: endPrefix, startInFlight: before.2, endInFlight: endInFlight,
                 stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: decoded.rgba,
                 rasterTrace: decoded.trace, encodedBytes: raw?.count ?? 0,
@@ -576,7 +587,7 @@ final class NG2Runtime {
         }
         if let frame, cancelled == 0 {
             let analysisGeneration = frame.generation
-            var scene = frame.scene
+            let scene = frame.analysis.scene
                 #if NG2_RUNTIME_HOST_TEST
                 NG2RuntimeTestHooks.beforeAnalysisCommit?()
                 #endif
@@ -584,7 +595,7 @@ final class NG2Runtime {
                 // gate. Analysis runs outside this gate; stale results do not.
                 let committed = run.lock.ng2Locked { () -> Bool in
                     guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }
-                    ng2_controller_observe(core, &scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0)
+                    ng2_controller_observe(core, scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0)
                     run.captures.append(.object(["id": number(frame.id), "start_ns": number(frame.start),
                         "end_ns": number(frame.end), "decode_end_ns": number(frame.decodeEnd),
                         "analysis_start_ns": number(frame.analysisStart), "analysis_end_ns": number(frame.analysisEnd),
@@ -604,7 +615,7 @@ final class NG2Runtime {
                         run.rasterSamplesDropped += 1
                     }
                     if run.initial == nil { run.initial = frame }
-                    if scene.goods == 2 && run.found == nil { run.found = frame }
+                    if scene.pointee.goods == 2 && run.found == nil { run.found = frame }
                     run.analyzedFrames += 1
                     run.images.append(frame)
                     if run.images.count > 4 {

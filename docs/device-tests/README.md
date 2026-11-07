@@ -1929,3 +1929,5 @@ cd /mnt/necro_test048 && sh test_048.sh
 ```
 
 **TEST048の実機テストを依頼する。** 起動/初歩までの待ち、各ビートで1歩ずつ続くか、商品が見えるところまで行くか、最後にポーズするかを確認し、終了後の **runtime/test-048全体をZIPでこのチャットへ返す**。未起動/零歩/途中停止でも同じZIPを返す。可能なら心臓と歩行の短い動画も添える。最終ポーズが未確認なら手動でポーズする。旧テストのruntimeは混ぜず、別試験を同時実行しない。
+
+`c97eca8` / CI42376678966はSwift compileとRaster全比較/3変異を通過後、最初のproduction Runtime実行がSIGBUS10で終了した（stdout/stderr空、IPA未作成）。NG2Scene実サイズ23,864bytesを新Frame/Optional/closureへ値コピーすることで、既定capture Threadの小さいstackを圧迫した可能性を調べた。stack上限は増やさず、Scene1個だけをprivate ARC所有のheap storageへ置き、workerが解析完了前だけ書き、公開後はconst observeが同期コピーする構造へ修正する。Frameには参照だけを持たせ、既存worker/Frame寿命とdrainを維持する。クラッシュは新機能のassertion Redや実機結果には数えず、再CIで全結合を確認する。
