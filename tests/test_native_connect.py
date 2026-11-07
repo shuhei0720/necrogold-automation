@@ -1,6 +1,7 @@
 """TEST044 startup contracts through actual loopback HTTP and encrypted RPC."""
 from pathlib import Path
 from copy import deepcopy
+import errno
 import json
 import tempfile
 import time
@@ -18,7 +19,7 @@ class NativeConnectTests(TimerTestCase):
     def run_native(self, server, folder, **options):
         options.setdefault('max_seconds', 2)
         options.setdefault('poll_seconds', .001)
-        options.setdefault('recovery_seconds', .02)
+        options.setdefault('recovery_seconds', .3)
         return native.run_session(server.client(self.timer), folder,
             lock_path=Path(folder)/'lock', **options)
 
@@ -243,18 +244,18 @@ class NativeConnectTests(TimerTestCase):
 
     def test_started_recovery_performs_no_metadata_request(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(input_state=4) as server:
-            first = self.run_native(server, folder, max_seconds=.03)
+            first = self.run_native(server, folder, max_seconds=.3)
             self.assertFalse(first['resolved'])
             server.schema_calls.clear()
             old_calls = len(server.calls)
-            result = self.run_native(server, folder, max_seconds=.03)
+            result = self.run_native(server, folder, max_seconds=.3)
             self.assertEqual([], server.schema_calls)
             self.assertEqual(first['run_id'], result['run_id'])
             self.assertNotIn('necro_native_start', [m for m,p in server.calls[old_calls:]])
 
     def test_legacy_journal_and_event_projection_drop_arbitrary_fields(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(input_state=4) as server:
-            record = self.run_native(server, folder, max_seconds=.03)
+            record = self.run_native(server, folder, max_seconds=.3)
             record.pop('preflight')
             record['revision'] = 'native-walk-v1'
             canary = 'PRIVATE_JOURNAL_VALUE'
@@ -297,13 +298,13 @@ class NativeConnectTests(TimerTestCase):
             parsed = []
             def slow_parser(raw, limit):
                 parsed.append(True)
-                time.sleep(.06)
+                time.sleep(1)
                 return parser(raw, limit)
             client = server.client(self.timer)
-            client.timeout = .02
+            client.timeout = .5
             with patch.object(native, 'json_object', side_effect=slow_parser):
                 record = native.run_session(client, folder, lock_path=Path(folder)/'lock',
-                                            max_seconds=2)
+                                            max_seconds=8)
             self.assertEqual(4, len(parsed))
             self.assertEqual(4, len(server.schema_calls))
             self.assertEqual([], server.calls)
@@ -315,7 +316,7 @@ class NativeConnectTests(TimerTestCase):
     def test_authentication_failure_mac_failure_and_lost_native_start_are_never_retried(self):
         for options in ({'start_status':401}, {'bad_start_mac':True}, {'lose':['necro_native_start']}):
             with self.subTest(options=options), tempfile.TemporaryDirectory() as folder, NativeServer(**options) as server:
-                record = self.run_native(server, folder, max_seconds=.1)
+                record = self.run_native(server, folder, max_seconds=.5)
                 self.assertEqual(['/schema'], server.schema_calls)
                 self.assertEqual(1, sum(m == 'necro_native_start' for m,p in server.calls))
                 self.assertTrue(record['start_attempted'])
@@ -357,6 +358,43 @@ class NativeConnectTests(TimerTestCase):
             self.assertTrue(record['resolved'])
             self.assertGreater(budgets[0], 0)
             self.assertLessEqual(budgets[0], .1)
+
+    def test_transient_and_permanent_transport_kinds_control_only_preflight_retries(self):
+        kinds = {'refused':True, 'timeout':True, 'reset':True, 'disconnected':True,
+                 'unreachable':True, 'io_error':False, 'protocol_error':False,
+                 'body_truncated':False}
+        class ClassifiedTransport:
+            def __init__(self, real, kind):
+                self.real, self.kind, self.reads = real, kind, 0
+                self.last_diagnostic = None
+            def schema(self, timeout):
+                self.reads += 1
+                if self.reads == 1:
+                    now = time.monotonic_ns()
+                    codes = {'refused':errno.ECONNREFUSED,'timeout':errno.ETIMEDOUT,
+                             'reset':errno.ECONNRESET,'unreachable':errno.ENETUNREACH,
+                             'io_error':errno.EACCES}
+                    self.last_diagnostic = {'stage':'body' if self.kind == 'body_truncated' else 'connect',
+                        'kind':self.kind,'errno':codes.get(self.kind),'status':None,
+                        'started_ns':now,'ended_ns':now}
+                    raise ProbeError('http_body_truncated' if self.kind == 'body_truncated' else 'connection_error')
+                raw = self.real.schema(timeout)
+                self.last_diagnostic = self.real.last_diagnostic
+                return raw
+            def __call__(self, body, timeout):
+                return self.real(body, timeout)
+        for kind,transient in kinds.items():
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as folder, NativeServer(finish=True) as server:
+                client = server.client(self.timer)
+                classified = ClassifiedTransport(client.transport,kind)
+                client.transport = classified
+                record = native.run_session(client, folder, lock_path=Path(folder)/'lock',
+                                            max_seconds=2, poll_seconds=.001)
+                self.assertEqual(2 if transient else 1, classified.reads)
+                self.assertEqual(int(transient), sum(m == 'necro_native_start' for m,p in server.calls))
+                self.assertEqual(kind, record['preflight']['attempts'][0]['diagnostic']['kind'])
+                self.assertEqual(2 if transient else 1, len(record['preflight']['attempts']))
+                self.assertEqual(record, native._load(Path(folder)))
 
 
 if __name__ == '__main__':

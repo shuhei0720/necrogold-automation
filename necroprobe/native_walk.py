@@ -335,6 +335,7 @@ def _load(base):
         _require(record['native_report'] is None or _report(record['native_report']) == record['native_report'],
                  'native_journal_invalid')
         _require(_result_metadata(record['result_metadata']) == record['result_metadata'], 'native_journal_invalid')
+        record['images'] = _stored_images(record['images'])
         return record
     except (OSError, ProbeError, ValueError, TypeError, RecursionError):
         raise ProbeError('native_journal_invalid') from None
@@ -409,6 +410,43 @@ def _result_metadata(value):
     _require(all(result[key] <= MAX_IMAGES for key in ('retained_images', 'exported_images') if key in result),
              'invalid_native_images')
     return result
+
+
+def _stored_images(value):
+    """Keep only bounded image evidence metadata from older local journals."""
+    _require(type(value) is list and len(value) <= MAX_IMAGES, 'native_journal_invalid')
+    selected = []
+    seen = set()
+    total = 0
+    for item in value:
+        _require(type(item) is dict and type(item.get('name')) is str
+                 and re.fullmatch(r'[a-z][a-z0-9_-]{0,63}\.png', item['name'])
+                 and item['name'] not in seen and item.get('format') == 'png'
+                 and type(item.get('pixel_width')) is int and item['pixel_width'] == 896
+                 and type(item.get('pixel_height')) is int and item['pixel_height'] == 414
+                 and type(item.get('sha256')) is str and re.fullmatch(r'[0-9a-f]{64}', item['sha256'])
+                 and type(item.get('bytes')) is int and 24 <= item['bytes'] <= MAX_IMAGE,
+                 'native_journal_invalid')
+        seen.add(item['name'])
+        total += item['bytes']
+        _require(total <= MAX_TOTAL_IMAGES, 'native_journal_invalid')
+        clean = {key:item[key] for key in ('name','format','pixel_width','pixel_height','sha256','bytes')}
+        for key in ('capture_id','capture_start_ns','capture_end_ns'):
+            _require(_ns(item.get(key)), 'native_journal_invalid')
+            clean[key] = item[key]
+        for key in ('completed_prefix','decode_end_ns','completed_prefix_start','completed_prefix_end'):
+            if key in item:
+                _require(_ns(item[key]), 'native_journal_invalid')
+                clean[key] = item[key]
+        for key in ('stable_prefix','inflight_start','inflight_end'):
+            if key in item:
+                _require(type(item[key]) is bool, 'native_journal_invalid')
+                clean[key] = item[key]
+        _require(clean['capture_start_ns'] <= clean['capture_end_ns']
+                 and ('decode_end_ns' not in clean or clean['capture_end_ns'] <= clean['decode_end_ns']),
+                 'native_journal_invalid')
+        selected.append(clean)
+    return selected
 
 
 def _images(value):

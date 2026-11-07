@@ -55,6 +55,16 @@ class NativeServer:
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_args):
                 pass
+            def reply(self, status, raw):
+                # A correct early client rejection can close before this
+                # fixture finishes writing; it is not a server-test failure.
+                try:
+                    self.send_response(status)
+                    self.send_header('Content-Length', str(len(raw)))
+                    self.end_headers()
+                    self.wfile.write(raw)
+                except (BrokenPipeError, ConnectionResetError):
+                    self.close_connection = True
             def do_GET(self):
                 fake.schema_calls.append(self.path)
                 result = {'server_version':fake.version, 'protocol_version':1,
@@ -62,10 +72,7 @@ class NativeServer:
                 if fake.schema_transform:
                     result = fake.schema_transform(result)
                 raw = fake.schema_raw if fake.schema_raw is not None else json.dumps(result).encode()
-                self.send_response(fake.schema_status)
-                self.send_header('Content-Length', str(len(raw)))
-                self.end_headers()
-                self.wfile.write(raw)
+                self.reply(fake.schema_status, raw)
             def do_POST(self):
                 body = self.rfile.read(int(self.headers['Content-Length']))
                 envelope = json.loads(body)
@@ -76,9 +83,7 @@ class NativeServer:
                 method, params = request['method'], request['params']
                 fake.calls.append((method, params))
                 if method == 'necro_native_start' and fake.start_status is not None:
-                    self.send_response(fake.start_status)
-                    self.send_header('Content-Length', '0')
-                    self.end_headers()
+                    self.reply(fake.start_status, b'')
                     return
                 if method in fake.lose_before:
                     fake.lose_before.remove(method)
@@ -88,10 +93,7 @@ class NativeServer:
                 if method == 'device_info' and (fake.reject_info or
                         fake.reject_info_active and 'running' in fake.runs.values()):
                     raw = sealed_reply(body, result={'code':-32004,'message':'native lease'}, rpc_error=True)
-                    self.send_response(200)
-                    self.send_header('Content-Length', str(len(raw)))
-                    self.end_headers()
-                    self.wfile.write(raw)
+                    self.reply(200, raw)
                     return
                 if method == 'device_info':
                     result = {'server_version': fake.version, 'capabilities': fake.capabilities}
@@ -123,10 +125,7 @@ class NativeServer:
                     changed = json.loads(raw)
                     changed['tag'] = '0'*64
                     raw = json.dumps(changed).encode()
-                self.send_response(200)
-                self.send_header('Content-Length', str(len(raw)))
-                self.end_headers()
-                self.wfile.write(raw)
+                self.reply(200, raw)
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), Handler, bind_and_activate=False)
         self.server.server_bind()
         self.thread = threading.Thread(target=lambda: self.server.serve_forever(poll_interval=.01), daemon=True)
@@ -153,8 +152,8 @@ class NativeServer:
 
 class NativeWalkTests(TimerTestCase):
     def execute(self, server, folder, **options):
-        options.setdefault('max_seconds', .03)
-        options.setdefault('recovery_seconds', .03)
+        options.setdefault('max_seconds', .3)
+        options.setdefault('recovery_seconds', .3)
         options.setdefault('poll_seconds', .001)
         return native.run_session(server.client(self.timer), folder,
                                   lock_path=Path(folder)/'lock', **options)
@@ -240,7 +239,7 @@ class NativeWalkTests(TimerTestCase):
     def test_lost_start_response_is_never_restarted_and_same_run_is_collected(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(lose=['necro_native_start']) as server:
             result = native.run_session(server.client(self.timer), folder,
-                                        lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.1)
+                                        lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.5)
             starts = [p for m,p in server.calls if m == 'necro_native_start']
             self.assertEqual(1, len(starts))
             self.assertTrue(result['resolved'])
@@ -258,7 +257,7 @@ class NativeWalkTests(TimerTestCase):
                     snapshots.append(json.loads((Path(folder)/'active.json').read_text()))
                 return call(method, params, **kwargs)
             client.call = checked
-            native.run_session(client, folder, lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.1)
+            native.run_session(client, folder, lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.5)
             self.assertEqual(1, len(snapshots))
             self.assertTrue(snapshots[0]['start_attempted'])
             start = next(p for m,p in server.calls if m == 'necro_native_start')
@@ -267,7 +266,7 @@ class NativeWalkTests(TimerTestCase):
     def test_unknown_terminal_is_retained_and_reexecution_cannot_start_again(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(input_state=4) as server:
             options = {'lock_path': Path(folder)/'lock', 'poll_seconds': .001,
-                       'max_seconds': .03, 'cancelled': lambda: False}
+                       'max_seconds': .3, 'cancelled': lambda: False}
             first = native.run_session(server.client(self.timer), folder, **options)
             second = native.run_session(server.client(self.timer), folder, **options)
             self.assertEqual(1, sum(m == 'necro_native_start' for m,p in server.calls))
@@ -285,9 +284,9 @@ class NativeWalkTests(TimerTestCase):
             self.assertEqual(result, json.loads((Path(folder)/'active.json').read_text()))
 
     def test_lost_cancel_and_poll_responses_reconnect_without_restarting_or_discarding(self):
-        losses = ['necro_native_status']*100 + ['necro_native_cancel']*3
+        losses = ['necro_native_status']*10000 + ['necro_native_cancel']*3
         with tempfile.TemporaryDirectory() as folder, NativeServer(lose=losses) as server:
-            first = self.execute(server, folder, max_seconds=.01, recovery_seconds=.01)
+            first = self.execute(server, folder, max_seconds=.3, recovery_seconds=.3)
             self.assertFalse(first['resolved'])
             self.assertTrue(first['cancel_attempted'])
             attempted = sum(m == 'necro_native_cancel' for m,p in server.calls)
@@ -303,7 +302,7 @@ class NativeWalkTests(TimerTestCase):
     def test_cancel_budget_is_durable_across_reexecution_and_never_renews_lease(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(
                 lose=['necro_native_status'], lose_before=['necro_native_cancel']*10) as server:
-            first = self.execute(server, folder, max_seconds=.2, recovery_seconds=.1)
+            first = self.execute(server, folder, max_seconds=.5, recovery_seconds=.3)
             self.assertFalse(first['resolved'])
             self.assertEqual(3, first['cancel_attempts'])
             count = sum(m == 'necro_native_cancel' for m,p in server.calls)
@@ -518,6 +517,49 @@ def image_item(name='initial.png', size=32):
 
 
 class NativeImageTests(TimerTestCase):
+    def test_old_journal_images_project_extra_fields_and_resave_no_secrets(self):
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True) as server:
+            result = native.run_session(server.client(self.timer), folder,
+                lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.5)
+            metadata, _raw = native._images([image_item()])[0]
+            result['revision'] = 'native-walk-v1'
+            result.pop('preflight')
+            result['images'] = [dict(metadata, token='PRIVATE_IMAGE_TOKEN', raw_exception='PRIVATE')]
+            native._save(Path(folder), result)
+            loaded = native._load(Path(folder))
+            self.assertEqual([metadata], loaded['images'])
+            native._save(Path(folder), loaded)
+            self.assertNotIn('PRIVATE', (Path(folder)/'active.json').read_text())
+            self.assertNotIn('PRIVATE', (Path(folder)/('native-'+result['run_id'])/'report.json').read_text())
+
+    def test_invalid_saved_image_metadata_and_limits_are_journal_errors(self):
+        metadata, _raw = native._images([image_item()])[0]
+        invalid = [None, {}, 'PRIVATE']
+        for changes in ({'name':'../active.json'}, {'name':'/initial.png'}, {'format':'jpeg'},
+                        {'pixel_width':True}, {'pixel_height':896}, {'sha256':'PRIVATE'},
+                        {'bytes':True}, {'bytes':23}, {'bytes':native.MAX_IMAGE+1},
+                        {'capture_id':True}, {'capture_id':-1}, {'capture_start_ns':4},
+                        {'capture_end_ns':2**63}, {'completed_prefix':True},
+                        {'stable_prefix':0}, {'decode_end_ns':2}, {'inflight_start':'PRIVATE'}):
+            invalid.append([dict(metadata, **changes)])
+        invalid.extend(([metadata,metadata],
+                        [dict(metadata,name='frame-'+str(i)+'.png') for i in range(21)],
+                        [dict(metadata,name='frame-'+str(i)+'.png',bytes=native.MAX_IMAGE) for i in range(9)],
+                        [{k:v for k,v in metadata.items() if k != 'sha256'}]))
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True) as server:
+            result = native.run_session(server.client(self.timer), folder,
+                lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.5)
+            for images in invalid:
+                with self.subTest(images=images):
+                    result['images'] = images
+                    native._save(Path(folder), result)
+                    with self.assertRaisesRegex(ProbeError,'native_journal_invalid'):
+                        native._load(Path(folder))
+            result['images'] = [dict(metadata,name='frame-'+str(i)+'.png',bytes=native.MAX_IMAGE)
+                                for i in range(8)]
+            native._save(Path(folder), result)
+            self.assertEqual(result['images'], native._load(Path(folder))['images'])
+
     def test_results_images_are_validated_hashed_and_saved_without_image_imports(self):
         def transform(method, result):
             if method == 'necro_native_results':
@@ -525,7 +567,7 @@ class NativeImageTests(TimerTestCase):
             return result
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=transform) as server:
             result = native.run_session(server.client(self.timer), folder,
-                                        lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.03)
+                                        lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.3)
             path = Path(folder)/('native-'+result['run_id'])/'images'/'initial.png'
             self.assertTrue(result['resolved'])
             self.assertEqual(image_item()['sha256'], hashlib.sha256(path.read_bytes()).hexdigest())
@@ -559,7 +601,7 @@ class NativeImageTests(TimerTestCase):
             return result
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=transform) as server:
             result = native.run_session(server.client(self.timer), folder,
-                                        lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.03)
+                                        lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.3)
             self.assertFalse(result['resolved'])
             self.assertEqual('invalid_native_images', result['stop_reason'])
             self.assertEqual([], list(Path(folder).rglob('*.png')))
@@ -613,7 +655,7 @@ class NativeImageTests(TimerTestCase):
                               exported_capture_ids=[], omitted_capture_ids=list(range(1,132)))
             return result
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=transform) as server:
-            options = {'lock_path':Path(folder)/'lock','max_seconds':.03,'poll_seconds':.001}
+            options = {'lock_path':Path(folder)/'lock','max_seconds':.3,'poll_seconds':.001}
             record = native.run_session(server.client(self.timer), folder, **options)
             self.assertFalse(record['resolved'])
             self.assertEqual(256, len(record['native_report']['captures']))

@@ -29,12 +29,16 @@ jobs:
           persist-credentials: false
       - name: Validate the shell entry point
         run: sh -n test_044.sh
+      - name: Prepare the existing legacy image-test dependency
+        run: |
+          python3 -m venv "$RUNNER_TEMP/test044-venv"
+          "$RUNNER_TEMP/test044-venv/bin/pip" install Pillow==11.3.0
       - name: Run readiness, encrypted HTTP, cancellation and recovery contracts
         shell: bash
         run: |
           set -euo pipefail
-          python3 --version
-          PYTHONPATH=tests python3 -m unittest test_protocol test_http_and_cli test_http_diagnostics test_native_walk test_native_connect -v 2>&1 | tee "$RUNNER_TEMP/test044-client.txt"
+          "$RUNNER_TEMP/test044-venv/bin/python" --version
+          PYTHONPATH=tests "$RUNNER_TEMP/test044-venv/bin/python" -m unittest test_protocol test_http_and_cli test_http_diagnostics test_native_walk test_native_connect -v 2>&1 | tee "$RUNNER_TEMP/test044-client.txt"
       - name: Save client validation output
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

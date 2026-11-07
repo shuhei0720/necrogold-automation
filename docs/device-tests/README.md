@@ -1635,7 +1635,7 @@ cd /mnt/necro_test043 && sh test_043.sh
 
 TEST044のプランレビューは設計・試験・安全の各2周で指摘を反映した。preparedの判定はstate名でなくstart_attemptedで区別し、falseだけmetadata後の初回startを許可、trueはGET0で回復する。有効512KiB丁度は許可、超過/不正は拒否。追加P0/P1/P2残件なしとして実行可能なRedへ進む。
 
-TEST044の検証はstdlibだけの専用Ubuntu client CIにも同じHTTP/暗号通信/取消/回復試験を追加する。既存IPA workflowは変更せず、同じNG-G2 build20を使用する。
+TEST044の検証は専用Ubuntu client CIにも同じHTTP/暗号通信/取消/回復試験を追加する。旧HTTP回帰のimportがPillowに依存するためCIの隔離venvに既存Pillow11.3.0を固定する。native client自体はPillowをimportしない。既存IPA workflowは変更せず、同じNG-G2 build20を使用する。
 
 
 ## TEST-044の実装・検証
@@ -1659,3 +1659,8 @@ cd /mnt/necro_test044 && sh test_044.sh
 ```
 
 **実機テストを依頼する。** ゲームが開くか、初動と各歩/拍、商品後のポーズを確認し、終了後の**runtime/test-044全体をZIPで返す**。接続に失敗した場合も診断が入るため同じZIPを返す。ゲームが開いた場合は、可能なら心臓と歩行が見える短い動画も添える。ポーズ未確認なら手動でポーズする。未起動・接続timeout等のどれが043の直接原因だったかは現資料では未確定で、次の診断を根拠にする。
+
+
+TEST044実装レビュー第1周では設計P0/P1/P2なし、安全の旧画像metadata検査漏れP2と試験のretry表の故障検出不足P2を修正対象とした。画像metadataは公開_loadの1assertion failure・0errorsから固定schemaへ投影し、任意extraを除去・不正必須値を拒否する。新規retry表は許可5種と禁止3種の8条件を公開run_sessionへ通し、誤表への変異で7assertion failures・0errorsを検出した。authorの最終client60件（native_walk35＋connect25）は全成功・skip0（15.754秒）。
+
+初回CIは旧HTTP回帰のPillow import不足と、通常系fixtureの30ms実時間枠が短く正しくdeadline拒否したことで失敗した。CIの隔離venvにPillow11.3.0を固定し、正常通信/回復のfixtureは0.3〜0.5秒へ変更、境界を狙う注入時計の検査は維持した。JSON処理中の実OwnedRpcTimer試験は0.5秒/parse待機1秒/session8秒とし、4回とbackoffを収める。これは機能Redではない。過去の全応答喪失テストは失われる応答数を増やし、budget補正後も目的を保持する。
