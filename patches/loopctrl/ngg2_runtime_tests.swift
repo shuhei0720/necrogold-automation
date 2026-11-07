@@ -94,6 +94,36 @@ func scheduleFirstFixtureMove(_ run: String, holdingPause: Bool = false) {
     }
 }
 
+// TEST047 baseline uses only the existing public API and the old nil-reply
+// fake. A missing diagnostic must be an executed assertion, not a new API or
+// setup failure. The standalone baseline stops at the end marker below.
+func diagnosticIsNull(_ value: JSONValue?) -> Bool {
+    if case .null? = value { return true }; return false
+}
+func nilReplyDiagnostic(_ value: [String: JSONValue]?) -> Bool {
+    guard let value else { return false }
+    let keys = Set(["capture_id", "stage", "code", "start_ns", "end_ns", "encoded_bytes",
+        "source_width", "source_height", "orientation"])
+    return Set(value.keys) == keys && value["capture_id"]?.intValue == 1 &&
+        value["stage"]?.stringValue == "reply" && value["code"]?.stringValue == "other" &&
+        (value["start_ns"]?.intValue ?? 0) > 0 &&
+        (value["end_ns"]?.intValue ?? 0) > (value["start_ns"]?.intValue ?? 0) &&
+        ["encoded_bytes", "source_width", "source_height", "orientation"].allSatisfy { diagnosticIsNull(value[$0]) }
+}
+NG2Fake.reset(.empty)
+let nilReply = identity()
+require(call("necro_native_start", nilReply).1 == nil, "capture_failure_nil_reply_fixture_start")
+pump("capture_failure_nil_reply_fixture_drained") { drained(nilReply) }
+let nilReplyReport = report(nilReply)
+require(NG2Fake.countRequests() == 1 && NG2Fake.countTouches() == 0 &&
+    nilReplyReport["reason"]?.intValue == 20, "capture_failure_nil_reply_fixture_reached_capture_guard")
+let nilReplyResult = call("necro_native_results", nilReply)
+require(nilReplyResult.1 == nil, "capture_failure_nil_reply_fixture_results")
+require(nilReplyDiagnostic(nilReplyReport["capture_failure"]?.objectValue) &&
+    nilReplyDiagnostic(nilReplyResult.0?["report"]?.objectValue?["capture_failure"]?.objectValue),
+    "capture_failure_actual_nil_reply_is_reported")
+// TEST047 RUNTIME FAILURE BASELINE END.
+
 // The cancellation is deliberately placed after the capture loop's outer
 // condition and before its admission lock. This catches deletion at the actual
 // production capture call site, not merely a helper's standalone behavior.

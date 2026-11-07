@@ -97,10 +97,10 @@ def api_contract(upstream, output):
     return {'production_green': green.stdout.strip(), 'mutation_red': red.stdout.strip(), 'compiled': True}
 
 
-def raster_contract(upstream, output, *, expect_red=False):
+def raster_contract(upstream, output, *, expect_red=False, expect_native_red=False):
     output.mkdir(parents=True, exist_ok=True)
     stage = output / 'raster'; stage.mkdir(exist_ok=True)
-    native = HERE / 'ngg2' if expect_red else upstream / 'LoopCtrlUITests'
+    native = HERE / 'ngg2' if expect_red or expect_native_red else upstream / 'LoopCtrlUITests'
     objects = []
     for source in sorted(native.glob('NG2*.c')):
         target = stage / (source.stem + '.o')
@@ -118,13 +118,35 @@ def raster_contract(upstream, output, *, expect_red=False):
     (stage / 'NG2RasterReference.swift').write_text(reference)
     shutil.copyfile(HERE / 'ngg2_raster_tests.swift', stage / 'main.swift')
     sources = [stage / 'NG2Raster.swift', stage / 'NG2RasterReference.swift', stage / 'main.swift']
-    extra = ['-import-objc-header', native / 'NG2Core.h', *objects]
-    label = 'raster-baseline-red' if expect_red else 'raster-production-green'
+    # Only this Raster executable replaces the Perception object with a renamed
+    # implementation and a thin call-count wrapper. Runtime keeps the four
+    # original production NG2*.o objects, without the spy or any global counter.
+    (stage/'NG2RasterHost.h').write_text('#include "NG2Core.h"\nvoid ng2_raster_spy_reset(void);\nuint64_t ng2_raster_spy_calls(void);\n')
+    spy_objects = []
+    for path,target,flags in [(native/'NG2Perception.c',stage/'perception-native.o',
+            ['-Dng2_orient_rgba=ng2_orient_rgba_real']),
+            (HERE/'ngg2_raster_spy.c',stage/'orientation-spy.o',[])]:
+        built = subprocess.run(['clang','-std=c11','-O2','-I',str(native),*flags,
+            '-c',str(path),'-o',str(target)],capture_output=True,text=True,timeout=120)
+        (output/(target.stem+'-compile.txt')).write_text(built.stdout+built.stderr)
+        checked(built);spy_objects.append(target)
+    extra = ['-Xcc','-I'+str(native),'-import-objc-header',stage/'NG2RasterHost.h',
+             *[o for o in objects if o.name!='NG2Perception.o'],*spy_objects]
+    label = ('raster-baseline-red' if expect_red else
+             'raster-native-baseline-red' if expect_native_red else 'raster-production-green')
     green = compile_run(sources, stage / 'raster-tests', output, label, extra, run_timeout=180)
     if expect_red:
         require_red(green, 'FAIL orientation_1_identity_avoids_pixel_copy actual=6 expected=0')
         return {'baseline_red': green.stdout.strip(), 'compiled': True, 'returncode': 1,
                 'scope': 'public normalizeProfiled with unchanged pixel loop and real copy accounting'}
+    if expect_native_red:
+        require_red(green,'FAIL orientation_8_uses_native_C actual=0 expected=1')
+        detailed = subprocess.run([str((stage/'raster-tests').resolve()),'--decode-failure-contract'],
+            capture_output=True,text=True,timeout=30)
+        (output/'raster-detailed-baseline-red-tests.txt').write_text(detailed.stdout+detailed.stderr)
+        require_red(detailed,'FAIL detailed_empty_failure_stage_and_code')
+        return {'baseline_red':green.stdout.strip(),'detailed_baseline_red':detailed.stdout.strip(),
+                'compiled':True,'returncode':1,'scope':'public native-call spy and executable typed decode stub'}
     checked(green)
     # macOS hosted arm runners can emit this unavailable accelerator notice
     # during real ImageIO JPEG work. Retain it in evidence, allow only this
@@ -149,9 +171,9 @@ def raster_contract(upstream, output, *, expect_red=False):
             'environment_warnings': warnings, 'compiled': True}
 
 
-def runtime_contract(upstream, output):
+def runtime_contract(upstream, output, *, expect_capture_red=False):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
-    native = upstream / 'LoopCtrlUITests'
+    native = HERE/'ngg2' if expect_capture_red else upstream / 'LoopCtrlUITests'
     (stage / 'NG2RuntimeFixture.h').write_text('#include "NG2Core.h"\n#include "NG2Controller.h"\n#include "ngg2_runtime_scene_fixtures.h"\nvoid ng2_test_pause(uint8_t *, size_t);\n')
     (stage / 'fixture.c').write_text('''#include "NG2Core.h"
 #include "NG2Templates.h"
@@ -180,12 +202,30 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     shutil.copyfile(HERE/'ngg2_runtime_fakes.swift', stage/'Fakes.swift')
     shutil.copyfile(HERE/'ngg2_runtime_tests.swift', stage/'main.swift')
     source = (native/'NG2Runtime.swift').read_text()
+    if expect_capture_red:
+        baseline = '31b428bab258b7a1a3d948379c0b2e55d9dd9e24'
+        source = subprocess.check_output(['git','show',baseline+':patches/loopctrl/ngg2/NG2Runtime.swift'],cwd=HERE).decode()
+        fakes = subprocess.check_output(['git','show',baseline+':patches/loopctrl/ngg2_runtime_fakes.swift'],cwd=HERE).decode()
+        if hashlib.sha256(source.encode()).hexdigest()!='5d99106b8ba08af2dc867a137b8dd2f112d16e0595676b5d06002f37859b8c93':
+            raise ValueError('runtime_failure_baseline_source_hash')
+        if hashlib.sha256(fakes.encode()).hexdigest()!='d73f682ee7b2f12287658b5c67cd404c942df185477f750f8e9937c819060116':
+            raise ValueError('runtime_failure_baseline_fakes_hash')
+        (stage/'Fakes.swift').write_text(fakes)
+        tests = (HERE/'ngg2_runtime_tests.swift').read_text()
+        marker = '// TEST047 RUNTIME FAILURE BASELINE END.\n'
+        if tests.count(marker)!=1:raise ValueError('runtime_failure_baseline_boundary')
+        (stage/'main.swift').write_text(tests.split(marker)[0]+marker)
     (stage/'NG2Runtime.swift').write_text(source)
     sources = [output/'api/RPCTypes.swift', native/'NG2Ticket.swift', native/'NG2Raster.swift',
                stage/'Fakes.swift', stage/'NG2Runtime.swift', stage/'main.swift']
     objects = sorted((output/'raster').glob('NG2*.o'))+[stage/'fixture.o', scene_object]
     extra = ['-D', 'NG2_RUNTIME_HOST_TEST', '-Xcc', '-I'+str(native), '-Xcc', '-I'+str(HERE), '-import-objc-header', stage/'NG2RuntimeFixture.h', *objects]
-    green = compile_run(sources, stage/'runtime-tests', output, 'runtime-production-green', extra)
+    green = compile_run(sources, stage/'runtime-tests', output,
+        'runtime-failure-baseline-red' if expect_capture_red else 'runtime-production-green', extra)
+    if expect_capture_red:
+        require_red(green,'FAIL capture_failure_actual_nil_reply_is_reported')
+        return {'baseline_red':green.stdout.strip(),'compiled':True,'returncode':1,
+                'scope':'previous production Runtime and public nil-reply results fixture'}
     checked(green)
     if not green.stdout.startswith('PASS production Runtime public API/') or green.stderr:
         raise RuntimeError('runtime_production_contract_missing')
@@ -338,9 +378,26 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--red-only', action='store_true')
     parser.add_argument('--raster-red-only', action='store_true')
+    parser.add_argument('--test047-red-only', action='store_true')
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
-    if args.raster_red_only:
+    if args.test047_red_only:
+        if args.red_only or args.raster_red_only or len(args.paths)!=2:
+            parser.error('--test047-red-only requires fixed upstream and output directory')
+        upstream,output=args.paths
+        output.mkdir(parents=True,exist_ok=True)
+        (output/'api').mkdir(exist_ok=True)
+        types=(upstream/'LoopCtrlKit/RPCTypes.swift').read_text().split('// MARK: - Auth Types\n',1)
+        if len(types)!=2:raise ValueError('rpc_types_boundary')
+        (output/'api/RPCTypes.swift').write_text(types[0])
+        report={'raster':raster_contract(None,output,expect_native_red=True),
+                'runtime':runtime_contract(upstream,output,expect_capture_red=True),'device_test':'not_run'}
+        (output/'ngg2-swift-contract.json').write_text(json.dumps(report,indent=2)+'\n')
+        print(report['raster']['baseline_red'])
+        print(report['raster']['detailed_baseline_red'])
+        print(report['runtime']['baseline_red'])
+        return
+    elif args.raster_red_only:
         if args.red_only or len(args.paths) != 1:
             parser.error('--raster-red-only requires output directory')
         output = args.paths[0]

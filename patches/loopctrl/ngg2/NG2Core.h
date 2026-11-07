@@ -36,6 +36,14 @@ typedef struct {
     int32_t sample_count, mode, candidate_count;
     double residual, maximum, alternate, alias_gap, half_width_max_ns, tracking_error, extrapolation_budget;
 } NG2BeatModel;
+/* Packed RGBA8 integer orientation, matching the Raster EXIF maps. Dimensions
+ * are 1..4096, at most 8,000,000 pixels; orientation is 1..8. Both lengths
+ * must equal width*height*4 and buffers must not overlap. RGB is copied and
+ * output alpha is 255. Returns copied pixels, or zero before any write on
+ * invalid arguments. No allocation or shared mutable state. */
+size_t ng2_orient_rgba(const uint8_t *source, size_t source_length,
+                       int32_t width, int32_t height, int32_t orientation,
+                       uint8_t *destination, size_t destination_length);
 /* rgba is sRGB opaque RGBA8, length exactly stride*414, stride 3584..7680.
  * Padding is ignored. Input is immutable for this call. Output is copied and
  * initialized to unknown on failure. No global mutable state. */

@@ -131,6 +131,31 @@ class NativePerceptionTests(unittest.TestCase):
                 count += 1
         self.assertGreaterEqual(count, 20)
 
+    def test_required_test046_capture_replay(self):
+        """All five received startup frames are mandatory known-image replays."""
+        root = Path(os.environ.get("NECRO_TEST047_FIXTURE_ROOT", "/workspace/analysis-evidence"))
+        manifest = json.loads((ROOT / "tests/test047-fixtures.json").read_text())
+        self.assertEqual(("ngg2-test047-fixtures-v1", 5), (manifest["schema"], manifest["count"]))
+        self.assertEqual("3e1c2ec0205c118d55e83d3f69b5305bfd95af4ae22ce40e15886506e2379162",
+                         manifest["source_zip_sha256"])
+        self.assertEqual(5, len(manifest["images"]))
+        self.assertEqual(5, len({entry["path"] for entry in manifest["images"]}))
+        states = []
+        for entry in manifest["images"]:
+            path = root / entry["path"]
+            with self.subTest(path=entry["path"]):
+                self.assertIs(type(entry["state"]), int)
+                self.assertIn(entry["state"], (0, 1))
+                self.assertTrue(path.is_file(), f"missing required TEST047 fixture: {path}")
+                self.assertEqual(entry["sha256"], hashlib.sha256(path.read_bytes()).hexdigest(),
+                                 f"TEST047 fixture hash mismatch: {path}")
+                with Image.open(path) as source:
+                    image = source.convert("RGB")
+                self.assertEqual((896, 414), image.size)
+                self.assertEqual(entry["state"], self.assert_reference(image).state)
+                states.append(entry["state"])
+        self.assertEqual((2, 3), (states.count(0), states.count(1)))
+
     def test_fixture_check_fails_on_missing(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, NECRO_TEST043_FIXTURE_ROOT=directory):
             with self.assertRaisesRegex(AssertionError, "missing required TEST043 fixture"):

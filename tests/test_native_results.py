@@ -1,4 +1,4 @@
-"""TEST045/046 result collection and closed native diagnostics contracts."""
+"""TEST045–047 result collection and closed native diagnostics contracts."""
 from contextlib import redirect_stdout
 from copy import deepcopy
 import io
@@ -44,6 +44,14 @@ def raster_sample(capture_id=1, **extra):
     return value
 
 
+def capture_failure(**extra):
+    value = dict(capture_id=2, stage='metadata', code='orientation',
+                 start_ns=10, end_ns=9, encoded_bytes=42,
+                 source_width=828, source_height=1792, orientation=9)
+    value.update(extra)
+    return value
+
+
 class NativeResultsCliTests(unittest.TestCase):
     def test_real_encrypted_results_over_two_seconds_are_collected(self):
         def delayed_images(method, result):
@@ -81,6 +89,107 @@ class NativeResultsTests(TimerTestCase):
         options.setdefault('poll_seconds', .001)
         return native.run_session(client or self.client(server), folder,
             lock_path=Path(folder)/'lock', **options)
+
+    def test_capture_failure_reaches_encrypted_results_and_saved_journal(self):
+        def failure(method, result):
+            if method == 'necro_native_results':
+                result['report']['capture_failure'] = capture_failure(raw='PRIVATE_FAILURE_TEXT')
+            return result
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=failure) as server:
+            record = self.execute(server, folder)
+            self.assertEqual(capture_failure(), record['native_report'].get('capture_failure'))
+            self.assertTrue(record['resolved'])
+            self.assertNotIn('PRIVATE_FAILURE_TEXT', json.dumps(record))
+            self.assertEqual(record, native._load(Path(folder)))
+            saved = json.loads((Path(folder)/'active.json').read_text())
+            self.assertEqual(capture_failure(), saved['native_report']['capture_failure'])
+
+    def test_capture_failure_requires_fixed_stage_code_pairs_and_typed_required_fields(self):
+        base = dict(schema='ngg2-native-v1', clock_id='a'*32, device_now_ns=1, input_state=0)
+        known = {
+            'interval':('invalid_interval',),
+            'reply':('api_unavailable','session_unavailable','display_unprepared','request_unavailable',
+                     'capture_failed','bytes_invalid','reply_exception','request_exception','missing_data','other'),
+            'source':('encoded_empty','encoded_limit','source_open','image_count','image_create'),
+            'metadata':('orientation','source_geometry','aspect'),
+            'normalize':('render_failed','orientation_copy'),
+            'analysis':('invalid_rgba',),
+        }
+        for stage, codes in known.items():
+            for code in codes:
+                failure = capture_failure(stage=stage, code=code)
+                with self.subTest(stage=stage, code=code):
+                    self.assertEqual(failure, native._report(dict(base, capture_failure=failure))['capture_failure'])
+        invalid = [[], {}, 'PRIVATE', capture_failure(stage='PRIVATE'), capture_failure(code='PRIVATE'),
+                   capture_failure(stage=[]), capture_failure(code={})]
+        for stage in known:
+            for code in known['reply'] if stage != 'reply' else known['metadata']:
+                invalid.append(capture_failure(stage=stage, code=code))
+        for key in capture_failure():
+            missing = capture_failure()
+            missing.pop(key)
+            invalid.append(missing)
+        for key in ('capture_id','start_ns','end_ns','encoded_bytes'):
+            for value in (True, -1, 2**63, 1.0, '1'):
+                invalid.append(capture_failure(**{key:value}))
+            if key != 'encoded_bytes':
+                invalid.append(capture_failure(**{key:None}))
+        for key in ('source_width','source_height','orientation'):
+            for value in (True, -(2**31)-1, 2**31, 1.0, '1'):
+                invalid.append(capture_failure(**{key:value}))
+        for failure in invalid:
+            with self.subTest(failure=failure), self.assertRaisesRegex(ProbeError, 'invalid_native_report'):
+                native._report(dict(base, capture_failure=failure))
+        for failure in (None,
+                capture_failure(capture_id=0, start_ns=2**63-1, end_ns=0, encoded_bytes=None,
+                                source_width=None, source_height=None, orientation=None),
+                capture_failure(encoded_bytes=2**63-1, source_width=-(2**31),
+                                source_height=2**31-1, orientation=0)):
+            with self.subTest(valid=failure):
+                self.assertEqual(failure, native._report(dict(base, capture_failure=failure))['capture_failure'])
+
+    def test_capture_failure_null_and_legacy_projection_keep_only_the_closed_schema(self):
+        def no_failure(method, result):
+            result['report']['capture_failure'] = None
+            return result
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=no_failure) as server:
+            record = self.execute(server, folder)
+            self.assertIsNone(record['native_report']['capture_failure'])
+            self.assertEqual(record, native._load(Path(folder)))
+            legacy = deepcopy(record)
+            legacy['revision'] = 'native-walk-v4'
+            legacy['native_report']['capture_failure'] = capture_failure(error='PRIVATE', raw='PRIVATE')
+            native._save(Path(folder), legacy)
+            loaded = native._load(Path(folder))
+            self.assertEqual(capture_failure(), loaded['native_report']['capture_failure'])
+            native._save(Path(folder), loaded)
+            self.assertNotIn('PRIVATE', (Path(folder)/'active.json').read_text())
+            self.assertNotIn('PRIVATE', (Path(folder)/('native-'+record['run_id'])/'report.json').read_text())
+            legacy['native_report']['capture_failure'] = capture_failure(stage='analysis', code='orientation')
+            native._save(Path(folder), legacy)
+            with self.assertRaisesRegex(ProbeError, 'native_journal_invalid'):
+                native._load(Path(folder))
+
+    def test_started_and_unknown_v1_to_v4_journals_recover_without_schema_or_start(self):
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True) as server:
+            seed = self.execute(server, folder)
+            server.capabilities = ['necrogold_native_v3']
+            for revision in ('native-walk-v1','native-walk-v2','native-walk-v3','native-walk-v4'):
+                for state in ('running','unknown'):
+                    with self.subTest(revision=revision, state=state):
+                        legacy = deepcopy(seed)
+                        legacy.update(revision=revision, state=state, native_state='running', resolved=False,
+                                      cancel_attempted=False, cancel_attempts=0, cancel_confirmed=False)
+                        native._save(Path(folder), legacy)
+                        server.schema_calls.clear()
+                        before = len(server.calls)
+                        recovered = self.execute(server, folder)
+                        self.assertEqual(seed['run_id'], recovered['run_id'])
+                        self.assertTrue(recovered['resolved'])
+                        self.assertEqual([], server.schema_calls)
+                        self.assertEqual(['necro_native_status','necro_native_results'],
+                                         [method for method,params in server.calls[before:]])
+                        self.assertFalse(server.calls[before][1]['keepalive'])
 
     def test_motion_wait_and_raster_trace_reach_results_and_saved_journal(self):
         canary = 'PRIVATE_TRACE_VALUE'
@@ -200,6 +309,7 @@ class NativeResultsTests(TimerTestCase):
             report.update(native.FIXED_TEXT)
             report.update({key:False for key in native.BOOL_KEYS})
             report.update(input_state=4, terminal=1, device_now_ns=100_000, workers_drained=True,
+                capture_failure=capture_failure(),
                 motion_wait=motion_wait(attempts=3, last_motion=7, active=False),
                 raster_samples=deepcopy(samples), raster_samples_dropped=224,
                 referenced_capture_ids=list(range(1,257)), missing_capture_ids=list(range(1,257)),
@@ -374,7 +484,7 @@ class NativeResultsTests(TimerTestCase):
                     self.assertEqual(stage == 'result_json', 'decrypt_end_ns' in row['host_timings'])
                     self.assertEqual(record, native._load(Path(folder)))
 
-    def test_failed_results_recover_v1_v2_and_v3_journals_without_get_or_start(self):
+    def test_failed_results_recover_v1_to_v4_journals_without_get_or_start(self):
         slow = [True]
         def delay_once(method, result):
             if method == 'necro_native_results' and slow[0]:
@@ -385,7 +495,7 @@ class NativeResultsTests(TimerTestCase):
             self.assertFalse(first['resolved'])
             self.assertEqual('rpc_deadline', first['stop_reason'])
             slow[0] = False
-            for revision in ('native-walk-v1','native-walk-v2','native-walk-v3'):
+            for revision in ('native-walk-v1','native-walk-v2','native-walk-v3','native-walk-v4'):
                 legacy = deepcopy(first)
                 legacy['revision'] = revision
                 native._save(Path(folder), legacy)
@@ -443,15 +553,24 @@ class NativeResultsTests(TimerTestCase):
             with self.subTest(missing=key), self.assertRaisesRegex(ProbeError,'invalid_native_report'):
                 native._report(dict(base, scene_changes=[missing]))
 
-    def test_old_v1_v2_capabilities_cannot_start_the_new_client(self):
-        for tags in ([], ['necrogold_native_v1'], ['necrogold_native_v2'],
-                     ['necrogold_native_v1','necrogold_native_v2']):
+    def test_old_v1_v2_v3_capabilities_cannot_start_the_new_client(self):
+        for tags in ([], ['necrogold_native_v1'], ['necrogold_native_v2'], ['necrogold_native_v3'],
+                     ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3']):
             with self.subTest(tags=tags), tempfile.TemporaryDirectory() as folder, \
                     NativeServer(finish=True, capabilities=tags) as server:
                 record = self.execute(server, folder)
                 self.assertFalse(record['start_attempted'])
                 self.assertEqual('native_capability_missing', record['stop_reason'])
+                self.assertEqual(['/schema'], server.schema_calls)
                 self.assertEqual([], server.calls)
+
+    def test_fresh_native_v4_capability_starts_exactly_once(self):
+        tags = ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4']
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, capabilities=tags) as server:
+            record = self.execute(server, folder)
+            self.assertTrue(record['resolved'])
+            self.assertEqual(['/schema'], server.schema_calls)
+            self.assertEqual(1, sum(method == 'necro_native_start' for method,params in server.calls))
 
     def test_045_script_requires_v3_and_uses_045_output(self):
         path = Path(native.__file__).resolve().parents[1]/'test_045.sh'
@@ -462,16 +581,25 @@ class NativeResultsTests(TimerTestCase):
         self.assertIn('--output runtime/test-045',text)
         self.assertNotIn('necroprobe.preflight',text)
 
-    def test_046_script_cli_and_capability_require_the_new_runtime(self):
+    def test_046_script_keeps_its_original_version_and_output(self):
         path = Path(native.__file__).resolve().parents[1]/'test_046.sh'
         import subprocess
         self.assertEqual(0, subprocess.run(['sh','-n',str(path)],capture_output=True).returncode)
         text = path.read_text()
-        self.assertEqual('native-walk-v4', native.REVISION)
-        self.assertEqual('necrogold_native_v3', native.CAPABILITY)
-        self.assertEqual('runtime/test-046', native.parser().parse_args([]).output)
         self.assertIn('native-walk-v4 / 1.98.14-ngg2', text)
         self.assertIn('--output runtime/test-046', text)
+        self.assertNotIn('necroprobe.preflight', text)
+
+    def test_047_script_cli_and_capability_require_the_new_runtime(self):
+        path = Path(native.__file__).resolve().parents[1]/'test_047.sh'
+        import subprocess
+        self.assertEqual(0, subprocess.run(['sh','-n',str(path)],capture_output=True).returncode)
+        text = path.read_text()
+        self.assertEqual('native-walk-v5', native.REVISION)
+        self.assertEqual('necrogold_native_v4', native.CAPABILITY)
+        self.assertEqual('runtime/test-047', native.parser().parse_args([]).output)
+        self.assertIn('native-walk-v5 / 1.98.14-ngg2', text)
+        self.assertIn('--output runtime/test-047', text)
         self.assertNotIn('necroprobe.preflight', text)
 
 

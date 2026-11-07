@@ -5,6 +5,35 @@ import ImageIO
 func require(_ value: Bool, _ label: String) {
     if !value { print("FAIL \(label)"); exit(1) }
 }
+func failure(_ result: NG2Raster.DecodeResult, stage: NG2Raster.FailureStage,
+             code: NG2Raster.FailureCode, label: String) -> NG2Raster.Failure {
+    switch result {
+    case .failure(let value):
+        require(value.stage == stage && value.code == code, label)
+        return value
+    case .success:
+        require(false, label)
+        fatalError()
+    }
+}
+func detailedInputFailureContracts() {
+    let empty = failure(NG2Raster.decodeDetailed(Data()), stage: .source, code: .encodedEmpty,
+        label: "detailed_empty_failure_stage_and_code")
+    require(empty.encodedBytes == 0 && empty.sourceWidth == nil && empty.sourceHeight == nil &&
+        empty.orientation == nil, "detailed_empty_failure_keeps_unobtained_metadata_null")
+    let over = failure(NG2Raster.decodeDetailed(Data(count: 8 * 1024 * 1024 + 1)),
+        stage: .source, code: .encodedLimit, label: "detailed_encoded_limit_failure")
+    require(over.encodedBytes == 8 * 1024 * 1024 + 1, "detailed_encoded_limit_records_actual_size")
+    let invalid = failure(NG2Raster.decodeDetailed(Data([1, 2, 3])), stage: .source, code: .sourceOpen,
+        label: "detailed_invalid_bytes_fail_source_creation")
+    require(invalid.encodedBytes == 3 && invalid.sourceWidth == nil && invalid.sourceHeight == nil &&
+        invalid.orientation == nil, "detailed_source_failure_keeps_unobtained_metadata_null")
+}
+if CommandLine.arguments.contains("--decode-failure-contract") {
+    detailedInputFailureContracts()
+    print("PASS detailed encoded-input failure contracts")
+    exit(0)
+}
 func image(_ pixels: [UInt8], _ width: Int, _ height: Int, bytesPerRow: Int? = nil) -> CGImage {
     let space = CGColorSpace(name: CGColorSpace.sRGB)!
     let provider = CGDataProvider(data: Data(pixels) as CFData)!
@@ -21,6 +50,16 @@ let original = image(pixels, 3, 2)
 let identityTrace = NG2Raster.normalizeProfiled(original, outputWidth: 3, outputHeight: 2)!
 require(identityTrace.trace.copyPixels == 0,
     "orientation_1_identity_avoids_pixel_copy actual=\(identityTrace.trace.copyPixels) expected=0")
+// Raster-only host shim counts entry into the real compiled C helper. Keep
+// this before the full matrix so the old pixel-equivalent Swift loop yields
+// the intended executable Red, without a host wall-clock performance gate.
+ng2_raster_spy_reset()
+require(NG2Raster.normalizeProfiled(original, orientation: 8, outputWidth: 2, outputHeight: 3) != nil,
+    "orientation_8_native_path_created")
+let nativeOrientationCalls = ng2_raster_spy_calls()
+require(nativeOrientationCalls == 1,
+    "orientation_8_uses_native_C actual=\(nativeOrientationCalls) expected=1")
+detailedInputFailureContracts()
 let expected: [[UInt8]] = [[1,2,3,4,5,6],[3,2,1,6,5,4],[6,5,4,3,2,1],[4,5,6,1,2,3],
     [1,4,2,5,3,6],[4,1,5,2,6,3],[6,3,5,2,4,1],[3,6,2,5,1,4]]
 for orientation in 1...8 {

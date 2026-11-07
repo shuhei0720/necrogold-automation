@@ -276,6 +276,47 @@ int ng2_analyze_rgba(const uint8_t *rgba,size_t length,size_t stride,NG2Scene *o
     if(result){memset(out,0,sizeof(*out));out->abi_version=NG2_ABI_VERSION;out->struct_size=sizeof(*out);}
     return result;
 }
+size_t ng2_orient_rgba(const uint8_t *source,size_t source_length,
+                       int32_t width,int32_t height,int32_t orientation,
+                       uint8_t *destination,size_t destination_length){
+    size_t pixels,packed,copied=0;
+    uintptr_t source_address,destination_address,source_end,destination_end;
+    int32_t output_width,output_height,x,y;
+    if(!source||!destination||width<1||height<1||width>4096||height>4096
+        ||orientation<1||orientation>8)return 0;
+    pixels=(size_t)width*(size_t)height;
+    if(pixels>8000000u||pixels>SIZE_MAX/4u)return 0;
+    packed=pixels*4u;
+    if(source_length!=packed||destination_length!=packed)return 0;
+    source_address=(uintptr_t)source;destination_address=(uintptr_t)destination;
+    if(source_length>UINTPTR_MAX-source_address
+        ||destination_length>UINTPTR_MAX-destination_address)return 0;
+    source_end=source_address+source_length;destination_end=destination_address+destination_length;
+    if(source_address<destination_end&&destination_address<source_end)return 0;
+    output_width=orientation>=5?height:width;
+    output_height=orientation>=5?width:height;
+    for(y=0;y<output_height;++y){
+        for(x=0;x<output_width;++x){
+            int32_t sx,sy;size_t a,b;
+            switch(orientation){
+                case 2:sx=width-1-x;sy=y;break;
+                case 3:sx=width-1-x;sy=height-1-y;break;
+                case 4:sx=x;sy=height-1-y;break;
+                case 5:sx=y;sy=x;break;
+                case 6:sx=y;sy=height-1-x;break;
+                case 7:sx=width-1-y;sy=height-1-x;break;
+                case 8:sx=width-1-y;sy=x;break;
+                default:sx=x;sy=y;break;
+            }
+            a=((size_t)sy*(size_t)width+(size_t)sx)*4u;
+            b=((size_t)y*(size_t)output_width+(size_t)x)*4u;
+            destination[b]=source[a];destination[b+1]=source[a+1];
+            destination[b+2]=source[a+2];destination[b+3]=255;
+        }
+        copied+=(size_t)output_width;
+    }
+    return copied;
+}
 int ng2_fingerprint_changed(const uint8_t *before,const uint8_t *after){
     int k,count=0;unsigned cols=0,rows=0;if(!before||!after)return 0;
     for(k=0;k<48;++k)if(abs((int)before[k]-after[k])>=12){++count;cols|=1u<<(k%8);rows|=1u<<(k/8);}

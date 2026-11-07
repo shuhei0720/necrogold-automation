@@ -1,0 +1,33 @@
+{
+  "schema": "ngg2-test047-fixtures-v1",
+  "source_zip_sha256": "3e1c2ec0205c118d55e83d3f69b5305bfd95af4ae22ce40e15886506e2379162",
+  "count": 5,
+  "purpose": "known TEST046 startup capture state replay, not unseen evaluation",
+  "images": [
+    {
+      "path": "test046-received/test-046/native-29db434581e343c2b39ee7285f6d4202/images/capture-000001.png",
+      "sha256": "2ea7749ac76958e04af3d72f79527304f81cd37451cfd6a87f39d292cebd4146",
+      "state": 0
+    },
+    {
+      "path": "test046-received/test-046/native-29db434581e343c2b39ee7285f6d4202/images/capture-000002.png",
+      "sha256": "e1bc53f2a1bd159af115ec29c5c337a065545771d486a9ab786007977977ead0",
+      "state": 1
+    },
+    {
+      "path": "test046-received/test-046/native-29db434581e343c2b39ee7285f6d4202/images/capture-000003.png",
+      "sha256": "919760b45fd28740fee96fd3225f0185a7d610d9dce288d3b123b80067c1fba8",
+      "state": 1
+    },
+    {
+      "path": "test046-received/test-046/native-f75a2068fe0a47fb93cbd66fd3b257a2/images/capture-000001.png",
+      "sha256": "4fcb3d09d06d3c4f400ba4d02d55ded4ebbf55437506e52fcdf3d811c443ce33",
+      "state": 0
+    },
+    {
+      "path": "test046-received/test-046/native-f75a2068fe0a47fb93cbd66fd3b257a2/images/capture-000002.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "state": 1
+    }
+  ]
+}

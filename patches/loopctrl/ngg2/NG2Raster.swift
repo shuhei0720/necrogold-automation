@@ -25,6 +25,65 @@ enum NG2Raster {
         let trace: Trace
     }
 
+    enum FailureStage: String {
+        case interval, reply, source, metadata, normalize, analysis
+    }
+
+    enum FailureCode: String {
+        case invalidInterval = "invalid_interval"
+        case apiUnavailable = "api_unavailable"
+        case sessionUnavailable = "session_unavailable"
+        case displayUnprepared = "display_unprepared"
+        case requestUnavailable = "request_unavailable"
+        case captureFailed = "capture_failed"
+        case bytesInvalid = "bytes_invalid"
+        case replyException = "reply_exception"
+        case requestException = "request_exception"
+        case missingData = "missing_data"
+        case other
+        case encodedEmpty = "encoded_empty"
+        case encodedLimit = "encoded_limit"
+        case sourceOpen = "source_open"
+        case imageCount = "image_count"
+        case imageCreate = "image_create"
+        case orientation
+        case sourceGeometry = "source_geometry"
+        case aspect
+        case renderFailed = "render_failed"
+        case orientationCopy = "orientation_copy"
+        case invalidRGBA = "invalid_rgba"
+    }
+
+    struct Failure {
+        let stage: FailureStage
+        let code: FailureCode
+        let encodedBytes: Int?
+        let sourceWidth: Int?
+        let sourceHeight: Int?
+        let orientation: Int?
+
+        init(stage: FailureStage, code: FailureCode, encodedBytes: Int? = nil,
+             sourceWidth: Int? = nil, sourceHeight: Int? = nil, orientation: Int? = nil) {
+            self.stage = stage
+            self.code = code
+            self.encodedBytes = encodedBytes
+            self.sourceWidth = sourceWidth
+            self.sourceHeight = sourceHeight
+            self.orientation = orientation
+        }
+    }
+
+    enum DecodeResult {
+        case success(ProfiledResult)
+        case failure(Failure)
+    }
+
+    // Executable baseline for the separate typed-failure contract. The Mac
+    // assertion must observe encoded_empty before this stub is implemented.
+    static func decodeDetailed(_ encoded: Data) -> DecodeResult {
+        return .failure(Failure(stage: .source, code: .sourceOpen, encodedBytes: encoded.count))
+    }
+
     /// EXIF orientation is applied before sizing. The bitmap is opaque sRGB
     /// RGBA8 with explicit byte order; no input-coordinate transform is inferred.
     static func normalize(_ image: CGImage, orientation: Int = 1,

@@ -20,9 +20,9 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v4'
+REVISION = 'native-walk-v5'
 API_VERSION = '1.98.14-ngg2'
-CAPABILITY = 'necrogold_native_v3'
+CAPABILITY = 'necrogold_native_v4'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -74,6 +74,16 @@ ID_LIST_KEYS = frozenset(('referenced_capture_ids', 'missing_capture_ids', 'expo
 FIXED_TEXT = {'capture_backend': 'direct_daemon_jpeg_only', 'analysis_engine': 'native_C_v1',
     'capture_time_semantics': 'request_call_interval_not_presentation_timestamp',
     'input_time_semantics': 'synth_call_interval_not_game_receipt_timestamp'}
+CAPTURE_FAILURE_CODES = {
+    'interval': frozenset(('invalid_interval',)),
+    'reply': frozenset(('api_unavailable', 'session_unavailable', 'display_unprepared',
+        'request_unavailable', 'capture_failed', 'bytes_invalid', 'reply_exception',
+        'request_exception', 'missing_data', 'other')),
+    'source': frozenset(('encoded_empty', 'encoded_limit', 'source_open', 'image_count', 'image_create')),
+    'metadata': frozenset(('orientation', 'source_geometry', 'aspect')),
+    'normalize': frozenset(('render_failed', 'orientation_copy')),
+    'analysis': frozenset(('invalid_rgba',)),
+}
 ERROR_CODES = frozenset(('connection_error', 'rpc_deadline', 'rpc_error', 'response_mac_mismatch',
     'response_id_mismatch', 'http_body_limit', 'http_body_truncated', 'invalid_native_status',
     'invalid_native_report', 'invalid_native_images', 'native_capability_missing',
@@ -331,7 +341,8 @@ def _load(base):
         excess = max(0, len(record['events']) - MAX_HTTP_EVENTS)
         record['events_dropped'] += excess
         record['events'] = _events(record['events'][excess:])
-        _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', 'native-walk-v3', REVISION)
+        _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', 'native-walk-v3',
+                                          'native-walk-v4', REVISION)
                  and record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -405,6 +416,23 @@ def _raster_samples(value):
     return rows
 
 
+def _capture_failure(value):
+    if value is None:
+        return None
+    keys = ('capture_id', 'stage', 'code', 'start_ns', 'end_ns', 'encoded_bytes',
+            'source_width', 'source_height', 'orientation')
+    _require(type(value) is dict and set(keys) <= set(value), 'invalid_native_report')
+    _require(type(value['stage']) is str and type(value['code']) is str
+             and value['code'] in CAPTURE_FAILURE_CODES.get(value['stage'], ()), 'invalid_native_report')
+    for key in ('capture_id', 'start_ns', 'end_ns'):
+        _require(_ns(value[key]), 'invalid_native_report')
+    _require(value['encoded_bytes'] is None or _ns(value['encoded_bytes']), 'invalid_native_report')
+    for key in ('source_width', 'source_height', 'orientation'):
+        item = value[key]
+        _require(item is None or type(item) is int and -(2**31) <= item < 2**31, 'invalid_native_report')
+    return {key:value[key] for key in keys}
+
+
 def _report(value, depth=0):
     _require(type(value) is dict and depth <= 3 and len(value) <= 128, 'invalid_native_report')
     result = {}
@@ -446,6 +474,8 @@ def _report(value, depth=0):
         elif key == 'raster_samples_dropped':
             _require(_ns(item), 'invalid_native_report')
             result[key] = item
+        elif key == 'capture_failure':
+            result[key] = _capture_failure(item)
         elif key in ID_LIST_KEYS:
             _require(type(item) is list and len(item) <= MAX_CAPTURES
                      and all(type(v) is int and 0 <= v < 2**63 for v in item), 'invalid_native_report')
@@ -832,8 +862,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST046: NG-G2の移動再観測と画像処理を検証')
-    ap.add_argument('--output', default='runtime/test-046')
+    ap = argparse.ArgumentParser(description='TEST047: NG-G2の画像処理と取得失敗診断を検証')
+    ap.add_argument('--output', default='runtime/test-047')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')
@@ -862,7 +892,7 @@ def main(argv=None):
             attempts = record.get('preflight', {}).get('attempts', [])
             kind = attempts[-1]['diagnostic']['kind'] if attempts else None
             if record['stop_reason'] == 'native_capability_missing':
-                print('NG-G2の版・機能が一致しません。TEST046用の新IPAとLoopCtrlの起動状態を確認してください。')
+                print('NG-G2の版・機能が一致しません。TEST047用の新IPAとLoopCtrlの起動状態を確認してください。')
             elif kind == 'refused':
                 print('LoopCtrlへの接続が拒否されました。まだゲームの開始要求は送っていません。')
             elif record['stop_reason'] in ('rpc_deadline', 'host_deadline') or kind in ('timeout','deadline'):
