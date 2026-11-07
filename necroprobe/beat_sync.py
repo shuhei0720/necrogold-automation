@@ -8,8 +8,6 @@ HTTP区間は画像生成時刻でも保証された誤差範囲でもない。�
 import math
 from statistics import median
 
-from PIL import Image, ImageChops
-
 SIZE = (896, 414)
 MIN_PERIOD_NS = 320_000_000
 MAX_PERIOD_NS = 800_000_000
@@ -59,6 +57,7 @@ def extract(image):
     要約だけを走査し、原画像全体の画素走査・resize・回転を行わない。
     閾値は既知HUDの試験値であり、未知画像での精度は未検証。
     """
+    from PIL import Image, ImageChops
     if not isinstance(image, Image.Image) or image.size != SIZE or image.mode != "RGB":
         return None
     with image.crop((0, 350, 896, 387)) as roi:

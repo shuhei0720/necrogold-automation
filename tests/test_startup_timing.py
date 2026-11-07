@@ -269,7 +269,7 @@ class StartupTimingTests(unittest.TestCase):
             args = walk.parser().parse_args(['--output', folder])
             prepared = []
 
-            def finished_worker(command, timeout, diagnostics):
+            def finished_worker(command, timeout, diagnostics, **options):
                 control = Path(command[command.index('--checkpoint-dir') + 1])
                 run_id = command[command.index('--run-id') + 1]
                 start = int(command[command.index('--start-ns') + 1])

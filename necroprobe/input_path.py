@@ -63,7 +63,7 @@ GEOMETRY_FIELDS = ("geometry", "input_geometry_verified", "source_orientation", 
 _cancel_requested = False
 
 
-def supervise(command, timeout, diagnostics=None):
+def supervise(command, timeout, diagnostics=None, *, spawn=None):
     """spawn中の停止もフラグで受け、取得した子の終了・回収を期限付きで試みる。"""
     details = diagnostics if diagnostics is not None else {}
     details.update(returncode=None, signal_number=None, signal_name=None,
@@ -75,10 +75,13 @@ def supervise(command, timeout, diagnostics=None):
         if _cancel_requested:
             return "user_interrupt"
         try:
-            process = subprocess.Popen(command, stderr=subprocess.DEVNULL)
+            process = (subprocess.Popen(command, stderr=subprocess.DEVNULL) if spawn is None else spawn(command))
         except OSError as exc:
             details["spawn_errno"] = exc.errno if type(exc.errno) is int else None
             return "worker_start_failed"
+        activate = getattr(process, "activate", None)
+        if activate is not None:
+            activate()
         while True:
             if _cancel_requested:
                 reason = "user_interrupt"
@@ -124,6 +127,12 @@ def supervise(command, timeout, diagnostics=None):
                         process.wait(timeout=1)
                     except (OSError, subprocess.TimeoutExpired, KeyboardInterrupt):
                         details["cleanup_error"] = "worker_cleanup_failed"
+            finalize = getattr(process, "finalize", None)
+            if finalize is not None:
+                try:
+                    finalize()
+                except (OSError, KeyboardInterrupt):
+                    details["cleanup_error"] = "worker_cleanup_failed"
             details["returncode"] = process.returncode
             details["exit_confirmed"] = process.returncode is not None
             if not details["exit_confirmed"]:

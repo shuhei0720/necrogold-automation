@@ -556,15 +556,15 @@ class SyncDeadlineTests(unittest.TestCase):
         from necroprobe import navigation_stats,motion_stats,shop_navigation,beat_sync
         with tempfile.TemporaryDirectory() as folder:
             r=p.new_report(1,'7'*32)
-            self.assertEqual('TEST-040',r['test_id']);self.assertEqual('shop-walk-v25',r['revision'])
-            self.assertEqual('runtime/test-040',p.parser().parse_args([]).output)
-            self.assertEqual(navigation_stats.ENGINE,r['walk']['navigation_engine'])
-            self.assertEqual(motion_stats.ENGINE,r['walk']['motion_engine'])
+            self.assertEqual('TEST-041',r['test_id']);self.assertEqual('shop-walk-v26',r['revision'])
+            self.assertEqual('runtime/test-041',p.parser().parse_args([]).output)
+            self.assertIsNone(r['walk']['navigation_engine'])
+            self.assertIsNone(r['walk']['motion_engine'])
             for key in ('navigation_engine','motion_engine'):
-                for engine in ('native_i386','pillow'):
+                for engine in (None,'native_i386','pillow'):
                     r['walk'][key]=engine;p.write(folder,r)
                     p.read_report(Path(folder)/'report.json','7'*32,1)
-                for engine in ('unknown',None,[],False):
+                for engine in ('unknown',[],False):
                     r['walk'][key]=engine;p.write(folder,r)
                     with self.assertRaises((ValueError,ProbeError)):
                         p.read_report(Path(folder)/'report.json','7'*32,1)

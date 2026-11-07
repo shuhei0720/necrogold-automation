@@ -239,6 +239,7 @@ class CheckpointEncodingTests(unittest.TestCase):
             current['test_id'] = identity['test_id']
             current['revision'] = identity['revision']
             current['startup'] = identity['startup']
+            current['worker_mode'] = identity['worker_mode']
             walk.write(folder, current, 'parent-result.json')
             parsed = walk.read_report(Path(folder) / 'parent-result.json',
                                       current['run_id'], current['start_ns'])

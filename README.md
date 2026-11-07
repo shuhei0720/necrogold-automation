@@ -2,11 +2,11 @@
 
 iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に金壁が見える回の金商人の商品を高速に確認し、目的の「呪いの指輪」の候補で停止するためのプロジェクトです。
 
-**TEST-040は商品表示・ポーズに成功し、歩行phaseは約22.38→18.37秒へ短縮しました（別配置）。** 人の連続歩行は画面上約0.50秒間隔、自動の連続区間も送信約0.52秒ですが、画像確認を挟む区間は約2.09秒/4拍空きます。親子の重複準備・区間間待ち・中間pause/resumeが改善対象です。[人との比較と改善順](docs/device-tests/README.md#test-040と手動操作の比較)。
+**TEST-041は、安全な曲がり角の2連続入力、親子の重複準備削減、金壁発見後の直接歩行を実装しました。** 関連400試験は375成功・旧外部画像不足25skip、新規64件は全成功。実機の速度と商品到達はこれから確認します。TEST040では連続入力が約0.52秒間隔、画像確認を挟む区間が約2.09秒でした。[人との比較](docs/device-tests/README.md#test-040と手動操作の比較) / [今回の実装・検証](docs/device-tests/README.md#test-041の実装検証)。
 
 - [計測ツールの使い方と結果の見方](docs/p1-probe-guide.md)
-- **現在P1.5 / TEST-040**: [実行手順](docs/device-tests/README.md#test-040実行手順)。導入済みNG-G1をそのまま使用し、画像は896×414の横長原寸で判定します。開発ブランチは`work/p1-capture-probe`です。
-- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_gold_scan test_shop_navigation test_shop_walk test_walk_burst test_walk_sequence test_walk_obstacles test_walk_approach test_walk_doorway test_footer_state test_corridor_motion test_shop_labels test_gate_sequence test_continuous_walk test_timing_selection test_trial_refresh test_dispatch_window test_motion_budget test_foreground_window test_partial_gold_motion test_checkpoint_encoding test_restart_loop test_native_scan test_state_only test_preflight test_startup_timing -v`
+- **現在P1.5 / TEST-041**: [実行手順](docs/device-tests/README.md#test-041実行手順)。新しい通常1-1をポーズして開始します。導入済みNG-G1をそのまま使用し、画像は896×414の横長原寸で判定します。開発ブランチは`work/p1-capture-probe`です。
+- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_gold_scan test_shop_navigation test_shop_walk test_walk_burst test_walk_sequence test_walk_obstacles test_walk_approach test_walk_doorway test_footer_state test_corridor_motion test_shop_labels test_gate_sequence test_continuous_walk test_timing_selection test_trial_refresh test_dispatch_window test_motion_budget test_foreground_window test_partial_gold_motion test_checkpoint_encoding test_restart_loop test_native_scan test_state_only test_preflight test_startup_timing test_input_path test_beat_sync test_route_sequence test_bootstrap test_candidate_handoff test_speed_integration test_direct_walk -v`。外部実機fixtureがない環境では対応例がskipになります。結果と必要な環境変数は台帳のTEST041節に記録します。
 - 完全な新規ソース: `necroprobe/`。旧版40ファイルは未変更。
 - P1.1の検証: ホスト54試験と3観点の相互レビューを通過しましたが、[TEST-001](docs/device-tests/001-capture.md)の実機3実行はworker_failedでした。3reportを受領し、最初のdevice_infoの開始記録までで完了していないことを確認。ホスト通過を実機合格とは扱いません。
 - P1.2の[TEST-002](docs/device-tests/002-worker-diagnostics.md)はPython暗号でもゲーム起動前にSIGSYSで終了しました。

@@ -1347,3 +1347,73 @@ module開始→最初の方向送信は41.018943秒、制御終了53.577829秒�
 初期化の削減量に関する補足: 子のreport検証区間2.595463秒に含まれるnativeのhash/selfcheckは、実解析を行うworkerで一度は必要。読取関数からDriverへ単に移してもその一回分は消えない。親側の不要な解析初期化と重複module読み込みが削減候補であり、親3.066＋子2.595秒の両方を丸ごと節約できる計算にはしない。直接handoffは小さい次変更候補、約4拍待ちを減らす経路実行/取得方式は毎拍要件の中心課題として分けて進める。
 
 比較記録の独立事実確認では039/040の全時間・集計・人の中央値/範囲を再計算して一致。P0/P1なし、P2の「取得済みライブ位相を破棄した」ように読める表現は、探索中に未取得で中間pause後に初期同期する現状へ修正した。コード変更はなく、比較調査に対応する単体試験の追加・再実行は行わない。
+
+## TEST-041の8項目プラン
+
+1. **概要**: ユーザーが指定した3点を同じ実機増分で改善する。観測済みの安全な曲がり角2入力を連続化、親子の重複初期化を削減、開幕金壁発見の中間pause/resumeを明示handoffで省く。全経路毎拍・人より速い性能の達成は実機で別途判定する。
+2. **背景**: TEST040は商品可視成功だが観測を挟む4区間が約2.09秒、起動は親module開始から初方向まで41.019秒。親schema生成でもnative準備、子のexecで再import/再検証が走る。金壁検出→walkresumeACKの約1.963秒も重複操作。3点は承認済みの開発対象であり、今回TDD/独立レビュー後に全コードを配布する。
+3. **詳細設計**: (A) 既存直線最大4入力/閉扉2入力を維持し、追加は先頭2方向が直交するfloor経路に限定。lead確認済み・goodsunknown・入口制約を適用した観測済み経路の先頭で、各入力の不受理を含む全到達集合R0={(0,0)}, Ri=Ri-1∪{p+di}の全セルがfloorでgate/unknown/dirt/stone/protectedではなく、protectedセルの隣接でもないことを要求。金壁と非共線stone2点以上の観測も事前条件。不適格なら従来経路へ戻す。使い切りtokenに元Scene/model/period/選択先行量とimmutable方向列/ordinalを束縛、既存single RPCとACK後だけの次拍を使う。縮退/打切り時は実送信prefixだけを照合する。2D照合は旧73軸＋4対角中心(±9,±9)各3×3近傍36の全109候補を方向非依存で比較し、強度.45/次点差.08、静止/上下左右1・2/対角1の13整数変位でgoldsubset+非共線stone2点以上の一意対応・双方向の既知stone矛盾拒否、質感300/95%/全候補15pp/二領域各100を要求。完全一致だけ2歩、片方の軸移動は実変位1歩を記録して停止、blocked/unknown/逆方向も停止。長さ1prefixは従来motionへ委譲。reportイベントへ方向列/実変位を明示し、型/長さ/合計/実送信との整合を検証する。(B) new_walk/new_report/schema検証をnative/Pillow importから切り離す。初期metadataは未準備のNone、Driverが最初の取得前にhash/selfcheck付きで準備し実engine/Pillow版を埋める。親の準備だけ削減し子の必要な検証を省かない。さらに親がmain/singlethread、親timer未所有、SIGALRMが既定/ignore、pairing/client/lockを未初期化というbootstrap内に限り、fork後execしない独立workerを使う。非stdio FDは事前に列挙して子で閉じ、stdio flush、子のSIGINT/SIGTERM/SIGALRM/cancelをexec相当に初期化、stderr DEVNULL、os._exitで終了。Popen互換wait/terminate/killを既存supervisorへ渡し期限/強制終了/回収を維持。fork/FD列挙等が不可能なら子を作る前だけ従来execへfallbackし、子生成後/不明状態の再起動はしない。getitimer/旧setitimer値を使わない。worker_mode(None/fork/exec)をreportに記録し、forkのworker_module時刻はfork child入口へ再設定して再importと誤認しない。(C) collectのfresh floor金壁候補出口3箇所へ任意callbackを追加。既定Noneは旧pause動作。候補をlatchしてからcallbackが厳密Trueの場合だけ候補floorを返す。shop Driverは候補同画像に完全Scene/HUDを追加し、last identity/floor/年齢<=3秒/no pending/取消・session/完全Sceneを再検査してhandを保持。workerはそのidentityでphasewalkへ移りwalk(initial=hand)がresumeを省く。通常synchronizeの最初のHUD標本として使い4点/2秒/新しい完全画像handoff条件は維持。goods可視は移動前に保持/pause。候補Scene/HUD解析失敗は候補保持を失わず従来pauseへ戻し、失敗後の自動resumeはしない。
+4. **影響範囲**: 新route_sequence/helper、shop_walkの連続実行/報告/歩行入口/metadata/worker起動統合、restart_loop.collect任意handoff、bootstrap/supervise optional spawn、必要な試験・TEST041起動・既存資料。native/C/IPA/R12・座標・拍fit/追跡・frame/phase3秒/前面1秒/遅れ10ms/16入力/45秒/全体2未送信更新は維持。商品候補/不明入力の無再送を崩さない。新schema用コピーのみworker_mode/新metadataを補い、生の旧reportは変更しない。
+5. **新規試験**: 3機能ごとに既存の実行入口で挙動Red→Greenを観測し、missing API/構文/fixture不一致をRedと数えない。mixedの全4方向/順序、全不受理集合、protected隣接、到達セル自体のunknown/gate/dirt、部分goods/未校正の禁止、tokenの列/ordinal/scene/model変異、horizon縮退/2ndlate/unknown/cancel、2D全109のnative-axis/Pillow一致・閾値/競合/強い静止動体負例を検証。040run101→103は既知L,U対としてhash付き再生、run102のU,Lはdirt不受理経路で拒否。bootstrapはpure factoryのheavy import禁止、初期None→Driver実metadata、実hostfork/非exec/独立PID/終了code/FD/信号/cancel/timer/回収、fork不可前fallback一度だけ、子生成後の例外/不明終了の無再送、親を殺さないこと。handoffは既定collectの完全回帰、3出口/リスタート数/候補latch優先/freshness/pending/解析失敗/既にpause送信時/商品/black/unknown/前面変更/取消、phase/model/HUDの入力前条件を確認する。ホストのfork対応・模擬RPC・画像再生をiSHや毎拍実測としない。
+6. **順序**: fresh-context設計/試験/安全プランレビュー→各機能の挙動Red→独立担当のhelper/試験と主担当統合→対象Green→独立実装レビュー最大3周→Git保存/全コードZIP→ユーザー実機確認。rootはshop_walk統合、担当はroute helper/bootstrap/supervise/collectを分担し同一ファイルを競合編集しない。
+7. **コミット前・実機条件**: reportの意味/actual count/2D位置・無再送・初回時刻・worker_mode、全対象回帰、旧資産/秘密値/構文/ZIP全内容を照合。実機で親子準備/最初の一歩/区間内と間の送信間隔/観測数/商品/pause/全未完了分母を記録。fork時の短縮とexec fallbackを分ける。現在商品表示済みなので新通常1-1を手動restart/pauseしてTEST041。可能なら歩行動画で各歩を確認する。
+8. **スコープ外**: 全曲がり角の無条件連打、3以上の混在方向列、nativeバイナリ変更、game受付時刻の保証、lock/foreground確認の省略、未知入力や子生成後の自動再送、iSH fork未対応時の強制使用、getitimerによるtimer推測、指輪識別/通知/完成周回。強度・質感・期限の緩和で速度を作らない。未確認の実機成功/削減秒数を約束しない。
+
+TEST041 bootstrap契約補足: forkのPIDを親が保持する前のINT/TERM割込みを防ぐため、pthread_sigmaskが使える場合にだけforkを選び、PID保持後に親の元maskへ戻す。非対応は子生成前exec fallback。子はsignal/FD準備後にmaskを戻し、SIGINTは新Python相当のdefault_int_handler、SIGTERM/SIGALRMはSIG_DFLとする。取消発生時も親が生成済み子を必ず期限付きで回収し、子存在後はexecを再起動しない。
+
+## TEST-041の実装・検証
+
+2026-11-07（日本時間）。ユーザーの「1.2.3を改善」を受け、P1.5 / shop-walk-v26として3点を実装した。実機実行はまだ行っていない。
+
+| 改善 | 実装した動作 | 残る確認 |
+| --- | --- | --- |
+| 区間間の待ち | `route_sequence`が全不受理位置も安全な直交2方向だけ選び、既存のACK後・次拍RPCで実行。実送信prefixを2D照合し、完全2歩/片軸1歩を実変位で加算 | 未知配置での適用率、iSHの追加対角照合費用、各歩の間隔 |
+| 起動準備 | schema生成/空schema検証のPillow/native importを除去。Driverが必要なhash/selfcheckを一度実施。適格な親では独立fork workerで再execを省き、非対応なら従来exec | iSHでのfork対応、`worker_mode`別のstartup短縮量 |
+| 金壁発見後 | 同じ候補画像へ完全Scene/HUDを付け、候補latch後に直接walkへ渡す。中間pause/resumeを省き、通常同期の初標本にする | 実機での中間操作削減、最初の一歩、商品表示・最終ポーズ |
+
+曲がり角の入口判定に未来画像や商品位置を使わない。protected隣接は除外し、到達セル自体のdirt/unknown/gateも不可。到達しない隣接dirt/unknownまで一律禁止する意味ではない。全109候補の強度・質感と13整数変位のgold/stone対応で符号を決める。TEST040の既知run101→103（左→上）は対角変位として再生できるが、run102の上→左は不受理位置がdirtのため拒否する。この既知ペアは調整用で、未知評価や実機TEST041の合格ではない。追加36候補はPillow、従来73軸は元native/Pillowを使い、Cの変更はない。
+
+候補handoffが拒否された場合、通常のmissing Scene/HUDでも解析例外でもポーズを保持し、workerは自動resumeしない。商品可視は拍解析失敗時も優先保持する。accepted handoff後にsourceが変わればnavigation_unknownで停止し、金壁なしとは記録しない。初期同期4点・2秒、fresh full/phase3秒、前面1秒、遅れ10ms、16入力・45秒、全体2回までの未送信更新は維持する。forkはtimer/client/排他を親が所有する前だけ選び、生成後の例外・未知終了で別workerを起動しない。ECHILD後は所有不明PIDへsignalしない。
+
+### TDD・独立レビュー
+
+実装前に既存public入口で観測した主Redは、(1) walkが安全な左→上を次観測まで実行せず左だけとなる1assertion failure/0errors、(2) superviseが選択spawnを使わず呼出し数0となる1assertion failure/0errors、(3) collectが候補handoffでもpauseする1assertion failure/0errors。加えてnew_reportのheavy import期待0に実際importが起きる1assertion failure/0errorsを観測した。最小実装後に各Greenを確認。短いsignatureのplanner拒否も追加Red→Green。欠けたAPI、コンパイル設定やPNG/fakeの不整合をRedとは数えていない。
+
+プランはfresh-contextの設計2周・試験/安全各1周で残存指摘なし。実装レビューは設計2周・安全2周・試験3周でP0/P1/P2残件なし。指摘修正は以下を含む。
+
+- **候補保持 P1**: Scene/HUD解析失敗後にworkerがresumeする2assertion failures/0errorsを確認し、拒否markerで自動再開を防いだ。候補受渡し後のsource変更診断もgold_not_found→navigation_unknownへ修正。
+- **送信前条件 P2**: modelのidentityだけでなくepoch/sample/profile内容もsnapshotへ束縛。cold schemaのPillow import、planned directionsと実送信prefixの不一致を含む5assertion failures/0errorsを確認して修正。
+- **加算整合 P2**: 同じRPC区間を重複/重なり/欠落indexで複数イベントへ加算できる4assertion failures/0errorsを確認し、イベントがACK済み実送信の連続・非重複prefixになる検証を追加。独立担当はguardを外すと4件ともassertionで失敗することを再確認し、pending未知入力・ACK後未観測末尾・単一prefix縮退・旧新イベント混在が正しく受理されることも確認。
+
+### 最終ホスト検証
+
+READMEの対象コマンドで**400件中375成功・旧外部画像不足25skip（32.994秒）**。追加した5ファイル64件はskip0。TEST034〜040の既存原画像、TEST038のreportをGit外から指定した。新規内訳はroute19、bootstrap14、candidate handoff10、direct walk12、speed integration9。実画像再生・模擬RPC・ホストforkを、iPhoneの入力受付/毎拍歩行/速度合格とは呼ばない。旧doorway fakeは抽出したtrack_observationをDriverから結合するだけの追従修正で、欠けたメソッドによる4errorsを解消後に全400件を再実行した。
+
+| 環境変数 | 指定した展開済みrunフォルダ/ファイル |
+| --- | --- |
+| `NECRO_TEST034_FRAMES` | `shop-walk-20261106T140451Z-f63e9222` |
+| `NECRO_TEST035_FRAMES` | `shop-walk-20261106T191812Z-c714f451` |
+| `NECRO_TEST036_FRAMES` | `shop-walk-20261106T194732Z-79edded7` |
+| `NECRO_TEST037_FRAMES` | `shop-walk-20261106T235017Z-cbf3069e` |
+| `NECRO_TEST038_FRAMES` | `shop-walk-20261107T001204Z-d092b093` |
+| `NECRO_TEST039_FRAMES` | `shop-walk-20261107T002832Z-db3121e8` |
+| `NECRO_TEST040_FRAMES` | `shop-walk-20261107T005013Z-1417ec19` |
+| `NECRO_TEST038_REPORT` | 上記TEST038フォルダ内の`report.json` |
+
+R12全40ファイルと全native/C/IPA・入力座標は変更しない。拍処理はPIL importの遅延化だけで、fit/track/閾値を変えない。生画像/report/ZIP/生成ログ・一時benchmarkはGit外、完全ソースを既承認`work/p1-capture-probe`へ保存する。親子の必要な検証を単に移した費用を全削減と数えず、TEST040の複合stage全量を短縮保証にしない。
+
+保存前に変更PythonのAST構文、`sh -n test_041.sh`、実preflightのP1.5/v26、差分の空白、変更22ファイルの秘密値形式0件を確認。R12はmanifestの全40 SHA-256が一致し、保護対象native等とshop_navigationはHEADとbyte一致、beat_syncはPIL import位置以外のASTが一致した。配布は全追跡343ファイルのcommit archiveとする。
+
+## TEST-041実行手順
+
+現在の商品表示済みランから**手動でクイックリスタートし、新しい通常1-1をポーズしてから**実行する。画面端0、いつもの左側を下にした向き。IPA入れ替え・端末コンパイルは不要。
+
+SafariでGitHubへログインした状態で配布のcommit archive ZIPを開き、ファイルへ保存・展開する。iSHのフォルダ選択では、展開先の`test_041.sh`があるフォルダを選ぶ。archiveの実際のフォルダ名に`necro_test041`がなくてもよい。
+
+```sh
+mkdir -p /mnt/necro_test041
+mount -t ios . /mnt/necro_test041
+cd /mnt/necro_test041 && sh test_041.sh
+```
+
+ゲームを表示して待ち、終了後の**`runtime/test-041`をZIPで返す**。最初の一歩までの待ち、途中の歩行間隔、商品表示と最終ポーズ、途中停止を確認する。可能なら開始から曲がり角までの短い動画も添える。ポーズ未確認なら手動でポーズする。`worker_mode`とstartup、実方向列/観測数をこちらで分析し、未完了試行も結果に含める。全経路毎拍・人より速い性能は今回まだ達成宣言しない。

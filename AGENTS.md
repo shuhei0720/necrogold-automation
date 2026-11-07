@@ -155,3 +155,13 @@ TEST040実機は商品125/100/125・ポーズtrue、5歩確認＋終端開扉/�
 新stageはparent module開始→report.start11.847191秒、親report準備3.066458秒、spawn側gap1.956401秒、子module→entry6.465009秒、子report検証2.595463秒、pairing.033362/crypto.178130/Driver.003891/launch2.309546/firstobserve→capture1.472533/capture→seen.751922秒。複合stageをimport/native単独費用と断定しない。scriptpreflightは親module以前で未計測。新startupでcold費用と周回毎費用を分ける。
 
 userは今回人比較/改善点調査を依頼。比較を既存台帳へ保存しTEST041未実装。優先課題は約4拍の観測/再判断待ち、親子の重複準備、副作用のあるschema生成、中間pause→resume（候補検出→walkresumeACK1.962968秒）。入力7回のfirst→last9.401367秒 vs連続拍なら参考3.13秒は約6.27秒の待ち位置を示すだけで短縮保証/turn連打許可ではない。親を軽量化しnative検証はworkerで一度だけ、ただしhash/selfcheck/排他/監督/取消は維持。新floorhandoffはfresh完全Scene/HUD/商品優先と同期4点/2秒を保つ。mixed方向は入力不受理全位置の安全/保護と2Dmotion/token/reportが前提。最後ACK→pause2.729323秒はgoods認識時刻なしで候補保持遅延とは呼ばない。今回の残る2.09秒をlatewake原因へ誤帰属しない。
+
+## TEST041 increment
+
+その後userが3点全ての改善を明示承認。TEST041 / shop-walk-v26 / runtime/test-041を実装した。mixedは観測済み直交2入力だけ、全不受理到達セルfloor/protected非隣接・入口制約・完全signature/gold/非共線stoneアンカーを要求。実送信prefixを旧73軸＋36対角候補で2D照合し、完全2歩/片軸partial1を実変位で記録する。partial/unknown/逆方向は停止。使い切りtokenはScene内容とmodelのdeepcopyにも束縛し、epoch/sample/profileのin-place変更後も追加送信しない。planned_directionsと実RPC順序・イベントの連続非重複index・変位/位置/歩数をstrict検証。pending/未知入力/ACK未観測の末尾は再送せず記録できる。
+
+new_report/new_walk/read_reportの未準備schemaはPillow/nativeをimportしない。engine/Pillow初期値Noneは未準備の意味で、Driverがcapture前に元のhash/selfcheckを一度行い実値を埋める。beat_syncはPIL importをextractへ移しただけでfit/track/閾値不変。main/singlethread・親timer未所有・既定信号/FD列挙/信号maskが確認できるbootstrapだけ独立fork workerを使用。親がPIDを保持してからmask復元、子のcancel/信号/FD/module時計を初期化しos._exit。条件不適合は子生成前だけ従来execへfallback。子生成後の再起動、getitimer/旧setitimer値、Popen.preexec_fnを使わない。worker_modeで区別し、iSH forkと短縮量は未確認。
+
+fresh候補は先にlatch/checkpointし、厳密Trueのhandoff時だけ同一floor/完全Scene/HUDを通常同期の初標本にして中間pause/resumeを省く。4点/2秒・fresh full・入力guardは維持。callback拒否/解析失敗はpause保持し自動resumeしない。商品は拍解析失敗でも優先保持。候補受渡し後のsource変更はnavigation_unknownとして金壁不在にしない。
+
+3機能とpure factoryで実装前assertion Red/0errors→Green。レビュー指摘修正にも挙動Redと変異検出を追加。関連400件375成功/旧外部画像不足25skip（32.994秒）、新規64件skip0。プラン設計2周・試験/安全各1周、実装設計/安全各2周・試験3周でP0/P1/P2残件なし。詳細は既存台帳末尾。R12全40・native/C/IPA・座標・拍算術/期限/入力上限は不変。全経路毎拍・人より速い受入は未達。新通常1-1を手動restart/pauseしてTEST041を依頼。全コードは同じ既承認ブランチへ保存しprivate GitHub commit archiveで配布、生画像/report/ZIP/logはGit外。

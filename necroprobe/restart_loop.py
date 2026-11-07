@@ -306,8 +306,10 @@ class RuntimeDriver:
         return changed(a['fingerprint'],b['fingerprint'])
 
 
-def collect(driver,max_restarts=MAX_RESTARTS):
+def collect(driver,max_restarts=MAX_RESTARTS,*,candidate_handoff=None):
     """一度候補を見たら保持。曖昧入力には以後の入力を追加しない。"""
+    if candidate_handoff is not None and not callable(candidate_handoff):
+        raise ProbeError('method_not_allowed')
     r=driver.report
     def latch(obs):
         if obs['state']=='floor' and obs['gold']=='candidate' and not r['candidate']:
@@ -330,6 +332,15 @@ def collect(driver,max_restarts=MAX_RESTARTS):
                 driver.save('stopped.jpg',after); return r
         r['reason']='pause_unconfirmed'
         return r
+    def candidate_and_finish(obs):
+        r['reason']='gold_candidate'
+        latch(obs)
+        # callback側で新鮮な完全観測・pending/取消などを確認してから渡す。
+        # 既定Noneや拒否時は従来のポーズ保持へ戻る。例外は受理に読み替えない。
+        if candidate_handoff is not None and candidate_handoff(obs) is True:
+            r['paused']=False
+            return r
+        return pause_and_finish(obs,'gold_candidate')
     def ready(previous=None):
         for _ in range(6):
             obs=driver.observe()
@@ -347,14 +358,14 @@ def collect(driver,max_restarts=MAX_RESTARTS):
         obs=ready()
     driver.record_run(obs)
     while True:
-        if obs['gold']=='candidate': return pause_and_finish(obs,'gold_candidate')
+        if obs['gold']=='candidate': return candidate_and_finish(obs)
         if r['restarts_confirmed']>=max_restarts: return pause_and_finish(obs,'restart_limit')
         if driver.bounded(): return pause_and_finish(obs,'time_limit')
         # 連続した同一ランの有効なclearだけを2回と数える。
         prior=obs if obs['gold']=='clear' else None
         for _ in range(6):
             current=driver.observe()
-            if current['state']=='floor' and current['gold']=='candidate': return pause_and_finish(current,'gold_candidate')
+            if current['state']=='floor' and current['gold']=='candidate': return candidate_and_finish(current)
             clear=current['state']=='floor' and current['gold']=='clear'
             if clear and prior is not None and not driver.changed(prior,current):
                 obs=current; break
@@ -382,7 +393,7 @@ def collect(driver,max_restarts=MAX_RESTARTS):
             if driver.changed(obs,after):
                 r['restarts_confirmed']+=1
                 driver.record_run(after)
-            return pause_and_finish(after,'gold_candidate')
+            return candidate_and_finish(after)
         r['restarts_confirmed']+=1
         obs=after
         driver.record_run(obs)
