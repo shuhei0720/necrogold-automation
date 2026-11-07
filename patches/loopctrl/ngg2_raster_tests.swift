@@ -31,7 +31,8 @@ for orientation in 1...8 {
 require(NG2Raster.normalize(original, orientation: 0, outputWidth: 3, outputHeight: 2) == nil, "orientation_invalid")
 require(NG2Raster.normalize(original, outputWidth: 2, outputHeight: 2) == nil, "aspect_invalid")
 require(NG2Raster.normalize(original, outputWidth: 0, outputHeight: 0) == nil, "size_invalid")
-let full = Array(repeating: [UInt8(10),20,30,255], count: 896*414).flatMap { $0 }
+let pixel: [UInt8] = [10, 20, 30, 255]
+let full: [UInt8] = Array(repeating: pixel, count: 896*414).flatMap { $0 }
 // The array-of-arrays initializer above deliberately uses the standard
 // collection API so no native word endian assumptions enter the fixture.
 let fullImage = image(full, 896, 414)

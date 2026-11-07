@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 HERE = Path(__file__).resolve().parent
 EXPECTED_RED = 'FAIL cancelled_ticket_not_sent'
@@ -25,6 +26,14 @@ enum NG2TicketGuard {
 '''
 
 
+def checked(result):
+    """Keep compiler and unexpected assertion diagnostics visible in CI logs."""
+    if result.returncode:
+        print(result.stdout, end='', file=sys.stderr)
+        print(result.stderr, end='', file=sys.stderr)
+    result.check_returncode()
+
+
 def execute(source, destination, label):
     destination.mkdir(parents=True, exist_ok=True)
     staged = destination / label
@@ -36,7 +45,7 @@ def execute(source, destination, label):
         str(staged / 'main.swift'), '-o', str(executable)],
         capture_output=True, text=True, timeout=120)
     (destination / (label + '-compile.txt')).write_text(built.stdout + built.stderr)
-    built.check_returncode()
+    checked(built)
     result = subprocess.run([str(executable.resolve())], capture_output=True,
                             text=True, timeout=30)
     (destination / (label + '-tests.txt')).write_text(result.stdout + result.stderr)
@@ -45,6 +54,8 @@ def execute(source, destination, label):
 
 def require_red(result, expected=EXPECTED_RED):
     if result.returncode != 1 or result.stdout.strip().splitlines()[-1] != expected or result.stderr:
+        print(result.stdout, end='', file=sys.stderr)
+        print(result.stderr, end='', file=sys.stderr)
         raise RuntimeError('compiled_behavioral_red_not_observed')
 
 
@@ -52,7 +63,7 @@ def compile_run(sources, executable, output, label, extra=()):
     built = subprocess.run(['swiftc', *map(str, sources), *map(str, extra), '-o', str(executable)],
                            capture_output=True, text=True, timeout=180)
     (output / (label + '-compile.txt')).write_text(built.stdout + built.stderr)
-    built.check_returncode()
+    checked(built)
     result = subprocess.run([str(executable.resolve())], capture_output=True, text=True, timeout=60)
     (output / (label + '-tests.txt')).write_text(result.stdout + result.stderr)
     return result
@@ -73,7 +84,7 @@ def api_contract(upstream, output):
     shutil.copyfile(HERE / 'ngg2_api_tests.swift', stage / 'main.swift')
     sources = [stage / 'RPCTypes.swift', stage / 'NG2AuthenticatedOwner.swift', stage / 'main.swift']
     green = compile_run(sources, stage / 'api-tests', output, 'api-production-green')
-    green.check_returncode()
+    checked(green)
     if not green.stdout.startswith('PASS 16 production authenticated owner projection contracts;') or green.stderr:
         raise RuntimeError('api_production_contract_missing')
     old = 'native["_necro_owner"] = .string(owner)'
@@ -94,7 +105,7 @@ def raster_contract(upstream, output):
         result = subprocess.run(['clang', '-std=c11', '-O2', '-I', str(native), '-c', str(source), '-o', str(target)],
                                 capture_output=True, text=True, timeout=120)
         (output / (source.stem+'-compile.txt')).write_text(result.stdout+result.stderr)
-        result.check_returncode(); objects.append(target)
+        checked(result); objects.append(target)
     if len(objects) != 4: raise ValueError('native_C_source_set')
     source = (native / 'NG2Raster.swift').read_text()
     (stage / 'NG2Raster.swift').write_text(source)
@@ -102,7 +113,7 @@ def raster_contract(upstream, output):
     sources = [stage / 'NG2Raster.swift', stage / 'main.swift']
     extra = ['-import-objc-header', native / 'NG2Core.h', *objects]
     green = compile_run(sources, stage / 'raster-tests', output, 'raster-production-green', extra)
-    green.check_returncode()
+    checked(green)
     if not green.stdout.startswith('PASS production CoreGraphics') or green.stderr:
         raise RuntimeError('raster_production_contract_missing')
     old = 'case 6: p = (y, image.height-1-x)'
@@ -134,7 +145,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
 ''')
     built = subprocess.run(['clang', '-std=c11', '-O2', '-I', str(native), '-c', str(stage/'fixture.c'),
                             '-o', str(stage/'fixture.o')], capture_output=True, text=True, timeout=60)
-    (output/'runtime-fixture-compile.txt').write_text(built.stdout+built.stderr); built.check_returncode()
+    (output/'runtime-fixture-compile.txt').write_text(built.stdout+built.stderr); checked(built)
     shutil.copyfile(HERE/'ngg2_runtime_fakes.swift', stage/'Fakes.swift')
     shutil.copyfile(HERE/'ngg2_runtime_tests.swift', stage/'main.swift')
     source = (native/'NG2Runtime.swift').read_text()
@@ -144,7 +155,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     objects = sorted((output/'raster').glob('NG2*.o'))+[stage/'fixture.o']
     extra = ['-D', 'NG2_RUNTIME_HOST_TEST', '-Xcc', '-I'+str(native), '-import-objc-header', stage/'NG2RuntimeFixture.h', *objects]
     green = compile_run(sources, stage/'runtime-tests', output, 'runtime-production-green', extra)
-    green.check_returncode()
+    checked(green)
     if not green.stdout.startswith('PASS production Runtime public API/') or green.stderr:
         raise RuntimeError('runtime_production_contract_missing')
     mutations = {
@@ -184,10 +195,10 @@ def capture_contract(upstream, output):
         built=subprocess.run(['clang','-fobjc-arc','-fblocks','-DNG2_CAPTURE_HOST_TEST=1','-I',str(stage),'-I',str(native),
             str(stage/'ObjCException.m'),str(stage/'NG2CaptureBridge.m'),str(stage/'main.m'),
             '-framework','Foundation','-framework','CoreGraphics','-o',str(target)],capture_output=True,text=True,timeout=120)
-        (output/(label+'-compile.txt')).write_text(built.stdout+built.stderr);built.check_returncode()
+        (output/(label+'-compile.txt')).write_text(built.stdout+built.stderr);checked(built)
         result=subprocess.run([str(target.resolve())],capture_output=True,text=True,timeout=30)
         (output/(label+'-tests.txt')).write_text(result.stdout+result.stderr);return result
-    green=run('daemon-production-green');green.check_returncode()
+    green=run('daemon-production-green');checked(green)
     if not green.stdout.startswith('PASS production legacy timeout and native daemon callback exclusion;') or green.stderr:
         raise RuntimeError('daemon_production_contract_missing')
     reds={}
@@ -226,7 +237,7 @@ def main():
         require_red(baseline)
         source = (upstream / 'LoopCtrlUITests/NG2Ticket.swift').read_text()
         observed = execute(source, output, 'production-green')
-        observed.check_returncode()
+        checked(observed)
         if not observed.stdout.startswith('PASS 20 pure Swift ticket/drain/heartbeat contracts;') or observed.stderr:
             raise RuntimeError('missing_production_green')
         old = '&& !cancelled && ownerActive && foreground && !locked'
