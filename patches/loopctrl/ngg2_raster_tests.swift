@@ -198,10 +198,16 @@ require(invalid < 0 && scene.state == 0, "real_C_short_buffer_refused")
 let encoded = NG2Raster.png(normalized)!
 require(encoded.starts(with: [137,80,78,71,13,10,26,10]), "png_format")
 require(NG2Raster.decode(encoded) == normalized, "opaque_sRGB_roundtrip")
+let encodedPNGSource = CGImageSourceCreateWithData(encoded as CFData, nil)!
+let encodedPNGProperties = CGImageSourceCopyPropertiesAtIndex(encodedPNGSource, 0, nil) as? [CFString: Any]
+require(encodedPNGProperties?[kCGImagePropertyOrientation] == nil,
+    "detailed_success_PNG_fixture_has_no_EXIF_orientation")
 switch NG2Raster.decodeDetailed(encoded) {
 case .success(let decoded):
     require(decoded.rgba == normalized && decoded.trace.sourceWidth == 896 &&
         decoded.trace.sourceHeight == 414, "detailed_success_preserves_legacy_decode_RGBA")
+    require(decoded.diagnosticOrientation == nil && decoded.trace.orientation == 1,
+        "detailed_success_missing_EXIF_stays_null_while_processing_defaults_1")
 case .failure:
     require(false, "detailed_success_preserves_legacy_decode_RGBA")
 }
@@ -279,6 +285,7 @@ func compareReference(_ source: CGImage, orientation: Int, outputWidth: Int,
     let trace = actual.trace
     require(trace.sourceWidth == source.width && trace.sourceHeight == source.height &&
         trace.orientation == orientation, "\(label)_trace_source_geometry")
+    require(actual.diagnosticOrientation == orientation, "\(label)_direct_known_orientation_is_retained")
     require(trace.sourceNs == 0, "\(label)_direct_normalize_has_no_encoded_source_stage")
     require(trace.copyPixels == (orientation == 1 ? 0 : UInt64(source.width * source.height)),
         "\(label)_trace_counts_actual_oriented_copy_pixels")
@@ -364,7 +371,8 @@ func compareJPEG(_ bytes: Data, expectedWidth: Int, expectedHeight: Int,
     require(bytes.starts(with: [255, 216]), "\(label)_actual_JPEG_stream")
     let source = CGImageSourceCreateWithData(bytes as CFData, nil)!
     let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as! [CFString: Any]
-    let exif = (properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
+    let acquiredOrientation = (properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue
+    let exif = acquiredOrientation ?? 1
     require(exif == orientation, "\(label)_EXIF_roundtrip")
     let decodedImage = CGImageSourceCreateImageAtIndex(source, 0, nil)!
     require(decodedImage.width == expectedWidth && decodedImage.height == expectedHeight,
@@ -376,6 +384,8 @@ func compareJPEG(_ bytes: Data, expectedWidth: Int, expectedHeight: Int,
     require(NG2Raster.decode(bytes) == actual.rgba, "\(label)_legacy_decode_wrapper")
     require(actual.trace.sourceWidth == expectedWidth && actual.trace.sourceHeight == expectedHeight &&
         actual.trace.orientation == orientation, "\(label)_profiled_source_geometry")
+    require(actual.diagnosticOrientation == acquiredOrientation,
+        "\(label)_acquired_EXIF_is_distinct_from_processing_default")
     require(actual.trace.copyPixels == (orientation == 1 ? 0 : UInt64(expectedWidth * expectedHeight)),
         "\(label)_actual_copy_pixels")
 }

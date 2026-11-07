@@ -40,6 +40,7 @@ private struct NG2Frame {
     let rgba: Data
     let rasterTrace: NG2Raster.Trace
     let encodedBytes: Int
+    let diagnosticOrientation: Int?
 }
 
 private final class NG2Run {
@@ -503,7 +504,8 @@ final class NG2Runtime {
             let frame = NG2Frame(id: before.0, start: start, end: captureEnd, decodeEnd: Self.now(),
                 startPrefix: before.1, prefix: endPrefix, startInFlight: before.2, endInFlight: endInFlight,
                 stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: decoded.rgba,
-                rasterTrace: decoded.trace, encodedBytes: raw?.count ?? 0)
+                rasterTrace: decoded.trace, encodedBytes: raw?.count ?? 0,
+                diagnosticOrientation: decoded.diagnosticOrientation)
             run.lock.ng2Locked {
                 if run.generation == before.3 && !run.stopped {
                     if run.latest != nil { run.replacedFrames += 1 }
@@ -583,7 +585,7 @@ final class NG2Runtime {
                 let trace = frame.rasterTrace
                 commitCaptureFailure(run, generation: analysisGeneration, id: frame.id, start: frame.start, end: frame.end,
                     failure: .init(stage: .analysis, code: .invalidRGBA, encodedBytes: frame.encodedBytes,
-                        sourceWidth: trace.sourceWidth, sourceHeight: trace.sourceHeight, orientation: trace.orientation))
+                        sourceWidth: trace.sourceWidth, sourceHeight: trace.sourceHeight, orientation: frame.diagnosticOrientation))
                 run.cancel(20); ng2_controller_cancel(core, Self.now(), 20)
             }
         }

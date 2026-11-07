@@ -91,11 +91,11 @@
     },
     "LoopCtrlUITests/NG2Raster.swift": {
       "source": "NG2Raster.swift",
-      "sha256": "8acb54ad8184424003c6eb2627a9faca61d3df7220d6b60d2e705cf70957440e"
+      "sha256": "5b7f937903f468b4284d9c9b4bbdd460f87329414d649f7ba0d255401b07ba67"
     },
     "LoopCtrlUITests/NG2Runtime.swift": {
       "source": "NG2Runtime.swift",
-      "sha256": "45511beed649654eb7c72fef82ac34d66ed44c389fb4d9e64e81593f6d0c768c"
+      "sha256": "3400144032744550036deec4f5fb4ebfc90e662efecfbe40886e5a08d532af79"
     },
     "LoopCtrlUITests/NG2Templates.h": {
       "source": "NG2Templates.h",

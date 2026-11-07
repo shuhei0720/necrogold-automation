@@ -328,6 +328,10 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             'guard run.captureFailure == nil else { return false }',
             '// mutation: first capture failure immutability removed',
             'FAIL capture_failure_first_record_is_immutable'),
+        'capture-failure-orientation': (
+            'orientation: frame.diagnosticOrientation))',
+            'orientation: trace.orientation))',
+            'FAIL capture_failure_real_C_analysis_rejection_is_reported'),
     }
     reds = {}
     for label,(old,new,expected) in mutations.items():

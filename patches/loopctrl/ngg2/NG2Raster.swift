@@ -23,6 +23,9 @@ enum NG2Raster {
     struct ProfiledResult {
         let rgba: Data
         let trace: Trace
+        // The effective processing orientation may be default 1 even when
+        // ImageIO supplied no EXIF value. Keep acquired metadata separate.
+        let diagnosticOrientation: Int?
     }
 
     enum FailureStage: String {
@@ -203,7 +206,7 @@ enum NG2Raster {
             return .success(ProfiledResult(rgba: rgba, trace: Trace(sourceWidth: image.width,
                 sourceHeight: image.height, orientation: orientation, sourceNs: sourceNs,
                 drawNs: drawEnd - drawStart, orientNs: orientEnd - drawEnd,
-                scaleNs: scaleNs, copyPixels: copyPixels)))
+                scaleNs: scaleNs, copyPixels: copyPixels), diagnosticOrientation: diagnosticOrientation))
         }
         if orientedWidth == outputWidth && orientedHeight == outputHeight {
             return result(oriented, scaleNs: 0)
