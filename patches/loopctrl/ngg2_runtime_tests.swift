@@ -128,6 +128,34 @@ foregroundProbeLock.lock(); let foregroundResponsive = foregroundProbeResponsive
 require(foregroundResponsive, "foreground_IPC_hold_keeps_status_cancel_nonblocking")
 require(NG2Fake.countTouches() == 0, "foreground_IPC_hold_cancel_no_late_synth")
 
+// Both slow foreground IPC itself and delay after its result invalidate the
+// sampled authority, even when cancellation and owner flags remain unchanged.
+for delayed in ["query", "gate"] {
+    NG2Fake.reset(.pause)
+    NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+    let oldAuthority = identity()
+    NG2RuntimeTestHooks.beforeMainAdmission = {
+        if delayed == "query" {
+            NG2Fake.lock.lock()
+            NG2Fake.beforeForegroundQuery = {
+                NG2Fake.lock.lock(); NG2Fake.beforeForegroundQuery = nil; NG2Fake.lock.unlock()
+                NG2Fake.advance(1_000_000_001)
+            }
+            NG2Fake.lock.unlock()
+        } else {
+            NG2RuntimeTestHooks.afterForegroundQuery = {
+                NG2Fake.advance(1_000_000_001)
+                NG2RuntimeTestHooks.afterForegroundQuery = nil
+            }
+        }
+        NG2RuntimeTestHooks.beforeMainAdmission = nil
+    }
+    require(call("necro_native_start", oldAuthority).1 == nil, "authority_age_start_"+delayed)
+    pump("authority_age_drained_"+delayed) { drained(oldAuthority) }
+    require(report(oldAuthority)["reason"]?.intValue == 7 && NG2Fake.countTouches() == 0,
+        "authority_sample_over_1s_no_synth_"+delayed)
+}
+
 // Fresh main-thread authority checks are made after a ticket has already been
 // reserved, and cancel before any synth rather than planning a cleanup input.
 for lost in ["foreground", "lock", "owner"] {

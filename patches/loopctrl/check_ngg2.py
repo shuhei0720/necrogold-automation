@@ -22,6 +22,7 @@ enum NG2TicketGuard {
     static func canReleaseLease(captureWorkerDone: Bool, captureOutstanding: Bool,
                                 mainOutstanding: Bool, legacyCaptures: Int) -> Bool { return false }
     static func renewsHeartbeat(keepalive: Bool = false, ownerActive: Bool, cancelled: Bool) -> Bool { return false }
+    static func authoritySampleIsFresh(start: UInt64, end: UInt64, now: UInt64) -> Bool { return false }
 }
 '''
 
@@ -172,6 +173,11 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     stale_clock_gate = clock_gate.replace('        DispatchQueue.main.sync {',
         '        DispatchQueue.main.sync {\n            let admissionClockSnapshot = Self.now()', 1).replace(
         '                let now = Self.now()', '                let now = admissionClockSnapshot', 1)
+    query_begin = source.index('            let authorityQueryStart = Self.now()', clock_begin)
+    query_end = source.index('            let permitted = run.lock.ng2Locked { () -> Bool in\n', query_begin)
+    query_block = source[query_begin:query_end]
+    query_gate_header = '            let permitted = run.lock.ng2Locked { () -> Bool in\n'
+    query_inside_lock = query_gate_header + ''.join('    '+line for line in query_block.splitlines(keepends=True))
     mutations = {
         'capture-admission': ('guard !run.stopped, run.cancelReason == 0, self.ownerActive(run) else { return nil }',
                               '// mutation: capture admission recheck removed',
@@ -187,6 +193,8 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         'analysis-owner': ('guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
                            'guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped else { return false }',
                            'FAIL revoked_analysis_never_observed_or_retained_owner'),
+        'foreground-lock': (query_block+query_gate_header, query_inside_lock,
+                            'FAIL foreground_IPC_hold_keeps_status_cancel_nonblocking'),
         'main-clock': (clock_gate, stale_clock_gate, 'FAIL expired_during_main_admission_no_synth'),
         'move-input': ('result = run.fast?.fastGesture([[(point: point, t: 0.0), (point: point, t: 0.05)]]) ?? (nil, .internalError)',
                        'result = run.fast?.fastTap(x: Double(command.x), y: Double(command.y)) ?? (nil, .internalError)',
@@ -262,15 +270,20 @@ def main():
         source = (upstream / 'LoopCtrlUITests/NG2Ticket.swift').read_text()
         observed = execute(source, output, 'production-green')
         checked(observed)
-        if not observed.stdout.startswith('PASS 20 pure Swift ticket/drain/heartbeat contracts;') or observed.stderr:
+        if not observed.stdout.startswith('PASS 26 pure Swift ticket/drain/heartbeat/authority contracts;') or observed.stderr:
             raise RuntimeError('missing_production_green')
         old = '&& !cancelled && ownerActive && foreground && !locked'
         if source.count(old) != 1: raise ValueError('ticket_mutation_target')
         mutation = execute(source.replace(old, '&& ownerActive && foreground && !locked'), output, 'ticket-mutation-red')
         require_red(mutation)
+        boundary = 'now - start <= 1_000_000_000'
+        if source.count(boundary) != 1: raise ValueError('authority_freshness_mutation_target')
+        authority_mutation = execute(source.replace(boundary, 'now - start < 1_000_000_000'), output, 'authority-boundary-mutation-red')
+        require_red(authority_mutation, 'FAIL authority_query_boundary_inclusive')
         report = {'production_green': {'compiled': True, 'returncode': 0,
                   'observed': observed.stdout.strip()}, 'baseline_red': baseline.stdout.strip(),
                   'ticket_mutation_red': mutation.stdout.strip(),
+                  'authority_freshness_mutation_red': authority_mutation.stdout.strip(),
                   'api': api_contract(upstream, output), 'raster': raster_contract(upstream, output),
                   'runtime': runtime_contract(upstream, output), 'daemon':capture_contract(upstream, output),
                   'source_sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest()

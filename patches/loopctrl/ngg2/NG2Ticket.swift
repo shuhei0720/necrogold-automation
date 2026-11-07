@@ -11,6 +11,9 @@ enum NG2TicketGuard {
             && !cancelled && ownerActive && foreground && !locked
             && notBefore <= deadline && now >= notBefore && now <= deadline
     }
+    static func authoritySampleIsFresh(start: UInt64, end: UInt64, now: UInt64) -> Bool {
+        start > 0 && end >= start && now >= end && now - start <= 1_000_000_000
+    }
     static func canReleaseLease(captureWorkerDone: Bool, captureOutstanding: Bool,
                                 mainOutstanding: Bool, legacyCaptures: Int) -> Bool {
         captureWorkerDone && !captureOutstanding && !mainOutstanding && legacyCaptures == 0

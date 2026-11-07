@@ -38,6 +38,7 @@ enum NG2Fake {
         NG2RuntimeTestHooks.beforeMainAdmission = nil
         NG2RuntimeTestHooks.beforeMainAuthority = nil
         NG2RuntimeTestHooks.beforeAnalysisCommit = nil
+        NG2RuntimeTestHooks.afterForegroundQuery = nil
         LockStateMonitor.monitor.isLocked = false
         NG2RuntimeTestHooks.clock = nil
     }

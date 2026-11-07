@@ -13,6 +13,7 @@ enum NG2RuntimeTestHooks {
     static var beforeMainAdmission: (() -> Void)?
     static var beforeMainAuthority: (() -> Void)?
     static var beforeAnalysisCommit: (() -> Void)?
+    static var afterForegroundQuery: (() -> Void)?
 }
 #endif
 
@@ -520,18 +521,27 @@ final class NG2Runtime {
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.beforeMainAdmission?()
             #endif
+            // XCTest foreground IPC can stall. It must never hold the lock
+            // used by status, cancel, capture invalidation or the watchdog.
+            let authorityQueryStart = Self.now()
+            let foreground = run.expectedPID > 0 && ForegroundApp.frontmostPID() == run.expectedPID
+            let locked = LockStateMonitor.shared().isLocked
+            let authorityQueryEnd = Self.now()
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeTestHooks.afterForegroundQuery?()
+            #endif
             let permitted = run.lock.ng2Locked { () -> Bool in
                 let ownerActive = self.ownerActive(run)
-                let foreground = run.expectedPID > 0 && ForegroundApp.frontmostPID() == run.expectedPID
-                let locked = LockStateMonitor.shared().isLocked
-                // Hold the cancellation gate through the fresh authority and
-                // clock checks and the C begin linearization point.
-                let lostReason: Int32 = !ownerActive ? 5 : (locked ? 4 : (!foreground ? 3 : 0))
+                let now = Self.now()
+                let authorityFresh = NG2TicketGuard.authoritySampleIsFresh(
+                    start: authorityQueryStart, end: authorityQueryEnd, now: now)
+                // The gate rechecks cancellation/generation/owner and time
+                // immediately before the C begin linearization point.
+                let lostReason: Int32 = !ownerActive ? 5 : (locked ? 4 : (!foreground ? 3 : (!authorityFresh ? 7 : 0)))
                 if lostReason != 0 {
                     if run.cancelReason == 0 { run.cancelReason = lostReason; run.generation &+= 1 }
                     run.stopped = true; run.latest = nil
                 }
-                let now = Self.now()
                 guard NG2TicketGuard.permits(expectedGeneration: generation, currentGeneration: run.generation,
                     cancelled: run.cancelReason != 0, ownerActive: ownerActive, foreground: foreground,
                     locked: locked, now: now, notBefore: command.not_before_ns, deadline: command.deadline_ns),
