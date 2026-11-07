@@ -20,9 +20,9 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v5'
+REVISION = 'native-walk-v6'
 API_VERSION = '1.98.14-ngg2'
-CAPABILITY = 'necrogold_native_v4'
+CAPABILITY = 'necrogold_native_v5'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -59,7 +59,7 @@ NUMERIC_KEYS = frozenset(('abi_version', 'struct_size', 'phase', 'reason', 'term
     'phase_sample_ns', 'kind', 'direction', 'begin_ns', 'end_ns', 'observed_capture_id',
     'outcome', 'motion', 'dx', 'dy', 'capture_id', 'start_ns', 'completed_prefix',
     'started_prefix', 'inflight', 'generation', 'sequence', 'timeout_ns', 'last_heartbeat_ns',
-    'decode_end_ns', 'analysis_start_ns', 'analysis_end_ns', 'completed_prefix_start',
+    'decode_end_ns', 'analysis_start_ns', 'analysis_end_ns', 'observe_end_ns', 'completed_prefix_start',
     'completed_prefix_end', 'accepted_started_ns', 'live_completed_prefix',
     'native_capture_requests', 'latest_frames_replaced', 'daemon_requests_outstanding',
     'analyzed_capture_count', 'evicted_capture_count', 'retained_image_count',
@@ -342,7 +342,7 @@ def _load(base):
         record['events_dropped'] += excess
         record['events'] = _events(record['events'][excess:])
         _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', 'native-walk-v3',
-                                          'native-walk-v4', REVISION)
+                                          'native-walk-v4', 'native-walk-v5', REVISION)
                  and record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -433,6 +433,22 @@ def _capture_failure(value):
     return {key:value[key] for key in keys}
 
 
+def _dispatch_failure(value):
+    if value is None:
+        return None
+    keys = ('command_id', 'not_before_ns', 'deadline_ns', 'query_start_ns',
+            'query_end_ns', 'main_entry_ns', 'gate_ns', 'code')
+    _require(type(value) is dict and set(keys) <= set(value), 'invalid_native_report')
+    _require(type(value['code']) is str and value['code'] in (
+        'foreground', 'locked', 'owner', 'authority_stale', 'too_early',
+        'too_late', 'controller_rejected'), 'invalid_native_report')
+    for key in keys[:3]:
+        _require(_ns(value[key]), 'invalid_native_report')
+    for key in keys[3:-1]:
+        _require(value[key] is None or _ns(value[key]), 'invalid_native_report')
+    return {key:value[key] for key in keys}
+
+
 def _report(value, depth=0):
     _require(type(value) is dict and depth <= 3 and len(value) <= 128, 'invalid_native_report')
     result = {}
@@ -476,6 +492,8 @@ def _report(value, depth=0):
             result[key] = item
         elif key == 'capture_failure':
             result[key] = _capture_failure(item)
+        elif key == 'dispatch_failure':
+            result[key] = _dispatch_failure(item)
         elif key in ID_LIST_KEYS:
             _require(type(item) is list and len(item) <= MAX_CAPTURES
                      and all(type(v) is int and 0 <= v < 2**63 for v in item), 'invalid_native_report')
@@ -483,7 +501,7 @@ def _report(value, depth=0):
         elif key in FIXED_TEXT:
             _require(item == FIXED_TEXT[key], 'invalid_native_report')
             result[key] = item
-    for timing in (('start_ns', 'end_ns', 'decode_end_ns', 'analysis_start_ns', 'analysis_end_ns'),
+    for timing in (('start_ns', 'end_ns', 'decode_end_ns', 'analysis_start_ns', 'analysis_end_ns', 'observe_end_ns'),
                    ('capture_start_ns', 'capture_end_ns', 'decode_end_ns')):
         available = [result[key] for key in timing if key in result]
         _require(available == sorted(available), 'invalid_native_report')
@@ -862,8 +880,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST047: NG-G2の画像処理と取得失敗診断を検証')
-    ap.add_argument('--output', default='runtime/test-047')
+    ap = argparse.ArgumentParser(description='TEST048: NG-G2の解析分離と入力準備を検証')
+    ap.add_argument('--output', default='runtime/test-048')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')
@@ -892,7 +910,7 @@ def main(argv=None):
             attempts = record.get('preflight', {}).get('attempts', [])
             kind = attempts[-1]['diagnostic']['kind'] if attempts else None
             if record['stop_reason'] == 'native_capability_missing':
-                print('NG-G2の版・機能が一致しません。TEST047用の新IPAとLoopCtrlの起動状態を確認してください。')
+                print('NG-G2の版・機能が一致しません。TEST048用の新IPAとLoopCtrlの起動状態を確認してください。')
             elif kind == 'refused':
                 print('LoopCtrlへの接続が拒否されました。まだゲームの開始要求は送っていません。')
             elif record['stop_reason'] in ('rpc_deadline', 'host_deadline') or kind in ('timeout','deadline'):

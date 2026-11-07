@@ -2,9 +2,9 @@
 
 更新: 2026-11-07（日本時間）
 
-最新はTEST047の実装・ホスト/CI・新IPA build37を検証し、実機テストを依頼する段階。TEST046のEXIF8回転365〜1829msを根拠に向き2〜8をCへ移し、全画素同値と最初の固定失敗診断を実装。native128件/client118件はホスト全成功、[最終CI42369174973](https://github.com/shuhei0720/necrogold-automation/actions/runs/42369174973)でRuntime19/Raster3変異・暗号RPC・IPAが成功。CRC/SHA/封印22ソースと実Mach-O capv4を照合済み。**[新IPA build37](https://github.com/shuhei0720/necrogold-automation/actions/runs/42369174973/artifacts/13573640558)へSideStore更新**し、LoopCtrl完全終了/起動→Start Serverの後[TEST047手順](device-tests/README.md#test-047実行手順)でruntime/test-047を返してもらう。3観点の第2周レビュー/全399source照合は既存台帳末尾へ記録。期限/閾値/無再送は維持し、毎拍/人より速い実機受入は未合格。
+最新はTEST047受領後のTEST048開発。RESUME後の初LEFTはbegin0で未送信、最終pauseは確認。撮影失敗はなく、capture37の解析/observeが入力予定を6.376ms跨いだ。既存workerへ純粋画像走査を移し、前面確認を先行する[8項目プラン](device-tests/README.md#test-047受領結果とtest-048の8項目プラン)を独立3観点で確認した。旧Runtimeの公開挙動RedはMac CI42375674996でcompile後に観測済み。本体Green/新IPA/完全source検証後、[TEST048](device-tests/README.md#test-048実行手順)を必ず実機依頼する。毎拍/人より速い性能・指輪/通知/全周回の受入は未完了。
 
-TEST046提出時の履歴: 実装・ホスト/CI・新IPA build30を検証して実機テストを依頼した。35px UNKNOWNの同入力再確認と向き1の画素同値コピー削減を実装し、native112件/client112件ホスト成功、[CI42355682441](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441)でSwift15変異/暗号RPC/build30を確認、CRC/SHA/22ソースを照合。その後の実機は3実行方向0、向き8の処理が重く向き1最適化は未適用だった。現在はTEST047の新IPAと[TEST047手順](device-tests/README.md#test-047実行手順)を使う。毎拍/人より速い性能は未合格。
+TEST046提出時の履歴: 実装・ホスト/CI・新IPA build30を検証して実機テストを依頼した。35px UNKNOWNの同入力再確認と向き1の画素同値コピー削減を実装し、native112件/client112件ホスト成功、[CI42355682441](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441)でSwift15変異/暗号RPC/build30を確認、CRC/SHA/22ソースを照合。その後の実機は3実行方向0、向き8の処理が重く向き1最適化は未適用だった。その後TEST047も受領し、現在は上記TEST048へ進める。毎拍/人より速い性能は未合格。
 
 TEST045提出時の履歴: 実装・ホスト/CI・新IPA build25を確認して実機テストを依頼した。元拍/期限を維持した初入力前の最大2再計画と、結果専用最大8秒・固定差分診断を実装。native96件/クライアント105件はホスト全成功、client CI105件/native CI90件もskip0。Swift本体と12実callsite変異、暗号RPC、IPAビルドが[CI42349253984](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984)で成功し、CRC/SHA・全22ソースを照合した。その後上1歩＋ポーズの実機結果を受領した。現在はTEST046の新IPAと[TEST046手順](device-tests/README.md#test-046実行手順)を使う。歩行・速度・毎拍受入は未合格。
 

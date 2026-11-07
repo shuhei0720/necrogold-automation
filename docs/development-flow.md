@@ -111,3 +111,8 @@ TEST043の⑦で「ゲーム開かず」と最初の接続エラーを受領し�
 ⑦では同じNG-G2 IPAと完全sourceを使い、新1-1ポーズからsh test_044.shを実行してruntime/test-044を返す実機テストを必ず依頼する。接続回復のホスト成功をゲーム起動/歩行/速度の実機合格としない。送信済み・unknown startの再送禁止や要件は維持する。
 
 ⑥の独立実装レビューは設計/安全各2周・試験3周で終了し、P0/P1/P2残件なし。旧journalの画像metadata検査漏れは公開_loadの1 assertion Redから修正、retry表の試験不足は誤表変異の7 assertion failuresで故障検出を確認した。対象92件はホスト24.688秒・CI24.410秒で全成功/skip0、旧432件は407成功/外部画像不足25skip。最終[CI run42343772094](https://github.com/shuhei0720/necrogold-automation/actions/runs/42343772094)はa1424adに一致する。CIで正常系fixtureの時間枠不足を修正したが、本番コード・注入deadline試験・速度要件は変更していない。native/IPA/R12を維持し、⑦の完全ソース配布と実機依頼へ進む。⑧の整理とゲーム起動・歩行・性能受入は次の実機結果から行う。
+
+
+## TEST-048 解析と入力準備の分離
+
+TEST047実機で初LEFT未送信/input0・pause確認を受領し、①既存台帳の8項目プランへ戻った。②③設計/安全各1周・試験2周のfresh-contextレビューを閉じた。④⑤は固定TEST047 Runtime＋実C/公開walkのMac compile後に、前面確認が最終callbackの前にないことをnamed assertion Redとして観測した（CI42375674996）。その後にだけ純粋解析をcapture workerへ移し、同一tokenを保った先行前面準備と元拍の最終gateを実装する。新API/compile不足をRedに数えない。最終検証・⑥レビュー・新IPA/完全source・⑦実機依頼は既存実機台帳末尾へ記録する。毎拍/人より速い実機受入・⑧結果を受けた整理は残る。
