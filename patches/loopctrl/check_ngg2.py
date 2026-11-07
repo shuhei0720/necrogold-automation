@@ -126,7 +126,12 @@ def raster_contract(upstream, output, *, expect_red=False):
         return {'baseline_red': green.stdout.strip(), 'compiled': True, 'returncode': 1,
                 'scope': 'public normalizeProfiled with unchanged pixel loop and real copy accounting'}
     checked(green)
-    if not green.stdout.startswith('PASS production CoreGraphics') or green.stderr:
+    # macOS hosted arm runners can emit this unavailable accelerator notice
+    # during real ImageIO JPEG work. Retain it in evidence, allow only this
+    # exact line, and still reject every other stderr diagnostic.
+    warnings = green.stderr.strip().splitlines()
+    if (not green.stdout.startswith('PASS production CoreGraphics')
+        or any(line != 'IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver' for line in warnings)):
         raise RuntimeError('raster_production_contract_missing')
     old = 'case 6: p = (y, image.height-1-x)'
     if source.count(old) != 1: raise ValueError('raster_mutation_target')
@@ -140,7 +145,8 @@ def raster_contract(upstream, output, *, expect_red=False):
         'raster-identity-mutation-red', extra, run_timeout=180)
     require_red(identity_red, 'FAIL orientation_1_identity_avoids_pixel_copy actual=6 expected=0')
     return {'production_green': green.stdout.strip(), 'mutation_red': red.stdout.strip(),
-            'identity_mutation_red': identity_red.stdout.strip(), 'compiled': True}
+            'identity_mutation_red': identity_red.stdout.strip(),
+            'environment_warnings': warnings, 'compiled': True}
 
 
 def runtime_contract(upstream, output):

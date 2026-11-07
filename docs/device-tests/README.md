@@ -1781,3 +1781,15 @@ TEST046の固定診断schema: `motion_wait`はcommand_id/source_capture_id/last_
 試験レビュー第1周P2補足: Runtime公開入口で、最初の未知motion画像が4recent窓から実際に落ちてもexport対象であること、解析後の実時計で固定wait期限を再検査すること、Raster traceが31/32/33件/first1＋latest31/dropped/重複なしでresults→client→save/loadまで届くことをassertする。評価ごとのobserved capture参照の脱落、解析前の古いclock使用、trace保存接続の削除を実callsite変異にし、対応する公開assertionで故障を検出する。既存12変異の成功で新接続も検証済みとはしない。
 
 TEST046プランレビューは設計/安全各1周、試験網羅2周で終了し残P0/P1/P2なし。RasterのMac Red用保存点では、既存IPA workflowのmanifest未封印ゲートを使う。旧manifestをGit外へ保持して一時的に外し、`--raster-red-only`で直接production Raster/実C/凍結参照をコンパイルし、小画像copy0期待のassertion failureを検証する。IPA buildはこの保存点で起動しない。挙動Red確認後だけfastpathへ進み、全sourceを改めてsealして通常CIを通す。これは完成配布版ではなく、最終CI/IPA/sourceの証拠を別に記録する。
+
+## TEST-046の実装・検証
+
+公開Cの主Redは、ACK後の最初のUNKNOWNを待機継続と期待したところ旧実装が停止した1 assertion failure・0errors。最大3回、固定command/before/prefixと元の次拍期限を保つ修正からGreenへ進み、停止待機を小helperへ整理した。controller66件は全成功（6.530秒）、必須旧66画像＋045の8画像を含むnative全109件も全成功・skip0（29.301秒）。35pxの実画像はUNKNOWNを維持し、次の36pxだけをMOVEDとして確認する。
+
+Rasterの最初のMac実行42354420588は、gray画素比較式のSwift type-check失敗であり挙動Redではない。式を型付きloopへ分けた`04a0d9faa5a9cc40c0adba32d2675e16fc074606` / [CI42354821781](https://github.com/shuhei0720/necrogold-automation/actions/runs/42354821781)は、Swift6.3.3のcompile成功後、旧pixel loopが`FAIL orientation_1_identity_avoids_pixel_copy actual=6 expected=0`を返し、returncode1/stderr空を確認した。その後だけorientation1の`oriented = original`共有へ変更。2..8のloop・黒不透明sRGB描画・高品質縮小と凍結参照は維持し、恒等copyを戻す変異も同assertionで拒否する。
+
+クライアントはnative-walk-v4/required native_v3、既定runtime/test-046へ更新した。実暗号HTTP→結果保存→再読込の主Redは新診断欠落の1 assertion failure・0errorsからGreen。socket EPERMによる環境errorは別にし、ネットワーク許可下で正式再実行した。client/共有HTTPは112件全成功・skip0（30.685秒）。最大captures256/events64/scene_changes3/raster32/motion_wait7/HTTP128/画像20等を含むreportのJSON10,000nodes内、旧v1/v2/v3回復GET0/start0も確認。protocol.pyと既定操作/metadata2秒・readiness8秒・results8秒は変更しない。
+
+Runtimeはmotion_wait7項目、同じ解析commit gateのtrace first1＋latest31/droppedと、評価ごとの既存event参照による累積画像pinを接続した。独立の短レビューで、次MOVE予約がqueryを更新するのに最終queryを前MOVEの結果としてassertするfixture P2を修正。MOVED commit後/次予約前の公開queryと元MOVE eventの両方を確認する。新公開結合と3実callsite変異のSwift実行・IPAは、再封印後のCIで別に確認する。ホスト結果を実機毎拍成功へ読み替えない。
+
+初回全CI `e4123d47f97bf51f6698bd75402351b1295cb491` はclient112件成功（30.582秒）、native host102件成功・private7件は明示除外。Macの全画素/実JPEG比較を進めた後、要求EXIF9が保存後も9であると仮定したfixtureが失敗した。fixtureは保存済みpropertiesを独立に読み、有効な向きなら参照全byte/geometry/traceを照合し、無効値または不適合aspectなら拒否を要求する形へ修正。direct normalizeの無効0/9拒否とproduction/凍結参照は変更しない。Mac仮想acceleratorの既知通知`IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver`だけは正確な1行文字列で許可・記録し、他のstderr、失敗returncodeやassertionは拒否する。主Red/変異のstderr空条件は維持する。

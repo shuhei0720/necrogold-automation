@@ -259,8 +259,24 @@ for scale in [2, 3] {
 }
 compareJPEG(jpeg(jpegLandscape, orientation: nil), expectedWidth: 896, expectedHeight: 414,
     orientation: 1, label: "ImageIO_JPEG_missing_EXIF_defaults_1")
-require(NG2Raster.decodeProfiled(jpeg(jpegLandscape, orientation: 9)) == nil,
-    "ImageIO_JPEG_invalid_EXIF_rejected")
+// ImageIO may sanitize or omit an invalid orientation while encoding. Check
+// the stored property independently, then expect the decoder to obey that
+// metadata; do not presume the requested value 9 survived serialization.
+let attemptedInvalidJPEG = jpeg(jpegLandscape, orientation: 9)
+let attemptedInvalidSource = CGImageSourceCreateWithData(attemptedInvalidJPEG as CFData, nil)!
+let attemptedInvalidProperties = CGImageSourceCopyPropertiesAtIndex(attemptedInvalidSource, 0, nil) as! [CFString: Any]
+let storedOrientation = (attemptedInvalidProperties[kCGImagePropertyOrientation] as? NSNumber)?.intValue
+let effectiveOrientation = storedOrientation ?? 1
+if (1...4).contains(effectiveOrientation) {
+    // These orientations retain the encoded 896x414 aspect. A missing property
+    // follows the production contract's default orientation 1.
+    compareJPEG(attemptedInvalidJPEG, expectedWidth: 896, expectedHeight: 414,
+        orientation: effectiveOrientation, label: "ImageIO_JPEG_encoder_sanitized_EXIF")
+} else {
+    // Other values are invalid, or rotate this source to the wrong aspect.
+    require(NG2Raster.decodeProfiled(attemptedInvalidJPEG) == nil,
+        "ImageIO_JPEG_stored_invalid_orientation_or_aspect_rejected")
+}
 require(NG2Raster.normalizeProfiled(original, orientation: 9, outputWidth: 3, outputHeight: 2) == nil,
     "profiled_invalid_orientation_rejected")
 require(NG2Raster.normalizeProfiled(original, outputWidth: 2, outputHeight: 2) == nil,
@@ -269,3 +285,5 @@ require(NG2Raster.decodeProfiled(Data()) == nil &&
     NG2Raster.decodeProfiled(Data(count: 8 * 1024 * 1024 + 1)) == nil,
     "profiled_encoded_size_bounds")
 print("PASS production CoreGraphics orientation/RGBA/PNG and real C contracts; device capture not executed")
+let storedOrientationLabel = storedOrientation == nil ? "absent" : String(storedOrientation!)
+print("INFO ImageIO requested invalid EXIF 9; stored=\(storedOrientationLabel)")
