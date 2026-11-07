@@ -17,6 +17,7 @@ enum NG2RuntimeTestHooks {
     static var beforeControlTick: (() -> Void)?
     static var scheduleTicket: ((UInt64, @escaping () -> Void) -> Bool)?
     static var afterTicketReturned: ((UInt64) -> Void)?
+    static var afterCaptureDrainProcessed: ((String) -> Void)?
 }
 #endif
 
@@ -367,7 +368,15 @@ final class NG2Runtime {
     }
 
     private func capture(_ run: NG2Run) {
-        defer { run.lock.ng2Locked { run.captureWorkerDone = true }; controlQueue.async { self.cycle(run) } }
+        defer {
+            run.lock.ng2Locked { run.captureWorkerDone = true }
+            controlQueue.async {
+                self.cycle(run)
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeTestHooks.afterCaptureDrainProcessed?(run.id)
+                #endif
+            }
+        }
         while !run.lock.ng2Locked({ run.stopped }) {
             if !streamsDrained { Thread.sleep(forTimeInterval: 0.005); continue }
             let finished = DispatchSemaphore(value: 0)

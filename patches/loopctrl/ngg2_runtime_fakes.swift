@@ -28,6 +28,7 @@ enum NG2Fake {
     static var returnedTickets = Set<UInt64>()
     static var unknownFrames = 0
     static var boundaryClockChange: (() -> Void)?
+    static var captureDrainedRuns = Set<String>()
     static var callbacks: [(Data?, String?) -> Void] = []
     static var offset: UInt64 = 0
     static var pending = 0
@@ -39,6 +40,7 @@ enum NG2Fake {
             walkMoves = 0; walkCapturesAfterMove = 0; walkObservationAfter = 0; walkPaused = false
             remoteVariant = 0; heldTickets = [:]; returnedTickets = []; unknownFrames = 0
             boundaryClockChange = nil
+            captureDrainedRuns = []
             phaseBase = DispatchTime.now().uptimeNanoseconds
         }
         RemoteSession.shared.paused = false
@@ -50,6 +52,7 @@ enum NG2Fake {
         NG2RuntimeTestHooks.beforeControlTick = nil
         NG2RuntimeTestHooks.scheduleTicket = nil
         NG2RuntimeTestHooks.afterTicketReturned = nil
+        NG2RuntimeTestHooks.afterCaptureDrainProcessed = nil
         LockStateMonitor.monitor.isLocked = false
         NG2RuntimeTestHooks.clock = nil
     }

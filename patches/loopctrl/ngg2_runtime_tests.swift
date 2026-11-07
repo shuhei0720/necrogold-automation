@@ -34,11 +34,13 @@ func diagnoseFixture(_ id: String) {
         NG2Fake.lock.lock()
         let held = NG2Fake.heldTickets.keys.sorted(), returned = NG2Fake.returnedTickets.sorted()
         let phase = NG2Fake.phaseBase, pending = NG2Fake.pending, variant = NG2Fake.remoteVariant
+        let captureDrained = NG2Fake.captureDrainedRuns.contains(id)
         NG2Fake.lock.unlock()
         return ["report": .object(snapshot), "held_ticket_ids": .array(held.map { .int(Int($0)) }),
             "returned_ticket_ids": .array(returned.map { .int(Int($0)) }),
             "fake_now_ns": .int(Int(NG2Fake.virtualClock())), "phase_base_ns": .int(Int(phase)),
             "pending_captures": .int(pending), "remote_variant": .int(Int(variant)),
+            "capture_drain_processed": .bool(captureDrained),
             "path_count": .int(NG2Fake.paths().count), "touch_count": .int(NG2Fake.countTouches())]
     }
 }
@@ -408,6 +410,9 @@ for staleFirst in [true, false] {
     NG2RuntimeTestHooks.afterTicketReturned = { id in
         NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(id); NG2Fake.lock.unlock()
     }
+    NG2RuntimeTestHooks.afterCaptureDrainProcessed = { id in
+        NG2Fake.lock.lock(); NG2Fake.captureDrainedRuns.insert(id); NG2Fake.lock.unlock()
+    }
     require(call("necro_native_start", replan).1 == nil, "replan_runtime_start")
     pump("replan_runtime_replacement_reserved", timeout: 12) {
         let current = call("necro_native_status", replan, keepalive: true).0?["report"]?.objectValue ?? [:]
@@ -461,6 +466,10 @@ for staleFirst in [true, false] {
         return report(replan)["terminal"]?.intValue == 1
     }
     if !staleFirst {
+        pump("replan_capture_worker_drained_and_cycle_processed") {
+            NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
+            return NG2Fake.captureDrainedRuns.contains(replan)
+        }
         require(!drained(replan) && runtime.hasLease && call("necro_native_start", identity()).1 != nil,
             "replan_queued_stale_callback_keeps_core_and_lease")
         releaseOld()
@@ -490,7 +499,7 @@ NG2RuntimeTestHooks.scheduleTicket = { id, callback in
     let movements = (report(rejectedDifference)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
     guard movements.contains(where: { $0["id"]?.intValue == Int(id) }) else { return false }
     NG2Fake.holdTicket(id, callback)
-    NG2Fake.lock.lock(); NG2Fake.unknownFrames = 6; NG2Fake.lock.unlock()
+    NG2Fake.lock.lock(); NG2Fake.unknownFrames = 10; NG2Fake.lock.unlock()
     return true
 }
 require(call("necro_native_start", rejectedDifference).1 == nil, "rejected_difference_start")
@@ -506,6 +515,9 @@ require(rejectedChanges.count == 1 && rejectedChanges[0].objectValue?["replan_al
 let rejected = rejectedChanges[0].objectValue!
 require(rejectedReport["last_capture_id"]!.intValue! - rejected["observed_capture_id"]!.intValue! >= 5,
     "rejected_difference_fixture_exceeds_recent_window")
+let lastAnalyzedIDs = (rejectedReport["captures"]?.arrayValue ?? []).suffix(4).compactMap { $0.objectValue?["id"]?.intValue }
+require(lastAnalyzedIDs.count == 4 && !lastAnalyzedIDs.contains(rejected["observed_capture_id"]!.intValue!),
+    "rejected_difference_fixture_evicted_from_recent_analysis_window")
 NG2Fake.lock.lock(); let rejectedIDs = Array(NG2Fake.heldTickets.keys); NG2Fake.lock.unlock()
 for id in rejectedIDs { NG2Fake.releaseTicket(id) }
 pump("rejected_difference_drained") { drained(rejectedDifference) }

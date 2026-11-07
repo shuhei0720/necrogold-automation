@@ -218,16 +218,20 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     }
     reds = {}
     for label,(old,new,expected) in mutations.items():
+        print('Runtime mutation: '+label, flush=True)
         if source.count(old)!=1: raise ValueError('runtime_mutation_target: '+label)
         (stage/'NG2Runtime.swift').write_text(source.replace(old,new))
         result = compile_run(sources, stage/(label+'-tests'), output, 'runtime-'+label+'-mutation-red', extra)
         require_red(result, expected); reds[label]=result.stdout.strip()
+        print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
     ownership = 'guard run.lock.ng2Locked({ run.mainCommandID == command.id }) else { return }'
     if source.count(ownership) != 3: raise ValueError('runtime_stale_entry_mutation_target')
     (stage/'NG2Runtime.swift').write_text(source.replace(ownership, '// mutation: stale callback early ownership removed'))
+    print('Runtime mutation: stale-entry', flush=True)
     result = compile_run(sources, stage/'stale-entry-tests', output, 'runtime-stale-entry-mutation-red', extra)
     require_red(result, 'FAIL replan_stale_callback_skips_AX_and_shared_authority')
     reds['stale-entry'] = result.stdout.strip()
+    print('Runtime mutation observed: stale-entry / '+result.stdout.strip().splitlines()[-1], flush=True)
     return {'production_green':green.stdout.strip(),'mutation_red':reds,'compiled':True,
             'scope':'Actual Runtime public API, raster, real C, main ticket and lifecycle with UIKit/XCTest/daemon fakes'}
 
