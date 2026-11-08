@@ -1,6 +1,6 @@
-"""Verify the generated, source-specific strict Perception build profile.
+"""Verify generated, source-specific strict native compiler profiles.
 
-The baseline reconstructs the delivered TEST048 sources, generates a real
+The baseline reconstructs the delivered TEST049 sources, generates a real
 Xcode project, and requires the new contract to fail on its missing flags.
 It never treats generation, missing sources, or API/setup errors as that Red.
 """
@@ -18,12 +18,14 @@ import tempfile
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-BASELINE = '8e72974a8ab93de853d7362c3d00b7cac1a39a42'
+BASELINE = 'bbdff15852cc4070392c54cc039b00d49cacd77c'
 UPSTREAM = '6e25cf6a9f65bc86c372cdce94bdb151d0cf6767'
 TARGET = 'LoopCtrlUITests'
 SOURCE = 'NG2Perception.c'
+NAVIGATION = 'NG2Navigation.c'
+STRICT_SOURCES = (SOURCE, NAVIGATION)
 FLAGS = ['-O2', '-fno-fast-math', '-ffp-contract=off']
-EXPECTED_RED = 'FAIL NG2Perception_strict_O2_is_applied_once'
+EXPECTED_RED = 'FAIL NG2Navigation_strict_O2_is_applied_once'
 MAX_RESPONSE_BYTES = 1024 * 1024
 MAX_RESPONSE_TOTAL = 2 * 1024 * 1024
 MAX_RESPONSE_FILES = 32
@@ -59,7 +61,7 @@ def read_project(path):
     return json.loads(converted.stdout)
 
 
-def project_contract(project):
+def _source_project_contract(project, source=SOURCE):
     """Resolve actual target/build-phase/file references, not YAML spelling."""
     objects = project.get('objects')
     if not isinstance(objects, dict):
@@ -112,10 +114,10 @@ def project_contract(project):
         path = reference.get('path')
         if not isinstance(path, str):
             raise ProfileError('perception_project_file_path')
-        if Path(path).name == SOURCE:
+        if Path(path).name == source:
             resolved = source_path(build['fileRef']).as_posix()
-            if resolved != 'LoopCtrlUITests/' + SOURCE:
-                raise ProfileError('perception_project_wrong_source')
+            if resolved != 'LoopCtrlUITests/' + source:
+                raise ProfileError(('perception' if source == SOURCE else 'navigation') + '_project_wrong_source')
             flags = build.get('settings', {}).get('COMPILER_FLAGS', '')
             if isinstance(flags, str):
                 flags = shlex.split(flags)
@@ -123,7 +125,9 @@ def project_contract(project):
                 raise ProfileError('perception_project_compiler_flags_type')
             records.append({'file_ref': build['fileRef'], 'path': resolved, 'flags': flags})
     if len(records) != 1:
-        raise ProfileError('perception_project_source_count')
+        if source == SOURCE:
+            raise ProfileError('perception_project_source_count')
+        raise ProfileError('navigation_project_source_count')
     for target in objects.values():
         if not isinstance(target, dict) or target.get('isa') != 'PBXNativeTarget' or target is matches[0]:
             continue
@@ -135,22 +139,44 @@ def project_contract(project):
                 build = objects.get(build_id, {})
                 reference = objects.get(build.get('fileRef'), {})
                 path = reference.get('path')
-                if isinstance(path, str) and Path(path).name == SOURCE:
-                    raise ProfileError('perception_project_extra_target')
+                if isinstance(path, str) and Path(path).name == source:
+                    raise ProfileError(('perception' if source == SOURCE else 'navigation') + '_project_extra_target')
     if records[0]['flags'] != FLAGS:
-        raise ProfileError('NG2Perception_strict_O2_is_applied_once')
-    return {'format_version': 1, 'target': TARGET, 'source': SOURCE,
+        raise ProfileError(Path(source).stem + '_strict_O2_is_applied_once')
+    return {'format_version': 1, 'target': TARGET, 'source': source,
             'source_count': 1, 'compiler_flags': FLAGS}
 
 
-def inspect_project(upstream):
+
+def _strict_sources(profile_version):
+    if type(profile_version) is not int or profile_version not in (1, 2):
+        raise ProfileError('perception_compile_profile_identity')
+    return (SOURCE,) if profile_version == 1 else STRICT_SOURCES
+
+
+def project_contract(project, *, profile_version=2):
+    """Validate each strict source independently in the actual target graph."""
+    names = _strict_sources(profile_version)
+    records = {name: _source_project_contract(project, name) for name in names}
+    if profile_version == 1:
+        return records[SOURCE]
+    return {'format_version': 2, 'target': TARGET, 'sources': records}
+
+
+def inspect_project(upstream, *, profile_version=2):
     upstream = Path(upstream).resolve()
     path = upstream / 'LoopCtrl.xcodeproj/project.pbxproj'
     if path.is_symlink() or not path.is_file():
         raise ProfileError('perception_project_missing')
-    result = project_contract(read_project(path))
+    result = project_contract(read_project(path), profile_version=profile_version)
     result['project_sha256'] = digest(path.read_bytes())
-    result['source_sha256'] = digest((upstream / 'LoopCtrlUITests' / SOURCE).read_bytes())
+    hashes = {}
+    for name in _strict_sources(profile_version):
+        source = upstream / 'LoopCtrlUITests' / name
+        if source.is_symlink() or not source.is_file():
+            raise ProfileError('perception_project_source_missing')
+        hashes[name] = digest(source.read_bytes())
+    result['source_sha256'] = hashes[SOURCE] if profile_version == 1 else hashes
     return result
 
 
@@ -386,7 +412,7 @@ def _option(args, option):
     return args[indexes[0] + 1]
 
 
-def inspect_compile_log(upstream, log, proofdir):
+def inspect_compile_log(upstream, log, proofdir, *, profile_version=2):
     upstream, log, proofdir = Path(upstream).resolve(), Path(log), Path(proofdir)
     if log.is_symlink() or not log.is_file() or log.stat().st_size > MAX_BUILD_LOG_BYTES:
         raise ProfileError('perception_compile_log_size')
@@ -398,7 +424,8 @@ def inspect_compile_log(upstream, log, proofdir):
         lines = raw.decode('utf-8').splitlines()
     except UnicodeDecodeError as error:
         raise ProfileError('perception_compile_log_encoding') from error
-    project = inspect_project(upstream)
+    strict_sources = _strict_sources(profile_version)
+    project = inspect_project(upstream, profile_version=profile_version)
     compiles = {name: [] for name in NATIVE_C}
     swift = {}
     swift_compiles = []
@@ -484,7 +511,7 @@ def inspect_compile_log(upstream, log, proofdir):
                 or TARGET + '.build' not in output_relative.parts
                 or output.name != Path(source_name).stem + '.o'):
             raise ProfileError('perception_compile_wrong_target')
-        profile = effective_flags(expanded, '-O2' if source_name == SOURCE else '-O0')
+        profile = effective_flags(expanded, '-O2' if source_name in strict_sources else '-O0')
         compiles[source_name].append(dict(profile, target=TARGET, arch='arm64',
             source='LoopCtrlUITests/' + source_name,
             source_sha256=digest(supplied.read_bytes()),
@@ -496,17 +523,24 @@ def inspect_compile_log(upstream, log, proofdir):
         retain_responses(used)
     if any(not records for records in compiles.values()) or TARGET not in swift:
         raise ProfileError('perception_compile_evidence_missing')
-    return {'format_version': 1, 'profile': 'strict-O2-v1', 'target': TARGET,
+    if profile_version == 2 and set(swift) != SWIFT_TARGETS:
+        raise ProfileError('perception_compile_swift_evidence_missing')
+    if profile_version == 2 and any(len(compiles[name]) != 1 for name in strict_sources):
+        raise ProfileError('perception_compile_strict_source_count')
+    result = {'format_version': profile_version, 'profile': 'strict-O2-v' + str(profile_version), 'target': TARGET,
             'arch': 'arm64', 'source_sha256': project['source_sha256'],
             'project_profile': project, 'perception_compiles': compiles[SOURCE],
-            'other_c_profiles': {name: compiles[name] for name in NATIVE_C if name != SOURCE},
+            'other_c_profiles': {name: compiles[name] for name in NATIVE_C if name not in strict_sources},
             'swift_optimization': '-Onone', 'swift_profiles': swift,
             'swift_compiles': swift_compiles, 'upstream_root': str(upstream),
             'response_files': sorted(responses.values(), key=lambda item: item['path']),
             'build_log_sha256': digest(raw)}
+    if profile_version == 2:
+        result['navigation_compiles'] = compiles[NAVIGATION]
+    return result
 
 
-def read_compile_profile(upstream):
+def read_compile_profile(upstream, *, required_version=None):
     """Require the actual compile evidence at the package-writing callsite."""
     upstream = Path(upstream).resolve()
     path = upstream / 'release/native-perception-profile.json'
@@ -524,26 +558,38 @@ def read_compile_profile(upstream):
     except (ValueError, UnicodeDecodeError) as error:
         raise ProfileError('perception_compile_profile_json') from error
     if (not isinstance(profile, dict) or type(profile.get('format_version')) is not int
-            or profile['format_version'] != 1 or profile.get('profile') != 'strict-O2-v1'
+            or profile['format_version'] not in (1, 2)
+            or profile.get('profile') != 'strict-O2-v' + str(profile['format_version'])
             or profile.get('target') != TARGET or profile.get('arch') != 'arm64'
             or profile.get('upstream_root') != str(upstream)):
         raise ProfileError('perception_compile_profile_identity')
+    profile_version = profile['format_version']
+    if required_version is not None and (type(required_version) is not int
+            or required_version not in (1, 2) or profile_version != required_version):
+        raise ProfileError('perception_compile_profile_version_required')
+    strict_sources = _strict_sources(profile_version)
+
     def is_digest(value):
         return type(value) is str and re.fullmatch('[0-9a-f]{64}', value) is not None
 
     if not is_digest(profile.get('build_log_sha256')):
         raise ProfileError('perception_compile_profile_digest')
-    project = inspect_project(upstream)
+    project = inspect_project(upstream, profile_version=profile_version)
     if profile.get('project_profile') != project or profile.get('source_sha256') != project['source_sha256']:
         raise ProfileError('perception_compile_profile_source')
     project_record = profile['project_profile']
+    project_sources = ([project_record] if profile_version == 1
+                       else list(project_record['sources'].values()))
     if (type(project_record.get('format_version')) is not int
-            or type(project_record.get('source_count')) is not int):
+            or any(type(row.get('source_count')) is not int
+                   or type(row.get('format_version')) is not int for row in project_sources)):
         raise ProfileError('perception_compile_profile_project_type')
     other = profile.get('other_c_profiles')
-    if not isinstance(other, dict) or set(other) != set(NATIVE_C) - {SOURCE}:
+    if not isinstance(other, dict) or set(other) != set(NATIVE_C) - set(strict_sources):
         raise ProfileError('perception_compile_profile_other_sources')
     records = {SOURCE: profile.get('perception_compiles'), **other}
+    if profile_version == 2:
+        records[NAVIGATION] = profile.get('navigation_compiles')
     actual_responses = {}
     with tempfile.TemporaryDirectory(prefix='perception-profile-check-') as temporary:
         def check_arguments(record, compiler):
@@ -568,13 +614,16 @@ def read_compile_profile(upstream):
             return expanded
 
         for name, rows in records.items():
-            if not isinstance(rows, list) or not 1 <= len(rows) <= 16:
+            if (not isinstance(rows, list) or not 1 <= len(rows) <= 16
+                    or (profile_version == 2 and name in strict_sources and len(rows) != 1)):
                 raise ProfileError('perception_compile_profile_count')
             source_path = upstream / 'LoopCtrlUITests' / name
+            if source_path.is_symlink() or not source_path.is_file():
+                raise ProfileError('perception_compile_wrong_source')
             expected_sha = digest(source_path.read_bytes())
             for row in rows:
                 args = check_arguments(row, 'clang')
-                expected = '-O2' if name == SOURCE else '-O0'
+                expected = '-O2' if name in strict_sources else '-O0'
                 flags = effective_flags(args, expected)
                 if (Path(args[0]).name != 'clang' or row.get('target') != TARGET
                         or row.get('arch') != 'arm64' or row.get('source') != 'LoopCtrlUITests/' + name
@@ -613,7 +662,9 @@ def read_compile_profile(upstream):
                     or row.get('optimization') != '-Onone'):
                 raise ProfileError('perception_compile_profile_swift')
             modules[module] = '-Onone'
-        if (TARGET not in modules or profile.get('swift_profiles') != modules
+        if (TARGET not in modules
+                or (profile_version == 2 and set(modules) != SWIFT_TARGETS)
+                or profile.get('swift_profiles') != modules
                 or profile.get('swift_optimization') != '-Onone'):
             raise ProfileError('perception_compile_profile_swift')
     response_records = profile.get('response_files')
@@ -703,7 +754,7 @@ def main():
         (release / 'native-perception-profile.json').write_text(json.dumps(result, indent=2) + '\n')
         # Apply the same validation that the package-writing callsite requires.
         read_compile_profile(args.upstream)
-        print('PASS actual_Clang_Perception_strict_O2_and_other_profiles_unchanged')
+        print('PASS actual_Clang_Perception_Navigation_strict_O2_and_other_profiles_unchanged')
     else:
         if len(args.paths) != 1:
             parser.error('--project requires upstream and output directory')
@@ -716,7 +767,7 @@ def main():
         output.mkdir(parents=True, exist_ok=True)
         (output / 'perception-project-profile.json').write_text(json.dumps(result, indent=2) + '\n')
         (output / 'perception-project-model.json').write_text(json.dumps(read_project(args.upstream / 'LoopCtrl.xcodeproj/project.pbxproj'), indent=2) + '\n')
-        print('PASS NG2Perception_strict_O2_is_applied_once')
+        print('PASS NG2Perception_and_NG2Navigation_strict_O2_are_applied_once')
     return 0
 
 

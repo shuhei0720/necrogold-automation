@@ -95,6 +95,52 @@ func scheduleFirstFixtureMove(_ run: String, holdingPause: Bool = false) {
     }
 }
 
+// The fixed old TEST049 Runtime uses the same public API and compiled fakes.
+// Analysis finishes below gate+100; only the actual committed C boundary moves
+// the clock to +200, and its return moves it to +300. The old producer never
+// invokes those hooks and must fail the named missing-field assertion.
+func testObserveStartAtCommittedCBoundary() {
+    NG2Fake.reset(.pause)
+    let id = identity()
+    let releaseCapture = DispatchSemaphore(value: 0)
+    NG2RuntimeTestHooks.clock = { NG2Fake.observeFixtureNow() }
+    NG2RuntimeTestHooks.beforeCaptureAdmission = {
+        if NG2Fake.countRequests() > 0 { releaseCapture.wait() }
+    }
+    NG2RuntimeTestHooks.beforeAnalysisCommit = { NG2Fake.setObserveGateClock() }
+    NG2RuntimeObserveTestHooks.beforeObserve = { NG2Fake.enterObserveBoundary() }
+    NG2RuntimeObserveTestHooks.afterObserve = { NG2Fake.leaveObserveBoundary() }
+    // A pause image may offer RESUME. Revoke its callback before allowing it
+    // to return, preserving real callback drain with no UI action or clock jump.
+    NG2RuntimeTestHooks.scheduleTicket = { _, callback in
+        _ = call("necro_native_cancel", id); callback(); return true
+    }
+    require(call("necro_native_start", id).1 == nil, "observe_start_fixture_public_start")
+    pump("observe_start_fixture_actual_capture_committed") {
+        report(id)["captures"]?.arrayValue?.count == 1
+    }
+    _ = call("necro_native_cancel", id)
+    releaseCapture.signal()
+    pump("observe_start_fixture_public_drain") { drained(id) }
+    let result = call("necro_native_results", id)
+    require(result.1 == nil, "observe_start_fixture_public_results")
+    let captures = result.0?["report"]?.objectValue?["captures"]?.arrayValue ?? []
+    require(captures.count == 1, "observe_start_fixture_one_committed_public_capture")
+    let capture = captures[0].objectValue ?? [:]
+    require(capture["observe_start_ns"] != nil, "MISSING_observe_start_ns")
+    let boundaries = NG2Fake.observeBoundaries()
+    require(boundaries.0 == [1_000_000_200] && boundaries.1 == [1_000_000_300],
+        "observe_start_fixture_actual_C_boundaries")
+    require((capture["analysis_end_ns"]?.intValue ?? Int.max) < 1_000_000_100,
+        "observe_start_fixture_analysis_precedes_commit_gate")
+    require(capture["observe_start_ns"]?.intValue == Int(boundaries.0[0]),
+        "observe_start_actual_committed_C_entry")
+    require(capture["observe_end_ns"]?.intValue == Int(boundaries.1[0]),
+        "observe_end_preserves_after_C_publication_clock")
+    require(NG2Fake.countTouches() == 0, "observe_start_diagnostics_do_not_send_input")
+}
+// TEST050 OBSERVE FIXTURE END.
+
 // TEST047 baseline uses only the existing public API and the old nil-reply
 // fake. A missing diagnostic must be an executed assertion, not a new API or
 // setup failure. The standalone baseline stops at the end marker below.
@@ -180,6 +226,9 @@ require(preparedQueriesAtSend == 1 && NG2Fake.paths().count == 1 &&
 cancelDrain(preparedMove)
 fixtureFailureSnapshot = nil
 // TEST048 RUNTIME DISPATCH BASELINE END.
+
+// TEST050 full-suite invocation; the baseline executes this fixture alone.
+testObserveStartAtCommittedCBoundary()
 
 require(NG2Runtime.testFrameStride < 512, "published_Frame_keeps_large_C_scene_off_value_stack")
 

@@ -20,9 +20,9 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v7'
+REVISION = 'native-walk-v8'
 API_VERSION = '1.98.14-ngg2'
-CAPABILITY = 'necrogold_native_v6'
+CAPABILITY = 'necrogold_native_v7'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -59,7 +59,7 @@ NUMERIC_KEYS = frozenset(('abi_version', 'struct_size', 'phase', 'reason', 'term
     'phase_sample_ns', 'kind', 'direction', 'begin_ns', 'end_ns', 'observed_capture_id',
     'outcome', 'motion', 'dx', 'dy', 'capture_id', 'start_ns', 'completed_prefix',
     'started_prefix', 'inflight', 'generation', 'sequence', 'timeout_ns', 'last_heartbeat_ns',
-    'decode_end_ns', 'analysis_start_ns', 'analysis_end_ns', 'observe_end_ns', 'completed_prefix_start',
+    'decode_end_ns', 'analysis_start_ns', 'analysis_end_ns', 'observe_start_ns', 'observe_end_ns', 'completed_prefix_start',
     'completed_prefix_end', 'accepted_started_ns', 'live_completed_prefix',
     'native_capture_requests', 'latest_frames_replaced', 'daemon_requests_outstanding',
     'analyzed_capture_count', 'evicted_capture_count', 'retained_image_count',
@@ -342,7 +342,8 @@ def _load(base):
         record['events_dropped'] += excess
         record['events'] = _events(record['events'][excess:])
         _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', 'native-walk-v3',
-                                          'native-walk-v4', 'native-walk-v5', 'native-walk-v6', REVISION)
+                                          'native-walk-v4', 'native-walk-v5', 'native-walk-v6',
+                                          'native-walk-v7', REVISION)
                  and record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -501,7 +502,8 @@ def _report(value, depth=0):
         elif key in FIXED_TEXT:
             _require(item == FIXED_TEXT[key], 'invalid_native_report')
             result[key] = item
-    for timing in (('start_ns', 'end_ns', 'decode_end_ns', 'analysis_start_ns', 'analysis_end_ns', 'observe_end_ns'),
+    for timing in (('start_ns', 'end_ns', 'decode_end_ns', 'analysis_start_ns', 'analysis_end_ns',
+                    'observe_start_ns', 'observe_end_ns'),
                    ('capture_start_ns', 'capture_end_ns', 'decode_end_ns')):
         available = [result[key] for key in timing if key in result]
         _require(available == sorted(available), 'invalid_native_report')
@@ -880,8 +882,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST049: NG-G2の画像処理最適化を検証')
-    ap.add_argument('--output', default='runtime/test-049')
+    ap = argparse.ArgumentParser(description='TEST050: NG-G2の画像処理最適化を検証')
+    ap.add_argument('--output', default='runtime/test-050')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')

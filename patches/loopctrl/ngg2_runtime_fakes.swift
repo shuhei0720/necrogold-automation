@@ -5,6 +5,13 @@ import ImageIO
 private extension NSLock {
     func fixtureLocked<T>(_ body: () -> T) -> T { lock(); defer { unlock() }; return body() }
 }
+// This fixture-only hook type lets the exact old Runtime compile unchanged:
+// its producer has no call sites, while new HOST_TEST Runtime can expose the
+// committed C boundary without adding release symbols or a production clock.
+enum NG2RuntimeObserveTestHooks {
+    static var beforeObserve: (() -> Void)?
+    static var afterObserve: (() -> Void)?
+}
 enum NG2Fake {
     enum Mode { case empty, pause, hold, walk, reply }
     static let lock = NSLock()
@@ -40,10 +47,14 @@ enum NG2Fake {
     static var pending = 0
     static var replyData: Data?
     static var replyError: String?
+    static var observeClock: UInt64 = 10
+    static var observeEntries: [UInt64] = []
+    static var observeExits: [UInt64] = []
     static func reset(_ next: Mode) {
         lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; frontPID = 42; callbacks = []; offset = 0; pending = 0 }
         lock.fixtureLocked {
             replyData = nil; replyError = nil
+            observeClock = 10; observeEntries = []; observeExits = []
             beforeForegroundQuery = nil
             gesturePaths = []; tapPoints = []; walkX = 0; walkY = 0
             walkMoves = 0; walkCapturesAfterMove = 0; walkObservationAfter = 0; walkPaused = false
@@ -68,7 +79,25 @@ enum NG2Fake {
         NG2RuntimeTestHooks.afterWatchdogCheck = nil
         LockStateMonitor.monitor.isLocked = false
         NG2RuntimeTestHooks.clock = nil
+        NG2RuntimeObserveTestHooks.beforeObserve = nil
+        NG2RuntimeObserveTestHooks.afterObserve = nil
     }
+    // Separate analysis, gate and actual C-entry/return phases by construction.
+    // The expected start comes from the boundary hook, never a reported field.
+    static func observeFixtureNow() -> UInt64 {
+        lock.fixtureLocked {
+            if observeClock < 50 { observeClock += 1 }
+            return 1_000_000_000 + observeClock
+        }
+    }
+    static func setObserveGateClock() { lock.fixtureLocked { observeClock = 100 } }
+    static func enterObserveBoundary() {
+        lock.fixtureLocked { observeClock = 200; observeEntries.append(1_000_000_000 + observeClock) }
+    }
+    static func leaveObserveBoundary() {
+        lock.fixtureLocked { observeClock = 300; observeExits.append(1_000_000_000 + observeClock) }
+    }
+    static func observeBoundaries() -> ([UInt64], [UInt64]) { lock.fixtureLocked { (observeEntries, observeExits) } }
     static func countRequests() -> Int { lock.fixtureLocked { requests } }
     static func countTouches() -> Int { lock.fixtureLocked { touches } }
     static func countActivations() -> Int { lock.fixtureLocked { activations } }

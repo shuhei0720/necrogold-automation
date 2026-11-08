@@ -29,11 +29,12 @@ jobs:
           ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
           path: upstream
           persist-credentials: false
-      - name: Observe original generated Perception build profile assertion Red
+      - name: Observe original TEST049 Navigation build and Runtime timing assertion Reds
         run: |
           brew install xcodegen
           xcodegen --version
           python3 driver/patches/loopctrl/check_perception_build.py --red-only upstream "$RUNNER_TEMP/ngg2-baseline"
+          python3 driver/patches/loopctrl/check_ngg2.py --test050-red-only upstream "$RUNNER_TEMP/ngg2-baseline"
       - name: Save native baseline diagnostics
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
@@ -91,6 +92,7 @@ jobs:
               'test_required_test045_subtile_motion_replay',
               'test_required_test046_capture_replay',
               'test_required_test048_strict_optimization_parity',
+              'test_required_test049_navigation_strict_optimization_parity',
           }
           suite = unittest.defaultTestLoader.loadTestsFromNames([
               'test_native_perception', 'test_native_navigation',

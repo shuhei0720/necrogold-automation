@@ -1,4 +1,4 @@
-"""TEST045–048 result collection and closed native diagnostics contracts."""
+"""TEST045–050 result collection and closed native diagnostics contracts."""
 from contextlib import redirect_stdout
 from copy import deepcopy
 import io
@@ -185,6 +185,64 @@ class NativeResultsTests(TimerTestCase):
             with self.subTest(value=value), self.assertRaisesRegex(ProbeError, 'invalid_native_report'):
                 native._report(dict(base, captures=[dict(capture, observe_end_ns=value)]))
 
+    def test_observe_start_reaches_encrypted_results_and_saved_journal(self):
+        capture = dict(id=1, start_ns=1, end_ns=2, decode_end_ns=3,
+                       analysis_start_ns=4, analysis_end_ns=5, observe_start_ns=7,
+                       observe_end_ns=9)
+        def timing(method, result):
+            if method == 'necro_native_results':
+                result['report']['captures'] = [dict(capture, private='PRIVATE_TIME')]
+            return result
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=timing) as server:
+            record = self.execute(server, folder)
+            self.assertEqual([capture], record['native_report']['captures'])
+            self.assertTrue(record['resolved'])
+            self.assertNotIn('PRIVATE_TIME', json.dumps(record))
+            self.assertEqual(record, native._load(Path(folder)))
+            saved = json.loads((Path(folder)/'active.json').read_text())
+            self.assertEqual([capture], saved['native_report']['captures'])
+            self.assertEqual(1, sum(method == 'necro_native_results' for method,params in server.calls))
+
+    def test_optional_observe_start_requires_strict_uint63_and_available_field_order(self):
+        base = dict(schema='ngg2-native-v1', clock_id='a'*32, device_now_ns=1, input_state=0)
+        for capture in (
+                dict(analysis_end_ns=5, observe_end_ns=9),
+                dict(analysis_end_ns=5, observe_start_ns=7, observe_end_ns=9),
+                dict(analysis_end_ns=5, observe_start_ns=5, observe_end_ns=5),
+                dict(observe_start_ns=0), dict(observe_start_ns=2**63-1),
+                dict(start_ns=3, observe_start_ns=3),
+                dict(observe_start_ns=8, observe_end_ns=8)):
+            with self.subTest(valid=capture):
+                self.assertEqual([capture], native._report(dict(base, captures=[capture]))['captures'])
+        invalid = [dict(analysis_end_ns=5, observe_start_ns=value, observe_end_ns=9)
+                   for value in (True, False, -1, 2**63, 1.0, None, '7', [], {})]
+        invalid.extend((dict(analysis_end_ns=5, observe_start_ns=4, observe_end_ns=9),
+                        dict(analysis_end_ns=5, observe_start_ns=10, observe_end_ns=9),
+                        dict(analysis_end_ns=5, observe_start_ns=4),
+                        dict(observe_start_ns=10, observe_end_ns=9),
+                        dict(end_ns=8, observe_start_ns=7)))
+        for capture in invalid:
+            with self.subTest(invalid=capture), self.assertRaisesRegex(ProbeError, 'invalid_native_report'):
+                native._report(dict(base, captures=[capture]))
+
+    def test_bad_observe_start_is_rejected_after_encrypted_results_and_on_reload(self):
+        def malformed(method, result):
+            if method == 'necro_native_results':
+                result['report']['captures'] = [dict(analysis_end_ns=5, observe_start_ns=None,
+                                                     observe_end_ns=9)]
+            return result
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=malformed) as server:
+            record = self.execute(server, folder)
+            self.assertFalse(record['resolved'])
+            self.assertEqual('invalid_native_report', record['stop_reason'])
+            for value in (True, 1.0, None, -1, 2**63, 4, 10):
+                malformed_record = deepcopy(record)
+                malformed_record['native_report']['captures'] = [dict(
+                    analysis_end_ns=5, observe_start_ns=value, observe_end_ns=9)]
+                native._save(Path(folder), malformed_record)
+                with self.subTest(value=value), self.assertRaisesRegex(ProbeError, 'native_journal_invalid'):
+                    native._load(Path(folder))
+
     def test_capture_failure_reaches_encrypted_results_and_saved_journal(self):
         def failure(method, result):
             if method == 'necro_native_results':
@@ -265,11 +323,11 @@ class NativeResultsTests(TimerTestCase):
             with self.assertRaisesRegex(ProbeError, 'native_journal_invalid'):
                 native._load(Path(folder))
 
-    def test_started_and_unknown_v1_to_v6_journals_recover_without_schema_or_start(self):
+    def test_started_and_unknown_v1_to_v7_journals_recover_without_schema_or_start(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True) as server:
             seed = self.execute(server, folder)
             server.capabilities = ['necrogold_native_v3']
-            for revision in ('native-walk-v1','native-walk-v2','native-walk-v3','native-walk-v4','native-walk-v5','native-walk-v6'):
+            for revision in ('native-walk-v1','native-walk-v2','native-walk-v3','native-walk-v4','native-walk-v5','native-walk-v6','native-walk-v7'):
                 for state in ('running','unknown'):
                     with self.subTest(revision=revision, state=state):
                         legacy = deepcopy(seed)
@@ -412,7 +470,7 @@ class NativeResultsTests(TimerTestCase):
                     replan_count=min(i,2)) for i in range(3)],
                 captures=[dict(id=i+1, start_ns=i*100, end_ns=i*100+1,
                     decode_end_ns=i*100+2, analysis_start_ns=i*100+3, analysis_end_ns=i*100+4,
-                    observe_end_ns=i*100+5,
+                    observe_start_ns=i*100+5, observe_end_ns=i*100+6,
                     completed_prefix_start=i, completed_prefix_end=i,
                     inflight_start=False, inflight_end=False, stable=True) for i in range(256)],
                 events=[{key:0 for key in ('id','ordinal','kind','direction','x','y','target_ns',
@@ -437,6 +495,8 @@ class NativeResultsTests(TimerTestCase):
             self.assertEqual((256,64,3,32,20), tuple(len(value) for value in (
                 record['native_report']['captures'], record['native_report']['events'],
                 record['native_report']['scene_changes'], record['native_report']['raster_samples'], record['images'])))
+            self.assertEqual([i*100+5 for i in range(256)],
+                             [capture.get('observe_start_ns') for capture in record['native_report']['captures']])
             row = dict(invocation='a'*32, method='necro_native_status', host_ns=1,
                 error=None, rpc_stage='complete', host_timings={key:1 for key in native.HTTP_TIMING_KEYS})
             record['events'] = [deepcopy(row) for _ in range(128)]
@@ -581,7 +641,7 @@ class NativeResultsTests(TimerTestCase):
                     self.assertEqual(stage == 'result_json', 'decrypt_end_ns' in row['host_timings'])
                     self.assertEqual(record, native._load(Path(folder)))
 
-    def test_failed_results_recover_v1_to_v6_journals_without_get_or_start(self):
+    def test_failed_results_recover_v1_to_v7_journals_without_get_or_start(self):
         slow = [True]
         def delay_once(method, result):
             if method == 'necro_native_results' and slow[0]:
@@ -592,7 +652,7 @@ class NativeResultsTests(TimerTestCase):
             self.assertFalse(first['resolved'])
             self.assertEqual('rpc_deadline', first['stop_reason'])
             slow[0] = False
-            for revision in ('native-walk-v1','native-walk-v2','native-walk-v3','native-walk-v4','native-walk-v5','native-walk-v6'):
+            for revision in ('native-walk-v1','native-walk-v2','native-walk-v3','native-walk-v4','native-walk-v5','native-walk-v6','native-walk-v7'):
                 legacy = deepcopy(first)
                 legacy['revision'] = revision
                 native._save(Path(folder), legacy)
@@ -650,10 +710,10 @@ class NativeResultsTests(TimerTestCase):
             with self.subTest(missing=key), self.assertRaisesRegex(ProbeError,'invalid_native_report'):
                 native._report(dict(base, scene_changes=[missing]))
 
-    def test_old_v1_to_v5_capabilities_cannot_start_the_new_client(self):
+    def test_old_v1_to_v6_capabilities_cannot_start_the_new_client(self):
         for tags in ([], ['necrogold_native_v1'], ['necrogold_native_v2'], ['necrogold_native_v3'],
-                     ['necrogold_native_v4'], ['necrogold_native_v5'],
-                     ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4','necrogold_native_v5']):
+                     ['necrogold_native_v4'], ['necrogold_native_v5'], ['necrogold_native_v6'],
+                     ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4','necrogold_native_v5','necrogold_native_v6']):
             with self.subTest(tags=tags), tempfile.TemporaryDirectory() as folder, \
                     NativeServer(finish=True, capabilities=tags) as server:
                 record = self.execute(server, folder)
@@ -662,8 +722,19 @@ class NativeResultsTests(TimerTestCase):
                 self.assertEqual(['/schema'], server.schema_calls)
                 self.assertEqual([], server.calls)
 
-    def test_fresh_native_v6_capability_starts_exactly_once(self):
-        tags = ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4','necrogold_native_v5','necrogold_native_v6']
+    def test_fresh_native_v6_is_rejected_before_encrypted_start(self):
+        tags = ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3',
+                'necrogold_native_v4','necrogold_native_v5','necrogold_native_v6']
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, capabilities=tags) as server:
+            record = self.execute(server, folder)
+            self.assertEqual(('native_capability_missing', False, 0),
+                (record['stop_reason'], record['start_attempted'],
+                 sum(method == 'necro_native_start' for method,params in server.calls)))
+            self.assertEqual(['/schema'], server.schema_calls)
+            self.assertEqual([], server.calls)
+
+    def test_fresh_native_v7_capability_starts_exactly_once(self):
+        tags = ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4','necrogold_native_v5','necrogold_native_v6','necrogold_native_v7']
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, capabilities=tags) as server:
             record = self.execute(server, folder)
             self.assertTrue(record['resolved'])
@@ -706,16 +777,28 @@ class NativeResultsTests(TimerTestCase):
         self.assertIn('--output runtime/test-048', text)
         self.assertNotIn('necroprobe.preflight', text)
 
-    def test_049_script_cli_and_capability_require_the_new_runtime(self):
+    def test_049_script_keeps_its_original_version_and_output(self):
         path = Path(native.__file__).resolve().parents[1]/'test_049.sh'
         import subprocess
         self.assertEqual(0, subprocess.run(['sh','-n',str(path)],capture_output=True).returncode)
         text = path.read_text()
-        self.assertEqual('native-walk-v7', native.REVISION)
-        self.assertEqual('necrogold_native_v6', native.CAPABILITY)
-        self.assertEqual('runtime/test-049', native.parser().parse_args([]).output)
         self.assertIn('native-walk-v7 / 1.98.14-ngg2', text)
         self.assertIn('--output runtime/test-049', text)
+        self.assertNotIn('necroprobe.preflight', text)
+
+    def test_050_script_cli_and_capability_require_the_new_runtime(self):
+        path = Path(native.__file__).resolve().parents[1]/'test_050.sh'
+        import subprocess
+        self.assertEqual(0, subprocess.run(['sh','-n',str(path)],capture_output=True).returncode)
+        text = path.read_text()
+        self.assertEqual('native-walk-v8', native.REVISION)
+        self.assertEqual('necrogold_native_v7', native.CAPABILITY)
+        self.assertEqual('runtime/test-050', native.parser().parse_args([]).output)
+        self.assertIn('native-walk-v8 / 1.98.14-ngg2', text)
+        self.assertIn('--output runtime/test-050', text)
+        previous = path.with_name('test_049.sh').read_text()
+        self.assertEqual(previous.replace('TEST049', 'TEST050').replace('TEST-049', 'TEST-050')
+                         .replace('test-049', 'test-050').replace('native-walk-v7', 'native-walk-v8'), text)
         self.assertNotIn('necroprobe.preflight', text)
 
 
