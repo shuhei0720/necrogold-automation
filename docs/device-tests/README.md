@@ -2261,3 +2261,48 @@ TEST052の独立実装第2周を設計・試験・安全で終了し、P0/P1/P2�
 TEST053プラン第1周補足: armed時点で通常のsource/phase/walk/sessionの絶対horizon（lead+50ms tailを含む初ticket上限）と元motion-wait horizonも固定する。発行時の新source/modelはこの上限を延長せず交差/短縮する。reserveは初ticket保存とmotion_wait算出の前にarmed period/target/NB/上限を適用し、初再計画もその元motion horizonを延長しない。これは既存初再計画がmotion horizonを凍結済みとの主張ではなく、今回のarmed初slotへ追加する明示契約である。slotは最初の実MOVEに限定し、ACK済BLOCKED後のlead retuneを待機に入れ直さない。未予約中は方向もまだ権限ではなく、初UP配置→最新有効LEFT配置なら同slotで通常plannerのLEFTを選ぶ試験を加える。予約後は従来の初再計画条件/2回を保つ。
 
 境界試験はNB−100ms−1nsで未発行/全event・ID・replan不変、NB−100msとNB−50msで発行、NB−50ms+1nsで恒久停止を独立確認する。armed中/発行時/0replan最終beginで同拍補正、track失敗→同sampleの即refitで復活しないこと、モデル周期の小変動でも元period/全horizon不変を確認する。Mac模擬AX遅延はbeforeForegroundQueryで11.692042ms、main_entry後のbeforeMainAuthorityで1.668791msを加え、beforeMainAdmissionに移送費用を置かない。通常fakeの82ms捕捉進行が予約を飛び越さないよう固定時計を単調に使い、new fixtureで既存admitFirstFixtureMoveが近過ぎる初fitを隠さない。準備時間を超えるAX遅延は元10ms窓で拒否する負例も保つ。
+
+
+TEST053のfresh-contextプランレビューは設計・網羅・安全の各第2周でP0/P1/P2残件なしとなった。補足でarmed model失効/最終begin0replan/時刻上限/fixture移行を明記した。実装前の旧公開Cは早過ぎる発行と準備余裕欠落の2assertion failures/0errorsを観測済み。新client revision/capability契約も旧clientで2assertion failures/0errorsを確認した。環境/テストクラス選択等の準備エラーは挙動Redへ数えていない。以後の実装/全回帰/配布物検証は未完了として進める。
+
+
+### TEST053ホスト検証とMac試験の準備修正
+
+旧Cの2assertion Red→Greenから最小Controllerを実装し、最終Controller102件skip0/11.093秒、画像/算法63件skip0/69.217秒（全124必須path）、client174件skip0/42.684秒、package/compiler202件skip0/1.479秒が成功。今回17pathは12種類のSHAを持ち、同一ポーズPNGの別captureを別内容と呼ばない。source34→37の3変動を未予約中に通過し、最新の通常planner・元拍/period/horizon、予約後の2回上限、0replan/replanの実track成立時.08境界、track0→fit1でも失効する場合を実公開Cで確認した。古い.13位相ジャンプ試験は以前の即refitを前提にしていたため、未送信拒否の期待を保ち、境界正例は初period515msの小刻みなbiasで本当にtrackが成立する資料へ置換した。source-horizon/visual positive準備は合法初slotへ移し、元期限の等号/1ns超過とACK後の期待を維持した。
+
+[client CI42477495765](https://github.com/shuhei0720/necrogold-automation/actions/runs/42477495765)はcode da2119eec2673767769d6b756b064099b3bd662bで174件skip0/52.658秒成功。検証ZIP13616390253は5,222bytes/SHA988a3dd29ac8ab3dda23cb85736d92213f30634382aba0926bda8ec997f9a48b、CRC/実log一致。v11新開始はcapv10を要求し、literalv10の非zero cursor/4chunk保存と再中断suffix、v9逐次とlegacy回復のGET0/start0を維持する。v10/v11の回収動作/期限/上限は今回変更しない。
+
+code7fcea44155d714de85ca71abb8168a6ec0b9fe71のMac build67（CI42477967122）はnative-host151/private14明示除外/skip0/31.160秒とpackage202へ成功したが、public Runtimeの既存motionLate fixtureでfirst MOVEが存在せずforce unwrapが停止した。元runの詳細snapshotがなく当該停止reasonは未計測。独立した実renderer→Perception→Controllerの再生で、起動前から独自captureTimeProviderを置くと通常のreply+2ms/HUD中点がなくなり80ms刻みとなり、残100.001690ms→20.001670msで初発行窓を飛び越える十分な失敗機序を確認した。providerを既存MOVE入場境界のafterAlignmentへ移すだけで、通常82msの残93.753080msでMOVEが発行された。a1ceba7はこのtest-only設定とnamed MOVE/PAUSE存在assertionだけを変更し、ACK後の独自時計・元deadline+1 crossing・全既存期待を保つ。全22native source/manifest/clientは不変であり、環境/fixture不具合をアプリ不具合や主挙動Redへ数えない。診断ZIP13615678702は71,849bytes/SHA15296ddaa6fb4045301c89441cecd8cf745ab6a0a3417e580a24758b5b1cbdac、全CRC/重複なし/安全なinventory57entriesを照合した。
+
+独立実装レビューはdesign/coverage第1周でsource clear、安全第2周でsource clear。fixture修正もdesign/coverage/安全の同第2周で確認し、source P0/P1/P2残件なし。実Mac52fault/Raster3/両C同値/RPC/実compiler/IPAと完全sourceの第2周補足照合はまだ未完了。新Runtime fixtureの公称2.570056msは合成phaseBase起点であり、実C fitの予測では約3.949277msとなる。記録された実機時刻と完全一致する再生とは呼ばず、近過ぎる初歩の準備余裕欠落は正確なpublic C2.570ms試験でも独立検出する。
+
+
+補足計測: 宣言通りのPerception/Navigation strictO2・Beat/ControllerO0をGCC14.2で別object化し、既知の実PNG34を使って未発行slotのtickを各100/1000回×5反復した。Linux hostでtick wall中央値17.005μs/p95 19.419μs/max214.042μs、uninstrumented batch CPU平均18.219μs/tick（200Hzならcoreの約0.364%）で、全試行が同slot・入力/event0を維持した。このhostで大きなCPU負荷は示さず、待機中plannerを未計測のまま書き換えない判断とした。AppleClang/iPhone/人間以上の速度の受入には外挿しない。生CSV/全commands/source SHAはGit外の解析資料へ保持する。
+
+
+### TEST053最終CI・配布物照合
+
+- code `a1ceba72091775221926d2cf3cde739b0f7aa8f0` / [Mac CI42478480071](https://github.com/shuhei0720/necrogold-automation/actions/runs/42478480071) / build68。Runtime public結合と全52 named faults（旧50＋初slot早過ぎる発行/準備余裕欠落の実Controller2故障）、Raster3、両C不変O0対strictO2の全構造/score/fieldと故障、LoopCtrlKit・実暗号RPC・実compiler・IPAに成功。UIKit/XCTest/daemonはhost fakeで実機合格ではない。
+- [IPA ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42478480071/artifacts/13617561482)は17,784,620bytes/SHA `10b85a148f1e497941b16128cb4e75eb60b3c293d5850f4746d7ee29012fc6e0`。内部IPAはbundle top.ebato.loopctrl / 0.3.4 / build68 / SHA `a7bb563eea0a36fc48f1bfabc3446ed315e84c9f2ef77e4fb960c07ec9bd3543`。全CRC/安全なinventory、実app/runnerのAPI/native_v10、全22source/seal975a04910e4b5a5db3e7f930c8d63abfe91a644ba8fc3373e1f2e116c42eaf98を照合。
+- [Mac検証ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42478480071/artifacts/13617701107)は359,928bytes/SHA `a7b616fd416a1240c6b8709e426a24315557a37d91cb4146d5bde8e4c3011e43`。保存PBX/実raw log/responseを実引数へ結び、Perception/Navigation strictO2/no-fast-math/fp-contract-off、Beat/ControllerO0、Swift5Ononeのprofilev2を独立照合。全9 Mach-OにHOST hook/fixture/spy非混入。
+- host165件（Controller102/11.093秒＋その他63/69.217秒）は全124必須imagepathを含めskip0。client174件skip0/42.684秒・CI174件/52.658秒、package202件skip0/1.479秒。最終native CI151件はprivate14を明示除外しskip0。欠落画像を成功扱いしない。最終source/実配布物の独立3観点第2周closureは追記する。
+
+## TEST-053実行手順
+
+**TEST053の実機テストをお願いします。** 初歩のControllerを変更したため新IPAが必要です。client v11/API1.98.14-ngg2/native_v10を使います。
+
+1. SafariでGitHubへログインし、[新IPA build68 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42478480071/artifacts/13617561482)を取得・展開します。
+2. LoopCtrlでStop Server→完全終了し、SideStoreでZIP内 `upstream/release/LoopCtrl.ipa` へ更新。LoopCtrlを開き直してStart Server、いつものVPN/ディスクイメージ接続を確認します。
+3. この版の完全ソースZIPをSafariで取得・展開。フォルダ選択は `test_053.sh` があるフォルダです。古いruntimeを新規053へコピーしません。
+4. 手動クイックリスタート後、開幕金壁が見える新通常1-1を、画面端操作0・左側が下でポーズします。
+5. iSHで実行します。
+
+```sh
+mkdir -p /mnt/necro_test053
+mount -t ios . /mnt/necro_test053
+cd /mnt/necro_test053 && sh test_053.sh
+```
+
+**「TEST-053: 終了」が出てから `runtime/test-053` 全体をZIPで返してください。** 歩き出すまでの時間・毎ビートの連続歩行・茶壁/扉の開通と進入・商品可視・最終ポーズ・終了待ち時間を教えてください。
+
+collectorが終了して結果回収未完了と明示した場合だけ、同じLoopCtrl起動状態/ソース/runtimeで再実行すると同run/export/cursorを回収します。回収完了済みなら再実行せずZIPを返してください（resolved=trueでは新runが始まります）。同時に別テストを実行しません。今回の実機資料で初動/歩行を評価し、全経路毎拍・人間以上の速度・指輪通知・全周回の合格を先に宣言しません。
