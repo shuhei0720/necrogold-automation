@@ -34,4 +34,6 @@ IPA ZIPは17,793,378bytes/SHA `f760348b6e24582205e652504b8bf3ee7bc61c0a0cfb053f9
 
 実producerの旧reference3report SHA `08e0fc15648ae38aefa0b170a778068129dcbe81d140adf4fc796a4643cb06b4` と新FRESH2report SHA `f26cb788d581d19b5b49c477ac571f0e1b12b1e1a40393e8891dd821b8c56c89` は同じ最終artifactへ結合した。旧3件はstdoutの全値/型と保存JSON digestを確認し、新2件はstdout各JSON objectの元bytesも一致する。新v13へ実暗号HTTPで渡し、motion_references/scene_changes/scene_change_detailsとactive/report両journalの型を含む一致を確認した。外側RPC状態・画像はfixtureであり、診断接続の検証である。
 
-同第2周の3観点による実物/全source補足はこれから記録する。Mac実ゲーム/iPhoneの新TEST055は未受入。未確認をcloseとせず、具体的実機依頼は台帳へ保存する。
+同じ実装第2周の補足として、独立した設計・網羅・安全の3担当が実物と全sourceを確認し、残P0/P1/P2なし。codeから既知5資料だけを更新した `ee30c48857631a719e754c68559e62fa789976c4` の完全ZIPは、全435tracked filesのbytes/CRC/path/重複が一致した。実57故障・compiler・22seal・9Mach-O・旧3/新2producer・実暗号HTTPへの診断接続も独立照合し、後者は別担当でも再実行した。生証拠はGit外に保存した。
+
+実装/配布物レビューはclose。Mac実ゲーム/iPhoneの新TEST055・毎拍/速度/商品/周回の受入は未完了であり、具体的な新IPA/source更新・実機依頼・終了後の全runtime ZIP返却を台帳へ保存済み。
