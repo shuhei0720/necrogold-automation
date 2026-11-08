@@ -68,6 +68,10 @@ func admitFirstFixtureMove(_ id: String, expectedID: UInt64? = nil, afterAlignme
     NG2RuntimeTestHooks.beforeMainAuthority = nil
 }
 func alignInitialFixtureMove(_ id: String) {
+    // Every caller uses the matching synthetic virtual clock (or its owned
+    // motion-deadline wrapper). The real raster/perception/beat path now sees
+    // the HUD at the exact fixed capture midpoint, independent of host load.
+    NG2Fake.useFixedCaptureClock()
     NG2RuntimeTestHooks.beforeControlTick = {
         let current = report(id)
         guard (current["beat_period_ns"]?.intValue ?? 0) > 0 &&
@@ -1473,13 +1477,11 @@ func testContinuousRevalidationCallbacksPublic() {
         NG2Fake.walkY = 1; NG2Fake.walkGoodsEnabled = false
         NG2Fake.remoteVariantDuringWalk = true
         NG2Fake.lock.unlock()
-        NG2Fake.useFixedCaptureClock()
         NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
         let id = identity()
         diagnoseFixture(id)
         NG2RuntimeTestHooks.beforeCaptureAdmission = {
             NG2Fake.waitForCapturePermit()
-            NG2Fake.advance(80_000_000)
             NG2Fake.performBoundaryClockChange()
         }
         alignInitialFixtureMove(id)

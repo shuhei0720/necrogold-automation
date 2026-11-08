@@ -52,9 +52,10 @@ enum NG2Fake {
     static var subtileResolvedWait = false
     static var callbacks: [(Data?, String?) -> Void] = []
     static var offset: UInt64 = 0
-    // TEST051's continuing multi-beat fixture uses explicit logical capture
-    // boundaries. PNG painting/encoding CPU time must not move its synthetic
-    // HUD behind the timestamps supplied to the real C beat model.
+    // Walking fixtures opt into explicit logical capture boundaries. PNG
+    // painting/encoding CPU time must not move their synthetic HUD behind
+    // the timestamps supplied to the real C beat model. Other modes retain
+    // their wall-clock and explicit watchdog/deadline-advance contracts.
     static var fixedClock: UInt64?
     static var pending = 0
     static var replyData: Data?
@@ -146,7 +147,12 @@ enum NG2Fake {
     }
     static func performBoundaryClockChange() {
         let change = lock.fixtureLocked { () -> (() -> Void)? in
-            let old = boundaryClockChange; boundaryClockChange = nil; return old
+            let old = boundaryClockChange; boundaryClockChange = nil
+            // An explicit admission/crossing owns its exact logical time.
+            // Ordinary captures sample a stable 82ms cadence: +80ms here,
+            // +2ms at reply, with the drawn HUD at the 1ms midpoint.
+            if old == nil, let now = fixedClock { fixedClock = now + 80_000_000 }
+            return old
         }
         change?()
     }
@@ -294,7 +300,9 @@ enum NG2CaptureBridge {
     static func requestJPEG(_ reply: @escaping (Data?, String?) -> Void) {
         let timeProvider = NG2Fake.lock.fixtureLocked { NG2Fake.captureTimeProvider }
         let capturedAt = timeProvider?() ?? NG2Fake.virtualClock()
-        let fixedCapture = NG2Fake.lock.fixtureLocked { NG2Fake.fixedClock != nil }
+        // The motion-deadline fixture owns both Runtime and request clocks;
+        // preserve that wrapper's positive intervals and explicit crossings.
+        let fixedCapture = timeProvider == nil && NG2Fake.lock.fixtureLocked { NG2Fake.fixedClock != nil }
         let mode = NG2Fake.lock.fixtureLocked { () -> NG2Fake.Mode in
             NG2Fake.requests += 1; NG2Fake.pending += 1
             if NG2Fake.mode == .hold {
