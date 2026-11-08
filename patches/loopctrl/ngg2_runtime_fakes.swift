@@ -45,6 +45,8 @@ enum NG2Fake {
     static var targetDriftWorld = false
     static var motionReferenceWorld = false
     static var motionReferenceVariant: Int32 = 0
+    static var freshRevalidationWorld = false
+    static var freshRevalidationVariant: Int32 = 0
     static var heldTickets: [UInt64: () -> Void] = [:]
     static var returnedTickets = Set<UInt64>()
     static var unknownFrames = 0
@@ -82,6 +84,7 @@ enum NG2Fake {
             remoteVariantDuringWalk = false
             targetDriftWorld = false
             motionReferenceWorld = false; motionReferenceVariant = 0
+            freshRevalidationWorld = false; freshRevalidationVariant = 0
             boundaryClockChange = nil
             captureDrainedRuns = []
             phaseBase = DispatchTime.now().uptimeNanoseconds
@@ -192,6 +195,11 @@ enum NG2Fake {
             ng2_fixture_floor_pixels_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, state.0, state.1, fraction, state.2)
         }
         precondition(valid == 1)
+        let fresh = lock.fixtureLocked { (freshRevalidationWorld, freshRevalidationVariant) }
+        if fresh.0 {
+            applyFreshRevalidationWorld(&rgba, worldY: state.1, variant: fresh.1)
+            return NG2Raster.png(rgba)!
+        }
         let reference = lock.fixtureLocked { (motionReferenceWorld, motionReferenceVariant) }
         if reference.0 {
             let variant: Int32 = state.1 == -36 && state.2 == 0 ? reference.1 : 0
@@ -272,6 +280,47 @@ enum NG2Fake {
             ng2_fixture_motion_reference_rgba($0.bindMemory(to: UInt8.self).baseAddress, count,
                 worldY, 0.5, goods ? 1 : 0, variant)
         } == 1)
+        return rgba
+    }
+    // Original procedural public fixture. The reveal adds one GOLD and makes
+    // its bracketed DIRT neighbour a DOOR; all world texture stays stationary.
+    // It is independent of private TEST054 pixels and never paints a future
+    // image after the fresh DIRT ACK. The Runtime fixture cancels at that ACK.
+    static func applyFreshRevalidationWorld(_ rgba: inout Data, worldY: Int32, variant: Int32) {
+        precondition(variant == 0 || variant == 1)
+        rgba.withUnsafeMutableBytes { raw in
+            let bytes = raw.bindMemory(to: UInt8.self)
+            func tile(_ x: Int, _ y: Int, _ color: [Int]) {
+                let cx = 448+36*x, cy = 207+36*y-Int(worldY)
+                let left = max(0, cx-17), right = min(896, cx+18)
+                let top = max(0, cy-17), bottom = min(414, cy+18)
+                guard left < right && top < bottom else { return }
+                for py in top..<bottom { for px in left..<right {
+                    // Preserve the fixed floor icon when the world scrolls.
+                    if px >= 429 && px < 465 && py >= 6 && py < 42 { continue }
+                    let wx = UInt32(truncatingIfNeeded: px)
+                    let wy = UInt32(truncatingIfNeeded: py+Int(worldY))
+                    var hash = (wx &* 0x9e3779b9) ^ (wy &* 0x85ebca6b)
+                    hash ^= hash >> 16; hash = hash &* 0x7feb352d; hash ^= hash >> 15
+                    let noise = Int(hash % 9)-4, at = (py*896+px)*4
+                    for channel in 0..<3 { bytes[at+channel] = UInt8(max(0, min(255, color[channel]+noise))) }
+                } }
+            }
+            for x in [-1,0,1] { tile(x, -3, [26,16,16]) }
+            tile(-3, -1, [199,164,63])
+            tile(-3, 0, [100,50,10])
+            tile(-3, 1, variant == 0 ? [100,50,10] : [199,164,63])
+            tile(-1, 0, [100,50,10]); tile(-2, 0, [100,50,10])
+        }
+    }
+    static func freshRevalidationRGBA(worldY: Int32, variant: Int32 = 0) -> Data {
+        var rgba = Data(count: 896*414*4)
+        let count = rgba.count
+        precondition(rgba.withUnsafeMutableBytes {
+            ng2_fixture_floor_pixels_rgba($0.bindMemory(to: UInt8.self).baseAddress, count,
+                0, worldY, 0.5, 0)
+        } == 1)
+        applyFreshRevalidationWorld(&rgba, worldY: worldY, variant: variant)
         return rgba
     }
     static func virtualClock() -> UInt64 {
@@ -366,7 +415,12 @@ final class FastActionHandler {
             if NG2Fake.mode == .walk, let point = fingers.first?.first?.point {
                 if point.x == 290 && point.y == 838 { NG2Fake.walkY -= 1 }
                 else if point.x == 124 && point.y == 838 { NG2Fake.walkY += 1 }
-                else if point.x == 207 && point.y == 49 { NG2Fake.walkX -= 1 }
+                else if point.x == 207 && point.y == 49 {
+                    // A DIRT probe ACK supplies no displacement evidence. This
+                    // fixture stops at ACK and supplies no invented open/moved
+                    // frame; the two lead-in UP motions use the real texture.
+                    if !NG2Fake.freshRevalidationWorld { NG2Fake.walkX -= 1 }
+                }
                 else if point.x == 207 && point.y == 838 { NG2Fake.walkX += 1 }
                 NG2Fake.walkMoves += 1
             }

@@ -5,6 +5,10 @@ on:
     branches: [work/p1-capture-probe]
     paths:
       - 'patches/loopctrl/**'
+      - 'tests/test_native_*.py'
+      - 'tests/test_device_recording.py'
+      - 'tests/test*-fixtures.json'
+      - 'tools/evaluate_device_recording.py'
       - '.github/workflows/loopctrl-geometry.yml'
   workflow_dispatch:
 
@@ -96,11 +100,16 @@ jobs:
               'test_required_test052_three_flickers_before_initial_publication',
               'test_required_test053_original_reference_after_reissue',
               'test_required_test053_reference_motion_and_strict_parity',
+              'test_required_test054_latest_route_and_strict_parity',
+              'test_required_test055_actual69_70_latest_dirt_plan',
+              'test_required_test055_actual69_70_latest_authority_and_frozen_beat',
+              'test_required_test055_actual_private_context_exact_clock_and_pending_full_decision',
+              'test_required_test054_recorded_failure_is_not_game_success',
           }
           suite = unittest.defaultTestLoader.loadTestsFromNames([
               'test_native_perception', 'test_native_navigation',
               'test_native_beat', 'test_native_controller',
-              'test_native_raster',
+              'test_native_raster', 'test_device_recording',
           ])
           def flatten(node):
               for item in node:

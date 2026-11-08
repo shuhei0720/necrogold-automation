@@ -4,13 +4,13 @@
 
 ## 1. 要件と作業権限
 
-[要件正本](../requirements/necrogold.md)に従う。同じiPhone、日本版ケイデンスの通常1-1、左側が下・画面端操作0。GAME PAUSEから直接続行し、通常起動でOptionsを開かない。開幕に部分でも金壁が見える回を扱い、木/鉄扉・横/下の入口へ接近する。未知・不可視・開幕対象外・確認済み不在を区別し、候補は保持して自動購入しない。毎拍歩行、人より速い商品確認、指輪通知、対象なし後の自動周回・耐久は受入条件のまま維持する。
+[要件正本](../requirements/necrogold.md) と [AGENTSの要件](../../AGENTS.md#守ること) を参照する。起点/向き・設定、開幕gold/入口、未知/候補保持、毎拍/人より速い性能、iPhone単体を維持する。
 
-既承認のGitHubブランチへの保存権限は継続する。現在の作業範囲はstatusから辿る計画に置き、過去の増分の命令を現在の配布指示にしない。
+保存権限は継続する。現scopeはstatusから辿る計画に置き、過去の命令を現在の指示にしない。
 
 ## 2. 保存資料と秘密値
 
-`legacy/r12/` 全40ファイルを [元manifest](../r12-source-manifest.json) とbyte一致で保存する。NG-G1と保護されたnative資産は変更単位の対象外なら維持する。元資料・raw ZIP/PNG/report/log、端末設定、pairing token、秘密値はGit外に置く。完全なソースを保存し、未測定値や不足証拠を成功で埋めない。
+`legacy/r12/` 全40ファイルを [元manifest](../r12-source-manifest.json) とbyte一致で保存する。NG-G1と保護されたnative資産は変更単位の対象外なら維持する。元資料・raw ZIP/PNG/report/log、端末設定、pairing token、秘密値はGit外に置く。
 
 ## 3. 入力owner・prefix・取消
 
@@ -25,6 +25,11 @@
 ## 5. 未送信の再予約
 
 初歩は最大2回。確認済み連続MOVEは1chain最大2回・run最大8回。両者とも確実な未送信、両Sceneのsafe_floor・同gold・strict BLOCKEDを再検証する。初歩は同directionとorigin/next近傍の保護を検査する。continuousは全protected一致、元/保存の完全5field Decisionと最新actionも検査する。元target/notBefore/deadline/period/ordinalとmotion horizonを保持する。continuousのreason8/FLOORでは許可済みの遠いtarget座標だけの変化を扱えるが、direction/reason/obstacleと最新判断を再検査する。未知inputや期限切れを次拍予約に置き換えない。
+
+FRESH（validation12）はlead確認済み連続MOVEで、SAME不成立時に最新判断へ切り替える別経路。両FLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE・origin FLOOR・全protected不変・source5fieldの単一証明・strict BLOCKEDを要求する。全230セルでUNKNOWN→FLOOR/DIRT/STONE/GOLD/DOOR、FLOOR→DIRT/STONE/GOLD/DOOR、DIRT→STONE/GOLD/DOORだけを許し、GOLD/STONE/DOOR/ITEMは不変。新DOORはgold bracket必須。
+
+最新の通常plannerが許可する1MOVEを別ID/latest sourceへ予約し、pending全5fieldと最新direction/x/yを再検査する。FRESH→SAMEでも元方向へ戻さない。SAMEとchain2/run8・同じ拍/ordinal/全凍結期限を共有する。未予約のFRESHを重ねず、元source/phaseのhorizonをsource更新で延ばさない。
+
 
 ## 6. 全期限・予算
 
@@ -54,7 +59,7 @@ motionの全73候補、強度.45・差.08、通常texture支持300/75%、構造�
 
 元画像から送信前の**全ての**安定current-prefix画像へ直接strict BLOCKED(dx=dy=0)を確認する。mask0、HUD/signatureのみの観測、pending→reserveも含む。両FLOOR・GOODS_UNKNOWN・GOLD_CANDIDATE・safe_floor、全gold/全保護、元/保存/最新の5field Decision、位置/visits/入口・prefix・全凍結境界を検査する。最初の不成立でlogical MOVE中の資格を永久失効し、取り直さない。
 
-primary UNKNOWNの時だけ、資格ある元画像で既存ng2_motionを補助実行し、同方向unit MOVEDのみ採用する。TWEEN/BLOCKED/既知結果/開扉等を上書きしない。初歩・retune・次ordinalへ持ち越さない。任意referenceの失格は、既存reason8の再予約や最新primaryによる確認の追加拒否条件ではない。
+FRESH後はその拍で旧referenceを永久失格とし、再作成・SAMEでの復活を禁止する。primary UNKNOWNの時だけ、資格ある元画像で既存ng2_motionを補助実行し、同方向unit MOVEDのみ採用する。TWEEN/BLOCKED/既知結果/開扉等を上書きしない。初歩・retune・次ordinalへ持ち越さない。任意referenceの失格は、既存reason8の再予約や最新primaryによる確認の追加拒否条件ではない。
 
 ## 10. 商品優先
 
@@ -62,13 +67,13 @@ primary UNKNOWNの時だけ、資格ある元画像で既存ng2_motionを補助�
 
 ## 11. ABIと診断
 
-既存Status192B/Event128B/Scene23864BとMotionWait layoutの意味を保つ。別queryのMotionReferenceは80B、成功ACK MOVEごと最大16行。閉じた12keyは command_id / authority_capture_id / reference_capture_id / reference_start_ns / reference_prefix / observed_capture_id / reference_eligible / primary_motion / fallback_attempted / fallback_motion / selected_capture_id / selected_motion。
+既存Status192B/Event128B/Scene23864BとMotionWait layoutの意味を保つ。SceneDetail.validationは2=SAME、12=FRESH_ALLOWED。別queryのMotionReferenceは80B、成功ACK MOVEごと最大16行。閉じた12keyは command_id / authority_capture_id / reference_capture_id / reference_start_ns / reference_prefix / observed_capture_id / reference_eligible / primary_motion / fallback_attempted / fallback_motion / selected_capture_id / selected_motion。
 
 観測前はobserved=0、全motion=0、attempted=false、selected=authority。reference_prefixは直前の未送信eventではなく同logical MOVE前の最終ACK。未適格fallbackを評価済みと表示しない。通常はeventとtraceのobservedを一致させる。goods=1の最終ACK MOVEに限り、traceの未評価/最後のUNKNOWN・TWEENを保ち、後の商品event observedとの差を認める。初回応答の空配列は応答コピーへ補い、保存reportのaccepted lifecycleを変えない。その他の診断も閉schema/型/件数上限・最初の故障記録の意味を維持する。
 
 ## 12. 新規起動と旧client回復
 
-新規起動はstatusの対応capabilityを要求する。保存revisionのliteralに従い、native-walk-v12はmotion_references必須、旧版では不在を許すが存在すれば厳密検査する。v10/v11/v12は4chunk batch、v9は1chunk、v1〜v8はlegacy回復。started journalは元UUIDでGET0/start0、unknown startを再送しない。fresh preflightだけ許可済みtransientエラーを最大4試行/計8秒/各2秒で再確認する。
+新規起動はstatusの対応capabilityを要求する。保存revisionのliteralに従い、native-walk-v12/v13はmotion_references必須、旧版では不在を許すが存在すれば厳密検査する。v10/v11/v12/v13は4chunk batch、v9は1chunk、v1〜v8はlegacy回復。started journalは元UUIDでGET0/start0、unknown startを再送しない。fresh preflightだけ許可済みtransientエラーを最大4試行/計8秒/各2秒で再確認する。
 
 ## 13. Exportと保存
 
@@ -86,8 +91,8 @@ profilev2はPerception/Navigationだけstrict O2（-fno-fast-math、-ffp-contrac
 
 ## 16. 開発工程
 
-[固定出典と8工程](../development-flow.md)に従う。要件と8項目計画を分け、freshな設計/網羅/安全の3観点で独立レビューし、修正・再レビューは最大3周。挙動assertionのRed→最小Green→Refactorを観測し、環境/compile失敗をRedに数えない。assert削除・skip・常時成功mockで通さない。人間が期待値と実機結果を確認できる記録を残す。
+工程・fresh3観点/最大3周・TDD・人間レビューは [開発フロー](../development-flow.md) を正本とする。
 
 ## 17. 配布と実機依頼
 
-説明は日本語・日付は日本時間。変更/検証/未受入を区別し、開発結果には検証した完全sourceと具体的な実機手順・終了後のruntime全ZIP返却を必ず依頼する。native/capability変更時は新IPA、SideStore更新、LoopCtrl完全終了→起動→Start Serverが必要。開幕金壁の新通常1-1ポーズから試す。同時テストはしない。回収完了runを追加回収目的で再実行しない。終了した回収未完了だけ、同じprocess/source/runtimeで回復する。
+[AGENTSの保存と返却](../../AGENTS.md#保存と返却) に従い、日本語/JST・完全source・具体的実機手順・終了後runtime全ZIPを提示する。native/cap変更時は新IPA、SideStore更新→LoopCtrl完全終了/起動→Start Server。新通常1-1ポーズから、同時テストなし。回収済みrunを追加回収目的で再実行せず、終了した未回収だけ同じprocess/source/runtimeで回復する。

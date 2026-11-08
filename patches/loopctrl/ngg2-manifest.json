@@ -3,8 +3,8 @@
   "upstream_commit": "6e25cf6a9f65bc86c372cdce94bdb151d0cf6767",
   "api_version": "1.98.14-ngg2",
   "capability": "necrogold_native_v1",
-  "client_capability": "necrogold_native_v11",
-  "patch_sha256": "966cd12fb4a6a489146d5ff8ca2ac8b3a534d9e198f8ad627ebc6aaf11e44f17",
+  "client_capability": "necrogold_native_v12",
+  "patch_sha256": "c4cd71c27af0a53ee8dccac9d1dc7080e6542f2424592c51c5c48465830fe0c8",
   "files": {
     "LoopCtrlUITests/ActionHandler.swift": {
       "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
@@ -19,7 +19,7 @@
     "LoopCtrlKit/RPCMethod.swift": {
       "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
       "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
-      "patched_sha256": "2944972bb210f2d4b132cdee843c2f65c9a0c47d1fe240fcde185ba896f24ef8"
+      "patched_sha256": "11803132d0c8454fd29c322baa0f5793a1fcd4d0f8499d38dcaee2851c4094c7"
     },
     "LoopCtrlKit/JSONRPCServer.swift": {
       "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
@@ -67,11 +67,11 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "5d11a9fdb13508aecc1558729dc21de793da3f73e265a2888947983906da5774"
+      "sha256": "bea121f49d85c6fedcdd5c08182d4a2b5e5affd4e8fdaf33bde6f7c181202de1"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
-      "sha256": "53d1975250904dcbecae3d4ab7b0b0413138b4a149cf911ffedc82abca6c2baa"
+      "sha256": "7c6391628572bee6e7fc984fa77eed169287e5147ebd24face5ccee64e6b7339"
     },
     "LoopCtrlUITests/NG2Core.h": {
       "source": "NG2Core.h",
@@ -87,7 +87,7 @@
     },
     "Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift": {
       "source": "NG2RPCContractsTests.swift",
-      "sha256": "e54a7bd99a19aa3cfc2f98e438137c7552571c406c449b03f1bdf2371b205940"
+      "sha256": "dcad84a726e822fd37db543143ac80f89ea67e0fcd65b356cc7c9d76448f6d83"
     },
     "LoopCtrlUITests/NG2Raster.swift": {
       "source": "NG2Raster.swift",

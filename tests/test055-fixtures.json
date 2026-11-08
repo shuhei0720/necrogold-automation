@@ -1,0 +1,218 @@
+{
+  "schema": "ngg2-test055-fixtures-v1",
+  "source_zip_sha256": "15ae61c465bdabb99a34dabb2979abd43debfe586c323ecbf5337c7d48778a15",
+  "source_reports": [
+    {
+      "run_id": "6a4b7e5779704ce6b9101991ae817965",
+      "sha256": "d9f3506ab95aced09a1ac14961ff1f2b219d1f8858b345137a8c1f3842ab4403"
+    }
+  ],
+  "count": 11,
+  "purpose": "Required known TEST054 walking/image replay. All 11 original PNGs and all 9 referenced capture IDs are available; records one confirmed move, the stationary same-prefix 69-to-70 classification update, and the latest route change. Not live-game or unseen acceptance.",
+  "images": [
+    {
+      "path": "test054-received/test-054/native-6a4b7e5779704ce6b9101991ae817965/images/capture-000001.png",
+      "sha256": "84aabd424def43be2104810822a3ffb2dea00f513af87ae78d4b002e4e3d9fcb",
+      "bytes": 87855,
+      "capture_id": 1,
+      "state": 0,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 0
+    },
+    {
+      "path": "test054-received/test-054/native-6a4b7e5779704ce6b9101991ae817965/images/capture-000004.png",
+      "sha256": "f99e374ce3c06c31c2a40be70a3f48804ef919ddf5334a40487cf63f5635354c",
+      "bytes": 71260,
+      "capture_id": 4,
+      "state": 1,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 0
+    },
+    {
+      "path": "test054-received/test-054/native-6a4b7e5779704ce6b9101991ae817965/images/capture-000010.png",
+      "sha256": "2e294c653e40cdd5c94f3ce7413a791dc9486604856d14ab137656111c10643d",
+      "bytes": 264373,
+      "capture_id": 10,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 1
+    },
+    {
+      "path": "test054-received/test-054/native-6a4b7e5779704ce6b9101991ae817965/images/capture-000058.png",
+      "sha256": "3829de23e3ec8336f91d38900d2300fef0cb24fbd0d5569ca8d736dc43724c1c",
+      "bytes": 257024,
+      "capture_id": 58,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 1
+    },
+    {
+      "path": "test054-received/test-054/native-6a4b7e5779704ce6b9101991ae817965/images/capture-000060.png",
+      "sha256": "6f96df034da0c50005ff2810112de950fa9ed70ff2bb9b8628ea6a29137f37c1",
+      "bytes": 257861,
+      "capture_id": 60,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 1
+    },
+    {
+      "path": "test054-received/test-054/native-6a4b7e5779704ce6b9101991ae817965/images/capture-000068.png",
+      "sha256": "db57813a31887c4517028a6bccc55dfed08aef76229c79d716f07b6879992aa1",
+      "bytes": 275312,
+      "capture_id": 68,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 3
+    },
+    {
+      "path": "test054-received/test-054/native-6a4b7e5779704ce6b9101991ae817965/images/capture-000069.png",
+      "sha256": "b2068f4e4a148a3bd599c91d9bf069503d097f636b73520d1b032dc425058e1d",
+      "bytes": 279635,
+      "capture_id": 69,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 3
+    },
+    {
+      "path": "test054-received/test-054/native-6a4b7e5779704ce6b9101991ae817965/images/capture-000070.png",
+      "sha256": "99d98f69f64ab79b41326e367f67b5c16002537bd4b82ab4ed423d89e623a46f",
+      "bytes": 279105,
+      "capture_id": 70,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 3
+    },
+    {
+      "path": "test054-received/test-054/native-6a4b7e5779704ce6b9101991ae817965/images/capture-000077.png",
+      "sha256": "5ab4e4f83c09af44788096dbce28324beaa31cac3eaf8cc0611634e62f127767",
+      "bytes": 69393,
+      "capture_id": 77,
+      "state": 1,
+      "goods": 0,
+      "stable": false,
+      "completed_prefix": 3
+    },
+    {
+      "path": "test054-received/test-054/native-6a4b7e5779704ce6b9101991ae817965/images/capture-000078.png",
+      "sha256": "5ab4e4f83c09af44788096dbce28324beaa31cac3eaf8cc0611634e62f127767",
+      "bytes": 69393,
+      "capture_id": 78,
+      "state": 1,
+      "goods": 0,
+      "stable": false,
+      "completed_prefix": 3
+    },
+    {
+      "path": "test054-received/test-054/native-6a4b7e5779704ce6b9101991ae817965/images/capture-000079.png",
+      "sha256": "5ab4e4f83c09af44788096dbce28324beaa31cac3eaf8cc0611634e62f127767",
+      "bytes": 69393,
+      "capture_id": 79,
+      "state": 1,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 5
+    }
+  ],
+  "dimensions": [
+    896,
+    414
+  ],
+  "floor_capture_ids": [
+    10,
+    58,
+    60,
+    68,
+    69,
+    70
+  ],
+  "motion_pairs": [
+    [
+      60,
+      68
+    ],
+    [
+      60,
+      69
+    ],
+    [
+      69,
+      70
+    ]
+  ],
+  "directions": [
+    "left",
+    "right",
+    "up",
+    "down"
+  ],
+  "expected_motion_by_pair": {
+    "60,68": {
+      "left": "unknown",
+      "right": "unknown",
+      "up": "unknown",
+      "down": "unknown"
+    },
+    "60,69": {
+      "left": "unexpected",
+      "right": "unexpected",
+      "up": "unexpected",
+      "down": "moved"
+    },
+    "69,70": {
+      "left": "blocked",
+      "right": "blocked",
+      "up": "blocked",
+      "down": "blocked"
+    }
+  },
+  "same_input_prefix_reference_pair": [
+    69,
+    70
+  ],
+  "recorded_planner_context": {
+    "position": [
+      0,
+      1
+    ],
+    "visits": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        1
+      ]
+    ],
+    "entrance": {
+      "valid": 0,
+      "x": 0,
+      "y": 0,
+      "direction": 0
+    },
+    "decisions": {
+      "69": [
+        3,
+        8,
+        -4,
+        0,
+        1
+      ],
+      "70": [
+        1,
+        6,
+        -4,
+        0,
+        4
+      ]
+    }
+  }
+}

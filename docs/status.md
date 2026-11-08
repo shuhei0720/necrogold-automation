@@ -28,9 +28,11 @@
 
 ## 確認した範囲と未達
 
-整理前の既存試験: native183件/全141必須画像path・client190件・package205件が全成功/skip0。Mac71ではRuntime55故障、Raster3、C同値、暗号RPC、実compiler/IPA/seal22と実生成診断のclient保存を確認済み。[試験の区別](testing.md)。
+TEST055実装候補はlocal229件（native207＋記録評価器22）/全152必須画像path、client197件、package208件が成功。clientは公開CIでも197件成功。CI相当のprivate21除外選択208件もlocal成功。fresh3観点の実装第2周は残P0/P1/P2なし。[検証記録](reviews/test055.md)。現在はMac57故障・実compiler/新IPAと配布物の照合へ進む。
 
-これらは実ゲームの商品到達率ではない。全経路毎拍・人より速い性能・商品/指輪認識と通知・自動周回・耐久は未受入。TEST054の不合格を維持し、整理だけで修正版IPAとは呼ばない。検証したTEST055成果物が完成した時点で具体的な実機テストと全runtime ZIP返却を依頼する。
+実記録評価器でもTEST054は商品未到達fail/exit1、54画像とmodel履歴が不足し完全Controller再生=false。単体・模擬結合・部分再生を実ゲーム到達率にしない。[試験の区別](testing.md)。
+
+全経路毎拍・人より速い性能・商品/指輪認識と通知・自動周回・耐久は未受入。検証したTEST055成果物の完成後に新source/新IPAを提示し、具体的な実機テストと全runtime ZIP返却を依頼する。
 
 <a id="test-011結果と今回の変更"></a>
 

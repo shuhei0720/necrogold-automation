@@ -10,8 +10,22 @@ freshな設計・網羅・安全の3観点で実施。設計/網羅第1周はP0/
 
 ## 実装前Red
 
-これから実Cの主assertion、client、評価器の振る舞いRedを観測する。環境/compile/API欠落をRedへ数えない。未確認のGreen/実ゲーム合格は記載しない。
+旧Cで実画像69/70と実位置/visits/入口を使い、旧UP不送信・最新LEFT/DIRT予約の主2assertion failures/0errorsを観測後に変更した。model/HUD/lead-inは明示的な合成であり、完全な実機時系列再生とは呼ばない。clientは旧190件が成功したまま新3assertion failures/0errors、評価器は読込可能stubからgoal failの1assertion Red、packageは新cap/profileの2assertion Redを先に観測した。
 
-## 実装・配布の確認
+## 実装・ホスト確認
 
-実装・local回帰・全152画像・Mac57故障/Raster/C同値/RPC/実compiler/IPA・3観点レビュー・実配布物/source照合は未完了。最新状態は [status](../status.md)。TEST054の既知実機不合格を維持し、完成後に新IPA/新sourceでTEST055を具体的に依頼する。
+- Controllerは旧119＋新23の142件、28.493秒、skip0。旧SAME/reason8・安全条件を維持し、合法FRESHへ変わる旧5methodsの期待を根拠付きで更新した。全ケースを保持。環境復帰で重複していたhelper定義は12状態のScene全bytes/方向delta一致を確認し、同値な後方定義1個だけを除去した。
+- 全152必須画像pathを含むnativeと評価器は229件/112.152秒、skip0。内訳はC/画像/拍/Controller/Raster207＋評価器22。CIと同じ選択もlocalで208件/46.960秒、private21を名前で明示除外して成功した。実画像の不足/hash不一致はlocal失敗のまま。
+- client197件/51.831秒、公開[CI42500150606](https://github.com/shuhei0720/necrogold-automation/actions/runs/42500150606)も197件/47.672秒で成功。literal v12の同UUID・GET0/start0・4chunk回復とmotion traceを維持。package/compiler監査208件/1.588秒成功。
+- 評価器の実TEST054はintegrity passだが `goods_visible_and_paused=fail`/exit1。原PNG/HUD/時刻を変えず、60→68UNKNOWN、60→69DOWN MOVED、69→70BLOCKEDとUP/FLOOR→LEFT/DIRTを確認。54画像/初期model履歴が不足し、完全Controller再生=false、LEFT後はnot_recorded。元ZIPを成功へ読み替えない。
+- native22seal `3812b22751076748cf7ce868fc774efe6ce95c5846c84e8406900c2b21cc2be5` を実適用して照合。変更はController C/header・RPC cap広告・RPC試験だけ。production Runtime/他native18・G1/R12は不変。C SHA `bea121f49d85c6fedcdd5c08182d4a2b5e5affd4e8fdaf33bde6f7c181202de1`。
+
+## 実装レビュー第1〜2周
+
+fresh3観点で実施。固定C/header/client/fixture/helperの第1周にP0/P1/P2なし。評価器第1周の安全P1「active/report比較のPython等価性でreportだけtrue/1.0にした不正型をpass」、P2「result_metadata=[]/nullの未捕捉AttributeError/exit1」を、新2methods/4assertion failures/0errorsで再現した。raw active/report同一bytesの検査とmetadata dict入口検査で修正し、元20＋新2の22件がGreen。第2周は全3観点P0/P1/P2残件なし。実Mac配布物補足は同じ第2周の未完了工程とする。
+
+旧55 named faultsを保ち新FRESH無効/旧direction再利用の2実C故障を加え57予定。旧target-drift-after-actionは故障本体を変えず、FRESHが正当に再予約するため既存のSAME validation2/counterを検査するdetail assertionへ期待名を更新した。旧progress assertionも保持。Linux実Cでnormal2→同故障12、pending故障の不送信を確認した。old/new snippet・source hash・stageの静的57集合はGit外に保存。Swift実行成功の代用にはしない。
+
+## これから確認する配布物
+
+実Mac57故障/Raster3/C同値/RPC/実compiler/IPA、実producer2report＋既存3reportから実暗号clientへの接続、同第2周の3観点実物補足、完全source ZIP照合は未完了。Mac実ゲームとiPhone実機受入は別。完成後に新IPA・新sourceでTEST055を具体的に依頼する。

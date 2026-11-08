@@ -37,7 +37,7 @@ def required_fixtures():
 
 
 def required_profile_fixtures():
-    """All 141 required image paths; missing private evidence is a local failure."""
+    """All 152 required image paths; missing private evidence is a local failure."""
     sets = (("test043-fixtures.json", "NECRO_TEST043_FIXTURE_ROOT", 66),
             ("test046-fixtures.json", "NECRO_TEST046_FIXTURE_ROOT", 8),
             ("test047-fixtures.json", "NECRO_TEST047_FIXTURE_ROOT", 5),
@@ -45,7 +45,8 @@ def required_profile_fixtures():
             ("test050-fixtures.json", "NECRO_TEST050_FIXTURE_ROOT", 11),
             ("test052-fixtures.json", "NECRO_TEST052_FIXTURE_ROOT", 9),
             ("test053-fixtures.json", "NECRO_TEST053_FIXTURE_ROOT", 17),
-            ("test054-fixtures.json", "NECRO_TEST054_FIXTURE_ROOT", 17))
+            ("test054-fixtures.json", "NECRO_TEST054_FIXTURE_ROOT", 17),
+            ("test055-fixtures.json", "NECRO_TEST055_FIXTURE_ROOT", 11))
     for filename, variable, count in sets:
         manifest = json.loads((ROOT / "tests" / filename).read_text())
         if type(manifest["count"]) is not int or manifest["count"] != count \

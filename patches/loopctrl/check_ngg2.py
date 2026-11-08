@@ -16,6 +16,67 @@ TEST050_RUNTIME_COMMIT = '53f722c6d925e0df5c84d377acc59b2e32cf8135'
 TEST050_RUNTIME_SHA256 = '1938af7edd09a6b6689363cd9ad03d93148425e56256a2dc18bcab3b973115ab'
 
 
+EXPECTED_RUNTIME_MUTATIONS = frozenset((
+    'analysis-commit',
+    'analysis-owner',
+    'authority-origin',
+    'callback-drain',
+    'capture-admission',
+    'capture-failure-connection',
+    'capture-failure-first',
+    'capture-failure-generation',
+    'capture-failure-orientation',
+    'continuous-callback-drain',
+    'continuous-command-id',
+    'continuous-details-connection',
+    'continuous-return-bookkeeping',
+    'difference-reference',
+    'dispatch-failure-command',
+    'dispatch-failure-connection',
+    'dispatch-failure-first',
+    'dispatch-failure-generation',
+    'dispatch-failure-query-start',
+    'export-chunk-offset',
+    'export-chunk-reply-current',
+    'export-chunk-reply-owner',
+    'export-manifest-immutable',
+    'export-manifest-reply-current',
+    'export-manifest-reply-owner',
+    'export-parallel-build',
+    'export-per-image-boundary',
+    'export-retired-raw-storage',
+    'export-selection-count',
+    'export-stale-generation-cache',
+    'export-total-boundary',
+    'final-generation',
+    'final-lock',
+    'final-query',
+    'foreground-lock',
+    'fresh-old-direction-reused',
+    'fresh-revalidation-disabled',
+    'initial-slot-early-publication',
+    'initial-slot-missing-preparation-margin',
+    'legacy-pending',
+    'main-admission',
+    'main-clock',
+    'motion-clock',
+    'motion-reference',
+    'motion-reference-fallback-disabled',
+    'motion-reference-original-discarded',
+    'motion-reference-producer-disconnected',
+    'move-input',
+    'observe-start-connection',
+    'observe-start-placement',
+    'prepare-token',
+    'raster-trace',
+    'stale-cleanup',
+    'stale-entry',
+    'target-drift-after-action',
+    'target-drift-pending-action',
+    'worker-analysis',
+))
+
+
 def native_object_flags(name, *, test049=False):
     # Match the app's per-source profile. Controller and Beat stay Debug O0.
     strict = name == 'NG2Perception.c' or (name == 'NG2Navigation.c' and not test049)
@@ -128,6 +189,19 @@ def test054_public_fixture_source(tests):
         tests.split(markers[2])[1].split(markers[3])[0]+
         '\ntestOriginalMotionReferencePixelProof()\ntestOriginalMotionReferenceCallbacksPublic()\n'
         'print("PASS production Runtime public API/TEST054 bounded original motion reference and connected diagnostics fixtures")\n')
+
+
+def test055_public_fixture_source(tests):
+    prefix_marker = '// TEST051 MANIFEST FIXTURE END.\n'
+    markers = ('// TEST051 PUBLIC FIXTURES BEGIN.\n', '// TEST051 PUBLIC FIXTURES END.\n',
+               '// TEST055 PUBLIC FIXTURES BEGIN.\n', '// TEST055 PUBLIC FIXTURES END.\n')
+    if any(tests.count(marker) != 1 for marker in (prefix_marker, *markers)):
+        raise ValueError('runtime_test055_public_fixture_boundary')
+    return (tests.split(prefix_marker)[0]+prefix_marker+
+        tests.split(markers[0])[1].split(markers[1])[0]+
+        tests.split(markers[2])[1].split(markers[3])[0]+
+        '\ntestFreshRevalidationPixelProof()\ntestFreshRevalidationCallbacksPublic()\n'
+        'print("PASS production Runtime public API/TEST055 latest Decision, original window, callback ownership and actual diagnostics fixtures")\n')
 
 
 def api_contract(upstream, output):
@@ -382,7 +456,7 @@ def navigation_profile_contract(upstream, output, *, compiler='clang'):
             'scope': 'actual production strict Navigation public API, unchanged O0, complete views/73-score bytes/Motion/Decision/Entrance/boundary and input parity'}
 
 
-def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False, selected_mutations=None, public052_only=False, new052_mutations_only=False, public053_only=False, new053_mutations_only=False, public054_only=False, new054_mutations_only=False):
+def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False, selected_mutations=None, public052_only=False, new052_mutations_only=False, public053_only=False, new053_mutations_only=False, public054_only=False, new054_mutations_only=False, public055_only=False, new055_mutations_only=False):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
     native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red or expect_manifest_red else upstream / 'LoopCtrlUITests'
     if baseline_native is not None:
@@ -423,6 +497,8 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         (stage/'main.swift').write_text(test053_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
     if public054_only or new054_mutations_only:
         (stage/'main.swift').write_text(test054_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
+    if public055_only or new055_mutations_only:
+        (stage/'main.swift').write_text(test055_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
     if expect_manifest_red:
         source = subprocess.check_output(['git', 'show', TEST050_RUNTIME_COMMIT+
             ':patches/loopctrl/ngg2/NG2Runtime.swift'], cwd=HERE).decode()
@@ -513,6 +589,24 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         encoded_reports = (json.dumps(reference_reports, indent=2)+'\n').encode()
         (output/'runtime-test054-native-reports.json').write_bytes(encoded_reports)
         reference_reports_digest = hashlib.sha256(encoded_reports).hexdigest()
+    fresh_report_lines = [line.removeprefix('REPORT test055_native ')
+        for line in green.stdout.splitlines() if line.startswith('REPORT test055_native ')]
+    fresh_reports = [json.loads(line) for line in fresh_report_lines]
+    fresh_reports_digest = None
+    if fresh_reports:
+        # Preserve every producer JSON object's exact stdout bytes in the array.
+        encoded_reports = ('[\n'+',\n'.join(fresh_report_lines)+'\n]\n').encode()
+        (output/'runtime-test055-native-reports.json').write_bytes(encoded_reports)
+        fresh_reports_digest = hashlib.sha256(encoded_reports).hexdigest()
+    if (public055_only or new055_mutations_only) and len(fresh_reports) != 2:
+        raise RuntimeError('runtime_test055_two_actual_native_reports_missing')
+    if public055_only:
+        return {'production_green': green.stdout.strip(), 'compiled': True,
+                'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                'test055_controller_sha256': hashlib.sha256((native/'NG2Controller.c').read_bytes()).hexdigest(),
+                'test055_actual_native_report_count': len(fresh_reports),
+                'test055_actual_native_reports_sha256': fresh_reports_digest,
+                'scope': 'TEST055 procedural PNG/Raster/production C latest LEFT DIRT choice, actual callback orders and fresh AX, original slot, lease/drain/pinned export; cancelled after ACK, no future game progress asserted'}
     if public051_only:
         return {'production_green': green.stdout.strip(), 'compiled': True,
                 'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
@@ -541,7 +635,8 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     target_calls = 'testTargetDriftPlannerProof()\ntestTargetDriftRevalidationCallbacksPublic()\n'
     startup_calls = 'testStartupRemotePixelProof()\ntestInitialSlotPreparationPublic()\n'
     reference_calls = 'testOriginalMotionReferencePixelProof()\ntestOriginalMotionReferenceCallbacksPublic()\n'
-    if all_tests.count(new_calls) != 1 or all_tests.count(target_calls) != 1 or all_tests.count(startup_calls) != 1 or all_tests.count(reference_calls) != 1:
+    fresh_calls = 'testFreshRevalidationPixelProof()\ntestFreshRevalidationCallbacksPublic()\n'
+    if all_tests.count(new_calls) != 1 or all_tests.count(target_calls) != 1 or all_tests.count(startup_calls) != 1 or all_tests.count(reference_calls) != 1 or all_tests.count(fresh_calls) != 1:
         raise ValueError('runtime_test051_public_calls_boundary')
     if selected_mutations is not None:
         if selected_mutations != 'stale-entry':
@@ -549,7 +644,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         # Run the complete production Green above, then the exact established
         # fault with all original preceding fixtures and its named assertion.
         # This is a real selected execution, never a synthetic Red substitute.
-        (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n').replace(target_calls, '\n').replace(startup_calls, '\n').replace(reference_calls, '\n'))
+        (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n').replace(target_calls, '\n').replace(startup_calls, '\n').replace(reference_calls, '\n').replace(fresh_calls, '\n'))
         ownership = '        guard ownsTicket(run, command, generation: generation) else { return }'
         if source.count(ownership) != 1:
             raise ValueError('runtime_stale_entry_mutation_target')
@@ -566,11 +661,11 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                 'native_object_flags': {path.name: native_object_flags(path.name) for path in sorted(native.glob('NG2*.c'))},
                 'scope': 'Full production Runtime Green and exact selected established stale-entry mutation; all preceding fixtures retained'}
     reds = {}
-    if not new051_mutations_only and not new052_mutations_only and not new053_mutations_only and not new054_mutations_only:
+    if not new051_mutations_only and not new052_mutations_only and not new053_mutations_only and not new054_mutations_only and not new055_mutations_only:
         # Established faults retain their original fixtures/assertions. Execute
         # new public fixtures once in production Green and for their own faults,
         # avoiding dozens of unrelated repeated PNG boundary stress runs.
-        (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n').replace(target_calls, '\n').replace(startup_calls, '\n').replace(reference_calls, '\n'))
+        (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n').replace(target_calls, '\n').replace(startup_calls, '\n').replace(reference_calls, '\n').replace(fresh_calls, '\n'))
         reds = {}
         clock_begin = source.index('        DispatchQueue.main.sync {', source.index('    private func execute('))
         clock_end = source.index('                run.inFlight = true', clock_begin)
@@ -869,7 +964,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             '// mutation: old rasters remain retained across replacement',
             'FAIL paged_replacement_retires_previous_raw_and_encoded_storage'),
     }
-    if new052_mutations_only or new053_mutations_only or new054_mutations_only:
+    if new052_mutations_only or new053_mutations_only or new054_mutations_only or new055_mutations_only:
         new_mutations = {}
     for label, (old, new, expected) in new_mutations.items():
         print('Runtime mutation: '+label, flush=True)
@@ -882,12 +977,15 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
     if len(reds) != baseline_count + len(new_mutations):
         raise RuntimeError('runtime_expected_baseline_and_test051_named_mutation_reds')
-    target_mutations = {} if new051_mutations_only or new053_mutations_only or new054_mutations_only else {
+    target_mutations = {} if new051_mutations_only or new053_mutations_only or new054_mutations_only or new055_mutations_only else {
         'target-drift-after-action': (
             '!same_continuous_action(&before,&after)', '!same_choice(&before,&after)',
-            'FAIL target_drift_revalidation_follows_two_actual_confirmed_moves'),
+            # FRESH can accept this conservative remote change. The existing
+            # detail assertion still requires the original SAME policy (2),
+            # so its named failure catches the now-observable policy drift.
+            'FAIL target_drift_revalidation_actual_detail_producer'),
         'target-drift-pending-action': (
-            '!same_continuous_action(&choice,&p->command_choice)', '!same_choice(&choice,&p->command_choice)',
+            'same_continuous_action(&choice,&p->command_choice)', 'same_choice(&choice,&p->command_choice)',
             'FAIL target_drift_revalidation_follows_two_actual_confirmed_moves'),
     }
     controller = (native/'NG2Controller.c').read_text()
@@ -921,7 +1019,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             controller_object.write_bytes(original_object)
     if len(reds) != baseline_count + len(new_mutations) + len(target_mutations):
         raise RuntimeError('runtime_expected_baseline_test051_test052_named_mutation_reds')
-    startup_mutations = {} if new051_mutations_only or new052_mutations_only or new054_mutations_only else {
+    startup_mutations = {} if new051_mutations_only or new052_mutations_only or new054_mutations_only or new055_mutations_only else {
         'initial-slot-early-publication': (
             'if(p->initial_slot_not_before-now>INITIAL_PUBLICATION)return 0;',
             '/* mutation: initial ticket published before its bounded preparation window */',
@@ -961,7 +1059,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             controller_object.write_bytes(original_object)
     if len(reds) != baseline_count + len(new_mutations) + len(target_mutations) + len(startup_mutations):
         raise RuntimeError('runtime_expected_baseline_test051_test052_test053_named_mutation_reds')
-    reference_mutations = {} if new051_mutations_only or new052_mutations_only or new053_mutations_only else {
+    reference_mutations = {} if new051_mutations_only or new052_mutations_only or new053_mutations_only or new055_mutations_only else {
         'motion-reference-fallback-disabled': (
             'if(motion.kind==NG2_MOTION_UNKNOWN&&eligible){',
             'if(motion.kind==NG2_MOTION_UNKNOWN&&eligible&&0){',
@@ -999,7 +1097,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                 print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
         finally:
             controller_object.write_bytes(original_object)
-    reference_producer_mutations = {} if new051_mutations_only or new052_mutations_only or new053_mutations_only else {
+    reference_producer_mutations = {} if new051_mutations_only or new052_mutations_only or new053_mutations_only or new055_mutations_only else {
         'motion-reference-producer-disconnected': (
             '"motion_references": .array(encodedMotionReferences)', '"motion_references": .array([])',
             'FAIL motion_reference_actual_status_and_results_diagnostic_producer'),
@@ -1017,12 +1115,65 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
     if len(reds) != baseline_count + len(new_mutations) + len(target_mutations) + len(startup_mutations) + len(reference_mutations) + len(reference_producer_mutations):
         raise RuntimeError('runtime_expected_baseline_test051_test052_test053_test054_named_mutation_reds')
+    fresh_mutations = {} if new051_mutations_only or new052_mutations_only or new053_mutations_only or new054_mutations_only else {
+        'fresh-revalidation-disabled': (
+            'if(strict){*latest=after;return NG2_REVALIDATE_FRESH_ALLOWED;}',
+            'if(strict){*latest=after;return NG2_REVALIDATE_ROUTE;}',
+            'FAIL fresh_revalidation_follows_two_actual_confirmed_moves'),
+        'fresh-old-direction-reused': (
+            'p->command.direction=direction; /* Latest action; frozen ticket supplies time only. */',
+            'p->command.direction=p->continuous_ticket.direction; /* Latest action; frozen ticket supplies time only. */',
+            'FAIL fresh_revalidation_latest_LEFT_direction_and_coordinates'),
+    }
+    fresh_mutation_sources = {}
+    if fresh_mutations:
+        (stage/'main.swift').write_text(test055_public_fixture_source(all_tests))
+        (stage/'NG2Runtime.swift').write_text(source)
+        controller_objects = [path for path in objects if path.name == 'NG2Controller.o']
+        if len(controller_objects) != 1:
+            raise ValueError('runtime_test055_controller_object_target')
+        controller_object = controller_objects[0]
+        original_object = controller_object.read_bytes()
+        try:
+            for label, (old, new, expected) in fresh_mutations.items():
+                if controller.count(old) != 1:
+                    raise ValueError('runtime_test055_fresh_mutation_target: '+label)
+                mutated_controller = controller.replace(old, new)
+                (stage/'NG2Controller.c').write_text(mutated_controller)
+                print('Runtime mutation: '+label, flush=True)
+                built = subprocess.run(['clang', '-std=c11', *native_object_flags('NG2Controller.c'),
+                    '-I', str(native), '-c', str(stage/'NG2Controller.c'), '-o', str(controller_object)],
+                    capture_output=True, text=True, timeout=120)
+                (output/('runtime-'+label+'-C-compile.txt')).write_text(built.stdout+built.stderr)
+                checked(built)
+                result = compile_run(sources, stage/(label+'-tests'), output,
+                    'runtime-'+label+'-mutation-red', extra, run_timeout=120)
+                require_red(result, expected); reds[label] = result.stdout.strip()
+                fresh_mutation_sources[label] = hashlib.sha256(mutated_controller.encode()).hexdigest()
+                print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
+        finally:
+            controller_object.write_bytes(original_object)
+    if len(reds) != baseline_count + len(new_mutations) + len(target_mutations) + len(startup_mutations) + len(reference_mutations) + len(reference_producer_mutations) + len(fresh_mutations):
+        raise RuntimeError('runtime_expected_baseline_test051_test052_test053_test054_test055_named_mutation_reds')
+    selection = ('test051_only' if new051_mutations_only else 'test052_only' if new052_mutations_only else
+        'test053_only' if new053_mutations_only else 'test054_only' if new054_mutations_only else
+        'test055_only' if new055_mutations_only else 'all_57')
+    if selection == 'all_57':
+        if set(reds) != EXPECTED_RUNTIME_MUTATIONS or len(reference_reports) != 3 or len(fresh_reports) != 2:
+            raise RuntimeError('runtime_exact_57_fault_inventory_and_five_actual_producer_reports_required')
+    elif selection == 'test055_only' and set(reds) != {'fresh-revalidation-disabled', 'fresh-old-direction-reused'}:
+        raise RuntimeError('runtime_exact_two_test055_fault_inventory_required')
     (stage/'NG2Runtime.swift').write_text(source)
     (stage/'main.swift').write_text(all_tests)
     return {'production_green':green.stdout.strip(),'mutation_red':reds,'compiled':True,
             'baseline_mutation_count': baseline_count, 'test051_mutation_count': len(new_mutations),
             'test052_mutation_count': len(target_mutations),
             'test053_mutation_count': len(startup_mutations),
+            'test055_mutation_count': len(fresh_mutations),
+            'test055_controller_sha256': hashlib.sha256(controller.encode()).hexdigest(),
+            'test055_mutation_controller_sha256': fresh_mutation_sources,
+            'test055_actual_native_report_count': len(fresh_reports),
+            'test055_actual_native_reports_sha256': fresh_reports_digest,
             'test054_mutation_count': len(reference_mutations) + len(reference_producer_mutations),
             'test054_controller_sha256': hashlib.sha256(controller.encode()).hexdigest(),
             'test054_mutation_controller_sha256': reference_mutation_sources,
@@ -1032,7 +1183,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             'test053_mutation_controller_sha256': startup_mutation_sources,
             'test052_controller_sha256': hashlib.sha256(controller.encode()).hexdigest(),
             'test052_mutation_controller_sha256': target_mutation_sources,
-            'mutation_selection': 'test051_only' if new051_mutations_only else 'test052_only' if new052_mutations_only else 'test053_only' if new053_mutations_only else 'test054_only' if new054_mutations_only else 'all_55',
+            'mutation_selection': selection,
             'native_object_flags': {path.name: native_object_flags(path.name) for path in sorted(native.glob('NG2*.c'))},
             'scope':'Actual Runtime public API, raster, real C, main ticket and lifecycle with UIKit/XCTest/daemon fakes'}
 
@@ -1089,10 +1240,12 @@ def main():
     parser.add_argument('--test053-new-mutations-only', action='store_true')
     parser.add_argument('--test054-public-only', action='store_true')
     parser.add_argument('--test054-new-mutations-only', action='store_true')
+    parser.add_argument('--test055-public-only', action='store_true')
+    parser.add_argument('--test055-new-mutations-only', action='store_true')
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
-    if args.test051_red_only or args.test051_public_only or args.test051_runtime_only or args.test051_new_mutations_only or args.test051_selected_mutations is not None or args.test052_public_only or args.test052_new_mutations_only or args.test053_public_only or args.test053_new_mutations_only or args.test054_public_only or args.test054_new_mutations_only:
-        if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only, args.test051_new_mutations_only, args.test051_selected_mutations is not None, args.test052_public_only, args.test052_new_mutations_only, args.test053_public_only, args.test053_new_mutations_only, args.test054_public_only, args.test054_new_mutations_only)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
+    if args.test051_red_only or args.test051_public_only or args.test051_runtime_only or args.test051_new_mutations_only or args.test051_selected_mutations is not None or args.test052_public_only or args.test052_new_mutations_only or args.test053_public_only or args.test053_new_mutations_only or args.test054_public_only or args.test054_new_mutations_only or args.test055_public_only or args.test055_new_mutations_only:
+        if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only, args.test051_new_mutations_only, args.test051_selected_mutations is not None, args.test052_public_only, args.test052_new_mutations_only, args.test053_public_only, args.test053_new_mutations_only, args.test054_public_only, args.test054_new_mutations_only, args.test055_public_only, args.test055_new_mutations_only)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
             parser.error('TEST051 standalone mode requires fixed upstream and output directory')
         upstream, output = args.paths
         output.mkdir(parents=True, exist_ok=True)
@@ -1128,7 +1281,8 @@ def main():
                       selected_mutations=args.test051_selected_mutations, baseline_native=native,
                       public052_only=args.test052_public_only, new052_mutations_only=args.test052_new_mutations_only,
                       public053_only=args.test053_public_only, new053_mutations_only=args.test053_new_mutations_only,
-                      public054_only=args.test054_public_only, new054_mutations_only=args.test054_new_mutations_only),
+                      public054_only=args.test054_public_only, new054_mutations_only=args.test054_new_mutations_only,
+                      public055_only=args.test055_public_only, new055_mutations_only=args.test055_new_mutations_only),
                   'native_object_flags': flags, 'device_test': 'not_run'}
         (output/'ngg2-swift-contract.json').write_text(json.dumps(report, indent=2)+'\n')
         print(report['runtime'].get('baseline_red', report['runtime'].get('production_green')))

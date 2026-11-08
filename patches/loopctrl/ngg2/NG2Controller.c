@@ -15,6 +15,7 @@
 #define INITIAL_PUBLICATION UINT64_C(100000000)
 static const uint64_t leads[7]={150000000,75000000,225000000,300000000,375000000,450000000,25000000};
 static const int dx[5]={0,-1,1,0,0},dy[5]={0,0,0,-1,1};
+enum { NG2_CONTINUOUS_NONE=0, NG2_CONTINUOUS_SAME=1, NG2_CONTINUOUS_FRESH=2 };
 struct NG2Controller {
     NG2ControllerStatus s;
     NG2Scene scene,before,retune_anchor;
@@ -26,7 +27,7 @@ struct NG2Controller {
     NG2Command command;
     NG2Command initial_ticket;
     NG2Command continuous_ticket;
-    NG2Decision command_choice;
+    NG2Decision command_choice,continuous_pending_choice;
     NG2ControllerSceneChange scene_changes[3];
     NG2ControllerSceneDetail scene_details[3];
     NG2ControllerMotionWait motion_wait;
@@ -224,33 +225,71 @@ static int same_continuous_action(const NG2Decision *a,const NG2Decision *b){
     return (a->reason==8&&a->obstacle==NG2_TILE_FLOOR)
         ||(a->target_x==b->target_x&&a->target_y==b->target_y);
 }
+/* New observations may identify unknown cells or restrict known traversal.
+ * Never erase a known blocker/item or manufacture a door without its bracket. */
+static int monotone_terrain(const NG2Scene *before,const NG2Scene *after){
+    int i,changed=0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int a=before->tiles[i],b=after->tiles[i];
+        if(before->protected_cells[i]!=after->protected_cells[i])return 0;
+        if(a==b)continue;
+        ++changed;
+        if(a==NG2_TILE_UNKNOWN){if(b<NG2_TILE_FLOOR||b>NG2_TILE_DOOR)return 0;}
+        else if(a==NG2_TILE_FLOOR){if(b!=NG2_TILE_DIRT&&b!=NG2_TILE_STONE&&b!=NG2_TILE_GOLD&&b!=NG2_TILE_DOOR)return 0;}
+        else if(a==NG2_TILE_DIRT){if(b!=NG2_TILE_STONE&&b!=NG2_TILE_GOLD&&b!=NG2_TILE_DOOR)return 0;}
+        else return 0;
+        if(b==NG2_TILE_DOOR&&!gate_at(after,i%23-11,i/23-5))return 0;
+    }
+    return changed!=0;
+}
+static uint64_t continuous_horizon(const NG2Controller *p){
+    uint64_t horizon=minimum(p->continuous_ticket.source_start_ns+FRESH,p->continuous_ticket.phase_sample_ns+FRESH);
+    horizon=minimum(horizon,p->s.walk_started_ns+45*SECOND);
+    return minimum(horizon,p->s.started_ns+180*SECOND);
+}
+static int continuous_allowed(int validation){
+    return validation==NG2_REVALIDATE_CONTINUOUS_ALLOWED||validation==NG2_REVALIDATE_FRESH_ALLOWED;
+}
 /* Only a definitely-unsent ticket may be replaced. Unlike initial lead
  * calibration, continuous revalidation proves the cached source decision,
  * the current action and protected set, without searching for another beat. */
-static int continuous_validation(NG2Controller *p,const NG2Scene *scene,uint64_t end){
+static int continuous_validation(NG2Controller *p,const NG2Scene *scene,uint64_t end,NG2Decision *latest){
     NG2Decision before,after;NG2Motion motion;uint64_t aligned;
-    int direction=p->command.direction;
+    int direction=p->command.direction,strict=0,fresh_allowed;
     if(p->s.input_state!=1||p->replan_pending||p->continuous_pending||p->finish_requested
         ||!p->s.lead_confirmed||!p->s.moves||p->s.phase!=NG2_PHASE_WALK||!p->continuous_ticket_valid
         ||p->command.kind!=NG2_ACTION_MOVE||direction<1||direction>4)return NG2_REVALIDATE_STATE;
     if(p->continuous_chain_count>=2||p->continuous_count>=8)return NG2_REVALIDATE_BUDGET;
     if(end>p->continuous_ticket.deadline_ns||!ng2_beat_model_valid(&p->model)||p->beat_failed
-        ||end<p->command.phase_sample_ns||end-p->command.phase_sample_ns>FRESH
-        ||end<p->command.source_start_ns||end-p->command.source_start_ns>FRESH
+        ||end<p->continuous_ticket.phase_sample_ns||end-p->continuous_ticket.phase_sample_ns>FRESH
+        ||end<p->continuous_ticket.source_start_ns||end-p->continuous_ticket.source_start_ns>FRESH
+        ||end<p->model.last_ns||end-p->model.last_ns>FRESH||end>continuous_horizon(p)
         ||end-p->s.walk_started_ns>=45*SECOND||end-p->s.started_ns>=180*SECOND
         ||!corrected(p,p->continuous_ticket.target_ns,p->continuous_period,&aligned))return NG2_REVALIDATE_TIMING;
     if(p->before.state!=NG2_FLOOR||scene->state!=NG2_FLOOR
         ||p->before.goods!=NG2_GOODS_UNKNOWN||scene->goods!=NG2_GOODS_UNKNOWN
-        ||!safe_floor(&p->before,direction)||!safe_floor(scene,direction))return NG2_REVALIDATE_FLOOR;
+        ||!safe_floor(&p->before,direction)||!safe_floor(scene,direction))strict=NG2_REVALIDATE_FLOOR;
     if(p->before.gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
-        ||!same_gold(&p->before,scene))return NG2_REVALIDATE_GOLD;
-    if(memcmp(p->before.protected_cells,scene->protected_cells,NG2_TILE_COUNT))return NG2_REVALIDATE_PROTECTED;
+        ||!same_gold(&p->before,scene)){if(!strict)strict=NG2_REVALIDATE_GOLD;}
+    if(memcmp(p->before.protected_cells,scene->protected_cells,NG2_TILE_COUNT)){
+        if(!strict)strict=NG2_REVALIDATE_PROTECTED;}
+    fresh_allowed=p->before.state==NG2_FLOOR&&scene->state==NG2_FLOOR
+        &&p->before.goods==NG2_GOODS_UNKNOWN&&scene->goods==NG2_GOODS_UNKNOWN
+        &&p->before.gold_state==NG2_GOLD_CANDIDATE&&scene->gold_state==NG2_GOLD_CANDIDATE
+        &&tile(&p->before,0,0)==NG2_TILE_FLOOR&&tile(scene,0,0)==NG2_TILE_FLOOR
+        &&monotone_terrain(&p->before,scene);
+    if(strict&&!fresh_allowed)return strict;
+    /* One cached-source proof serves both policies. A second planner call
+     * must never rescue a failed full Decision from the first call. */
     if(!ng2_choose(&p->before,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&before)
-        ||!ng2_choose(scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&after)
-        ||before.direction!=direction||!same_choice(&before,&p->command_choice)
-        ||!same_continuous_action(&before,&after))return NG2_REVALIDATE_ROUTE;
+        ||before.direction!=direction||!same_choice(&before,&p->command_choice))return NG2_REVALIDATE_ROUTE;
+    if(!ng2_choose(scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&after)
+        ||after.direction<1||after.direction>4)return NG2_REVALIDATE_ROUTE;
+    if(!same_continuous_action(&before,&after)&&!strict)strict=NG2_REVALIDATE_ROUTE;
+    if(strict&&!fresh_allowed)return strict;
     if(!ng2_motion(&p->before,scene,direction,&motion)||motion.kind!=NG2_BLOCKED
         ||motion.dx||motion.dy)return NG2_REVALIDATE_MOTION;
+    if(strict){*latest=after;return NG2_REVALIDATE_FRESH_ALLOWED;}
     return NG2_REVALIDATE_CONTINUOUS_ALLOWED;
 }
 /* Optional recognition evidence never supplies input authority. Its original
@@ -341,8 +380,8 @@ static void record_change(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     change->replan_allowed=allowed;
     detail->command_id=change->command_id;detail->source_capture_id=change->source_capture_id;
     detail->observed_capture_id=id;detail->validation=validation;
-    detail->continuous_count=p->continuous_count+(validation==NG2_REVALIDATE_CONTINUOUS_ALLOWED);
-    detail->chain_count=p->continuous_chain_count+(validation==NG2_REVALIDATE_CONTINUOUS_ALLOWED);
+    detail->continuous_count=p->continuous_count+continuous_allowed(validation);
+    detail->chain_count=p->continuous_chain_count+continuous_allowed(validation);
     for(k=0;k<NG2_TILE_COUNT;++k)if(p->before.tiles[k]!=scene->tiles[k]
         ||p->before.protected_cells[k]!=scene->protected_cells[k]){
         if(total<4){NG2ControllerCellChange *cell=&detail->cells[total];
@@ -449,15 +488,22 @@ int ng2_controller_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     if((p->s.input_state==1||p->continuous_pending)&&p->command.kind==NG2_ACTION_MOVE)
         validate_motion_reference(p,scene,start,end,prefix,end);
     if(mask){
-        int validation=p->s.lead_confirmed?continuous_validation(p,scene,end):
+        NG2Decision latest;
+        int validation=p->s.lead_confirmed?continuous_validation(p,scene,end,&latest):
             (can_replan(p,scene)?NG2_REVALIDATE_INITIAL_ALLOWED:NG2_REVALIDATE_INITIAL_REJECTED);
-        int allowed=validation==NG2_REVALIDATE_INITIAL_ALLOWED||validation==NG2_REVALIDATE_CONTINUOUS_ALLOWED;
+        int allowed=validation==NG2_REVALIDATE_INITIAL_ALLOWED||continuous_allowed(validation);
         record_change(p,scene,id,mask,changed_tiles,changed_protected,allowed,validation);
         not_sent(p,end,NG2_REASON_SCREEN);
         if(validation==NG2_REVALIDATE_INITIAL_ALLOWED){++p->replan_count;p->replan_pending=1;p->before=*scene;}
-        else if(validation==NG2_REVALIDATE_CONTINUOUS_ALLOWED){
-            ++p->continuous_count;++p->continuous_chain_count;p->continuous_pending=1;p->before=*scene;
-            if(p->motion_reference_present)p->motion_reference_reissued=1;
+        else if(continuous_allowed(validation)){
+            ++p->continuous_count;++p->continuous_chain_count;p->before=*scene;
+            if(validation==NG2_REVALIDATE_FRESH_ALLOWED){
+                p->continuous_pending=NG2_CONTINUOUS_FRESH;p->continuous_pending_choice=latest;
+                p->motion_reference_valid=0;
+            }else{
+                p->continuous_pending=NG2_CONTINUOUS_SAME;
+                if(p->motion_reference_present)p->motion_reference_reissued=1;
+            }
         }else {p->replan_pending=0;p->continuous_pending=0;finish(p,end,NG2_REASON_SCREEN);}
     }
     p->scene=*scene;p->have_scene=1;p->need_fresh_cleanup=0;p->last_observed_prefix=prefix;
@@ -516,6 +562,7 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
     horizon=minimum(p->s.last_capture_start_ns+FRESH,p->s.started_ns+180*SECOND);
     if(kind==NG2_ACTION_MOVE){horizon=minimum(horizon,p->model.last_ns+FRESH);
         horizon=minimum(horizon,p->s.walk_started_ns+45*SECOND);}
+    if(reissuing)horizon=minimum(horizon,continuous_horizon(p));
     /* Preserve the original target-plus-50ms and actual-send-plus-lead-plus-
      * 50ms contract. Tighten the main ticket; never spend a 10ms allowance
      * beyond image, phase, walk, or session validity. */
@@ -555,7 +602,7 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
         p->command.not_before_ns=p->continuous_ticket.not_before_ns;
         p->command.deadline_ns=p->continuous_ticket.deadline_ns;
         p->command.ordinal=p->continuous_ticket.ordinal;
-        p->command.direction=p->continuous_ticket.direction;
+        p->command.direction=direction; /* Latest action; frozen ticket supplies time only. */
         p->command_period=p->continuous_period;
     }else if(kind==NG2_ACTION_MOVE&&!p->initial_ticket_valid){
         p->initial_ticket=p->command;p->initial_period=p->command_period;p->initial_ticket_valid=1;
@@ -571,7 +618,12 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
         p->motion_wait.command_id=p->command.id;p->motion_wait.source_capture_id=p->command.source_capture_id;
         p->motion_wait.deadline_ns=minimum(next-p->s.lead_ns+10000000,wait_horizon);
         if(initial_slot_active(p))p->motion_wait.deadline_ns=minimum(p->motion_wait.deadline_ns,p->initial_slot_motion_deadline);
-        if(p->continuous_pending){p->motion_wait.deadline_ns=p->continuous_motion_deadline;p->continuous_pending=0;}
+        if(p->continuous_pending){
+            if(p->motion_wait.deadline_ns<p->continuous_motion_deadline){
+                p->continuous_pending=0;finish(p,now,NG2_REASON_STALE);return 0;
+            }
+            p->motion_wait.deadline_ns=p->continuous_motion_deadline;p->continuous_pending=0;
+        }
         else if(p->s.lead_confirmed){p->continuous_ticket=p->command;p->continuous_period=p->command_period;
             p->continuous_motion_deadline=p->motion_wait.deadline_ns;p->continuous_ticket_valid=1;p->continuous_chain_count=0;}
         if(!reissuing)create_motion_reference(p);
@@ -649,7 +701,8 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         int reason=now>p->initial_ticket.deadline_ns?NG2_REASON_LATE:NG2_REASON_BEAT;
         p->replan_pending=0;finish(p,now,reason);return 0;
     }
-    if(p->continuous_pending&&(!ng2_beat_model_valid(&p->model)||now>p->continuous_ticket.deadline_ns)){
+    if(p->continuous_pending&&(!ng2_beat_model_valid(&p->model)||now>p->continuous_ticket.deadline_ns
+        ||now>continuous_horizon(p))){
         int reason=now>p->continuous_ticket.deadline_ns?NG2_REASON_LATE:NG2_REASON_BEAT;
         p->continuous_pending=0;finish(p,now,reason);return 0;
     }
@@ -673,7 +726,10 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         p->s.next_target_ns=p->initial_ticket.target_ns;
     }else if(p->continuous_pending){
         uint64_t aligned;
-        if(!same_continuous_action(&choice,&p->command_choice)||!safe_floor(&p->scene,choice.direction)
+        int valid_choice=p->continuous_pending==NG2_CONTINUOUS_FRESH?
+            same_choice(&choice,&p->continuous_pending_choice):
+            same_continuous_action(&choice,&p->command_choice)&&safe_floor(&p->scene,choice.direction);
+        if(!valid_choice
             ||!corrected(p,p->continuous_ticket.target_ns,p->continuous_period,&aligned)){
             p->continuous_pending=0;finish(p,now,NG2_REASON_SCREEN);return 0;
         }
@@ -730,6 +786,8 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
         &&!corrected(p,p->initial_slot_target,p->initial_slot_period,&aligned))reason=NG2_REASON_BEAT;
     if(!reason&&p->command.kind==NG2_ACTION_MOVE&&p->continuous_chain_count>0
         &&!corrected(p,p->continuous_ticket.target_ns,p->continuous_period,&aligned))reason=NG2_REASON_BEAT;
+    if(!reason&&p->command.kind==NG2_ACTION_MOVE&&p->continuous_chain_count>0
+        &&(continuous_horizon(p)<tail||now>continuous_horizon(p)-tail))reason=NG2_REASON_STALE;
     if(!reason&&now-p->s.started_ns>=180*SECOND)reason=NG2_REASON_SESSION;
     if(!reason&&p->command.kind==NG2_ACTION_MOVE&&(p->s.inputs>=16||now-p->s.walk_started_ns>=45*SECOND))reason=NG2_REASON_LIMIT;
     if(reason){not_sent(p,now,reason);if(reason==NG2_REASON_FOREGROUND||reason==NG2_REASON_LOCKED||reason==NG2_REASON_OWNER_PAUSED)terminal(p,now,reason);

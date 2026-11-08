@@ -2580,6 +2580,246 @@ func testOriginalMotionReferenceCallbacksPublic() {
     }
 }
 // TEST054 PUBLIC FIXTURES END.
+// TEST055 PUBLIC FIXTURES BEGIN.
+func testFreshRevalidationPixelProof() {
+    var scenes = [NG2Scene]()
+    for (world, variant) in [(Int32(72), Int32(0)), (36, 0), (0, 0), (0, 1)] {
+        let raw = NG2Fake.freshRevalidationRGBA(worldY: world, variant: variant)
+        guard let png = NG2Raster.png(raw), let decoded = NG2Raster.decode(png) else {
+            require(false, "fresh_revalidation_original_procedural_PNG_Raster_roundtrip"); return
+        }
+        var scene = NG2Scene()
+        require(decoded == raw && decoded.withUnsafeBytes {
+            ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress, decoded.count, 896*4, &scene)
+        } == 0 && scene.state == 2 && scene.gold_state == 2 && scene.goods == 0,
+            "fresh_revalidation_original_PNG_Raster_real_C_perception")
+        scenes.append(scene)
+    }
+    var visits = [UInt16](repeating: 0, count: 1089)
+    for y in [0,-1,-2] { visits[(y+16)*33+16] = 1 }
+    var before = scenes[2], latest = scenes[3]
+    var oldChoice = NG2Decision(), latestChoice = NG2Decision()
+    require(visits.withUnsafeBufferPointer {
+        ng2_choose(&before, 0, -2, $0.baseAddress, $0.count, nil, &oldChoice)
+    } == 1 && visits.withUnsafeBufferPointer {
+        ng2_choose(&latest, 0, -2, $0.baseAddress, $0.count, nil, &latestChoice)
+    } == 1 && oldChoice.direction == 3 && oldChoice.reason == 8 && oldChoice.target_x == -2 &&
+        oldChoice.target_y == -1 && oldChoice.obstacle == 1 && latestChoice.direction == 1 &&
+        latestChoice.reason == 6 && latestChoice.target_x == -2 && latestChoice.target_y == 0 && latestChoice.obstacle == 4,
+        "fresh_revalidation_original_UP_vantage_to_latest_LEFT_DIRT_complete_five_field_choices")
+    let oldTiles = withUnsafeBytes(of: before.tiles) { Array($0) }
+    let latestTiles = withUnsafeBytes(of: latest.tiles) { Array($0) }
+    let oldProtected = withUnsafeBytes(of: before.protected_cells) { Data($0) }
+    let latestProtected = withUnsafeBytes(of: latest.protected_cells) { Data($0) }
+    func index(_ x: Int, _ y: Int) -> Int { (y+5)*23+x+11 }
+    require(oldTiles.indices.filter { oldTiles[$0] != latestTiles[$0] } == [index(-3,0),index(-3,1)] &&
+        oldTiles[index(-3,0)] == 4 && latestTiles[index(-3,0)] == 5 &&
+        oldTiles[index(-3,1)] == 4 && latestTiles[index(-3,1)] == 2 &&
+        latestTiles[index(-3,-1)] == 2 && oldProtected == latestProtected &&
+        oldTiles[index(0,0)] == 1 && latestTiles[index(0,0)] == 1,
+        "fresh_revalidation_exact_conservative_gold_door_reveal_and_complete_protected_equality")
+    var motion = NG2Motion()
+    require(ng2_motion(&before, &latest, 3, &motion) == 1 && motion.kind == 2 && motion.dx == 0 && motion.dy == 0,
+        "fresh_revalidation_reveal_is_actual_strict_BLOCKED_zero")
+    for k in 0..<2 {
+        var a = scenes[k], b = scenes[k+1]
+        require(ng2_motion(&a, &b, 3, &motion) == 1 && motion.kind == 1 && motion.dx == 0 && motion.dy == -1,
+            "fresh_revalidation_two_prior_UP_inputs_have_actual_unit_MOVED_texture")
+    }
+}
+func testFreshRevalidationCallbacksPublic() {
+    for staleFirst in [true, false] {
+        NG2Fake.reset(.walk)
+        NG2Fake.lock.lock()
+        NG2Fake.walkY = 2; NG2Fake.walkGoodsEnabled = false
+        NG2Fake.freshRevalidationWorld = true
+        NG2Fake.lock.unlock()
+        NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+        let id = identity()
+        diagnoseFixture(id)
+        NG2RuntimeTestHooks.beforeCaptureAdmission = {
+            NG2Fake.waitForCapturePermit()
+            NG2Fake.performBoundaryClockChange()
+        }
+        alignInitialFixtureMove(id)
+        var queryIDs = [Int]()
+        var queryTimes = [Int: UInt64]()
+        var originalMotionDeadline: JSONValue?
+        let recordQuery: () -> Void = {
+            let command = report(id)["current_command_id"]?.intValue ?? 0
+            queryIDs.append(command); queryTimes[command] = NG2Fake.virtualClock()
+        }
+        NG2Fake.lock.lock(); NG2Fake.beforeForegroundQuery = recordQuery; NG2Fake.lock.unlock()
+        NG2RuntimeTestHooks.afterTicketReturned = { returned in
+            NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
+        }
+        NG2RuntimeTestHooks.afterCaptureDrainProcessed = { run in
+            NG2Fake.lock.lock(); NG2Fake.captureDrainedRuns.insert(run); NG2Fake.lock.unlock()
+        }
+        NG2RuntimeTestHooks.scheduleTicket = { commandID, callback in
+            let current = report(id)
+            let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+            guard let event = events.first(where: { $0["id"]?.intValue == Int(commandID) }),
+                event["kind"]?.intValue == 4 else { return false }
+            if (current["inputs"]?.intValue ?? 0) < 2 {
+                NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(id, expectedID: commandID) }
+                callback(); return true
+            }
+            if originalMotionDeadline == nil { originalMotionDeadline = current["motion_wait"]?.objectValue?["deadline_ns"] }
+            NG2Fake.holdTicket(commandID, callback)
+            NG2Fake.lock.lock()
+            NG2Fake.freshRevalidationVariant = 1
+            if NG2Fake.heldTickets.count >= 2 { NG2Fake.captureLimit = NG2Fake.requests }
+            NG2Fake.lock.unlock()
+            return true
+        }
+        require(call("necro_native_start", id).1 == nil, "fresh_revalidation_public_start")
+        pump("fresh_revalidation_two_MOVED_then_replacement", timeout: 15) {
+            let current = call("necro_native_status", id, keepalive: true).0?["report"]?.objectValue ?? [:]
+            NG2Fake.lock.lock(); let count = NG2Fake.heldTickets.count; NG2Fake.lock.unlock()
+            return count >= 2 || current["terminal"]?.intValue == 1
+        }
+        let current = report(id)
+        let moves = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+        require(current["inputs"]?.intValue == 2 && current["moves"]?.intValue == 2 && moves.count == 4,
+            "fresh_revalidation_follows_two_actual_confirmed_moves")
+        let old = moves[2], replacement = moves[3]
+        let oldID = UInt64(old["id"]!.intValue!), newID = UInt64(replacement["id"]!.intValue!)
+        require(oldID != newID && old["outcome"]?.intValue == 3 && old["begin_ns"]?.intValue == 0,
+            "fresh_revalidation_old_reservation_definitely_unsent_and_new_ID")
+        require(old["direction"]?.intValue == 3 && old["x"]?.intValue == 290 && old["y"]?.intValue == 838 &&
+            replacement["direction"]?.intValue == 1 && replacement["x"]?.intValue == 207 && replacement["y"]?.intValue == 49,
+            "fresh_revalidation_latest_LEFT_direction_and_coordinates")
+        require(["target_ns", "not_before_ns", "deadline_ns", "ordinal"].allSatisfy { old[$0] == replacement[$0] } &&
+            old["source_capture_id"] != replacement["source_capture_id"] &&
+            current["motion_wait"]?.objectValue?["deadline_ns"] == originalMotionDeadline &&
+            current["motion_wait"]?.objectValue?["source_capture_id"] == replacement["source_capture_id"],
+            "fresh_revalidation_latest_source_and_frozen_original_window_ordinal")
+        require(current["x"]?.intValue == 0 && current["y"]?.intValue == -2 && current["last_completed_id"] == moves[1]["id"] &&
+            current["last_ordinal"] == moves[1]["ordinal"],
+            "fresh_revalidation_retirement_preserves_inputs_position_and_last_ACK_ordinal")
+        let changes = (current["scene_changes"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        let details = (current["scene_change_details"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        require(changes.count == 1 && details.count == 1 && changes[0]["command_id"]?.intValue == Int(oldID) &&
+            changes[0]["source_capture_id"] == old["source_capture_id"] &&
+            changes[0]["observed_capture_id"] == replacement["source_capture_id"] &&
+            changes[0]["deadline_ns"] == old["deadline_ns"] && changes[0]["replan_allowed"]?.boolValue == true &&
+            changes[0]["replan_count"]?.intValue == 0 && changes[0]["changed_tiles"]?.intValue == 2 &&
+            changes[0]["changed_protected"]?.intValue == 0 && details[0]["validation"]?.intValue == 12 &&
+            details[0]["continuous_count"]?.intValue == 1 && details[0]["chain_count"]?.intValue == 1 &&
+            details[0]["cell_count"]?.intValue == 2 && details[0]["omitted_cells"]?.intValue == 0,
+            "fresh_revalidation_actual_validation12_latest_source_and_shared_counter_producer")
+        let cells = (details[0]["cells"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        require(cells.count == 2 && cells[0]["x"]?.intValue == -3 && cells[0]["y"]?.intValue == 0 &&
+            cells[0]["tile_before"]?.intValue == 4 && cells[0]["tile_after"]?.intValue == 5 &&
+            cells[1]["x"]?.intValue == -3 && cells[1]["y"]?.intValue == 1 &&
+            cells[1]["tile_before"]?.intValue == 4 && cells[1]["tile_after"]?.intValue == 2 &&
+            cells.allSatisfy { $0["protected_before"]?.intValue == 0 && $0["protected_after"]?.intValue == 0 },
+            "fresh_revalidation_real_C_detail_exact_gold_door_reveal_cells")
+        require(queryIDs.filter { $0 == Int(oldID) }.count == 1 && queryIDs.filter { $0 == Int(newID) }.count == 1 &&
+            (queryTimes[Int(newID)] ?? 0) > (queryTimes[Int(oldID)] ?? UInt64.max) &&
+            runtime.hasLease && pagedCall(id).1 != nil,
+            "fresh_revalidation_new_command_has_separate_prepared_AX_and_live_lease")
+        func releaseOld() {
+            let before = report(id), touches = NG2Fake.countTouches()
+            var finalEntries = 0, queries = 0
+            NG2RuntimeTestHooks.beforeMainAuthority = { finalEntries += 1 }
+            NG2Fake.lock.lock(); NG2Fake.frontPID = 0; NG2Fake.beforeForegroundQuery = { queries += 1 }; NG2Fake.lock.unlock()
+            NG2Fake.releaseTicket(oldID)
+            pump("fresh_revalidation_stale_callback_actually_returned") {
+                NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
+                return NG2Fake.returnedTickets.contains(oldID)
+            }
+            let after = report(id)
+            require(finalEntries == 0 && queries == 0 && NG2Fake.countTouches() == touches &&
+                after["events"] == before["events"] && after["inputs"] == before["inputs"] &&
+                after["dispatch_failure"] == .null,
+                "fresh_revalidation_old_callback_cannot_complete_cancel_fault_or_synthesize_new_command")
+            NG2RuntimeTestHooks.beforeMainAuthority = nil
+            NG2Fake.lock.lock(); NG2Fake.frontPID = 42; NG2Fake.beforeForegroundQuery = recordQuery; NG2Fake.lock.unlock()
+        }
+        if staleFirst {
+            releaseOld()
+            require(report(id)["current_command_id"]?.intValue == Int(newID) &&
+                report(id)["input_state"]?.intValue == 1 && report(id)["main_ticket_outstanding"]?.boolValue == true &&
+                !drained(id) && runtime.hasLease && NG2Fake.paths().count == 2,
+                "fresh_revalidation_old_return_preserves_latest_reservation_and_lease")
+        }
+        let preparedQueries = queryIDs.count
+        NG2RuntimeTestHooks.beforeMainAuthority = {
+            require(queryIDs.count == preparedQueries, "fresh_revalidation_final_callback_has_no_AX_IPC")
+            admitFirstFixtureMove(id, expectedID: newID)
+            let now = NG2Fake.virtualClock(), sampled = queryTimes[Int(newID)] ?? 0
+            require(sampled > 0 && now >= sampled && now-sampled <= 1_000_000_000,
+                "fresh_revalidation_separate_AX_sample_is_fresh_at_final_begin_gate")
+        }
+        NG2RuntimeTestHooks.afterTicketReturned = { returned in
+            NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
+            if returned == newID {
+                // ACK is the end of this synthetic contract. No later game
+                // image or DIRT opening/entry is fabricated as progress.
+                require(report(id)["inputs"]?.intValue == 3 && NG2Fake.paths().count == 3,
+                    "fresh_revalidation_latest_reservation_synthesizes_exactly_once")
+                _ = call("necro_native_cancel", id)
+            }
+        }
+        NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
+        NG2Fake.releaseTicket(newID)
+        pump("fresh_revalidation_new_callback_actual_ACK_return") {
+            NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
+            return NG2Fake.returnedTickets.contains(newID)
+        }
+        pump("fresh_revalidation_cancel_after_ACK_terminal") { report(id)["terminal"]?.intValue == 1 }
+        let terminal = report(id)
+        let finalMoves = (terminal["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+        let sent = finalMoves.first { $0["id"]?.intValue == Int(newID) }!
+        require(terminal["inputs"]?.intValue == 3 && terminal["moves"]?.intValue == 2 && terminal["x"]?.intValue == 0 &&
+            terminal["y"]?.intValue == -2 && terminal["terrain_changes"]?.intValue == 0 && terminal["door_changes"]?.intValue == 0 &&
+            sent["outcome"]?.intValue == 2 && sent["motion"]?.intValue == 0 && sent["observed_capture_id"]?.intValue == 0 &&
+            (sent["begin_ns"]?.intValue ?? 0) >= old["not_before_ns"]!.intValue! &&
+            (sent["begin_ns"]?.intValue ?? Int.max) <= old["deadline_ns"]!.intValue! &&
+            NG2Fake.paths().count == 3 && NG2Fake.paths().last?.first?.first?.point == CGPoint(x: 207, y: 49),
+            "fresh_revalidation_DIRT_ACK_is_one_LEFT_gesture_with_no_claimed_opening_or_movement")
+        let references = (terminal["motion_references"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        let reference = references.first { $0["command_id"]?.intValue == Int(newID) }
+        require(references.count == 3 && reference?["authority_capture_id"] == replacement["source_capture_id"] &&
+            reference?["reference_capture_id"] == old["source_capture_id"] &&
+            reference?["reference_eligible"]?.boolValue == false && reference?["fallback_attempted"]?.boolValue == false &&
+            reference?["fallback_motion"]?.intValue == 0 && reference?["selected_capture_id"] == replacement["source_capture_id"] &&
+            reference?["selected_motion"]?.intValue == 0,
+            "fresh_revalidation_original_reference_permanently_ineligible_latest_primary_after_ACK")
+        if !staleFirst {
+            pump("fresh_revalidation_capture_worker_returned_before_old_callback") {
+                NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
+                return NG2Fake.captureDrainedRuns.contains(id)
+            }
+            require(!drained(id) && runtime.hasLease && pagedCall(id).1 != nil &&
+                call("necro_native_start", identity()).1 != nil,
+                "fresh_revalidation_actual_old_callback_retains_core_lease_and_blocks_export")
+            releaseOld()
+        }
+        pump("fresh_revalidation_every_actual_callback_and_worker_drained") { drained(id) }
+        let result = call("necro_native_results", id)
+        let snapshot = result.0?["report"]?.objectValue ?? [:]
+        let required = Set((snapshot["referenced_capture_ids"]?.arrayValue ?? []).compactMap { $0.intValue })
+        let exported = Set((result.0?["images"]?.arrayValue ?? []).compactMap { $0.objectValue?["capture_id"]?.intValue })
+        let oldSource = old["source_capture_id"]!.intValue!, latestSource = replacement["source_capture_id"]!.intValue!
+        require(result.1 == nil && snapshot["workers_drained"]?.boolValue == true && snapshot["cancel_requested"]?.boolValue == true &&
+            snapshot["motion_references"] == report(id)["motion_references"] &&
+            required.contains(oldSource) && required.contains(latestSource) && exported.contains(oldSource) && exported.contains(latestSource),
+            "fresh_revalidation_real_results_pin_and_export_old_and_latest_sources_after_drain")
+        let manifest = pagedCall(id)
+        let manifestImages = Set((manifest.0?["images"]?.arrayValue ?? []).compactMap { $0.objectValue?["capture_id"]?.intValue })
+        require(manifest.1 == nil && manifestImages.contains(oldSource) && manifestImages.contains(latestSource),
+            "fresh_revalidation_actual_paged_export_includes_both_authority_evidence_sources")
+        if let bytes = try? JSONEncoder().encode(snapshot), let json = String(data: bytes, encoding: .utf8) {
+            print("PASS production Runtime public API/TEST055 latest fresh DIRT ACK and actual callback isolation/drain")
+            print("REPORT test055_native " + json)
+        } else { require(false, "fresh_revalidation_actual_native_report_is_serializable") }
+        fixtureFailureSnapshot = nil
+    }
+}
+// TEST055 PUBLIC FIXTURES END.
 testContinuousRevalidationCallbacksPublic()
 testPagedResultsPublic()
 testTargetDriftPlannerProof()
@@ -2588,6 +2828,8 @@ testStartupRemotePixelProof()
 testInitialSlotPreparationPublic()
 testOriginalMotionReferencePixelProof()
 testOriginalMotionReferenceCallbacksPublic()
+testFreshRevalidationPixelProof()
+testFreshRevalidationCallbacksPublic()
 
 NG2Fake.reset(.pause)
 NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()

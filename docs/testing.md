@@ -18,7 +18,7 @@ Swiftの通常fixtureでは `fastGesture` が歩行座標を更新し、`walkedP
 
 ## 必須実画像とCIの除外
 
-現行のlocal再生集合は141 image paths。`tests/test_native_perception.py` の `required_profile_fixtures` と各manifestが件数/path/hashの検査元で、未配置・不一致は失敗する。raw画像はGitへ追加しない。
+現行のlocal再生集合は152 image paths。`tests/test_native_perception.py` の `required_profile_fixtures` と各manifestが件数/path/hashの検査元で、未配置・不一致は失敗する。raw画像はGitへ追加しない。
 
 | Manifest | 環境変数 | path数 |
 | --- | --- | --- |
@@ -30,8 +30,9 @@ Swiftの通常fixtureでは `fastGesture` が歩行座標を更新し、`walkedP
 | `tests/test052-fixtures.json` | `NECRO_TEST052_FIXTURE_ROOT` | 9 |
 | `tests/test053-fixtures.json` | `NECRO_TEST053_FIXTURE_ROOT` | 17 |
 | `tests/test054-fixtures.json` | `NECRO_TEST054_FIXTURE_ROOT` | 17 |
+| `tests/test055-fixtures.json` | `NECRO_TEST055_FIXTURE_ROOT` | 11 |
 
-各rootからmanifestの相対pathへ辿れるよう配置する。[native workflow](../.github/workflows/loopctrl-geometry.yml) は私有画像を持たず、16個のlocal必須replay methodを名前で明示除外し、除外集合が変われば失敗させる。local全件、CI除外、旧suiteの外部画像不足skipを別集計する。既知調整画像や同runの隣接画像を、未見評価として数えない。
+各rootからmanifestの相対pathへ辿れるよう配置する。[native workflow](../.github/workflows/loopctrl-geometry.yml) は私有画像を持たず、21個のlocal必須replay methodを名前で明示除外し、除外集合が変われば失敗させる。local全件、CI除外、旧suiteの外部画像不足skipを別集計する。既知調整画像や同runの隣接画像を、未見評価として数えない。
 
 ## 代表コマンド
 
@@ -40,7 +41,7 @@ repository rootで、必要なPython/Pillow/C compilerと上記fixture rootsを�
 Nativeのlocal全件:
 
 ```sh
-PYTHONPATH=tests python3 -m unittest test_native_perception test_native_navigation test_native_beat test_native_controller test_native_raster -v
+PYTHONPATH=tests python3 -m unittest test_native_perception test_native_navigation test_native_beat test_native_controller test_native_raster test_device_recording -v
 ```
 
 Client・実HTTP・回復:
@@ -59,7 +60,9 @@ MacでのSwift/Raster/実C・fault検出から実compiler/IPAまでの完全な�
 
 ## 原トレースを保つ追加方針
 
-これは試験強化の計画であり、実装済みではない。原PNG/HUD、取得start/end、decode/analysis/observe時刻、prefix/inflight、ACK begin/end、実画面で確認した移動を同じrunで保持し、production Perception/Beat/Controllerへ渡す。理想clock・合成HUDへ差し替えず、途中停止を含む実際の時系列で期待進捗と安全停止理由を検証する。
+開発用評価器 `tools/evaluate_device_recording.py` は単一runの元ZIPを読み、資料整合性・記録上の商品可視/ポーズ・実C部分評価・欠落を別に返す。複数run/余分なファイルは評価不能とする。CLIはpass0/fail1/不正・unknown2。例えば `python3 tools/evaluate_device_recording.py /path/to/test-054.zip --output /tmp/evaluation.json` は既知の未到達をexit1とする。これは実機失敗の記録であり、評価器のunit Greenで実機成功へ変わらない。
+
+完全Controller再生は未実装・資料不足。原PNG/HUD、取得start/end、decode/analysis/observe時刻、prefix/inflight、ACK begin/end、実画面で確認した移動を同じrunで保持し、実C Perception/Nav/Motionの評価可能な部分だけへ渡す。理想clock・合成HUDへ差し替えず、途中停止を含む実際の時系列で期待進捗と安全停止理由を検証する。
 
 controllerの入力prefixが収録と異なったら、未収録のafter frameを流用せず、その先は評価不能とする。欠落画像、export省略、未知入力を明示する。原トレースは既知の退行検出に使い、新しい操作列への実ゲーム応答や未知配置の合格を主張しない。
 

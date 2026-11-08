@@ -408,6 +408,498 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
         terrain,old=self.continuous_walk(terrain=initial);changed=deepcopy(terrain)
         changed.tiles[(-4,0)]='stone'
         return terrain,changed,old
+    def received_test055_frames(self):
+        """Real known pixels; synthetic HUD/clock below is not full trace replay."""
+        manifest=json.loads((ROOT/'tests/test055-fixtures.json').read_text())
+        self.assertEqual(('ngg2-test055-fixtures-v1',11),(manifest['schema'],manifest['count']))
+        fixture_root=Path(os.environ.get('NECRO_TEST055_FIXTURE_ROOT','/workspace/analysis-evidence'))
+        analyze=self.lib.ng2_analyze_rgba
+        analyze.argtypes=[C.c_void_p,C.c_size_t,C.c_size_t,C.POINTER(Scene)]
+        frames={};terrain={}
+        for entry in manifest['images']:
+            capture=entry['capture_id']
+            if capture not in (60,69,70):continue
+            path=fixture_root/entry['path'];self.assertTrue(path.is_file(),str(path));raw=path.read_bytes()
+            self.assertEqual((entry['bytes'],entry['sha256']),(len(raw),hashlib.sha256(raw).hexdigest()))
+            with Image.open(path) as image:
+                rgba=image.convert('RGBA');pixels=rgba.tobytes();frame=Scene()
+                self.assertEqual((896,414),rgba.size)
+                self.assertEqual(0,analyze(pixels,len(pixels),rgba.width*4,C.byref(frame)))
+                terrain[capture]=nav.scan(image.convert('RGB'))
+            frames[capture]=frame
+        self.assertEqual({60,69,70},set(frames))
+        return frames,terrain
+    def received_test055_replan(self):
+        frames,terrain=self.received_test055_frames()
+        # A public synthetic fit/ACK lead-in establishes the real recorded
+        # position(0,1), visits and no entered gate using actual60->69 pixels.
+        # Command numbers, HUD and timing here are synthetic, not the missing
+        # device beat model or a claimed full original Controller replay.
+        self.fit(terrain[60])
+        def observed(capture):
+            frame=Scene.from_buffer_copy(bytes(frames[capture]));clock=self.scene(2,2,beat=True)
+            for field in ('beat_valid','beat_remaining','beat_spacing','beat_center'):setattr(frame,field,getattr(clock,field))
+            self.number=capture-1;self.assertEqual(1,self.observe(frame))
+        self.now+=2;observed(60);first=self.next_move()
+        self.assertEqual((4,60),(first.direction,first.source_capture_id));self.ack(first)
+        self.now=max(self.now+2,first.target_ns+80_000_002);observed(69)
+        self.assertEqual((1,1,0,1,1),(self.status().inputs,self.status().moves,self.status().x,
+                                    self.status().y,self.status().lead_confirmed))
+        old=self.next_move();wait=self.motion_wait()
+        self.assertEqual((3,69),(old.direction,old.source_capture_id))
+        self.now+=2;observed(70)
+        retired=[row for row in self.events() if row.command.id==old.id][0]
+        self.assertEqual((3,0),(retired.outcome,retired.begin_ns))
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+        return old,wait,self.tick()
+    def test_required_test055_actual69_70_latest_dirt_plan(self):
+        old,wait,(ready,new)=self.received_test055_replan()
+        self.assertEqual((1,4,1,207,49,70),(ready,new.kind,new.direction,new.x,new.y,new.source_capture_id))
+        self.assertNotEqual(old.id,new.id)
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
+                         (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
+    def test_required_test055_actual69_70_latest_authority_and_frozen_beat(self):
+        old,wait,(ready,new)=self.received_test055_replan()
+        self.assertEqual((12,1,1),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count,
+                                   self.scene_details()[-1].chain_count))
+        self.assertEqual((1,4,70),(ready,new.kind,new.source_capture_id))
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
+                         (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
+    def assert_fresh_ticket(self,old,ready,new,changed):
+        visits={(0,0):1};x=y=0
+        for row in self.events():
+            if row.outcome==2 and row.motion==1:
+                x+=row.dx;y+=row.dy;visits[(x,y)]=visits.get((x,y),0)+1
+        latest=nav.choose(changed,(self.status().x,self.status().y),visits)
+        direction={name:number for number,name in ((1,'left'),(2,'right'),(3,'up'),(4,'down'))}[latest['direction']]
+        self.assertEqual((1,4,direction),(ready,new.kind,new.direction))
+        self.assertEqual((207 if direction in (1,2) else 290 if direction==3 else 124,
+                          49 if direction==1 else 838),(new.x,new.y))
+        self.assertNotEqual(old.id,new.id);self.assertEqual(self.number,new.source_capture_id)
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal),
+                         (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal))
+        self.assertEqual((12,1,1),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count,
+                                   self.scene_details()[-1].chain_count))
+        retired=[row for row in self.events() if row.command.id==old.id][0]
+        self.assertEqual((3,0),(retired.outcome,retired.begin_ns))
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,new.not_before_ns,1,0,1))
+        self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,old.id,new.not_before_ns,1))
+    def fresh_private_wrapper(self):
+        """Test-only private context, never an app hook or recorded beat model.
+
+        Seed the recorded position/visits/entrance/prefix/frozen bounds exactly.
+        The valid model is explicitly constructed because its device samples
+        were not retained. All planner/motion/Controller operations stay real C.
+        """
+        cls=type(self)
+        if not hasattr(cls,'fresh_private_lib'):
+            directory=Path(cls.temp.name);source=directory/'fresh-private.c'
+            source.write_text('static int test055_choose_at,test055_choose_field,test055_choose_calls;\n'
+                              '#define ng2_choose test055_choose\n#include "'+str(CORE/'NG2Controller.c')+'"\n'+r'''
+#undef ng2_choose
+int ng2_choose(const NG2Scene *,int32_t,int32_t,const uint16_t *,size_t,const NG2Entrance *,NG2Decision *);
+int test055_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,const NG2Entrance *e,NG2Decision *out){
+    int result=ng2_choose(s,x,y,v,n,e,out);++test055_choose_calls;
+    if(result&&test055_choose_calls==test055_choose_at){
+        if(test055_choose_field==1)out->direction=out->direction==NG2_UP?NG2_RIGHT:NG2_UP;
+        else if(test055_choose_field==2)out->reason=out->reason==7?8:7;
+        else if(test055_choose_field==3)++out->target_x;
+        else if(test055_choose_field==4)++out->target_y;
+        else if(test055_choose_field==5)out->obstacle=NG2_TILE_DIRT;
+    }
+    return result;
+}
+void test055_choose_fault(int call,int field){test055_choose_calls=0;test055_choose_at=call;test055_choose_field=field;}
+void test055_context(NG2Controller *p,const NG2Scene *scene){
+    test055_choose_at=test055_choose_calls=0;
+    memset(p,0,sizeof(*p));p->s.abi_version=NG2_ABI_VERSION;p->s.struct_size=sizeof(p->s);
+    p->s.started_ns=UINT64_C(30612606910666);p->s.walk_started_ns=UINT64_C(30614393055375);
+    p->last_now=UINT64_C(30617195192458);p->s.phase=NG2_PHASE_WALK;
+    p->s.inputs=p->s.moves=p->s.lead_confirmed=p->s.y=1;p->s.lead_ns=150000000;
+    p->s.last_completed_id=p->last_observed_prefix=3;p->s.last_ordinal=1;
+    p->s.last_capture_id=p->seen_id=69;
+    p->s.last_capture_start_ns=p->seen_start=UINT64_C(30617158482583);
+    p->s.last_capture_end_ns=p->seen_end=UINT64_C(30617170710625);
+    p->scene=p->before=*scene;p->have_scene=1;p->event_count=3;p->initial_ticket_valid=1;
+    p->visits[16*33+16]=p->visits[17*33+16]=1;
+    p->model.mode=2;p->model.sample_count=8;p->model.period_ns=521723193;
+    p->model.last_ns=UINT64_C(30617164596604);p->model.first_ns=p->model.last_ns-2100000000;
+    p->model.epoch_ns=UINT64_C(30617475642792);p->s.beat_period_ns=p->model.period_ns;
+    p->s.next_target_ns=p->next_nominal=UINT64_C(30617475642792);
+    p->next_deadline=UINT64_C(30617335642792);p->next_period=p->model.period_ns;
+}
+int test055_relation(const NG2Scene *a,const NG2Scene *b){return monotone_terrain(a,b);}
+void test055_choice(const NG2Controller *p,int which,int32_t *out){
+    memcpy(out,which?&p->continuous_pending_choice:&p->command_choice,sizeof(NG2Decision));
+}
+uint64_t test055_value(const NG2Controller *p,int which){
+    switch(which){
+        case 0:return p->command_period;case 1:return (uint64_t)p->motion_reference_valid;
+        case 2:return (uint64_t)p->motion_reference_present;case 3:return (uint64_t)p->continuous_count;
+        case 4:return (uint64_t)p->continuous_chain_count;case 5:return (uint64_t)p->continuous_pending;
+        case 6:return p->visits[16*33+16];case 7:return p->visits[17*33+16];
+        case 8:return (uint64_t)p->entrance.valid;case 10:return (uint64_t)test055_choose_calls;
+        default:return continuous_horizon(p);
+    }
+}
+void test055_mutate(NG2Controller *p,int which,uint64_t value){
+    switch(which){
+        case 0:p->continuous_ticket.source_start_ns=value;break;
+        case 1:p->continuous_ticket.phase_sample_ns=value;break;
+        case 2:p->s.walk_started_ns=value;break;case 3:p->s.started_ns=value;break;
+        case 4:p->continuous_motion_deadline=value;break;case 5:p->model.last_ns=value;break;
+        case 6:p->s.inputs=(int)value;break;case 7:p->model.epoch_ns=value;break;
+        case 8:p->continuous_count=(int)value;break;case 9:p->continuous_chain_count=(int)value;break;
+        default:((int32_t *)&p->continuous_pending_choice)[which-10]+=(int32_t)value;break;
+    }
+}
+''')
+            library=directory/'fresh-private.so'
+            subprocess.run(['cc','-std=c99','-O2','-Wall','-Wextra','-Werror','-pedantic','-ffp-contract=off','-fPIC','-shared',
+                            '-I',str(CORE),str(source),str(CORE/'NG2Perception.c'),str(CORE/'NG2Navigation.c'),
+                            str(CORE/'NG2Beat.c'),'-lm','-o',str(library)],check=True)
+            cls.fresh_private_lib=C.CDLL(str(library))
+        original=self.lib;self.lib=cls.fresh_private_lib;self.addCleanup(setattr,self,'lib',original)
+        for name in ('create','destroy','observe','tick','begin','complete','cancel','status','events','motion_wait'):
+            name='ng2_controller_'+name;old=getattr(original,name);new=getattr(self.lib,name)
+            new.argtypes=old.argtypes;new.restype=old.restype
+        self.lib.test055_context.argtypes=[C.c_void_p,C.POINTER(Scene)]
+        self.lib.test055_relation.argtypes=[C.POINTER(Scene),C.POINTER(Scene)]
+        self.lib.test055_choice.argtypes=[C.c_void_p,C.c_int,C.POINTER(C.c_int32)]
+        self.lib.test055_value.argtypes=[C.c_void_p,C.c_int];self.lib.test055_value.restype=C.c_uint64
+        self.lib.test055_mutate.argtypes=[C.c_void_p,C.c_int,C.c_uint64]
+        self.lib.test055_choose_fault.argtypes=[C.c_int,C.c_int]
+    def fresh_private_case(self,before=None,after=None,admit=True):
+        self.fresh_private_wrapper();self.fresh_engine()
+        if before is None:
+            before,after,_=self.fresh_synthetic_scenes('dirt')
+        before=Scene.from_buffer_copy(bytes(before));after=Scene.from_buffer_copy(bytes(after))
+        before.beat_valid=after.beat_valid=0
+        self.lib.test055_context(self.engine,C.byref(before))
+        self.now=30617195192458;self.number=69;self.prefix=3;old=self.next_move();wait=self.motion_wait()
+        self.now=30617240808083
+        if admit:self.assertEqual(1,self.observe(after,number=70,start=30617198203458,end=30617216601291))
+        return before,after,old,wait
+    def private_choice(self,pending=False):
+        values=(C.c_int32*5)();self.lib.test055_choice(self.engine,int(pending),values);return tuple(values)
+    def test_required_test055_actual_private_context_exact_clock_and_pending_full_decision(self):
+        frames,_=self.received_test055_frames()
+        _,_,old,wait=self.fresh_private_case(frames[69],frames[70])
+        self.assertEqual((4,2,3,69,30617475642792,30617325642792,30617335642792),
+                         (old.id,old.ordinal,old.direction,old.source_capture_id,old.target_ns,old.not_before_ns,old.deadline_ns))
+        self.assertEqual((3,8,-4,0,1),self.private_choice())
+        self.assertEqual((1,6,-4,0,4),self.private_choice(True))
+        self.assertEqual((2,1,1,0),tuple(self.lib.test055_value(self.engine,k) for k in (5,6,7,8)))
+        new=self.next_move()
+        self.assertEqual((5,2,1,70,207,49),(new.id,new.ordinal,new.direction,new.source_capture_id,new.x,new.y))
+        self.assertEqual((1,6,-4,0,4),self.private_choice())
+        self.assertEqual((521723193,30617857365985),(self.lib.test055_value(self.engine,0),wait.deadline_ns))
+        self.assertEqual(wait.deadline_ns,self.motion_wait().deadline_ns)
+        self.assertEqual((1,1,0,1,3),(self.status().inputs,self.status().moves,self.status().x,self.status().y,self.status().last_completed_id))
+    def test_fresh_monotone_relation_all_tile_pairs_and_door_brackets(self):
+        self.fresh_private_wrapper();k=5*23+8
+        allowed={0:{1,2,3,4,5},1:{2,3,4,5},4:{2,3,5}}
+        for a in range(7):
+            for b in range(7):
+                with self.subTest(before=a,after=b):
+                    before=self.scene(2,2);after=self.scene(2,2)
+                    for frame in (before,after):frame.tiles[k-23]=frame.tiles[k+23]=2
+                    before.tiles[k]=a;after.tiles[k]=b
+                    self.assertEqual(int(b in allowed.get(a,set())),self.lib.test055_relation(C.byref(before),C.byref(after)))
+        before=self.scene(2,2);after=self.scene(2,2);after.tiles[k]=5
+        self.assertEqual(0,self.lib.test055_relation(C.byref(before),C.byref(after)))
+        after.tiles[k]=2;after.protected_cells[k]=1
+        self.assertEqual(0,self.lib.test055_relation(C.byref(before),C.byref(after)))
+    def test_fresh_pending_full_five_fields_cannot_drift(self):
+        for field in range(5):
+            with self.subTest(field=field):
+                _,_,old,_=self.fresh_private_case()
+                self.lib.test055_mutate(self.engine,10+field,1)
+                self.assertNotEqual(4,self.tick()[1].kind);self.assertEqual(17,self.status().reason)
+                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+    def test_fresh_cached_source_five_fields_are_proved_once_without_rescue(self):
+        for field in range(1,6):
+            with self.subTest(field=field):
+                _,after,old,_=self.fresh_private_case(admit=False)
+                self.lib.test055_choose_fault(1,field)
+                self.observe(after,number=70,start=30617198203458,end=30617216601291)
+                self.assertEqual(1,self.lib.test055_value(self.engine,10))
+                self.assertEqual((10,0,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count,
+                                          self.scene_details()[-1].chain_count))
+                self.assertNotEqual(4,self.tick()[1].kind)
+                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+    def fresh_synthetic_scenes(self,obstacle='dirt',turns=0):
+        """Explicit synthetic observation/route variants, not future054 frames."""
+        distance=1 if obstacle=='door' else 3
+        tiles={(0,y):'floor' for y in range(-3,2)}
+        tiles.update({(-distance,-1):'gold',(-distance,0):'dirt',(-distance,1):'dirt'})
+        if obstacle=='dirt':tiles.update({(-1,0):'dirt',(-2,0):'dirt'})
+        after=dict(tiles);after[(-distance,1)]='gold';after[(-distance,0)]='door'
+        if obstacle=='floor':after.update({(-1,0):'floor',(-2,0):'floor'})
+        def rotate(x,y):
+            for _ in range(turns):x,y=-y,x
+            return x,y
+        before=self.scene(2,2,textured({rotate(*point):kind for point,kind in tiles.items()}))
+        after=self.scene(2,2,textured({rotate(*point):kind for point,kind in after.items()}))
+        return before,after,rotate(-1,0)
+    def test_fresh_normal_planner_floor_dirt_door_in_all_four_directions(self):
+        for obstacle,kind,reason in (('floor',1,7),('dirt',4,6),('door',5,5)):
+            for turns in range(4):
+                with self.subTest(obstacle=obstacle,turns=turns):
+                    before,after,unit=self.fresh_synthetic_scenes(obstacle,turns)
+                    _,_,old,wait=self.fresh_private_case(before,after);new=self.next_move()
+                    direction=next(d for d,v in DIRS.items() if v==unit)
+                    self.assertEqual((direction,reason,kind),tuple(self.private_choice()[i] for i in (0,1,4)))
+                    self.assertEqual((direction,207 if direction in (1,2) else 290 if direction==3 else 124,
+                                      49 if direction==1 else 838),(new.direction,new.x,new.y))
+                    self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
+                                     (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
+                    self.assertEqual((12,1,1),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count,
+                                               self.scene_details()[-1].chain_count))
+                    self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,new.not_before_ns,1,0,1))
+    def test_fresh_then_same_keeps_new_direction_and_sticky_reference_until_budget(self):
+        before,after,_=self.fresh_synthetic_scenes('floor')
+        _,_,old,wait=self.fresh_private_case(before,after);new=self.next_move()
+        self.assertEqual((3,1),(old.direction,new.direction))
+        self.assertEqual((1,0),(self.lib.test055_value(self.engine,2),self.lib.test055_value(self.engine,1)))
+        for attempt in range(2):
+            after=Scene.from_buffer_copy(bytes(after));after.tiles[9+attempt]=3
+            self.now+=2;self.observe(after);ready,current=self.tick()
+            if not attempt:
+                self.assertEqual((1,4,1,207,49),(ready,current.kind,current.direction,current.x,current.y))
+                self.assertEqual((2,2,2),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count,
+                                        self.scene_details()[-1].chain_count))
+                self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
+                                 (current.target_ns,current.not_before_ns,current.deadline_ns,current.ordinal,self.motion_wait().deadline_ns))
+                new=current
+            else:
+                self.assertNotEqual(4,current.kind);self.assertEqual(5,self.scene_details()[-1].validation)
+            self.assertEqual(0,self.lib.test055_value(self.engine,1))
+        self.assertEqual((1,1),(self.status().inputs,self.status().moves))
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,new.id,new.not_before_ns,1,0,1))
+    def test_fresh_and_same_share_run_eight_and_chain_two_budgets(self):
+        for first_same in (False,True):
+            with self.subTest(first_same=first_same):
+                before,latest,_=self.fresh_synthetic_scenes('floor')
+                first=Scene.from_buffer_copy(bytes(before if first_same else latest));first.tiles[8]=3
+                _,_,old,wait=self.fresh_private_case(before,first);current=self.next_move()
+                self.assertEqual(2 if first_same else 12,self.scene_details()[-1].validation)
+                self.lib.test055_mutate(self.engine,8,7)
+                second=Scene.from_buffer_copy(bytes(latest))
+                second.tiles[8]=3
+                if not first_same:second.tiles[5*23+10]=4
+                self.now+=2;self.observe(second);replacement=self.next_move()
+                self.assertEqual((12,8,2),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count,
+                                          self.scene_details()[-1].chain_count))
+                self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
+                                 (replacement.target_ns,replacement.not_before_ns,replacement.deadline_ns,
+                                  replacement.ordinal,self.motion_wait().deadline_ns))
+                second.tiles[9]=3;self.now+=2;self.observe(second)
+                self.assertNotEqual(4,self.tick()[1].kind);self.assertEqual(5,self.scene_details()[-1].validation)
+                self.assertEqual((8,2),(self.lib.test055_value(self.engine,3),self.lib.test055_value(self.engine,4)))
+                for retired in (old,current,replacement):
+                    self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,retired.id,retired.not_before_ns,1,0,1))
+    def test_fresh_deadline_and_all_original_horizons_cannot_be_refreshed(self):
+        for where in ('tick','begin'):
+            for late in (0,1):
+                with self.subTest(where=where,late=late):
+                    _,_,old,_=self.fresh_private_case()
+                    if where=='tick':self.now=old.deadline_ns+late;ready,new=self.tick()
+                    else:ready,new=self.tick();self.now=old.deadline_ns+late
+                    if where=='tick' and late:self.assertNotEqual(4,new.kind)
+                    else:self.assertEqual(1-late,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
+                    self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
+        for bound,span in ((0,3*SECOND),(1,3*SECOND),(2,45*SECOND),(3,180*SECOND)):
+            for where in ('reserve','begin'):
+                with self.subTest(bound=bound,where=where):
+                    _,_,old,_=self.fresh_private_case()
+                    if where=='begin':new=self.next_move()
+                    # A new authority/model may be fresh while the original
+                    # horizon no longer covers the entire lead+50ms tail.
+                    value=old.deadline_ns+150_000_000+50_000_000-1-span
+                    self.lib.test055_mutate(self.engine,bound,value)
+                    if where=='reserve':self.assertNotEqual(4,self.tick()[1].kind)
+                    else:self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,new.id,old.deadline_ns,1,0,1))
+                    self.assertEqual((1,1),(self.status().inputs,self.status().moves))
+    def test_fresh_pending_change_goods_and_guard_failures_never_send(self):
+        for case in ('change','goods','partial','cancel','owner','foreground','locked','phase','model','inputs'):
+            with self.subTest(case=case):
+                _,after,old,_=self.fresh_private_case()
+                if case=='change':
+                    after.tiles[8]=3;self.now+=2;self.observe(after)
+                elif case in ('goods','partial'):
+                    after.goods=2 if case=='goods' else 1;self.now+=2;self.observe(after)
+                elif case=='cancel':self.lib.ng2_controller_cancel(self.engine,self.now,2)
+                elif case=='phase':self.lib.test055_mutate(self.engine,7,old.target_ns+100_000_000)
+                elif case=='model':self.lib.test055_mutate(self.engine,5,self.now-3*SECOND-1)
+                elif case=='inputs':self.lib.test055_mutate(self.engine,6,16)
+                ready,new=self.tick(front=int(case!='foreground'),locked=int(case=='locked'),owner=int(case!='owner'))
+                self.assertNotEqual(4,new.kind)
+                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+                if case=='change':self.assertEqual(4,self.scene_details()[-1].validation)
+                if case=='goods':self.assertEqual((1,1),(self.status().goods,self.status().reason))
+    def test_fresh_ack_earliest_attempts_and_opening_are_not_displacement(self):
+        for obstacle in ('dirt','door'):
+            with self.subTest(obstacle=obstacle):
+                before,after,_=self.fresh_synthetic_scenes(obstacle)
+                _,_,_,wait=self.fresh_private_case(before,after);new=self.next_move();self.ack(new)
+                earliest=max(self.now,new.target_ns+80_000_000)
+                opened=Scene.from_buffer_copy(bytes(after));opened.tiles[5*23+10]=1
+                self.now=earliest+1;self.observe(opened,start=earliest-1,end=earliest+1)
+                self.assertEqual((0,1),(self.motion_wait().attempts,self.status().moves))
+                self.now=earliest+3;self.observe(opened,start=earliest,end=earliest+3)
+                self.assertEqual((1,1,0,1),(self.motion_wait().attempts,self.status().moves,self.status().x,self.status().y))
+                self.assertEqual((int(obstacle=='door'),int(obstacle=='dirt')),
+                                 (self.status().door_changes,self.status().terrain_changes))
+                row=self.motion_references()[-1]
+                self.assertEqual((new.source_capture_id,0,0),(row.authority_capture_id,row.reference_eligible,row.fallback_attempted))
+                self.assertEqual(wait.deadline_ns,self.motion_wait().deadline_ns)
+    def test_fresh_unknown_ack_never_retries_or_cleans_up(self):
+        _,after,_,_=self.fresh_private_case();new=self.next_move();self.now=new.not_before_ns
+        self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
+        self.now+=1;self.assertEqual(1,self.lib.ng2_controller_complete(self.engine,new.id,self.now,-1))
+        self.now+=2;self.observe(after);self.assertEqual(0,self.tick()[0])
+        self.assertEqual((11,1,4,2),(self.status().reason,self.status().terminal,self.status().input_state,self.status().inputs))
+        self.assertEqual([],self.motion_references())
+    def test_fresh_unknown_primary_has_three_original_horizon_attempts_without_fallback(self):
+        _,after,_,wait=self.fresh_private_case();new=self.next_move();self.ack(new)
+        after.signature[:]=bytes([40])*23296
+        earliest=max(self.now,new.target_ns+80_000_000)
+        for attempt in range(1,4):
+            self.now=earliest+2*attempt;self.observe(after)
+            row=self.motion_references()[-1]
+            self.assertEqual((attempt,wait.deadline_ns),(self.motion_wait().attempts,self.motion_wait().deadline_ns))
+            self.assertEqual((0,0,0,new.source_capture_id,0),(row.reference_eligible,row.primary_motion,
+                             row.fallback_attempted,row.selected_capture_id,row.selected_motion))
+        self.assertEqual((10,1,2),(self.status().reason,self.status().moves,self.status().inputs))
+        self.assertNotEqual(4,self.tick()[1].kind)
+    def test_fresh_motion_must_be_strict_blocked_before_cancelling_for_new_action(self):
+        for kind in ('moved','tween','unknown'):
+            with self.subTest(kind=kind):
+                _,after,old,_=self.fresh_private_case(admit=False)
+                signature=bytes([40])*23296 if kind=='unknown' else translated(textured(),old.direction,8 if kind=='tween' else 9).signature
+                after.signature[:]=signature
+                self.observe(after,number=70,start=30617198203458,end=30617216601291)
+                self.assertEqual((11,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
+                self.assertNotEqual(4,self.tick()[1].kind)
+                self.assertEqual((1,1),(self.status().inputs,self.status().moves))
+    def test_fresh_all_four_directions_and_ordinary_floor_dirt_door(self):
+        for obstacle,reason in (('floor',7),('dirt',6),('door',5)):
+            for turns in range(4):
+                with self.subTest(obstacle=obstacle,turns=turns):
+                    before,after,delta=self.fresh_synthetic_scenes(obstacle,turns)
+                    _,_,old,wait=self.fresh_private_case(before,after);new=self.next_move()
+                    direction={v:k for k,v in DIRS.items()}[delta]
+                    self.assertEqual((direction,reason,KINDS[obstacle]),
+                                     (new.direction,self.private_choice()[1],self.private_choice()[4]))
+                    self.assertEqual((12,1,1),(self.scene_details()[-1].validation,
+                                              self.scene_details()[-1].continuous_count,self.scene_details()[-1].chain_count))
+                    self.assertNotEqual(old.direction,new.direction)
+                    self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
+                                     (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
+    def test_fresh_then_same_keeps_latest_direction_and_sticky_reference(self):
+        before,after,_=self.fresh_synthetic_scenes('floor')
+        _,_,original,wait=self.fresh_private_case(before,after);fresh=self.next_move()
+        self.assertEqual((3,1),(original.direction,fresh.direction))
+        self.assertEqual((1,0),tuple(self.lib.test055_value(self.engine,k) for k in (2,1)))
+        after.tiles[9*23+1]=3;self.now+=2;self.observe(after)
+        same=self.next_move()
+        self.assertEqual((1,207,49),(same.direction,same.x,same.y))
+        self.assertEqual([12,2],[row.validation for row in self.scene_details()])
+        self.assertEqual((2,2,0),tuple(self.lib.test055_value(self.engine,k) for k in (3,4,1)))
+        self.assertEqual((original.target_ns,original.not_before_ns,original.deadline_ns,original.ordinal,wait.deadline_ns),
+                         (same.target_ns,same.not_before_ns,same.deadline_ns,same.ordinal,self.motion_wait().deadline_ns))
+        after.tiles[9*23+2]=3;self.now+=2;self.observe(after)
+        self.assertNotEqual(4,self.tick()[1].kind);self.assertEqual([12,2,5],[row.validation for row in self.scene_details()])
+        for command in (original,fresh,same):
+            self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,command.id,command.not_before_ns,1,0,1))
+    def test_same_then_fresh_and_fresh_then_fresh_share_two_and_eight(self):
+        for first_same in (False,True):
+            with self.subTest(first_same=first_same):
+                before,after,_=self.fresh_synthetic_scenes('floor')
+                if first_same:
+                    first=Scene.from_buffer_copy(bytes(before));first.tiles[9*23+1]=3
+                    _,_,original,wait=self.fresh_private_case(before,first)
+                else:_,_,original,wait=self.fresh_private_case(before,after)
+                current=self.next_move();self.lib.test055_mutate(self.engine,8,7)
+                if first_same:after.tiles[9*23+1]=3
+                else:after.tiles[5*23+10]=4
+                self.now+=2;self.observe(after);replacement=self.next_move()
+                self.assertEqual([2 if first_same else 12,12],[row.validation for row in self.scene_details()])
+                self.assertEqual((8,2),tuple(self.lib.test055_value(self.engine,k) for k in (3,4)))
+                self.assertEqual((original.target_ns,original.not_before_ns,original.deadline_ns,original.ordinal,wait.deadline_ns),
+                                 (replacement.target_ns,replacement.not_before_ns,replacement.deadline_ns,replacement.ordinal,self.motion_wait().deadline_ns))
+                after.tiles[9*23+2]=3;self.now+=2;self.observe(after)
+                self.assertNotEqual(4,self.tick()[1].kind);self.assertEqual(5,self.scene_details()[-1].validation)
+                for command in (original,current,replacement):
+                    self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,command.id,command.not_before_ns,1,0,1))
+    def test_fresh_original_deadline_equality_and_one_ns_late(self):
+        for late in (0,1):
+            with self.subTest(late=late):
+                _,_,old,_=self.fresh_private_case();self.now=old.deadline_ns+late
+                ready,new=self.tick()
+                if late:
+                    self.assertNotEqual(4,new.kind);self.assertEqual(9,self.status().reason)
+                    self.now+=521723193;self.assertNotEqual(4,self.tick()[1].kind)
+                else:
+                    self.assertEqual((1,4,old.deadline_ns),(ready,new.kind,new.deadline_ns))
+                    self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
+    def test_fresh_latest_source_cannot_restore_frozen_source_phase_walk_session(self):
+        for stage in ('reserve','begin'):
+            for which,budget in ((0,3*SECOND),(1,3*SECOND),(2,45*SECOND),(3,180*SECOND)):
+                with self.subTest(stage=stage,horizon=which):
+                    _,_,old,_=self.fresh_private_case()
+                    new=self.next_move() if stage=='begin' else old
+                    self.lib.test055_mutate(self.engine,which,new.not_before_ns+200_000_000-1-budget)
+                    if stage=='reserve':self.assertNotEqual(4,self.tick()[1].kind)
+                    else:
+                        self.now=new.not_before_ns
+                        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
+                    self.assertEqual(7,self.status().reason)
+                    self.assertEqual((1,1),(self.status().inputs,self.status().moves))
+    def test_fresh_post_ack_earliest_start_three_unknown_attempts_no_old_fallback(self):
+        _,after,_,wait=self.fresh_private_case();new=self.next_move();self.ack(new)
+        unknown=Scene.from_buffer_copy(bytes(after));unknown.signature[:]=bytes([40])*23296
+        earliest=max(self.now,new.target_ns+80_000_000)
+        self.now=earliest+1;self.observe(unknown,start=earliest-1,end=self.now)
+        self.assertEqual((0,wait.deadline_ns),(self.motion_wait().attempts,self.motion_wait().deadline_ns))
+        for attempt in range(1,4):
+            self.now+=2;self.observe(unknown,start=self.now-1,end=self.now)
+            row=self.motion_references()[-1]
+            self.assertEqual((attempt,wait.deadline_ns),(self.motion_wait().attempts,self.motion_wait().deadline_ns))
+            self.assertEqual((70,69,0,0,70),(row.authority_capture_id,row.reference_capture_id,row.reference_eligible,
+                                           row.fallback_attempted,row.selected_capture_id))
+        self.assertEqual((2,1,10),(self.status().inputs,self.status().moves,self.status().reason))
+    def test_fresh_ordinary_opening_is_not_displacement(self):
+        for obstacle in ('dirt','door'):
+            with self.subTest(obstacle=obstacle):
+                before,after,_=self.fresh_synthetic_scenes(obstacle)
+                _,_,_,_=self.fresh_private_case(before,after);new=self.next_move();self.ack(new)
+                opened=Scene.from_buffer_copy(bytes(after));opened.tiles[5*23+10]=1
+                self.now=max(self.now+2,new.target_ns+80_000_002);self.observe(opened)
+                self.assertEqual((2,1,0,1,2),(self.status().inputs,self.status().moves,self.status().x,
+                                            self.status().y,self.status().last_ordinal))
+                self.assertEqual((int(obstacle=='door'),int(obstacle=='dirt')),
+                                 (self.status().door_changes,self.status().terrain_changes))
+                self.assertEqual((0,0),(self.motion_references()[-1].reference_eligible,
+                                        self.motion_references()[-1].fallback_attempted))
+    def test_fresh_goods_and_live_guards_revoke_both_ids_unknown_never_resends(self):
+        for case in ('goods','cancel','foreground','locked','owner','unknown'):
+            with self.subTest(case=case):
+                _,after,old,_=self.fresh_private_case();new=self.next_move();self.now=new.not_before_ns
+                if case=='goods':
+                    after.goods=2;self.now+=2;self.observe(after)
+                    self.assertEqual((1,1),(self.status().goods,self.status().reason))
+                elif case=='cancel':self.lib.ng2_controller_cancel(self.engine,self.now,2)
+                elif case=='unknown':
+                    self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
+                    self.now+=1;self.lib.ng2_controller_complete(self.engine,new.id,self.now,-1)
+                    self.assertEqual((11,4),(self.status().reason,self.status().input_state))
+                    self.assertEqual(0,self.tick()[0])
+                for command in (old,new):
+                    self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,command.id,self.now,
+                        int(case!='foreground'),int(case=='locked'),int(case!='owner')))
+                self.assertEqual(1+int(case=='unknown'),self.status().inputs)
     def test_continuous_unsent_scene_change_after_two_moves_keeps_original_beat(self):
         terrain,old=self.continuous_walk();wait=self.motion_wait()
         changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
@@ -504,21 +996,26 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
                 elif case=='motion_moved':changed.signature=translated(terrain,1).signature
                 elif case=='motion_tween':changed.signature=translated(terrain,1,amount=8).signature
                 elif case=='motion_unknown':changed.signature=bytes([40])*23296
-                self.now+=2;self.observe(self.scene(state,gold,changed,beat=True))
-                self.assertNotEqual(4,self.tick()[1].kind)
+                self.now+=2;self.observe(self.scene(state,gold,changed,beat=True));ready,new=self.tick()
+                # TEST055: new observations/restrictions may replace the old
+                # lease with a fresh ordinary choice; the old lease stays unsent.
+                if case in ('gold_set','obstacle'):
+                    self.assert_fresh_ticket(old,ready,new,changed)
+                else:self.assertNotEqual(4,new.kind)
                 self.assertEqual((2,2),(self.status().inputs,self.status().moves))
                 self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
                 self.assertNotEqual(2,self.scene_details()[-1].validation)
-                self.assertEqual(0,self.scene_details()[-1].continuous_count)
+                self.assertEqual(int(case in ('gold_set','obstacle')),self.scene_details()[-1].continuous_count)
                 if case=='visible':self.assertEqual((1,1),(self.status().goods,self.status().reason))
+                elif case in ('gold_set','obstacle'):self.assertEqual(0,self.status().reason)
                 else:self.assertEqual(17,self.status().reason)
     def test_continuous_requires_full_route_decision_even_when_direction_matches(self):
         terrain,old=self.continuous_walk();changed=deepcopy(terrain);changed.tiles[(-5,0)]='stone'
         before=nav.choose(terrain,(-2,0));after=nav.choose(changed,(-2,0))
         self.assertEqual('left',before['direction']);self.assertEqual(before['direction'],after['direction'])
         self.assertNotEqual(before,after)
-        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
-        self.assertEqual((10,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
+        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));ready,new=self.tick()
+        self.assert_fresh_ticket(old,ready,new,changed)
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
     def test_continuous_reason8_target_x_drift_keeps_original_action_and_beat(self):
         terrain,changed,old=self.continuous_vantage_drift()
@@ -570,8 +1067,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
                 self.assertEqual(before['direction'],after['direction']);self.assertNotEqual(before['target'],after['target'])
                 self.assertEqual(((-2,-1),(-2,1)) if direction==1 else ((-1,-2),(1,-2)),
                                  (before['target'],after['target']))
-                self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
-                self.assertEqual((10,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
+                self.now+=2;self.observe(self.scene(2,2,changed,beat=True));ready,new=self.tick()
+                self.assert_fresh_ticket(old,ready,new,changed)
                 self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
     def test_continuous_two_reason8_drifts_save_each_new_source_decision(self):
         terrain,changed,original=self.continuous_vantage_drift();current=original;retired=[]
@@ -620,6 +1117,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
                     if case=='cancel':self.lib.ng2_controller_cancel(self.engine,self.now,2)
                     self.assertEqual(int(case=='deadline_equal'),
                                      self.lib.ng2_controller_begin(self.engine,new.id,self.now,front,locked,owner))
+                elif case in ('gold','local_floor','gate'):
+                    self.assert_fresh_ticket(old,ready,new,changed)
                 else:self.assertNotEqual(4,new.kind)
                 self.assertEqual((2,2),(self.status().inputs,self.status().moves))
                 self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,max(self.now,old.not_before_ns),1,0,1))
@@ -676,6 +1175,11 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                             self.assertEqual((2,1),(self.scene_details()[-1].validation,
                                                    self.scene_details()[-1].continuous_count))
                             self.lib.test_choice_fault(1,field)
+                        elif phase=='after':
+                            # A changed latest action may enter FRESH, but the
+                            # one-call fault cannot survive pending all5 proof.
+                            self.assertEqual((12,1),(self.scene_details()[-1].validation,
+                                                    self.scene_details()[-1].continuous_count))
                         else:self.assertEqual((10,0),(self.scene_details()[-1].validation,
                                                      self.scene_details()[-1].continuous_count))
                         self.assertNotEqual(4,self.tick()[1].kind)
