@@ -2408,3 +2408,25 @@ TEST054独立実装レビュー第2周・最終配布物/全ソース補足close
 11選択PNG/1,980,604bytesは全length/SHA/CRC/IEND/prefix/metadataが一致し、参照9枚も全て存在する。他54解析frameは保持されていない。C/Pillow/O0/strictO2の11Scene・28Motion・12Decision、69→70全73scoresが一致。69→70は厳密BLOCKED、原寸4領域も0px変位。新gold領域の同じ模様の明るさが増え、判定画素73→400が閾値280を越える。霧/照明/描画の原因までは切り分けない。
 
 実visits/entranceの完全Decisionは69のUP/reason8/FLOORから70のLEFT/reason6/DIRTへ変わる。旧UPを同actionとして許可する修正の根拠にはしない。TEST054 optionalreferenceは初歩に適用されず、今回の改善効果は未評価。Mac55は安全契約の模擬結合検査であり、実ゲーム到達率ではない。まず [挙動不変の整理計画](../plans/context-refactor.md) を行い、その後に新しいTEST055計画へ進む。生資料・全解析はGit外に置く。
+
+
+## TEST055 最終Mac・配布物
+
+[検証・独立レビュー記録](../reviews/test055.md) と [現在版](../status.md) を正本とする。code `4eb44648b673ada10a878a6e8753cb53e75e9678` / [Mac CI42503501049](https://github.com/shuhei0720/necrogold-automation/actions/runs/42503501049) / build72。全57故障/Raster3/C同値-field/RPC/実compiler/IPA、native22seal・9MachO、実producer3+2→暗号client診断/両journalを照合した。[IPA ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42503501049/artifacts/13627766971)、[検証ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42503501049/artifacts/13627965680)。実ゲーム/iPhone受入の代用にはしない。
+
+## TEST-055実行手順
+
+**TEST055の実機テストをお願いします。** 新v13 sourceと[新IPA build72 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42503501049/artifacts/13627766971)を使います。Controller/cap変更のためIPA更新が必要です。
+
+1. リンクはSafariで開き、GitHubへログインしてZIPを取得・展開します。
+2. LoopCtrlをStop Server→完全終了し、SideStoreでZIP内の `upstream/release/LoopCtrl.ipa` へ更新。LoopCtrlを起動し直してStart Server、通常のVPN/ディスクイメージ接続を確認します。
+3. 完全sourceを展開し、フォルダ選択は `test_055.sh` があるフォルダにします。
+4. 手動クイックリスタート後、開幕金壁が見える新しい通常1-1を、画面端0・左側が下でポーズして実行します。
+
+```sh
+mkdir -p /mnt/necro_test055
+mount -t ios . /mnt/necro_test055
+cd /mnt/necro_test055 && sh test_055.sh
+```
+
+**「TEST-055: 終了」後に `runtime/test-055` 全体をZIPで返してください。** 最初の歩行、前回の停止地点を越えるか、毎拍・茶壁/扉・商品・最終ポーズ・回収待ちを確認します。同時に別テストを動かしません。回収済みなら再実行せず返却し、終了した回収未完了だけ同じprocess/source/runtimeで回復します。

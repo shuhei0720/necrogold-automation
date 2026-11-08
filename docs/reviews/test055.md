@@ -26,6 +26,12 @@ fresh3観点で実施。固定C/header/client/fixture/helperの第1周にP0/P1/P
 
 旧55 named faultsを保ち新FRESH無効/旧direction再利用の2実C故障を加え57予定。旧target-drift-after-actionは故障本体を変えず、FRESHが正当に再予約するため既存のSAME validation2/counterを検査するdetail assertionへ期待名を更新した。旧progress assertionも保持。Linux実Cでnormal2→同故障12、pending故障の不送信を確認した。old/new snippet・source hash・stageの静的57集合はGit外に保存。Swift実行成功の代用にはしない。
 
-## これから確認する配布物
+## 最終Mac・実配布物の検証
 
-実Mac57故障/Raster3/C同値/RPC/実compiler/IPA、実producer2report＋既存3reportから実暗号clientへの接続、同第2周の3観点実物補足、完全source ZIP照合は未完了。Mac実ゲームとiPhone実機受入は別。完成後に新IPA・新sourceでTEST055を具体的に依頼する。
+code `4eb44648b673ada10a878a6e8753cb53e75e9678` / [CI42503501049](https://github.com/shuhei0720/necrogold-automation/actions/runs/42503501049) / IPA build72。Runtime57 named faults（旧55＋新2）、Raster3、両C O0-only対strictO2/field故障、LoopCtrlKitと実暗号RPCのowner-callsite故障検出、実compiler/IPAを確認した。実PBX/raw log/6responsefilesはPerception/Navigation strictO2、Beat/ControllerO0、Swift5Ononeへ結び付けた。
+
+IPA ZIPは17,793,378bytes/SHA `f760348b6e24582205e652504b8bf3ee7bc61c0a0cfb053f923a71e7497fc0b8`、内部IPA SHA `c9eae0e8524ca8d8aa4d5efbb24f5db732b80d75989fb91d93b93c920da63c84`。検証ZIPは440,811bytes/SHA `14fbc73e86fe0a474cd1d1070e887381de775ec9b9da6ff4404601ef244f34c1`。全22seal、全9Mach-OのHOST/fixture/spy非混入、実app/runner API/capを確認した。
+
+実producerの旧reference3report SHA `08e0fc15648ae38aefa0b170a778068129dcbe81d140adf4fc796a4643cb06b4` と新FRESH2report SHA `f26cb788d581d19b5b49c477ac571f0e1b12b1e1a40393e8891dd821b8c56c89` は同じ最終artifactへ結合した。旧3件はstdoutの全値/型と保存JSON digestを確認し、新2件はstdout各JSON objectの元bytesも一致する。新v13へ実暗号HTTPで渡し、motion_references/scene_changes/scene_change_detailsとactive/report両journalの型を含む一致を確認した。外側RPC状態・画像はfixtureであり、診断接続の検証である。
+
+同第2周の3観点による実物/全source補足はこれから記録する。Mac実ゲーム/iPhoneの新TEST055は未受入。未確認をcloseとせず、具体的実機依頼は台帳へ保存する。

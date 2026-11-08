@@ -32,7 +32,7 @@ Swiftの通常fixtureでは `fastGesture` が歩行座標を更新し、`walkedP
 | `tests/test054-fixtures.json` | `NECRO_TEST054_FIXTURE_ROOT` | 17 |
 | `tests/test055-fixtures.json` | `NECRO_TEST055_FIXTURE_ROOT` | 11 |
 
-各rootからmanifestの相対pathへ辿れるよう配置する。[native workflow](../.github/workflows/loopctrl-geometry.yml) は私有画像を持たず、21個のlocal必須replay methodを名前で明示除外し、除外集合が変われば失敗させる。local全件、CI除外、旧suiteの外部画像不足skipを別集計する。既知調整画像や同runの隣接画像を、未見評価として数えない。
+各rootからmanifestの相対pathへ辿れるよう配置する。実記録のlocal必須caseには、元TEST054 ZIPをGit外へ置き `export NECRO_TEST055_RECORDING_ZIP=/private/test-054.zip` も設定する。ZIP SHA256は `15ae61c465bdabb99a34dabb2979abd43debfe586c323ecbf5337c7d48778a15`。[native workflow](../.github/workflows/loopctrl-geometry.yml) は私有画像を持たず、21個のlocal必須replay methodを名前で明示除外し、除外集合が変われば失敗させる。local全件、CI除外、旧suiteの外部画像不足skipを別集計する。既知調整画像や同runの隣接画像を、未見評価として数えない。
 
 ## 代表コマンド
 
