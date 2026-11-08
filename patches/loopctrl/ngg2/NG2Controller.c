@@ -192,9 +192,16 @@ static int same_choice(const NG2Decision *a,const NG2Decision *b){
     return a->direction==b->direction&&a->reason==b->reason&&a->target_x==b->target_x
         &&a->target_y==b->target_y&&a->obstacle==b->obstacle;
 }
+static int same_continuous_action(const NG2Decision *a,const NG2Decision *b){
+    if(a->direction!=b->direction||a->reason!=b->reason||a->obstacle!=b->obstacle)return 0;
+    /* Reason 8 is observed_floor_vantage. Its remote target may change while
+     * the planner still authorizes the same single step onto observed floor. */
+    return (a->reason==8&&a->obstacle==NG2_TILE_FLOOR)
+        ||(a->target_x==b->target_x&&a->target_y==b->target_y);
+}
 /* Only a definitely-unsent ticket may be replaced. Unlike initial lead
- * calibration, continuous revalidation proves the whole route decision and
- * protected set unchanged, and never searches for another physical beat. */
+ * calibration, continuous revalidation proves the cached source decision,
+ * the current action and protected set, without searching for another beat. */
 static int continuous_validation(NG2Controller *p,const NG2Scene *scene,uint64_t end){
     NG2Decision before,after;NG2Motion motion;uint64_t aligned;
     int direction=p->command.direction;
@@ -216,7 +223,7 @@ static int continuous_validation(NG2Controller *p,const NG2Scene *scene,uint64_t
     if(!ng2_choose(&p->before,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&before)
         ||!ng2_choose(scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&after)
         ||before.direction!=direction||!same_choice(&before,&p->command_choice)
-        ||!same_choice(&before,&after))return NG2_REVALIDATE_ROUTE;
+        ||!same_continuous_action(&before,&after))return NG2_REVALIDATE_ROUTE;
     if(!ng2_motion(&p->before,scene,direction,&motion)||motion.kind!=NG2_BLOCKED
         ||motion.dx||motion.dy)return NG2_REVALIDATE_MOTION;
     return NG2_REVALIDATE_CONTINUOUS_ALLOWED;
@@ -528,7 +535,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         p->s.next_target_ns=p->initial_ticket.target_ns;
     }else if(p->continuous_pending){
         uint64_t aligned;
-        if(!same_choice(&choice,&p->command_choice)||!safe_floor(&p->scene,choice.direction)
+        if(!same_continuous_action(&choice,&p->command_choice)||!safe_floor(&p->scene,choice.direction)
             ||!corrected(p,p->continuous_ticket.target_ns,p->continuous_period,&aligned)){
             p->continuous_pending=0;finish(p,now,NG2_REASON_SCREEN);return 0;
         }

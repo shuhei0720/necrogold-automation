@@ -90,6 +90,8 @@ jobs:
               'test_required_test046_capture_replay',
               'test_required_test048_strict_optimization_parity',
               'test_required_test049_navigation_strict_optimization_parity',
+              'test_required_test051_target_drift_and_strict_parity',
+              'test_required_test051_actual77_79_reissue_same_up_after_synthetic_lead_in',
           }
           suite = unittest.defaultTestLoader.loadTestsFromNames([
               'test_native_perception', 'test_native_navigation',

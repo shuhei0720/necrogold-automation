@@ -1,0 +1,126 @@
+{
+  "schema": "ngg2-test052-fixtures-v1",
+  "source_zip_sha256": "8227fa10433a458bd5f945cbf7bb953f6d2fe76ab8a2daa07181b1890dcf020c",
+  "source_report_sha256": "7ced44081507e544e997e545510b6a2ce849236d40271ba89cbcb63e79af079a",
+  "count": 9,
+  "purpose": "Required known second TEST051 image/compiler parity and target-drift regression; synthetic controller lead-in is not actual missing source55; no unseen or device speed acceptance.",
+  "images": [
+    {
+      "path": "test051-second-received/test-051/native-a2e00111a0de490783c04800f0ac20f9/images/capture-000001.png",
+      "sha256": "d1c45c10a3638765c1766a9f59dbf202069572c41bc32fa08878e48228d609a0",
+      "bytes": 69676,
+      "capture_id": 1,
+      "state": 0,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test051-second-received/test-051/native-a2e00111a0de490783c04800f0ac20f9/images/capture-000066.png",
+      "sha256": "d173681c88f50878c405b5b6465dc566637d1f2a64fc6c06484083f69e9dcc9f",
+      "bytes": 274342,
+      "capture_id": 66,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test051-second-received/test-051/native-a2e00111a0de490783c04800f0ac20f9/images/capture-000067.png",
+      "sha256": "bc736d6459237e3182175808f81c89d9efe67d575533bcdd59e40ebfd65d90a6",
+      "bytes": 274746,
+      "capture_id": 67,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test051-second-received/test-051/native-a2e00111a0de490783c04800f0ac20f9/images/capture-000075.png",
+      "sha256": "fb1ba4627695b0dbe861853c981e5d85d6b22b28431e36c5ea830c747468bb54",
+      "bytes": 274261,
+      "capture_id": 75,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test051-second-received/test-051/native-a2e00111a0de490783c04800f0ac20f9/images/capture-000076.png",
+      "sha256": "f400843b4499fcf573d91e13ff4052caeb911db6f1de2018efbe668ddd22521f",
+      "bytes": 274199,
+      "capture_id": 76,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test051-second-received/test-051/native-a2e00111a0de490783c04800f0ac20f9/images/capture-000077.png",
+      "sha256": "7fe8baf90d15d8fa086e14ffcdebf0ee59db78af8c747196586024804f47c363",
+      "bytes": 271856,
+      "capture_id": 77,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test051-second-received/test-051/native-a2e00111a0de490783c04800f0ac20f9/images/capture-000078.png",
+      "sha256": "e2b80055ee2b9b543663033cb6bae9bfe2d35148753258fe04f35fbf977c7160",
+      "bytes": 271036,
+      "capture_id": 78,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test051-second-received/test-051/native-a2e00111a0de490783c04800f0ac20f9/images/capture-000079.png",
+      "sha256": "e2eefe7df08966a93e5b7479c9df5dc9546d1194e35048c2fb50499ed6ccea0f",
+      "bytes": 270980,
+      "capture_id": 79,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test051-second-received/test-051/native-a2e00111a0de490783c04800f0ac20f9/images/capture-000087.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 87,
+      "state": 1,
+      "goods": 0,
+      "stable": true
+    }
+  ],
+  "floor_capture_ids": [
+    66,
+    67,
+    75,
+    76,
+    77,
+    78,
+    79
+  ],
+  "target_drift_capture_ids": [
+    77,
+    78,
+    79
+  ],
+  "motion_pairs": [
+    [
+      67,
+      75
+    ],
+    [
+      67,
+      76
+    ],
+    [
+      67,
+      77
+    ],
+    [
+      77,
+      78
+    ],
+    [
+      78,
+      79
+    ]
+  ]
+}

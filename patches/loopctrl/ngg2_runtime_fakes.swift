@@ -42,6 +42,7 @@ enum NG2Fake {
     static var phaseBase: UInt64 = 0
     static var remoteVariant: Int32 = 0
     static var remoteVariantDuringWalk = false
+    static var targetDriftWorld = false
     static var heldTickets: [UInt64: () -> Void] = [:]
     static var returnedTickets = Set<UInt64>()
     static var unknownFrames = 0
@@ -76,6 +77,7 @@ enum NG2Fake {
             walkGoodsEnabled = true; walkPixelInset = 0; captureLimit = nil; firstUnknownID = 0; subtileResolvedWait = false
             remoteVariant = 0; heldTickets = [:]; returnedTickets = []; unknownFrames = 0
             remoteVariantDuringWalk = false
+            targetDriftWorld = false
             boundaryClockChange = nil
             captureDrainedRuns = []
             phaseBase = DispatchTime.now().uptimeNanoseconds
@@ -185,14 +187,48 @@ enum NG2Fake {
             ng2_fixture_floor_pixels_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, state.0, state.1, fraction, state.2)
         }
         precondition(valid == 1)
-        let remote = lock.fixtureLocked { (remoteVariant, remoteVariantDuringWalk) }
-        if (state.0 == 0 && state.1 == 0) || remote.1 {
+        let remote = lock.fixtureLocked { (remoteVariant, remoteVariantDuringWalk, targetDriftWorld) }
+        if remote.2 {
+            applyTargetDriftWorld(&rgba, worldX: state.0, worldY: state.1, variant: remote.0)
+        } else if (state.0 == 0 && state.1 == 0) || remote.1 {
             let changed = rgba.withUnsafeMutableBytes {
                 ng2_fixture_remote_cell($0.bindMemory(to: UInt8.self).baseAddress, count, remote.0)
             }
             precondition(changed == 1)
         }
         return NG2Raster.png(rgba)!
+    }
+    // A fixed world blocks both gate approaches behind a stone row. The real
+    // planner therefore chooses an observed-floor vantage, including after
+    // two actual UP moves. Only the remote (-1,-1) world tile changes later.
+    // All paint follows world coordinates, preserving real motion texture.
+    static func applyTargetDriftWorld(_ rgba: inout Data, worldX: Int32, worldY: Int32, variant: Int32) {
+        rgba.withUnsafeMutableBytes { raw in
+            let bytes = raw.bindMemory(to: UInt8.self)
+            func tile(_ x: Int, _ y: Int, _ color: [UInt8]) {
+                let cx = 448+36*x-Int(worldX), cy = 207+36*y-Int(worldY)
+                let left = max(0, cx-17), right = min(896, cx+18)
+                let top = max(0, cy-17), bottom = min(414, cy+18)
+                guard left < right && top < bottom else { return }
+                for py in top..<bottom { for px in left..<right {
+                    let at = (py*896+px)*4
+                    for channel in 0..<3 { bytes[at+channel] = color[channel] }
+                } }
+            }
+            for x in -12...12 { tile(x, -2, [80,80,80]) }
+            for x in [-1,1] { tile(x, 0, [80,80,80]) }
+            if variant == 1 { tile(-1, -1, [100,50,10]) }
+        }
+    }
+    static func targetDriftRGBA(variant: Int32) -> Data {
+        var rgba = Data(count: 896*414*4)
+        let count = rgba.count
+        let valid = rgba.withUnsafeMutableBytes {
+            ng2_fixture_floor_pixels_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, 0, 0, 0.5, 0)
+        }
+        precondition(valid == 1)
+        applyTargetDriftWorld(&rgba, worldX: 0, worldY: 0, variant: variant)
+        return rgba
     }
     static func virtualClock() -> UInt64 {
         lock.fixtureLocked { fixedClock ?? (DispatchTime.now().uptimeNanoseconds + offset) }

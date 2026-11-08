@@ -344,12 +344,14 @@ class PagedResultsTests(TimerTestCase):
                 self.assertEqual([0,65536],[p['offset'] for p in chunks])
 
     def test_new_paged_export_uses_remaining_180_seconds_and_old_journal_keeps_its_185_seconds(self):
-        for revision,elapsed in ((native.REVISION,180), (native.REVISION,179.75),('native-walk-v8',180)):
+        for revision,elapsed in ((native.REVISION,180), (native.REVISION,179.75),
+                                 ('native-walk-v9',180), ('native-walk-v9',179.75),
+                                 ('native-walk-v8',180)):
             with self.subTest(revision=revision,elapsed=elapsed), tempfile.TemporaryDirectory() as folder, \
                     NativeServer(finish=True) as server:
                 seed = self.execute(server,folder)
                 seed.update(revision=revision,resolved=False)
-                if revision != native.REVISION:
+                if revision not in native.PAGED_REVISIONS:
                     seed.pop('image_export')
                 native._save(Path(folder),seed)
                 began = 1_000_000_000
@@ -371,7 +373,7 @@ class PagedResultsTests(TimerTestCase):
                     result = native.run_session(client,folder,lock_path=Path(folder)/'lock',
                         max_seconds=185,clock=lambda:now[0],poll_seconds=.001)
                 calls = server.calls[before:]
-                if revision == native.REVISION and elapsed == 180:
+                if revision in native.PAGED_REVISIONS and elapsed == 180:
                     self.assertFalse(result['resolved'])
                     self.assertEqual('host_deadline',result['stop_reason'])
                     self.assertEqual(['necro_native_status'],[m for m,p in calls])
@@ -379,7 +381,7 @@ class PagedResultsTests(TimerTestCase):
                 else:
                     self.assertTrue(result['resolved'],result['stop_reason'])
                     self.assertEqual(1,len(timeouts))
-                    self.assertEqual(.25 if revision == native.REVISION else 5,timeouts[0])
+                    self.assertEqual(.25 if revision in native.PAGED_REVISIONS else 5,timeouts[0])
 
     def test_export_deadline_after_final_image_io_keeps_evidence_unresolved_and_recoverable(self):
         with tempfile.TemporaryDirectory() as folder,NativeServer(finish=True,
@@ -476,14 +478,14 @@ class PagedResultsTests(TimerTestCase):
                     self.assertEqual([32],record['image_export']['offsets'])
                     self.assertEqual(1,len(record['images']))
 
-    def test_client_051_script_and_capability_require_paged_runtime(self):
-        path = Path(native.__file__).resolve().parents[1]/'test_051.sh'
+    def test_client_052_script_and_capability_require_same_action_runtime(self):
+        path = Path(native.__file__).resolve().parents[1]/'test_052.sh'
         self.assertEqual(0,subprocess.run(['sh','-n',str(path)],capture_output=True).returncode)
-        self.assertEqual('native-walk-v9',native.REVISION)
-        self.assertEqual('necrogold_native_v8',native.CAPABILITY)
-        self.assertEqual('runtime/test-051',native.parser().parse_args([]).output)
-        self.assertIn('native-walk-v9 / 1.98.14-ngg2',path.read_text())
-        self.assertIn('--output runtime/test-051',path.read_text())
+        self.assertEqual('native-walk-v10',native.REVISION)
+        self.assertEqual('necrogold_native_v9',native.CAPABILITY)
+        self.assertEqual('runtime/test-052',native.parser().parse_args([]).output)
+        self.assertIn('native-walk-v10 / 1.98.14-ngg2',path.read_text())
+        self.assertIn('--output runtime/test-052',path.read_text())
 
     def test_manifest_counts_geometry_names_and_budgets_are_closed(self):
         raw = image_item()

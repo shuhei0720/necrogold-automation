@@ -4,6 +4,8 @@ Known synthetic textures establish host transitions, not iPhone acceptance.
 """
 import ctypes as C
 from copy import deepcopy
+import hashlib
+import json
 from pathlib import Path
 import os
 import random
@@ -180,6 +182,13 @@ class NativeControllerTests(unittest.TestCase):
         query.argtypes=[C.c_void_p,C.POINTER(SceneDetail),C.c_size_t];query.restype=C.c_size_t
         out=(SceneDetail*3)();count=query(self.engine,out,3)
         return list(out)[:count]
+    def continuous_vantage_drift(self):
+        initial=textured({**{(x,0):'floor' for x in range(-7,1)},(-7,0):'stone',
+                          (-8,0):'door',(-8,-1):'gold',(-8,1):'gold',
+                          (-4,-2):'stone',(5,1):'stone'})
+        terrain,old=self.continuous_walk(terrain=initial);changed=deepcopy(terrain)
+        changed.tiles[(-4,0)]='stone'
+        return terrain,changed,old
     def test_continuous_unsent_scene_change_after_two_moves_keeps_original_beat(self):
         terrain,old=self.continuous_walk();wait=self.motion_wait()
         changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
@@ -292,19 +301,22 @@ class NativeControllerTests(unittest.TestCase):
         self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
         self.assertEqual((10,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
-    def test_continuous_rejects_target_x_only_change_under_same_gold_and_direction(self):
-        initial=textured({**{(x,0):'floor' for x in range(-7,1)},(-7,0):'stone',
-                          (-8,0):'door',(-8,-1):'gold',(-8,1):'gold',
-                          (-4,-2):'stone',(5,1):'stone'})
-        terrain,old=self.continuous_walk(terrain=initial);changed=deepcopy(terrain)
-        changed.tiles[(-4,0)]='stone'
+    def test_continuous_reason8_target_x_drift_keeps_original_action_and_beat(self):
+        terrain,changed,old=self.continuous_vantage_drift()
         before=nav.choose(terrain,(-2,0));after=nav.choose(changed,(-2,0))
         self.assertEqual({'direction':'left','reason':'observed_floor_vantage','target':(-4,0)},before)
         self.assertEqual({**before,'target':(-3,0)},after)
-        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
-        self.assertEqual((10,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
+        wait=self.motion_wait();self.now+=2;self.observe(self.scene(2,2,changed,beat=True));new=self.next_move()
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,old.direction,wait.deadline_ns),
+                         (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,new.direction,self.motion_wait().deadline_ns))
+        self.assertNotEqual(old.id,new.id);self.assertEqual(self.number,new.source_capture_id)
+        self.assertEqual((2,1),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
-    def test_continuous_rejects_target_y_only_change_under_same_gold_and_direction(self):
+        self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,old.id,old.not_before_ns,1))
+        self.ack(new);self.observed_result(new,translated(changed,1))
+        self.assertEqual((3,3,-3,0,3),(self.status().inputs,self.status().moves,self.status().x,
+                                    self.status().y,self.status().last_ordinal))
+    def test_continuous_reason8_target_y_drift_keeps_original_action_and_beat(self):
         initial=textured({**{(0,y):'floor' for y in range(-3,1)},(0,-4):'stone',
                           (0,-5):'door',(-1,-5):'gold',(1,-5):'gold',
                           (-4,-2):'stone',(5,1):'stone'})
@@ -313,9 +325,189 @@ class NativeControllerTests(unittest.TestCase):
         before=nav.choose(terrain,(0,-1));after=nav.choose(changed,(0,-1))
         self.assertEqual({'direction':'up','reason':'observed_floor_vantage','target':(0,-2)},before)
         self.assertEqual({**before,'target':(0,-1)},after)
-        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
-        self.assertEqual((10,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
+        wait=self.motion_wait();self.now+=2;self.observe(self.scene(2,2,changed,beat=True));new=self.next_move()
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,old.direction,wait.deadline_ns),
+                         (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,new.direction,self.motion_wait().deadline_ns))
+        self.assertNotEqual(old.id,new.id);self.assertEqual(self.number,new.source_capture_id)
+        self.assertEqual((2,1),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+        self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,old.id,old.not_before_ns,1))
+        self.ack(new);self.observed_result(new,translated(changed,3))
+        self.assertEqual((2,2,0,-2,2),(self.status().inputs,self.status().moves,self.status().x,
+                                    self.status().y,self.status().last_ordinal))
+    def test_continuous_other_reason_target_x_and_y_drift_still_reject(self):
+        for direction,transform,position in ((1,lambda x,y:(x,y),(-2,0)),
+                                              (3,lambda x,y:(-y,x),(0,-2))):
+            with self.subTest(direction=direction):
+                self.fresh_engine()
+                tiles={(x,0):'floor' for x in range(-5,1)}
+                tiles.update({(x,y):'floor' for x in range(-5,-2) for y in range(-2,3)})
+                for point in ((-5,-2),(-5,0),(-5,2)):tiles[point]='gold'
+                initial=textured({transform(x,y):kind for (x,y),kind in tiles.items()})
+                terrain,old=self.continuous_walk(direction=direction,terrain=initial)
+                before=nav.choose(terrain,position);changed=deepcopy(terrain)
+                changed.tiles[before['target']]='stone';after=nav.choose(changed,position)
+                self.assertEqual('approach_gate',before['reason']);self.assertEqual(before['reason'],after['reason'])
+                self.assertEqual(before['direction'],after['direction']);self.assertNotEqual(before['target'],after['target'])
+                self.assertEqual(((-2,-1),(-2,1)) if direction==1 else ((-1,-2),(1,-2)),
+                                 (before['target'],after['target']))
+                self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
+                self.assertEqual((10,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
+                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+    def test_continuous_two_reason8_drifts_save_each_new_source_decision(self):
+        terrain,changed,original=self.continuous_vantage_drift();current=original;retired=[]
+        wait=self.motion_wait()
+        for attempt,x in enumerate((-4,-3,-2),1):
+            changed=deepcopy(terrain);changed.tiles[(x,0)]='stone'
+            before=nav.choose(terrain,(-2,0));after=nav.choose(changed,(-2,0))
+            self.assertEqual(('left','observed_floor_vantage'),(before['direction'],before['reason']))
+            self.assertEqual({**before,'target':(x+1,0)},after);self.assertNotEqual(before['target'],after['target'])
+            self.now+=2;self.observe(self.scene(2,2,changed,beat=True));retired.append(current.id)
+            ready,new=self.tick()
+            if attempt<3:
+                self.assertEqual((1,4),(ready,new.kind));current=new
+                self.assertEqual((original.target_ns,original.not_before_ns,original.deadline_ns,original.ordinal,wait.deadline_ns),
+                                 (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
+                self.assertEqual(self.number,new.source_capture_id)
+            else:self.assertNotEqual(4,new.kind)
+            terrain=changed
+        self.assertEqual([2,2,5],[d.validation for d in self.scene_details()])
+        self.assertEqual([1,2,2],[d.chain_count for d in self.scene_details()])
+        self.assertEqual((17,2,2),(self.status().reason,self.status().inputs,self.status().moves))
+        for old_id in retired:
+            self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old_id,original.not_before_ns,1,0,1))
+            self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,old_id,original.not_before_ns,1))
+    def test_continuous_reason8_drift_keeps_deadline_motion_and_ownership_guards(self):
+        for case in ('deadline_equal','deadline_expired','pending_expired','moved','tween','unknown',
+                     'protected','gold','local_floor','gate','foreground','locked','owner','cancel'):
+            with self.subTest(case=case):
+                self.fresh_engine();terrain,changed,old=self.continuous_vantage_drift()
+                if case=='moved':changed.signature=translated(terrain,1).signature
+                elif case=='tween':changed.signature=translated(terrain,1,amount=8).signature
+                elif case=='unknown':changed.signature=bytes([40])*23296
+                elif case=='protected':changed.protected.add((-10,4))
+                elif case=='gold':changed.tiles[(-9,4)]='gold';changed.gold.add((-9,4))
+                elif case=='local_floor':changed.tiles[(-1,0)]='dirt'
+                elif case=='gate':
+                    for point in ((-1,-1),(-1,1)):changed.tiles[point]='gold';changed.gold.add(point)
+                self.now=old.deadline_ns+(case=='deadline_expired') if case.startswith('deadline_') else self.now+2
+                self.observe(self.scene(2,2,changed,beat=True))
+                if case=='pending_expired':self.now=old.deadline_ns+1
+                ready,new=self.tick()
+                if case in ('deadline_equal','foreground','locked','owner','cancel'):
+                    self.assertEqual((1,4),(ready,new.kind));self.assertEqual(old.deadline_ns,new.deadline_ns)
+                    self.now=max(self.now,new.not_before_ns)
+                    front,locked,owner=int(case!='foreground'),int(case=='locked'),int(case!='owner')
+                    if case=='cancel':self.lib.ng2_controller_cancel(self.engine,self.now,2)
+                    self.assertEqual(int(case=='deadline_equal'),
+                                     self.lib.ng2_controller_begin(self.engine,new.id,self.now,front,locked,owner))
+                else:self.assertNotEqual(4,new.kind)
+                self.assertEqual((2,2),(self.status().inputs,self.status().moves))
+                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,max(self.now,old.not_before_ns),1,0,1))
+                self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,old.id,max(self.now,old.not_before_ns),1))
+    def test_continuous_source_decision_and_each_after_pending_action_field_are_independent(self):
+        # Fault only one public planner result after its real computation. The
+        # controller, motion, beat and every other planner call stay production.
+        wrapper=r'''
+#include "NG2Core.h"
+static int countdown,field;
+void test_choice_fault(int call,int member){countdown=call;field=member;}
+int ng2_real_choose(const NG2Scene *,int32_t,int32_t,const uint16_t *,size_t,const NG2Entrance *,NG2Decision *);
+int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size_t n,
+               const NG2Entrance *entrance,NG2Decision *out){
+    int result=ng2_real_choose(s,x,y,visits,n,entrance,out);
+    if(countdown>0&&--countdown==0&&result){
+        if(field==1)out->direction=NG2_RIGHT;
+        else if(field==2)out->reason=7;
+        else if(field==3)++out->target_x;
+        else if(field==4)++out->target_y;
+        else if(field==5)out->obstacle=NG2_TILE_DIRT;
+    }
+    return result;
+}
+'''
+        with tempfile.TemporaryDirectory(prefix='ngg2-controller-choice-fault-') as directory:
+            directory=Path(directory);source=directory/'choice-fault.c';source.write_text(wrapper)
+            navigation=directory/'navigation.c'
+            navigation.write_text('#define ng2_choose ng2_real_choose\n#include "'+str(CORE/'NG2Navigation.c')+'"\n')
+            library=directory/'controller.so'
+            subprocess.run(['cc','-std=c99','-O2','-Wall','-Wextra','-Werror','-pedantic','-ffp-contract=off','-fPIC','-shared',
+                            '-I',str(CORE),str(source),str(navigation),str(CORE/'NG2Controller.c'),
+                            str(CORE/'NG2Perception.c'),str(CORE/'NG2Beat.c'),'-lm','-o',str(library)],check=True)
+            original=self.lib;self.lib=C.CDLL(str(library));self.addCleanup(setattr,self,'lib',original)
+            for name in ('create','destroy','observe','tick','begin','complete','cancel','status','events','motion_wait'):
+                name='ng2_controller_'+name;old=getattr(original,name);new=getattr(self.lib,name)
+                new.argtypes=old.argtypes;new.restype=old.restype
+            self.lib.test_choice_fault.argtypes=[C.c_int,C.c_int]
+            for phase,fields in (('source',(1,2,3,4,5)),('after',(1,2,5)),('pending',(1,2,5))):
+                for field in fields:
+                    with self.subTest(phase=phase,field=field):
+                        self.lib.test_choice_fault(0,0);self.fresh_engine()
+                        terrain,changed,old=self.continuous_vantage_drift()
+                        if phase=='pending':
+                            # Keep targets equal so removing one action-field
+                            # comparison cannot hide behind target inequality.
+                            changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
+                        if phase!='pending':self.lib.test_choice_fault(1 if phase=='source' else 2,field)
+                        self.now+=2;self.observe(self.scene(2,2,changed,beat=True))
+                        if phase=='pending':
+                            self.assertEqual((2,1),(self.scene_details()[-1].validation,
+                                                   self.scene_details()[-1].continuous_count))
+                            self.lib.test_choice_fault(1,field)
+                        else:self.assertEqual((10,0),(self.scene_details()[-1].validation,
+                                                     self.scene_details()[-1].continuous_count))
+                        self.assertNotEqual(4,self.tick()[1].kind)
+                        self.assertEqual((17,2,2),(self.status().reason,self.status().inputs,self.status().moves))
+                        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+    def test_required_test051_actual77_79_reissue_same_up_after_synthetic_lead_in(self):
+        manifest=json.loads((ROOT/'tests/test052-fixtures.json').read_text())
+        self.assertEqual(('ngg2-test052-fixtures-v1',9),(manifest['schema'],manifest['count']))
+        self.assertEqual([77,78,79],manifest['target_drift_capture_ids'])
+        fixture_root=Path(os.environ.get('NECRO_TEST052_FIXTURE_ROOT','/workspace/analysis-evidence'))
+        analyze=self.lib.ng2_analyze_rgba
+        analyze.argtypes=[C.c_void_p,C.c_size_t,C.c_size_t,C.POINTER(Scene)]
+        frames={};terrain={}
+        for entry in manifest['images']:
+            capture=entry['capture_id']
+            if capture not in (67,77,78,79):continue
+            path=fixture_root/entry['path'];self.assertTrue(path.is_file(),str(path))
+            raw=path.read_bytes();self.assertEqual(entry['bytes'],len(raw))
+            self.assertEqual(entry['sha256'],hashlib.sha256(raw).hexdigest())
+            with Image.open(path) as image:
+                rgba=image.convert('RGBA');pixels=rgba.tobytes();frame=Scene()
+                self.assertEqual(0,analyze(pixels,len(pixels),rgba.width*4,C.byref(frame)))
+                terrain[capture]=nav.scan(image.convert('RGB'))
+            self.assertEqual((2,2,0),(frame.state,frame.gold_state,frame.goods));frames[capture]=frame
+        self.assertEqual({67,77,78,79},set(frames))
+        # Source55 was not recovered. This reverse-translated texture and
+        # corrected synthetic origin establish lead only; captures67/77/78/79
+        # below are unmodified real C perception results with a synthetic HUD clock.
+        seed=translated(terrain[67],2);seed.tiles[(0,0)]='floor';self.fit(seed)
+        def observe_actual(capture):
+            frame=frames[capture];clock=self.scene(2,2,beat=True)
+            for field in ('beat_valid','beat_remaining','beat_spacing','beat_center'):
+                setattr(frame,field,getattr(clock,field))
+            self.number=capture-1;self.assertEqual(1,self.observe(frame))
+        for capture in (67,77):
+            command=self.next_move();self.assertEqual(1,command.direction);self.ack(command)
+            self.now=max(self.now+2,command.target_ns+80_000_002);observe_actual(capture)
+        self.assertEqual((2,2,-2,0,1),(self.status().inputs,self.status().moves,self.status().x,
+                                      self.status().y,self.status().lead_confirmed))
+        original=self.next_move();wait=self.motion_wait();self.assertEqual((3,77),(original.direction,original.source_capture_id))
+        current=original;retired=[]
+        for capture in (78,79):
+            self.now+=2;observe_actual(capture);retired.append(current.id);current=self.next_move()
+            self.assertEqual((original.target_ns,original.not_before_ns,original.deadline_ns,original.ordinal,3,wait.deadline_ns),
+                             (current.target_ns,current.not_before_ns,current.deadline_ns,current.ordinal,
+                              current.direction,self.motion_wait().deadline_ns))
+            self.assertEqual(capture,current.source_capture_id)
+        self.assertEqual([2,2],[detail.validation for detail in self.scene_details()])
+        self.assertEqual([1,2],[detail.chain_count for detail in self.scene_details()])
+        self.assertEqual((0,2,2),(self.status().reason,self.status().inputs,self.status().moves))
+        for old_id in retired:
+            self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old_id,current.not_before_ns,1,0,1))
+            self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,old_id,current.not_before_ns,1))
+        self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,current.id,current.not_before_ns,1,0,1))
     def test_continuous_rejects_reason_only_change_under_same_gold_and_target(self):
         terrain,old=self.continuous_walk();changed=deepcopy(terrain);changed.tiles.pop((-6,0))
         before=nav.choose(terrain,(-2,0));after=nav.choose(changed,(-2,0))

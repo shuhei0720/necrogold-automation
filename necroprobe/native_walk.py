@@ -20,9 +20,9 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v9'
+REVISION = 'native-walk-v10'
 API_VERSION = '1.98.14-ngg2'
-CAPABILITY = 'necrogold_native_v8'
+CAPABILITY = 'necrogold_native_v9'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -36,6 +36,9 @@ MAX_SCHEMA = 512 * 1024
 MAX_MANIFEST_WIRE = 512 * 1024
 MAX_CHUNK_WIRE = 256 * 1024
 CHUNK_BYTES = 64 * 1024
+EXPORT_BATCH_CHUNKS = 4
+EXPORT_BATCH_BYTES = 256 * 1024
+PAGED_REVISIONS = frozenset(('native-walk-v9', 'native-walk-v10'))
 _HTTP_TRANSPORT_TYPE = HttpTransport
 MAX_SCHEMA_ATTEMPTS = 4
 SCHEMA_BUDGET_NS = 8_000_000_000
@@ -367,7 +370,8 @@ def _load(base):
         record['events'] = _events(record['events'][excess:])
         _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', 'native-walk-v3',
                                           'native-walk-v4', 'native-walk-v5', 'native-walk-v6',
-                                          'native-walk-v7', 'native-walk-v8', REVISION)
+                                          'native-walk-v7', 'native-walk-v8',
+                                          'native-walk-v9', REVISION)
                  and record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -380,7 +384,7 @@ def _load(base):
         _require(_result_metadata(record['result_metadata']) == record['result_metadata'], 'native_journal_invalid')
         record['images'] = _stored_images(record['images'])
         if 'image_export' in record:
-            _require(record['revision'] == REVISION, 'native_journal_invalid')
+            _require(record['revision'] in PAGED_REVISIONS, 'native_journal_invalid')
             record['image_export'] = _export_checkpoint(record['image_export'])
             selected = {item['name']:item for item in record['image_export']['images']}
             _require(all(selected.get(item['name']) == item for item in record['images']),
@@ -787,7 +791,7 @@ def _chunk(value, run_id, export_id, item, offset):
 
 
 def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_timeout,
-                   cancelled=lambda: False):
+                   cancelled=lambda: False, progress=None):
     run_id = record['run_id']
     def check():
         _require(not cancelled(), 'cancel_requested')
@@ -798,6 +802,14 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
         remaining = check()
         return request('necro_native_results', params,
                        timeout=min(client_timeout, rpc_seconds, 8, remaining))
+    def show_progress():
+        if progress is not None:
+            try:
+                progress(len(record['images']), len(current['images']))
+            except Exception:
+                # Display is optional and cannot invalidate durable evidence.
+                pass
+            check()
     state, report, metadata, incoming = _manifest(call({'run_id':run_id, 'mode':'manifest'}), run_id)
     # Manifest validation and storage consume the same bounded export attempt.
     check()
@@ -812,6 +824,7 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
     record.update(state=state, native_state=state, native_report=report, result_metadata=metadata)
     _save(base, record)
     check()
+    show_progress()
     image_folder = base/('native-'+run_id)/'images'
     image_folder.mkdir(mode=0o700, exist_ok=True)
     fragments = image_folder/'.parts'
@@ -822,21 +835,50 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
         fragment = fragments/(item['name']+'.part')
         offset = current['offsets'][index]
         raw = _read_fragment(fragment, image_path, offset, current['prefix_sha256'][index], item['bytes'])
+        prior_raw = raw
         check()
-        while offset < item['bytes']:
-            part = _chunk(call({'run_id':run_id, 'mode':'chunk', 'export_id':current['export_id'],
-                                'capture_id':item['capture_id'], 'offset':offset}),
-                          run_id, current['export_id'], item, offset)
-            suffix = raw[offset:offset+len(part)]
-            _require(part[:len(suffix)] == suffix, 'invalid_native_images')
-            updated = raw[:offset]+part
-            _atomic(fragment, updated)
-            offset += len(part)
+        pending_chunks = 0
+        committed_offset = offset
+        batch_chunks = EXPORT_BATCH_CHUNKS if record['revision'] == 'native-walk-v10' else 1
+        def checkpoint():
+            nonlocal pending_chunks, committed_offset
+            if not pending_chunks:
+                return
+            # A failed IO propagates directly; never retry an uncertain write.
+            # A previous rename can leave an authenticated suffix beyond this
+            # cursor. Preserve it on disk until later same-offset replies have
+            # also been compared, including across another interrupted replay.
+            stored = raw+prior_raw[offset:] if batch_chunks > 1 else raw
+            _atomic(fragment, stored)
             current['offsets'][index] = offset
-            current['prefix_sha256'][index] = hashlib.sha256(updated).hexdigest()
+            current['prefix_sha256'][index] = hashlib.sha256(raw).hexdigest()
             _save(base, record)
-            check()
-            raw = updated
+            committed_offset = offset
+            pending_chunks = 0
+        while offset < item['bytes']:
+            try:
+                part = _chunk(call({'run_id':run_id, 'mode':'chunk', 'export_id':current['export_id'],
+                                    'capture_id':item['capture_id'], 'offset':offset}),
+                              run_id, current['export_id'], item, offset)
+                # Keep every renamed-but-uncheckpointed byte available for the
+                # same-offset comparison throughout a v10 replayed batch.
+                comparison = prior_raw if batch_chunks > 1 else raw
+                suffix = comparison[offset:offset+len(part)]
+                _require(part[:len(suffix)] == suffix, 'invalid_native_images')
+                raw = raw[:offset]+part
+                offset += len(part)
+                pending_chunks += 1
+                if batch_chunks > 1:
+                    check()
+                if (pending_chunks >= batch_chunks or offset-committed_offset >= EXPORT_BATCH_BYTES
+                        or offset == item['bytes']):
+                    checkpoint()
+                check()
+            except ProbeError:
+                # A failed response, cancellation, or deadline still commits
+                # only the already authenticated and verified pending prefix.
+                checkpoint()
+                raise
         _require(len(raw) == item['bytes'] and hashlib.sha256(raw).hexdigest() == item['sha256']
                  and raw[:16] == b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR'
                  and struct.unpack('>II', raw[16:24]) == (896,414), 'invalid_native_images')
@@ -846,6 +888,7 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
         record['images'] = [verified[entry['name']] for entry in current['images'] if entry['name'] in verified]
         _save(base, record)
         check()
+        show_progress()
         try:
             fragment.unlink()
         except FileNotFoundError:
@@ -856,7 +899,7 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
 
 def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic_ns,
                 sleep=time.sleep, poll_seconds=.25, max_seconds=185, recovery_seconds=6,
-                results_seconds=8, export_seconds=90, lock_path=None):
+                results_seconds=8, export_seconds=90, lock_path=None, progress=None):
     """Start once; recover known work with read-only status and bounded cancel."""
     number(poll_seconds, .001, 1)
     number(max_seconds, .01, 200)
@@ -1057,7 +1100,7 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                         # Read-only export gets its own whole-call budget only
                         # after terminal status. It cannot extend this invocation.
                         invocation_deadline = cleanup_deadline if cleanup_deadline is not None else deadline
-                        if record['revision'] == REVISION:
+                        if record['revision'] in PAGED_REVISIONS:
                             results_deadline = min(invocation_deadline, began+180_000_000_000,
                                                    clock()+int(export_seconds*1e9))
                             # Preserve the finite result cleanup for an already
@@ -1066,7 +1109,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                             export_cancelled = lambda: not cancelled_before_export and cancelled()
                             export_guard = (results_deadline, export_cancelled)
                             state, report = _collect_paged(request, base, record, clock,
-                                results_deadline, results_seconds, client.timeout, export_cancelled)
+                                results_deadline, results_seconds, client.timeout, export_cancelled,
+                                progress)
                         else:
                             # A started old journal keeps its original protocol.
                             results_deadline = min(invocation_deadline, clock()+int(results_seconds*1e9))
@@ -1134,8 +1178,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST051: 毎拍歩行の安全な予約更新と分割画像回収を検証')
-    ap.add_argument('--output', default='runtime/test-051')
+    ap = argparse.ArgumentParser(description='TEST052: 毎拍歩行の同じ操作の再検証と画像回収待ちを確認')
+    ap.add_argument('--output', default='runtime/test-052')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')
@@ -1157,14 +1201,17 @@ def main(argv=None):
         with OwnedRpcTimer() as timer:
             client = NativeClient(HttpTransport(), key, tok, timeout=8,
                                   crypto=Crypto(native=not args.python_crypto), deadline_owner=timer)
-            record = run_session(client, args.output, cancelled=lambda: stopped[0])
+            def progress(saved, total):
+                print('画像回収中: 保存済み' + str(saved) + '/' + str(total)
+                      + '枚。終了表示までお待ちください。', flush=True)
+            record = run_session(client, args.output, cancelled=lambda: stopped[0], progress=progress)
         print('NG-G2終了: ' + record['state'] + ' / ' + (record['stop_reason'] or 'none'))
         print('保存先: ' + str(Path(args.output).resolve()/('native-'+record['run_id'])))
         if not record['start_attempted'] and record['stop_reason'] != 'cancel_requested':
             attempts = record.get('preflight', {}).get('attempts', [])
             kind = attempts[-1]['diagnostic']['kind'] if attempts else None
             if record['stop_reason'] == 'native_capability_missing':
-                print('NG-G2の版・機能が一致しません。TEST051用の新IPAとLoopCtrlの起動状態を確認してください。')
+                print('NG-G2の版・機能が一致しません。TEST052用の新IPAとLoopCtrlの起動状態を確認してください。')
             elif kind == 'refused':
                 print('LoopCtrlへの接続が拒否されました。まだゲームの開始要求は送っていません。')
             elif record['stop_reason'] in ('rpc_deadline', 'host_deadline') or kind in ('timeout','deadline'):
@@ -1185,7 +1232,7 @@ def main(argv=None):
             'pairing_missing', 'pairing_ambiguous', 'invalid_pairing_record', 'already_running',
             'native_journal_invalid', 'timer_already_in_use', 'timer_handler_in_use',
             'timer_unusable', 'timer_setup_failed') else 'client_failed'
-        print('TEST045停止: ' + reason, file=sys.stderr)
+        print('TEST052停止: ' + reason, file=sys.stderr)
         return 2
     finally:
         for sig, handler in previous.items():

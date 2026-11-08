@@ -2173,3 +2173,37 @@ cd /mnt/necro_test051 && sh test_051.sh
 **「TEST-051: 終了」が出てから、runtime/test-051全体をZIPで返してください。** 途中でエラー/取消になった場合も部分フォルダだけを選ばず全体を返します。これを基に扉/地形/保護のどの条件を改善するか決める。今回の画像不足を理由に、UNKNOWN/保護/元拍/入力回数の安全条件を緩めない。
 
 今回の受領記録と回収手順は独立した制御・回収の2分析で照合し、observe区間の0.011750ms、初FLOOR撮影終了を使う時刻表現、atomic保存確定前という表現、resolved=trueでは再実行しない条件を修正した。両担当が追加の具体的誤りなしを確認。rootも保存済みコピー＋fake応答による同offset回復/画像hash/次画像への進行/start0/cancel0を再現した。変更は既存5文書だけで、build64のproduction全source・起動script・入力制御・画像回収は未変更。新規IPAや新規テスト合格を作った記録ではなく、次の実機資料を待つ工程⑦の受領・再依頼である。
+
+## TEST051再受領とTEST052の8項目プラン
+
+2026-11-08、ユーザー「今度は茶壁に当たるまで歩いて、ポーズした。ポーズ後結構待って終了した」と別のtest-051.zipを受領。new run `a2e00111a0de490783c04800f0ac20f9`、LEFT2/MOVED2・間隔521.127500ms、次UP/ordinal3未送信screen17。cap77/78のDecisionはUP/reason8/target(-2,-1)/obstacleFLOOR、79は同じUP/reason8/FLOORでtarget(0,-2)。全gold/protected集合とUP先床は不変、78→79は実Cで厳密BLOCKED dxdy0。単独反実仮想でも(-1,-1)のFLOOR→DIRTだけで目標が変わる。画像の青色比がbright_floorの境界をまたぎ、どの光源による変化かは未確定。入力は茶壁へ送信しておらず、破壊/進入は未確認。
+
+確定PNG9枚と196,608bytesのpartialはmanifest/hash/CRCに一致。hostは画像回収90秒の期限で未解決、17画像3,591,186bytesのうち2,245,690bytesを保持し27chunksが残る。43results RPCはすべて成功し計13.618秒、RPC間の未分離区間計75.114秒で保存/検証/スケジューリング等を含む。全区間をfsyncの費用と断定しない。前回の途中snapshotとは別の完了したcollectorの期限停止である。生資料/復元/解析はGit外。
+
+### TEST-052の8項目プラン
+
+1. **概要・目的**: 安全な同じ1歩の予約に対する遠方の目標位置だけの変動で止まる不具合を直す。歩行/茶壁/扉の元の意味と毎拍期限を保つ。終了後の画像回収では新client v10だけ最大4chunks/256KiBごとのcheckpointにまとめ、同じ制限内の保存回数を減らす。画像回収待ちを表示する。要件本体は不変で、全経路/商品/人より速い性能は次の実機受入へ残す。
+2. **根拠と現状**: 新実画像77/78/79を実CとPillowで再生し上記目標差を独立確認。既存continuousは完全Decision一致を要求するが、送り出す物理操作は安全床への単発cardinal入力である。beforeの保存Decisionとの完全一致は保ち、afterは同じdirection/reason/obstacleを要求し、target差を許すのは両方reason8（observed_floor_vantage）の場合だけとする。他reasonは完全Decision一致を保つ。動く目標だけを許す根拠は前後のorigin/next安全床・全gold/protected一致・厳密zero-motionと新しい公開plannerの同じactionで、将来の経路全体を承認するものではない。
+3. **詳細設計**: Controllerのcontinuous state1・lead確認済み・moves>0だけに適用。beforeの全Decisionと保存値の一致は保ち、afterのdirection/reason/obstacleを一致させ、両方reason8の場合だけtarget_x/yを1歩の権限から切り離す。他reasonのtarget差は従来通り拒否する。pending→reserve最終tickも同じactionで再検査し、その時点のDecisionを新sourceへ保存する。初歩前再計画、safe_floor（gate/茶壁への拡張なし）、全gold/protected、全73motion BLOCKED、owner/gen/前面/ロック/取消、chain2/run8/input16/event64/pin20、元target/notBefore/deadline/period/ordinal/motion期限を保つ。選択方向/理由/障害物の変更、local床/保護/金壁/未知/移動/期限違反は停止。
+4. **回収の設計・互換**: native export API/Runtime/cache/上限は不変。client v10/capv9/TEST052/runtime/test-052。v1..v8 started journalはlegacy、v9は今までの64KiBごとのcheckpointとpaged回収を保つ。v10だけ受信を最大4chunks/256KiBでまとめ、各RPC後の期限/取消と各chunkの固定metadata/base64検証は保つ。checkpointは累積fragmentをatomic保存してからoffset/prefix hashを両journalへ保存する。batch途中のRPC失敗/取消/期限では検証済みprefixを同じ規則で保存してから未完了を返す。保存失敗は再試行せず既得checkpointを保持し、確定前のcursorを進めない。image全hash/header/寸法とatomic確定、最終IO後期限/取消、unknown input未解決、GET/start0での回復は不変。各RPC8秒/attempt90秒/残180秒・wire512KiB/256KiB・PNG512KiB/20枚/計4MiBは延ばさない。表示失敗が制御/回収を壊さないよう限定する。
+5. **Red→Greenと影響試験**: 旧051の公開Cで安全床のtarget-only変化後のMOVE期待assertion Redを先に観測し、元の時刻/旧ID拒否/2方向以上とactual77–79の再生を検証する。既存target_x/y試験の仕様変更を明示し、理由/方向/障害物は独立した拒否を残す。Runtime公開C連結でもtarget driftを通るpositiveと実action比較を破るnamed faultを加える。clientは実暗号HTTPと遅い保存時計で4chunk checkpoint/保存回数と90秒内完了の旧Red→Green、batch途中の応答消失/取消/期限/atomic-save失敗/rename後crash・同offset不一致/旧v9/legacy互換・最終IO後期限を試す。既存98必須画像に今回9枚の実hash replayを加え、private fixture不足は必須失敗とCI明示除外を分ける。全Runtime48/Raster3/両C同値/暗号RPC/実compiler profilev2/IPA/22seal/完全sourceを維持。
+
+TEST052プラン第1周補足: batch renameがjournalより先に確定すると最大4chunksの未journal suffixが残る。v10の再開はその全suffixを保持し、同offsetの各chunk（特に2/3/4個目）を照合するまで上書き/切捨てしない。破損/異なる応答は拒否し、照合済みprefixだけをcheckpointする。active.jsonを回復の唯一のcursor正本とし、report.json→active.json間のcrash/保存失敗も旧activeから同じoffsetで回復する。両journalが一致するまで成功扱いしない。後続chunkの不正/応答消失・期限/取消時に先行検証済みprefixを保存し、atomic失敗は別のflushで再試行しない。検証済みprefixの一括保存自体も期限を超え得るため最終IO後の未解決判定を残す。
+
+試験補足: reason8 target_x/target_y単独の許可に加え、他reasonの同方向target-only差の拒否とbefore/保存Decisionのtarget_x/target_yを各単独で破った故障検出を維持する。after/final pendingのdirection/reasonは独立負例・実変異で検出し、obstacleのfloor固定条件は実到達性を偽らず検証する。batchのfragment rename後・report保存後active保存前・各journal失敗・最後のbatch不正chunk・2/3/4chunk目のsuffix不一致・元v9逐次保存を個別に試験する。
+
+試験レビュー補足: reason8の連続2回target driftと新Decision保存を実public Cで確認する。非reason8のtarget_x/y拒否は独立例とし、before/cached full比較の単独変異も残す。batchで1/2/3個の有効chunk後のmetadata/base64不正・応答消失・期限/取消を各々確認し、有効prefixだけがdurableになることを検査する。literal v9の非zero checkpointとv1..v8 started journalをREVISION定数から独立に用意し、v9の64KiB単位/90秒残180秒/RPC8/GET0/start0を維持する。v10は3/4/5chunk画像、短い末尾、画像境界を含め、1batchが4chunks/256KiBを超えないことを実検査する。
+
+6. **順序・担当**: 新規文脈の設計/試験/安全プランレビュー最大3周→旧公開C/clientの実assertion Red→Controller/client最小Green→host全件107画像/実画像回帰→Mac公開結合と48+新fault/両C同値/Raster/RPC/実compiler/IPA→独立実装3観点最大3周→code/IPA/全source照合→具体的TEST052実機依頼。rootがcaps/manifest/package/workflow/既存文書/統合を所有、Controller担当はC+該当host試験、client担当は回収/CLI/script+該当HTTP試験、Runtime試験担当はhelper/模擬capture。閉じた051レビューは再開しない。
+7. **保存前条件・診断**: 生画像/ZIP/report/logはGit外、必要な新fixture hash台帳と試験だけをGitへ保存。PNG9枚は独立CRC/hash確認済み、partialを完全画像へ水増ししない。host保存回数モデルはiSH速度の受入ではない。batch未確定受信とdurable cursorの区別、期限/取消/入力未解決の扱いを明記し、保存した画像を失敗後に消さない。
+8. **スコープ外・実機条件**: 任意route変更・方向/理由/障害物の変化許可、floor条件のgate/茶壁への拡張、未知を安全扱い、次拍への送替、入力/全control期限・回収上限緩和、自動購入、指輪/通知/完全loopの合格宣言はしない。Controller変更のため新IPAが必要。SideStore更新→LoopCtrl完全終了/起動→Start Server、開幕金壁の新通常1-1/画面端0/左側が下/ポーズからsh test_052.sh。初動/毎拍/茶壁や扉の開通と商品/最終pause/終了待ち時間を確認し、終了後runtime/test-052全ZIPを必ず依頼する。
+
+### TEST052実装・ホスト検証
+
+プランは新規文脈の設計第1周、試験・安全第2周でP0/P1/P2残件なし。旧公開Cのtarget_x/y変更後MOVE期待がPAUSEとなる2assertion failures/0errorsを実装前に確認してから、reason8/FLOORだけのsame_continuous_actionを導入した。before/保存Decisionは完全一致を保ち、afterとpending finalで同じactionだけを許す。原画像67の逆移動による明示的な合成lead-in→実67→77の2LEFT確認→実78/79で同UPの2再予約まで公開Cで通過。欠落している実source55を合成画像と取り違えない。他reasonのtarget x/y・beforecachedの5field・after/pendingのdirection/reason/obstacleは独立した試験/実C変異で検出した。
+
+clientの旧実暗号HTTPは512KiB画像のfragment保存が8回（期待2回）、保存時計モデル90秒以内の完了期待がhost_deadlineとなる2assertion failures/0errorsを確認してからv10 batchを実装。各chunk検証/原8秒RPC・90秒attempt・残180秒・512KiB/20枚/4MiB・復号前wire上限は不変。v9は64KiBずつ、v1..v8はlegacyを保つ。画像保存進捗を表示する。
+
+独立実装第1周はP0/P1なし、重複を除くP2は①4chunk rename後の再開を再中断すると未照合tailを切り捨てる、②補足で約束したmalformed base64/3・4chunk画像境界試験不足。①は3assertion failures/0errorsを再現し、v10はfragmentの全未照合tailをディスクにも保持しcursor/hashだけverified prefixへ進めるよう修正した。②は有効1/2/3個後のbase64不正と3/4/5chunk・短い末尾・複数画像境界を追加。新回帰と旧互換を含む関連40件、最終client170件skip0/41.011秒が成功。3担当が第2周で独立再現し全P2解消を確認し、source P0/P1/P2残件なし。Mac50/実配布物/完全archiveは同第2周の証跡補足として別途確認する。新Swift試験の存在しない診断keyは実行前レビューでcontinuous_countへ訂正しただけで、実装前挙動Redには数えない。
+
+最終nativeホスト153件は107必須画像を含めskip0/69.639秒、Controller単独91件skip0/10.634秒、patch/compiler/package/RPC検証器199件skip0/1.448秒が成功。封印22sourceを固定upstream→G1→G2の実適用で照合した。Perception/Navigation/Beat/Raster/Runtime/Ticket/Core/Controller headerとNG-G1/R12は不変、native Controller本体とcapabilityだけを変更。seal SHA `301adad0a44218f2f0f9accf3a29b0b62a9e0a691782470b4418caccf29bcc9a`。capv9も厳密compiler profilev2を必須に保ち、旧v6/v1・v7/v8/v2を維持する。実機の毎拍/茶壁・扉/商品/人より速い性能と画像回収待ちは未受入。

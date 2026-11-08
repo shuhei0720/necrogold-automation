@@ -1867,8 +1867,198 @@ func testPagedResultsPublic() {
         "paged_oversized_real_PNG_omitted_within_original_export_budget")
 }
 // TEST051 PUBLIC FIXTURES END.
+// TEST052 PUBLIC FIXTURES BEGIN.
+func testTargetDriftPlannerProof() {
+    // These exact pixels are also emitted by the public capture fake after its
+    // two actual moves. Exercise production Perception/Navigation independently
+    // of the Controller acceptance predicate and its staged mutation faults.
+    var before = NG2Scene(), after = NG2Scene()
+    let beforeBytes = NG2Fake.targetDriftRGBA(variant: 0)
+    let afterBytes = NG2Fake.targetDriftRGBA(variant: 1)
+    require(beforeBytes.withUnsafeBytes {
+        ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress, beforeBytes.count, 896*4, &before)
+    } == 0 && afterBytes.withUnsafeBytes {
+        ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress, afterBytes.count, 896*4, &after)
+    } == 0, "target_drift_real_perception_accepts_both_pixel_frames")
+    var visits = [UInt16](repeating: 0, count: 1089)
+    for y in [-2,-1,0] { visits[(y+16)*33+16] = 1 }
+    var oldChoice = NG2Decision(), newChoice = NG2Decision()
+    require(visits.withUnsafeBufferPointer {
+        ng2_choose(&before, 0, -2, $0.baseAddress, $0.count, nil, &oldChoice)
+    } == 1 && visits.withUnsafeBufferPointer {
+        ng2_choose(&after, 0, -2, $0.baseAddress, $0.count, nil, &newChoice)
+    } == 1, "target_drift_real_public_planner_returns_both_decisions")
+    require(oldChoice.direction == 3 && oldChoice.reason == 8 && oldChoice.obstacle == 1 &&
+        oldChoice.target_x == -1 && oldChoice.target_y == -1 &&
+        newChoice.direction == oldChoice.direction && newChoice.reason == oldChoice.reason &&
+        newChoice.obstacle == oldChoice.obstacle && newChoice.target_x == 1 && newChoice.target_y == -1,
+        "target_drift_both_reason8_UP_FLOOR_with_only_remote_target_difference")
+    let oldTiles = withUnsafeBytes(of: before.tiles) { Array($0) }
+    let newTiles = withUnsafeBytes(of: after.tiles) { Array($0) }
+    let oldProtected = withUnsafeBytes(of: before.protected_cells) { Data($0) }
+    let newProtected = withUnsafeBytes(of: after.protected_cells) { Data($0) }
+    require(before.state == 2 && after.state == 2 && before.gold_state == 2 && after.gold_state == 2 &&
+        before.goods == 0 && after.goods == 0 && oldTiles.indices.filter { oldTiles[$0] != newTiles[$0] } == [4*23+10] &&
+        oldTiles[4*23+10] == 1 && newTiles[4*23+10] == 4 &&
+        oldTiles.indices.filter { oldTiles[$0] == 2 } == newTiles.indices.filter { newTiles[$0] == 2 } &&
+        oldProtected == newProtected,
+        "target_drift_exact_remote_tile_and_full_gold_protected_sets_preserved")
+    var motion = NG2Motion()
+    require(ng2_motion(&before, &after, 3, &motion) == 1 && motion.kind == 2 && motion.dx == 0 && motion.dy == 0,
+        "target_drift_production_all73_motion_is_strict_BLOCKED_zero")
+}
+func testTargetDriftRevalidationCallbacksPublic() {
+    for staleFirst in [true, false] {
+        NG2Fake.reset(.walk)
+        NG2Fake.lock.lock()
+        // Start with visible gold and two safe UP moves before the tested
+        // third ticket. The static stone row makes both decisions reason8.
+        NG2Fake.walkY = 2; NG2Fake.walkGoodsEnabled = false
+        NG2Fake.targetDriftWorld = true
+        NG2Fake.lock.unlock()
+        NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+        let id = identity()
+        diagnoseFixture(id)
+        NG2RuntimeTestHooks.beforeCaptureAdmission = {
+            NG2Fake.waitForCapturePermit()
+            NG2Fake.performBoundaryClockChange()
+        }
+        alignInitialFixtureMove(id)
+        NG2RuntimeTestHooks.afterTicketReturned = { returned in
+            NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
+        }
+        NG2RuntimeTestHooks.afterCaptureDrainProcessed = { run in
+            NG2Fake.lock.lock(); NG2Fake.captureDrainedRuns.insert(run); NG2Fake.lock.unlock()
+        }
+        NG2RuntimeTestHooks.scheduleTicket = { commandID, callback in
+            let current = report(id)
+            let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+            guard let event = events.first(where: { $0["id"]?.intValue == Int(commandID) }),
+                event["kind"]?.intValue == 4 else { return false }
+            if (current["inputs"]?.intValue ?? 0) < 2 {
+                NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(id, expectedID: commandID) }
+                callback(); return true
+            }
+            NG2Fake.holdTicket(commandID, callback)
+            NG2Fake.lock.lock()
+            NG2Fake.remoteVariant = 1
+            if NG2Fake.heldTickets.count >= 2 { NG2Fake.captureLimit = NG2Fake.requests }
+            NG2Fake.lock.unlock()
+            return true
+        }
+        require(call("necro_native_start", id).1 == nil, "target_drift_revalidation_public_start")
+        pump("target_drift_revalidation_two_MOVED_then_replacement", timeout: 15) {
+            let current = call("necro_native_status", id, keepalive: true).0?["report"]?.objectValue ?? [:]
+            NG2Fake.lock.lock(); let count = NG2Fake.heldTickets.count; NG2Fake.lock.unlock()
+            return count >= 2 || current["terminal"]?.intValue == 1
+        }
+        let current = report(id)
+        let moves = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+        require(current["inputs"]?.intValue == 2 && current["moves"]?.intValue == 2 && moves.count == 4,
+            "target_drift_revalidation_follows_two_actual_confirmed_moves")
+        require((current["captures"]?.arrayValue ?? []).allSatisfy {
+            guard let capture = $0.objectValue, let start = capture["start_ns"]?.intValue,
+                let end = capture["end_ns"]?.intValue else { return false }
+            return end-start == 2_000_000
+        } && abs((current["beat_period_ns"]?.intValue ?? 0)-520_000_000) < 5_000_000,
+            "target_drift_fixture_HUD_and_capture_midpoint_share_fixed_clock")
+        let old = moves[2], replacement = moves[3]
+        let oldID = UInt64(old["id"]!.intValue!), newID = UInt64(replacement["id"]!.intValue!)
+        require(old["outcome"]?.intValue == 3 && old["begin_ns"]?.intValue == 0,
+            "target_drift_revalidation_old_reservation_definitely_unsent")
+        require(["target_ns", "not_before_ns", "deadline_ns", "ordinal", "direction", "x", "y"].allSatisfy {
+            old[$0] == replacement[$0]
+        } && old["source_capture_id"] != replacement["source_capture_id"],
+            "target_drift_revalidation_same_step_and_original_window")
+        let changes = (current["scene_changes"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        let details = (current["scene_change_details"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        require(changes.count == 1 && changes[0]["command_id"]?.intValue == Int(oldID) &&
+            changes[0]["deadline_ns"] == old["deadline_ns"] && changes[0]["replan_allowed"]?.boolValue == true,
+            "target_drift_revalidation_current_ticket_deadline_diagnostic")
+        require(details.count == 1 && details[0]["command_id"]?.intValue == Int(oldID) &&
+            details[0]["validation"]?.intValue == 2 && details[0]["continuous_count"]?.intValue == 1 &&
+            details[0]["chain_count"]?.intValue == 1 &&
+            details[0]["cells"]?.arrayValue?.count == 1 && details[0]["omitted_cells"]?.intValue == 0,
+            "target_drift_revalidation_actual_detail_producer")
+        let cell = details[0]["cells"]!.arrayValue![0].objectValue!
+        require(cell["x"]?.intValue == -1 && cell["y"]?.intValue == -1 &&
+            cell["tile_before"]?.intValue == 1 && cell["tile_after"]?.intValue == 4 &&
+            cell["protected_before"]?.intValue == 0 && cell["protected_after"]?.intValue == 0,
+            "target_drift_public_commit_is_exact_floor_to_dirt_proof_cell")
+        require(pagedCall(id).1 != nil, "target_drift_live_callbacks_deny_manifest")
+        func releaseOld() {
+            var finalEntries = 0, queries = 0
+            let touches = NG2Fake.countTouches()
+            NG2RuntimeTestHooks.beforeMainAuthority = { finalEntries += 1 }
+            NG2Fake.lock.lock(); NG2Fake.frontPID = 0; NG2Fake.beforeForegroundQuery = { queries += 1 }; NG2Fake.lock.unlock()
+            NG2Fake.releaseTicket(oldID)
+            pump("target_drift_stale_callback_actually_returned") {
+                NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
+                return NG2Fake.returnedTickets.contains(oldID)
+            }
+            require(finalEntries == 0 && queries == 0 && NG2Fake.countTouches() == touches,
+                "target_drift_old_command_skips_authority_and_touches")
+            require(report(id)["dispatch_failure"] == .null, "target_drift_old_command_does_not_publish_failure")
+            NG2RuntimeTestHooks.beforeMainAuthority = nil
+            NG2Fake.lock.lock(); NG2Fake.frontPID = 42; NG2Fake.beforeForegroundQuery = nil; NG2Fake.lock.unlock()
+        }
+        if staleFirst {
+            releaseOld()
+            let after = report(id)
+            require(after["current_command_id"]?.intValue == Int(newID) && after["input_state"]?.intValue == 1 &&
+                after["main_ticket_outstanding"]?.boolValue == true && !drained(id) && NG2Fake.paths().count == 2,
+                "target_drift_old_return_keeps_public_replacement_reservation")
+        }
+        NG2RuntimeTestHooks.beforeMainAuthority = {
+            admitFirstFixtureMove(id, expectedID: newID) { _ in
+                NG2Fake.lock.lock(); NG2Fake.walkGoodsEnabled = true; NG2Fake.lock.unlock()
+            }
+        }
+        NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
+        NG2Fake.releaseTicket(newID)
+        if staleFirst {
+            pump("target_drift_replacement_callback_actually_returned") {
+                NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
+                return NG2Fake.returnedTickets.contains(newID)
+            }
+            // The public C reservation alone cannot expose Swift callback
+            // ownership. Its actual callback must retain authority to send B.
+            require(report(id)["inputs"]?.intValue == 3 && NG2Fake.paths().count == 3,
+                "target_drift_old_return_keeps_replacement_ownership")
+        }
+        pump("target_drift_replacement_third_input_and_terminal", timeout: 10) {
+            _ = call("necro_native_status", id, keepalive: true)
+            return report(id)["terminal"]?.intValue == 1
+        }
+        let terminal = report(id)
+        let finalMoves = (terminal["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+        let sent = finalMoves.first { $0["id"]?.intValue == Int(newID) }!
+        require(terminal["inputs"]?.intValue == 3 && NG2Fake.paths().count == 3 &&
+            (sent["begin_ns"]?.intValue ?? 0) >= old["not_before_ns"]!.intValue! &&
+            (sent["begin_ns"]?.intValue ?? Int.max) <= old["deadline_ns"]!.intValue!,
+            "target_drift_replacement_sends_at_most_once_in_original_window")
+        if !staleFirst {
+            pump("target_drift_capture_worker_returned_before_stale_callback") {
+                NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
+                return NG2Fake.captureDrainedRuns.contains(id)
+            }
+            require(!drained(id) && runtime.hasLease && pagedCall(id).1 != nil &&
+                call("necro_native_start", identity()).1 != nil,
+                "target_drift_stale_callback_retains_lease_and_blocks_manifest")
+            releaseOld()
+        }
+        pump("target_drift_all_actual_callbacks_drained") { drained(id) }
+        require(report(id)["paused"]?.intValue == 1 && report(id)["cancel_requested"]?.boolValue == false &&
+            NG2Fake.paths().count == 3 && pagedCall(id).1 == nil,
+            "target_drift_safe_terminal_export_after_every_callback_returns")
+        fixtureFailureSnapshot = nil
+    }
+}
+// TEST052 PUBLIC FIXTURES END.
 testContinuousRevalidationCallbacksPublic()
 testPagedResultsPublic()
+testTargetDriftPlannerProof()
+testTargetDriftRevalidationCallbacksPublic()
 
 NG2Fake.reset(.pause)
 NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()

@@ -728,9 +728,11 @@ class NativeResultsTests(TimerTestCase):
             with self.subTest(missing=key), self.assertRaisesRegex(ProbeError,'invalid_native_report'):
                 native._report(dict(base, scene_changes=[missing]))
 
-    def test_old_v1_to_v7_capabilities_cannot_start_the_new_client(self):
+    def test_old_v1_to_v8_capabilities_cannot_start_the_new_client(self):
         for tags in ([], ['necrogold_native_v1'], ['necrogold_native_v2'], ['necrogold_native_v3'],
                      ['necrogold_native_v4'], ['necrogold_native_v5'], ['necrogold_native_v6'], ['necrogold_native_v7'],
+                     ['necrogold_native_v8'],
+                     ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4','necrogold_native_v5','necrogold_native_v6','necrogold_native_v7','necrogold_native_v8'],
                      ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4','necrogold_native_v5','necrogold_native_v6']):
             with self.subTest(tags=tags), tempfile.TemporaryDirectory() as folder, \
                     NativeServer(finish=True, capabilities=tags) as server:
@@ -751,8 +753,8 @@ class NativeResultsTests(TimerTestCase):
             self.assertEqual(['/schema'], server.schema_calls)
             self.assertEqual([], server.calls)
 
-    def test_fresh_native_v8_capability_starts_exactly_once(self):
-        tags = ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4','necrogold_native_v5','necrogold_native_v6','necrogold_native_v7','necrogold_native_v8']
+    def test_fresh_native_v9_capability_starts_exactly_once(self):
+        tags = ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4','necrogold_native_v5','necrogold_native_v6','necrogold_native_v7','necrogold_native_v8','necrogold_native_v9']
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, capabilities=tags) as server:
             record = self.execute(server, folder)
             self.assertTrue(record['resolved'])

@@ -592,7 +592,7 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
         self.assertGreaterEqual(pairs,25)
 
     def test_required_test049_navigation_strict_optimization_parity(self):
-        """98 known images and all 15 new FLOOR pairs; no speed extrapolation."""
+        """107 known images and all 15 TEST049 FLOOR pairs; no speed extrapolation."""
         from test_native_perception import NativePerceptionTests, NativeScene
         manifest = json.loads((ROOT / 'tests/test050-fixtures.json').read_text())
         self.assertEqual(('ngg2-test050-fixtures-v1', 11), (manifest['schema'], manifest['count']))
@@ -705,7 +705,7 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
                         reference = canonical(nav.scan(image)) if scene.state == 2 else None
                         raw = bytes(scene.signature)
                         views[raw] = view(scene)
-                        if filename == 'test050-fixtures.json':
+                        if filename in ('test050-fixtures.json', 'test052-fixtures.json'):
                             self.assertEqual({'path', 'sha256', 'bytes', 'capture_id', 'state', 'goods', 'stable'}, set(entry))
                             for key in ('bytes', 'capture_id', 'state', 'goods'):
                                 self.assertIs(type(entry[key]), int)
@@ -717,7 +717,7 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
                             self.assertEqual(0, old.ng2_analyze_rgba(rgba, len(rgba), 3584, C.byref(unchanged)))
                             self.assertEqual(bytes(unchanged), bytes(analyzed), 'new Perception full Scene parity')
                             counts['new_perception'] += 1
-                            if scene.state == 2:
+                            if scene.state == 2 and filename == 'test050-fixtures.json':
                                 new_floors[entry['capture_id']] = scene, reference
                         for position in ((0, 0), (-1, 0)):
                             for visited in (False, True):
@@ -744,8 +744,69 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
                         pair(a, b, before, after)
         finally:
             NativePerceptionTests.tearDownClass()
-        self.assertEqual({'images': 98, 'new_perception': 11, 'views': 98, 'scores': 113,
-                          'ng2_choose': 392, 'ng2_motion': 452, 'ng2_entered_gate': 3616}, dict(counts))
+        self.assertEqual({'images': 107, 'new_perception': 20, 'views': 107, 'scores': 122,
+                          'ng2_choose': 428, 'ng2_motion': 488, 'ng2_entered_gate': 3904}, dict(counts))
+
+
+    def test_required_test051_target_drift_and_strict_parity(self):
+        """Known raw replay under both profiles; no new classifier thresholds."""
+        from test_native_perception import NativePerceptionTests
+        manifest = json.loads((ROOT/'tests/test052-fixtures.json').read_text())
+        self.assertEqual(('ngg2-test052-fixtures-v1', 9), (manifest['schema'], manifest['count']))
+        self.assertEqual('8227fa10433a458bd5f945cbf7bb953f6d2fe76ab8a2daa07181b1890dcf020c', manifest['source_zip_sha256'])
+        self.assertEqual('7ced44081507e544e997e545510b6a2ce849236d40271ba89cbcb63e79af079a', manifest['source_report_sha256'])
+        NativePerceptionTests.setUpClass()
+        try:
+            perception = NativePerceptionTests()
+            scenes, references = {}, {}
+            for filename, entry, path in required_profile_fixtures():
+                if filename != 'test052-fixtures.json':
+                    continue
+                with Image.open(path) as source:
+                    image = source.convert('RGB')
+                analyzed = perception.assert_reference(image)
+                self.assertEqual((entry['state'], entry['goods']), (analyzed.state, analyzed.goods))
+                self.assertEqual(entry['bytes'], path.stat().st_size)
+                scenes[entry['capture_id']] = Scene.from_buffer_copy(bytes(analyzed))
+                references[entry['capture_id']] = nav.scan(image)
+            self.assertEqual(9, len(scenes))
+            visits = (C.c_uint16*1089)()
+            for x in (0, -1, -2):
+                visits[16*33+x+16] = 1
+            decisions = {}
+            for capture, expected in ((77, (3,8,-2,-1,1)), (78, (3,8,-2,-1,1)), (79, (3,8,0,-2,1))):
+                scene = scenes[capture]
+                decision = Decision()
+                self.assertEqual(1, self.lib.ng2_choose(C.byref(scene), -2, 0, visits, 1089, None, C.byref(decision)))
+                decisions[capture] = decision
+                self.assertEqual(expected, tuple(getattr(decision, field) for field, _ in Decision._fields_))
+                reference = nav.choose(references[capture], (-2,0), {(x,0):1 for x in (0,-1,-2)})
+                self.assertEqual(('up', 'observed_floor_vantage', expected[2:4]),
+                                 (reference['direction'], reference['reason'], reference['target']))
+            self.assertEqual(bytes(scenes[78].protected_cells), bytes(scenes[79].protected_cells))
+            self.assertEqual([i for i,k in enumerate(scenes[78].tiles) if k == 2],
+                             [i for i,k in enumerate(scenes[79].tiles) if k == 2])
+            for a,b in manifest['motion_pairs']:
+                before, after = scenes[a], scenes[b]
+                old = nav._motion_view(bytes(before.signature))[0]
+                new = nav._motion_view(bytes(after.signature))[0]
+                expected_scores = nav._pillow_motion_scores(old, new)
+                actual = (C.c_double*73)()
+                self.lib.ng2_test_scores(bytes(before.signature), bytes(after.signature), actual)
+                for value, (expected, _, _) in zip(actual, expected_scores):
+                    self.assertAlmostEqual(expected, value, places=12)
+                for direction in nav.DIRECTIONS:
+                    motion = Motion()
+                    self.assertEqual(1, self.lib.ng2_motion(C.byref(before), C.byref(after), DIRS[direction], C.byref(motion)))
+                    with patch.object(motion_stats, 'scores', side_effect=lambda *_: list(expected_scores)):
+                        expected = nav.motion(references[a], references[b], direction)
+                    self.assertEqual(MOTIONS[expected], motion.kind)
+                if (a,b) == (78,79):
+                    motion = Motion()
+                    self.assertEqual(1, self.lib.ng2_motion(C.byref(before), C.byref(after), 3, C.byref(motion)))
+                    self.assertEqual((2,0,0), (motion.kind, motion.dx, motion.dy))
+        finally:
+            NativePerceptionTests.tearDownClass()
 
 
 if __name__ == '__main__':
