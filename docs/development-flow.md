@@ -1,5 +1,9 @@
 # 採用するAI駆動開発フロー
 
+TEST050のLEFT2後の未送信scene差停止と画像回収失敗を受け、TEST051の既存台帳8項目プランへ戻った。fresh-context設計/試験/安全を第2周で閉じ、旧公開Cの2MOVED後再予約期待・固定050 Runtimeの公開manifest要求・実暗号clientを実装前assertion Redで確認してから変更した。元の拍と安全条件を保つ予約更新、限定された分割結果回収、client v9/capv8を実装し、host/CIと[Mac CI42445994987](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987)でRuntime48/Raster3/両C同値・実compiler/RPC/IPA build64を通過した。実装第1周の取消/保存後期限・世代cache・独立route target試験を修正し、第2周のsource指摘は0。試験用HUDとcapture midpointの時計ずれ、固定時計でのquery起点変異の検出不足は、試験だけを直して元の全fault期待を維持した。実配布物と410sourceの同第2周照合は既存台帳末尾へ記録する。工程⑦として新IPA/完全sourceと具体的TEST051を必ず依頼し、実機の毎拍/人より速い動作・全周回の受入と受領後の工程⑧は続く。
+
+TEST050提出時の適用履歴:
+
 TEST049の左1歩確認後の次拍期限超過を受け、TEST050へ反復した。既存台帳の8項目プランをfresh-context設計/試験/安全各2周でclose。固定旧49の実生成PBXのNavigation flags欠落と旧Runtimeの公開observe_start欠落をMac named assertion Redで確認してから実装した。Navigationだけ追加strict O2、commit成功gate内C直前の固定時刻、clientv8/capv7とし、C算法/入力期限は維持する。host native130/all98必須画像・client130・patch193成功、[CI42430281026](https://github.com/shuhei0720/necrogold-automation/actions/runs/42430281026)で実PBX/raw compiler/profilev2・AppleClang両C同値/field変異・Runtime32/Raster3/RPC・IPA build52を通過した。先行51の無関係な準備時計の失敗はtest-onlyのshared logical clockで直し、元deadlineと全fault期待は維持した。独立実装3観点は第2周で実配布物/完全408sourceまで照合して閉じ、具体的TEST050実機依頼へ進む。毎拍/人より速い性能と全周回の受入・工程⑧は次の実機証拠まで未完了。
 
 TEST049提出時の適用履歴:

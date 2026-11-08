@@ -2088,3 +2088,58 @@ nativeは画像12件/必要参照10件を保持したが、resultsはHTTP1.26883
 TEST051プラン第1周の試験レビュー補足（P1×1/P2×2を解消する契約）: 新manifest512KiB/chunk256KiBのwire上限は復号後の検証だけにせず、NativeClient固有のbounded transportで既存HttpTransport._exchangeのlimit引数へ渡す。Content-Length超過はbody読取り前、長さなしはlimit+1のbounded readでJSON/auth/response decrypt前に拒否する。共有protocol/PRFとlegacy12MiBは不変、start前guardを保ちtransportはfinallyで復元する。実暗号HTTPで上限/上限+1・Content-Length有無・truncationを試し、oversize時はrequest encrypt1/response decrypt0・failure stage HTTP・既得file/cursor不変・未解決を確認する。失われたchunk応答およびfragment/image atomic rename後checkpoint前のcrashは同じrun/export/capture/offsetを再要求して同一bytesを受け取れる。確定済みoffsetを二重加算せず、同一offsetの不一致bytesは拒否し、回復中GET0/start0を実証する。Runtime公開結合では2MOVED後callback Aを保留してBへ更新し、AをBの実行前/後に返す両順序でA touch0/B所有権保持/B最大1回かつ元window内を検査する。Aの実returnまでdrained false/results manifest拒否を保ち、command-idとreturn-bookkeepingの実callsite変異をnamed assertionで検出する。
 
 TEST051プランレビューは設計・試験・安全が新規文脈で第2周までにP0/P1/P2残件なしで終了。試験第1周のHTTP復号前上限/再試行とcheckpoint/旧callbackの3件を上記補足へ取り込み、第2周で全解消を確認した。Controller担当は実装前の旧公開Cで2回のMOVEDを確認し、3歩目の安全なscene変化後にMOVEを期待して実際PAUSEとなる1 assertion failure/0errorsを観測した。Runtime export producerは別途旧050のMac public manifest assertion Redを観測するまで変更を保留する。
+
+TEST051実装前Redの実測: 固定050 commit `53f722c6d925e0df5c84d377acc59b2e32cf8135` のC4本/headers/Ticket/Raster/Runtimeを取り出した[Mac CI42437886597](https://github.com/shuhei0720/necrogold-automation/actions/runs/42437886597)は、公開APIでterminal/drained後のmanifest要求を実行し、`FAIL MISSING_paged_results_manifest`・compiled true/returncode1/stderr空を確認した。Runtime SHA `1938af7edd09a6b6689363cd9ad03d93148425e56256a2dc18bcab3b973115ab`。診断artifact13600287500は368,543bytes/SHA `ea4fe4f83de443501b250cb33e9d61adc553d3fc38e1695702feb0c0dab67fc8`、全CRC/安全なinventoryを照合済み。旧production変更前のclientも実暗号HTTPでmanifest/chunkを期待して実際legacy modeとなる1 assertion failure/0errorsを確認した。packageは新capv8の受入期待が1assertion失敗/0errors→最小修正後28件成功。これらを観測してから各producer/client実装へ進め、compile/準備失敗でRedを代用しない。
+
+### TEST051実装・ホスト検証とレビュー第1周
+
+- Controllerは旧公開Cの実Redから最小Greenへ進め、入力/移動確認後の未送信予約だけを更新する。初歩前2回とは別に同一chain2/run8まで、全original target/notBefore/deadline/period/ordinal/motion期限を維持する。全gold/protected集合・安全床・完全Decision・全73候補の厳密BLOCKEDを要求する。別detailは3×4セル/固定enum0..11/最大省略226、既存Status192/Event128/Scene23864のABIは不変。
+- native144件は全98必須画像を含めskip0成功（60.498秒）。その後、既存83から独立target_x/target_y/reasonの3件を加えたController全86件もskip0成功（8.378秒）、各比較だけを削除した実C変異は対応のnamed assertion1failure/0errorsを検出した。obstacleは両nextがFLOORという適格条件で1に固定されるので、独立した実到達差分と偽らない。C本体/headerは144件検証後から全bytes不変、Perception/Nav/Beat/Raster/Ticket/NG-G1/R12全40も不変。
+- manifest/chunkは既存優先順・最大20画像/各512KiB/計4MiBを保ち、同一current runのterminal/drained/認証owner/世代を毎回前後で確認する。cache PNG4MiBは並行build拒否、cached manifestはmetadataのみ、chunkは独立64KiBだけをlock外へ出し、旧replyがcache全体を保持しない。newrun時に旧rawとencoded storageを解放する。legacy default/旧journalv1..v8も維持する。newv9/capv8だけ分割modeを使用する。
+- 共有HTTP/client156件はskip0成功（34.768秒）。[CI42439016061](https://github.com/shuhei0720/necrogold-automation/actions/runs/42439016061)も同commit `2f8db48033e95b127215c2dbc3803fdb25eaa83b` で156件成功/skip0（35.453秒）。artifact13600956587は4,700bytes/SHA `06d0ff414f66693945e84ed09ca2fa8ff459fcd72c42bb16d7c0ba7e038af2e6`、全CRC・実logを照合済み。新26件はHTTP復号前wire上限・応答消失/atomic rename/checkpoint前crashと同一offset再開/異なるbytes拒否・PNG実hash/header・旧互換/最大node10000・input_state4未解決維持・固定detail/取消/期限を含む。shared protocol/PRF/crypto sourceは不変。
+- 各RPC8秒/manifest512KiB/chunk256KiB wireを保ち、newpaged read-only回収はattempt90秒かつ開始から180秒の残枠へclampする。既存host185秒/有限cleanup/legacyの期限は変更しない。取消がexport開始後に新たに発生した場合は次のchunk前/最終保存後で停止し、native cancel/GET/startを追加せず既得files/cursorを保持する。最終I/Oの後にも期限/取消を再確認し、遅く完了した保存を成功へ読み替えない。OSのfsyncや暗号処理の即時割込みを保証するものではない。
+- 新規文脈の実装第1周は設計/安全/試験でP0/P1なし、重複を除くP2は①古い世代の応答が新cacheを消す、②最後の保存後のaggregate期限、③回収中に新しく発生したhost取消、④route target比較の独立試験不足。①はlive cache失効とcaller世代拒否を分離し公開nested cancel/新manifest/旧replyの試験を追加。②③は各2assertion failures/0errorsからGreen、最終journalの保存後も別2assertion Red→Greenを確認。④は上記3公開ケースと実比較単独変異で補強した。terminal OSErrorがcancelを送る疑いは既存cancel_confirmed guardで実際cancel0と再開成功を確認し撤回、Green回帰だけを追加した。旧fault期待を弱めない。
+- [Mac CI42438516769](https://github.com/shuhei0720/necrogold-automation/actions/runs/42438516769)の公開2MOVED→A/B両return順と分割画像回収は成功。snapshot `50ad3c31d4136f7f96b5448dd02a5ac1e0a424b1` / Runtime SHA `7d91218f93228424fcd4742d8a7a5f46a0ab7adf37354725c231890104e3f387`、artifact13600154294は414,644bytes/SHA `33e211f7f7ceff3c56857face700da2fbfca4f44bf78461243b0527f0a36c8b9`、CRC/compiled trueを照合。最新版の追加cache世代/旧storage/24保持→20選択は、これから最終Macの既存32+新16=48実callsite変異で検証する。
+- patch/compiler/package198単体はskip0成功（1.332秒）、固定upstream→G1→G2を実適用して封印22sourceと一致。seal SHA `6462668217cc00b9fd9f45aad5e560da6bd8f5d8ac9ea09a298b88bc083a9a81`、newcapv8もprofilev2必須、oldv6はv1必須を維持。packageの旧mutation selectorが旧if形に依存した準備失敗は実read_compile_profile呼出nodeを選ぶよう試験だけ直し、oldv6/newv8の実callsite除去をともに検出した。clientの初期saveを誤って進めたclock fixtureはmanifest受領後の意図した保存だけを対象に直した。これらの準備/fixture失敗を機能の実装前Redと数えない。
+
+最終code/実IPA/全410tracked source・実compiler proof・実装第2周照合は以下へ記録する。毎拍/人より速い動作、指輪/通知/全周回/耐久の受入は次の実機証拠まで未完了。
+
+### TEST051試験時計の再現性と最終検証
+
+先行build55は実IPAコンパイルとprofilev2を通過したが、新公開結合の2MOVED準備で停止した。模擬HUDをrequest入口に描き、17〜70ms後のPNG完成をcapture終端としていたため、sample midpointに偏りが生じた。初期period517.102679msから519.664316msへ動き、次予約notBeforeが元deadlineを5.648113ms超えたのでCの停止は正しかった。別の旧歩行fixtureも85captureを受理してもfitせず5.006秒のheartbeatで停止した。全12の歩行setupだけを同じ模擬clockへそろえ、capture前80ms/終端2ms/HUD1ms midpoint、明示的なtarget/期限交差は自動進行より優先する。独自motion clockと非歩行watchdogの実時間を保ち、実C/Raster/判定・全fault期待は変えない。独立した追加clock監査でもP0/P1/P2なし。
+
+quick58はproduction全結合と先行4変異を通過した後、query起点を終端に取り違える変異がforegroundのゼロ長模擬queryでは検出されず、後のauthority_staleで検出された。元のforeground named assertionを保つため、模擬foreground queryに明示1µsと正の区間assertionを加えた。これらのfixture/検出位置の不具合はアプリ不具合や実装前Redに数えない。最終production全結合と全48変異の証拠を以下へ固定する。
+
+59では既存32変異と新規command-id変異まで目的のassertionを検出した。新規return-bookkeepingの変異は後段の実送信で検出されたが、Cの予約ID表示だけではSwift側の実行権限の消失を直接観測できなかった。対象を未送信/retired Aだけへ絞り、Bの実callback返却とinputs3/paths3を待つ検査を元のownership named assertionへ加えた。60で新規先行5件が通過し、current-run変異がowner失効時のcache解放も同時に省いて別のassertionで検出されることを確認。current不一致時だけを破る変異へ絞り、owner/世代の副作用を維持した。これらは試験故障の帰属を明確にする補強で、Controller/Runtime本体と22source sealは不変。61（CI42443431141）は新規公開Greenと全16実callsite変異を目的のassertionで検出した。artifact13601988394は6,085,052bytes/SHA `db485fac79f246a4c4de8755216b2c0cc52323a4cfe107ac98733f7644565cc0`、全CRC/compiled true/baseline0/new16を照合済み。最終defaultの全48件は以下で改めて確認する。
+
+62は正常結合と先行7変異まで通過したが、stale-entry変異より前の既存subtile試験で35px画像が3回先行して停止した。模擬producerがCのUNKNOWN1回目のcache公開前に次画像を描く競合だった。subtileだけ、前画像が公開capture一覧に入り、stableかつmatching-prefixの時はC.last_capture_idにも反映されるまで最大2秒待つ。仮想時計は進めず、破棄してよい旧prefix/unstable画像と明示clock境界は待機対象から外す。UNKNOWN→MOVED/入力1回/元ACK/画像pinningと既存stale-entry変異は変更しない。63（CI42445617709）の全正常結合と当該実変異は目的のassertionで成功。artifact13604005380は1,139,651bytes/SHA `b2fff75d869fa1c3c157ce534145d9d2275c0457ddd5d4bc9dace17e3044e89c`、全CRC/compiled true/baseline1/new0を確認した。
+
+実装第2周の3観点は試験fenceとCI順序の変更も確認し、P0/P1/P2なし。sealed apply・生成PBXの検査後に既存全48/Raster/C同値・Kit/RPCを先に実行し、合格後にIPAを生成する。各stepの実行本体は維持し、RPC変異はfinallyで元sourceへ復元する。実アプリ生成後のraw compiler profileとpackage/seal照合は引き続き必須。host helperの宣言flagsと実Clang引数は最終照合で結ぶ。標準のmacos-26/ubuntu-latestを維持し、リポジトリはユーザーの変更によりpublicになっている。
+
+- code `01a4ea3cae83dfb3886e2b209ed0bd0639ea4766` / [CI42445994987](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987) / build64。Mac単体198件、実生成PBX/実Clang、Perception/Navigation O0参照との全構造/score/field同値と実変異、Runtime公開全結合/48実callsite変異、Raster凍結全画素/3変異、daemon drain、既存LoopCtrlKit、実暗号RPC owner-callsite変異、IPAが成功。UIKit/XCTest/daemonはhostのfakeであり、iPhoneの動作受入とは区別する。
+- [新IPA ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987/artifacts/13604925448) は17,784,126bytes/SHA `8500161e7f1826c5d9fa3d92ffaaa0013677fbad258e518f65b9be59867d85b4`。内部`upstream/release/LoopCtrl.ipa`はbundle `top.ebato.loopctrl` / 0.3.4 / build64 / SHA `901e1376a7f41648d3fbedc9944fcc68565134abdf37a750b2e862d2801ba145`。外ZIP/内部IPAの全CRC正常、nested runner/CLIあり、mobileprovisionなし。seal `6462668217cc00b9fd9f45aad5e560da6bd8f5d8ac9ea09a298b88bc083a9a81` と全22source/driver/upstream/patchが一致する。
+- [Mac/ビルド検証ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987/artifacts/13604586762) は325,864bytes/SHA `e7ecf49e049ea978f17e93d2a4facb5e5f2d8c768bbe66d1899dd193ccb2801e`。実PBXとraw compiler log/保存response/実引数を結び、Perception/Navigation各1 strictO2/no-fast-math/fp-contract-off、Beat/Controller O0、Swift5モジュールOnoneを確認。packageとprofilev2、source/hashが一致。oldcapv6はprofilev1/newv7/v8はv2必須を保つ。実arm64 app/runnerにAPI1.98.14-ngg2/native_v8、全9 Mach-OでHOST hook/fixture/spy非混入を確認。
+- host native144件は全98必須画像を含めskip0/60.498秒で成功し、追加後Controller86件はskip0/8.378秒で成功。C body/headerはこの間不変。最終CI native137件はprivate10件を明示除外しskip0/18.061秒で成功。[証跡artifact13603732091](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987/artifacts/13603732091) は4,141bytes/SHA `eba110d1ac6beedaccba2fd5c2883494cf3d23b43f15c44522628e53683fa964`、CRC/実logを照合した。client156件のhost/CI証拠は上記42439016061と同じ全bytes、最終codeでも不変。
+- 独立実装第2周のsourceレビューは設計/試験/安全でP0/P1/P2残件なし。設計が元の取消/保存後期限の再現を実行して拒否/既得保存を確認し、試験がController86/paged26と3比較単独変異を独立実行した。code archive845aec4の410/410全bytesはroot/3観点がCRC・安全なinventory/SHAまで独立一致。以下の既存5文書だけを更新し、実IPA/全22source/実compiler/48変異と最終doc込み410sourceの照合を同第2周で閉じる。実機毎拍/速度/指輪/通知/全周回/耐久は未受入。
+
+## TEST-051実行手順
+
+**TEST051の実機テストをお願いします。** clientは`native-walk-v9` / API `1.98.14-ngg2` / `necrogold_native_v8`が必要です。Controllerと画像回収APIを変更したので新IPAが必要です。
+
+1. SafariでGitHubにログインし、[新IPA build64 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987/artifacts/13604925448)をダウンロード・展開します。
+2. LoopCtrlでStop Server→完全終了し、SideStoreでZIP内の`LoopCtrl.ipa`へ更新。LoopCtrlを開き直してStart Serverを押し、いつものVPN/ディスクイメージ接続を確認します。
+3. この配布版の完全ソースZIPをSafariで取得して展開します。以下のフォルダ選択では、`test_051.sh`があるフォルダを選びます。
+4. 手動クイックリスタート後、開幕に金壁が見える新しい通常1-1を、画面端操作0・左側が下の向きでポーズします。
+5. iSHで以下を実行します。
+
+```sh
+mkdir -p /mnt/necro_test051
+mount -t ios . /mnt/necro_test051
+cd /mnt/necro_test051 && sh test_051.sh
+```
+
+ゲームがポーズした後も画像回収が続くことがあります。「TEST-051: 終了」が出てから、`runtime/test-051`全体をZIPで返してください。**動き出し・3歩目以降も毎ビート連続して歩くか・商品が見える位置まで進むか・最後のポーズ**を教えてください。別の試験を同時実行しないでください。
+
+画像回収だけが未完了なら、同じLoopCtrlの起動状態・同じソースフォルダを保ったまま`sh test_051.sh`を再実行します。保存した同一run/export/capture/offsetから、status/resultsだけで再開し、GET/startを再送しません。未確定の入力を成功扱いする機能ではありません。旧050の失われた画像を復元する機能でもありません。
+
+**この新IPAと完全sourceからTEST051を依頼し、runtime/test-051全ZIPと初動/毎拍/商品/最終pauseの実機結果で次の改善を判断します。**

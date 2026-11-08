@@ -2,16 +2,16 @@
 
 iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に金壁が見える回の金商人の商品を高速に確認し、目的の「呪いの指輪」の候補で停止するためのプロジェクトです。
 
-**現在の版はTEST-050です。** TEST049は左1歩を認識できましたが、画像認識後の確認処理が次拍の期限を超えて停止しました。既存の画像認識に加え、移動・経路判定のCファイルも最適化してコンパイルします。判定基準と拍の期限は保ち、実際のC呼出開始時刻を記録して次回の処理時間を分離します。アプリ内を変更するため、**TEST050の新IPAへ更新してください。** clientはAPI `1.98.14-ngg2`とcapability `necrogold_native_v7`を必要とします。[TEST050実行手順](docs/device-tests/README.md#test-050実行手順)と検証結果は既存実機台帳末尾を参照してください。毎拍1歩と人より速い動作の実機受入は未合格です。
+**現在の版はTEST-051です。** TEST050はLEFT2/MOVED2・入力間隔515.147667msを確認したが、3歩目は未送信予約中のtile-only変化でreason17停止。PNG回収はresponse_cryptoのrpc_deadlineで0枚だった。TEST051は安全床・同じ金壁/全保護/完全Decision・厳密BLOCKEDを再確認できた未送信予約だけを元の同じ拍と期限で更新し、画像は64KiBずつ回収する。 制御と画像回収APIを変更するため、**新IPA build64へ更新してください。** client v9はAPI `1.98.14-ngg2` とcapability `necrogold_native_v8`を必要とします。[TEST051実行手順](docs/device-tests/README.md#test-051実行手順)を参照してください。毎拍1歩と人より速い動作の実機受入は未合格です。
 
-[新IPA build52 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42430281026/artifacts/13597543717)は、実コンパイル設定・判定同値・入力と停止の結合試験・暗号通信・パッケージ照合を通過しました。完全ソース408ファイルと配布物の証拠は[既存実機台帳](docs/device-tests/README.md#test-050実行手順)末尾に保存します。
+[新IPA build64 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987/artifacts/13604925448)は、実コンパイル設定・入力/停止の公開結合と48実callsite変異・暗号通信・パッケージ照合を通過しました。完全ソース410ファイルと配布物の証拠は[既存実機台帳](docs/device-tests/README.md#test-051実行手順)末尾に保存します。
 
 前版TEST-042は商品表示・最終ポーズに成功しましたが、速度は未合格でした。report開始→初入力23.831秒（04118.587秒）、walk26.229秒（04121.874秒）。拍の再同期で7.329秒、扉前の再観測で4.701秒の空白があり、full撮影＋解析だけで約1.25秒かかりました。[実機結果と原因](docs/device-tests/README.md#test-042受領結果2026-11-07-日本時間)を残し、この観測待ちを短縮するためNG-G2へ進んでいます。配置差があるため全時間差を変更の効果とはしません。
 
 - [計測ツールの使い方と結果の見方](docs/p1-probe-guide.md)
-- **TEST-050の実機確認をお願いします。** [実行手順](docs/device-tests/README.md#test-050実行手順)で新IPAへ更新し、LoopCtrlを完全終了/起動してStart Serverを確認します。開幕に金壁が見える新しい通常1-1を画面端操作0・左側が下の向きでポーズし、iSHから `sh test_050.sh` を実行。終了後は `runtime/test-050` 全体のZIPと、初動・毎ビートの歩行・商品・最終ポーズの確認結果をこのチャットへ返してください。開発ブランチは`work/p1-capture-probe`です。
-- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_native_perception test_native_navigation test_native_beat test_native_controller test_native_raster test_protocol test_http_and_cli test_http_diagnostics test_native_walk test_native_connect test_native_results -v`。固定したTEST034〜042の66画像は`NECRO_TEST043_FIXTURE_ROOT`、TEST045の8画像は`NECRO_TEST046_FIXTURE_ROOT`、TEST046の5画像は`NECRO_TEST047_FIXTURE_ROOT`、TEST048の8画像は`NECRO_TEST049_FIXTURE_ROOT`、今回TEST049の11画像は`NECRO_TEST050_FIXTURE_ROOT`でGit外の場所を指定します。全98必須画像の不足・hash不一致は失敗にします。CIのprivate10試験の明示除外とローカル全件、旧回帰の外部画像不足skipは分け、最終集計は既存実機台帳を参照してください。
-- 完全な新規ソース: [native C/Swiftと取得元パッチ](patches/loopctrl/README.md)、[軽量iSHクライアント](necroprobe/native_walk.py)、[起動スクリプト](test_050.sh)。旧版40ファイルは未変更。
+- **TEST-051の実機確認をお願いします。** [実行手順](docs/device-tests/README.md#test-051実行手順)で新IPAへ更新し、LoopCtrl完全終了/起動→Start Server。開幕に金壁が見える新しい通常1-1を画面端操作0・左側が下でポーズし、iSHから `sh test_051.sh` を実行します。「終了」が出たら `runtime/test-051` 全体のZIPと、初動・毎ビートの歩行・商品・最終ポーズの結果を返してください。開発ブランチは`work/p1-capture-probe`です。
+- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_native_perception test_native_navigation test_native_beat test_native_controller test_native_raster test_protocol test_http_and_cli test_http_diagnostics test_native_walk test_native_connect test_native_results test_native_paged_results -v`。固定したTEST034〜042の66画像は`NECRO_TEST043_FIXTURE_ROOT`、TEST045の8画像は`NECRO_TEST046_FIXTURE_ROOT`、TEST046の5画像は`NECRO_TEST047_FIXTURE_ROOT`、TEST048の8画像は`NECRO_TEST049_FIXTURE_ROOT`、今回TEST049の11画像は`NECRO_TEST050_FIXTURE_ROOT`でGit外の場所を指定します。全98必須画像の不足・hash不一致は失敗にします。CIのprivate10試験の明示除外とローカル全件、旧回帰の外部画像不足skipは分け、最終集計は既存実機台帳を参照してください。
+- 完全な新規ソース: [native C/Swiftと取得元パッチ](patches/loopctrl/README.md)、[軽量iSHクライアント](necroprobe/native_walk.py)、[起動スクリプト](test_051.sh)。旧版40ファイルは未変更。
 - P1.1の検証: ホスト54試験と3観点の相互レビューを通過しましたが、[TEST-001](docs/device-tests/001-capture.md)の実機3実行はworker_failedでした。3reportを受領し、最初のdevice_infoの開始記録までで完了していないことを確認。ホスト通過を実機合格とは扱いません。
 - P1.2の[TEST-002](docs/device-tests/002-worker-diagnostics.md)はPython暗号でもゲーム起動前にSIGSYSで終了しました。
 - P1.3の[TEST-003](docs/device-tests/003-ish-timer.md)は`timer_already_in_use`でゲーム起動前に停止、取得0/12でした。
