@@ -2238,3 +2238,5 @@ cd /mnt/necro_test052 && sh test_052.sh
 ポーズ後は画像回収の進捗が表示されます。**「TEST-052: 終了」が出てからruntime/test-052全体をZIPで返してください。** 初動・毎ビートの連続歩行・茶壁や扉の開通/進入・商品の可視・最終ポーズ・終了までの待ち時間を教えてください。
 
 結果回収未完了と表示されて処理が終了した場合だけ、同じLoopCtrl起動状態・同じソース/runtimeを保って`sh test_052.sh`を再実行すると、同じrun/export/cursorを回収します。回収完了済みなら再実行せず全ZIPを返します（resolved=trueでは新runが始まります）。同時に別テストを実行しません。今回の変更が茶壁/扉/全経路の実機成功を保証するものではなく、この実機資料で次の改善を判断します。
+
+TEST052の独立実装第2周を設計・試験・安全で終了し、P0/P1/P2残件なし。3担当が実IPA build66/全22seal/全50 named faultの実ログとController変異SHA/Raster3/両C同値・field fault/実暗号RPC/実PBX・7,023行raw compiler log・6 response展開とC4/Swift5のprofilev2/全9 Mach-OのHOST hook非混入を独立照合した。最終文書込みcommit `062a0614b7f28221d0e937aa60070c67cb54c9bd` の[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/archive/062a0614b7f28221d0e937aa60070c67cb54c9bd.zip)は6,919,959bytes/SHA `0d3427eac9927131920d5a8cf184d0b25e45fa715b362933d405dbbb4e38d498`。rootと3担当が全413/413ファイルのcommitted bytes/CRC/安全なinventoryを独立一致し、重複・欠落・余分・不一致0。凍結code76f5436からの変更は既存5文書のみ。この終了記録だけを追加した最終配布ZIPもrootが全413bytes/CRCを再照合して渡す。全経路毎拍・人より速い性能・茶壁/扉/商品・最終pause・画像回収待ちは新IPAとTEST052で実機確認を依頼する。指輪/通知/完全循環/耐久は引き続き未受入。
