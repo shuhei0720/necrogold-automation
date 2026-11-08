@@ -83,6 +83,16 @@ def compile_run(sources, executable, output, label, extra=(), *, run_timeout=60)
     return result
 
 
+def test051_public_fixture_source(tests):
+    prefix_marker = '// TEST051 MANIFEST FIXTURE END.\n'
+    begin, end = '// TEST051 PUBLIC FIXTURES BEGIN.\n', '// TEST051 PUBLIC FIXTURES END.\n'
+    if any(tests.count(marker) != 1 for marker in (prefix_marker, begin, end)):
+        raise ValueError('runtime_test051_public_fixture_boundary')
+    return (tests.split(prefix_marker)[0]+prefix_marker+tests.split(begin)[1].split(end)[0]+
+        '\ntestContinuousRevalidationCallbacksPublic()\ntestPagedResultsPublic()\n'
+        'print("PASS production Runtime public API/TEST051 continuous callback and bounded image export fixtures")\n')
+
+
 def api_contract(upstream, output):
     stage = output / 'api'; stage.mkdir(exist_ok=True)
     server = (upstream / 'LoopCtrlKit/JSONRPCServer.swift').read_text()
@@ -335,7 +345,7 @@ def navigation_profile_contract(upstream, output, *, compiler='clang'):
             'scope': 'actual production strict Navigation public API, unchanged O0, complete views/73-score bytes/Motion/Decision/Entrance/boundary and input parity'}
 
 
-def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None):
+def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
     native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red or expect_manifest_red else upstream / 'LoopCtrlUITests'
     if baseline_native is not None:
@@ -368,6 +378,8 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     shutil.copyfile(HERE/'ngg2_runtime_fakes.swift', stage/'Fakes.swift')
     shutil.copyfile(HERE/'ngg2_runtime_tests.swift', stage/'main.swift')
     source = (native/'NG2Runtime.swift').read_text()
+    if public051_only:
+        (stage/'main.swift').write_text(test051_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
     if expect_manifest_red:
         source = subprocess.check_output(['git', 'show', TEST050_RUNTIME_COMMIT+
             ':patches/loopctrl/ngg2/NG2Runtime.swift'], cwd=HERE).decode()
@@ -447,6 +459,18 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     checked(green)
     if not green.stdout.startswith('PASS production Runtime public API/') or green.stderr:
         raise RuntimeError('runtime_production_contract_missing')
+    if public051_only:
+        return {'production_green': green.stdout.strip(), 'compiled': True,
+                'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                'scope': 'TEST051 production Runtime public revalidation/callback/drain and paged image producer contracts'}
+    all_tests = (HERE/'ngg2_runtime_tests.swift').read_text()
+    new_calls = '\ntestContinuousRevalidationCallbacksPublic()\ntestPagedResultsPublic()\n'
+    if all_tests.count(new_calls) != 1:
+        raise ValueError('runtime_test051_public_calls_boundary')
+    # Established faults retain their original fixtures/assertions. Execute
+    # new public fixtures once in production Green and for their own faults,
+    # avoiding dozens of unrelated repeated PNG boundary stress runs.
+    (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n'))
     reds = {}
     clock_begin = source.index('        DispatchQueue.main.sync {', source.index('    private func execute('))
     clock_end = source.index('                run.inFlight = true', clock_begin)
@@ -721,11 +745,12 @@ def main():
     parser.add_argument('--test048-red-only', action='store_true')
     parser.add_argument('--test050-red-only', action='store_true')
     parser.add_argument('--test051-red-only', action='store_true')
+    parser.add_argument('--test051-public-only', action='store_true')
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
-    if args.test051_red_only:
-        if args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
-            parser.error('--test051-red-only requires fixed upstream and output directory')
+    if args.test051_red_only or args.test051_public_only:
+        if (args.test051_red_only and args.test051_public_only) or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
+            parser.error('--test051-red-only/--test051-public-only requires fixed upstream and output directory')
         upstream, output = args.paths
         output.mkdir(parents=True, exist_ok=True)
         (output/'api').mkdir(exist_ok=True)
@@ -734,16 +759,17 @@ def main():
         if len(types) != 2:
             raise ValueError('rpc_types_boundary')
         (output/'api/RPCTypes.swift').write_text(types[0])
-        native = output/'test050-native-baseline'
-        native.mkdir(exist_ok=True)
-        # Freeze the C/header/helper inputs too: concurrent implementation of
-        # TEST051 must not turn this proof into an old/new hybrid executable.
-        for name in ('NG2Core.h', 'NG2Controller.h', 'NG2Templates.h', 'NG2Perception.c',
-                     'NG2Navigation.c', 'NG2Beat.c', 'NG2Controller.c', 'NG2Ticket.swift',
-                     'NG2Raster.swift', 'NG2Runtime.swift'):
-            data = subprocess.check_output(['git', 'show', TEST050_RUNTIME_COMMIT+
-                ':patches/loopctrl/ngg2/'+name], cwd=HERE)
-            (native/name).write_bytes(data)
+        native = HERE/'ngg2'
+        if args.test051_red_only:
+            native = output/'test050-native-baseline'
+            native.mkdir(exist_ok=True)
+            # Freeze C/header/helpers too, avoiding an old/new hybrid proof.
+            for name in ('NG2Core.h', 'NG2Controller.h', 'NG2Templates.h', 'NG2Perception.c',
+                         'NG2Navigation.c', 'NG2Beat.c', 'NG2Controller.c', 'NG2Ticket.swift',
+                         'NG2Raster.swift', 'NG2Runtime.swift'):
+                data = subprocess.check_output(['git', 'show', TEST050_RUNTIME_COMMIT+
+                    ':patches/loopctrl/ngg2/'+name], cwd=HERE)
+                (native/name).write_bytes(data)
         flags = {}
         for source in sorted(native.glob('NG2*.c')):
             flags[source.name] = native_object_flags(source.name)
@@ -754,10 +780,11 @@ def main():
             checked(result)
         if len(flags) != 4:
             raise ValueError('native_C_source_set')
-        report = {'runtime': runtime_contract(upstream, output, expect_manifest_red=True, baseline_native=native),
+        report = {'runtime': runtime_contract(upstream, output, expect_manifest_red=args.test051_red_only,
+                      public051_only=args.test051_public_only, baseline_native=native),
                   'native_object_flags': flags, 'device_test': 'not_run'}
         (output/'ngg2-swift-contract.json').write_text(json.dumps(report, indent=2)+'\n')
-        print(report['runtime']['baseline_red'])
+        print(report['runtime'].get('baseline_red', report['runtime'].get('production_green')))
         return
     elif args.test050_red_only:
         if args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or len(args.paths) != 2:

@@ -42,6 +42,12 @@ class SceneChange(C.Structure):
     _fields_=[*[(k,C.c_uint64) for k in ('command_id','source_capture_id','observed_capture_id','target_ns','deadline_ns')],
               *[(k,C.c_int32) for k in ('change_mask','changed_tiles','changed_protected','state_before','state_after',
                                       'goods_before','goods_after','replan_count','replan_allowed')]]
+class CellChange(C.Structure):
+    _fields_=[(k,C.c_int32) for k in ('x','y','tile_before','tile_after','protected_before','protected_after')]
+class SceneDetail(C.Structure):
+    _fields_=[*[(k,C.c_uint64) for k in ('command_id','source_capture_id','observed_capture_id')],
+              *[(k,C.c_int32) for k in ('validation','continuous_count','chain_count','cell_count','omitted_cells')],
+              ('cells',CellChange*4)]
 class MotionWait(C.Structure):
     _fields_=[*[(k,C.c_uint64) for k in ('command_id','source_capture_id','last_capture_id','deadline_ns')],
               *[(k,C.c_int32) for k in ('attempts','last_motion','active')]]
@@ -156,6 +162,246 @@ class NativeControllerTests(unittest.TestCase):
         self.now+=2;self.observe(self.scene(2,2,changed,beat=True))
         ready,new=self.tick();self.assertEqual((1,4),(ready,new.kind))
         return terrain,changed,old,new
+    def continuous_walk(self,moves=2,direction=1):
+        transforms={1:lambda x,y:(x,y),2:lambda x,y:(-x,-y),3:lambda x,y:(-y,x),4:lambda x,y:(y,-x)}
+        length=3 if direction in (3,4) else 8
+        tiles={**{(x,0):'floor' for x in range(1-length,1)},
+                          (-length,0):'door',(-length,-1):'gold',(-length,1):'gold',
+                          (-4,-2):'stone',(5,1):'stone'}
+        terrain=textured({transforms[direction](x,y):kind for (x,y),kind in tiles.items()})
+        self.fit(terrain)
+        for _ in range(moves):
+            command=self.next_move();self.assertEqual(direction,command.direction);self.ack(command)
+            terrain=translated(terrain,direction);self.observed_result(command,terrain)
+        self.assertEqual((moves,moves,1),(self.status().inputs,self.status().moves,self.status().lead_confirmed))
+        return terrain,self.next_move()
+    def scene_details(self):
+        query=self.lib.ng2_controller_scene_details
+        query.argtypes=[C.c_void_p,C.POINTER(SceneDetail),C.c_size_t];query.restype=C.c_size_t
+        out=(SceneDetail*3)();count=query(self.engine,out,3)
+        return list(out)[:count]
+    def test_continuous_unsent_scene_change_after_two_moves_keeps_original_beat(self):
+        terrain,old=self.continuous_walk();wait=self.motion_wait()
+        changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
+        self.now+=2;self.observe(self.scene(2,2,changed,beat=True))
+        ready,new=self.tick()
+        self.assertEqual((1,4),(ready,new.kind))
+        self.assertNotEqual(old.id,new.id)
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,old.direction),
+                         (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,new.direction))
+        self.assertEqual(wait.deadline_ns,self.motion_wait().deadline_ns)
+        self.assertEqual(self.number,new.source_capture_id)
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,new.not_before_ns,1,0,1))
+        self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,old.id,new.not_before_ns,1))
+        self.assertEqual((new.id,1),(self.status().current_command_id,self.status().input_state))
+        self.ack(new);self.observed_result(new,translated(changed,1))
+        self.assertEqual((3,3,-3,0,3),(self.status().inputs,self.status().moves,self.status().x,
+                                    self.status().y,self.status().last_ordinal))
+        row=self.scene_changes()[-1];detail=self.scene_details()[-1]
+        self.assertEqual((old.id,old.source_capture_id,new.source_capture_id,old.deadline_ns),
+                         (row.command_id,row.source_capture_id,row.observed_capture_id,row.deadline_ns))
+        self.assertNotEqual(self.events()[0].command.deadline_ns,row.deadline_ns)
+        self.assertEqual((old.id,old.source_capture_id,new.source_capture_id,2,1,1,1,0),
+                         (detail.command_id,detail.source_capture_id,detail.observed_capture_id,detail.validation,
+                          detail.continuous_count,detail.chain_count,detail.cell_count,detail.omitted_cells))
+        cell=detail.cells[0]
+        self.assertEqual((-10,4,0,3,0,0),(cell.x,cell.y,cell.tile_before,cell.tile_after,
+                                        cell.protected_before,cell.protected_after))
+    def test_continuous_revalidation_all_four_directions(self):
+        for direction in DIRS:
+            with self.subTest(direction=direction):
+                self.fresh_engine();terrain,old=self.continuous_walk(moves=1,direction=direction)
+                changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
+                self.now+=2;self.observe(self.scene(2,2,changed,beat=True));new=self.next_move()
+                self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,direction),
+                                 (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,new.direction))
+                self.ack(new);self.observed_result(new,translated(changed,direction))
+                self.assertEqual((2,2,2*DIRS[direction][0],2*DIRS[direction][1]),
+                                 (self.status().inputs,self.status().moves,self.status().x,self.status().y))
+    def test_continuous_chain_limit_two_then_stops_without_next_beat(self):
+        terrain,original=self.continuous_walk();current=original;retired=[]
+        for attempt in range(1,4):
+            terrain=deepcopy(terrain);terrain.tiles[(-10+attempt,4)]='stone'
+            self.now+=2;self.observe(self.scene(2,2,terrain,beat=True));retired.append(current.id)
+            ready,new=self.tick()
+            if attempt<=2:
+                self.assertEqual((1,4),(ready,new.kind));current=new
+                self.assertEqual((original.target_ns,original.not_before_ns,original.deadline_ns,original.ordinal),
+                                 (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal))
+            else:self.assertNotEqual(4,new.kind)
+        self.assertEqual((17,2,2),(self.status().reason,self.status().inputs,self.status().moves))
+        self.assertEqual([2,2,5],[d.validation for d in self.scene_details()])
+        self.assertEqual([1,2,2],[d.chain_count for d in self.scene_details()])
+        for old in retired:
+            self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old,original.not_before_ns,1,0,1))
+            self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,old,original.not_before_ns,1))
+    def test_continuous_run_limit_eight_and_first_latest_diagnostics(self):
+        terrain,current=self.continuous_walk();rows=[];changed=False
+        for chain in range(4):
+            for refresh in range(2):
+                terrain=deepcopy(terrain);changed=not changed
+                if changed:terrain.tiles[(-10,4)]='stone'
+                else:terrain.tiles.pop((-10,4),None)
+                self.now+=2;self.observe(self.scene(2,2,terrain,beat=True));current=self.next_move()
+                rows.append(self.number)
+                detail=self.scene_details()[-1]
+                self.assertEqual((2,chain*2+refresh+1,refresh+1),
+                                 (detail.validation,detail.continuous_count,detail.chain_count))
+            self.ack(current);terrain=translated(terrain,1);self.observed_result(current,terrain)
+            current=self.next_move()
+        terrain=deepcopy(terrain);terrain.tiles[(-10,4)]='stone'
+        self.now+=2;self.observe(self.scene(2,2,terrain,beat=True));rows.append(self.number)
+        self.assertNotEqual(4,self.tick()[1].kind)
+        details=self.scene_details();changes=self.scene_changes()
+        self.assertEqual([rows[0],rows[-2],rows[-1]],[d.observed_capture_id for d in details])
+        self.assertEqual([d.observed_capture_id for d in details],[c.observed_capture_id for c in changes])
+        self.assertEqual((5,8,0),(details[-1].validation,details[-1].continuous_count,details[-1].chain_count))
+        self.assertEqual((17,6,6),(self.status().reason,self.status().inputs,self.status().moves))
+    def test_continuous_guards_reject_changed_world_and_strict_motion(self):
+        cases=('unknown','pause','partial','visible','gold_set','gold_state','remote_protected',
+               'origin_protected','near_protected','obstacle','motion_moved','motion_tween','motion_unknown')
+        for case in cases:
+            with self.subTest(case=case):
+                self.fresh_engine();terrain,old=self.continuous_walk();changed=deepcopy(terrain)
+                changed.tiles[(-10,4)]='stone';state=2;gold=2
+                if case=='unknown':state=0
+                elif case=='pause':state=1
+                elif case in ('partial','visible'):changed.goods=case
+                elif case=='gold_set':changed.tiles[(-9,4)]='gold';changed.gold.add((-9,4))
+                elif case=='gold_state':gold=1
+                elif case=='remote_protected':changed.protected.add((-10,4))
+                elif case=='origin_protected':changed.protected.add((0,0))
+                elif case=='near_protected':changed.protected.add((-2,0))
+                elif case=='obstacle':changed.tiles[(-1,0)]='stone'
+                elif case=='motion_moved':changed.signature=translated(terrain,1).signature
+                elif case=='motion_tween':changed.signature=translated(terrain,1,amount=8).signature
+                elif case=='motion_unknown':changed.signature=bytes([40])*23296
+                self.now+=2;self.observe(self.scene(state,gold,changed,beat=True))
+                self.assertNotEqual(4,self.tick()[1].kind)
+                self.assertEqual((2,2),(self.status().inputs,self.status().moves))
+                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+                self.assertNotEqual(2,self.scene_details()[-1].validation)
+                self.assertEqual(0,self.scene_details()[-1].continuous_count)
+                if case=='visible':self.assertEqual((1,1),(self.status().goods,self.status().reason))
+                else:self.assertEqual(17,self.status().reason)
+    def test_continuous_requires_full_route_decision_even_when_direction_matches(self):
+        terrain,old=self.continuous_walk();changed=deepcopy(terrain);changed.tiles[(-5,0)]='stone'
+        before=nav.choose(terrain,(-2,0));after=nav.choose(changed,(-2,0))
+        self.assertEqual('left',before['direction']);self.assertEqual(before['direction'],after['direction'])
+        self.assertNotEqual(before,after)
+        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
+        self.assertEqual((10,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+    def test_continuous_prefix_stability_and_started_ack_unknown_never_reissue(self):
+        for case in ('unstable','prefix','old_id','started','ack','unknown'):
+            with self.subTest(case=case):
+                self.fresh_engine();terrain,old=self.continuous_walk();changed=deepcopy(terrain)
+                changed.tiles[(-10,4)]='stone';args={}
+                if case=='unstable':args['stable']=0
+                elif case=='prefix':args['prefix']=0
+                elif case=='old_id':args['number']=self.number
+                else:
+                    self.now=old.not_before_ns
+                    self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
+                    if case!='started':
+                        self.now+=1;self.lib.ng2_controller_complete(self.engine,old.id,self.now,1 if case=='ack' else -1)
+                        if case=='ack':self.prefix=old.id
+                self.now+=2;self.observe(self.scene(2,2,changed,beat=True),**args)
+                self.assertEqual([],self.scene_details());self.assertEqual(0,self.tick()[0])
+                self.assertEqual(3,len([e for e in self.events() if e.command.kind==4]))
+    def test_continuous_original_deadline_equality_and_expiry(self):
+        for late in (0,1):
+            with self.subTest(late=late):
+                self.fresh_engine();terrain,old=self.continuous_walk();changed=deepcopy(terrain)
+                changed.tiles[(-10,4)]='stone';self.now=old.deadline_ns+late
+                self.observe(self.scene(2,2,changed,beat=True));ready,new=self.tick()
+                if late:
+                    self.assertNotEqual(4,new.kind);self.assertEqual(6,self.scene_details()[-1].validation)
+                else:
+                    self.assertEqual((1,4),(ready,new.kind));self.assertEqual(old.deadline_ns,new.deadline_ns)
+                    self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
+    def test_continuous_expiry_after_revalidation_never_searches_later_beat(self):
+        terrain,old=self.continuous_walk();changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
+        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.now=old.deadline_ns+1
+        self.assertEqual(0,self.tick()[0]);self.assertEqual(9,self.status().reason)
+        self.now+=PERIOD;self.assertNotEqual(4,self.tick()[1].kind)
+        self.assertEqual(3,len([e for e in self.events() if e.command.kind==4]))
+    def test_continuous_refresh_preserves_original_period_and_visual_horizon_after_hud_update(self):
+        terrain,old=self.continuous_walk();wait=self.motion_wait();changed=deepcopy(terrain)
+        changed.tiles[(-10,4)]='stone';self.now+=2
+        scene=self.scene(2,2,changed,beat=True);scene.beat_remaining=(scene.beat_remaining+.001)%1
+        self.observe(scene);new=self.next_move()
+        self.assertNotEqual(PERIOD,self.status().beat_period_ns)
+        self.assertGreater(new.source_start_ns,old.source_start_ns)
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
+                         (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
+        self.ack(new);self.observed_result(new,translated(changed,1))
+        next_command=self.next_move()
+        self.assertEqual(new.target_ns+PERIOD-150_000_000+10_000_000,next_command.deadline_ns)
+    def test_continuous_phase_revocation_and_stale_horizons_never_resend(self):
+        for case in ('phase_changed','source_expired','model_expired'):
+            with self.subTest(case=case):
+                self.fresh_engine();terrain,old=self.continuous_walk();changed=deepcopy(terrain)
+                changed.tiles[(-10,4)]='stone';self.now+=2
+                self.observe(self.scene(2,2,changed,beat=True));new=self.next_move()
+                if case=='phase_changed':
+                    self.now+=2;scene=self.scene(2,2,changed,beat=True)
+                    scene.beat_remaining=(scene.beat_remaining+.2)%1;self.observe(scene)
+                    self.now=new.not_before_ns
+                elif case=='source_expired':self.now=old.source_start_ns+3*SECOND+1
+                else:self.now=old.phase_sample_ns+3*SECOND+1
+                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
+                self.assertEqual((2,2),(self.status().inputs,self.status().moves))
+                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
+                self.assertNotEqual(4,self.tick()[1].kind)
+    def test_continuous_guard_or_cancel_after_revalidation_rejects_new_and_old_ids(self):
+        for case,front,locked,owner,reason in (('foreground',0,0,1,3),('locked',1,1,1,4),
+                                             ('owner',1,0,0,5),('cancel',1,0,1,2)):
+            with self.subTest(case=case):
+                self.fresh_engine();terrain,old=self.continuous_walk();changed=deepcopy(terrain)
+                changed.tiles[(-10,4)]='stone';self.now+=2;self.observe(self.scene(2,2,changed,beat=True))
+                new=self.next_move();self.now=new.not_before_ns
+                if case=='cancel':self.lib.ng2_controller_cancel(self.engine,self.now,2)
+                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,new.id,self.now,front,locked,owner))
+                self.assertEqual((reason,2),(self.status().reason,self.status().inputs))
+                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
+                self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,old.id,self.now,1))
+    def test_continuous_pending_change_stops_instead_of_accumulating_refreshes(self):
+        terrain,old=self.continuous_walk();terrain=deepcopy(terrain);terrain.tiles[(-10,4)]='stone'
+        self.now+=2;self.observe(self.scene(2,2,terrain,beat=True))
+        terrain.tiles[(-9,4)]='stone';self.now+=2;self.observe(self.scene(2,2,terrain,beat=True))
+        self.assertNotEqual(4,self.tick()[1].kind);self.assertEqual(17,self.status().reason)
+        self.assertEqual([2,4],[d.validation for d in self.scene_details()])
+        self.assertEqual([1,1],[d.continuous_count for d in self.scene_details()])
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+    def test_scene_detail_query_is_bounded_and_leaves_existing_abi_unchanged(self):
+        self.assertEqual((23864,192,128,80,144),tuple(C.sizeof(x) for x in (Scene,Status,Event,SceneChange,SceneDetail)))
+        self.assertEqual([],self.scene_details());terrain,old=self.continuous_walk();changed=deepcopy(terrain)
+        for x in range(-11,-5):changed.tiles[(x,4)]='stone'
+        changed.protected.add((-11,4))
+        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));detail=self.scene_details()[0]
+        self.assertEqual((9,4,2),(detail.validation,detail.cell_count,detail.omitted_cells))
+        self.assertEqual([(-11,4),(-10,4),(-9,4),(-8,4)],[(c.x,c.y) for c in detail.cells])
+        self.assertEqual((0,3,0,1),(detail.cells[0].tile_before,detail.cells[0].tile_after,
+                                  detail.cells[0].protected_before,detail.cells[0].protected_after))
+        query=self.lib.ng2_controller_scene_details
+        guarded=(SceneDetail*2)();C.memset(C.byref(guarded),0xa5,C.sizeof(guarded));sentinel=bytes(guarded[1])
+        self.assertEqual(0,query(self.engine,guarded,0));self.assertEqual(bytes([0xa5])*C.sizeof(guarded),bytes(guarded))
+        self.assertEqual(1,query(self.engine,guarded,1));self.assertEqual(sentinel,bytes(guarded[1]))
+        self.assertEqual(0,query(self.engine,None,3));self.assertEqual(0,query(None,guarded,3))
+        self.fresh_engine();terrain=self.fit();self.next_move()
+        for attempt in range(3):
+            terrain=deepcopy(terrain);terrain.tiles[(-10+attempt,4)]='stone'
+            self.now+=2;self.observe(self.scene(2,2,terrain,beat=True));self.tick()
+        self.assertEqual(3,len(self.scene_details()))
+        for capacity in (0,1,2,3,C.c_size_t(-1).value):
+            guarded=(SceneDetail*4)();C.memset(C.byref(guarded),0xa5,C.sizeof(guarded))
+            expected=min(capacity,3)
+            self.assertEqual(expected,query(self.engine,guarded,capacity))
+            self.assertEqual(bytes([0xa5])*C.sizeof(SceneDetail)*(4-expected),
+                             bytes(guarded)[expected*C.sizeof(SceneDetail):])
+            self.assertEqual([d.command_id for d in self.scene_details()][:expected],
+                             [guarded[i].command_id for i in range(expected)])
     def reconstructed_public_beat_model(self,rows):
         from tests.test_native_beat import NativeSample,NativeModel
         make=self.lib.ng2_make_sample
@@ -341,16 +587,13 @@ class NativeControllerTests(unittest.TestCase):
                 changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone';self.now+=2
                 self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
                 self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]));self.assertEqual([],self.scene_changes())
-    def test_initial_replan_is_disabled_after_blocked_sent_trial_or_confirmed_move(self):
-        for moved in (False,True):
-            with self.subTest(moved=moved):
-                self.fresh_engine();terrain=self.fit();first=self.next_move();self.ack(first)
-                after=translated(terrain,3) if moved else terrain;self.observed_result(first,after)
-                self.assertEqual(1,self.status().inputs);self.assertEqual(int(moved),self.status().lead_confirmed)
-                current=self.next_move();changed=deepcopy(after);changed.tiles[(-10,4)]='stone'
-                self.now+=2;self.observe(self.scene(2,2,changed,beat=True))
-                self.assertNotEqual(4,self.tick()[1].kind);self.assertEqual((17,1),(self.status().reason,self.status().inputs))
-                self.assertEqual(2,len([e for e in self.events() if e.command.kind==4]))
+    def test_initial_replan_is_disabled_after_blocked_sent_trial(self):
+        terrain=self.fit();first=self.next_move();self.ack(first);self.observed_result(first,terrain)
+        self.assertEqual((1,0),(self.status().inputs,self.status().lead_confirmed))
+        current=self.next_move();changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
+        self.now+=2;self.observe(self.scene(2,2,changed,beat=True))
+        self.assertNotEqual(4,self.tick()[1].kind);self.assertEqual((17,1),(self.status().reason,self.status().inputs))
+        self.assertEqual(2,len([e for e in self.events() if e.command.kind==4]))
     def test_initial_replan_scene_change_diagnostic_is_exact_and_bounded(self):
         terrain,changed,old,new=self.initial_scene_change();rows=self.scene_changes()
         self.assertEqual(1,len(rows));row=rows[0]

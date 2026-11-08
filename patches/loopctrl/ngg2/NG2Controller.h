@@ -42,6 +42,26 @@ typedef struct {
     int32_t change_mask, changed_tiles, changed_protected, state_before, state_after;
     int32_t goods_before, goods_after, replan_count, replan_allowed;
 } NG2ControllerSceneChange;
+/* TEST051 bounded companion rows. Both queries retain first1/latest2 in the
+ * same order, without changing any existing public struct layout. Cell deltas
+ * are the first four distinct row-major changed coordinates: x=-11..11,
+ * y=-5..4, tiles=0..6, protected=0..1. cell_count=0..4 and omitted_cells=0..226
+ * count their union (sum<=230). Counters include the current allowance and
+ * are bounded at continuous_count<=8 / chain_count<=2. */
+enum { NG2_REVALIDATE_NONE=0, NG2_REVALIDATE_INITIAL_ALLOWED=1,
+       NG2_REVALIDATE_CONTINUOUS_ALLOWED=2, NG2_REVALIDATE_INITIAL_REJECTED=3,
+       NG2_REVALIDATE_STATE=4, NG2_REVALIDATE_BUDGET=5,
+       NG2_REVALIDATE_TIMING=6, NG2_REVALIDATE_FLOOR=7,
+       NG2_REVALIDATE_GOLD=8, NG2_REVALIDATE_PROTECTED=9,
+       NG2_REVALIDATE_ROUTE=10, NG2_REVALIDATE_MOTION=11 };
+typedef struct {
+    int32_t x, y, tile_before, tile_after, protected_before, protected_after;
+} NG2ControllerCellChange;
+typedef struct {
+    uint64_t command_id, source_capture_id, observed_capture_id;
+    int32_t validation, continuous_count, chain_count, cell_count, omitted_cells;
+    NG2ControllerCellChange cells[4];
+} NG2ControllerSceneDetail;
 /* TEST046 visual confirmation, separate from the status/event ABI. The latest
  * MOVE remains queryable after active becomes zero. active is always 0 or 1. */
 typedef struct {
@@ -70,6 +90,7 @@ void ng2_controller_cancel(NG2Controller *, uint64_t now, int32_t reason);
 void ng2_controller_status(const NG2Controller *, NG2ControllerStatus *out);
 size_t ng2_controller_events(const NG2Controller *, NG2ControllerEvent *out, size_t capacity);
 size_t ng2_controller_scene_changes(const NG2Controller *, NG2ControllerSceneChange *out, size_t capacity);
+size_t ng2_controller_scene_details(const NG2Controller *, NG2ControllerSceneDetail *out, size_t capacity);
 void ng2_controller_motion_wait(const NG2Controller *, NG2ControllerMotionWait *out);
 const char *ng2_reason_name(int32_t reason);
 #endif

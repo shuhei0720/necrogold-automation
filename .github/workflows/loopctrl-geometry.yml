@@ -29,9 +29,9 @@ jobs:
           ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
           path: upstream
           persist-credentials: false
-      - name: Observe original TEST050 public paged-results manifest assertion Red
+      - name: Run TEST051 public continuous-input and paged-export contracts
         run: |
-          python3 driver/patches/loopctrl/check_ngg2.py --test051-red-only upstream "$RUNNER_TEMP/ngg2-baseline"
+          python3 driver/patches/loopctrl/check_ngg2.py --test051-public-only upstream "$RUNNER_TEMP/ngg2-baseline"
       - name: Save native baseline diagnostics
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()

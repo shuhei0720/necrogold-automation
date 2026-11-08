@@ -58,6 +58,28 @@ private struct NG2Frame {
     let diagnosticOrientation: Int?
 }
 
+private struct NG2ExportImage {
+    let bytes: Data
+    let hash: String
+}
+
+private final class NG2ExportCache {
+    let id: String
+    let generation: UInt64
+    let manifest: [String: JSONValue]
+    let images: [UInt64: NG2ExportImage]
+    init(id: String, generation: UInt64, manifest: [String: JSONValue], images: [UInt64: NG2ExportImage]) {
+        self.id = id; self.generation = generation; self.manifest = manifest; self.images = images
+    }
+}
+
+private enum NG2ExportAdmission {
+    case denied
+    case busy
+    case cached(String, UInt64, [String: JSONValue])
+    case build(String, UInt64, [NG2Frame], UInt64, Set<UInt64>)
+}
+
 private final class NG2Run {
     let lock = NSLock()
     let owner: String
@@ -105,12 +127,17 @@ private final class NG2Run {
     var controlTimer: DispatchSourceTimer?
     var watchdog: DispatchSourceTimer?
     var lastCache: UInt64 = 0
+    // At most one immutable 4 MiB PNG export belongs to the current run.
+    // A builder retains its token until it actually returns, even if revoked.
+    var exportCache: NG2ExportCache?
+    var exportBuildID: String?
     init(owner: String, id: String, now: UInt64) { self.owner = owner; self.id = id; heartbeat = now; acceptedStarted = now }
     func cancel(_ reason: Int32) {
         lock.ng2Locked {
             if cancelReason == 0 { cancelReason = reason; generation &+= 1 }
             stopped = true
             latest = nil
+            exportCache = nil
         }
     }
 }
@@ -148,6 +175,10 @@ final class NG2Runtime {
         !RemoteSession.shared.paused && AuthManager.shared.clientName(forTokenId: run.owner) != nil
     }
 
+    private func lowerHexIdentity(_ value: String) -> Bool {
+        value.utf8.count == 32 && value.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) })
+    }
+
     var hasLease: Bool { lock.ng2Locked { poisoned || (current?.lock.ng2Locked { current?.lease ?? false } ?? false) } }
 
     func leaseError(_ method: String) -> JSONRPCError? {
@@ -176,11 +207,20 @@ final class NG2Runtime {
     func handle(method: String, params: [String: JSONValue]?) -> ([String: JSONValue]?, JSONRPCError?) {
         guard Self.methods.contains(method), let owner = params?[Self.ownerParam]?.stringValue,
               !owner.isEmpty, let id = params?["run_id"]?.stringValue,
-              id.utf8.count == 32, id.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else {
+              lowerHexIdentity(id) else {
             return failure("Invalid native request identity.", -32602)
         }
+        var exportMode: String?
+        if method == "necro_native_results", let value = params?["mode"] {
+            guard let mode = value.stringValue, mode == "manifest" || mode == "chunk" else {
+                return failure("Unsupported native results mode.", -32602)
+            }
+            exportMode = mode
+        }
         let allowed: Set<String> = method == "necro_native_start" ? ["run_id", "profile", Self.ownerParam]
-            : (method == "necro_native_status" ? ["run_id", "keepalive", Self.ownerParam] : ["run_id", Self.ownerParam])
+            : (method == "necro_native_status" ? ["run_id", "keepalive", Self.ownerParam]
+               : (exportMode == "chunk" ? ["run_id", "mode", "export_id", "capture_id", "offset", Self.ownerParam]
+                  : (exportMode == "manifest" ? ["run_id", "mode", Self.ownerParam] : ["run_id", Self.ownerParam])))
         guard Set((params ?? [:]).keys).isSubset(of: allowed) else { return failure("Unknown native request parameter.", -32602) }
         if method == "necro_native_start" {
             guard params?["profile"]?.stringValue == Self.profile else { return failure("Unsupported native profile.", -32602) }
@@ -191,9 +231,17 @@ final class NG2Runtime {
                 if let archived = history[id], archived.owner == owner { return (historical(archived.response), nil) }
                 if poisoned { return failure("Unknown native input freezes new runs until the runner process restarts.") }
                 if current?.lock.ng2Locked({ current?.lease ?? false }) == true { return failure("Previous native run is still draining.") }
+                if current?.lock.ng2Locked({ current?.exportBuildID != nil }) == true { return failure("Previous native image export is still being prepared.") }
                 if NG2CaptureBridge.pendingRequests != 0 { return failure("Previous daemon capture is still outstanding.") }
                 if seen.contains(id) || seen.count >= 128 { return failure("Run identity was already consumed or process run limit reached.") }
                 let run = NG2Run(owner: owner, id: id, now: Self.now())
+                if let old = current {
+                    old.lock.ng2Locked {
+                        old.exportCache = nil
+                        old.images.removeAll(); old.pinned.removeAll()
+                        old.initial = nil; old.found = nil; old.latest = nil
+                    }
+                }
                 current = run; seen.insert(id); created = run
                 return (response(run), nil)
             }
@@ -201,6 +249,7 @@ final class NG2Runtime {
             return answer
         }
         guard let run = lock.ng2Locked({ current }), run.owner == owner, run.id == id else {
+            if exportMode != nil { return failure("Paged native images require the current run.") }
             guard let archived = lock.ng2Locked({ history[id] }), archived.owner == owner else { return failure("Native run unavailable for this owner.") }
             if method == "necro_native_status", let value = params?["keepalive"], value.boolValue == nil {
                 return failure("keepalive must be boolean.", -32602)
@@ -223,25 +272,33 @@ final class NG2Runtime {
             return (response(run), nil)
         }
         if method == "necro_native_cancel" { run.cancel(2); return (response(run), nil) }
+        if exportMode == "manifest" { return exportManifest(run) }
+        if exportMode == "chunk" { return exportChunk(run, params ?? [:]) }
         guard ownerActive(run),
               run.lock.ng2Locked({ run.terminal && !run.lease && !run.captureOutstanding && run.captureWorkerDone }) else {
             return failure("Native images require a terminal, drained run and active owner.")
         }
-        let frames: [NG2Frame] = run.lock.ng2Locked {
-            var selected: [NG2Frame] = []
-            for frame in [run.images.last, run.found, run.initial].compactMap({ $0 })
-                + run.pinned.values.sorted(by: { $0.id > $1.id }) + Array(run.images.reversed()) {
-                if !selected.contains(where: { $0.id == frame.id }) { selected.append(frame) }
+        let legacyAdmission: ([NG2Frame], NG2ExportCache?, UInt64, String?)? = lock.ng2Locked {
+            run.lock.ng2Locked {
+                guard exportEligibleLocked(run), run.exportBuildID == nil else { return nil }
+                let cache = run.exportCache?.generation == run.generation ? run.exportCache : nil
+                let token = UUID().uuidString
+                run.exportBuildID = token
+                return (selectedExportFrames(run), cache, run.generation, token)
             }
-            return Array(selected.prefix(20))
         }
+        guard let (frames, cached, generation, token) = legacyAdmission else { return failure("Native image export is unavailable or being prepared.") }
+        defer { if let token { run.lock.ng2Locked { if run.exportBuildID == token { run.exportBuildID = nil } } } }
         var images: [JSONValue] = []
         var totalImageBytes = 0
         var exportedIDs = Set<UInt64>()
         // Encode stop/found/initial anchors before event evidence so a byte
         // budget cannot silently give later ordinary frames their slots.
         for frame in frames {
-            guard let bytes = NG2Raster.png(frame.rgba) else { return failure("Native image encoding failed.") }
+            let encoded: Data?
+            if let cached { encoded = cached.images[frame.id]?.bytes; if encoded == nil { continue } }
+            else { encoded = exportPNG(frame) }
+            guard let bytes = encoded else { return failure("Native image encoding failed.") }
             if bytes.count > 512 * 1024 || totalImageBytes + bytes.count > 4 * 1024 * 1024 { continue }
             totalImageBytes += bytes.count
             exportedIDs.insert(frame.id)
@@ -256,7 +313,6 @@ final class NG2Runtime {
                 "inflight_end": .bool(frame.endInFlight),
                 "stable_prefix": .bool(frame.stable)]))
         }
-        guard ownerActive(run) else { return failure("Owner paused native export.") }
         var result = response(run); result["images"] = .array(images)
         result["retained_images"] = .int(frames.count)
         result["exported_images"] = .int(images.count)
@@ -265,7 +321,169 @@ final class NG2Runtime {
             result["omitted_capture_ids"] = .array(run.references.subtracting(exportedIDs).sorted().map { number($0) })
         }
         result["exported_capture_ids"] = .array(exportedIDs.sorted().map { number($0) })
+        let valid = lock.ng2Locked { run.lock.ng2Locked { exportEligibleLocked(run, generation: generation) } }
+        guard valid else { return failure("Native export identity or owner changed.") }
         return (result, nil)
+    }
+
+    private func exportPNG(_ frame: NG2Frame) -> Data? {
+        guard let bytes = NG2Raster.png(frame.rgba) else { return nil }
+        #if NG2_RUNTIME_HOST_TEST
+        if let transform = NG2RuntimeExportTestHooks.transformExportPNG { return transform(bytes, frame.id) }
+        #endif
+        return bytes
+    }
+
+    // Call only while holding Runtime.lock, then run.lock, in that order.
+    // A started/unknown input may still be diagnosed after worker drain; this
+    // read-only gate does not certify its outcome or release the UI poison.
+    private func exportEligibleLocked(_ run: NG2Run, generation: UInt64? = nil) -> Bool {
+        let allowed = current === run && ownerActive(run) && run.terminal && !run.lease
+            && !run.captureOutstanding && run.captureWorkerDone && !run.mainOutstanding
+            && (generation == nil || generation == run.generation)
+        if !allowed { run.exportCache = nil }
+        if let cache = run.exportCache, cache.generation != run.generation { run.exportCache = nil }
+        return allowed
+    }
+
+    private func selectedExportFrames(_ run: NG2Run) -> [NG2Frame] {
+        var frames: [NG2Frame] = []
+        for frame in [run.images.last, run.found, run.initial].compactMap({ $0 })
+            + run.pinned.values.sorted(by: { $0.id > $1.id }) + Array(run.images.reversed()) {
+            if !frames.contains(where: { $0.id == frame.id }) { frames.append(frame) }
+        }
+        return Array(frames.prefix(20))
+    }
+
+    private func imageMetadata(_ frame: NG2Frame, hash: String, length: Int) -> [String: JSONValue] {
+        ["name": .string(String(format: "capture-%06llu.png", frame.id)), "format": .string("png"),
+         "pixel_width": .int(896), "pixel_height": .int(414), "sha256": .string(hash), "byte_length": .int(length),
+         "capture_id": number(frame.id), "capture_start_ns": number(frame.start), "capture_end_ns": number(frame.end),
+         "completed_prefix": number(frame.prefix), "decode_end_ns": number(frame.decodeEnd),
+         "completed_prefix_start": number(frame.startPrefix), "completed_prefix_end": number(frame.prefix),
+         "inflight_start": .bool(frame.startInFlight), "inflight_end": .bool(frame.endInFlight),
+         "stable_prefix": .bool(frame.stable)]
+    }
+
+    private func cachedManifest(_ run: NG2Run, id: String, generation: UInt64,
+                                manifest: [String: JSONValue]) -> ([String: JSONValue]?, JSONRPCError?) {
+        #if NG2_RUNTIME_HOST_TEST
+        NG2RuntimeExportTestHooks.beforeExportReply?()
+        #endif
+        return lock.ng2Locked {
+            run.lock.ng2Locked {
+                guard exportEligibleLocked(run, generation: generation), run.exportCache?.id == id else {
+                    return failure("Native export identity or owner changed.")
+                }
+                return (manifest, nil)
+            }
+        }
+    }
+
+    private func exportManifest(_ run: NG2Run) -> ([String: JSONValue]?, JSONRPCError?) {
+        let admission: NG2ExportAdmission = lock.ng2Locked {
+            run.lock.ng2Locked {
+                guard exportEligibleLocked(run) else { return .denied }
+                if let cache = run.exportCache, cache.generation == run.generation {
+                    return .cached(cache.id, cache.generation, cache.manifest)
+                }
+                guard run.exportBuildID == nil else { return .busy }
+                let token = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+                run.exportBuildID = token
+                return .build(token, run.generation, selectedExportFrames(run), run.analyzedFrames, run.references)
+            }
+        }
+        switch admission {
+        case .denied: return failure("Native images require a terminal, drained current run and active owner.")
+        case .busy: return failure("Native image export is already being prepared.")
+        case .cached(let id, let generation, let manifest): return cachedManifest(run, id: id, generation: generation, manifest: manifest)
+        case .build(let token, let generation, let frames, let analyzedCount, let references):
+            defer { run.lock.ng2Locked { if run.exportBuildID == token { run.exportBuildID = nil } } }
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeExportTestHooks.beforeExportEncode?()
+            #endif
+            let admitted = lock.ng2Locked { run.lock.ng2Locked { exportEligibleLocked(run, generation: generation) && run.exportBuildID == token } }
+            guard admitted else { return failure("Native export identity or owner changed.") }
+            var images: [UInt64: NG2ExportImage] = [:]
+            var metadata: [JSONValue] = []
+            var total = 0
+            // PNG and SHA work happens outside both locks. The selected-image
+            // order and omission budgets are the same as the legacy export.
+            for frame in frames {
+                guard let bytes = exportPNG(frame) else { return failure("Native image encoding failed.") }
+                if bytes.count > 512 * 1024 || total + bytes.count > 4 * 1024 * 1024 { continue }
+                total += bytes.count
+                let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+                let row = imageMetadata(frame, hash: hash, length: bytes.count)
+                images[frame.id] = NG2ExportImage(bytes: bytes, hash: hash)
+                metadata.append(.object(row))
+            }
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeExportTestHooks.afterExportEncode?()
+            #endif
+            let exported = Set(images.keys)
+            var manifest = response(run)
+            manifest["result_mode"] = .string("manifest")
+            manifest["export_id"] = .string(token)
+            manifest["chunk_bytes"] = .int(64 * 1024)
+            manifest["total_bytes"] = .int(total)
+            manifest["images"] = .array(metadata)
+            manifest["retained_images"] = .int(frames.count)
+            manifest["exported_images"] = .int(images.count)
+            manifest["exported_capture_ids"] = .array(exported.sorted().map { number($0) })
+            manifest["omitted_capture_ids"] = .array(references.subtracting(exported).sorted().map { number($0) })
+            manifest["omitted_image_count"] = number(analyzedCount - min(analyzedCount, UInt64(images.count)))
+            let installed = lock.ng2Locked {
+                run.lock.ng2Locked { () -> Bool in
+                    guard exportEligibleLocked(run, generation: generation), run.exportBuildID == token else { return false }
+                    run.exportCache = NG2ExportCache(id: token, generation: generation, manifest: manifest, images: images)
+                    return true
+                }
+            }
+            guard installed else { return failure("Native export identity or owner changed.") }
+            // Only run.exportCache retains the PNG collection after install.
+            // Cached metadata replies never carry a hidden 4 MiB cache retain
+            // across a concurrent replacement of the current run.
+            images.removeAll(keepingCapacity: false)
+            return cachedManifest(run, id: token, generation: generation, manifest: manifest)
+        }
+    }
+
+    private func exportChunk(_ run: NG2Run, _ params: [String: JSONValue]) -> ([String: JSONValue]?, JSONRPCError?) {
+        guard let exportID = params["export_id"]?.stringValue, lowerHexIdentity(exportID),
+              case .int(let captureID)? = params["capture_id"], captureID > 0,
+              case .int(let offset)? = params["offset"], offset >= 0 else {
+            return failure("Invalid native image chunk identity or offset.", -32602)
+        }
+        let selection: (UInt64, Int, String, Data)? = lock.ng2Locked {
+            run.lock.ng2Locked {
+                guard exportEligibleLocked(run), let cache = run.exportCache, cache.generation == run.generation,
+                      cache.id == exportID, let image = cache.images[UInt64(captureID)], offset < image.bytes.count else { return nil }
+                let count = min(64 * 1024, image.bytes.count - offset)
+                // Force a bounded independent copy, rather than a Data slice
+                // that could keep the full PNG/cache alive after a new run.
+                let bytes = image.bytes.withUnsafeBytes { raw -> Data in
+                    Data(bytes: raw.baseAddress!.advanced(by: offset), count: count)
+                }
+                return (cache.generation, image.bytes.count, image.hash, bytes)
+            }
+        }
+        guard let (generation, length, hash, bytes) = selection else { return failure("Native image export or chunk is unavailable.") }
+        let result: [String: JSONValue] = ["run_id": .string(run.id), "result_mode": .string("chunk"),
+            "export_id": .string(exportID), "capture_id": .int(captureID), "offset": .int(offset),
+            "byte_length": .int(length), "sha256": .string(hash),
+            "data_base64": .string(bytes.base64EncodedString()), "chunk_bytes": .int(bytes.count)]
+        #if NG2_RUNTIME_HOST_TEST
+        NG2RuntimeExportTestHooks.beforeExportReply?()
+        #endif
+        return lock.ng2Locked {
+            run.lock.ng2Locked {
+                guard exportEligibleLocked(run, generation: generation), run.exportCache?.id == exportID else {
+                    return failure("Native export identity or owner changed.")
+                }
+                return (result, nil)
+            }
+        }
     }
 
     private func failure(_ message: String, _ code: Int = -32004) -> ([String: JSONValue]?, JSONRPCError?) {
@@ -319,6 +537,30 @@ final class NG2Runtime {
     }
     #if NG2_RUNTIME_HOST_TEST
     static var testFrameStride: Int { MemoryLayout<NG2Frame>.stride }
+    // Public export tests clone an actual retained raster only after drain.
+    // No controller state, input outcome, or production cache is injected.
+    func testSeedExportFrames(_ id: String, count: Int) -> Bool {
+        guard (1...20).contains(count) else { return false }
+        return lock.ng2Locked {
+            guard let run = current, run.id == id else { return false }
+            return run.lock.ng2Locked {
+                guard exportEligibleLocked(run), run.exportBuildID == nil,
+                      let frame = selectedExportFrames(run).first else { return false }
+                let frames = (0..<count).map { index in
+                    NG2Frame(id: UInt64(100 + index), start: frame.start, end: frame.end, decodeEnd: frame.decodeEnd,
+                        generation: frame.generation, analysisStart: frame.analysisStart, analysisEnd: frame.analysisEnd,
+                        analysis: frame.analysis, startPrefix: frame.startPrefix, prefix: frame.prefix,
+                        startInFlight: frame.startInFlight, endInFlight: frame.endInFlight, stable: frame.stable,
+                        rgba: frame.rgba, rasterTrace: frame.rasterTrace, encodedBytes: frame.encodedBytes,
+                        diagnosticOrientation: frame.diagnosticOrientation)
+                }
+                run.images = Array(frames.suffix(4)); run.pinned = Dictionary(uniqueKeysWithValues: frames.map { ($0.id, $0) })
+                run.initial = frames.first; run.found = nil; run.references = Set(frames.map { $0.id })
+                run.analyzedFrames = UInt64(count); run.exportCache = nil
+                return true
+            }
+        }
+    }
     // Test setup may change only the generation or submit competing failures.
     // Storage still goes through the exact production commit gate, and tests
     // observe only the public status/results projection.
@@ -834,6 +1076,8 @@ final class NG2Runtime {
         let count = events.withUnsafeMutableBufferPointer { ng2_controller_events(core, $0.baseAddress, $0.count) }
         var changes = [NG2ControllerSceneChange](repeating: NG2ControllerSceneChange(), count: 3)
         let changeCount = changes.withUnsafeMutableBufferPointer { ng2_controller_scene_changes(core, $0.baseAddress, $0.count) }
+        var details = [NG2ControllerSceneDetail](repeating: NG2ControllerSceneDetail(), count: 3)
+        let detailCount = details.withUnsafeMutableBufferPointer { ng2_controller_scene_details(core, $0.baseAddress, $0.count) }
         var motionWait = NG2ControllerMotionWait()
         ng2_controller_motion_wait(core, &motionWait)
         run.lock.ng2Locked {
@@ -882,6 +1126,24 @@ final class NG2Runtime {
                 "goods_before": integer(c.goods_before), "goods_after": integer(c.goods_after),
                 "replan_count": integer(c.replan_count), "replan_allowed": .bool(c.replan_allowed == 1)])
         }
+        let encodedDetails = details.prefix(min(detailCount, details.count)).map { item -> JSONValue in
+            var detail = item
+            let cellCount = min(4, max(0, Int(detail.cell_count)))
+            let cells: [JSONValue] = withUnsafePointer(to: &detail.cells) { pointer in
+                pointer.withMemoryRebound(to: NG2ControllerCellChange.self, capacity: 4) { rows in
+                    (0..<cellCount).map { index in
+                        let cell = rows[index]
+                        return .object(["x": integer(cell.x), "y": integer(cell.y),
+                            "tile_before": integer(cell.tile_before), "tile_after": integer(cell.tile_after),
+                            "protected_before": integer(cell.protected_before), "protected_after": integer(cell.protected_after)])
+                    }
+                }
+            }
+            return .object(["command_id": number(detail.command_id), "source_capture_id": number(detail.source_capture_id),
+                "observed_capture_id": number(detail.observed_capture_id), "validation": integer(detail.validation),
+                "continuous_count": integer(detail.continuous_count), "chain_count": integer(detail.chain_count),
+                "cell_count": integer(detail.cell_count), "omitted_cells": integer(detail.omitted_cells), "cells": .array(cells)])
+        }
         let report: [String: JSONValue] = ["abi_version": .int(Int(s.abi_version)), "struct_size": .int(Int(s.struct_size)),
             "phase": integer(s.phase), "reason": integer(s.reason), "reason_name": .string(String(cString: ng2_reason_name(s.reason))),
             "terminal": integer(s.terminal), "goods": integer(s.goods), "paused": integer(s.paused), "input_state": integer(s.input_state),
@@ -894,7 +1156,7 @@ final class NG2Runtime {
             "last_ordinal": number(s.last_ordinal), "next_target_ns": number(s.next_target_ns), "lead_ns": number(s.lead_ns),
             "capture_count": number(s.capture_count), "accepted_frames": number(s.accepted_frames),
             "discarded_frames": number(s.discarded_frames), "beat_period_ns": number(s.beat_period_ns),
-            "events": .array(encoded), "scene_changes": .array(encodedChanges),
+            "events": .array(encoded), "scene_changes": .array(encodedChanges), "scene_change_details": .array(encodedDetails),
             "motion_wait": .object(["command_id": number(motionWait.command_id),
                 "source_capture_id": number(motionWait.source_capture_id), "last_capture_id": number(motionWait.last_capture_id),
                 "deadline_ns": number(motionWait.deadline_ns), "attempts": integer(motionWait.attempts),

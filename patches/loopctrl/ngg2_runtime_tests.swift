@@ -1420,6 +1420,345 @@ require(competingResults.1 == nil && sameDispatchFailure(immutableDispatch,
 fixtureFailureSnapshot = nil
 
 
+
+// TEST051 PUBLIC FIXTURES BEGIN.
+func pagedCall(_ id: String, mode: JSONValue = .string("manifest"),
+               extra: [String: JSONValue] = [:], owner: String = "fixture-owner") -> ([String: JSONValue]?, JSONRPCError?) {
+    var params: [String: JSONValue] = ["run_id": .string(id), "_necro_owner": .string(owner), "mode": mode]
+    for (key, value) in extra { params[key] = value }
+    return runtime.handle(method: "necro_native_results", params: params)
+}
+func publicExportFixture(_ noisyRows: Int = 0) -> String {
+    NG2Fake.reset(.reply)
+    var rgba = Data(count: 896*414*4)
+    let length = rgba.count
+    rgba.withUnsafeMutableBytes { raw in
+        let bytes = raw.bindMemory(to: UInt8.self)
+        ng2_test_pause(bytes.baseAddress, length)
+        // Keep the complete PAUSE template (y104..132) intact. Noise below it
+        // changes only the encoded payload size, not control classification.
+        var random: UInt32 = 0x12345678
+        if noisyRows > 0 {
+            for y in 200..<min(414, 200+noisyRows) {
+                for x in 0..<896 {
+                    let at = (y*896+x)*4
+                    for channel in 0..<3 {
+                        random ^= random << 13; random ^= random >> 17; random ^= random << 5
+                        bytes[at+channel] = UInt8(truncatingIfNeeded: random)
+                    }
+                }
+            }
+        }
+    }
+    let png = NG2Raster.png(rgba)!
+    NG2Fake.lock.lock(); NG2Fake.replyData = png; NG2Fake.replyError = nil; NG2Fake.lock.unlock()
+    let id = identity()
+    NG2RuntimeTestHooks.scheduleTicket = { _, callback in
+        _ = call("necro_native_cancel", id); callback(); return true
+    }
+    require(call("necro_native_start", id).1 == nil, "paged_fixture_public_start")
+    pump("paged_fixture_public_capture_and_drain") { drained(id) }
+    NG2RuntimeTestHooks.scheduleTicket = nil
+    require(NG2Fake.countTouches() == 0 && (report(id)["retained_image_count"]?.intValue ?? 0) > 0,
+        "paged_fixture_real_committed_image_without_input")
+    return id
+}
+func testContinuousRevalidationCallbacksPublic() {
+    for staleFirst in [true, false] {
+        NG2Fake.reset(.walk)
+        NG2Fake.lock.lock()
+        // The same known world starts one tile farther from the shop, leaving
+        // the third step on FLOOR after two real, confirmed UP movements.
+        NG2Fake.walkY = 1; NG2Fake.walkGoodsEnabled = false
+        NG2Fake.remoteVariantDuringWalk = true
+        NG2Fake.lock.unlock()
+        NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+        let id = identity()
+        diagnoseFixture(id)
+        NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
+        alignInitialFixtureMove(id)
+        NG2RuntimeTestHooks.afterTicketReturned = { returned in
+            NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
+        }
+        NG2RuntimeTestHooks.afterCaptureDrainProcessed = { run in
+            NG2Fake.lock.lock(); NG2Fake.captureDrainedRuns.insert(run); NG2Fake.lock.unlock()
+        }
+        NG2RuntimeTestHooks.scheduleTicket = { commandID, callback in
+            let current = report(id)
+            let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+            guard let event = events.first(where: { $0["id"]?.intValue == Int(commandID) }),
+                event["kind"]?.intValue == 4 else { return false }
+            if (current["inputs"]?.intValue ?? 0) < 2 {
+                NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(id, expectedID: commandID) }
+                callback(); return true
+            }
+            NG2Fake.holdTicket(commandID, callback)
+            NG2Fake.lock.lock(); NG2Fake.remoteVariant = 1; NG2Fake.lock.unlock()
+            return true
+        }
+        require(call("necro_native_start", id).1 == nil, "continuous_revalidation_public_start")
+        pump("continuous_revalidation_two_MOVED_then_replacement", timeout: 15) {
+            let current = call("necro_native_status", id, keepalive: true).0?["report"]?.objectValue ?? [:]
+            NG2Fake.lock.lock(); let count = NG2Fake.heldTickets.count; NG2Fake.lock.unlock()
+            return count >= 2 || current["terminal"]?.intValue == 1
+        }
+        let current = report(id)
+        let moves = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+        require(current["inputs"]?.intValue == 2 && current["moves"]?.intValue == 2 && moves.count == 4,
+            "continuous_revalidation_follows_two_actual_confirmed_moves")
+        let old = moves[2], replacement = moves[3]
+        let oldID = UInt64(old["id"]!.intValue!), newID = UInt64(replacement["id"]!.intValue!)
+        require(old["outcome"]?.intValue == 3 && old["begin_ns"]?.intValue == 0,
+            "continuous_revalidation_old_reservation_definitely_unsent")
+        require(["target_ns", "not_before_ns", "deadline_ns", "ordinal", "direction", "x", "y"].allSatisfy {
+            old[$0] == replacement[$0]
+        } && old["source_capture_id"] != replacement["source_capture_id"],
+            "continuous_revalidation_same_step_and_original_window")
+        let changes = (current["scene_changes"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        let details = (current["scene_change_details"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        require(changes.count == 1 && changes[0]["command_id"]?.intValue == Int(oldID) &&
+            changes[0]["deadline_ns"] == old["deadline_ns"] && changes[0]["replan_allowed"]?.boolValue == true,
+            "continuous_revalidation_current_ticket_deadline_diagnostic")
+        require(details.count == 1 && details[0]["command_id"]?.intValue == Int(oldID) &&
+            details[0]["validation"]?.intValue == 2 && details[0]["continuous_count"]?.intValue == 1 &&
+            details[0]["chain_count"]?.intValue == 1 &&
+            details[0]["cells"]?.arrayValue?.count == 1 && details[0]["omitted_cells"]?.intValue == 0,
+            "continuous_revalidation_actual_detail_producer")
+        require(pagedCall(id).1 != nil, "continuous_live_callbacks_deny_manifest")
+        func releaseOld() {
+            var finalEntries = 0, queries = 0
+            let touches = NG2Fake.countTouches()
+            NG2RuntimeTestHooks.beforeMainAuthority = { finalEntries += 1 }
+            NG2Fake.lock.lock(); NG2Fake.frontPID = 0; NG2Fake.beforeForegroundQuery = { queries += 1 }; NG2Fake.lock.unlock()
+            NG2Fake.releaseTicket(oldID)
+            pump("continuous_stale_callback_actually_returned") {
+                NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
+                return NG2Fake.returnedTickets.contains(oldID)
+            }
+            require(finalEntries == 0 && queries == 0 && NG2Fake.countTouches() == touches,
+                "continuous_old_command_skips_authority_and_touches")
+            require(report(id)["dispatch_failure"] == .null, "continuous_old_command_does_not_publish_failure")
+            NG2RuntimeTestHooks.beforeMainAuthority = nil
+            NG2Fake.lock.lock(); NG2Fake.frontPID = 42; NG2Fake.beforeForegroundQuery = nil; NG2Fake.lock.unlock()
+        }
+        if staleFirst {
+            releaseOld()
+            let after = report(id)
+            require(after["current_command_id"]?.intValue == Int(newID) && after["input_state"]?.intValue == 1 &&
+                after["main_ticket_outstanding"]?.boolValue == true && !drained(id) && NG2Fake.paths().count == 2,
+                "continuous_old_return_keeps_replacement_ownership")
+        }
+        NG2RuntimeTestHooks.beforeMainAuthority = {
+            admitFirstFixtureMove(id, expectedID: newID) { _ in
+                NG2Fake.lock.lock(); NG2Fake.walkGoodsEnabled = true; NG2Fake.lock.unlock()
+            }
+        }
+        NG2Fake.releaseTicket(newID)
+        pump("continuous_replacement_third_input_and_terminal", timeout: 10) {
+            _ = call("necro_native_status", id, keepalive: true)
+            return report(id)["terminal"]?.intValue == 1
+        }
+        let terminal = report(id)
+        let finalMoves = (terminal["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+        let sent = finalMoves.first { $0["id"]?.intValue == Int(newID) }!
+        require(terminal["inputs"]?.intValue == 3 && NG2Fake.paths().count == 3 &&
+            (sent["begin_ns"]?.intValue ?? 0) >= old["not_before_ns"]!.intValue! &&
+            (sent["begin_ns"]?.intValue ?? Int.max) <= old["deadline_ns"]!.intValue!,
+            "continuous_replacement_sends_at_most_once_in_original_window")
+        if !staleFirst {
+            pump("continuous_capture_worker_returned_before_stale_callback") {
+                NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
+                return NG2Fake.captureDrainedRuns.contains(id)
+            }
+            require(!drained(id) && runtime.hasLease && pagedCall(id).1 != nil &&
+                call("necro_native_start", identity()).1 != nil,
+                "continuous_stale_callback_retains_lease_and_blocks_manifest")
+            releaseOld()
+        }
+        pump("continuous_all_actual_callbacks_drained") { drained(id) }
+        require(report(id)["paused"]?.intValue == 1 && report(id)["cancel_requested"]?.boolValue == false &&
+            NG2Fake.paths().count == 3 && pagedCall(id).1 == nil,
+            "continuous_safe_terminal_export_after_every_callback_returns")
+        fixtureFailureSnapshot = nil
+    }
+}
+func testPagedResultsPublic() {
+    testPagedResultsManifestPublicBaseline()
+    let id = publicExportFixture(50)
+    let first = pagedCall(id)
+    require(first.1 == nil, "paged_manifest_actual_producer_succeeds")
+    let manifest = first.0!
+    require(manifest["result_mode"]?.stringValue == "manifest" &&
+        manifest["run_id"]?.stringValue == id && manifest["export_id"]?.stringValue?.count == 32 &&
+        manifest["chunk_bytes"]?.intValue == 65_536,
+        "paged_manifest_closed_identity_and_fixed_chunk_size")
+    let imageEntries = (manifest["images"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    require(!imageEntries.isEmpty && imageEntries.count <= 20 &&
+        imageEntries.allSatisfy { $0["data_base64"] == nil && ($0["byte_length"]?.intValue ?? 0) > 0 &&
+            ($0["byte_length"]?.intValue ?? Int.max) <= 512*1024 },
+        "paged_manifest_metadata_only_and_per_image_limit")
+    let total = imageEntries.reduce(0) { $0+($1["byte_length"]?.intValue ?? 0) }
+    require(manifest["total_bytes"]?.intValue == total && total <= 4*1024*1024 &&
+        manifest["exported_images"]?.intValue == imageEntries.count,
+        "paged_manifest_total_cache_budget")
+    require(pagedCall(id).0 == manifest, "paged_cached_manifest_is_immutable_including_report")
+    let legacy = call("necro_native_results", id)
+    require(legacy.1 == nil && legacy.0?["result_mode"] == nil &&
+        legacy.0?["images"]?.arrayValue?.count == imageEntries.count,
+        "paged_cache_preserves_default_legacy_response")
+    let exportID = manifest["export_id"]!.stringValue!
+    for entry in imageEntries {
+        let captureID = entry["capture_id"]!.intValue!, length = entry["byte_length"]!.intValue!
+        require(length > 65_536, "paged_fixture_has_real_multiple_chunk_PNG")
+        var all = Data(), offset = 0
+        while offset < length {
+            let params: [String: JSONValue] = ["export_id": .string(exportID), "capture_id": .int(captureID), "offset": .int(offset)]
+            let reply = pagedCall(id, mode: .string("chunk"), extra: params)
+            require(reply.1 == nil, "paged_chunk_actual_producer_succeeds")
+            let chunk = reply.0!
+            require(Set(chunk.keys) == Set(["run_id", "result_mode", "export_id", "capture_id", "offset", "byte_length", "data_base64", "sha256", "chunk_bytes"]) &&
+                chunk["run_id"]?.stringValue == id && chunk["result_mode"]?.stringValue == "chunk" &&
+                chunk["export_id"]?.stringValue == exportID && chunk["capture_id"]?.intValue == captureID &&
+                chunk["offset"]?.intValue == offset && chunk["byte_length"]?.intValue == length && chunk["sha256"] == entry["sha256"],
+                "paged_chunk_identity_offset_and_digest_bound")
+            let bytes = Data(base64Encoded: chunk["data_base64"]!.stringValue!)!
+            require(bytes.count == min(65_536, length-offset) && chunk["chunk_bytes"]?.intValue == bytes.count,
+                "paged_chunk_exact_boundary_or_final_remainder")
+            require(pagedCall(id, mode: .string("chunk"), extra: params).0 == chunk,
+                "paged_same_offset_retry_returns_identical_immutable_bytes")
+            all.append(bytes); offset += bytes.count
+        }
+        let original = (legacy.0?["images"]?.arrayValue ?? []).compactMap { $0.objectValue }.first { $0["capture_id"]?.intValue == captureID }!
+        require(all == Data(base64Encoded: original["data_base64"]!.stringValue!),
+            "paged_reassembled_bytes_match_legacy_real_PNG")
+        require(all.count == length && all.starts(with: [137,80,78,71,13,10,26,10]) &&
+            entry["pixel_width"]?.intValue == 896 && entry["pixel_height"]?.intValue == 414,
+            "paged_reassembled_PNG_length_and_dimensions")
+    }
+    let entry = imageEntries[0], captureID = entry["capture_id"]!.intValue!, length = entry["byte_length"]!.intValue!
+    let valid: [String: JSONValue] = ["export_id": .string(exportID), "capture_id": .int(captureID), "offset": .int(0)]
+    for (key, bad) in [("offset", JSONValue.int(-1)), ("offset", .int(length)), ("offset", .double(0)),
+        ("offset", .bool(false)), ("capture_id", .double(Double(captureID))), ("capture_id", .bool(true)),
+        ("capture_id", .int(0)), ("capture_id", .int(999_999)), ("export_id", .string(String(repeating: "f", count: 32))),
+        ("export_id", .string(exportID.uppercased())), ("unexpected", .int(0))] {
+        var params = valid; params[key] = bad
+        // An all-numeric random id uppercases to itself; use guaranteed
+        // noncanonical letters rather than assuming UUID happens to have one.
+        if key == "export_id", bad == .string(exportID.uppercased()), exportID.uppercased() == exportID { continue }
+        require(pagedCall(id, mode: .string("chunk"), extra: params).1 != nil,
+            "paged_rejects_typed_identity_or_offset_"+key)
+    }
+    for badMode in [JSONValue.null, .bool(true), .int(0), .string("other")] {
+        require(pagedCall(id, mode: badMode).1 != nil, "paged_rejects_unknown_or_nonstrict_mode")
+    }
+    require(pagedCall(id, mode: .string("chunk"), extra: ["export_id": .string(exportID)]).1 != nil &&
+        pagedCall(id, extra: ["offset": .int(0)]).1 != nil,
+        "paged_rejects_missing_chunk_fields_and_manifest_extras")
+    require(pagedCall(id, owner: "other-owner").1 != nil &&
+        pagedCall(id, mode: .string("chunk"), extra: valid, owner: "other-owner").1 != nil,
+        "paged_manifest_and_chunk_authenticated_owner_bound")
+    RemoteSession.shared.paused = true
+    require(pagedCall(id).1 != nil && pagedCall(id, mode: .string("chunk"), extra: valid).1 != nil,
+        "paged_cached_calls_recheck_paused_owner")
+    RemoteSession.shared.paused = false
+    require(pagedCall(id, mode: .string("chunk"), extra: valid).1 != nil,
+        "paged_invalidated_cache_cannot_reuse_export_id")
+    let rebuilt = pagedCall(id)
+    require(rebuilt.1 == nil && rebuilt.0?["export_id"] != .string(exportID),
+        "paged_owner_reactivation_builds_fresh_export_identity")
+
+    for stage in ["before", "after"] {
+        let guarded = publicExportFixture()
+        if stage == "before" {
+            NG2RuntimeExportTestHooks.beforeExportEncode = { RemoteSession.shared.paused = true }
+        } else {
+            NG2RuntimeExportTestHooks.afterExportEncode = { RemoteSession.shared.paused = true }
+        }
+        require(pagedCall(guarded).1 != nil, "paged_owner_revoked_"+stage+"_encoding_denies_export")
+        NG2RuntimeExportTestHooks.beforeExportEncode = nil; NG2RuntimeExportTestHooks.afterExportEncode = nil
+        RemoteSession.shared.paused = false
+        require(pagedCall(guarded).1 == nil, "paged_failed_build_releases_budget_and_allows_fresh_export")
+    }
+    let competing = publicExportFixture()
+    var parallelDenied = false, newRunDenied = false
+    NG2RuntimeExportTestHooks.beforeExportEncode = {
+        NG2RuntimeExportTestHooks.beforeExportEncode = nil
+        parallelDenied = pagedCall(competing).1 != nil
+        newRunDenied = call("necro_native_start", identity()).1 != nil
+    }
+    require(pagedCall(competing).1 == nil && parallelDenied && newRunDenied,
+        "paged_parallel_build_and_new_run_do_not_amplify_cache")
+
+    for mode in ["manifest", "chunk"] {
+        let guarded = publicExportFixture(50)
+        let cached = pagedCall(guarded).0!
+        let item = cached["images"]!.arrayValue!.first!.objectValue!
+        let chunkParams: [String: JSONValue] = ["export_id": cached["export_id"]!, "capture_id": item["capture_id"]!, "offset": .int(0)]
+        NG2RuntimeExportTestHooks.beforeExportReply = {
+            NG2Fake.lock.lock(); NG2Fake.authenticatedOwnerActive = false; NG2Fake.lock.unlock()
+        }
+        require(pagedCall(guarded, mode: .string(mode), extra: mode == "chunk" ? chunkParams : [:]).1 != nil,
+            "paged_cached_"+mode+"_reply_rechecks_auth_owner")
+        NG2RuntimeExportTestHooks.beforeExportReply = nil
+        NG2Fake.lock.lock(); NG2Fake.authenticatedOwnerActive = true; NG2Fake.lock.unlock()
+        require(pagedCall(guarded, mode: .string("chunk"), extra: chunkParams).1 != nil,
+            "paged_auth_revocation_discards_cached_bytes")
+    }
+    for mode in ["manifest", "chunk"] {
+        let guarded = publicExportFixture(50)
+        let cached = pagedCall(guarded).0!
+        let item = cached["images"]!.arrayValue!.first!.objectValue!
+        let chunkParams: [String: JSONValue] = ["export_id": cached["export_id"]!, "capture_id": item["capture_id"]!, "offset": .int(0)]
+        let newer = identity()
+        var acceptedNew = false
+        NG2RuntimeExportTestHooks.beforeExportReply = {
+            NG2RuntimeExportTestHooks.beforeExportReply = nil
+            NG2Fake.lock.lock(); NG2Fake.mode = .empty; NG2Fake.lock.unlock()
+            acceptedNew = call("necro_native_start", newer).1 == nil
+        }
+        require(pagedCall(guarded, mode: .string(mode), extra: mode == "chunk" ? chunkParams : [:]).1 != nil && acceptedNew,
+            "paged_cached_"+mode+"_reply_rechecks_current_run")
+        pump("paged_replacement_run_drained") { drained(newer) }
+        require(pagedCall(guarded).1 != nil && pagedCall(guarded, mode: .string("chunk"), extra: chunkParams).1 != nil &&
+            call("necro_native_results", guarded).1 == nil,
+            "paged_historical_run_stays_legacy_metadata_only")
+    }
+    // The HOST-only seam seeds bounded clones of a real committed frame;
+    // the shared production encoder/budget/hash/cache path remains public.
+    // Padding happens after real PNG encoding and cannot allocate a cache
+    // entry until the same production per-image/aggregate tests accept it.
+    for (length, expectedCount) in [(512*1024, 8), (512*1024-1, 8), (512*1024+1, 0), (128*1024, 20)] {
+        let budgeted = publicExportFixture()
+        require(runtime.testSeedExportFrames(budgeted, count: 20), "paged_budget_fixture_seed_is_terminal_and_bounded")
+        NG2RuntimeExportTestHooks.transformExportPNG = { png, _ in
+            require(png.count < length, "paged_budget_padding_starts_with_real_PNG")
+            var padded = png; padded.append(Data(repeating: 0, count: length-png.count)); return padded
+        }
+        let bounded = pagedCall(budgeted)
+        require(bounded.1 == nil && bounded.0?["retained_images"]?.intValue == 20 &&
+            bounded.0?["exported_images"]?.intValue == expectedCount &&
+            bounded.0?["total_bytes"]?.intValue == expectedCount*length &&
+            bounded.0?["omitted_image_count"]?.intValue == 20-expectedCount &&
+            bounded.0?["omitted_capture_ids"]?.arrayValue?.count == 20-expectedCount,
+            "paged_exact_per_image_aggregate_and_image_count_budget_"+String(length))
+        let defaultResult = call("necro_native_results", budgeted)
+        require(defaultResult.1 == nil && defaultResult.0?["exported_images"] == bounded.0?["exported_images"] &&
+            defaultResult.0?["exported_capture_ids"] == bounded.0?["exported_capture_ids"] &&
+            defaultResult.0?["omitted_capture_ids"] == bounded.0?["omitted_capture_ids"],
+            "paged_budget_selection_and_omission_equal_legacy")
+        NG2RuntimeExportTestHooks.transformExportPNG = nil
+    }
+    let oversized = publicExportFixture(214)
+    let oversizedManifest = pagedCall(oversized)
+    require(oversizedManifest.1 == nil && oversizedManifest.0?["exported_images"]?.intValue == 0 &&
+        oversizedManifest.0?["total_bytes"]?.intValue == 0 &&
+        (oversizedManifest.0?["omitted_image_count"]?.intValue ?? 0) > 0,
+        "paged_oversized_real_PNG_omitted_within_original_export_budget")
+}
+// TEST051 PUBLIC FIXTURES END.
+testContinuousRevalidationCallbacksPublic()
+testPagedResultsPublic()
+
 NG2Fake.reset(.pause)
 NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()
 let unknown = identity()

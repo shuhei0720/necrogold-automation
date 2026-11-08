@@ -12,6 +12,12 @@ enum NG2RuntimeObserveTestHooks {
     static var beforeObserve: (() -> Void)?
     static var afterObserve: (() -> Void)?
 }
+enum NG2RuntimeExportTestHooks {
+    static var beforeExportEncode: (() -> Void)?
+    static var afterExportEncode: (() -> Void)?
+    static var beforeExportReply: (() -> Void)?
+    static var transformExportPNG: ((Data, UInt64) -> Data)?
+}
 enum NG2Fake {
     enum Mode { case empty, pause, hold, walk, reply }
     static let lock = NSLock()
@@ -20,6 +26,7 @@ enum NG2Fake {
     static var activations = 0
     static var touches = 0
     static var failTouch = false
+    static var authenticatedOwnerActive = true
     static var frontPID: pid_t = 42
     static var beforeForegroundQuery: (() -> Void)?
     static var gesturePaths: [[[(point: CGPoint, t: Double)]]] = []
@@ -34,6 +41,7 @@ enum NG2Fake {
     static var walkPaused = false
     static var phaseBase: UInt64 = 0
     static var remoteVariant: Int32 = 0
+    static var remoteVariantDuringWalk = false
     static var heldTickets: [UInt64: () -> Void] = [:]
     static var returnedTickets = Set<UInt64>()
     static var unknownFrames = 0
@@ -52,7 +60,7 @@ enum NG2Fake {
     static var observeEntries: [UInt64] = []
     static var observeExits: [UInt64] = []
     static func reset(_ next: Mode) {
-        lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; frontPID = 42; callbacks = []; offset = 0; pending = 0 }
+        lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; authenticatedOwnerActive = true; frontPID = 42; callbacks = []; offset = 0; pending = 0 }
         lock.fixtureLocked {
             replyData = nil; replyError = nil
             captureTimeProvider = nil
@@ -62,6 +70,7 @@ enum NG2Fake {
             walkMoves = 0; walkCapturesAfterMove = 0; walkObservationAfter = 0; walkPaused = false
             walkGoodsEnabled = true; walkPixelInset = 0; captureLimit = nil; firstUnknownID = 0; subtileResolvedWait = false
             remoteVariant = 0; heldTickets = [:]; returnedTickets = []; unknownFrames = 0
+            remoteVariantDuringWalk = false
             boundaryClockChange = nil
             captureDrainedRuns = []
             phaseBase = DispatchTime.now().uptimeNanoseconds
@@ -83,6 +92,10 @@ enum NG2Fake {
         NG2RuntimeTestHooks.clock = nil
         NG2RuntimeObserveTestHooks.beforeObserve = nil
         NG2RuntimeObserveTestHooks.afterObserve = nil
+        NG2RuntimeExportTestHooks.beforeExportEncode = nil
+        NG2RuntimeExportTestHooks.afterExportEncode = nil
+        NG2RuntimeExportTestHooks.beforeExportReply = nil
+        NG2RuntimeExportTestHooks.transformExportPNG = nil
     }
     // Separate analysis, gate and actual C-entry/return phases by construction.
     // The expected start comes from the boundary hook, never a reported field.
@@ -162,10 +175,10 @@ enum NG2Fake {
             ng2_fixture_floor_pixels_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, state.0, state.1, fraction, state.2)
         }
         precondition(valid == 1)
-        let remote = lock.fixtureLocked { remoteVariant }
-        if state.0 == 0 && state.1 == 0 {
+        let remote = lock.fixtureLocked { (remoteVariant, remoteVariantDuringWalk) }
+        if (state.0 == 0 && state.1 == 0) || remote.1 {
             let changed = rgba.withUnsafeMutableBytes {
-                ng2_fixture_remote_cell($0.bindMemory(to: UInt8.self).baseAddress, count, remote)
+                ng2_fixture_remote_cell($0.bindMemory(to: UInt8.self).baseAddress, count, remote.0)
             }
             precondition(changed == 1)
         }
@@ -217,7 +230,9 @@ final class RemoteSession {
 }
 final class AuthManager {
     static let shared = AuthManager()
-    func clientName(forTokenId owner: String) -> String? { owner == "fixture-owner" ? "Fixture" : nil }
+    func clientName(forTokenId owner: String) -> String? {
+        NG2Fake.lock.fixtureLocked { owner == "fixture-owner" && NG2Fake.authenticatedOwnerActive ? "Fixture" : nil }
+    }
 }
 final class LockStateMonitor {
     static let monitor = LockStateMonitor()
