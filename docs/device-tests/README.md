@@ -2306,3 +2306,8 @@ cd /mnt/necro_test053 && sh test_053.sh
 **「TEST-053: 終了」が出てから `runtime/test-053` 全体をZIPで返してください。** 歩き出すまでの時間・毎ビートの連続歩行・茶壁/扉の開通と進入・商品可視・最終ポーズ・終了待ち時間を教えてください。
 
 collectorが終了して結果回収未完了と明示した場合だけ、同じLoopCtrl起動状態/ソース/runtimeで再実行すると同run/export/cursorを回収します。回収完了済みなら再実行せずZIPを返してください（resolved=trueでは新runが始まります）。同時に別テストを実行しません。今回の実機資料で初動/歩行を評価し、全経路毎拍・人間以上の速度・指輪通知・全周回の合格を先に宣言しません。
+
+
+TEST053の独立実装第2周を設計・網羅・安全で終了し、P0/P1/P2残件なし。3担当が実IPA build68、全22seal/source、全52 actual named fault出力（新2個を含む実Controller4変異のSHA再構築）、Raster3、両C全構造/field故障、実暗号RPC、実PBX/7,019行raw compiler log/6response展開とC4/Swift5のprofilev2、全9 Mach-OのHOST hook非混入、実app/runner2本のAPI/native_v10を独立照合した。文書の「全Mach-OにAPIタグ」と読めた表記は実app/runner2本のタグと全9本のhook非混入へ正確に訂正し、3担当が確認した。
+
+文書候補commit `730f684680166a1aa724663d0318d687e2082d2e` の[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/archive/730f684680166a1aa724663d0318d687e2082d2e.zip)は6,938,581bytes/SHA `0ba505ecf7972ccbc0c50255d9e9407b3dcc75b6bc26a24b6c2df9239149afef`。rootと3担当が全415/415のcommitted bytes/CRC/安全なinventoryを一致し、重複・欠落・余分・不一致0。native code a1ceba7からの差は既存5文書のみ。この終了記録と上記1か所の表記訂正だけを加えた最終配布ZIPもrootが全415bytes/CRCを再照合して渡す。全経路の毎拍歩行、人間以上の実効速度、初動/茶壁・扉/商品/最終pause/回収待ちは新IPAとTEST053で実機確認を依頼する。指輪/通知/完全循環/耐久は引き続き未受入。

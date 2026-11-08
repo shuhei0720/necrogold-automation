@@ -4,7 +4,7 @@
 
 最新はTEST053 / code `a1ceba72091775221926d2cf3cde739b0f7aa8f0` / [Mac CI42478480071](https://github.com/shuhei0720/necrogold-automation/actions/runs/42478480071) / IPA build68を照合し、実機試験を依頼する段階。TEST052は2実行とも方向入力0。初歩前の遠方tile3変動による再計画2回消費と、AX前面確認11.692042ms後の入力期限0.804944ms超過を分離した。最初のslotだけlead+50msで一度選び、未予約のまま観測し、NB−100..50msで最新normal plannerから予約する。元拍/period/全horizonを保ち、失効や窓超過で次拍へ選び直さない。連続歩行と全既存入力・画像回収上限は維持する。
 
-host165/all124画像path・client174・package202、CI native151/private14明示除外・client174、Mac public結合/全52 named faults/Raster3/両C同値・field故障/実暗号RPC/実compiler profilev2/IPAが成功。全22sealと全Mach-OのAPI/native_v10・HOST hook非混入を照合。独立3観点第2周の最終配布物/完全source照合は既存台帳へ記録する。
+host165/all124画像path・client174・package202、CI native151/private14明示除外・client174、Mac public結合/全52 named faults/Raster3/両C同値・field故障/実暗号RPC/実compiler profilev2/IPAが成功。全22seal、実app/runnerのAPI/native_v10、全Mach-OのHOST hook非混入を照合。独立3観点第2周の最終配布物/完全source照合は既存台帳へ記録する。
 
 **[TEST053の実機確認](device-tests/README.md#test-053実行手順)をお願いします。** [新IPA build68 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42478480071/artifacts/13617561482)をSideStoreで更新し、LoopCtrl完全終了/起動→Start Server、新通常1-1/開幕金壁/画面端0/左側が下/ポーズから `sh test_053.sh`。終了後 `runtime/test-053` 全ZIPと初動/毎拍/茶壁・扉/商品/最終pause/回収待ちを返してください。全経路毎拍・人より速い性能・指輪/通知/完全周回/耐久は未受入です。
 
