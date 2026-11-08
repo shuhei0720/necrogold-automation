@@ -15,4 +15,9 @@ int ng2_fixture_floor_pixels_rgba(uint8_t *out,size_t length,int32_t world_x,
                                  int32_t world_y,double q,int32_t goods);
 /* Change one remote observed cell without affecting the motion-signature ROI. */
 int ng2_fixture_remote_cell(uint8_t *out,size_t length,int32_t variant);
+/* TEST054 procedural motion-reference world. Variant1 perturbs only sparse
+ * signature samples at world_y=-36 and changes remote cell(-10,1); variant0
+ * is the unchanged floor generator. No original/device pixels are included. */
+int ng2_fixture_motion_reference_rgba(uint8_t *out,size_t length,int32_t world_y,
+                                       double q,int32_t goods,int32_t variant);
 #endif

@@ -94,6 +94,8 @@ jobs:
               'test_required_test051_actual77_79_reissue_same_up_after_synthetic_lead_in',
               'test_required_test052_startup_flickers_and_strict_parity',
               'test_required_test052_three_flickers_before_initial_publication',
+              'test_required_test053_original_reference_after_reissue',
+              'test_required_test053_reference_motion_and_strict_parity',
           }
           suite = unittest.defaultTestLoader.loadTestsFromNames([
               'test_native_perception', 'test_native_navigation',

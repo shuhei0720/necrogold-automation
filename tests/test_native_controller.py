@@ -53,6 +53,11 @@ class SceneDetail(C.Structure):
 class MotionWait(C.Structure):
     _fields_=[*[(k,C.c_uint64) for k in ('command_id','source_capture_id','last_capture_id','deadline_ns')],
               *[(k,C.c_int32) for k in ('attempts','last_motion','active')]]
+class MotionReference(C.Structure):
+    _fields_=[*[(k,C.c_uint64) for k in ('command_id','authority_capture_id','reference_capture_id',
+                                      'reference_start_ns','reference_prefix','observed_capture_id')],
+              *[(k,C.c_int32) for k in ('reference_eligible','primary_motion','fallback_attempted','fallback_motion')],
+              ('selected_capture_id',C.c_uint64),('selected_motion',C.c_int32)]
 KINDS={'floor':1,'gold':2,'stone':3,'dirt':4,'door':5,'item':6}
 DIRS={1:(-1,0),2:(1,0),3:(0,-1),4:(0,1)}
 
@@ -125,6 +130,78 @@ class NativeControllerTests(unittest.TestCase):
         out=(Event*64)();n=self.lib.ng2_controller_events(self.engine,out,64);return list(out)[:n]
     def motion_wait(self):
         out=MotionWait();self.lib.ng2_controller_motion_wait(self.engine,C.byref(out));return out
+    def motion_references(self):
+        query=self.lib.ng2_controller_motion_references
+        query.argtypes=[C.c_void_p,C.POINTER(MotionReference),C.c_size_t];query.restype=C.c_size_t
+        out=(MotionReference*16)();count=query(self.engine,out,16);return list(out)[:count]
+    def motion_selection_wrapper(self):
+        """Unit-only result selection, distinct from real-pixel replay above.
+
+        Every unarmed call uses the unchanged actual C motion matcher. Only
+        explicitly armed assessment calls or one numbered guard call differ.
+        """
+        cls=type(self)
+        if not hasattr(cls,'motion_selection_lib'):
+            directory=Path(cls.temp.name);source=directory/'selection-wrapper.c'
+            source.write_text(r'''
+#include "NG2Core.h"
+static int mode,calls,at,values[8];
+static int choice_calls,choice_at,choice_field;
+void test_motion_reset(void){mode=0;calls=0;choice_calls=0;choice_at=0;}
+void test_reference_choice_fault(int call,int field){choice_calls=0;choice_at=call;choice_field=field;}
+void test_motion_force(int r1,int k1,int x1,int y1,int r2,int k2,int x2,int y2){
+    mode=2;calls=0;values[0]=r1;values[1]=k1;values[2]=x1;values[3]=y1;
+    values[4]=r2;values[5]=k2;values[6]=x2;values[7]=y2;
+}
+void test_motion_once(int call,int result,int kind,int x,int y){
+    mode=1;calls=0;at=call;values[0]=result;values[1]=kind;values[2]=x;values[3]=y;
+}
+int test_motion_calls(void){return calls;}
+int ng2_real_motion(const NG2Scene *,const NG2Scene *,int32_t,NG2Motion *);
+int ng2_motion(const NG2Scene *a,const NG2Scene *b,int32_t direction,NG2Motion *out){
+    int offset=0;++calls;
+    if((mode==1&&calls==at)||(mode==2&&calls<=2)){
+        if(mode==2&&calls==2)offset=4;
+        out->kind=values[offset+1];out->dx=values[offset+2];out->dy=values[offset+3];return values[offset];
+    }
+    return ng2_real_motion(a,b,direction,out);
+}
+int ng2_real_choose(const NG2Scene *,int32_t,int32_t,const uint16_t *,size_t,const NG2Entrance *,NG2Decision *);
+int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,const NG2Entrance *e,NG2Decision *out){
+    int result=ng2_real_choose(s,x,y,v,n,e,out);++choice_calls;
+    if(result&&choice_calls==choice_at){
+        if(choice_field==1)out->direction=out->direction==NG2_UP?NG2_RIGHT:NG2_UP;
+        else if(choice_field==2)out->reason=out->reason==7?8:7;
+        else if(choice_field==3)++out->target_x;
+        else if(choice_field==4)++out->target_y;
+        else if(choice_field==5)out->obstacle=NG2_TILE_DIRT;
+    }
+    return result;
+}
+''')
+            navigation=directory/'selection-navigation.c'
+            navigation.write_text('#define ng2_motion ng2_real_motion\n#define ng2_choose ng2_real_choose\n#include "'+str(CORE/'NG2Navigation.c')+'"\n')
+            library=directory/'selection-controller.so'
+            subprocess.run(['cc','-std=c99','-O2','-Wall','-Wextra','-Werror','-pedantic','-ffp-contract=off','-fPIC','-shared',
+                            '-I',str(CORE),str(source),str(navigation),str(CORE/'NG2Controller.c'),
+                            str(CORE/'NG2Perception.c'),str(CORE/'NG2Beat.c'),'-lm','-o',str(library)],check=True)
+            cls.motion_selection_lib=C.CDLL(str(library))
+        original=self.lib;self.lib=cls.motion_selection_lib;self.addCleanup(setattr,self,'lib',original)
+        for name in ('create','destroy','observe','tick','begin','complete','cancel','status','events','motion_wait'):
+            name='ng2_controller_'+name;old=getattr(original,name);new=getattr(self.lib,name)
+            new.argtypes=old.argtypes;new.restype=old.restype
+        self.lib.test_motion_reset.argtypes=[];self.lib.test_motion_force.argtypes=[C.c_int]*8
+        self.lib.test_motion_once.argtypes=[C.c_int]*5;self.lib.test_motion_calls.argtypes=[]
+        self.lib.test_reference_choice_fault.argtypes=[C.c_int]*2
+        self.lib.test_motion_reset()
+    def qualified_reference_reissue(self,direction=3):
+        terrain,old=self.continuous_walk(moves=1,direction=direction)
+        changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone';self.now+=2
+        self.observe(self.scene(2,2,changed,beat=True));new=self.next_move()
+        self.assertNotEqual(old.id,new.id)
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal),
+                         (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal))
+        return terrain,changed,old,new
     def ack(self,command):
         self.now=max(self.now,command.not_before_ns)
         self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,command.id,self.now,1,0,1))
@@ -590,7 +667,10 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                             # Keep targets equal so removing one action-field
                             # comparison cannot hide behind target inequality.
                             changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
-                        if phase!='pending':self.lib.test_choice_fault(1 if phase=='source' else 2,field)
+                        if phase!='pending':
+                            # Two optional-reference planner calls precede
+                            # the unchanged authority before/after pair.
+                            self.lib.test_choice_fault(3 if phase=='source' else 4,field)
                         self.now+=2;self.observe(self.scene(2,2,changed,beat=True))
                         if phase=='pending':
                             self.assertEqual((2,1),(self.scene_details()[-1].validation,
@@ -716,6 +796,278 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         self.assertEqual([1,2,2],[row.replan_count for row in self.scene_changes()])
         self.assertEqual((17,0,0),(self.status().reason,self.status().inputs,self.status().moves))
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,current.id,current.not_before_ns,1,0,1))
+    def received_test053_reference_walk(self,after_capture):
+        manifest=json.loads((ROOT/'tests/test054-fixtures.json').read_text())
+        self.assertEqual(('ngg2-test054-fixtures-v1',17),(manifest['schema'],manifest['count']))
+        fixture_root=Path(os.environ.get('NECRO_TEST054_FIXTURE_ROOT','/workspace/analysis-evidence'))
+        analyze=self.lib.ng2_analyze_rgba
+        analyze.argtypes=[C.c_void_p,C.c_size_t,C.c_size_t,C.POINTER(Scene)]
+        frames={};terrain={}
+        for entry in manifest['images']:
+            capture=entry['capture_id']
+            if capture not in (63,77,89,99,101,after_capture):continue
+            path=fixture_root/entry['path'];self.assertTrue(path.is_file(),str(path));raw=path.read_bytes()
+            self.assertEqual((entry['bytes'],entry['sha256']),(len(raw),hashlib.sha256(raw).hexdigest()))
+            with Image.open(path) as image:
+                rgba=image.convert('RGBA');pixels=rgba.tobytes();frame=Scene()
+                self.assertEqual((896,414),rgba.size)
+                self.assertEqual(0,analyze(pixels,len(pixels),rgba.width*4,C.byref(frame)))
+                terrain[capture]=nav.scan(image.convert('RGB'))
+            frames[capture]=frame
+        self.assertEqual({63,77,89,99,101,after_capture},set(frames))
+        # Missing initial source62 and real intermediate clocks are not
+        # invented: fit uses an explicit synthetic63 scene/HUD lead-in.
+        self.fit(terrain[63]);self.assertEqual(0,self.tick()[0])
+        self.now=self.status().next_target_ns-self.status().lead_ns-100_000_000
+        def observed(capture):
+            frame=Scene.from_buffer_copy(bytes(frames[capture]));clock=self.scene(2,2,beat=True)
+            for field in ('beat_valid','beat_remaining','beat_spacing','beat_center'):setattr(frame,field,getattr(clock,field))
+            self.number=capture-1;self.assertEqual(1,self.observe(frame))
+        observed(63)
+        for direction,capture in ((1,77),(3,89),(3,99)):
+            command=self.next_move();self.assertEqual(direction,command.direction);self.ack(command)
+            self.now=max(self.now+2,command.target_ns+80_000_002);observed(capture)
+        self.assertEqual((3,3,-1,-2,1),(self.status().inputs,self.status().moves,self.status().x,
+                                      self.status().y,self.status().lead_confirmed))
+        old=self.next_move();wait=self.motion_wait();self.assertEqual((3,99),(old.direction,old.source_capture_id))
+        self.now+=2;observed(101);new=self.next_move()
+        self.assertNotEqual(old.id,new.id)
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
+                         (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
+        self.assertEqual(101,new.source_capture_id)
+        self.ack(new);self.now=max(self.now+2,new.target_ns+80_000_002);observed(after_capture)
+        return old,new,wait
+    def test_required_test053_original_reference_after_reissue(self):
+        for capture in (110,111):
+            with self.subTest(after_capture=capture):
+                self.fresh_engine();self.received_test053_reference_walk(capture)
+                self.assertEqual((4,4,-1,-3),(self.status().inputs,self.status().moves,self.status().x,self.status().y))
+                row=self.motion_references()[-1]
+                previous_ack=[e.command.id for e in self.events()[:-1] if e.outcome==2][-1]
+                self.assertEqual((101,99,previous_ack),
+                                 (row.authority_capture_id,row.reference_capture_id,row.reference_prefix))
+                self.assertEqual((capture,1,0,1,1,99,1),(row.observed_capture_id,row.reference_eligible,
+                                 row.primary_motion,row.fallback_attempted,row.fallback_motion,row.selected_capture_id,row.selected_motion))
+    def test_motion_reference_unit_unknown_uses_only_matching_unit_fallback_all_directions(self):
+        self.motion_selection_wrapper()
+        for direction,(dx,dy) in DIRS.items():
+            with self.subTest(direction=direction):
+                self.lib.test_motion_reset();self.fresh_engine();_,changed,old,new=self.qualified_reference_reissue(direction)
+                previous_ack=[e.command.id for e in self.events() if e.outcome==2][-1]
+                self.ack(new);row=self.motion_references()[-1]
+                self.assertEqual((new.id,new.source_capture_id,old.source_capture_id,old.source_start_ns,previous_ack,0,1,0,0,0,new.source_capture_id,0),
+                                 tuple(getattr(row,name) for name,_ in row._fields_))
+                self.lib.test_motion_force(1,0,0,0,1,1,dx,dy)
+                self.observed_result(new,translated(changed,direction));row=self.motion_references()[-1]
+                self.assertEqual((2,2,2*dx,2*dy),(self.status().inputs,self.status().moves,self.status().x,self.status().y))
+                self.assertEqual((2,1,0,1,1,old.source_capture_id,1),(self.lib.test_motion_calls(),row.reference_eligible,
+                                 row.primary_motion,row.fallback_attempted,row.fallback_motion,row.selected_capture_id,row.selected_motion))
+                self.assertEqual((1,1,dx,dy),(self.motion_wait().attempts,self.events()[-1].motion,
+                                             self.events()[-1].dx,self.events()[-1].dy))
+    def test_motion_reference_unit_known_primary_results_never_call_fallback(self):
+        self.motion_selection_wrapper()
+        for primary in (1,2,3,4,5,6,7):
+            with self.subTest(primary=primary):
+                self.lib.test_motion_reset();self.fresh_engine();_,changed,_,new=self.qualified_reference_reissue()
+                self.ack(new);self.lib.test_motion_force(1,primary,0,-1 if primary==1 else 0,1,1,0,-1)
+                self.observed_result(new,translated(changed,3));row=self.motion_references()[-1]
+                self.assertEqual((1,primary,0,0,new.source_capture_id,primary),(self.lib.test_motion_calls(),
+                                 row.primary_motion,row.fallback_attempted,row.fallback_motion,row.selected_capture_id,row.selected_motion))
+                self.assertEqual(1+(primary==1),self.status().moves)
+    def test_motion_reference_unit_nonmatching_fallback_never_credits_or_spends_an_extra_attempt(self):
+        self.motion_selection_wrapper()
+        for returned,kind,dx,dy in ((1,0,0,0),(1,2,0,0),(1,3,0,0),(1,4,0,0),
+                                    (1,5,0,0),(1,6,0,0),(1,7,0,0),(1,1,1,0),
+                                    (1,1,0,-2),(0,1,0,-1)):
+            with self.subTest(returned=returned,kind=kind,dx=dx,dy=dy):
+                self.lib.test_motion_reset();self.fresh_engine();_,changed,_,new=self.qualified_reference_reissue()
+                self.ack(new);self.lib.test_motion_force(1,0,0,0,returned,kind,dx,dy)
+                self.observed_result(new,translated(changed,3));row=self.motion_references()[-1]
+                self.assertEqual((2,1,1,0),(self.status().inputs,self.status().moves,self.motion_wait().attempts,self.motion_wait().last_motion))
+                self.assertEqual((2,0,1,kind if returned else 0,new.source_capture_id,0),
+                                 (self.lib.test_motion_calls(),row.primary_motion,row.fallback_attempted,
+                                  row.fallback_motion,row.selected_capture_id,row.selected_motion))
+    def test_motion_reference_unit_mask_zero_disqualification_is_sticky(self):
+        self.motion_selection_wrapper();self.fresh_engine();_,changed,_,new=self.qualified_reference_reissue()
+        source=new.source_capture_id;signature=changed.signature
+        shifted=bytearray(signature);shifted[5000]=(shifted[5000]+1)%256;changed.signature=bytes(shifted)
+        self.lib.test_motion_once(1,1,0,0,0);self.now+=2
+        self.observe(self.scene(2,2,changed,beat=True))
+        self.assertEqual((1,new.id),(self.status().input_state,self.status().current_command_id))
+        self.assertEqual(1,len(self.scene_changes()))
+        self.lib.test_motion_reset();changed.signature=signature;self.now+=2
+        self.observe(self.scene(2,2,changed,beat=True));self.assertEqual(1,len(self.scene_changes()))
+        self.ack(new);row=self.motion_references()[-1]
+        self.assertEqual((source,0),(row.authority_capture_id,row.reference_eligible))
+        self.lib.test_motion_force(1,0,0,0,1,1,0,-1);self.observed_result(new,translated(changed,3))
+        row=self.motion_references()[-1]
+        self.assertEqual((1,0,0,1),(self.lib.test_motion_calls(),row.reference_eligible,row.fallback_attempted,self.status().moves))
+    def test_motion_reference_unit_pending_signature_change_is_checked_before_reserve(self):
+        self.motion_selection_wrapper();self.fresh_engine();terrain,old=self.continuous_walk(moves=1,direction=3)
+        changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone';self.now+=2
+        self.observe(self.scene(2,2,changed,beat=True))
+        self.assertEqual((0,0),(self.status().input_state,self.status().current_command_id))
+        self.assertEqual([2],[row.validation for row in self.scene_details()])
+        signature=changed.signature;modified=bytearray(signature);modified[5000]=(modified[5000]+1)%256
+        changed.signature=bytes(modified);self.lib.test_motion_once(1,1,0,0,0);self.now+=2
+        self.observe(self.scene(2,2,changed,beat=True));self.assertEqual(1,self.lib.test_motion_calls())
+        self.lib.test_motion_reset();changed.signature=signature;self.now+=2
+        self.observe(self.scene(2,2,changed,beat=True));new=self.next_move()
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns),(new.target_ns,new.not_before_ns,new.deadline_ns))
+        self.ack(new);self.lib.test_motion_force(1,0,0,0,1,1,0,-1);self.observed_result(new,translated(changed,3))
+        row=self.motion_references()[-1]
+        self.assertEqual((1,0,0,1),(self.lib.test_motion_calls(),row.reference_eligible,row.fallback_attempted,self.status().moves))
+    def test_motion_reference_unit_second_reissue_checks_original_directly_and_preserves_legacy(self):
+        self.motion_selection_wrapper();self.fresh_engine();_,changed,original,current=self.qualified_reference_reissue()
+        # Force only original->latest proof UNKNOWN. Neighbouring current->
+        # latest uses unchanged actual C and remains BLOCKED/legacy-allowed.
+        changed.tiles[(-9,4)]='stone';self.lib.test_motion_once(1,1,0,0,0);self.now+=2
+        self.observe(self.scene(2,2,changed,beat=True));replacement=self.next_move()
+        self.assertEqual([2,2],[row.validation for row in self.scene_details()])
+        self.assertEqual((original.target_ns,original.not_before_ns,original.deadline_ns,original.ordinal),
+                         (replacement.target_ns,replacement.not_before_ns,replacement.deadline_ns,replacement.ordinal))
+        self.assertNotEqual(current.id,replacement.id)
+        self.lib.test_motion_reset();self.ack(replacement)
+        self.lib.test_motion_force(1,0,0,0,1,1,0,-1);self.observed_result(replacement,translated(changed,3))
+        row=self.motion_references()[-1]
+        self.assertEqual((original.source_capture_id,0,0,1),(row.reference_capture_id,row.reference_eligible,
+                         row.fallback_attempted,self.status().moves))
+    def test_motion_reference_unit_same_goods_frame_keeps_reference_until_move_credit(self):
+        self.motion_selection_wrapper();self.fresh_engine();_,changed,old,new=self.qualified_reference_reissue()
+        self.ack(new);goods=translated(changed,3);goods.goods='visible'
+        self.lib.test_motion_force(1,0,0,0,1,1,0,-1);self.observed_result(new,goods)
+        row=self.motion_references()[-1]
+        self.assertEqual((2,2,1,1,old.source_capture_id),(self.status().inputs,self.status().moves,self.status().goods,
+                         row.fallback_attempted,row.selected_capture_id))
+        ready,pause=self.tick();self.assertEqual((1,2),(ready,pause.kind))
+    def test_motion_reference_unit_three_attempts_keep_one_ack_row_and_original_deadline(self):
+        self.motion_selection_wrapper();self.fresh_engine();_,changed,_,new=self.qualified_reference_reissue()
+        self.ack(new);deadline=self.motion_wait().deadline_ns
+        for attempt in range(1,4):
+            self.lib.test_motion_force(1,0,0,0,1,0,0,0)
+            if attempt==1:self.observed_result(new,translated(changed,3))
+            else:
+                self.now+=2;self.observe(self.scene(2,2,translated(changed,3),beat=True))
+            self.assertEqual((2,attempt,deadline),(len(self.motion_references()),self.motion_wait().attempts,self.motion_wait().deadline_ns))
+            row=self.motion_references()[-1]
+            self.assertEqual((self.number,1,0),(row.observed_capture_id,row.fallback_attempted,row.selected_motion))
+        self.assertEqual((10,1,2),(self.status().reason,self.status().moves,self.status().inputs))
+    def test_motion_reference_diagnostics_ignore_unacked_unknown_and_nonmove_events(self):
+        self.observe(self.scene());ready,resume=self.tick();self.assertEqual((1,1),(ready,resume.kind))
+        self.assertEqual([],self.motion_references());self.ack(resume);self.assertEqual([],self.motion_references())
+        self.now+=100_000_000;self.observe(self.scene(2,2,textured(),beat=True));self.fit()
+        first=self.next_move();self.assertEqual([],self.motion_references())
+        self.now=first.not_before_ns;self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,first.id,self.now,1,0,1))
+        self.now+=1;self.assertEqual(1,self.lib.ng2_controller_complete(self.engine,first.id,self.now,-1))
+        self.assertEqual((11,[]),(self.status().reason,self.motion_references()))
+    def test_motion_reference_diagnostics_initial_and_retune_never_acquire_reference(self):
+        terrain=self.fit();first=self.next_move();self.ack(first)
+        self.assertEqual((0,0,0),(self.motion_references()[-1].reference_capture_id,
+                         self.motion_references()[-1].reference_start_ns,self.motion_references()[-1].reference_prefix))
+        self.observed_result(first,terrain)
+        self.assertEqual((75_000_000,0,2,0),(self.status().lead_ns,self.status().lead_confirmed,
+                         self.motion_references()[-1].primary_motion,self.motion_references()[-1].fallback_attempted))
+        retune=self.next_move();self.ack(retune);self.observed_result(retune,translated(terrain,retune.direction))
+        row=self.motion_references()[-1]
+        self.assertEqual((2,1,0,0,0),(len(self.motion_references()),self.status().moves,
+                         row.reference_capture_id,row.reference_eligible,row.fallback_attempted))
+    def test_motion_reference_diagnostics_preserve_unassessed_and_previous_assessment_on_goods(self):
+        self.motion_selection_wrapper()
+        for prior in (False,True):
+            with self.subTest(prior=prior):
+                self.lib.test_motion_reset();self.fresh_engine();_,changed,_,new=self.qualified_reference_reissue();self.ack(new)
+                if prior:
+                    self.lib.test_motion_force(1,0,0,0,1,0,0,0);self.observed_result(new,translated(changed,3))
+                    previous=self.motion_references()[-1];self.now=self.motion_wait().deadline_ns+1
+                else:
+                    previous=self.motion_references()[-1];self.now+=2
+                    self.assertLess(self.now,new.target_ns+80_000_000)
+                goods=translated(changed,3);goods.goods='visible';self.lib.test_motion_reset()
+                self.observe(self.scene(2,2,goods,beat=True));row=self.motion_references()[-1]
+                self.assertEqual(bytes(previous),bytes(row))
+                self.assertEqual((1,1,0),(self.status().goods,self.status().moves,self.lib.test_motion_calls()))
+                self.assertEqual((self.number,0),(self.events()[-1].observed_capture_id,self.events()[-1].motion))
+                self.assertLess(row.observed_capture_id,self.events()[-1].observed_capture_id)
+                self.assertEqual(0 if not prior else previous.observed_capture_id,row.observed_capture_id)
+    def test_motion_reference_unit_prefix_time_and_control_guards_do_not_assess_or_retry(self):
+        self.motion_selection_wrapper()
+        for case in ('unstable','prefix','old_capture','early','late','cancel','foreground','locked','owner'):
+            with self.subTest(case=case):
+                self.lib.test_motion_reset();self.fresh_engine();_,changed,_,new=self.qualified_reference_reissue();self.ack(new)
+                self.lib.test_motion_force(1,0,0,0,1,1,0,-1);self.now=max(self.now+2,new.target_ns+80_000_002)
+                kwargs={}
+                if case=='unstable':kwargs['stable']=0
+                elif case=='prefix':kwargs['prefix']=0
+                elif case=='old_capture':kwargs['number']=self.number
+                elif case=='early':self.now=new.target_ns+80_000_001
+                elif case=='late':self.now=self.motion_wait().deadline_ns+1
+                elif case=='cancel':self.lib.ng2_controller_cancel(self.engine,self.now,2)
+                else:self.tick(front=int(case!='foreground'),locked=int(case=='locked'),owner=int(case!='owner'))
+                self.observe(self.scene(2,2,translated(changed,3),beat=True),**kwargs)
+                row=self.motion_references()[-1]
+                self.assertEqual((1,0,0,0),(self.status().moves,self.lib.test_motion_calls(),row.observed_capture_id,row.fallback_attempted))
+                self.assertEqual(2,len([e for e in self.events() if e.outcome==2 and e.command.kind==4]))
+    def test_motion_reference_unit_no_fallback_without_reissue_or_across_next_ordinal(self):
+        self.motion_selection_wrapper();self.fresh_engine();terrain,old=self.continuous_walk(moves=1,direction=1)
+        self.ack(old);row=self.motion_references()[-1]
+        self.assertEqual((old.source_capture_id,0),(row.reference_capture_id,row.reference_eligible))
+        self.lib.test_motion_force(1,0,0,0,1,1,-1,0);self.observed_result(old,translated(terrain,1))
+        self.assertEqual((1,1,0),(self.status().moves,self.lib.test_motion_calls(),self.motion_references()[-1].fallback_attempted))
+        # Establish the first definite result, then create the next logical
+        # ordinal. Its candidate must come from that new authority image.
+        self.lib.test_motion_force(1,1,-1,0,1,1,-1,0);self.now+=2
+        terrain=translated(terrain,1);self.observe(self.scene(2,2,terrain,beat=True));self.lib.test_motion_reset()
+        self.assertEqual(2,self.status().moves);next_command=self.next_move()
+        self.ack(next_command);row=self.motion_references()[-1]
+        self.assertEqual((next_command.source_capture_id,next_command.source_capture_id,0),
+                         (row.authority_capture_id,row.reference_capture_id,row.reference_eligible))
+        self.assertNotEqual(old.source_capture_id,row.reference_capture_id)
+    def test_motion_reference_unit_reason8_drift_keeps_authority_without_optional_reference(self):
+        self.motion_selection_wrapper();self.fresh_engine();terrain,changed,old=self.continuous_vantage_drift()
+        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));new=self.next_move();self.ack(new)
+        self.assertEqual((2,1),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
+        self.lib.test_motion_force(1,0,0,0,1,1,-1,0);self.observed_result(new,translated(changed,1))
+        row=self.motion_references()[-1]
+        self.assertEqual((old.source_capture_id,0,0,2),(row.reference_capture_id,row.reference_eligible,row.fallback_attempted,self.status().moves))
+    def assert_reference_choice_guard(self,field,call):
+        self.lib.test_motion_reset();self.fresh_engine();terrain,old=self.continuous_walk(moves=1,direction=3)
+        changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone';self.now+=2
+        self.lib.test_reference_choice_fault(call,field);self.observe(self.scene(2,2,changed,beat=True))
+        new=self.next_move();self.assertNotEqual(old.id,new.id)
+        self.assertEqual(2,self.scene_details()[-1].validation)
+        self.ack(new);self.lib.test_motion_force(1,0,0,0,1,1,0,-1)
+        self.observed_result(new,translated(changed,3));row=self.motion_references()[-1]
+        self.assertEqual(0,row.reference_eligible,'reference_choice_field_'+str(field))
+        self.assertEqual((0,1),(row.fallback_attempted,self.status().moves))
+    def test_motion_reference_unit_each_full_decision_field_is_required_without_revoking_authority(self):
+        self.motion_selection_wrapper()
+        for field in range(1,6):
+            for call in (1,2):
+                with self.subTest(field=field,original_or_latest=call):self.assert_reference_choice_guard(field,call)
+    def test_motion_reference_real_controller_full_decision_guard_mutations_are_detected(self):
+        self.motion_selection_wrapper();production=self.lib;directory=Path(type(self).temp.name)
+        controller=(CORE/'NG2Controller.c').read_text()
+        start=controller.index('static int same_choice(');end=controller.index('static int same_continuous_action(',start)
+        predicates=('a->direction==b->direction','a->reason==b->reason','a->target_x==b->target_x',
+                    'a->target_y==b->target_y','a->obstacle==b->obstacle')
+        for field,predicate in enumerate(predicates,1):
+            with self.subTest(field=field):
+                block=controller[start:end];self.assertEqual(1,block.count(predicate))
+                mutated=controller[:start]+block.replace(predicate,'1')+controller[end:]
+                source=directory/('reference-field-'+str(field)+'.c');source.write_text(mutated)
+                library=directory/('reference-field-'+str(field)+'.so')
+                subprocess.run(['cc','-std=c99','-O2','-Wall','-Wextra','-Werror','-pedantic','-ffp-contract=off','-fPIC','-shared',
+                                '-I',str(CORE),str(directory/'selection-wrapper.c'),str(directory/'selection-navigation.c'),str(source),
+                                str(CORE/'NG2Perception.c'),str(CORE/'NG2Beat.c'),'-lm','-o',str(library)],check=True)
+                self.lib=C.CDLL(str(library))
+                for name in ('create','destroy','observe','tick','begin','complete','cancel','status','events','motion_wait'):
+                    name='ng2_controller_'+name;old=getattr(production,name);new=getattr(self.lib,name)
+                    new.argtypes=old.argtypes;new.restype=old.restype
+                with self.assertRaisesRegex(AssertionError,'reference_choice_field_'+str(field)) as caught:
+                    self.assert_reference_choice_guard(field,1)
+                print('TEST054 actual Controller guard mutant detected: '+json.dumps({'field':field,
+                      'controller_sha256':hashlib.sha256(mutated.encode()).hexdigest(),'assertion':str(caught.exception)}),flush=True)
+        self.lib=production
     def test_continuous_rejects_reason_only_change_under_same_gold_and_target(self):
         terrain,old=self.continuous_walk();changed=deepcopy(terrain);changed.tiles.pop((-6,0))
         before=nav.choose(terrain,(-2,0));after=nav.choose(changed,(-2,0))
@@ -1569,6 +1921,16 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
             self.assertEqual((self.status().inputs,self.status().door_changes),(count+2,count+1))
         self.assertEqual(0,self.tick()[0]);self.assertEqual((self.status().reason,self.status().moves),(14,1))
         self.assertEqual(16,len([e for e in self.events() if e.command.kind==4]))
+        self.assertEqual(16,len(self.motion_references()))
+        self.assertEqual([e.command.id for e in self.events() if e.command.kind==4 and e.outcome==2],
+                         [row.command_id for row in self.motion_references()])
+        self.assertEqual((192,128,23864,48,80),(C.sizeof(Status),C.sizeof(Event),C.sizeof(Scene),C.sizeof(MotionWait),C.sizeof(MotionReference)))
+        query=self.lib.ng2_controller_motion_references
+        self.assertEqual(0,query(None,None,16));self.assertEqual(0,query(self.engine,None,16))
+        for capacity in (0,1,15,16,17):
+            guarded=(MotionReference*18)();C.memset(C.byref(guarded),0xa5,C.sizeof(guarded));count=min(capacity,16)
+            self.assertEqual(count,query(self.engine,guarded,capacity))
+            self.assertEqual(bytes([0xa5])*C.sizeof(MotionReference)*(18-count),bytes(guarded)[count*C.sizeof(MotionReference):])
     def test_blocked_initial_lead_retunes_only_same_safe_floor_then_confirms(self):
         terrain=self.fit();first=self.next_move();self.ack(first);self.observed_result(first,terrain)
         self.assertEqual((self.status().lead_ns,self.status().lead_confirmed,self.status().moves),(75_000_000,0,0))

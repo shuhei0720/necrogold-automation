@@ -43,6 +43,8 @@ enum NG2Fake {
     static var remoteVariant: Int32 = 0
     static var remoteVariantDuringWalk = false
     static var targetDriftWorld = false
+    static var motionReferenceWorld = false
+    static var motionReferenceVariant: Int32 = 0
     static var heldTickets: [UInt64: () -> Void] = [:]
     static var returnedTickets = Set<UInt64>()
     static var unknownFrames = 0
@@ -79,6 +81,7 @@ enum NG2Fake {
             remoteVariant = 0; heldTickets = [:]; returnedTickets = []; unknownFrames = 0
             remoteVariantDuringWalk = false
             targetDriftWorld = false
+            motionReferenceWorld = false; motionReferenceVariant = 0
             boundaryClockChange = nil
             captureDrainedRuns = []
             phaseBase = DispatchTime.now().uptimeNanoseconds
@@ -189,6 +192,15 @@ enum NG2Fake {
             ng2_fixture_floor_pixels_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, state.0, state.1, fraction, state.2)
         }
         precondition(valid == 1)
+        let reference = lock.fixtureLocked { (motionReferenceWorld, motionReferenceVariant) }
+        if reference.0 {
+            let variant: Int32 = state.1 == -36 && state.2 == 0 ? reference.1 : 0
+            precondition(rgba.withUnsafeMutableBytes {
+                ng2_fixture_motion_reference_rgba($0.bindMemory(to: UInt8.self).baseAddress, count,
+                    state.1, fraction, state.2, variant)
+            } == 1)
+            return NG2Raster.png(rgba)!
+        }
         let remote = lock.fixtureLocked { (remoteVariant, remoteVariantDuringWalk, targetDriftWorld) }
         if remote.2 {
             applyTargetDriftWorld(&rgba, worldX: state.0, worldY: state.1, variant: remote.0, goods: state.2 == 1)
@@ -251,6 +263,15 @@ enum NG2Fake {
         }
         precondition(valid == 1)
         applyTargetDriftWorld(&rgba, worldX: 0, worldY: worldY, variant: variant, goods: goods)
+        return rgba
+    }
+    static func motionReferenceRGBA(worldY: Int32, variant: Int32 = 0, goods: Bool = false) -> Data {
+        var rgba = Data(count: 896*414*4)
+        let count = rgba.count
+        precondition(rgba.withUnsafeMutableBytes {
+            ng2_fixture_motion_reference_rgba($0.bindMemory(to: UInt8.self).baseAddress, count,
+                worldY, 0.5, goods ? 1 : 0, variant)
+        } == 1)
         return rgba
     }
     static func virtualClock() -> UInt64 {

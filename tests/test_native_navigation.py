@@ -592,7 +592,7 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
         self.assertGreaterEqual(pairs,25)
 
     def test_required_test049_navigation_strict_optimization_parity(self):
-        """124 known image paths and all 15 TEST049 FLOOR pairs; no speed extrapolation."""
+        """141 known image paths and all 15 TEST049 FLOOR pairs; no speed extrapolation."""
         from test_native_perception import NativePerceptionTests, NativeScene
         manifest = json.loads((ROOT / 'tests/test050-fixtures.json').read_text())
         self.assertEqual(('ngg2-test050-fixtures-v1', 11), (manifest['schema'], manifest['count']))
@@ -705,8 +705,13 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
                         reference = canonical(nav.scan(image)) if scene.state == 2 else None
                         raw = bytes(scene.signature)
                         views[raw] = view(scene)
-                        if filename in ('test050-fixtures.json', 'test052-fixtures.json', 'test053-fixtures.json'):
-                            self.assertEqual({'path', 'sha256', 'bytes', 'capture_id', 'state', 'goods', 'stable'}, set(entry))
+                        if filename in ('test050-fixtures.json', 'test052-fixtures.json', 'test053-fixtures.json', 'test054-fixtures.json'):
+                            expected_keys = {'path', 'sha256', 'bytes', 'capture_id', 'state', 'goods', 'stable'}
+                            if filename == 'test054-fixtures.json':
+                                expected_keys.add('completed_prefix')
+                                self.assertIs(type(entry['completed_prefix']), int)
+                                self.assertGreaterEqual(entry['completed_prefix'], 0)
+                            self.assertEqual(expected_keys, set(entry))
                             for key in ('bytes', 'capture_id', 'state', 'goods'):
                                 self.assertIs(type(entry[key]), int)
                             self.assertIs(type(entry['stable']), bool)
@@ -744,8 +749,8 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
                         pair(a, b, before, after)
         finally:
             NativePerceptionTests.tearDownClass()
-        self.assertEqual({'images': 124, 'new_perception': 37, 'views': 124, 'scores': 139,
-                          'ng2_choose': 496, 'ng2_motion': 556, 'ng2_entered_gate': 4448}, dict(counts))
+        self.assertEqual({'images': 141, 'new_perception': 54, 'views': 141, 'scores': 156,
+                          'ng2_choose': 564, 'ng2_motion': 624, 'ng2_entered_gate': 4992}, dict(counts))
 
 
     def test_required_test051_target_drift_and_strict_parity(self):
@@ -880,6 +885,71 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
                     self.assertEqual(1,sum(u!=v for u,v in zip(scenes[first,a].tiles,scenes[first,b].tiles)))
         finally:
             NativePerceptionTests.tearDownClass()
+
+
+    def test_required_test053_reference_motion_and_strict_parity(self):
+        """Known references to the same logical move; no threshold or future-frame inference."""
+        from test_native_perception import NativePerceptionTests
+        manifest=json.loads((ROOT/'tests/test054-fixtures.json').read_text())
+        self.assertEqual(('ngg2-test054-fixtures-v1',17),(manifest['schema'],manifest['count']))
+        self.assertEqual('ba851972e0d5b69e44fe6286913117f8c8156e4fd33a92ca449c0fdc89d2cfc2',manifest['source_zip_sha256'])
+        scenes,references,entries={},{},{}
+        NativePerceptionTests.setUpClass()
+        try:
+            perception=NativePerceptionTests()
+            with patch.object(native_scan,'_native',None), patch.object(navigation_stats,'_native',None), \
+                    patch.object(motion_stats,'_native',None):
+                for filename,entry,path in required_profile_fixtures():
+                    if filename!='test054-fixtures.json':continue
+                    self.assertEqual(entry['bytes'],path.stat().st_size)
+                    with Image.open(path) as raw:image=raw.convert('RGB')
+                    analyzed=perception.assert_reference(image)
+                    self.assertEqual((entry['state'],entry['goods']),(analyzed.state,analyzed.goods))
+                    cid=entry['capture_id'];scenes[cid]=Scene.from_buffer_copy(bytes(analyzed));entries[cid]=entry
+                    if analyzed.state==2:references[cid]=nav.scan(image)
+                self.assertEqual(17,len(scenes))
+                for a,b in manifest['motion_pairs']:
+                    before,after=scenes[a],scenes[b]
+                    expected_scores=nav._pillow_motion_scores(nav._motion_view(bytes(before.signature))[0],
+                                                            nav._motion_view(bytes(after.signature))[0])
+                    outputs=[]
+                    for library in self.libraries.values():
+                        scores=(C.c_double*73)();library.ng2_test_scores(bytes(before.signature),bytes(after.signature),scores)
+                        outputs.append(bytes(scores))
+                        for actual,(expected,_,_) in zip(scores,expected_scores):self.assertAlmostEqual(expected,actual,places=12)
+                        for direction in nav.DIRECTIONS:
+                            result=Motion();self.assertEqual(1,library.ng2_motion(C.byref(before),C.byref(after),DIRS[direction],C.byref(result)))
+                            expected=manifest['expected_motion_by_pair'][f'{a},{b}'][direction]
+                            self.assertEqual(MOTIONS[expected],result.kind)
+                            with patch.object(motion_stats,'scores',side_effect=lambda *_:list(expected_scores)):
+                                self.assertEqual(expected,nav.motion(references[a],references[b],direction))
+                    self.assertEqual(outputs[0],outputs[1])
+                visits=(C.c_uint16*1089)()
+                for x,y in ((0,0),(-1,0),(-1,-1),(-1,-2)):visits[(y+16)*33+x+16]=1
+                for cid in (99,101):
+                    self.assertEqual(8,entries[cid]['completed_prefix']);self.assertTrue(entries[cid]['stable'])
+                    self.assertEqual(0,sum(scenes[cid].protected_cells))
+                    for library in self.libraries.values():
+                        choice=Decision();self.assertEqual(1,library.ng2_choose(C.byref(scenes[cid]),-1,-2,visits,1089,None,C.byref(choice)))
+                        self.assertEqual((3,7,0,-2,1),tuple(getattr(choice,k) for k,_ in Decision._fields_))
+                self.assertEqual(bytes(scenes[99].protected_cells),bytes(scenes[101].protected_cells))
+                self.assertEqual([i for i,t in enumerate(scenes[99].tiles) if t==2],
+                                 [i for i,t in enumerate(scenes[101].tiles) if t==2])
+                for cid in (110,111):
+                    self.assertEqual(10,entries[cid]['completed_prefix']);self.assertTrue(entries[cid]['stable'])
+                    for library in self.libraries.values():
+                        primary,fallback=Motion(),Motion()
+                        self.assertEqual(1,library.ng2_motion(C.byref(scenes[101]),C.byref(scenes[cid]),3,C.byref(primary)))
+                        self.assertEqual(1,library.ng2_motion(C.byref(scenes[99]),C.byref(scenes[cid]),3,C.byref(fallback)))
+                        self.assertEqual((0,0,0),(primary.kind,primary.dx,primary.dy))
+                        self.assertEqual((1,0,-1),(fallback.kind,fallback.dx,fallback.dy))
+                for a,b,offset in ((99,111,1),(101,111,1)):
+                    before,after=scenes[a],scenes[b]
+                    gold={(i%23-11,i//23-5) for i,t in enumerate(before.tiles) if t==2}
+                    aftergold={(i%23-11,i//23-5) for i,t in enumerate(after.tiles) if t==2}
+                    self.assertEqual({(x,y+offset) for x,y in gold},aftergold)
+                    self.assertEqual((5,5),(before.tiles[2*23+11],after.tiles[3*23+11]))
+        finally:NativePerceptionTests.tearDownClass()
 
 
 if __name__ == '__main__':

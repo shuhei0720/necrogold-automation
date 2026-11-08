@@ -78,3 +78,20 @@ int ng2_fixture_remote_cell(uint8_t *out,size_t length,int32_t variant){
     if(variant==2)rectangle(out,71,226,106,261,100,40,10);
     return 1;
 }
+
+int ng2_fixture_motion_reference_rgba(uint8_t *out,size_t length,int32_t world_y,
+                                       double q,int32_t goods,int32_t variant){
+    uint32_t state=0;int sx,sy,c;
+    if(variant<0||variant>1||(variant==1&&(world_y!=-36||goods!=0)))return 0;
+    if(!ng2_fixture_floor_pixels_rgba(out,length,0,world_y,q,goods))return 0;
+    if(!variant)return 1;
+    for(sy=20;sy<70;++sy)for(sx=40;sx<179;++sx){
+        int delta;size_t at;
+        if(sx>=90&&sx<139&&sy>=36)continue;
+        state=UINT32_C(1664525)*state+UINT32_C(1013904223);
+        delta=(int)((state>>8)%13)-6;at=((size_t)(4*sy)*FW+(size_t)(4*sx))*4;
+        for(c=0;c<3;++c){int value=(int)out[at+(size_t)c]+delta;
+            out[at+(size_t)c]=(uint8_t)(value<7?7:value>255?255:value);}
+    }
+    return ng2_fixture_remote_cell(out,length,1);
+}

@@ -68,6 +68,16 @@ typedef struct {
     uint64_t command_id, source_capture_id, last_capture_id, deadline_ns;
     int32_t attempts, last_motion, active;
 } NG2ControllerMotionWait;
+/* TEST054: one row per successful ACK MOVE, at most16. An observed ID of0
+ * means no eligible motion assessment yet; selected_capture_id always names
+ * a before image, while observed_capture_id names the after image. */
+typedef struct {
+    uint64_t command_id, authority_capture_id, reference_capture_id;
+    uint64_t reference_start_ns, reference_prefix, observed_capture_id;
+    int32_t reference_eligible, primary_motion, fallback_attempted, fallback_motion;
+    uint64_t selected_capture_id;
+    int32_t selected_motion;
+} NG2ControllerMotionReference;
 /* Defaults: 16 directions, 12 restarts, 45s walking, 180s session. */
 NG2Controller *ng2_controller_create(uint64_t now);
 void ng2_controller_destroy(NG2Controller *controller);
@@ -92,5 +102,6 @@ size_t ng2_controller_events(const NG2Controller *, NG2ControllerEvent *out, siz
 size_t ng2_controller_scene_changes(const NG2Controller *, NG2ControllerSceneChange *out, size_t capacity);
 size_t ng2_controller_scene_details(const NG2Controller *, NG2ControllerSceneDetail *out, size_t capacity);
 void ng2_controller_motion_wait(const NG2Controller *, NG2ControllerMotionWait *out);
+size_t ng2_controller_motion_references(const NG2Controller *, NG2ControllerMotionReference *out, size_t capacity);
 const char *ng2_reason_name(int32_t reason);
 #endif

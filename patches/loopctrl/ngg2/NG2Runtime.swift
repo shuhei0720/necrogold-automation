@@ -607,6 +607,10 @@ final class NG2Runtime {
         run.lock.ng2Locked {
             let state = run.terminal ? (run.lease ? "draining" : (run.successful ? "completed" : "stopped")) : (run.report.isEmpty ? "accepted" : "running")
             var report = run.report
+            if report.isEmpty {
+                report["events"] = .array([])
+                report["motion_references"] = .array([])
+            }
             report["schema"] = .string("ngg2-native-v1")
             if report["input_state"] == nil { report["input_state"] = .int(0) }
             if run.inFlight && report["input_state"]?.intValue != 4 { report["input_state"] = .int(2) }
@@ -1092,6 +1096,10 @@ final class NG2Runtime {
         let detailCount = details.withUnsafeMutableBufferPointer { ng2_controller_scene_details(core, $0.baseAddress, $0.count) }
         var motionWait = NG2ControllerMotionWait()
         ng2_controller_motion_wait(core, &motionWait)
+        var motionReferences = [NG2ControllerMotionReference](repeating: NG2ControllerMotionReference(), count: 16)
+        let motionReferenceCount = motionReferences.withUnsafeMutableBufferPointer {
+            ng2_controller_motion_references(core, $0.baseAddress, $0.count)
+        }
         run.lock.ng2Locked {
             var required = Set<UInt64>()
             for event in events.prefix(min(count, events.count)) {
@@ -1100,6 +1108,12 @@ final class NG2Runtime {
             }
             for change in changes.prefix(min(changeCount, changes.count)) {
                 required.insert(change.source_capture_id); required.insert(change.observed_capture_id)
+            }
+            for reference in motionReferences.prefix(min(motionReferenceCount, motionReferences.count)) {
+                for id in [reference.authority_capture_id, reference.reference_capture_id,
+                           reference.observed_capture_id, reference.selected_capture_id] where id != 0 {
+                    required.insert(id)
+                }
             }
             for frame in [run.initial, run.found].compactMap({ $0 }) { required.insert(frame.id) }
             if s.terminal != 0 && s.last_capture_id != 0 { required.insert(s.last_capture_id) }
@@ -1156,6 +1170,14 @@ final class NG2Runtime {
                 "continuous_count": integer(detail.continuous_count), "chain_count": integer(detail.chain_count),
                 "cell_count": integer(detail.cell_count), "omitted_cells": integer(detail.omitted_cells), "cells": .array(cells)])
         }
+        let encodedMotionReferences = motionReferences.prefix(min(motionReferenceCount, motionReferences.count)).map { reference -> JSONValue in
+            .object(["command_id": number(reference.command_id), "authority_capture_id": number(reference.authority_capture_id),
+                "reference_capture_id": number(reference.reference_capture_id), "reference_start_ns": number(reference.reference_start_ns),
+                "reference_prefix": number(reference.reference_prefix), "observed_capture_id": number(reference.observed_capture_id),
+                "reference_eligible": .bool(reference.reference_eligible == 1), "primary_motion": integer(reference.primary_motion),
+                "fallback_attempted": .bool(reference.fallback_attempted == 1), "fallback_motion": integer(reference.fallback_motion),
+                "selected_capture_id": number(reference.selected_capture_id), "selected_motion": integer(reference.selected_motion)])
+        }
         let report: [String: JSONValue] = ["abi_version": .int(Int(s.abi_version)), "struct_size": .int(Int(s.struct_size)),
             "phase": integer(s.phase), "reason": integer(s.reason), "reason_name": .string(String(cString: ng2_reason_name(s.reason))),
             "terminal": integer(s.terminal), "goods": integer(s.goods), "paused": integer(s.paused), "input_state": integer(s.input_state),
@@ -1169,6 +1191,7 @@ final class NG2Runtime {
             "capture_count": number(s.capture_count), "accepted_frames": number(s.accepted_frames),
             "discarded_frames": number(s.discarded_frames), "beat_period_ns": number(s.beat_period_ns),
             "events": .array(encoded), "scene_changes": .array(encodedChanges), "scene_change_details": .array(encodedDetails),
+            "motion_references": .array(encodedMotionReferences),
             "motion_wait": .object(["command_id": number(motionWait.command_id),
                 "source_capture_id": number(motionWait.source_capture_id), "last_capture_id": number(motionWait.last_capture_id),
                 "deadline_ns": number(motionWait.deadline_ns), "attempts": integer(motionWait.attempts),
