@@ -2390,3 +2390,8 @@ cd /mnt/necro_test054 && sh test_054.sh
 **「TEST-054: 終了」が出てから `runtime/test-054` 全体をZIPで返してください。** 初動・毎ビート・茶壁/扉の開通/進入・商品・最終ポーズ・終了待ちを教えてください。
 
 処理が終了し回収未完了と明示した場合だけ、同じLoopCtrl起動状態/ソース/runtimeで再実行し同run/export/cursorを回復します。回収完了済みなら再実行せずZIPを返します（resolved=trueでは新runが始まる）。同時に別テストを実行しません。人間以上の速度・全経路毎拍・指輪通知・全周回の実機受入は未完了です。
+
+
+TEST054独立実装レビュー第2周・最終配布物/全ソース補足close: 設計・網羅・安全の3観点が、成功CI42490824375/code5dbf7a2/build71の実IPA/検証ZIP/55 named faults/Raster3/C同値-field/RPC/rawcompiler/PBX/6responses/22seal/9MachO、実生成3report→暗号clientの診断保存を独立照合し、P0/P1/P2残件なし。handover348db4deac70d0cdf074db6f9edf8beab7e58066の公開ZIP6,969,252bytes/SHA99433159585bce1ab37fda74caf6e09bf4a5987482a4c57df80603a9569fe9c5は全418tracked bytes/CRC/安全path一致、codeから既存5文書だけの差分とclean treeを確認した。
+
+このclose記録だけを追記した最終版も配布前に全418files/CRC/byteを再照合する。凍結code/native seal/IPAは変更しない。TEST054の新IPA・完全ソースと具体的実機試験を依頼し、全経路毎拍/人間以上の速度/商品・指輪通知/全周回の実機受入と結果後の工程⑧は未完了のまま引き継ぐ。
