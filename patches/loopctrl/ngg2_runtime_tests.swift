@@ -1422,6 +1422,7 @@ fixtureFailureSnapshot = nil
 
 
 // TEST051 PUBLIC FIXTURES BEGIN.
+var test051CompletedRunID: String?
 func pagedCall(_ id: String, mode: JSONValue = .string("manifest"),
                extra: [String: JSONValue] = [:], owner: String = "fixture-owner") -> ([String: JSONValue]?, JSONRPCError?) {
     var params: [String: JSONValue] = ["run_id": .string(id), "_necro_owner": .string(owner), "mode": mode]
@@ -1579,10 +1580,36 @@ func testContinuousRevalidationCallbacksPublic() {
         require(report(id)["paused"]?.intValue == 1 && report(id)["cancel_requested"]?.boolValue == false &&
             NG2Fake.paths().count == 3 && pagedCall(id).1 == nil,
             "continuous_safe_terminal_export_after_every_callback_returns")
+        test051CompletedRunID = id
         fixtureFailureSnapshot = nil
     }
 }
 func testPagedResultsPublic() {
+    // Start from the successful continuous fixture, whose cancellation reason
+    // is still zero. Public cancel advances this terminal run's generation.
+    let generationRun = test051CompletedRunID!
+    require(report(generationRun)["cancel_requested"]?.boolValue == false,
+        "paged_generation_fixture_completed_without_prior_cancel")
+    let oldGenerationManifest = pagedCall(generationRun).0!
+    let oldGenerationImage = oldGenerationManifest["images"]!.arrayValue!.first!.objectValue!
+    let oldGenerationChunk: [String: JSONValue] = ["export_id": oldGenerationManifest["export_id"]!,
+        "capture_id": oldGenerationImage["capture_id"]!, "offset": .int(0)]
+    var freshGenerationManifest: [String: JSONValue]?
+    NG2RuntimeExportTestHooks.beforeExportReply = {
+        NG2RuntimeExportTestHooks.beforeExportReply = nil
+        require(call("necro_native_cancel", generationRun).1 == nil, "paged_generation_public_terminal_cancel")
+        freshGenerationManifest = pagedCall(generationRun).0
+        require(freshGenerationManifest?["export_id"] != oldGenerationManifest["export_id"],
+            "paged_generation_nested_manifest_has_fresh_identity")
+    }
+    require(pagedCall(generationRun, mode: .string("chunk"), extra: oldGenerationChunk).1 != nil,
+        "paged_old_generation_reply_is_rejected")
+    let freshGenerationImage = freshGenerationManifest!["images"]!.arrayValue!.first!.objectValue!
+    let freshGenerationChunk: [String: JSONValue] = ["export_id": freshGenerationManifest!["export_id"]!,
+        "capture_id": freshGenerationImage["capture_id"]!, "offset": .int(0)]
+    require(pagedCall(generationRun, mode: .string("chunk"), extra: freshGenerationChunk).1 == nil &&
+        pagedCall(generationRun).0 == freshGenerationManifest,
+        "paged_late_old_generation_reply_preserves_new_export_cache")
     testPagedResultsManifestPublicBaseline()
     let id = publicExportFixture(50)
     let first = pagedCall(id)
@@ -1711,10 +1738,15 @@ func testPagedResultsPublic() {
         let chunkParams: [String: JSONValue] = ["export_id": cached["export_id"]!, "capture_id": item["capture_id"]!, "offset": .int(0)]
         let newer = identity()
         var acceptedNew = false
+        let previousStorage = runtime.testExportStorageObserver(guarded)!
+        require(previousStorage()[0] > 0 && previousStorage().dropFirst().contains(where: { $0 > 0 }),
+            "paged_storage_observer_sees_actual_raw_and_encoded_evidence")
         NG2RuntimeExportTestHooks.beforeExportReply = {
             NG2RuntimeExportTestHooks.beforeExportReply = nil
             NG2Fake.lock.lock(); NG2Fake.mode = .empty; NG2Fake.lock.unlock()
             acceptedNew = call("necro_native_start", newer).1 == nil
+            require(previousStorage() == [0, 0, 0, 0, 0, 0],
+                "paged_replacement_retires_previous_raw_and_encoded_storage")
         }
         require(pagedCall(guarded, mode: .string(mode), extra: mode == "chunk" ? chunkParams : [:]).1 != nil && acceptedNew,
             "paged_cached_"+mode+"_reply_rechecks_current_run")
@@ -1748,6 +1780,22 @@ func testPagedResultsPublic() {
             "paged_budget_selection_and_omission_equal_legacy")
         NG2RuntimeExportTestHooks.transformExportPNG = nil
     }
+    let selection = publicExportFixture()
+    require(!runtime.testSeedExportFrames(selection, count: 0) && !runtime.testSeedExportFrames(selection, count: 25) &&
+        runtime.testSeedExportFrames(selection, count: 24), "paged_seed_obeys_existing_20_pinned_plus_4_recent_bound")
+    NG2RuntimeExportTestHooks.transformExportPNG = { png, _ in
+        var padded = png; padded.append(Data(repeating: 0, count: 128*1024-png.count)); return padded
+    }
+    let selected = pagedCall(selection)
+    require(selected.1 == nil && selected.0?["retained_images"]?.intValue == 20 &&
+        selected.0?["exported_images"]?.intValue == 20 && selected.0?["omitted_image_count"]?.intValue == 4 &&
+        selected.0?["omitted_capture_ids"]?.arrayValue?.count == 4 && selected.0?["total_bytes"]?.intValue == 20*128*1024,
+        "paged_24_retained_frames_select_only_original_20_image_budget")
+    let selectedLegacy = call("necro_native_results", selection)
+    require(selectedLegacy.1 == nil && selectedLegacy.0?["exported_capture_ids"] == selected.0?["exported_capture_ids"] &&
+        selectedLegacy.0?["omitted_capture_ids"] == selected.0?["omitted_capture_ids"],
+        "paged_24_frame_selection_matches_existing_legacy_priority")
+    NG2RuntimeExportTestHooks.transformExportPNG = nil
     let oversized = publicExportFixture(214)
     let oversizedManifest = pagedCall(oversized)
     require(oversizedManifest.1 == nil && oversizedManifest.0?["exported_images"]?.intValue == 0 &&

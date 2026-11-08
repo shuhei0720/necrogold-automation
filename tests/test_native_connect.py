@@ -260,6 +260,7 @@ class NativeConnectTests(TimerTestCase):
             record = self.run_native(server, folder, max_seconds=.3)
             record.pop('preflight')
             record['revision'] = 'native-walk-v1'
+            record.pop('image_export', None)
             canary = 'PRIVATE_JOURNAL_VALUE'
             record['events'][0]['token'] = canary
             record['events'][0]['host_timings']['private_ns'] = 7

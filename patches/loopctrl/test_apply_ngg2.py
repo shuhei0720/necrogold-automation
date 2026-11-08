@@ -238,6 +238,27 @@ class NGG2ApplyTests(unittest.TestCase):
         report = verifier.inspect_native_sources(self.root, driver)
         self.assertEqual('necrogold_native_v6', report.get('client_capability'))
 
+    def test_package_provenance_records_native_v8_with_strict_profile_v2(self):
+        import json
+        driver = self.native_report_fixture()
+        path = driver / 'patches/loopctrl/ngg2-manifest.json'
+        manifest = json.loads(path.read_text())
+        manifest['client_capability'] = 'necrogold_native_v8'
+        path.write_text(json.dumps(manifest))
+        accepted = None
+        try:
+            accepted = verifier.inspect_native_sources(self.root, driver)
+        except ValueError:
+            pass
+        self.assertIsNotNone(accepted, 'native_v8_package_is_supported')
+        self.assertEqual('necrogold_native_v8', accepted['client_capability'])
+
+    def test_package_profile_version_preserves_old_and_current_capabilities(self):
+        for version in range(1, 9):
+            with self.subTest(capability=version):
+                expected = None if version < 6 else (1 if version == 6 else 2)
+                self.assertEqual(expected, verifier.required_native_profile('necrogold_native_v'+str(version)))
+
     def test_package_provenance_preserves_native_v3_client_capability(self):
         import json
         driver = self.native_report_fixture()

@@ -162,13 +162,13 @@ class NativeControllerTests(unittest.TestCase):
         self.now+=2;self.observe(self.scene(2,2,changed,beat=True))
         ready,new=self.tick();self.assertEqual((1,4),(ready,new.kind))
         return terrain,changed,old,new
-    def continuous_walk(self,moves=2,direction=1):
+    def continuous_walk(self,moves=2,direction=1,terrain=None):
         transforms={1:lambda x,y:(x,y),2:lambda x,y:(-x,-y),3:lambda x,y:(-y,x),4:lambda x,y:(y,-x)}
         length=3 if direction in (3,4) else 8
         tiles={**{(x,0):'floor' for x in range(1-length,1)},
                           (-length,0):'door',(-length,-1):'gold',(-length,1):'gold',
                           (-4,-2):'stone',(5,1):'stone'}
-        terrain=textured({transforms[direction](x,y):kind for (x,y),kind in tiles.items()})
+        if terrain is None:terrain=textured({transforms[direction](x,y):kind for (x,y),kind in tiles.items()})
         self.fit(terrain)
         for _ in range(moves):
             command=self.next_move();self.assertEqual(direction,command.direction);self.ack(command)
@@ -289,6 +289,38 @@ class NativeControllerTests(unittest.TestCase):
         before=nav.choose(terrain,(-2,0));after=nav.choose(changed,(-2,0))
         self.assertEqual('left',before['direction']);self.assertEqual(before['direction'],after['direction'])
         self.assertNotEqual(before,after)
+        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
+        self.assertEqual((10,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+    def test_continuous_rejects_target_x_only_change_under_same_gold_and_direction(self):
+        initial=textured({**{(x,0):'floor' for x in range(-7,1)},(-7,0):'stone',
+                          (-8,0):'door',(-8,-1):'gold',(-8,1):'gold',
+                          (-4,-2):'stone',(5,1):'stone'})
+        terrain,old=self.continuous_walk(terrain=initial);changed=deepcopy(terrain)
+        changed.tiles[(-4,0)]='stone'
+        before=nav.choose(terrain,(-2,0));after=nav.choose(changed,(-2,0))
+        self.assertEqual({'direction':'left','reason':'observed_floor_vantage','target':(-4,0)},before)
+        self.assertEqual({**before,'target':(-3,0)},after)
+        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
+        self.assertEqual((10,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+    def test_continuous_rejects_target_y_only_change_under_same_gold_and_direction(self):
+        initial=textured({**{(0,y):'floor' for y in range(-3,1)},(0,-4):'stone',
+                          (0,-5):'door',(-1,-5):'gold',(1,-5):'gold',
+                          (-4,-2):'stone',(5,1):'stone'})
+        terrain,old=self.continuous_walk(moves=1,direction=3,terrain=initial);changed=deepcopy(terrain)
+        changed.tiles[(0,-2)]='stone'
+        before=nav.choose(terrain,(0,-1));after=nav.choose(changed,(0,-1))
+        self.assertEqual({'direction':'up','reason':'observed_floor_vantage','target':(0,-2)},before)
+        self.assertEqual({**before,'target':(0,-1)},after)
+        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
+        self.assertEqual((10,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+    def test_continuous_rejects_reason_only_change_under_same_gold_and_target(self):
+        terrain,old=self.continuous_walk();changed=deepcopy(terrain);changed.tiles.pop((-6,0))
+        before=nav.choose(terrain,(-2,0));after=nav.choose(changed,(-2,0))
+        self.assertEqual({'direction':'left','reason':'approach_gate','target':(-5,0)},before)
+        self.assertEqual({**before,'reason':'observed_floor_vantage'},after)
         self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
         self.assertEqual((10,0),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count))
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))

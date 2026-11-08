@@ -1,0 +1,109 @@
+{
+  "format_version": 1,
+  "upstream_commit": "6e25cf6a9f65bc86c372cdce94bdb151d0cf6767",
+  "api_version": "1.98.14-ngg2",
+  "capability": "necrogold_native_v1",
+  "client_capability": "necrogold_native_v8",
+  "patch_sha256": "056666af70f2a93f11cdbf278a35ec6f56dcf3703f68c288cfb4d40339c004d3",
+  "files": {
+    "LoopCtrlUITests/ActionHandler.swift": {
+      "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
+      "blob": "310e2b3be92cfbf2ecf695dfacf5b166df971f59",
+      "patched_sha256": "b1814752771edbe7c1f095935e3089276b7f2bd187c8f50d2a30ada9ae3288d8"
+    },
+    "LoopCtrlUITests/LoopCtrlUITests.swift": {
+      "sha256": "65b450e9f89b589fae485e23326d9aa45b1bda454dd5e49358b4e7a250ca4a30",
+      "blob": "a72100c639f1601132c1cfb8a32d93f4e23f5059",
+      "patched_sha256": "41a79bfa1ee2d3e6a326faf46cee207c8053f20b593a6769c5aef856d5365217"
+    },
+    "LoopCtrlKit/RPCMethod.swift": {
+      "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
+      "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
+      "patched_sha256": "b39134cdfddede35196cf998eb3fbca994de49cc706fd1f4e0d6effd19a30d05"
+    },
+    "LoopCtrlKit/JSONRPCServer.swift": {
+      "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
+      "blob": "6356eda98113f4ed5728a01e360440207ad3bb25",
+      "patched_sha256": "426f1d8a46900e8e11aa3feb406d3b55b234902ec648b3b9cbe5cd61dcb98949"
+    },
+    "LoopCtrlKit/RemoteSession.swift": {
+      "sha256": "dc4e5c34aefa98b1cf5ad0d495fd84be4d7cd66c91909e4c699104297d3f7ad7",
+      "blob": "3ba39c8db0f98ad92001e588b8a23a30ad9d665d",
+      "patched_sha256": "267d42c20a3e1d0a83debba1d476adbd163014e1a821ec633aa64b2a217fd2f1"
+    },
+    "LoopCtrlUITests/XCTestPrivate-Bridging-Header.h": {
+      "sha256": "b68d927a9aae864ac3a0ded2e5a24660222160209eac81d1ac340df72449102a",
+      "blob": "53cc4f7082848fd6704eea0ca1754dadcde9ad7d",
+      "patched_sha256": "2da6914aed5de4098514a2faeff563c1f8c50f56868bea765f4f008905f8bf84"
+    },
+    "LoopCtrlUITests/ScreenStream.swift": {
+      "sha256": "aedcb3b013128eea9d8015ec3dabc888cf5e253b2daf7b7337f9972a351838bc",
+      "blob": "72f87185f2e9127b5ddee6fe6e1ffeb0ee0a77e2",
+      "patched_sha256": "6889589878373428cbc9081f920865549a50d6b9701627ec757ddfa1e770f5c4"
+    },
+    "LoopCtrlUITests/ObjCException.m": {
+      "sha256": "bf6925902925b49b3ec8304543d5b83e46c5714496648f1ab7196b2f88f21f15",
+      "blob": "d3b85d145878ff38a1b0ee6aa90be0e76c1bb8c7",
+      "patched_sha256": "498983060689ea9ce16241adc7c171e10aae465142e11f6f0b4c0ce4f43bbdde"
+    },
+    "project.yml": {
+      "sha256": "40e609c6f1ace07e4a7500e404e70d3e1f5aab4714d9e1f672f633e5442a613b",
+      "blob": "bbfaad425fb9f6f81fd5dd1a60bd377e16db0a46",
+      "patched_sha256": "99bf0cafc561175957cc8d3e5e5593e331f2253ea8de447bc086b3e329d7ad49"
+    }
+  },
+  "additions": {
+    "LoopCtrlUITests/NG2Beat.c": {
+      "source": "NG2Beat.c",
+      "sha256": "809c40a78fe644351580e7f4038d788616a6b073aa950c50cdb5bc85c8b899ce"
+    },
+    "LoopCtrlUITests/NG2CaptureBridge.h": {
+      "source": "NG2CaptureBridge.h",
+      "sha256": "e98e897b94778fa0c732b9008f824065f35101ec17e848a5c4681253de29b571"
+    },
+    "LoopCtrlUITests/NG2CaptureBridge.m": {
+      "source": "NG2CaptureBridge.m",
+      "sha256": "652b3de0a4cf1e4417778cb21f5245013cf8f49472f4eed8444165fc5dd2cc95"
+    },
+    "LoopCtrlUITests/NG2Controller.c": {
+      "source": "NG2Controller.c",
+      "sha256": "3dec30d969bd07a54bd54fa716444ab9ab13589db894668cd07eba540735b648"
+    },
+    "LoopCtrlUITests/NG2Controller.h": {
+      "source": "NG2Controller.h",
+      "sha256": "3382ff96647e9450a214b003eb459f631756a21dacca7ea88799d25532a6f55b"
+    },
+    "LoopCtrlUITests/NG2Core.h": {
+      "source": "NG2Core.h",
+      "sha256": "46675251c5610ebd242aba76b7d04c007f601a879480bd06802de7df2639121b"
+    },
+    "LoopCtrlUITests/NG2Navigation.c": {
+      "source": "NG2Navigation.c",
+      "sha256": "ab2a702264ffcc6e3571dc6a5de9338bc13cd5af8877f64e25d4da3d05776895"
+    },
+    "LoopCtrlUITests/NG2Perception.c": {
+      "source": "NG2Perception.c",
+      "sha256": "eda7134a56f3bc43baed5de75933de0a4d72f92da7497ea972787c4b979648c3"
+    },
+    "Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift": {
+      "source": "NG2RPCContractsTests.swift",
+      "sha256": "a89071d1cade5f4ac565e76719d58c46be35524b2b74b05ec366b7efeda12f36"
+    },
+    "LoopCtrlUITests/NG2Raster.swift": {
+      "source": "NG2Raster.swift",
+      "sha256": "5b7f937903f468b4284d9c9b4bbdd460f87329414d649f7ba0d255401b07ba67"
+    },
+    "LoopCtrlUITests/NG2Runtime.swift": {
+      "source": "NG2Runtime.swift",
+      "sha256": "ba901ae2518a8763ed4394874e8b7d3a8ec6a0753fc938a6c587123cde4b0026"
+    },
+    "LoopCtrlUITests/NG2Templates.h": {
+      "source": "NG2Templates.h",
+      "sha256": "f96e5b8bd3926b9a3040dc2934b1872347e4f03b3f6e5393450247683d7c3412"
+    },
+    "LoopCtrlUITests/NG2Ticket.swift": {
+      "source": "NG2Ticket.swift",
+      "sha256": "d7b5dcd55558f780f6dff72d23622de40785255439c1c323b32a315a08c7375a"
+    }
+  }
+}

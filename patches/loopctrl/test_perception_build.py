@@ -1350,6 +1350,25 @@ class PerceptionPackageCallsiteTests(unittest.TestCase):
         proof.assert_called_once_with(self.upstream, required_version=1)
         self.assertFalse((self.base / 'build-manifest.json').exists())
 
+    def test_native_v7_and_v8_real_package_callsites_require_profile_v2(self):
+        from unittest.mock import Mock
+        for version in (7, 8):
+            with self.subTest(capability=version):
+                proof = Mock(side_effect=checker.ProfileError('missing current profile v2'))
+                with self.assertRaisesRegex(checker.ProfileError, 'missing current profile v2'):
+                    self.run_package('necrogold_native_v'+str(version), proof)
+                proof.assert_called_once_with(self.upstream, required_version=2)
+                self.assertFalse((self.base / 'build-manifest.json').exists())
+
+    def test_native_v8_profile_v2_is_included_in_actual_written_manifest(self):
+        from unittest.mock import Mock
+        profile = {'profile': 'strict-O2-v2', 'verified': True}
+        proof = Mock(return_value=profile)
+        self.run_package('necrogold_native_v8', proof)
+        proof.assert_called_once_with(self.upstream, required_version=2)
+        report = json.loads((self.base / 'build-manifest.json').read_text())
+        self.assertEqual(report['perception_build_profile'], profile)
+
     def test_native_v5_preserves_earlier_package_behavior_without_profile(self):
         from unittest.mock import Mock
         proof = Mock(side_effect=AssertionError('legacy package requested new profile'))
@@ -1421,15 +1440,15 @@ class PerceptionGuardMutationTests(unittest.TestCase):
         self.require_guard_removal_detected('perception_compile_swift_evidence_missing',
             PerceptionCompileLogTests, 'test_all_five_swift_modules_must_have_onone_evidence_in_v2')
 
-    def test_actual_native_v6_package_profile_callsite_removal_is_detected(self):
+    def require_package_profile_callsite_removal_detected(self, method):
         source_path = HERE / 'verify_package.py'
         source = source_path.read_text()
         main = next(node for node in ast.parse(source).body
                     if isinstance(node, ast.FunctionDef) and node.name == 'main')
         branches = [node for node in ast.walk(main)
                     if isinstance(node, ast.If)
-                    and any(isinstance(value, ast.Constant) and value.value == 'necrogold_native_v6'
-                            for value in ast.walk(node.test))]
+                    and any(isinstance(value, ast.Call) and isinstance(value.func, ast.Name)
+                            and value.func.id == 'read_compile_profile' for value in ast.walk(node))]
         self.assertEqual(len(branches), 1)
         branch = branches[0]
         lines = source.splitlines(keepends=True)
@@ -1444,7 +1463,7 @@ class PerceptionGuardMutationTests(unittest.TestCase):
             original_setup(case)
             case.package = mutant
 
-        target = PerceptionPackageCallsiteTests('test_native_v6_real_package_callsite_requires_profile')
+        target = PerceptionPackageCallsiteTests(method)
         output = io.StringIO()
         with patch.object(PerceptionPackageCallsiteTests, 'setUp', setup_with_mutant):
             result = unittest.TextTestRunner(stream=output, verbosity=0).run(target)
@@ -1453,6 +1472,13 @@ class PerceptionGuardMutationTests(unittest.TestCase):
         self.assertEqual(len(result.failures), 1, output.getvalue())
         self.assertEqual(result.failures[0][0].id(), target.id())
         self.assertIn('AssertionError', result.failures[0][1])
+
+
+    def test_actual_native_v6_package_profile_callsite_removal_is_detected(self):
+        self.require_package_profile_callsite_removal_detected('test_native_v6_real_package_callsite_requires_profile')
+
+    def test_actual_native_v8_package_profile_callsite_removal_is_detected(self):
+        self.require_package_profile_callsite_removal_detected('test_native_v8_profile_v2_is_included_in_actual_written_manifest')
 
 
 if __name__ == '__main__':

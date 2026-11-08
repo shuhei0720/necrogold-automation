@@ -340,10 +340,11 @@ final class NG2Runtime {
     private func exportEligibleLocked(_ run: NG2Run, generation: UInt64? = nil) -> Bool {
         let allowed = current === run && ownerActive(run) && run.terminal && !run.lease
             && !run.captureOutstanding && run.captureWorkerDone && !run.mainOutstanding
-            && (generation == nil || generation == run.generation)
         if !allowed { run.exportCache = nil }
         if let cache = run.exportCache, cache.generation != run.generation { run.exportCache = nil }
-        return allowed
+        // A late response from an older generation must not erase a newer
+        // generation's already authenticated export cache.
+        return allowed && (generation == nil || generation == run.generation)
     }
 
     private func selectedExportFrames(_ run: NG2Run) -> [NG2Frame] {
@@ -540,7 +541,7 @@ final class NG2Runtime {
     // Public export tests clone an actual retained raster only after drain.
     // No controller state, input outcome, or production cache is injected.
     func testSeedExportFrames(_ id: String, count: Int) -> Bool {
-        guard (1...20).contains(count) else { return false }
+        guard (1...24).contains(count) else { return false }
         return lock.ng2Locked {
             guard let run = current, run.id == id else { return false }
             return run.lock.ng2Locked {
@@ -554,10 +555,21 @@ final class NG2Runtime {
                         rgba: frame.rgba, rasterTrace: frame.rasterTrace, encodedBytes: frame.encodedBytes,
                         diagnosticOrientation: frame.diagnosticOrientation)
                 }
-                run.images = Array(frames.suffix(4)); run.pinned = Dictionary(uniqueKeysWithValues: frames.map { ($0.id, $0) })
+                run.images = Array(frames.suffix(4)); run.pinned = Dictionary(uniqueKeysWithValues: frames.prefix(20).map { ($0.id, $0) })
                 run.initial = frames.first; run.found = nil; run.references = Set(frames.map { $0.id })
                 run.analyzedFrames = UInt64(count); run.exportCache = nil
                 return true
+            }
+        }
+    }
+    func testExportStorageObserver(_ id: String) -> (() -> [Int])? {
+        guard let run = lock.ng2Locked({ current }), run.id == id else { return nil }
+        return { [weak run] in
+            guard let run else { return [0, 0, 0, 0, 0, 0] }
+            return run.lock.ng2Locked {
+                [run.exportCache?.images.values.reduce(0, { $0 + $1.bytes.count }) ?? 0,
+                 run.images.count, run.pinned.count, run.initial == nil ? 0 : 1,
+                 run.found == nil ? 0 : 1, run.latest == nil ? 0 : 1]
             }
         }
     }

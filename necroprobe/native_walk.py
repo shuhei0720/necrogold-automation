@@ -20,9 +20,9 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v8'
+REVISION = 'native-walk-v9'
 API_VERSION = '1.98.14-ngg2'
-CAPABILITY = 'necrogold_native_v7'
+CAPABILITY = 'necrogold_native_v8'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -33,6 +33,10 @@ MAX_NATIVE_EVENTS = 64
 MAX_RASTER_SAMPLES = 32
 MAX_CANCEL_ATTEMPTS = 3
 MAX_SCHEMA = 512 * 1024
+MAX_MANIFEST_WIRE = 512 * 1024
+MAX_CHUNK_WIRE = 256 * 1024
+CHUNK_BYTES = 64 * 1024
+_HTTP_TRANSPORT_TYPE = HttpTransport
 MAX_SCHEMA_ATTEMPTS = 4
 SCHEMA_BUDGET_NS = 8_000_000_000
 DIAGNOSTIC_STAGES = frozenset(('connect', 'request', 'headers', 'body', 'complete'))
@@ -113,15 +117,24 @@ class NativeClient(Client):
         ceiling = min(self.timeout, 8 if method == 'necro_native_results' else 2)
         timeout = ceiling if timeout is None else number(timeout, .001, ceiling)
         guard = getattr(self, '_before_start_post', None)
-        if method != 'necro_native_start' or guard is None:
+        mode = params.get('mode') if method == 'necro_native_results' and type(params) is dict else None
+        limit = {'manifest': MAX_MANIFEST_WIRE, 'chunk': MAX_CHUNK_WIRE}.get(mode) if type(mode) is str else None
+        if limit is None and (method != 'necro_native_start' or guard is None):
             return super().call(method, params, timeout=timeout)
         transport = self.transport
         def guarded_post(body, rpc_timeout):
-            try:
-                guard()
-            except ProbeError as exc:
-                raise _StartNotSent(exc.code) from None
-            return transport(body, rpc_timeout)
+            if method == 'necro_native_start' and guard is not None:
+                try:
+                    guard()
+                except ProbeError as exc:
+                    raise _StartNotSent(exc.code) from None
+            if limit is not None and isinstance(transport, _HTTP_TRANSPORT_TYPE):
+                # Admission precedes body JSON, authentication and response crypto.
+                return transport._exchange('POST', '/rpc', body, rpc_timeout, limit)
+            raw = transport(body, rpc_timeout)
+            if limit is not None:
+                _require(type(raw) is bytes and len(raw) <= limit, 'http_body_limit')
+            return raw
         self.transport = guarded_post
         try:
             return super().call(method, params, timeout=timeout)
@@ -131,6 +144,16 @@ class NativeClient(Client):
     def _validate(self, method, params):
         expected = ({'run_id', 'profile'} if method == 'necro_native_start'
                     else {'run_id', 'keepalive'} if method == 'necro_native_status' else {'run_id'})
+        if method == 'necro_native_results' and type(params) is dict and 'mode' in params:
+            if params['mode'] == 'manifest':
+                expected = {'run_id', 'mode'}
+            elif params['mode'] == 'chunk':
+                expected = {'run_id', 'mode', 'export_id', 'capture_id', 'offset'}
+                _require(_uuid(params.get('export_id')) and _ns(params.get('capture_id'))
+                         and type(params.get('offset')) is int and 0 <= params['offset'] < MAX_IMAGE,
+                         'method_not_allowed')
+            else:
+                raise ProbeError('method_not_allowed')
         if (method not in ('necro_native_start', 'necro_native_status',
                            'necro_native_cancel', 'necro_native_results')
                 or type(params) is not dict or set(params) != expected
@@ -329,7 +352,8 @@ def _load(base):
         allowed = ('schema', 'revision', 'run_id', 'profile', 'state', 'resolved', 'start_attempted',
                    'cancel_attempted', 'stop_reason', 'native_state', 'native_report', 'images',
                    'host_clock_domain', 'native_clock_domain', 'events')
-        optional = {'cancel_attempts', 'cancel_confirmed', 'events_dropped', 'result_metadata', 'preflight'}
+        optional = {'cancel_attempts', 'cancel_confirmed', 'events_dropped', 'result_metadata', 'preflight',
+                    'image_export'}
         _require(set(allowed) <= set(record) <= set(allowed) | optional, 'native_journal_invalid')
         record.setdefault('cancel_attempts', int(record['cancel_attempted']))
         record.setdefault('cancel_confirmed', False)
@@ -343,7 +367,7 @@ def _load(base):
         record['events'] = _events(record['events'][excess:])
         _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', 'native-walk-v3',
                                           'native-walk-v4', 'native-walk-v5', 'native-walk-v6',
-                                          'native-walk-v7', REVISION)
+                                          'native-walk-v7', 'native-walk-v8', REVISION)
                  and record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -355,6 +379,12 @@ def _load(base):
             record['native_report'] = _report(record['native_report'])
         _require(_result_metadata(record['result_metadata']) == record['result_metadata'], 'native_journal_invalid')
         record['images'] = _stored_images(record['images'])
+        if 'image_export' in record:
+            _require(record['revision'] == REVISION, 'native_journal_invalid')
+            record['image_export'] = _export_checkpoint(record['image_export'])
+            selected = {item['name']:item for item in record['image_export']['images']}
+            _require(all(selected.get(item['name']) == item for item in record['images']),
+                     'native_journal_invalid')
         return record
     except (OSError, ProbeError, ValueError, TypeError, RecursionError):
         raise ProbeError('native_journal_invalid') from None
@@ -380,6 +410,42 @@ def _scene_changes(value):
                 low, high = limits.get(key, (0,2**63-1))
                 _require(type(item) is int and low <= item <= high, 'invalid_native_report')
             clean[key] = item
+        rows.append(clean)
+    return rows
+
+
+def _scene_change_details(value):
+    keys = ('command_id','source_capture_id','observed_capture_id','validation','continuous_count',
+            'chain_count','cell_count','omitted_cells','cells')
+    limits = {'validation':(0,11), 'continuous_count':(0,8), 'chain_count':(0,2),
+              'cell_count':(0,4), 'omitted_cells':(0,226)}
+    cell_limits = {'x':(-11,11), 'y':(-5,4), 'tile_before':(0,6), 'tile_after':(0,6),
+                   'protected_before':(0,1), 'protected_after':(0,1)}
+    _require(type(value) is list and len(value) <= 3, 'invalid_native_report')
+    rows = []
+    for row in value:
+        _require(type(row) is dict and set(keys) <= set(row), 'invalid_native_report')
+        clean = {}
+        for key in keys[:-1]:
+            low, high = limits.get(key, (0,2**63-1))
+            _require(type(row[key]) is int and low <= row[key] <= high, 'invalid_native_report')
+            clean[key] = row[key]
+        _require(type(row['cells']) is list and len(row['cells']) == clean['cell_count']
+                 and clean['cell_count']+clean['omitted_cells'] <= 230
+                 and (clean['omitted_cells'] == 0 or clean['cell_count'] == 4),
+                 'invalid_native_report')
+        cells = []
+        positions = []
+        for cell in row['cells']:
+            _require(type(cell) is dict and set(cell_limits) <= set(cell), 'invalid_native_report')
+            for key,(low,high) in cell_limits.items():
+                _require(type(cell[key]) is int and low <= cell[key] <= high, 'invalid_native_report')
+            _require(cell['tile_before'] != cell['tile_after']
+                     or cell['protected_before'] != cell['protected_after'], 'invalid_native_report')
+            cells.append({key:cell[key] for key in cell_limits})
+            positions.append((cell['y']+5)*23+cell['x']+11)
+        _require(positions == sorted(set(positions)), 'invalid_native_report')
+        clean['cells'] = cells
         rows.append(clean)
     return rows
 
@@ -484,6 +550,8 @@ def _report(value, depth=0):
             result[key] = [_report(event, depth+1) for event in item]
         elif key == 'scene_changes':
             result[key] = _scene_changes(item)
+        elif key == 'scene_change_details':
+            result[key] = _scene_change_details(item)
         elif key == 'motion_wait':
             result[key] = _motion_wait(item)
         elif key == 'raster_samples':
@@ -510,6 +578,11 @@ def _report(value, depth=0):
     if depth == 0:
         _require(result.get('schema') == 'ngg2-native-v1' and _uuid(result.get('clock_id'))
                  and 'input_state' in result and 'device_now_ns' in result, 'invalid_native_report')
+        if 'scene_change_details' in result and 'scene_changes' in result:
+            ids = ('command_id','source_capture_id','observed_capture_id')
+            _require([[row[key] for key in ids] for row in result['scene_changes']]
+                     == [[row[key] for key in ids] for row in result['scene_change_details']],
+                     'invalid_native_report')
     return result
 
 
@@ -624,14 +697,172 @@ def _images(value):
     return images
 
 
+def _manifest_images(value):
+    _require(type(value) is list and len(value) <= MAX_IMAGES, 'invalid_native_images')
+    selected = []
+    for item in value:
+        _require(type(item) is dict and 'data_base64' not in item
+                 and type(item.get('byte_length')) is int, 'invalid_native_images')
+        selected.append(dict(item, bytes=item['byte_length']))
+    try:
+        images = _stored_images(selected)
+    except ProbeError:
+        raise ProbeError('invalid_native_images') from None
+    _require(len({item['capture_id'] for item in images}) == len(images), 'invalid_native_images')
+    return images
+
+
+def _export_checkpoint(value):
+    keys = {'export_id', 'images', 'total_bytes', 'chunk_bytes', 'offsets', 'prefix_sha256'}
+    _require(type(value) is dict and set(value) == keys and _uuid(value.get('export_id'))
+             and type(value.get('chunk_bytes')) is int and value['chunk_bytes'] == CHUNK_BYTES
+             and type(value.get('total_bytes')) is int
+             and 0 <= value['total_bytes'] <= MAX_TOTAL_IMAGES,
+             'native_journal_invalid')
+    images = _stored_images(value['images'])
+    _require(len({item['capture_id'] for item in images}) == len(images)
+             and value['total_bytes'] == sum(item['bytes'] for item in images)
+             and type(value.get('offsets')) is list and len(value['offsets']) == len(images)
+             and type(value.get('prefix_sha256')) is list
+             and len(value['prefix_sha256']) == len(images), 'native_journal_invalid')
+    for item, offset, digest in zip(images, value['offsets'], value['prefix_sha256']):
+        _require(type(offset) is int and 0 <= offset <= item['bytes']
+                 and (offset == item['bytes'] or offset % CHUNK_BYTES == 0)
+                 and type(digest) is str and re.fullmatch('[0-9a-f]{64}', digest)
+                 and (offset != 0 or digest == hashlib.sha256(b'').hexdigest()),
+                 'native_journal_invalid')
+    return {key: images if key == 'images' else list(value[key]) if key in ('offsets', 'prefix_sha256')
+            else value[key] for key in keys}
+
+
+def _manifest(value, run_id):
+    state, report = _status(value, run_id)
+    _require(state in TERMINAL and value.get('result_mode') == 'manifest'
+             and _uuid(value.get('export_id')) and type(value.get('chunk_bytes')) is int
+             and value['chunk_bytes'] == CHUNK_BYTES, 'invalid_native_images')
+    images = _manifest_images(value.get('images'))
+    total = sum(item['bytes'] for item in images)
+    _require(type(value.get('total_bytes')) is int and value['total_bytes'] == total,
+             'invalid_native_images')
+    checkpoint = {'export_id':value['export_id'], 'images':images, 'total_bytes':total,
+                  'chunk_bytes':CHUNK_BYTES, 'offsets':[0]*len(images),
+                  'prefix_sha256':[hashlib.sha256(b'').hexdigest()]*len(images)}
+    return state, report, _result_metadata(value), checkpoint
+
+
+def _read_fragment(path, image_path, offset, digest, byte_length):
+    # A rename may have committed bytes just before the journal checkpoint.
+    # Keep that uncommitted suffix to compare with the exact same-offset retry.
+    selected = path if path.exists() else image_path
+    try:
+        with selected.open('rb') as handle:
+            raw = handle.read(MAX_IMAGE+1)
+    except FileNotFoundError:
+        _require(offset == 0, 'invalid_native_images')
+        raw = b''
+    _require(offset <= len(raw) <= byte_length
+             and hashlib.sha256(raw[:offset]).hexdigest() == digest,
+             'invalid_native_images')
+    return raw
+
+
+def _chunk(value, run_id, export_id, item, offset):
+    keys = {'run_id','result_mode','export_id','capture_id','offset','byte_length',
+            'data_base64','sha256','chunk_bytes'}
+    expected = min(CHUNK_BYTES, item['bytes']-offset)
+    _require(type(value) is dict and set(value) == keys and value.get('run_id') == run_id
+             and value.get('result_mode') == 'chunk' and value.get('export_id') == export_id
+             and type(value.get('capture_id')) is int and value['capture_id'] == item['capture_id']
+             and type(value.get('offset')) is int and value['offset'] == offset
+             and type(value.get('byte_length')) is int and value['byte_length'] == item['bytes']
+             and value.get('sha256') == item['sha256']
+             and type(value.get('chunk_bytes')) is int and value['chunk_bytes'] == expected,
+             'invalid_native_images')
+    try:
+        raw = b64(value.get('data_base64'), CHUNK_BYTES)
+    except ProbeError:
+        raise ProbeError('invalid_native_images') from None
+    _require(len(raw) == expected and expected > 0, 'invalid_native_images')
+    return raw
+
+
+def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_timeout,
+                   cancelled=lambda: False):
+    run_id = record['run_id']
+    def check():
+        _require(not cancelled(), 'cancel_requested')
+        remaining = (deadline-clock())/1e9
+        _require(remaining >= .001, 'host_deadline')
+        return remaining
+    def call(params):
+        remaining = check()
+        return request('necro_native_results', params,
+                       timeout=min(client_timeout, rpc_seconds, 8, remaining))
+    state, report, metadata, incoming = _manifest(call({'run_id':run_id, 'mode':'manifest'}), run_id)
+    # Manifest validation and storage consume the same bounded export attempt.
+    check()
+    current = record.get('image_export')
+    if current is not None:
+        _require(all(current[key] == incoming[key]
+                     for key in ('export_id','images','total_bytes','chunk_bytes')),
+                 'invalid_native_images')
+    else:
+        current = incoming
+        record['image_export'] = current
+    record.update(state=state, native_state=state, native_report=report, result_metadata=metadata)
+    _save(base, record)
+    check()
+    image_folder = base/('native-'+run_id)/'images'
+    image_folder.mkdir(mode=0o700, exist_ok=True)
+    fragments = image_folder/'.parts'
+    fragments.mkdir(mode=0o700, exist_ok=True)
+    verified = {item['name']:item for item in record['images']}
+    for index, item in enumerate(current['images']):
+        image_path = image_folder/item['name']
+        fragment = fragments/(item['name']+'.part')
+        offset = current['offsets'][index]
+        raw = _read_fragment(fragment, image_path, offset, current['prefix_sha256'][index], item['bytes'])
+        check()
+        while offset < item['bytes']:
+            part = _chunk(call({'run_id':run_id, 'mode':'chunk', 'export_id':current['export_id'],
+                                'capture_id':item['capture_id'], 'offset':offset}),
+                          run_id, current['export_id'], item, offset)
+            suffix = raw[offset:offset+len(part)]
+            _require(part[:len(suffix)] == suffix, 'invalid_native_images')
+            updated = raw[:offset]+part
+            _atomic(fragment, updated)
+            offset += len(part)
+            current['offsets'][index] = offset
+            current['prefix_sha256'][index] = hashlib.sha256(updated).hexdigest()
+            _save(base, record)
+            check()
+            raw = updated
+        _require(len(raw) == item['bytes'] and hashlib.sha256(raw).hexdigest() == item['sha256']
+                 and raw[:16] == b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR'
+                 and struct.unpack('>II', raw[16:24]) == (896,414), 'invalid_native_images')
+        check()
+        _atomic(image_path, raw)
+        verified[item['name']] = item
+        record['images'] = [verified[entry['name']] for entry in current['images'] if entry['name'] in verified]
+        _save(base, record)
+        check()
+        try:
+            fragment.unlink()
+        except FileNotFoundError:
+            pass
+    check()
+    return state, report
+
+
 def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic_ns,
                 sleep=time.sleep, poll_seconds=.25, max_seconds=185, recovery_seconds=6,
-                results_seconds=8, lock_path=None):
+                results_seconds=8, export_seconds=90, lock_path=None):
     """Start once; recover known work with read-only status and bounded cancel."""
     number(poll_seconds, .001, 1)
     number(max_seconds, .01, 200)
     number(recovery_seconds, .01, 10)
     number(results_seconds, .001, 8)
+    number(export_seconds, .001, 90)
     base = Path(output).resolve()
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
     with device_lock(lock_path):
@@ -651,6 +882,7 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
         deadline = began + int(max_seconds * 1e9)
         readiness_deadline = min(deadline, began + SCHEMA_BUDGET_NS)
         cleanup_deadline = None
+        export_guard = None
         cancel_required = record['cancel_attempted']
         status_before_retry = False
         cancel_calls = 0
@@ -825,22 +1057,33 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                         # Read-only export gets its own whole-call budget only
                         # after terminal status. It cannot extend this invocation.
                         invocation_deadline = cleanup_deadline if cleanup_deadline is not None else deadline
-                        results_deadline = min(invocation_deadline, clock()+int(results_seconds*1e9))
-                        remaining = (results_deadline-clock())/1e9
-                        _require(remaining >= .001, 'host_deadline')
-                        value = request('necro_native_results', {'run_id': run_id},
-                                        timeout=min(client.timeout, 8, remaining))
-                        state, report = _status(value, run_id)
-                        _require(state in TERMINAL, 'invalid_native_status')
-                        images = _images(value.get('images'))
-                        image_folder = base/('native-'+run_id)/'images'
-                        image_folder.mkdir(mode=0o700, exist_ok=True)
-                        for metadata, raw in images:
-                            _atomic(image_folder/metadata['name'], raw)
-                        result_metadata = _result_metadata(value)
+                        if record['revision'] == REVISION:
+                            results_deadline = min(invocation_deadline, began+180_000_000_000,
+                                                   clock()+int(export_seconds*1e9))
+                            # Preserve the finite result cleanup for an already
+                            # cancelled native run; a new cancel stops this export.
+                            cancelled_before_export = cancelled()
+                            export_cancelled = lambda: not cancelled_before_export and cancelled()
+                            export_guard = (results_deadline, export_cancelled)
+                            state, report = _collect_paged(request, base, record, clock,
+                                results_deadline, results_seconds, client.timeout, export_cancelled)
+                        else:
+                            # A started old journal keeps its original protocol.
+                            results_deadline = min(invocation_deadline, clock()+int(results_seconds*1e9))
+                            remaining = (results_deadline-clock())/1e9
+                            _require(remaining >= .001, 'host_deadline')
+                            value = request('necro_native_results', {'run_id': run_id},
+                                            timeout=min(client.timeout, 8, remaining))
+                            state, report = _status(value, run_id)
+                            _require(state in TERMINAL, 'invalid_native_status')
+                            images = _images(value.get('images'))
+                            image_folder = base/('native-'+run_id)/'images'
+                            image_folder.mkdir(mode=0o700, exist_ok=True)
+                            for image_metadata, raw in images:
+                                _atomic(image_folder/image_metadata['name'], raw)
+                            record.update(images=[metadata for metadata, _raw in images],
+                                          result_metadata=_result_metadata(value))
                         record.update(state=state, native_state=state, native_report=report,
-                                      images=[metadata for metadata, _raw in images],
-                                      result_metadata=result_metadata,
                                       resolved=report['input_state'] in (0, 3)
                                       and not report.get('ui_frozen', False)
                                       and report.get('workers_drained', True)
@@ -878,12 +1121,21 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                 cancel_attempt(persist=False)
             raise
         _save(base, record)
+        if export_guard is not None and record['resolved']:
+            # A final fsync may finish after the collector's last check. Record
+            # that expiry once while retaining every committed image and cursor.
+            end, export_cancelled = export_guard
+            reason = 'cancel_requested' if export_cancelled() else (
+                'host_deadline' if end-clock() < 1_000_000 else None)
+            if reason is not None:
+                record.update(resolved=False, stop_reason=reason)
+                _save(base, record)
         return record
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST050: NG-G2の画像処理最適化を検証')
-    ap.add_argument('--output', default='runtime/test-050')
+    ap = argparse.ArgumentParser(description='TEST051: 毎拍歩行の安全な予約更新と分割画像回収を検証')
+    ap.add_argument('--output', default='runtime/test-051')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')
@@ -912,7 +1164,7 @@ def main(argv=None):
             attempts = record.get('preflight', {}).get('attempts', [])
             kind = attempts[-1]['diagnostic']['kind'] if attempts else None
             if record['stop_reason'] == 'native_capability_missing':
-                print('NG-G2の版・機能が一致しません。TEST049用の新IPAとLoopCtrlの起動状態を確認してください。')
+                print('NG-G2の版・機能が一致しません。TEST051用の新IPAとLoopCtrlの起動状態を確認してください。')
             elif kind == 'refused':
                 print('LoopCtrlへの接続が拒否されました。まだゲームの開始要求は送っていません。')
             elif record['stop_reason'] in ('rpc_deadline', 'host_deadline') or kind in ('timeout','deadline'):

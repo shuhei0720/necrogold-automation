@@ -71,7 +71,7 @@
  // Modified for NecroGold NG-G1: opt-in screenshot image geometry, 2026-11-05.
  import Foundation
 
-@@ -26,6 +27,20 @@
+@@ -26,6 +27,24 @@
 
  struct RPCMethodRegistry {
      static let methods: [RPCMethodDef] = [
@@ -86,13 +86,17 @@
 +        RPCMethodDef(name: "necro_native_cancel", description: "Invalidate pending native tickets immediately. An already started synth cannot be cancelled; status retains its outcome. No implicit pause input.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID")],
 +            returns: "{run_id,profile,state,api_version,report:{cancel_requested,...}}"),
-+        RPCMethodDef(name: "necro_native_results", description: "Export at most 20 retained normalized PNGs only after terminal worker drain and while the phone owner is active. Capture and synth times are call intervals, not exact presentation or gameplay-receipt times.",
-+            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID")],
-+            returns: "{run_id,profile,state,api_version,report,images:[{name,format,data_base64,pixel_width,pixel_height,sha256,capture_id,capture_start_ns,capture_end_ns,completed_prefix,stable_prefix}]}"),
++        RPCMethodDef(name: "necro_native_results", description: "Export at most 20 retained normalized PNGs after terminal worker drain and with an active authenticated owner. Default preserves legacy images; manifest creates one immutable bounded export; chunk returns at most 65536 PNG bytes. Capture/synth times are call intervals, not presentation or gameplay-receipt timestamps.",
++            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID"),
++                     RPCParamDef(name: "mode", type: "string", required: false, description: "manifest or chunk; omit for legacy response"),
++                     RPCParamDef(name: "export_id", type: "string", required: false, description: "Exact manifest export ID; chunk only"),
++                     RPCParamDef(name: "capture_id", type: "integer", required: false, description: "Exact manifest capture ID; chunk only"),
++                     RPCParamDef(name: "offset", type: "integer", required: false, description: "Exact PNG byte offset; chunk only")],
++            returns: "legacy:{run_id,profile,state,api_version,report,images:[PNG with data_base64]}; manifest:{run_id,profile,state,api_version,report,result_mode,export_id,chunk_bytes,total_bytes,images:[PNG metadata with byte_length],exported_capture_ids,omitted_capture_ids}; chunk:{run_id,result_mode,export_id,capture_id,offset,byte_length,sha256,chunk_bytes,data_base64}"),
          RPCMethodDef(
              name: "config",
              description: "Read or update server settings and manage authorized sessions. With no params: returns current config plus the list of authorized sessions (client name, masked token prefix, granted/expiry times). Pass allow_remote_access and/or listen_port to change settings (persisted; server restarts, dropping the connection — reconnect at the returned address). Pass revoke_session_id to remove one session, or clear_sessions=true to revoke ALL tokens (including your own). Pass stop_server=true to SHUT DOWN the service (stops listening after replying; re-launch the runner to restart — tokens are preserved so no re-auth is needed).",
-@@ -549,7 +564,7 @@
+@@ -549,7 +568,7 @@
      /// release that added the encrypted auth channel plus the docs/Skill,
      /// clear-text, page-source, and reliability improvements. Single source of
      /// truth for /schema AND device_info.
@@ -101,7 +105,7 @@
 
      /// When this binary was built, as "YYYY-MM-DD HH:MM".
      ///
-@@ -569,6 +584,13 @@
+@@ -569,6 +588,14 @@
      /// call (no separate /schema fetch needed). Keep in sync with what the server
      /// actually implements.
      static let capabilityTags: [String] = [
@@ -112,6 +116,7 @@
 +        "necrogold_native_v5", // worker perception and prepared deadline-bound input
 +        "necrogold_native_v6", // strict source-specific optimized perception
 +        "necrogold_native_v7", // strict Navigation and committed observe timing
++        "necrogold_native_v8", // guarded same-beat revalidation and bounded paged image export
          "envelope_v1",         // /pair + encrypted /rpc envelopes (HMAC-SHA256)
          "stream_ticket",       // stream_ticket RPC → single-use ?ticket= for /stream + /logs
          "video_stream",        // GET /stream (framed H.264, docs/remote-control.md)

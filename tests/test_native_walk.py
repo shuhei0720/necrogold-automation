@@ -49,18 +49,23 @@ class NativeServer:
         self.schema_raw = schema_raw
         self.start_status = start_status
         self.bad_start_mac = bad_start_mac
+        self.exports = {}
+        self.page_transform = None
+        self.wire_transform = None
 
     def __enter__(self):
         fake = self
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_args):
                 pass
-            def reply(self, status, raw):
+            def reply(self, status, raw, declared_length='actual'):
                 # A correct early client rejection can close before this
                 # fixture finishes writing; it is not a server-test failure.
                 try:
                     self.send_response(status)
-                    self.send_header('Content-Length', str(len(raw)))
+                    if declared_length is not None:
+                        self.send_header('Content-Length', str(len(raw)) if declared_length == 'actual'
+                                         else str(declared_length))
                     self.end_headers()
                     self.wfile.write(raw)
                 except (BrokenPipeError, ConnectionResetError):
@@ -115,6 +120,34 @@ class NativeServer:
                         result['images'] = []
                 if fake.transform:
                     result = fake.transform(method, result)
+                if method == 'necro_native_results' and params.get('mode') in ('manifest', 'chunk'):
+                    if params['mode'] == 'manifest':
+                        exported = []
+                        raw_images = {}
+                        for image in result.get('images', []):
+                            try:
+                                raw = base64.b64decode(image.get('data_base64', ''))
+                            except (ValueError, TypeError):
+                                raw = b''
+                            metadata = {key:value for key,value in image.items() if key != 'data_base64'}
+                            metadata['byte_length'] = len(raw)
+                            exported.append(metadata)
+                            raw_images[metadata.get('capture_id')] = (metadata, raw)
+                        manifest = dict(result, result_mode='manifest', export_id=run_id,
+                            chunk_bytes=65536, total_bytes=sum(item['byte_length'] for item in exported),
+                            images=exported)
+                        fake.exports.setdefault(run_id, (manifest, raw_images))
+                        result = manifest
+                    else:
+                        manifest, raw_images = fake.exports[run_id]
+                        metadata, raw = raw_images[params['capture_id']]
+                        part = raw[params['offset']:params['offset']+65536]
+                        result = dict(run_id=run_id, result_mode='chunk', export_id=manifest['export_id'],
+                            capture_id=params['capture_id'], offset=params['offset'],
+                            byte_length=len(raw), data_base64=base64.b64encode(part).decode(),
+                            sha256=metadata.get('sha256'), chunk_bytes=len(part))
+                if fake.page_transform:
+                    result = fake.page_transform(method, params, result)
                 if method in fake.lose:
                     fake.lose.remove(method)
                     self.close_connection = True
@@ -125,7 +158,11 @@ class NativeServer:
                     changed = json.loads(raw)
                     changed['tag'] = '0'*64
                     raw = json.dumps(changed).encode()
-                self.reply(200, raw)
+                if fake.wire_transform:
+                    raw, declared_length = fake.wire_transform(method, params, raw)
+                    self.reply(200, raw, declared_length)
+                else:
+                    self.reply(200, raw)
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), Handler, bind_and_activate=False)
         self.server.server_bind()
         self.thread = threading.Thread(target=lambda: self.server.serve_forever(poll_interval=.01), daemon=True)
@@ -523,6 +560,7 @@ class NativeImageTests(TimerTestCase):
                 lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.5)
             metadata, _raw = native._images([image_item()])[0]
             result['revision'] = 'native-walk-v1'
+            result.pop('image_export', None)
             result.pop('preflight')
             result['images'] = [dict(metadata, token='PRIVATE_IMAGE_TOKEN', raw_exception='PRIVATE')]
             native._save(Path(folder), result)
@@ -557,6 +595,8 @@ class NativeImageTests(TimerTestCase):
                         native._load(Path(folder))
             result['images'] = [dict(metadata,name='frame-'+str(i)+'.png',bytes=native.MAX_IMAGE)
                                 for i in range(8)]
+            result['revision'] = 'native-walk-v8'
+            result.pop('image_export', None)
             native._save(Path(folder), result)
             self.assertEqual(result['images'], native._load(Path(folder))['images'])
 

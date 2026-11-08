@@ -698,7 +698,91 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
     if len(reds) != 32:
         raise RuntimeError('runtime_expected_32_named_mutation_reds')
+    # TEST051 faults use only their public fixtures. Their entry conditions
+    # include two actual MOVEs and exact image budgets; earlier fixtures must
+    # not mask a broken continuous callback or cached-reply gate.
+    (stage/'main.swift').write_text(test051_public_fixture_source(all_tests))
+    new_mutations = {
+        'continuous-command-id': (
+            'run.lock.ng2Locked { run.mainCommandID == command.id && run.generation == generation }',
+            'run.lock.ng2Locked { (run.report["moves"]?.intValue ?? 0) >= 2 || (run.mainCommandID == command.id && run.generation == generation) }',
+            'FAIL continuous_old_command_skips_authority_and_touches'),
+        'continuous-return-bookkeeping': (
+            'run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }',
+            'run.lock.ng2Locked { run.mainCallbacks.remove(command.id); if command.ordinal >= 3 && (run.report["moves"]?.intValue ?? 0) >= 2 { run.mainCommandID = 0 } }',
+            'FAIL continuous_old_return_keeps_replacement_ownership'),
+        'continuous-callback-drain': (
+            'mainOutstanding: run.mainOutstanding, legacyCaptures: legacy)',
+            'mainOutstanding: (run.report["moves"]?.intValue ?? 0) >= 2 ? false : run.mainOutstanding, legacyCaptures: legacy)',
+            'FAIL continuous_stale_callback_retains_lease_and_blocks_manifest'),
+        'continuous-details-connection': (
+            '"scene_change_details": .array(encodedDetails)',
+            '"scene_change_details": .array([])',
+            'FAIL continuous_revalidation_actual_detail_producer'),
+        'export-manifest-reply-owner': (
+            'guard exportEligibleLocked(run, generation: generation), run.exportCache?.id == id else {',
+            'guard current === run, run.exportCache?.id == id else {',
+            'FAIL paged_cached_manifest_reply_rechecks_auth_owner'),
+        'export-manifest-reply-current': (
+            'guard exportEligibleLocked(run, generation: generation), run.exportCache?.id == id else {',
+            'guard ownerActive(run), generation == run.generation else {',
+            'FAIL paged_cached_manifest_reply_rechecks_current_run'),
+        'export-chunk-reply-owner': (
+            'guard exportEligibleLocked(run, generation: generation), run.exportCache?.id == exportID else {',
+            'guard current === run, run.exportCache?.id == exportID else {',
+            'FAIL paged_cached_chunk_reply_rechecks_auth_owner'),
+        'export-chunk-reply-current': (
+            'guard exportEligibleLocked(run, generation: generation), run.exportCache?.id == exportID else {',
+            'guard ownerActive(run), generation == run.generation else {',
+            'FAIL paged_cached_chunk_reply_rechecks_current_run'),
+        'export-chunk-offset': (
+            '"capture_id": .int(captureID), "offset": .int(offset)',
+            '"capture_id": .int(captureID), "offset": .int(0)',
+            'FAIL paged_chunk_identity_offset_and_digest_bound'),
+        'export-parallel-build': (
+            'guard run.exportBuildID == nil else { return .busy }',
+            '// mutation: an overlapping manifest build may replace the active token',
+            'FAIL paged_parallel_build_and_new_run_do_not_amplify_cache'),
+        'export-per-image-boundary': (
+            'if bytes.count > 512 * 1024 || total + bytes.count > 4 * 1024 * 1024 { continue }',
+            'if bytes.count >= 512 * 1024 || total + bytes.count > 4 * 1024 * 1024 { continue }',
+            'FAIL paged_exact_per_image_aggregate_and_image_count_budget_524288'),
+        'export-total-boundary': (
+            'if bytes.count > 512 * 1024 || total + bytes.count > 4 * 1024 * 1024 { continue }',
+            'if bytes.count > 512 * 1024 || total + bytes.count >= 4 * 1024 * 1024 { continue }',
+            'FAIL paged_exact_per_image_aggregate_and_image_count_budget_524288'),
+        'export-selection-count': (
+            'return Array(frames.prefix(20))',
+            'return Array(frames.prefix(21))',
+            'FAIL paged_24_retained_frames_select_only_original_20_image_budget'),
+        'export-manifest-immutable': (
+            'return (manifest, nil)',
+            'var refreshed = manifest; if (run.report["moves"]?.intValue ?? 0) == 0 { var snapshot = manifest["report"]?.objectValue ?? [:]; snapshot["device_now_ns"] = number(Self.now()); refreshed["report"] = .object(snapshot) }; return (refreshed, nil)',
+            'FAIL paged_cached_manifest_is_immutable_including_report'),
+        'export-stale-generation-cache': (
+            'return allowed && (generation == nil || generation == run.generation)',
+            'if generation != nil && generation != run.generation { run.exportCache = nil }; return allowed && (generation == nil || generation == run.generation)',
+            'FAIL paged_late_old_generation_reply_preserves_new_export_cache'),
+        'export-retired-raw-storage': (
+            'old.images.removeAll(); old.pinned.removeAll()\n                        old.initial = nil; old.found = nil; old.latest = nil',
+            '// mutation: old rasters remain retained across replacement',
+            'FAIL paged_replacement_retires_previous_raw_and_encoded_storage'),
+    }
+    for label, (old, new, expected) in new_mutations.items():
+        print('Runtime mutation: '+label, flush=True)
+        if source.count(old) != 1:
+            raise ValueError('runtime_test051_mutation_target: '+label)
+        (stage/'NG2Runtime.swift').write_text(source.replace(old, new))
+        result = compile_run(sources, stage/(label+'-tests'), output,
+            'runtime-'+label+'-mutation-red', extra, run_timeout=120)
+        require_red(result, expected); reds[label] = result.stdout.strip()
+        print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
+    if len(reds) != 32 + len(new_mutations):
+        raise RuntimeError('runtime_expected_baseline_and_test051_named_mutation_reds')
+    (stage/'NG2Runtime.swift').write_text(source)
+    (stage/'main.swift').write_text(all_tests)
     return {'production_green':green.stdout.strip(),'mutation_red':reds,'compiled':True,
+            'baseline_mutation_count': 32, 'test051_mutation_count': len(new_mutations),
             'native_object_flags': {path.name: native_object_flags(path.name) for path in sorted(native.glob('NG2*.c'))},
             'scope':'Actual Runtime public API, raster, real C, main ticket and lifecycle with UIKit/XCTest/daemon fakes'}
 
