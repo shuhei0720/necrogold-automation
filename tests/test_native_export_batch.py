@@ -310,6 +310,9 @@ class ExportBatchTests(TimerTestCase):
     def test_literal_v11_suffix_survives_repeated_interruption_and_read_only_recovery(self):
         self.assert_unverified_suffix_survives_partial_replay('native-walk-v11', legacy_trace=True)
 
+    def test_literal_v12_suffix_survives_repeated_interruption_and_read_only_recovery(self):
+        self.assert_unverified_suffix_survives_partial_replay('native-walk-v12')
+
     def assert_unverified_suffix_survives_partial_replay(self, revision, legacy_trace=False):
         class Crash(Exception):
             pass
@@ -373,6 +376,8 @@ class ExportBatchTests(TimerTestCase):
                 self.assertTrue(recovered['resolved'], recovered['stop_reason'])
                 self.assertEqual(revision, recovered['revision'])
                 self.assertEqual([], server.schema_calls)
+                self.assertEqual({seed['run_id']},
+                    {p['run_id'] for m, p in server.calls[recovery_start:]})
                 self.assertFalse(any(m in ('necro_native_start', 'necro_native_cancel')
                     for m, p in server.calls[recovery_start:]))
 
@@ -381,6 +386,9 @@ class ExportBatchTests(TimerTestCase):
 
     def test_literal_v11_nonzero_checkpoint_keeps_four_chunk_saves_and_read_only_recovery(self):
         self.assert_batched_nonzero_checkpoint('native-walk-v11', legacy_trace=True)
+
+    def test_literal_v12_nonzero_checkpoint_keeps_four_chunk_saves_and_read_only_recovery(self):
+        self.assert_batched_nonzero_checkpoint('native-walk-v12')
 
     def assert_batched_nonzero_checkpoint(self, revision, legacy_trace=False):
         image = image_item(size=512*1024)
@@ -421,6 +429,7 @@ class ExportBatchTests(TimerTestCase):
             self.assertEqual(image['sha256'], recovered['images'][0]['sha256'])
             self.assertEqual([], server.schema_calls)
             later = server.calls[before:]
+            self.assertEqual({first['run_id']}, {p['run_id'] for m, p in later})
             self.assertFalse(any(m in ('necro_native_start', 'necro_native_cancel') for m, p in later))
             self.assertEqual(list(range(65536, 524288, 65536)),
                 [p['offset'] for m, p in later if p.get('mode') == 'chunk'])

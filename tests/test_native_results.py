@@ -763,13 +763,15 @@ class NativeResultsTests(TimerTestCase):
             self.assertEqual(['/schema'], server.schema_calls)
             self.assertEqual([], server.calls)
 
-    def test_fresh_native_v11_capability_starts_exactly_once(self):
-        tags = ['necrogold_native_v'+str(version) for version in range(1,12)]
+    def test_fresh_native_v12_capability_starts_exactly_once(self):
+        tags = ['necrogold_native_v'+str(version) for version in range(1,13)]
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, capabilities=tags) as server:
             record = self.execute(server, folder)
             self.assertTrue(record['resolved'])
             self.assertEqual(['/schema'], server.schema_calls)
             self.assertEqual(1, sum(method == 'necro_native_start' for method,params in server.calls))
+            start = next(params for method,params in server.calls if method == 'necro_native_start')
+            self.assertEqual({'run_id':record['run_id'], 'profile':native.PROFILE}, start)
 
     def test_fresh_native_v9_without_initial_slot_capability_never_starts(self):
         tags = ['necrogold_native_v'+str(version) for version in range(1,10)]

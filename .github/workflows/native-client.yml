@@ -17,6 +17,7 @@ on:
       - 'test_052.sh'
       - 'test_053.sh'
       - 'test_054.sh'
+      - 'test_055.sh'
       - 'tests/test_http_diagnostics.py'
       - 'tests/test_native_connect.py'
       - 'tests/test_native_walk.py'
@@ -42,22 +43,22 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate the shell entry point
-        run: sh -n test_054.sh
+        run: sh -n test_055.sh
       - name: Prepare the existing legacy image-test dependency
         run: |
-          python3 -m venv "$RUNNER_TEMP/test054-venv"
-          "$RUNNER_TEMP/test054-venv/bin/pip" install Pillow==11.3.0
+          python3 -m venv "$RUNNER_TEMP/test055-venv"
+          "$RUNNER_TEMP/test055-venv/bin/pip" install Pillow==11.3.0
       - name: Run readiness, encrypted HTTP, cancellation and recovery contracts
         shell: bash
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/test054-venv/bin/python" --version
-          PYTHONPATH=tests "$RUNNER_TEMP/test054-venv/bin/python" -m unittest test_protocol test_http_and_cli test_http_diagnostics test_native_walk test_native_connect test_native_results test_native_paged_results test_native_export_batch test_native_motion_references -v 2>&1 | tee "$RUNNER_TEMP/test054-client.txt"
+          "$RUNNER_TEMP/test055-venv/bin/python" --version
+          PYTHONPATH=tests "$RUNNER_TEMP/test055-venv/bin/python" -m unittest test_protocol test_http_and_cli test_http_diagnostics test_native_walk test_native_connect test_native_results test_native_paged_results test_native_export_batch test_native_motion_references -v 2>&1 | tee "$RUNNER_TEMP/test055-client.txt"
       - name: Save client validation output
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: test054-client-validation
-          path: ${{ runner.temp }}/test054-client.txt
+          name: test055-client-validation
+          path: ${{ runner.temp }}/test055-client.txt
           if-no-files-found: error
           retention-days: 30

@@ -1,4 +1,4 @@
-"""TEST054 closed motion-reference diagnostics over authenticated native HTTP."""
+"""TEST054/055 closed diagnostics and literal-journal recovery over native HTTP."""
 from copy import deepcopy
 import base64
 import json
@@ -65,14 +65,28 @@ class MotionReferenceTests(TimerTestCase):
     client = paged.PagedResultsTests.client
     execute = paged.PagedResultsTests.execute
 
-    def test_client_054_revision_capability_and_output(self):
-        self.assertEqual('native-walk-v12', native.REVISION)
-        self.assertEqual('necrogold_native_v11', native.CAPABILITY)
-        self.assertEqual('runtime/test-054', native.parser().parse_args([]).output)
-        path = Path(native.__file__).resolve().parents[1]/'test_054.sh'
+    def test_client_055_revision_and_required_capability(self):
+        self.assertEqual(('native-walk-v13', 'necrogold_native_v12'),
+            (native.REVISION, native.CAPABILITY))
+
+    def test_fresh_client_refuses_old_v12_client_capabilities_before_start(self):
+        tags = ['necrogold_native_v'+str(version) for version in range(1,12)]
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, capabilities=tags) as server:
+            record = self.execute(server, folder)
+            self.assertEqual(('native_capability_missing', False, 0),
+                (record['stop_reason'], record['start_attempted'],
+                 sum(m == 'necro_native_start' for m, p in server.calls)))
+            self.assertEqual(['/schema'], server.schema_calls)
+            self.assertEqual([], server.calls)
+
+    def test_client_055_revision_capability_and_output(self):
+        self.assertEqual('native-walk-v13', native.REVISION)
+        self.assertEqual('necrogold_native_v12', native.CAPABILITY)
+        self.assertEqual('runtime/test-055', native.parser().parse_args([]).output)
+        path = Path(native.__file__).resolve().parents[1]/'test_055.sh'
         self.assertEqual(0, subprocess.run(['sh','-n',str(path)], capture_output=True).returncode)
-        self.assertIn('native-walk-v12 / 1.98.14-ngg2', path.read_text())
-        self.assertIn('--output runtime/test-054', path.read_text())
+        self.assertIn('native-walk-v13 / 1.98.14-ngg2', path.read_text())
+        self.assertIn('--output runtime/test-055', path.read_text())
 
     def test_fresh_start_requires_the_motion_reference_diagnostic(self):
         def missing(method, result):
@@ -287,11 +301,13 @@ class MotionReferenceTests(TimerTestCase):
                 transform=add_reference_report) as server:
             original = self.execute(server, folder)
             self.assertTrue(original['resolved'])
-            missing = deepcopy(original)
-            missing['native_report'].pop('motion_references')
-            native._save(Path(folder), missing)
-            with self.assertRaisesRegex(ProbeError, 'native_journal_invalid'):
-                native._load(Path(folder))
+            for version in (12,13):
+                missing = deepcopy(original)
+                missing['revision'] = 'native-walk-v'+str(version)
+                missing['native_report'].pop('motion_references')
+                native._save(Path(folder), missing)
+                with self.subTest(version=version), self.assertRaisesRegex(ProbeError, 'native_journal_invalid'):
+                    native._load(Path(folder))
             for version in range(1,12):
                 legacy = deepcopy(original)
                 legacy['revision'] = 'native-walk-v'+str(version)
@@ -325,3 +341,56 @@ class MotionReferenceTests(TimerTestCase):
             self.assertEqual([], server.schema_calls)
             self.assertFalse(any(m in ('necro_native_start', 'necro_native_cancel')
                 for m, p in server.calls[before:]))
+
+    def test_literal_v12_started_recovery_keeps_trace_uuid_and_both_journals_without_schema_or_start(self):
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True,
+                transform=add_reference_report) as server:
+            seed = self.execute(server, folder)
+            self.assertTrue(seed['resolved'], seed['stop_reason'])
+            seed.update(revision='native-walk-v12', resolved=False)
+            native._save(Path(folder), seed)
+            server.capabilities = ['necrogold_native_v11']
+            server.schema_calls.clear()
+            before = len(server.calls)
+            recovered = self.execute(server, folder)
+            self.assertTrue(recovered['resolved'], recovered['stop_reason'])
+            self.assertEqual(('native-walk-v12', seed['run_id']),
+                (recovered['revision'], recovered['run_id']))
+            expected = reference_report()['motion_references']
+            self.assertEqual(expected, recovered['native_report']['motion_references'])
+            self.assertEqual([], server.schema_calls)
+            later = server.calls[before:]
+            self.assertEqual(['necro_native_status', 'necro_native_results'], [m for m, p in later])
+            self.assertEqual({seed['run_id']}, {p['run_id'] for m, p in later})
+            self.assertEqual('manifest', later[-1][1]['mode'])
+            self.assertEqual(recovered, native._load(Path(folder)))
+            for path in (Path(folder)/'active.json',
+                    Path(folder)/('native-'+seed['run_id'])/'report.json'):
+                self.assertEqual(expected, json.loads(path.read_text())['native_report']['motion_references'])
+
+    def test_literal_v12_encrypted_manifest_still_requires_motion_references(self):
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True,
+                transform=add_reference_report) as server:
+            seed = self.execute(server, folder)
+            self.assertTrue(seed['resolved'], seed['stop_reason'])
+            seed.update(revision='native-walk-v12', resolved=False)
+            native._save(Path(folder), seed)
+            def missing(method, result):
+                add_reference_report(method, result)
+                if method == 'necro_native_results':
+                    result['report'].pop('motion_references')
+                return result
+            server.transform = missing
+            server.exports.clear()
+            server.capabilities = ['necrogold_native_v11']
+            server.schema_calls.clear()
+            before = len(server.calls)
+            recovered = self.execute(server, folder)
+            self.assertFalse(recovered['resolved'])
+            self.assertEqual('invalid_native_report', recovered['stop_reason'])
+            self.assertEqual([], server.schema_calls)
+            later = server.calls[before:]
+            self.assertEqual(['necro_native_status', 'necro_native_results'], [m for m, p in later])
+            self.assertEqual({seed['run_id']}, {p['run_id'] for m, p in later})
+            self.assertEqual(seed['native_report']['motion_references'],
+                recovered['native_report']['motion_references'])

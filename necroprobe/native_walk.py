@@ -20,9 +20,9 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v12'
+REVISION = 'native-walk-v13'
 API_VERSION = '1.98.14-ngg2'
-CAPABILITY = 'necrogold_native_v11'
+CAPABILITY = 'necrogold_native_v12'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -38,8 +38,9 @@ MAX_CHUNK_WIRE = 256 * 1024
 CHUNK_BYTES = 64 * 1024
 EXPORT_BATCH_CHUNKS = 4
 EXPORT_BATCH_BYTES = 256 * 1024
-PAGED_REVISIONS = frozenset(('native-walk-v9', 'native-walk-v10', 'native-walk-v11', 'native-walk-v12'))
-BATCHED_REVISIONS = frozenset(('native-walk-v10', 'native-walk-v11', 'native-walk-v12'))
+PAGED_REVISIONS = frozenset(('native-walk-v9', 'native-walk-v10', 'native-walk-v11', 'native-walk-v12', 'native-walk-v13'))
+BATCHED_REVISIONS = frozenset(('native-walk-v10', 'native-walk-v11', 'native-walk-v12', 'native-walk-v13'))
+MOTION_REFERENCE_REVISIONS = frozenset(('native-walk-v12', 'native-walk-v13'))
 _HTTP_TRANSPORT_TYPE = HttpTransport
 MAX_SCHEMA_ATTEMPTS = 4
 SCHEMA_BUDGET_NS = 8_000_000_000
@@ -372,7 +373,8 @@ def _load(base):
         _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', 'native-walk-v3',
                                           'native-walk-v4', 'native-walk-v5', 'native-walk-v6',
                                           'native-walk-v7', 'native-walk-v8',
-                                          'native-walk-v9', 'native-walk-v10', 'native-walk-v11', REVISION)
+                                          'native-walk-v9', 'native-walk-v10', 'native-walk-v11',
+                                          'native-walk-v12', REVISION)
                  and record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -382,7 +384,7 @@ def _load(base):
                  and record['stop_reason'] in ERROR_CODES | {None}, 'native_journal_invalid')
         if record['native_report'] is not None:
             record['native_report'] = _report(record['native_report'],
-                require_motion_references=record['revision'] == 'native-walk-v12')
+                require_motion_references=record['revision'] in MOTION_REFERENCE_REVISIONS)
         _require(_result_metadata(record['result_metadata']) == record['result_metadata'], 'native_journal_invalid')
         record['images'] = _stored_images(record['images'])
         if 'image_export' in record:
@@ -423,7 +425,7 @@ def _scene_changes(value):
 def _scene_change_details(value):
     keys = ('command_id','source_capture_id','observed_capture_id','validation','continuous_count',
             'chain_count','cell_count','omitted_cells','cells')
-    limits = {'validation':(0,11), 'continuous_count':(0,8), 'chain_count':(0,2),
+    limits = {'validation':(0,12), 'continuous_count':(0,8), 'chain_count':(0,2),
               'cell_count':(0,4), 'omitted_cells':(0,226)}
     cell_limits = {'x':(-11,11), 'y':(-5,4), 'tile_before':(0,6), 'tile_after':(0,6),
                    'protected_before':(0,1), 'protected_after':(0,1)}
@@ -908,7 +910,7 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
                 pass
             check()
     state, report, metadata, incoming = _manifest(call({'run_id':run_id, 'mode':'manifest'}), run_id,
-        require_motion_references=record['revision'] == 'native-walk-v12')
+        require_motion_references=record['revision'] in MOTION_REFERENCE_REVISIONS)
     # Manifest validation and storage consume the same bounded export attempt.
     check()
     current = record.get('image_export')
@@ -1053,7 +1055,7 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
         def accept(value):
             state, report = _status(value, run_id,
-                require_motion_references=record['revision'] == 'native-walk-v12')
+                require_motion_references=record['revision'] in MOTION_REFERENCE_REVISIONS)
             record.update(state=state, native_state=state, native_report=report)
             if state in TERMINAL or report.get('cancel_requested') is True:
                 record['cancel_confirmed'] = True
@@ -1277,8 +1279,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST054: 歩行の照合画像と毎拍歩行を確認')
-    ap.add_argument('--output', default='runtime/test-054')
+    ap = argparse.ArgumentParser(description='TEST055: 最新判断からの再予約と毎拍歩行を確認')
+    ap.add_argument('--output', default='runtime/test-055')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')

@@ -582,13 +582,36 @@ class PagedResultsTests(TimerTestCase):
             self.assertEqual(record,native._load(Path(folder)))
             self.assertNotIn('PRIVATE',(Path(folder)/'active.json').read_text())
 
+    def test_fresh_classification_validation_12_survives_encrypted_results_and_both_journals(self):
+        # TEST055 contract: FRESH_ALLOWED is 12, distinct from SAME_ALLOWED (2).
+        expected = detail(validation=12)
+        def reports(method, result):
+            result['report']['scene_changes'] = [scene_change()]
+            result['report']['scene_change_details'] = [deepcopy(expected)]
+            return result
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=reports) as server:
+            try:
+                record = self.execute(server, folder)
+            except ProbeError as exc:
+                self.fail('validation_12_must_be_accepted: '+exc.code)
+            self.assertTrue(record['resolved'], 'validation_12_must_be_accepted: '+str(record['stop_reason']))
+            self.assertEqual([expected], record['native_report']['scene_change_details'])
+            self.assertEqual(record, native._load(Path(folder)))
+            for path in (Path(folder)/'active.json',
+                    Path(folder)/('native-'+record['run_id'])/'report.json'):
+                self.assertEqual([expected], json.loads(path.read_text())['native_report']['scene_change_details'])
+
     def test_scene_change_detail_bounds_cell_order_and_alignment_are_strict(self):
         base = dict(schema='ngg2-native-v1',clock_id='a'*32,device_now_ns=1,input_state=0)
-        maximum = detail(validation=11,continuous_count=8,chain_count=2,cell_count=4,omitted_cells=226,
+        maximum = detail(validation=12,continuous_count=8,chain_count=2,cell_count=4,omitted_cells=226,
             cells=[dict(x=x,y=-5,tile_before=0,tile_after=6,protected_before=1,protected_after=0)
                    for x in (-11,-10,-9,-8)])
         self.assertEqual([maximum]*3,native._report(dict(base,scene_change_details=[maximum]*3))['scene_change_details'])
-        bad = [None,{},[detail()]*4,[detail(validation=True)],[detail(validation=12)],
+        for validation in range(13):
+            expected = detail(validation=validation)
+            self.assertEqual([expected], native._report(dict(base,scene_change_details=[expected]))['scene_change_details'])
+        bad = [None,{},[detail()]*4,[detail(validation=True)],[detail(validation=False)],
+               [detail(validation=13)],[detail(validation=12.0)],
                [detail(continuous_count=9)],[detail(chain_count=3)],[detail(cell_count=2)],
                [detail(omitted_cells=1)],[detail(cell_count=4,omitted_cells=227,cells=maximum['cells'])],
                [detail(cells=[dict(maximum['cells'][0],x=-12)])],
