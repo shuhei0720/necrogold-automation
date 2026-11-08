@@ -12,6 +12,8 @@ HERE = Path(__file__).resolve().parent
 STRICT_PERCEPTION_FP = ['-fno-fast-math', '-ffp-contract=off']
 TEST049_RUNTIME_COMMIT = 'bbdff15852cc4070392c54cc039b00d49cacd77c'
 TEST049_RUNTIME_SHA256 = 'c41bc2ca168518775b73851a40ba055bc566d7c29ac13e7c4ded0573ec2e6fd9'
+TEST050_RUNTIME_COMMIT = '53f722c6d925e0df5c84d377acc59b2e32cf8135'
+TEST050_RUNTIME_SHA256 = '1938af7edd09a6b6689363cd9ad03d93148425e56256a2dc18bcab3b973115ab'
 
 
 def native_object_flags(name, *, test049=False):
@@ -333,9 +335,11 @@ def navigation_profile_contract(upstream, output, *, compiler='clang'):
             'scope': 'actual production strict Navigation public API, unchanged O0, complete views/73-score bytes/Motion/Decision/Entrance/boundary and input parity'}
 
 
-def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False):
+def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
-    native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red else upstream / 'LoopCtrlUITests'
+    native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red or expect_manifest_red else upstream / 'LoopCtrlUITests'
+    if baseline_native is not None:
+        native = baseline_native
     (stage / 'NG2RuntimeFixture.h').write_text('#include "NG2Core.h"\n#include "NG2Controller.h"\n#include "ngg2_runtime_scene_fixtures.h"\nvoid ng2_test_pause(uint8_t *, size_t);\n')
     (stage / 'fixture.c').write_text('''#include "NG2Core.h"
 #include "NG2Templates.h"
@@ -364,6 +368,17 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     shutil.copyfile(HERE/'ngg2_runtime_fakes.swift', stage/'Fakes.swift')
     shutil.copyfile(HERE/'ngg2_runtime_tests.swift', stage/'main.swift')
     source = (native/'NG2Runtime.swift').read_text()
+    if expect_manifest_red:
+        source = subprocess.check_output(['git', 'show', TEST050_RUNTIME_COMMIT+
+            ':patches/loopctrl/ngg2/NG2Runtime.swift'], cwd=HERE).decode()
+        if hashlib.sha256(source.encode()).hexdigest() != TEST050_RUNTIME_SHA256:
+            raise ValueError('runtime_manifest_baseline_source_hash')
+        tests = (HERE/'ngg2_runtime_tests.swift').read_text()
+        marker = '// TEST051 MANIFEST FIXTURE END.\n'
+        if tests.count(marker) != 1:
+            raise ValueError('runtime_manifest_baseline_boundary')
+        (stage/'main.swift').write_text(tests.split(marker)[0]+marker+
+            'testPagedResultsManifestPublicBaseline()\n')
     if expect_capture_red:
         baseline = '31b428bab258b7a1a3d948379c0b2e55d9dd9e24'
         source = subprocess.check_output(['git','show',baseline+':patches/loopctrl/ngg2/NG2Runtime.swift'],cwd=HERE).decode()
@@ -405,9 +420,16 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     objects = sorted((output/'raster').glob('NG2*.o'))+[stage/'fixture.o', scene_object]
     extra = ['-D', 'NG2_RUNTIME_HOST_TEST', '-Xcc', '-I'+str(native), '-Xcc', '-I'+str(HERE), '-import-objc-header', stage/'NG2RuntimeFixture.h', *objects]
     green = compile_run(sources, stage/'runtime-tests', output,
+        'runtime-manifest-baseline-red' if expect_manifest_red else
         'runtime-observe-baseline-red' if expect_observe_red else
         'runtime-dispatch-baseline-red' if expect_dispatch_red else
         'runtime-failure-baseline-red' if expect_capture_red else 'runtime-production-green', extra, run_timeout=120)
+    if expect_manifest_red:
+        require_red(green, 'FAIL MISSING_paged_results_manifest')
+        return {'baseline_red': green.stdout.strip(), 'compiled': True, 'returncode': 1,
+                'stderr': green.stderr, 'source_commit': TEST050_RUNTIME_COMMIT,
+                'source_sha256': TEST050_RUNTIME_SHA256,
+                'scope': 'fixed TEST050 Runtime, real C, public terminal/drained manifest request; no new C detail dependency'}
     if expect_observe_red:
         require_red(green, 'FAIL MISSING_observe_start_ns')
         return {'baseline_red': green.stdout.strip(), 'compiled': True, 'returncode': 1,
@@ -698,9 +720,46 @@ def main():
     parser.add_argument('--test047-red-only', action='store_true')
     parser.add_argument('--test048-red-only', action='store_true')
     parser.add_argument('--test050-red-only', action='store_true')
+    parser.add_argument('--test051-red-only', action='store_true')
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
-    if args.test050_red_only:
+    if args.test051_red_only:
+        if args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
+            parser.error('--test051-red-only requires fixed upstream and output directory')
+        upstream, output = args.paths
+        output.mkdir(parents=True, exist_ok=True)
+        (output/'api').mkdir(exist_ok=True)
+        (output/'raster').mkdir(exist_ok=True)
+        types = (upstream/'LoopCtrlKit/RPCTypes.swift').read_text().split('// MARK: - Auth Types\n', 1)
+        if len(types) != 2:
+            raise ValueError('rpc_types_boundary')
+        (output/'api/RPCTypes.swift').write_text(types[0])
+        native = output/'test050-native-baseline'
+        native.mkdir(exist_ok=True)
+        # Freeze the C/header/helper inputs too: concurrent implementation of
+        # TEST051 must not turn this proof into an old/new hybrid executable.
+        for name in ('NG2Core.h', 'NG2Controller.h', 'NG2Templates.h', 'NG2Perception.c',
+                     'NG2Navigation.c', 'NG2Beat.c', 'NG2Controller.c', 'NG2Ticket.swift',
+                     'NG2Raster.swift', 'NG2Runtime.swift'):
+            data = subprocess.check_output(['git', 'show', TEST050_RUNTIME_COMMIT+
+                ':patches/loopctrl/ngg2/'+name], cwd=HERE)
+            (native/name).write_bytes(data)
+        flags = {}
+        for source in sorted(native.glob('NG2*.c')):
+            flags[source.name] = native_object_flags(source.name)
+            result = subprocess.run(['clang', '-std=c11', *flags[source.name],
+                '-I', str(native), '-c', str(source),
+                '-o', str(output/'raster'/(source.stem+'.o'))], capture_output=True, text=True, timeout=120)
+            (output/(source.stem+'-compile.txt')).write_text(result.stdout+result.stderr)
+            checked(result)
+        if len(flags) != 4:
+            raise ValueError('native_C_source_set')
+        report = {'runtime': runtime_contract(upstream, output, expect_manifest_red=True, baseline_native=native),
+                  'native_object_flags': flags, 'device_test': 'not_run'}
+        (output/'ngg2-swift-contract.json').write_text(json.dumps(report, indent=2)+'\n')
+        print(report['runtime']['baseline_red'])
+        return
+    elif args.test050_red_only:
         if args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or len(args.paths) != 2:
             parser.error('--test050-red-only requires fixed upstream and output directory')
         upstream, output = args.paths

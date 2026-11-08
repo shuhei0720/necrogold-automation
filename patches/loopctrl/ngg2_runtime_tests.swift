@@ -96,6 +96,23 @@ func scheduleFirstFixtureMove(_ run: String, holdingPause: Bool = false) {
     }
 }
 
+// This public request is intentionally runnable against the fixed TEST050
+// Runtime, with no dependence on new C diagnostic symbols or producer hooks.
+func testPagedResultsManifestPublicBaseline() {
+    NG2Fake.reset(.empty)
+    let id = identity()
+    require(call("necro_native_start", id).1 == nil, "paged_manifest_fixture_public_start")
+    pump("paged_manifest_fixture_public_drain") { drained(id) }
+    require(NG2Fake.countRequests() == 1 && NG2Fake.countTouches() == 0,
+        "paged_manifest_fixture_actual_nil_capture_terminal_without_input")
+    let result = runtime.handle(method: "necro_native_results", params: [
+        "run_id": .string(id), "_necro_owner": .string("fixture-owner"), "mode": .string("manifest")])
+    require(result.1 == nil && result.0?["result_mode"]?.stringValue == "manifest" &&
+        result.0?["export_id"]?.stringValue?.count == 32,
+        "MISSING_paged_results_manifest")
+}
+// TEST051 MANIFEST FIXTURE END.
+
 // The fixed old TEST049 Runtime uses the same public API and compiled fakes.
 // Analysis finishes below gate+100; only the actual committed C boundary moves
 // the clock to +200, and its return moves it to +300. The old producer never
