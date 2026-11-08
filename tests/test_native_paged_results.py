@@ -478,12 +478,18 @@ class PagedResultsTests(TimerTestCase):
                     self.assertEqual([32],record['image_export']['offsets'])
                     self.assertEqual(1,len(record['images']))
 
-    def test_client_052_script_and_capability_require_same_action_runtime(self):
+    def test_client_053_script_and_capability_require_initial_slot_runtime(self):
+        self.assertEqual('native-walk-v11',native.REVISION)
+        self.assertEqual('necrogold_native_v10',native.CAPABILITY)
+        self.assertEqual('runtime/test-053',native.parser().parse_args([]).output)
+        path = Path(native.__file__).resolve().parents[1]/'test_053.sh'
+        self.assertEqual(0,subprocess.run(['sh','-n',str(path)],capture_output=True).returncode)
+        self.assertIn('native-walk-v11 / 1.98.14-ngg2',path.read_text())
+        self.assertIn('--output runtime/test-053',path.read_text())
+
+    def test_052_script_keeps_its_original_version_and_output(self):
         path = Path(native.__file__).resolve().parents[1]/'test_052.sh'
         self.assertEqual(0,subprocess.run(['sh','-n',str(path)],capture_output=True).returncode)
-        self.assertEqual('native-walk-v10',native.REVISION)
-        self.assertEqual('necrogold_native_v9',native.CAPABILITY)
-        self.assertEqual('runtime/test-052',native.parser().parse_args([]).output)
         self.assertIn('native-walk-v10 / 1.98.14-ngg2',path.read_text())
         self.assertIn('--output runtime/test-052',path.read_text())
 

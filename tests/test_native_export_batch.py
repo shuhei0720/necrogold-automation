@@ -302,6 +302,12 @@ class ExportBatchTests(TimerTestCase):
                 self.assertTrue(recovered['resolved'], recovered['stop_reason'])
 
     def test_unverified_suffix_survives_partial_replay_flush_and_later_conflicts(self):
+        self.assert_unverified_suffix_survives_partial_replay(native.REVISION)
+
+    def test_literal_v10_suffix_survives_repeated_interruption_and_read_only_recovery(self):
+        self.assert_unverified_suffix_survives_partial_replay('native-walk-v10')
+
+    def assert_unverified_suffix_survives_partial_replay(self, revision):
         class Crash(Exception):
             pass
         for replayed in (1, 2, 3):
@@ -316,6 +322,10 @@ class ExportBatchTests(TimerTestCase):
                     with self.assertRaises(Crash):
                         self.execute(server, folder)
                 seed = native._load(Path(folder))
+                seed['revision'] = revision
+                native._save(Path(folder), seed)
+                server.schema_calls.clear()
+                recovery_start = len(server.calls)
                 fragment = Path(folder)/('native-'+seed['run_id'])/'images'/'.parts'/'initial.png.part'
                 original_fragment = fragment.read_bytes()
                 stopped = [False]
@@ -350,6 +360,46 @@ class ExportBatchTests(TimerTestCase):
                 server.page_transform = None
                 recovered = self.execute(server, folder)
                 self.assertTrue(recovered['resolved'], recovered['stop_reason'])
+                self.assertEqual(revision, recovered['revision'])
+                self.assertEqual([], server.schema_calls)
+                self.assertFalse(any(m in ('necro_native_start', 'necro_native_cancel')
+                    for m, p in server.calls[recovery_start:]))
+
+    def test_literal_v10_nonzero_checkpoint_keeps_four_chunk_saves_and_read_only_recovery(self):
+        image = image_item(size=512*1024)
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True,
+                transform=paged.page_images(image)) as server:
+            stopped = [False]
+            def cancel_first_chunk(method, params, result):
+                if params.get('mode') == 'chunk':
+                    stopped[0] = True
+                return result
+            server.page_transform = cancel_first_chunk
+            first = self.execute(server, folder, cancelled=lambda: stopped[0])
+            self.assertEqual([65536], first['image_export']['offsets'])
+            first['revision'] = 'native-walk-v10'
+            native._save(Path(folder), first)
+            server.page_transform = None
+            server.schema_calls.clear()
+            atomic = native._atomic
+            fragments = []
+            def trace(path, raw):
+                atomic(path, raw)
+                if path.name.endswith('.part'):
+                    fragments.append(len(raw))
+            before = len(server.calls)
+            with patch.object(native, '_atomic', side_effect=trace):
+                recovered = self.execute(server, folder)
+            self.assertTrue(recovered['resolved'], recovered['stop_reason'])
+            self.assertEqual('native-walk-v10', recovered['revision'])
+            self.assertEqual([327680, 524288], fragments)
+            self.assertEqual(image['sha256'], recovered['images'][0]['sha256'])
+            self.assertEqual([], server.schema_calls)
+            later = server.calls[before:]
+            self.assertFalse(any(m in ('necro_native_start', 'necro_native_cancel') for m, p in later))
+            self.assertEqual(list(range(65536, 524288, 65536)),
+                [p['offset'] for m, p in later if p.get('mode') == 'chunk'])
+            self.assertEqual(recovered, native._load(Path(folder)))
 
     def test_literal_v9_nonzero_checkpoint_keeps_per_chunk_saves_and_read_only_recovery(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True,

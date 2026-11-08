@@ -753,13 +753,23 @@ class NativeResultsTests(TimerTestCase):
             self.assertEqual(['/schema'], server.schema_calls)
             self.assertEqual([], server.calls)
 
-    def test_fresh_native_v9_capability_starts_exactly_once(self):
-        tags = ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4','necrogold_native_v5','necrogold_native_v6','necrogold_native_v7','necrogold_native_v8','necrogold_native_v9']
+    def test_fresh_native_v10_capability_starts_exactly_once(self):
+        tags = ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4','necrogold_native_v5','necrogold_native_v6','necrogold_native_v7','necrogold_native_v8','necrogold_native_v9','necrogold_native_v10']
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, capabilities=tags) as server:
             record = self.execute(server, folder)
             self.assertTrue(record['resolved'])
             self.assertEqual(['/schema'], server.schema_calls)
             self.assertEqual(1, sum(method == 'necro_native_start' for method,params in server.calls))
+
+    def test_fresh_native_v9_without_initial_slot_capability_never_starts(self):
+        tags = ['necrogold_native_v'+str(version) for version in range(1,10)]
+        with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, capabilities=tags) as server:
+            record = self.execute(server, folder)
+            self.assertEqual(('native_capability_missing', False, 0),
+                (record['stop_reason'], record['start_attempted'],
+                 sum(method == 'necro_native_start' for method,params in server.calls)))
+            self.assertEqual(['/schema'], server.schema_calls)
+            self.assertEqual([], server.calls)
 
     def test_045_script_requires_v3_and_uses_045_output(self):
         path = Path(native.__file__).resolve().parents[1]/'test_045.sh'

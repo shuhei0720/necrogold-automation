@@ -20,9 +20,9 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v10'
+REVISION = 'native-walk-v11'
 API_VERSION = '1.98.14-ngg2'
-CAPABILITY = 'necrogold_native_v9'
+CAPABILITY = 'necrogold_native_v10'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -38,7 +38,8 @@ MAX_CHUNK_WIRE = 256 * 1024
 CHUNK_BYTES = 64 * 1024
 EXPORT_BATCH_CHUNKS = 4
 EXPORT_BATCH_BYTES = 256 * 1024
-PAGED_REVISIONS = frozenset(('native-walk-v9', 'native-walk-v10'))
+PAGED_REVISIONS = frozenset(('native-walk-v9', 'native-walk-v10', 'native-walk-v11'))
+BATCHED_REVISIONS = frozenset(('native-walk-v10', 'native-walk-v11'))
 _HTTP_TRANSPORT_TYPE = HttpTransport
 MAX_SCHEMA_ATTEMPTS = 4
 SCHEMA_BUDGET_NS = 8_000_000_000
@@ -371,7 +372,7 @@ def _load(base):
         _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', 'native-walk-v3',
                                           'native-walk-v4', 'native-walk-v5', 'native-walk-v6',
                                           'native-walk-v7', 'native-walk-v8',
-                                          'native-walk-v9', REVISION)
+                                          'native-walk-v9', 'native-walk-v10', REVISION)
                  and record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -839,7 +840,7 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
         check()
         pending_chunks = 0
         committed_offset = offset
-        batch_chunks = EXPORT_BATCH_CHUNKS if record['revision'] == 'native-walk-v10' else 1
+        batch_chunks = EXPORT_BATCH_CHUNKS if record['revision'] in BATCHED_REVISIONS else 1
         def checkpoint():
             nonlocal pending_chunks, committed_offset
             if not pending_chunks:
@@ -861,7 +862,7 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
                                     'capture_id':item['capture_id'], 'offset':offset}),
                               run_id, current['export_id'], item, offset)
                 # Keep every renamed-but-uncheckpointed byte available for the
-                # same-offset comparison throughout a v10 replayed batch.
+                # same-offset comparison throughout a replayed batched export.
                 comparison = prior_raw if batch_chunks > 1 else raw
                 suffix = comparison[offset:offset+len(part)]
                 _require(part[:len(suffix)] == suffix, 'invalid_native_images')
@@ -1178,8 +1179,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST052: 毎拍歩行の同じ操作の再検証と画像回収待ちを確認')
-    ap.add_argument('--output', default='runtime/test-052')
+    ap = argparse.ArgumentParser(description='TEST053: 初歩の予約準備と毎拍歩行を確認')
+    ap.add_argument('--output', default='runtime/test-053')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')
@@ -1211,7 +1212,7 @@ def main(argv=None):
             attempts = record.get('preflight', {}).get('attempts', [])
             kind = attempts[-1]['diagnostic']['kind'] if attempts else None
             if record['stop_reason'] == 'native_capability_missing':
-                print('NG-G2の版・機能が一致しません。TEST052用の新IPAとLoopCtrlの起動状態を確認してください。')
+                print('NG-G2の版・機能が一致しません。TEST053用の新IPAとLoopCtrlの起動状態を確認してください。')
             elif kind == 'refused':
                 print('LoopCtrlへの接続が拒否されました。まだゲームの開始要求は送っていません。')
             elif record['stop_reason'] in ('rpc_deadline', 'host_deadline') or kind in ('timeout','deadline'):
@@ -1232,7 +1233,7 @@ def main(argv=None):
             'pairing_missing', 'pairing_ambiguous', 'invalid_pairing_record', 'already_running',
             'native_journal_invalid', 'timer_already_in_use', 'timer_handler_in_use',
             'timer_unusable', 'timer_setup_failed') else 'client_failed'
-        print('TEST052停止: ' + reason, file=sys.stderr)
+        print('TEST053停止: ' + reason, file=sys.stderr)
         return 2
     finally:
         for sig, handler in previous.items():
