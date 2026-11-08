@@ -189,7 +189,7 @@ enum NG2Fake {
         precondition(valid == 1)
         let remote = lock.fixtureLocked { (remoteVariant, remoteVariantDuringWalk, targetDriftWorld) }
         if remote.2 {
-            applyTargetDriftWorld(&rgba, worldX: state.0, worldY: state.1, variant: remote.0)
+            applyTargetDriftWorld(&rgba, worldX: state.0, worldY: state.1, variant: remote.0, goods: state.2 == 1)
         } else if (state.0 == 0 && state.1 == 0) || remote.1 {
             let changed = rgba.withUnsafeMutableBytes {
                 ng2_fixture_remote_cell($0.bindMemory(to: UInt8.self).baseAddress, count, remote.0)
@@ -202,7 +202,11 @@ enum NG2Fake {
     // planner therefore chooses an observed-floor vantage, including after
     // two actual UP moves. Only the remote (-1,-1) world tile changes later.
     // All paint follows world coordinates, preserving real motion texture.
-    static func applyTargetDriftWorld(_ rgba: inout Data, worldX: Int32, worldY: Int32, variant: Int32) {
+    static func applyTargetDriftWorld(_ rgba: inout Data, worldX: Int32, worldY: Int32, variant: Int32, goods: Bool = false) {
+        // Goods are a screen overlay drawn by the shared C fixture. Preserve
+        // its exact sign/price pixels above this world layer; after the third
+        // move the stone row crosses y165 and otherwise erases every price.
+        let goodsLayer: Data? = goods ? rgba : nil
         rgba.withUnsafeMutableBytes { raw in
             let bytes = raw.bindMemory(to: UInt8.self)
             func tile(_ x: Int, _ y: Int, _ color: [UInt8]) {
@@ -218,16 +222,33 @@ enum NG2Fake {
             for x in -12...12 { tile(x, -2, [80,80,80]) }
             for x in [-1,1] { tile(x, 0, [80,80,80]) }
             if variant == 1 { tile(-1, -1, [100,50,10]) }
+            if let goodsLayer {
+                goodsLayer.withUnsafeBytes { source in
+                    let original = source.bindMemory(to: UInt8.self)
+                    func restore(_ x0: Int, _ y0: Int, _ x1: Int, _ y1: Int) {
+                        for py in y0..<y1 { for px in x0..<x1 {
+                            let at = (py*896+px)*4
+                            for channel in 0..<4 { bytes[at+channel] = original[at+channel] }
+                        } }
+                    }
+                    restore(190, 90, 211, 111)
+                    for k in 0..<3 {
+                        let cx = 196+36*k
+                        restore(cx-12, 136, cx+12, 137)
+                        restore(cx-11, 165, cx+7, 166)
+                    }
+                }
+            }
         }
     }
-    static func targetDriftRGBA(variant: Int32) -> Data {
+    static func targetDriftRGBA(variant: Int32, worldY: Int32 = 0, goods: Bool = false) -> Data {
         var rgba = Data(count: 896*414*4)
         let count = rgba.count
         let valid = rgba.withUnsafeMutableBytes {
-            ng2_fixture_floor_pixels_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, 0, 0, 0.5, 0)
+            ng2_fixture_floor_pixels_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, 0, worldY, 0.5, goods ? 1 : 0)
         }
         precondition(valid == 1)
-        applyTargetDriftWorld(&rgba, worldX: 0, worldY: 0, variant: variant)
+        applyTargetDriftWorld(&rgba, worldX: 0, worldY: worldY, variant: variant, goods: goods)
         return rgba
     }
     static func virtualClock() -> UInt64 {

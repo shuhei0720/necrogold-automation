@@ -1906,6 +1906,12 @@ func testTargetDriftPlannerProof() {
     var motion = NG2Motion()
     require(ng2_motion(&before, &after, 3, &motion) == 1 && motion.kind == 2 && motion.dx == 0 && motion.dy == 0,
         "target_drift_production_all73_motion_is_strict_BLOCKED_zero")
+    let goodsBytes = NG2Fake.targetDriftRGBA(variant: 1, worldY: -36, goods: true)
+    var goodsScene = NG2Scene()
+    require(goodsBytes.withUnsafeBytes {
+        ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress, goodsBytes.count, 896*4, &goodsScene)
+    } == 0 && goodsScene.state == 2 && goodsScene.goods == 2,
+        "target_drift_after_third_move_fixture_preserves_full_goods_overlay")
 }
 func testTargetDriftRevalidationCallbacksPublic() {
     for staleFirst in [true, false] {
