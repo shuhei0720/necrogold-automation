@@ -830,11 +830,12 @@ def main():
     parser.add_argument('--test050-red-only', action='store_true')
     parser.add_argument('--test051-red-only', action='store_true')
     parser.add_argument('--test051-public-only', action='store_true')
+    parser.add_argument('--test051-runtime-only', action='store_true')
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
-    if args.test051_red_only or args.test051_public_only:
-        if (args.test051_red_only and args.test051_public_only) or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
-            parser.error('--test051-red-only/--test051-public-only requires fixed upstream and output directory')
+    if args.test051_red_only or args.test051_public_only or args.test051_runtime_only:
+        if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
+            parser.error('--test051-red-only/--test051-public-only/--test051-runtime-only requires fixed upstream and output directory')
         upstream, output = args.paths
         output.mkdir(parents=True, exist_ok=True)
         (output/'api').mkdir(exist_ok=True)

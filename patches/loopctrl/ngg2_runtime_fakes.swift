@@ -52,6 +52,10 @@ enum NG2Fake {
     static var subtileResolvedWait = false
     static var callbacks: [(Data?, String?) -> Void] = []
     static var offset: UInt64 = 0
+    // TEST051's continuing multi-beat fixture uses explicit logical capture
+    // boundaries. PNG painting/encoding CPU time must not move its synthetic
+    // HUD behind the timestamps supplied to the real C beat model.
+    static var fixedClock: UInt64?
     static var pending = 0
     static var replyData: Data?
     static var replyError: String?
@@ -60,7 +64,7 @@ enum NG2Fake {
     static var observeEntries: [UInt64] = []
     static var observeExits: [UInt64] = []
     static func reset(_ next: Mode) {
-        lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; authenticatedOwnerActive = true; frontPID = 42; callbacks = []; offset = 0; pending = 0 }
+        lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; authenticatedOwnerActive = true; frontPID = 42; callbacks = []; offset = 0; fixedClock = nil; pending = 0 }
         lock.fixtureLocked {
             replyData = nil; replyError = nil
             captureTimeProvider = nil
@@ -184,8 +188,15 @@ enum NG2Fake {
         }
         return NG2Raster.png(rgba)!
     }
-    static func virtualClock() -> UInt64 { lock.fixtureLocked { DispatchTime.now().uptimeNanoseconds + offset } }
-    static func advance(_ ns: UInt64) { lock.fixtureLocked { offset += ns } }
+    static func virtualClock() -> UInt64 {
+        lock.fixtureLocked { fixedClock ?? (DispatchTime.now().uptimeNanoseconds + offset) }
+    }
+    static func advance(_ ns: UInt64) {
+        lock.fixtureLocked {
+            if let value = fixedClock { fixedClock = value + ns } else { offset += ns }
+        }
+    }
+    static func useFixedCaptureClock() { lock.fixtureLocked { fixedClock = phaseBase + 1_000 } }
     static let pausePNG: Data = {
         var bytes = Data(count: 896*414*4)
         let count = bytes.count
@@ -283,6 +294,7 @@ enum NG2CaptureBridge {
     static func requestJPEG(_ reply: @escaping (Data?, String?) -> Void) {
         let timeProvider = NG2Fake.lock.fixtureLocked { NG2Fake.captureTimeProvider }
         let capturedAt = timeProvider?() ?? NG2Fake.virtualClock()
+        let fixedCapture = NG2Fake.lock.fixtureLocked { NG2Fake.fixedClock != nil }
         let mode = NG2Fake.lock.fixtureLocked { () -> NG2Fake.Mode in
             NG2Fake.requests += 1; NG2Fake.pending += 1
             if NG2Fake.mode == .hold {
@@ -300,7 +312,8 @@ enum NG2CaptureBridge {
                 let value = NG2Fake.lock.fixtureLocked { (NG2Fake.replyData, NG2Fake.replyError) }
                 reply(value.0, value.1); return
             }
-            let data: Data? = mode == .walk ? NG2Fake.walkedPNG(capturedAt: capturedAt) : (mode == .pause ? NG2Fake.pausePNG : nil)
+            let data: Data? = mode == .walk ? NG2Fake.walkedPNG(capturedAt: capturedAt + (fixedCapture ? 1_000_000 : 0)) : (mode == .pause ? NG2Fake.pausePNG : nil)
+            if fixedCapture { NG2Fake.advance(2_000_000) }
             reply(data, "fixture capture")
         }
     }

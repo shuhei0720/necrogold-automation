@@ -1473,10 +1473,15 @@ func testContinuousRevalidationCallbacksPublic() {
         NG2Fake.walkY = 1; NG2Fake.walkGoodsEnabled = false
         NG2Fake.remoteVariantDuringWalk = true
         NG2Fake.lock.unlock()
+        NG2Fake.useFixedCaptureClock()
         NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
         let id = identity()
         diagnoseFixture(id)
-        NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange() }
+        NG2RuntimeTestHooks.beforeCaptureAdmission = {
+            NG2Fake.waitForCapturePermit()
+            NG2Fake.advance(80_000_000)
+            NG2Fake.performBoundaryClockChange()
+        }
         alignInitialFixtureMove(id)
         NG2RuntimeTestHooks.afterTicketReturned = { returned in
             NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
@@ -1494,7 +1499,10 @@ func testContinuousRevalidationCallbacksPublic() {
                 callback(); return true
             }
             NG2Fake.holdTicket(commandID, callback)
-            NG2Fake.lock.lock(); NG2Fake.remoteVariant = 1; NG2Fake.lock.unlock()
+            NG2Fake.lock.lock()
+            NG2Fake.remoteVariant = 1
+            if NG2Fake.heldTickets.count >= 2 { NG2Fake.captureLimit = NG2Fake.requests }
+            NG2Fake.lock.unlock()
             return true
         }
         require(call("necro_native_start", id).1 == nil, "continuous_revalidation_public_start")
@@ -1507,6 +1515,12 @@ func testContinuousRevalidationCallbacksPublic() {
         let moves = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
         require(current["inputs"]?.intValue == 2 && current["moves"]?.intValue == 2 && moves.count == 4,
             "continuous_revalidation_follows_two_actual_confirmed_moves")
+        require((current["captures"]?.arrayValue ?? []).allSatisfy {
+            guard let capture = $0.objectValue, let start = capture["start_ns"]?.intValue,
+                let end = capture["end_ns"]?.intValue else { return false }
+            return end-start == 2_000_000
+        } && abs((current["beat_period_ns"]?.intValue ?? 0)-520_000_000) < 5_000_000,
+            "continuous_fixture_HUD_and_capture_midpoint_share_fixed_clock")
         let old = moves[2], replacement = moves[3]
         let oldID = UInt64(old["id"]!.intValue!), newID = UInt64(replacement["id"]!.intValue!)
         require(old["outcome"]?.intValue == 3 && old["begin_ns"]?.intValue == 0,
@@ -1554,6 +1568,7 @@ func testContinuousRevalidationCallbacksPublic() {
                 NG2Fake.lock.lock(); NG2Fake.walkGoodsEnabled = true; NG2Fake.lock.unlock()
             }
         }
+        NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
         NG2Fake.releaseTicket(newID)
         pump("continuous_replacement_third_input_and_terminal", timeout: 10) {
             _ = call("necro_native_status", id, keepalive: true)
