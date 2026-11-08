@@ -1005,14 +1005,17 @@ func motionFixtureNow() -> UInt64 {
     return value
 }
 NG2RuntimeTestHooks.clock = { motionFixtureNow() }
-NG2Fake.lock.lock(); NG2Fake.captureTimeProvider = { motionFixtureNow() }; NG2Fake.lock.unlock()
 NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange(); NG2Fake.waitForCapturePermit() }
+// The wrapper's own capture clock is needed after MOVE admission. Before
+// admission retain the ordinary fixed HUD/capture midpoint and82ms cadence;
+// using its80ms provider here can jump from just above100ms to below50ms.
 alignInitialFixtureMove(motionLate)
 NG2RuntimeTestHooks.beforeMainAuthority = {
     admitFirstFixtureMove(motionLate, afterAlignment: { aligned in
         motionFixtureClockLock.lock()
         motionFixtureClock = max(aligned, motionFixtureLastClock+1)
         motionFixtureClockLock.unlock()
+        NG2Fake.lock.lock(); NG2Fake.captureTimeProvider = { motionFixtureNow() }; NG2Fake.lock.unlock()
     })
 }
 NG2RuntimeTestHooks.afterTicketReturned = { id in
@@ -1059,6 +1062,8 @@ pump("motion_deadline_fresh_prefix_holding_pause", timeout: 12) {
 }
 let lateReport = report(motionLate), lateWait = report(motionLate)["motion_wait"]?.objectValue ?? [:]
 let lateEvents = (lateReport["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+require(lateEvents.contains { $0["kind"]?.intValue == 4 } && lateEvents.contains { $0["kind"]?.intValue == 2 },
+    "motion_deadline_fixture_reaches_actual_MOVE_then_holding_PAUSE")
 let lateMove = lateEvents.first { $0["kind"]?.intValue == 4 }!
 let latePause = lateEvents.first { $0["kind"]?.intValue == 2 }!
 let lateSource = (lateReport["captures"]?.arrayValue ?? []).compactMap { $0.objectValue }.first {
