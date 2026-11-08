@@ -16,7 +16,7 @@ jobs:
     needs: native-source-ready
     if: needs.native-source-ready.outputs.ready != 'true'
     runs-on: macos-26
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -29,9 +29,9 @@ jobs:
           ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
           path: upstream
           persist-credentials: false
-      - name: Observe original TEST050 public paged-results manifest assertion Red
+      - name: Run TEST051 public contracts and all 16 new callsite mutants
         run: |
-          python3 driver/patches/loopctrl/check_ngg2.py --test051-red-only upstream "$RUNNER_TEMP/ngg2-baseline"
+          python3 driver/patches/loopctrl/check_ngg2.py --test051-new-mutations-only upstream "$RUNNER_TEMP/ngg2-baseline"
       - name: Save native baseline diagnostics
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()

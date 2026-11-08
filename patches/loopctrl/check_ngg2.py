@@ -345,7 +345,7 @@ def navigation_profile_contract(upstream, output, *, compiler='clang'):
             'scope': 'actual production strict Navigation public API, unchanged O0, complete views/73-score bytes/Motion/Decision/Entrance/boundary and input parity'}
 
 
-def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False):
+def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
     native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red or expect_manifest_red else upstream / 'LoopCtrlUITests'
     if baseline_native is not None:
@@ -378,7 +378,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     shutil.copyfile(HERE/'ngg2_runtime_fakes.swift', stage/'Fakes.swift')
     shutil.copyfile(HERE/'ngg2_runtime_tests.swift', stage/'main.swift')
     source = (native/'NG2Runtime.swift').read_text()
-    if public051_only:
+    if public051_only or new051_mutations_only:
         (stage/'main.swift').write_text(test051_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
     if expect_manifest_red:
         source = subprocess.check_output(['git', 'show', TEST050_RUNTIME_COMMIT+
@@ -471,237 +471,240 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     new_calls = '\ntestContinuousRevalidationCallbacksPublic()\ntestPagedResultsPublic()\n'
     if all_tests.count(new_calls) != 1:
         raise ValueError('runtime_test051_public_calls_boundary')
-    # Established faults retain their original fixtures/assertions. Execute
-    # new public fixtures once in production Green and for their own faults,
-    # avoiding dozens of unrelated repeated PNG boundary stress runs.
-    (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n'))
     reds = {}
-    clock_begin = source.index('        DispatchQueue.main.sync {', source.index('    private func execute('))
-    clock_end = source.index('                run.inFlight = true', clock_begin)
-    clock_gate = source[clock_begin:clock_end]
-    if clock_gate.count('                let now = Self.now()') != 1:
-        raise ValueError('runtime_clock_mutation_target')
-    # The UI RESUME fixture crosses its deadline after main entry. Keep MOVE
-    # clocks real so their independent not-before alignment remains setup,
-    # rather than becoming an earlier rejection that masks this fault.
-    stale_clock_gate = clock_gate.replace('        DispatchQueue.main.sync {',
-        '        DispatchQueue.main.sync {\n            let admissionClockSnapshot = Self.now()', 1).replace(
-        'locked: locked, now: now, notBefore: command.not_before_ns',
-        'locked: locked, now: command.kind == 4 ? now : admissionClockSnapshot, notBefore: command.not_before_ns', 1).replace(
-        'ng2_controller_begin(core, command.id, now, foreground ? 1 : 0',
-        'ng2_controller_begin(core, command.id, command.kind == 4 ? now : admissionClockSnapshot, foreground ? 1 : 0', 1)
-    prepare_begin = source.index('    private func prepare(')
-    query_begin = source.index('            let authorityQueryStart = Self.now()', prepare_begin)
-    query_end = source.index('\n        }\n        return sample', query_begin)
-    query_block = source[query_begin:query_end]
-    query_inside_lock = ('            run.lock.ng2Locked {\n'
-        + ''.join('    '+line for line in query_block.splitlines(keepends=True)) + '\n            }')
-    final_query_block = query_block.replace(
-        '            sample = AuthoritySample(', '            let authority = AuthoritySample(')
-    final_query_source = source[:query_begin] + '// mutation: foreground query delayed until final dispatch\n' + source[query_end:]
-    final_foreground = '            let foreground = authority.foreground\n'
-    if final_query_source.count(final_foreground)!=1:raise ValueError('runtime_final_query_mutation_target')
-    final_query_source = final_query_source.replace(final_foreground,final_query_block+'\n')
-    mutations = {
-        'capture-admission': ('guard !run.stopped, run.cancelReason == 0, self.ownerActive(run) else { return nil }',
-                              '// mutation: capture admission recheck removed',
-                              'FAIL cancel_between_loop_and_admission_no_capture'),
-        'main-admission': ('            guard permitted else { return }',
-                           '            // mutation: synth proceeds without a successful begin gate',
-                           'FAIL expired_during_main_admission_no_synth'),
-        'analysis-commit': ('guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
-                            '// mutation: revoked analysis commit exclusion removed',
-                            'FAIL revoked_analysis_never_observed_or_retained_cancel'),
-        'analysis-owner': ('guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
-                           'guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped else { return false }',
-                           'FAIL revoked_analysis_never_observed_or_retained_owner'),
-        'foreground-lock': (query_block, query_inside_lock,
-                            'FAIL foreground_IPC_hold_keeps_status_cancel_nonblocking'),
-        'main-clock': (clock_gate, stale_clock_gate, 'FAIL expired_during_main_admission_no_synth'),
-        'move-input': ('result = run.fast?.fastGesture([[(point: point, t: 0.0), (point: point, t: 0.05)]]) ?? (nil, .internalError)',
-                       'result = run.fast?.fastTap(x: Double(command.x), y: Double(command.y)) ?? (nil, .internalError)',
-                       'FAIL prepared_move_final_has_no_AX_and_one_50ms_gesture'),
-        'legacy-pending': ('if NG2CaptureBridge.pendingRequests != 0 { return failure("Previous daemon capture is still outstanding.") }',
-                           '// mutation: legacy pending start exclusion removed',
-                           'FAIL legacy_timeout_actual_request_blocks_native_run'),
-        'stale-cleanup': ('run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }',
-                          'run.lock.ng2Locked { run.mainCallbacks.remove(command.id); run.mainCommandID = 0 }',
-                          'FAIL replan_replacement_is_only_direction_synth'),
-        'callback-drain': ('mainOutstanding: run.mainOutstanding, legacyCaptures: legacy)',
-                           'mainOutstanding: false, legacyCaptures: legacy)',
-                           'FAIL replan_queued_stale_callback_keeps_core_and_lease'),
-        'difference-reference': ('''            for change in changes.prefix(min(changeCount, changes.count)) {
+    if not new051_mutations_only:
+        # Established faults retain their original fixtures/assertions. Execute
+        # new public fixtures once in production Green and for their own faults,
+        # avoiding dozens of unrelated repeated PNG boundary stress runs.
+        (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n'))
+        reds = {}
+        clock_begin = source.index('        DispatchQueue.main.sync {', source.index('    private func execute('))
+        clock_end = source.index('                run.inFlight = true', clock_begin)
+        clock_gate = source[clock_begin:clock_end]
+        if clock_gate.count('                let now = Self.now()') != 1:
+            raise ValueError('runtime_clock_mutation_target')
+        # The UI RESUME fixture crosses its deadline after main entry. Keep MOVE
+        # clocks real so their independent not-before alignment remains setup,
+        # rather than becoming an earlier rejection that masks this fault.
+        stale_clock_gate = clock_gate.replace('        DispatchQueue.main.sync {',
+            '        DispatchQueue.main.sync {\n            let admissionClockSnapshot = Self.now()', 1).replace(
+            'locked: locked, now: now, notBefore: command.not_before_ns',
+            'locked: locked, now: command.kind == 4 ? now : admissionClockSnapshot, notBefore: command.not_before_ns', 1).replace(
+            'ng2_controller_begin(core, command.id, now, foreground ? 1 : 0',
+            'ng2_controller_begin(core, command.id, command.kind == 4 ? now : admissionClockSnapshot, foreground ? 1 : 0', 1)
+        prepare_begin = source.index('    private func prepare(')
+        query_begin = source.index('            let authorityQueryStart = Self.now()', prepare_begin)
+        query_end = source.index('\n        }\n        return sample', query_begin)
+        query_block = source[query_begin:query_end]
+        query_inside_lock = ('            run.lock.ng2Locked {\n'
+            + ''.join('    '+line for line in query_block.splitlines(keepends=True)) + '\n            }')
+        final_query_block = query_block.replace(
+            '            sample = AuthoritySample(', '            let authority = AuthoritySample(')
+        final_query_source = source[:query_begin] + '// mutation: foreground query delayed until final dispatch\n' + source[query_end:]
+        final_foreground = '            let foreground = authority.foreground\n'
+        if final_query_source.count(final_foreground)!=1:raise ValueError('runtime_final_query_mutation_target')
+        final_query_source = final_query_source.replace(final_foreground,final_query_block+'\n')
+        mutations = {
+            'capture-admission': ('guard !run.stopped, run.cancelReason == 0, self.ownerActive(run) else { return nil }',
+                                  '// mutation: capture admission recheck removed',
+                                  'FAIL cancel_between_loop_and_admission_no_capture'),
+            'main-admission': ('            guard permitted else { return }',
+                               '            // mutation: synth proceeds without a successful begin gate',
+                               'FAIL expired_during_main_admission_no_synth'),
+            'analysis-commit': ('guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
+                                '// mutation: revoked analysis commit exclusion removed',
+                                'FAIL revoked_analysis_never_observed_or_retained_cancel'),
+            'analysis-owner': ('guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
+                               'guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped else { return false }',
+                               'FAIL revoked_analysis_never_observed_or_retained_owner'),
+            'foreground-lock': (query_block, query_inside_lock,
+                                'FAIL foreground_IPC_hold_keeps_status_cancel_nonblocking'),
+            'main-clock': (clock_gate, stale_clock_gate, 'FAIL expired_during_main_admission_no_synth'),
+            'move-input': ('result = run.fast?.fastGesture([[(point: point, t: 0.0), (point: point, t: 0.05)]]) ?? (nil, .internalError)',
+                           'result = run.fast?.fastTap(x: Double(command.x), y: Double(command.y)) ?? (nil, .internalError)',
+                           'FAIL prepared_move_final_has_no_AX_and_one_50ms_gesture'),
+            'legacy-pending': ('if NG2CaptureBridge.pendingRequests != 0 { return failure("Previous daemon capture is still outstanding.") }',
+                               '// mutation: legacy pending start exclusion removed',
+                               'FAIL legacy_timeout_actual_request_blocks_native_run'),
+            'stale-cleanup': ('run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }',
+                              'run.lock.ng2Locked { run.mainCallbacks.remove(command.id); run.mainCommandID = 0 }',
+                              'FAIL replan_replacement_is_only_direction_synth'),
+            'callback-drain': ('mainOutstanding: run.mainOutstanding, legacyCaptures: legacy)',
+                               'mainOutstanding: false, legacyCaptures: legacy)',
+                               'FAIL replan_queued_stale_callback_keeps_core_and_lease'),
+            'difference-reference': ('''            for change in changes.prefix(min(changeCount, changes.count)) {
                 required.insert(change.source_capture_id); required.insert(change.observed_capture_id)
             }''', '// mutation: rejected scene difference image references removed',
-                                 'FAIL rejected_difference_frames_pinned_beyond_recent_window'),
-        # Keep the earlier initial-alignment fixture's clock barrier intact;
-        # regress the real callsite's clock specifically while an ACK waits.
-        'motion-clock': ('ng2_controller_tick(core, Self.now(), run.foreground',
-                         'ng2_controller_tick(core, status.input_state == 3 && status.inputs > 0 ? now : Self.now(), run.foreground',
-                         'FAIL motion_deadline_rechecked_after_analysis_before_next_tick'),
-        'raster-trace': ('''                    run.rasterSamples.append(.object(["capture_id": number(frame.id),
+                                     'FAIL rejected_difference_frames_pinned_beyond_recent_window'),
+            # Keep the earlier initial-alignment fixture's clock barrier intact;
+            # regress the real callsite's clock specifically while an ACK waits.
+            'motion-clock': ('ng2_controller_tick(core, Self.now(), run.foreground',
+                             'ng2_controller_tick(core, status.input_state == 3 && status.inputs > 0 ? now : Self.now(), run.foreground',
+                             'FAIL motion_deadline_rechecked_after_analysis_before_next_tick'),
+            'raster-trace': ('''                    run.rasterSamples.append(.object(["capture_id": number(frame.id),
                         "source_width": .int(trace.sourceWidth), "source_height": .int(trace.sourceHeight),
                         "orientation": .int(trace.orientation), "source_ns": number(trace.sourceNs),
                         "draw_ns": number(trace.drawNs), "orient_ns": number(trace.orientNs),
                         "scale_ns": number(trace.scaleNs), "copy_pixels": number(trace.copyPixels)]))''',
-                         '// mutation: committed raster trace propagation removed',
-                         'FAIL raster_trace_first_and_latest_retention_31'),
-        'capture-failure-connection': (
-            'commitCaptureFailure(run, generation: before.3, id: before.0, start: start, end: captureEnd, failure: failure)',
-            '// mutation: actual capture failure diagnostic connection removed',
-            'FAIL capture_failure_actual_nil_reply_is_reported'),
-        'capture-failure-generation': (
-            'guard run.generation == failureGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
-            'guard run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
-            'FAIL capture_failure_generation_only_revocation_does_not_publish'),
-        'capture-failure-first': (
-            'guard run.captureFailure == nil else { return false }',
-            '// mutation: first capture failure immutability removed',
-            'FAIL capture_failure_first_record_is_immutable'),
-        'capture-failure-orientation': (
-            'orientation: frame.diagnosticOrientation))',
-            'orientation: trace.orientation))',
-            'FAIL capture_failure_real_C_analysis_rejection_is_reported'),
-        'observe-start-connection': (
-            '"observe_start_ns": number(observeStart), ',
-            '',
-            'FAIL MISSING_observe_start_ns'),
-    }
-    mutations.update({
-        'authority-origin': ('start: authority.start, end: authority.end, now: now)',
-                             'start: authority.end, end: authority.end, now: now)',
-                             'FAIL authority_sample_over_1s_no_synth_query'),
-        'final-lock': ('            let locked = LockStateMonitor.shared().isLocked',
-                       '            let locked = false // mutation: final live lock is not sampled',
-                       'FAIL final_authority_loss_no_synth_or_cleanup_lock'),
-        'prepare-token': ('        return sample\n',
-                          '        run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }\n        return sample\n',
-                          'FAIL prepared_move_pipeline_retains_lease_between_prepare_and_final'),
-    })
-    dispatch_begin = source.index('        run.dispatchFailure = [',source.index('    private func recordDispatchFailure('))
-    dispatch_end = source.index('\n    }',dispatch_begin)
-    dispatch_storage = source[dispatch_begin:dispatch_end]
-    mutations.update({
-        'dispatch-failure-connection': (dispatch_storage,
-            '        // mutation: live MOVE rejection diagnostic is not stored',
-            'FAIL dispatch_failure_actual_producer_exact_schema_and_reason_foreground'),
-        'dispatch-failure-first': ('guard command.kind == 4, run.dispatchFailure == nil else { return }',
-            'guard command.kind == 4 else { return }',
-            'FAIL dispatch_failure_first_record_is_immutable'),
-        'dispatch-failure-generation': ('guard run.mainCommandID == command.id, run.generation == generation, run.cancelReason == 0 else { return }',
-            'guard run.mainCommandID == command.id, run.cancelReason == 0 else { return }',
-            'FAIL dispatch_failure_stale_generation_does_not_publish'),
-        'dispatch-failure-command': ('guard run.mainCommandID == command.id, run.generation == generation, run.cancelReason == 0 else { return }',
-            'guard run.generation == generation, run.cancelReason == 0 else { return }',
-            'FAIL dispatch_failure_stale_command_does_not_publish'),
-        'dispatch-failure-query-start': ('"query_start_ns": authority.start == 0 ? .null : number(authority.start)',
-            '"query_start_ns": authority.start == 0 ? .null : number(authority.end)',
-            'FAIL dispatch_failure_actual_producer_exact_schema_and_reason_foreground'),
-    })
-    observe_clock = '                    let observeStart = Self.now()\n'
-    observe_gate = '                let committed = run.lock.ng2Locked { () -> Bool in\n'
-    if source.count(observe_clock) != 1 or source.count(observe_gate) != 1:
-        raise ValueError('runtime_observe_start_placement_mutation_target')
-    # Moving the real producer sample ahead of the commit guard observes the
-    # gate clock (+100), while the independent C boundary enters at +200.
-    misplaced_observe = source.replace(observe_clock, '').replace(observe_gate,
-        '                let observeStart = Self.now()\n'+observe_gate)
-    mutations['observe-start-placement'] = (source, misplaced_observe,
-        'FAIL observe_start_actual_committed_C_entry')
-    scan_begin = source.index('            #if NG2_RUNTIME_HOST_TEST\n            let analysisRGBA = NG2RuntimeTestHooks.analysisRGBA?')
-    scan_end = source.index('            let frame = NG2Frame(',scan_begin)
-    scan = source[scan_begin:scan_end]
-    if scan.count('            let analyzed = analysisRGBA.withUnsafeBytes')!=1:
-        raise ValueError('runtime_worker_analysis_mutation_target')
-    # Activate this fault only for the controlled analysis hook. Earlier
-    # MOVE setup still scans on its worker, so it cannot deadlock the capture
-    # boundary used to align an unrelated fixture's original dispatch time.
-    synchronous_scan = ('            let scanFrame: () -> Int32 = {\n'
-        + ''.join('    '+line for line in scan.replace(
-            '            let analyzed = analysisRGBA.withUnsafeBytes',
-            '            return analysisRGBA.withUnsafeBytes').splitlines(keepends=True))
-        + '            }\n'
-        + '            let analyzed: Int32 = NG2RuntimeTestHooks.analysisRGBA != nil ? controlQueue.sync(execute: scanFrame) : scanFrame()\n')
-    mutations['worker-analysis'] = (scan,synchronous_scan,'FAIL pure_analysis_hold_does_not_block_final_MOVE')
-    # Exercise the new placement proof and the cases not completed by the
-    # previous Mac run before the remaining established mutant inventory.
-    first_mutations = ['observe-start-placement', 'dispatch-failure-first',
-        'dispatch-failure-generation', 'dispatch-failure-command',
-        'dispatch-failure-query-start', 'motion-clock', 'worker-analysis']
-    for label in first_mutations:
-        old, new, expected = mutations.pop(label)
-        print('Runtime mutation: '+label, flush=True)
-        if source.count(old)!=1: raise ValueError('runtime_mutation_target: '+label)
-        (stage/'NG2Runtime.swift').write_text(source.replace(old,new))
-        result = compile_run(sources, stage/(label+'-tests'), output, 'runtime-'+label+'-mutation-red', extra, run_timeout=120)
-        require_red(result, expected); reds[label]=result.stdout.strip()
-        print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
-    ownership = '        guard ownsTicket(run, command, generation: generation) else { return }'
-    if source.count(ownership) != 1: raise ValueError('runtime_stale_entry_mutation_target')
-    (stage/'NG2Runtime.swift').write_text(source.replace(ownership, '// mutation: stale callback early ownership removed'))
-    print('Runtime mutation: stale-entry', flush=True)
-    result = compile_run(sources, stage/'stale-entry-tests', output, 'runtime-stale-entry-mutation-red', extra, run_timeout=120)
-    require_red(result, 'FAIL replan_stale_callback_skips_final_authority_hook')
-    reds['stale-entry'] = result.stdout.strip()
-    print('Runtime mutation observed: stale-entry / '+result.stdout.strip().splitlines()[-1], flush=True)
-    print('Runtime mutation: final-query', flush=True)
-    (stage/'NG2Runtime.swift').write_text(final_query_source)
-    result = compile_run(sources, stage/'final-query-tests', output, 'runtime-final-query-mutation-red', extra, run_timeout=120)
-    require_red(result, 'FAIL move_foreground_prepared_before_final_callback_is_offered')
-    reds['final-query'] = result.stdout.strip()
-    print('Runtime mutation observed: final-query / '+result.stdout.strip().splitlines()[-1], flush=True)
-    # Both final-stage exclusions independently stop a generation-only stale
-    # callback. Remove them together to exercise the actual no-synth contract.
-    generation_owner = 'run.mainCommandID == command.id && run.generation == generation'
-    generation_gate = 'expectedGeneration: generation, currentGeneration: run.generation'
-    if source.count(generation_owner)!=1 or source.count(generation_gate)!=1:
-        raise ValueError('runtime_final_generation_mutation_target')
-    generation_mutation = source.replace(generation_owner, 'run.mainCommandID == command.id').replace(
-        generation_gate,'expectedGeneration: generation, currentGeneration: generation')
-    print('Runtime mutation: final-generation', flush=True)
-    (stage/'NG2Runtime.swift').write_text(generation_mutation)
-    result = compile_run(sources, stage/'final-generation-tests', output,
-        'runtime-final-generation-mutation-red', extra, run_timeout=120)
-    require_red(result, 'FAIL final_generation_only_revocation_prevents_synth')
-    reds['final-generation'] = result.stdout.strip()
-    print('Runtime mutation observed: final-generation / '+result.stdout.strip().splitlines()[-1], flush=True)
-    # Mutate the actual core assessment reference while retaining production
-    # Runtime behavior. Only staged code and its existing staged object change;
-    # restoring the exact original object also keeps later contracts independent.
-    (stage/'NG2Runtime.swift').write_text(source)
-    controller = (native/'NG2Controller.c').read_text()
-    old = 'if(e){e->observed_capture_id=id;e->motion=motion.kind;'
-    new = ('if(e){if(motion.kind!=NG2_MOTION_UNKNOWN&&motion.kind!=NG2_TWEEN)'
-           'e->observed_capture_id=id;e->motion=motion.kind;')
-    if controller.count(old) != 1: raise ValueError('runtime_motion_reference_mutation_target')
-    controller_objects = [path for path in objects if path.name == 'NG2Controller.o']
-    if len(controller_objects) != 1: raise ValueError('runtime_controller_object_target')
-    controller_object = controller_objects[0]
-    original_object = controller_object.read_bytes()
-    (stage/'NG2Controller.c').write_text(controller.replace(old, new))
-    print('Runtime mutation: motion-reference', flush=True)
-    try:
-        built = subprocess.run(['clang', '-std=c11', *native_object_flags('NG2Controller.c'), '-I', str(native),
-            '-c', str(stage/'NG2Controller.c'), '-o', str(controller_object)],
-            capture_output=True, text=True, timeout=120)
-        (output/'runtime-motion-reference-C-compile.txt').write_text(built.stdout+built.stderr)
-        checked(built)
-        result = compile_run(sources, stage/'motion-reference-tests', output,
-            'runtime-motion-reference-mutation-red', extra, run_timeout=120)
-        require_red(result, 'FAIL motion_first_UNKNOWN_frame_pinned_beyond_recent_window')
-        reds['motion-reference'] = result.stdout.strip()
-        print('Runtime mutation observed: motion-reference / '+result.stdout.strip().splitlines()[-1], flush=True)
-    finally:
-        controller_object.write_bytes(original_object)
-    for label,(old,new,expected) in mutations.items():
-        print('Runtime mutation: '+label, flush=True)
-        if source.count(old)!=1: raise ValueError('runtime_mutation_target: '+label)
-        (stage/'NG2Runtime.swift').write_text(source.replace(old,new))
-        result = compile_run(sources, stage/(label+'-tests'), output, 'runtime-'+label+'-mutation-red', extra, run_timeout=120)
-        require_red(result, expected); reds[label]=result.stdout.strip()
-        print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
-    if len(reds) != 32:
-        raise RuntimeError('runtime_expected_32_named_mutation_reds')
+                             '// mutation: committed raster trace propagation removed',
+                             'FAIL raster_trace_first_and_latest_retention_31'),
+            'capture-failure-connection': (
+                'commitCaptureFailure(run, generation: before.3, id: before.0, start: start, end: captureEnd, failure: failure)',
+                '// mutation: actual capture failure diagnostic connection removed',
+                'FAIL capture_failure_actual_nil_reply_is_reported'),
+            'capture-failure-generation': (
+                'guard run.generation == failureGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
+                'guard run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }',
+                'FAIL capture_failure_generation_only_revocation_does_not_publish'),
+            'capture-failure-first': (
+                'guard run.captureFailure == nil else { return false }',
+                '// mutation: first capture failure immutability removed',
+                'FAIL capture_failure_first_record_is_immutable'),
+            'capture-failure-orientation': (
+                'orientation: frame.diagnosticOrientation))',
+                'orientation: trace.orientation))',
+                'FAIL capture_failure_real_C_analysis_rejection_is_reported'),
+            'observe-start-connection': (
+                '"observe_start_ns": number(observeStart), ',
+                '',
+                'FAIL MISSING_observe_start_ns'),
+        }
+        mutations.update({
+            'authority-origin': ('start: authority.start, end: authority.end, now: now)',
+                                 'start: authority.end, end: authority.end, now: now)',
+                                 'FAIL authority_sample_over_1s_no_synth_query'),
+            'final-lock': ('            let locked = LockStateMonitor.shared().isLocked',
+                           '            let locked = false // mutation: final live lock is not sampled',
+                           'FAIL final_authority_loss_no_synth_or_cleanup_lock'),
+            'prepare-token': ('        return sample\n',
+                              '        run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }\n        return sample\n',
+                              'FAIL prepared_move_pipeline_retains_lease_between_prepare_and_final'),
+        })
+        dispatch_begin = source.index('        run.dispatchFailure = [',source.index('    private func recordDispatchFailure('))
+        dispatch_end = source.index('\n    }',dispatch_begin)
+        dispatch_storage = source[dispatch_begin:dispatch_end]
+        mutations.update({
+            'dispatch-failure-connection': (dispatch_storage,
+                '        // mutation: live MOVE rejection diagnostic is not stored',
+                'FAIL dispatch_failure_actual_producer_exact_schema_and_reason_foreground'),
+            'dispatch-failure-first': ('guard command.kind == 4, run.dispatchFailure == nil else { return }',
+                'guard command.kind == 4 else { return }',
+                'FAIL dispatch_failure_first_record_is_immutable'),
+            'dispatch-failure-generation': ('guard run.mainCommandID == command.id, run.generation == generation, run.cancelReason == 0 else { return }',
+                'guard run.mainCommandID == command.id, run.cancelReason == 0 else { return }',
+                'FAIL dispatch_failure_stale_generation_does_not_publish'),
+            'dispatch-failure-command': ('guard run.mainCommandID == command.id, run.generation == generation, run.cancelReason == 0 else { return }',
+                'guard run.generation == generation, run.cancelReason == 0 else { return }',
+                'FAIL dispatch_failure_stale_command_does_not_publish'),
+            'dispatch-failure-query-start': ('"query_start_ns": authority.start == 0 ? .null : number(authority.start)',
+                '"query_start_ns": authority.start == 0 ? .null : number(authority.end)',
+                'FAIL dispatch_failure_actual_producer_exact_schema_and_reason_foreground'),
+        })
+        observe_clock = '                    let observeStart = Self.now()\n'
+        observe_gate = '                let committed = run.lock.ng2Locked { () -> Bool in\n'
+        if source.count(observe_clock) != 1 or source.count(observe_gate) != 1:
+            raise ValueError('runtime_observe_start_placement_mutation_target')
+        # Moving the real producer sample ahead of the commit guard observes the
+        # gate clock (+100), while the independent C boundary enters at +200.
+        misplaced_observe = source.replace(observe_clock, '').replace(observe_gate,
+            '                let observeStart = Self.now()\n'+observe_gate)
+        mutations['observe-start-placement'] = (source, misplaced_observe,
+            'FAIL observe_start_actual_committed_C_entry')
+        scan_begin = source.index('            #if NG2_RUNTIME_HOST_TEST\n            let analysisRGBA = NG2RuntimeTestHooks.analysisRGBA?')
+        scan_end = source.index('            let frame = NG2Frame(',scan_begin)
+        scan = source[scan_begin:scan_end]
+        if scan.count('            let analyzed = analysisRGBA.withUnsafeBytes')!=1:
+            raise ValueError('runtime_worker_analysis_mutation_target')
+        # Activate this fault only for the controlled analysis hook. Earlier
+        # MOVE setup still scans on its worker, so it cannot deadlock the capture
+        # boundary used to align an unrelated fixture's original dispatch time.
+        synchronous_scan = ('            let scanFrame: () -> Int32 = {\n'
+            + ''.join('    '+line for line in scan.replace(
+                '            let analyzed = analysisRGBA.withUnsafeBytes',
+                '            return analysisRGBA.withUnsafeBytes').splitlines(keepends=True))
+            + '            }\n'
+            + '            let analyzed: Int32 = NG2RuntimeTestHooks.analysisRGBA != nil ? controlQueue.sync(execute: scanFrame) : scanFrame()\n')
+        mutations['worker-analysis'] = (scan,synchronous_scan,'FAIL pure_analysis_hold_does_not_block_final_MOVE')
+        # Exercise the new placement proof and the cases not completed by the
+        # previous Mac run before the remaining established mutant inventory.
+        first_mutations = ['observe-start-placement', 'dispatch-failure-first',
+            'dispatch-failure-generation', 'dispatch-failure-command',
+            'dispatch-failure-query-start', 'motion-clock', 'worker-analysis']
+        for label in first_mutations:
+            old, new, expected = mutations.pop(label)
+            print('Runtime mutation: '+label, flush=True)
+            if source.count(old)!=1: raise ValueError('runtime_mutation_target: '+label)
+            (stage/'NG2Runtime.swift').write_text(source.replace(old,new))
+            result = compile_run(sources, stage/(label+'-tests'), output, 'runtime-'+label+'-mutation-red', extra, run_timeout=120)
+            require_red(result, expected); reds[label]=result.stdout.strip()
+            print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
+        ownership = '        guard ownsTicket(run, command, generation: generation) else { return }'
+        if source.count(ownership) != 1: raise ValueError('runtime_stale_entry_mutation_target')
+        (stage/'NG2Runtime.swift').write_text(source.replace(ownership, '// mutation: stale callback early ownership removed'))
+        print('Runtime mutation: stale-entry', flush=True)
+        result = compile_run(sources, stage/'stale-entry-tests', output, 'runtime-stale-entry-mutation-red', extra, run_timeout=120)
+        require_red(result, 'FAIL replan_stale_callback_skips_final_authority_hook')
+        reds['stale-entry'] = result.stdout.strip()
+        print('Runtime mutation observed: stale-entry / '+result.stdout.strip().splitlines()[-1], flush=True)
+        print('Runtime mutation: final-query', flush=True)
+        (stage/'NG2Runtime.swift').write_text(final_query_source)
+        result = compile_run(sources, stage/'final-query-tests', output, 'runtime-final-query-mutation-red', extra, run_timeout=120)
+        require_red(result, 'FAIL move_foreground_prepared_before_final_callback_is_offered')
+        reds['final-query'] = result.stdout.strip()
+        print('Runtime mutation observed: final-query / '+result.stdout.strip().splitlines()[-1], flush=True)
+        # Both final-stage exclusions independently stop a generation-only stale
+        # callback. Remove them together to exercise the actual no-synth contract.
+        generation_owner = 'run.mainCommandID == command.id && run.generation == generation'
+        generation_gate = 'expectedGeneration: generation, currentGeneration: run.generation'
+        if source.count(generation_owner)!=1 or source.count(generation_gate)!=1:
+            raise ValueError('runtime_final_generation_mutation_target')
+        generation_mutation = source.replace(generation_owner, 'run.mainCommandID == command.id').replace(
+            generation_gate,'expectedGeneration: generation, currentGeneration: generation')
+        print('Runtime mutation: final-generation', flush=True)
+        (stage/'NG2Runtime.swift').write_text(generation_mutation)
+        result = compile_run(sources, stage/'final-generation-tests', output,
+            'runtime-final-generation-mutation-red', extra, run_timeout=120)
+        require_red(result, 'FAIL final_generation_only_revocation_prevents_synth')
+        reds['final-generation'] = result.stdout.strip()
+        print('Runtime mutation observed: final-generation / '+result.stdout.strip().splitlines()[-1], flush=True)
+        # Mutate the actual core assessment reference while retaining production
+        # Runtime behavior. Only staged code and its existing staged object change;
+        # restoring the exact original object also keeps later contracts independent.
+        (stage/'NG2Runtime.swift').write_text(source)
+        controller = (native/'NG2Controller.c').read_text()
+        old = 'if(e){e->observed_capture_id=id;e->motion=motion.kind;'
+        new = ('if(e){if(motion.kind!=NG2_MOTION_UNKNOWN&&motion.kind!=NG2_TWEEN)'
+               'e->observed_capture_id=id;e->motion=motion.kind;')
+        if controller.count(old) != 1: raise ValueError('runtime_motion_reference_mutation_target')
+        controller_objects = [path for path in objects if path.name == 'NG2Controller.o']
+        if len(controller_objects) != 1: raise ValueError('runtime_controller_object_target')
+        controller_object = controller_objects[0]
+        original_object = controller_object.read_bytes()
+        (stage/'NG2Controller.c').write_text(controller.replace(old, new))
+        print('Runtime mutation: motion-reference', flush=True)
+        try:
+            built = subprocess.run(['clang', '-std=c11', *native_object_flags('NG2Controller.c'), '-I', str(native),
+                '-c', str(stage/'NG2Controller.c'), '-o', str(controller_object)],
+                capture_output=True, text=True, timeout=120)
+            (output/'runtime-motion-reference-C-compile.txt').write_text(built.stdout+built.stderr)
+            checked(built)
+            result = compile_run(sources, stage/'motion-reference-tests', output,
+                'runtime-motion-reference-mutation-red', extra, run_timeout=120)
+            require_red(result, 'FAIL motion_first_UNKNOWN_frame_pinned_beyond_recent_window')
+            reds['motion-reference'] = result.stdout.strip()
+            print('Runtime mutation observed: motion-reference / '+result.stdout.strip().splitlines()[-1], flush=True)
+        finally:
+            controller_object.write_bytes(original_object)
+        for label,(old,new,expected) in mutations.items():
+            print('Runtime mutation: '+label, flush=True)
+            if source.count(old)!=1: raise ValueError('runtime_mutation_target: '+label)
+            (stage/'NG2Runtime.swift').write_text(source.replace(old,new))
+            result = compile_run(sources, stage/(label+'-tests'), output, 'runtime-'+label+'-mutation-red', extra, run_timeout=120)
+            require_red(result, expected); reds[label]=result.stdout.strip()
+            print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
+        if len(reds) != 32:
+            raise RuntimeError('runtime_expected_32_named_mutation_reds')
+    baseline_count = len(reds)
     # TEST051 faults use only their public fixtures. Their entry conditions
     # include two actual MOVEs and exact image budgets; earlier fixtures must
     # not mask a broken continuous callback or cached-reply gate.
@@ -713,7 +716,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             'FAIL continuous_old_command_skips_authority_and_touches'),
         'continuous-return-bookkeeping': (
             'run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }',
-            'run.lock.ng2Locked { run.mainCallbacks.remove(command.id); if command.ordinal >= 3 && (run.report["moves"]?.intValue ?? 0) >= 2 { run.mainCommandID = 0 } }',
+            'run.lock.ng2Locked { run.mainCallbacks.remove(command.id); if command.ordinal >= 3 && command.id != run.mainCommandID && (run.report["moves"]?.intValue ?? 0) >= 2 && (run.report["events"]?.arrayValue ?? []).contains(where: { $0.objectValue?["id"]?.intValue == Int(command.id) && $0.objectValue?["outcome"]?.intValue == 3 && $0.objectValue?["begin_ns"]?.intValue == 0 }) { run.mainCommandID = 0 } }',
             'FAIL continuous_old_return_keeps_replacement_ownership'),
         'continuous-callback-drain': (
             'mainOutstanding: run.mainOutstanding, legacyCaptures: legacy)',
@@ -781,12 +784,13 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             'runtime-'+label+'-mutation-red', extra, run_timeout=120)
         require_red(result, expected); reds[label] = result.stdout.strip()
         print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
-    if len(reds) != 32 + len(new_mutations):
+    if len(reds) != baseline_count + len(new_mutations):
         raise RuntimeError('runtime_expected_baseline_and_test051_named_mutation_reds')
     (stage/'NG2Runtime.swift').write_text(source)
     (stage/'main.swift').write_text(all_tests)
     return {'production_green':green.stdout.strip(),'mutation_red':reds,'compiled':True,
-            'baseline_mutation_count': 32, 'test051_mutation_count': len(new_mutations),
+            'baseline_mutation_count': baseline_count, 'test051_mutation_count': len(new_mutations),
+            'mutation_selection': 'test051_only' if new051_mutations_only else 'all_48',
             'native_object_flags': {path.name: native_object_flags(path.name) for path in sorted(native.glob('NG2*.c'))},
             'scope':'Actual Runtime public API, raster, real C, main ticket and lifecycle with UIKit/XCTest/daemon fakes'}
 
@@ -835,11 +839,12 @@ def main():
     parser.add_argument('--test051-red-only', action='store_true')
     parser.add_argument('--test051-public-only', action='store_true')
     parser.add_argument('--test051-runtime-only', action='store_true')
+    parser.add_argument('--test051-new-mutations-only', action='store_true')
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
-    if args.test051_red_only or args.test051_public_only or args.test051_runtime_only:
-        if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
-            parser.error('--test051-red-only/--test051-public-only/--test051-runtime-only requires fixed upstream and output directory')
+    if args.test051_red_only or args.test051_public_only or args.test051_runtime_only or args.test051_new_mutations_only:
+        if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only, args.test051_new_mutations_only)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
+            parser.error('TEST051 standalone mode requires fixed upstream and output directory')
         upstream, output = args.paths
         output.mkdir(parents=True, exist_ok=True)
         (output/'api').mkdir(exist_ok=True)
@@ -870,7 +875,8 @@ def main():
         if len(flags) != 4:
             raise ValueError('native_C_source_set')
         report = {'runtime': runtime_contract(upstream, output, expect_manifest_red=args.test051_red_only,
-                      public051_only=args.test051_public_only, baseline_native=native),
+                      public051_only=args.test051_public_only, new051_mutations_only=args.test051_new_mutations_only,
+                      baseline_native=native),
                   'native_object_flags': flags, 'device_test': 'not_run'}
         (output/'ngg2-swift-contract.json').write_text(json.dumps(report, indent=2)+'\n')
         print(report['runtime'].get('baseline_red', report['runtime'].get('production_green')))

@@ -1571,7 +1571,7 @@ func testContinuousRevalidationCallbacksPublic() {
             let after = report(id)
             require(after["current_command_id"]?.intValue == Int(newID) && after["input_state"]?.intValue == 1 &&
                 after["main_ticket_outstanding"]?.boolValue == true && !drained(id) && NG2Fake.paths().count == 2,
-                "continuous_old_return_keeps_replacement_ownership")
+                "continuous_old_return_keeps_public_replacement_reservation")
         }
         NG2RuntimeTestHooks.beforeMainAuthority = {
             admitFirstFixtureMove(id, expectedID: newID) { _ in
@@ -1580,6 +1580,16 @@ func testContinuousRevalidationCallbacksPublic() {
         }
         NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
         NG2Fake.releaseTicket(newID)
+        if staleFirst {
+            pump("continuous_replacement_callback_actually_returned") {
+                NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
+                return NG2Fake.returnedTickets.contains(newID)
+            }
+            // The public C reservation alone cannot expose Swift callback
+            // ownership. Its actual callback must retain authority to send B.
+            require(report(id)["inputs"]?.intValue == 3 && NG2Fake.paths().count == 3,
+                "continuous_old_return_keeps_replacement_ownership")
+        }
         pump("continuous_replacement_third_input_and_terminal", timeout: 10) {
             _ = call("necro_native_status", id, keepalive: true)
             return report(id)["terminal"]?.intValue == 1
