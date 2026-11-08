@@ -909,6 +909,34 @@ diagnoseFixture(subtile)
 NG2Fake.lock.lock(); NG2Fake.walkPixelInset = 1; NG2Fake.walkGoodsEnabled = false; NG2Fake.lock.unlock()
 NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
 NG2RuntimeTestHooks.beforeCaptureAdmission = {
+    let pendingWait = report(subtile)["motion_wait"]?.objectValue ?? [:]
+    NG2Fake.lock.lock(); let explicitBoundary = NG2Fake.boundaryClockChange != nil; NG2Fake.lock.unlock()
+    if pendingWait["active"]?.boolValue == true && !explicitBoundary {
+        // Each scripted 35px/36px transition depends on the previous public
+        // C assessment. Do not let the producer render three 35px frames
+        // while its first UNKNOWN is still being cached on controlQueue.
+        let previousRequest = NG2Fake.countRequests()
+        let end = Date().addingTimeInterval(2)
+        func previousAssessmentPublished() -> Bool {
+            let snapshot = report(subtile)
+            guard let capture = snapshot["captures"]?.arrayValue?.last?.objectValue,
+                (capture["id"]?.intValue ?? 0) >= previousRequest else { return false }
+            // Capture rows are appended before the C status/cache projection.
+            // An eligible stable matching-prefix frame must also reach that
+            // latter snapshot. Stable captures from before the ACK can still
+            // have an old prefix and be legitimately discarded by C.
+            let eligible = capture["stable"]?.boolValue == true &&
+                capture["completed_prefix_end"] == snapshot["last_completed_id"]
+            return !eligible ||
+                (snapshot["last_capture_id"]?.intValue ?? 0) >= previousRequest
+        }
+        var committed = previousAssessmentPublished()
+        while !committed && Date() < end {
+            Thread.sleep(forTimeInterval: 0.001)
+            committed = previousAssessmentPublished()
+        }
+        require(committed, "subtile_previous_assessment_is_public_before_rendering_followup")
+    }
     NG2Fake.performBoundaryClockChange()
     let current = report(subtile), wait = report(subtile)["motion_wait"]?.objectValue ?? [:]
     if wait["active"]?.boolValue == true && wait["attempts"]?.intValue == 1 {

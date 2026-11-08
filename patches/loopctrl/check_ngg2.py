@@ -345,7 +345,7 @@ def navigation_profile_contract(upstream, output, *, compiler='clang'):
             'scope': 'actual production strict Navigation public API, unchanged O0, complete views/73-score bytes/Motion/Decision/Entrance/boundary and input parity'}
 
 
-def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False):
+def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False, selected_mutations=None):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
     native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red or expect_manifest_red else upstream / 'LoopCtrlUITests'
     if baseline_native is not None:
@@ -471,6 +471,28 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     new_calls = '\ntestContinuousRevalidationCallbacksPublic()\ntestPagedResultsPublic()\n'
     if all_tests.count(new_calls) != 1:
         raise ValueError('runtime_test051_public_calls_boundary')
+    if selected_mutations is not None:
+        if selected_mutations != 'stale-entry':
+            raise ValueError('runtime_selected_mutation_not_supported')
+        # Run the complete production Green above, then the exact established
+        # fault with all original preceding fixtures and its named assertion.
+        # This is a real selected execution, never a synthetic Red substitute.
+        (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n'))
+        ownership = '        guard ownsTicket(run, command, generation: generation) else { return }'
+        if source.count(ownership) != 1:
+            raise ValueError('runtime_stale_entry_mutation_target')
+        (stage/'NG2Runtime.swift').write_text(source.replace(ownership, '// mutation: stale callback early ownership removed'))
+        print('Runtime mutation: stale-entry', flush=True)
+        result = compile_run(sources, stage/'stale-entry-tests', output, 'runtime-stale-entry-mutation-red', extra, run_timeout=120)
+        require_red(result, 'FAIL replan_stale_callback_skips_final_authority_hook')
+        print('Runtime mutation observed: stale-entry / '+result.stdout.strip().splitlines()[-1], flush=True)
+        (stage/'NG2Runtime.swift').write_text(source)
+        (stage/'main.swift').write_text(all_tests)
+        return {'production_green': green.stdout.strip(), 'mutation_red': {'stale-entry': result.stdout.strip()},
+                'compiled': True, 'baseline_mutation_count': 1, 'test051_mutation_count': 0,
+                'mutation_selection': ['stale-entry'],
+                'native_object_flags': {path.name: native_object_flags(path.name) for path in sorted(native.glob('NG2*.c'))},
+                'scope': 'Full production Runtime Green and exact selected established stale-entry mutation; all preceding fixtures retained'}
     reds = {}
     if not new051_mutations_only:
         # Established faults retain their original fixtures/assertions. Execute
@@ -840,10 +862,11 @@ def main():
     parser.add_argument('--test051-public-only', action='store_true')
     parser.add_argument('--test051-runtime-only', action='store_true')
     parser.add_argument('--test051-new-mutations-only', action='store_true')
+    parser.add_argument('--test051-selected-mutations', choices=['stale-entry'])
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
-    if args.test051_red_only or args.test051_public_only or args.test051_runtime_only or args.test051_new_mutations_only:
-        if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only, args.test051_new_mutations_only)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
+    if args.test051_red_only or args.test051_public_only or args.test051_runtime_only or args.test051_new_mutations_only or args.test051_selected_mutations is not None:
+        if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only, args.test051_new_mutations_only, args.test051_selected_mutations is not None)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
             parser.error('TEST051 standalone mode requires fixed upstream and output directory')
         upstream, output = args.paths
         output.mkdir(parents=True, exist_ok=True)
@@ -876,7 +899,7 @@ def main():
             raise ValueError('native_C_source_set')
         report = {'runtime': runtime_contract(upstream, output, expect_manifest_red=args.test051_red_only,
                       public051_only=args.test051_public_only, new051_mutations_only=args.test051_new_mutations_only,
-                      baseline_native=native),
+                      selected_mutations=args.test051_selected_mutations, baseline_native=native),
                   'native_object_flags': flags, 'device_test': 'not_run'}
         (output/'ngg2-swift-contract.json').write_text(json.dumps(report, indent=2)+'\n')
         print(report['runtime'].get('baseline_red', report['runtime'].get('production_green')))
