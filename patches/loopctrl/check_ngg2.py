@@ -399,7 +399,11 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             raise ValueError('runtime_failure_baseline_source_hash')
         if hashlib.sha256(fakes.encode()).hexdigest()!='d73f682ee7b2f12287658b5c67cd404c942df185477f750f8e9937c819060116':
             raise ValueError('runtime_failure_baseline_fakes_hash')
-        (stage/'Fakes.swift').write_text(fakes)
+        # Current source defines a shared walking-fixture helper that is not
+        # called by this historical nil-capture baseline. Keep that declaration
+        # compilable with the hash-checked original fake; the inert extension
+        # changes neither its capture behavior nor the fixed production bytes.
+        (stage/'Fakes.swift').write_text(fakes+'\nextension NG2Fake { static func useFixedCaptureClock() {} }\n')
         tests = (HERE/'ngg2_runtime_tests.swift').read_text()
         marker = '// TEST047 RUNTIME FAILURE BASELINE END.\n'
         if tests.count(marker)!=1:raise ValueError('runtime_failure_baseline_boundary')

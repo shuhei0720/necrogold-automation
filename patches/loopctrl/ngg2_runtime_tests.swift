@@ -1297,7 +1297,12 @@ for failureCode in ["foreground", "locked", "owner", "authority_stale", "too_ear
         let currentID = current["current_command_id"]?.intValue ?? 0
         let commands = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
         guard commands.contains(where: { $0["id"]?.intValue == currentID && $0["kind"]?.intValue == 4 }) else { return }
-        if failureCode == "foreground" { NG2Fake.lock.lock(); NG2Fake.frontPID = 0; NG2Fake.lock.unlock() }
+        if failureCode == "foreground" {
+            NG2Fake.lock.lock(); NG2Fake.frontPID = 0; NG2Fake.lock.unlock()
+            // Give this observed AX interval distinct endpoints on the fixed
+            // clock so swapping query_start with query_end remains detectable.
+            NG2Fake.advance(1_000)
+        }
         if failureCode == "authority_stale" { NG2Fake.advance(1_000_000_001) }
         externalQueryEntry = entered; externalQueryExit = NG2Fake.virtualClock()
     }
@@ -1344,6 +1349,9 @@ for failureCode in ["foreground", "locked", "owner", "authority_stale", "too_ear
         return report(failedMove)["dispatch_failure"]?.objectValue != nil || drained(failedMove)
     }
     let firstFailure = report(failedMove)["dispatch_failure"]?.objectValue
+    if failureCode == "foreground" {
+        require(externalQueryExit > externalQueryEntry, "dispatch_foreground_fixture_has_positive_query_interval")
+    }
     require(finalGateVisited && firstFailure?["code"]?.stringValue == failureCode && Set(firstFailure?.keys.map { $0 } ?? []) == dispatchFailureKeys &&
         firstFailure?["command_id"]?.intValue == failedCommand["id"]?.intValue &&
         ["not_before_ns", "deadline_ns"].allSatisfy { firstFailure?[$0]?.intValue == failedCommand[$0]?.intValue } &&
