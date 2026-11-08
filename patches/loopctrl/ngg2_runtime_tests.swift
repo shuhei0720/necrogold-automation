@@ -2327,22 +2327,30 @@ func testOriginalMotionReferencePixelProof() {
         originalChoice.target_x == authorityChoice.target_x && originalChoice.target_y == authorityChoice.target_y &&
         originalChoice.obstacle == authorityChoice.obstacle,
         "motion_reference_original_authority_complete_five_field_safe_UP_choice")
-    let oldTiles = withUnsafeBytes(of: a.tiles) { Array($0) }
-    let newTiles = withUnsafeBytes(of: b.tiles) { Array($0) }
-    let oldProtected = withUnsafeBytes(of: a.protected_cells) { Array($0) }
-    let newProtected = withUnsafeBytes(of: b.protected_cells) { Array($0) }
+    let oldTiles: [UInt8] = withUnsafeBytes(of: a.tiles) { Array($0) }
+    let newTiles: [UInt8] = withUnsafeBytes(of: b.tiles) { Array($0) }
+    let oldProtected: [UInt8] = withUnsafeBytes(of: a.protected_cells) { Array($0) }
+    let newProtected: [UInt8] = withUnsafeBytes(of: b.protected_cells) { Array($0) }
     func index(_ x: Int, _ y: Int) -> Int { (y+5)*23+x+11 }
-    require(oldTiles.indices.filter { oldTiles[$0] != newTiles[$0] } == [index(-10,1)] &&
-        oldTiles[index(-10,1)] == 1 && newTiles[index(-10,1)] == 3 &&
-        oldTiles.indices.filter { oldTiles[$0] == 2 } == newTiles.indices.filter { newTiles[$0] == 2 } &&
-        oldProtected == newProtected &&
-        [oldTiles, newTiles].allSatisfy { tiles in
-            tiles[index(0,0)] == 1 && tiles[index(0,-1)] == 1 &&
-            !(tiles[index(-1,-1)] == 2 && tiles[index(1,-1)] == 2) &&
-            !(tiles[index(0,-2)] == 2 && tiles[index(0,0)] == 2)
-        } && [(0,0),(-1,0),(1,0),(0,-1),(0,1),(0,-2),(-1,-1),(1,-1)].allSatisfy {
-            oldProtected[index($0.0,$0.1)] == 0
-        }, "motion_reference_exact_remote_tile_all_gold_protected_safe_floor_after_Raster")
+    let tileIndices: [Int] = Array(oldTiles.indices)
+    let changedIndices: [Int] = tileIndices.filter { oldTiles[$0] != newTiles[$0] }
+    let oldGold: [Int] = tileIndices.filter { oldTiles[$0] == 2 }
+    let newGold: [Int] = tileIndices.filter { newTiles[$0] == 2 }
+    func safeFloor(_ tiles: [UInt8]) -> Bool {
+        let floorOrigin: Bool = tiles[index(0,0)] == 1
+        let floorDestination: Bool = tiles[index(0,-1)] == 1
+        let horizontalGate: Bool = tiles[index(-1,-1)] == 2 && tiles[index(1,-1)] == 2
+        let verticalGate: Bool = tiles[index(0,-2)] == 2 && tiles[index(0,0)] == 2
+        return floorOrigin && floorDestination && !horizontalGate && !verticalGate
+    }
+    let safeA: Bool = safeFloor(oldTiles)
+    let safeB: Bool = safeFloor(newTiles)
+    let protectedNeighbors: [(Int, Int)] = [(0,0),(-1,0),(1,0),(0,-1),(0,1),(0,-2),(-1,-1),(1,-1)]
+    let protectedClear: Bool = protectedNeighbors.allSatisfy { point in oldProtected[index(point.0,point.1)] == 0 }
+    let remoteChanged: Bool = oldTiles[index(-10,1)] == 1 && newTiles[index(-10,1)] == 3
+    require(changedIndices == [index(-10,1)] && remoteChanged && oldGold == newGold &&
+        oldProtected == newProtected && safeA && safeB && protectedClear,
+        "motion_reference_exact_remote_tile_all_gold_protected_safe_floor_after_Raster")
     var motion = NG2Motion()
     require(ng2_motion(&a, &b, 3, &motion) == 1 && motion.kind == 2 && motion.dx == 0 && motion.dy == 0,
         "motion_reference_direct_original_to_authority_is_strict_BLOCKED")
