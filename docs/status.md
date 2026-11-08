@@ -2,13 +2,15 @@
 
 更新: 2026-11-08（日本時間）
 
-最新はTEST053 / code `a1ceba72091775221926d2cf3cde739b0f7aa8f0` / [Mac CI42478480071](https://github.com/shuhei0720/necrogold-automation/actions/runs/42478480071) / IPA build68を照合し、実機試験を依頼する段階。TEST052は2実行とも方向入力0。初歩前の遠方tile3変動による再計画2回消費と、AX前面確認11.692042ms後の入力期限0.804944ms超過を分離した。最初のslotだけlead+50msで一度選び、未予約のまま観測し、NB−100..50msで最新normal plannerから予約する。元拍/period/全horizonを保ち、失効や窓超過で次拍へ選び直さない。連続歩行と全既存入力・画像回収上限は維持する。
+最新はTEST054 / code `5dbf7a2acb49311e71fac68994c4e1fa0c9141ac` / IPA build71。
 
-host165/all124画像path・client174・package202、CI native151/private14明示除外・client174、Mac public結合/全52 named faults/Raster3/両C同値・field故障/実暗号RPC/実compiler profilev2/IPAが成功。全22seal、実app/runnerのAPI/native_v10、全Mach-OのHOST hook非混入を照合。独立3観点第2周の最終配布物/完全source照合は既存台帳へ記録する。
+TEST053は約0.51〜0.52秒間隔で4入力/3MOVEDまで進み、4回目の移動照合が3回未確定となって停止した。TEST054は最新画像を入力権限に保ち、同じ位置を表すことを直接検証した元画像を限定的な補助比較へ保持する。primaryがUNKNOWNのときだけ既存motionの同方向1歩MOVEDを採用する。判定閾値・元期限・3回上限・入力回数は保つ。
 
-**[TEST053の実機確認](device-tests/README.md#test-053実行手順)をお願いします。** [新IPA build68 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42478480071/artifacts/13617561482)をSideStoreで更新し、LoopCtrl完全終了/起動→Start Server、新通常1-1/開幕金壁/画面端0/左側が下/ポーズから `sh test_053.sh`。終了後 `runtime/test-053` 全ZIPと初動/毎拍/茶壁・扉/商品/最終pause/回収待ちを返してください。全経路毎拍・人より速い性能・指輪/通知/完全周回/耐久は未受入です。
+host183（Controller119＋画像/算法64、全141必須imagepath）/client190/package205、[Mac CI42490824375](https://github.com/shuhei0720/necrogold-automation/actions/runs/42490824375)で全55 fault/Raster3/両C同値・field故障/暗号RPC/実compiler/IPA build71を確認。実C→Runtimeの生成report3個を実暗号HTTPでclientv12へ渡し、補助画像選択2件と未評価goods1件・両journalの一致も検証した。全22seal、実app/runnerのAPI/native_v11、全9 Mach-OのHOST hook非混入を照合。実機受入は未完了。
 
-TEST046提出時の履歴: 実装・ホスト/CI・新IPA build30を検証して実機テストを依頼した。35px UNKNOWNの同入力再確認と向き1の画素同値コピー削減を実装し、native112件/client112件ホスト成功、[CI42355682441](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441)でSwift15変異/暗号RPC/build30を確認、CRC/SHA/22ソースを照合。その後の実機は3実行方向0、向き8の処理が重く向き1最適化は未適用だった。その後TEST047も受領し、現在は上記TEST053へ進める。毎拍/人より速い性能は未合格。
+**[TEST054の実機テスト](device-tests/README.md#test-054実行手順)をお願いします。** [新IPA build71 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42490824375/artifacts/13622975254)をSideStoreで更新し、LoopCtrl完全終了/起動→Start Server。開幕金壁の新通常1-1/画面端0/左側が下/ポーズから `sh test_054.sh` を実行。「TEST-054: 終了」後に `runtime/test-054` 全ZIPと、初動・毎拍歩行・茶壁/扉・商品・最終pause・回収待ちを返してください。
+
+TEST046提出時の履歴: 実装・ホスト/CI・新IPA build30を検証して実機テストを依頼した。35px UNKNOWNの同入力再確認と向き1の画素同値コピー削減を実装し、native112件/client112件ホスト成功、[CI42355682441](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441)でSwift15変異/暗号RPC/build30を確認、CRC/SHA/22ソースを照合。その後の実機は3実行方向0、向き8の処理が重く向き1最適化は未適用だった。その後TEST047も受領し、現在は上記TEST054へ進める。毎拍/人より速い性能は未合格。
 
 TEST045提出時の履歴: 実装・ホスト/CI・新IPA build25を確認して実機テストを依頼した。元拍/期限を維持した初入力前の最大2再計画と、結果専用最大8秒・固定差分診断を実装。native96件/クライアント105件はホスト全成功、client CI105件/native CI90件もskip0。Swift本体と12実callsite変異、暗号RPC、IPAビルドが[CI42349253984](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984)で成功し、CRC/SHA・全22ソースを照合した。その後上1歩＋ポーズの実機結果を受領した。現在はTEST046の新IPAと[TEST046手順](device-tests/README.md#test-046実行手順)を使う。歩行・速度・毎拍受入は未合格。
 

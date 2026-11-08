@@ -8,7 +8,13 @@ Follow the user's `shuhei0720/AI-Driven-Development` Codex workflow, identified 
 
 ## Current scope
 
-TEST054 planned: latest scene remains input authority; one immutable original continuous safe-floor reference may supplement ONLY primary UNKNOWN with unchanged same-direction unit MOVED. Direct original-to-every-latest stable pre-send BLOCKED/fullDecision/gold/protected/prefix/time checks, sticky disqualification without revoking legacy reason8 revalidation; no carry across logical moves, no thresholds/3attempts/deadline expansion. Separate bounded16 ACK-MOVE diagnostic rows; existing ABI unchanged. cap11/client12/script054 preserves literalv11/v10/v9/legacy recovery; all141 images/old52+new faults/real Mac/Raster/parity/RPC/compiler/IPA/seal22/fullsource. New eight-part plan is canonical; delivered TEST053 below remains history.
+Verified TEST054 code `5dbf7a2acb49311e71fac68994c4e1fa0c9141ac` / CI42490824375 / build71, clientv12/API1.98.14-ngg2/native_v11. Immutable original continuous safe-floor reference remains separate from latest input authority; qualified reissue + direct original-to-EVERYstablepresend frame includingmask0, fullDecision/allgold/protected/prefix/frozenbounds or sticky disqualification. Legacy reason8 revalidation stays available even when optional ref fails. Only primaryUNKNOWN may use unchanged referenceMOVED sameunit; no override/ordinal carry/initial-retune change. All old deadlines/3attempts/budgets/ABI preserved.
+
+Bounded12-key motion_references rows at successful ACK(event2/state3), max16; latest actual assessment/source selection is explicit. Goods legacyeventobs exceptions preserve unassessed/prior-assessment truth. Response-only initial arrays preserve accepted-state lifecycle. Clientv12requiresnewtraceforfreshcap11; literalv11/v10batch4/v9batch1/v1..8legacy recoverGET0/start0. All transport/export/suffix/progress limits unchanged.
+
+Host183/all141requiredpaths,client190/package205; CI native167/private16explicitexclusions/client190 pass. Actual Mac55/Raster3/Cparity-field/RPC/actualcompiler/IPA verified;3actualC/Runtime reports→realencryptedHTTPclient/journals verified. Sealc01e6404d2c80be996e75df9710e3ca93b4286ae2c37f2d0e1bcd1490fdeadaa/all22 match;9protectednativeassets/G1/R12all40 unchanged. Source3roleROUND2clear; artifact/fullsourceclosureexistingledger. Onlyfiveexistingdocs aftercodefreeze. Build69Swiftfixturetypecheckingfailure andpreservingtypedlocalsfix are recorded, notbehaviorRed/devicefailure.
+
+Alwaysprovideconcrete TEST054 IPA/fullsource andexplicitlyrequest sh test_054.sh/runtime/test-054 wholeZIPafter終了 withstartup/everybeat/brownwall-door/goods/pause/exportwait observations. NewIPA/fullrestart/StartServer required. Physical fullroute/everybeat/humanfaster/ring/notification/endurance acceptancepending. SameiPhoneonlyruntime;standardmacos-26/ubuntu-latest publicrunners.
 
 ### TEST053 delivered baseline
 

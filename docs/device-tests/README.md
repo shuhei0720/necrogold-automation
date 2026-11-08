@@ -2339,3 +2339,54 @@ TEST054プラン補足: reference_eligibleは元画像を保持しただけで�
 
 
 TEST054プランレビューは新規文脈の設計/網羅第1周、安全第2周でP0/P1/P2残件なし。手続き画素の実C positiveはA=既存floor_pixels(world_y=-36)、C=world_y=-72、B=Aのsignature採取pixel(4sx,4sy)だけをsy20..<70/sx40..<179（90<=sx<139&&sy>=36は除外）でuint32 state0→1664525*state+1013904223の上位24bit mod13−6だけRGBを変え[7,255]へclampし、remote_cell variant1を加える形で成立した。A→Bは厳密BLOCKED score.367019、B→CはUNKNOWN score.655538、A→CはMOVED UP1 score0。A/Bの完全DecisionはUP7(0,-1)FLOOR、安全床/全gold/全protected一致、remote(-10,1)だけがFLOOR→STONE。MacではPNG/Rasterを経ても同じ性質であることを別途assertする。開始world+36→0→-36の2UPでlead確認済みcontinuousへ入り、この三つ組を使う。私有画像を埋め込む必要はない。先のworld−72をAとする候補はdestinationがgateでsafe_floor不成立なので本統合fixtureへ採用しない。実装はまだ開始しておらず、旧public Cの挙動Redから着手する。
+
+
+TEST054実装時の既存goods仕様の補足: goods branchはresolve_moveの時刻資格を調べる前にevent.observed_capture_idへ商品frameを保存する。従って商品がearliest前なら新traceは未評価0のままでeventだけ非zeroとなり、先行UNKNOWN/TWEEN後の商品が元deadline超過ならtraceは先行評価idを保持してeventだけ後の商品idへ進む。既存eventの意味/商品優先/時刻上限は変更しない。consumerは最後のACK MOVEかつgoods=1に限り、trace observed<=event observed・selected_motionとevent.motionの一致・UNKNOWN/TWEENまたは未評価0である場合の差を認める。他の評価済み行はobserved一致、未評価行は全motion0/selectedauthorityを要求し、非goodsや過去の別ordinalで差を許さない。初期cached reportにも空motion_referencesを置き、fresh応答の非同期開始前にkey不在とならないよう診断producerだけを追加する。
+
+旧public Cの実画像3歩確認→99/101再予約後の110/111に対する4歩目期待は、各subtestでinputs4/moves3のままとなる2assertion failures/0errorsを観測した（1method/2独立engine）。clientの旧v11でも新revision/必須診断/旧cap新規開始の3assertion failures/0errorsを先に観測した。ここから最小Greenへ進める。合成HUD/seedと受領画像の区別、実装/全回帰/実IPAの未完了を維持する。
+
+
+### TEST054ホスト・先行Mac検証
+
+最終hostはController119件skip0/25.493秒＋画像/算法64件skip0/77.634秒の計183件、全141必須imagepathを含む。client190件skip0/48.286秒、package/compiler205件skip0/1.878秒が成功。Controller単独の最初の8失敗は、旧controlled choose faultのcall1/2が新しい任意referenceの照会で先に消費されたため、同じ旧authority before/afterを狙うcall3/4へfixtureを調整し元期待を維持した。full5field reference guardの実C単独除去変異5件と、pending/mask0・sticky・2更新の直接性・各primary/fallback/逆/2歩/return0・全4向き・3attempt・ACK16行・goods例外・retune/別ordinal/既存reason8を確認した。新単体判定stubは選択契約の試験で、実画像/実Pixel tripleと区別する。
+
+[client CI42488219501](https://github.com/shuhei0720/necrogold-automation/actions/runs/42488219501)はcoded786c9d1bbbced87f2a16e5585737920028679c4で190件skip0/53.869秒成功。artifact13620526500は5,629bytes/SHA4a4744c803a962f046cbebed1a4b32d50fe438221612afdb894828632832317c、CRC/実log一致。最大16診断/64events/256captures/32raster/20imagesの正規reportが既存node上限内で保存され、literalv11/v10/v9/legacy回復を維持する。独立実装第1周のP2「初期reportへ配列を置くとacceptedがrunningへ変わる」は、保存reportを空のまま応答コピーへ配列を補う修正で解消し、公開初回応答にstateacceptedを追加した。全3観点の第2周source P0/P1/P2残件なし、実配布物/全sourceは別途照合する。
+
+Mac build69/CI42488551876/code123bdd9はnative167/private16明示除外とpackage205へ成功したが、新procedural proofのSwift2335複合式のtypecheckでcompile停止した。4f78356は固定230cellのgold/protected比較、remote1→3、両Sceneのorigin/UPfloor・縦横gate否定・8近傍保護を全て型付きlocalsへ分けただけでassertion名/全predicateを維持した。3担当のsource/差分確認を受けた。診断artifact13620512561は71,653bytes/SHA278d8901bd9361a25e2245bc87a18e600167c9e0785648d5c1ca8965faea639b、全CRC/安全な56entries。compile失敗は主挙動Red/実機失敗へ数えない。
+
+Mac build70/CI42489195892/code4f78356はproduction Runtime public結合（新54の2callback順序/earlygoodsを含む）、Raster/両C同値へ成功した。続く旧motion-reference変異はUNKNOWN/TWEENのlegacy event.observed_capture_idを落とす従来と同じ故障だが、新しい診断rowのobserved idが正しく画像をpinするため、従来の画像保持だけの間接検査ではPASSとなった。新しいproductionの保持を弱めず、旧変異も画像保持assertionもそのまま残し、同じcached snapshot上のACK MOVE/outcome2/motionUNKNOWNとevent observed==motion_wait.last_captureを直接検査するassertionを追加した。期待Red名だけをこの直接契約へ変更した。独立した旧public Cでも同じ故障がevent id28対0のassertionで失敗し、3観点が正当な強化として確認した。次のMacでproduction Greenと旧故障の新しいnamed Red/全55を再確認する。
+
+build70診断artifact13620674428は125,993bytes/SHA2fe9de4fc6d99b6f78a73c8b0135a1398c83f2f059504642b52411784ab6d344、全CRC/安全な81entries。実生成Runtime report3個（108,680bytes/SHAa1f5a264f553a761e8ab70c26dd6f439f7f3e4aed5e7905f6eab81f2eb6325db）を加工せず実暗号HTTPでclientv12へ接続し、補助source39を選ぶ2ケース（authority40/after44）、未評価goods1ケース、active/report両journalの診断一致を実行確認した。これは実C/Runtime producer→consumer接続のproofで、全55完了/実機受入ではない。最終成功buildの生成reportで同じ接続を改めて確認し、code/IPA/22seal/全sourceを凍結照合して具体的TEST054実機試験を依頼する。
+
+
+TEST054第2周・配布前の補足検査: code5dbf7a2の公開source ZIPは6,965,408bytes/SHA06f514af409fc2ce1d0511f1ea93da9ce36d6f919d531cbc1f63e62338b46098。全418tracked files/CRC/全byteが一致し、欠落/余分/危険path/重複0を安全担当が独立確認。22seal・保護native9・R12全40・G1とstandard macos-26/ubuntu-latestを維持した。最終文書反映後のZIPも別途全件照合する。
+
+外部配布物verifierの静的設計レビューで、個々の成功JSONを異なるbuildから混ぜないcross-binding不足を確認した。実ZIPのSHA/size/CRCとconfigured artifact、build/code、compilerのIPA/検証ZIP/hash、Mach-OのIPA hash、実生成report/contract/stdoutの一致、9MachO/6response/4C/5Swift、RPCの実行済named assertion/source SHAを相互確認するよう補強し、同じ第2周の再確認は残件なし。実行証拠は最終成功buildから採る。
+
+
+### TEST054最終CI・配布物照合
+
+- code `5dbf7a2acb49311e71fac68994c4e1fa0c9141ac` / [Mac CI42490824375](https://github.com/shuhei0720/necrogold-automation/actions/runs/42490824375) / build71。Runtime public結合と全55 named faults（旧52＋original破棄/fallback無効の実Controller2故障＋診断producer切断）、Raster3、両Cの不変O0対strictO2全構造/score/field故障、実暗号RPC/LoopCtrlKit/実compiler/IPAが成功。UIKit/XCTest/daemonはfakeで実機受入ではない。
+- [IPA ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42490824375/artifacts/13622975254)は17,793,100bytes/SHA `a180014aa8e7ca5b9aa01ca5cec4e93223b07fdcadb1557c0902040eb642b9e0`。内部IPAはtop.ebato.loopctrl /0.3.4/build71/SHA `c17274153a4fbd2b5d03e3b620b7f5c6530cfcc263191fc27cbf9d2bd83b300e`。全CRC/安全なinventory/全22sourceとsealc01e6404d2c80be996e75df9710e3ca93b4286ae2c37f2d0e1bcd1490fdeadaaを照合。
+- [Mac検証ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42490824375/artifacts/13622323895)は414,690bytes/SHA `5a9c42df30b050210a5ccbd62524cacb1cb3fcb2e5161ebb178d6dc667605387`。実PBX/raw compiler log/6responsefilesを実引数へ結び、Perception/Navigation各strictO2/no-fast-math/fp-contract-off、Beat/ControllerO0、SwiftOnoneのprofilev2を確認。実app/runner2本でAPI/native_v11、全9 Mach-OでHOST hook/fixture/spy非混入。
+- host183=Controller119/25.493秒＋画像/算法64/77.634秒、全141必須path/skip0。client190/48.286秒、CI190/53.869秒、package205/1.878秒。native CI167/private16明示除外。Mac生成report3個のSHA `082e41c327183599f67716ca6ab3e2cbbe9c694c625e0a821232a3f35ac7fd00` を照合し、実暗号HTTPで補助画像選択2件・earliest前goods未評価1件をclientv12へ接続、active/report両journalの同一12key診断を確認した。外側のRPC状態と画像応答はfixtureであり、ここでは診断データのproducer/consumer接続を確認した。私有画像や未見実機の成功とは混同しない。
+
+## TEST-054実行手順
+
+**TEST054の実機テストをお願いします。** Controllerと診断producerを変更したため新IPAが必要です。clientv12/API1.98.14-ngg2/native_v11を使います。
+
+1. SafariでGitHubへログインし、[新IPA build71 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42490824375/artifacts/13622975254)を取得・展開します。
+2. LoopCtrlをStop Server→完全終了し、SideStoreで `upstream/release/LoopCtrl.ipa` へ更新。LoopCtrlを開き直してStart Server、いつものVPN/ディスクイメージ接続を確認します。
+3. 完全ソースZIPをSafariで取得・展開。フォルダ選択は `test_054.sh` のあるフォルダです。
+4. 手動クイックリスタート後、開幕金壁が見える新通常1-1を画面端操作0・左側が下でポーズします。
+5. iSHで実行します。
+
+```sh
+mkdir -p /mnt/necro_test054
+mount -t ios . /mnt/necro_test054
+cd /mnt/necro_test054 && sh test_054.sh
+```
+
+**「TEST-054: 終了」が出てから `runtime/test-054` 全体をZIPで返してください。** 初動・毎ビート・茶壁/扉の開通/進入・商品・最終ポーズ・終了待ちを教えてください。
+
+処理が終了し回収未完了と明示した場合だけ、同じLoopCtrl起動状態/ソース/runtimeで再実行し同run/export/cursorを回復します。回収完了済みなら再実行せずZIPを返します（resolved=trueでは新runが始まる）。同時に別テストを実行しません。人間以上の速度・全経路毎拍・指輪通知・全周回の実機受入は未完了です。
