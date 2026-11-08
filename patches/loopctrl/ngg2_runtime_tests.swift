@@ -938,10 +938,18 @@ NG2RuntimeTestHooks.beforeCaptureAdmission = {
         require(committed, "subtile_previous_assessment_is_public_before_rendering_followup")
     }
     NG2Fake.performBoundaryClockChange()
-    let current = report(subtile), wait = report(subtile)["motion_wait"]?.objectValue ?? [:]
+    let current = report(subtile)
+    let wait = current["motion_wait"]?.objectValue ?? [:]
     if wait["active"]?.boolValue == true && wait["attempts"]?.intValue == 1 {
         require(wait["last_motion"]?.intValue == 0 && current["input_state"]?.intValue == 3 &&
             NG2Fake.paths().count == 1, "subtile_UNKNOWN_ACK_wait_has_no_followup_MOVE")
+        let assessmentEvent = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.first {
+            $0["id"] == wait["command_id"]
+        }
+        require(assessmentEvent?["kind"]?.intValue == 4 && assessmentEvent?["outcome"]?.intValue == 2 &&
+            assessmentEvent?["motion"]?.intValue == 0 &&
+            assessmentEvent?["observed_capture_id"] == wait["last_capture_id"],
+            "motion_first_UNKNOWN_event_reference_matches_assessment")
         NG2Fake.lock.lock()
         if NG2Fake.firstUnknownID == 0 { NG2Fake.firstUnknownID = UInt64(wait["last_capture_id"]!.intValue!) }
         NG2Fake.walkPixelInset = 0

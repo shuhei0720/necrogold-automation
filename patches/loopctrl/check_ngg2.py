@@ -784,7 +784,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             checked(built)
             result = compile_run(sources, stage/'motion-reference-tests', output,
                 'runtime-motion-reference-mutation-red', extra, run_timeout=120)
-            require_red(result, 'FAIL motion_first_UNKNOWN_frame_pinned_beyond_recent_window')
+            require_red(result, 'FAIL motion_first_UNKNOWN_event_reference_matches_assessment')
             reds['motion-reference'] = result.stdout.strip()
             print('Runtime mutation observed: motion-reference / '+result.stdout.strip().splitlines()[-1], flush=True)
         finally:
