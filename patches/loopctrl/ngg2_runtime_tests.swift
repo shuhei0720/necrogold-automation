@@ -2061,10 +2061,245 @@ func testTargetDriftRevalidationCallbacksPublic() {
     }
 }
 // TEST052 PUBLIC FIXTURES END.
+// TEST053 PUBLIC FIXTURES BEGIN.
+// Hold the worker between complete captures while the fixture changes its
+// logical clock. No in-flight PNG/HUD can then straddle an injected AX cost.
+final class StartupCaptureFence {
+    private let lock = NSLock()
+    private var requested = false
+    private let arrived = DispatchSemaphore(value: 0)
+    private let resume = DispatchSemaphore(value: 0)
+    func boundary() {
+        NG2Fake.performBoundaryClockChange()
+        lock.lock(); let hold = requested; lock.unlock()
+        if hold { arrived.signal(); resume.wait() }
+    }
+    func hold(_ change: @escaping () -> Void = {}) {
+        lock.lock(); requested = true; lock.unlock()
+        require(NG2Fake.changeClockAtCaptureBoundary(change), "startup_complete_capture_boundary_reached")
+        require(arrived.wait(timeout: .now()+2) == .success, "startup_capture_worker_held_before_next_request")
+    }
+    func release() {
+        lock.lock(); requested = false; lock.unlock()
+        resume.signal()
+    }
+}
+func testStartupRemotePixelProof() {
+    var scenes = [NG2Scene]()
+    for variant in [Int32(0), 1, 2, 1] {
+        var bytes = Data(count: 896*414*4)
+        let count = bytes.count
+        require(bytes.withUnsafeMutableBytes {
+            ng2_fixture_floor_pixels_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, 0, 0, 0.5, 0)
+        } == 1 && bytes.withUnsafeMutableBytes {
+            ng2_fixture_remote_cell($0.bindMemory(to: UInt8.self).baseAddress, count, variant)
+        } == 1, "startup_four_remote_pixel_frames_generated")
+        var scene = NG2Scene()
+        require(bytes.withUnsafeBytes {
+            ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, 896*4, &scene)
+        } == 0 && scene.state == 2 && scene.gold_state == 2 && scene.goods == 0,
+            "startup_remote_frames_pass_actual_perception")
+        scenes.append(scene)
+    }
+    var visits = [UInt16](repeating: 0, count: 1089); visits[16*33+16] = 1
+    var choices = [NG2Decision]()
+    for index in scenes.indices {
+        var choice = NG2Decision()
+        require(visits.withUnsafeBufferPointer {
+            ng2_choose(&scenes[index], 0, 0, $0.baseAddress, $0.count, nil, &choice)
+        } == 1, "startup_remote_frames_have_actual_planner_choice")
+        choices.append(choice)
+    }
+    for index in 1..<scenes.count {
+        var before = scenes[index-1], after = scenes[index], motion = NG2Motion()
+        let oldTiles = withUnsafeBytes(of: before.tiles) { Array($0) }
+        let newTiles = withUnsafeBytes(of: after.tiles) { Array($0) }
+        let a = choices[index-1], b = choices[index]
+        require(oldTiles != newTiles && oldTiles.indices.filter { oldTiles[$0] == 2 } ==
+            newTiles.indices.filter { newTiles[$0] == 2 } &&
+            withUnsafeBytes(of: before.protected_cells, { Data($0) }) ==
+            withUnsafeBytes(of: after.protected_cells, { Data($0) }) &&
+            a.direction == b.direction && a.reason == b.reason && a.target_x == b.target_x &&
+            a.target_y == b.target_y && a.obstacle == b.obstacle &&
+            ng2_motion(&before, &after, a.direction, &motion) == 1 && motion.kind == 2 && motion.dx == 0 && motion.dy == 0,
+            "startup_three_real_remote_changes_same_choice_gold_protected_and_strict_BLOCKED")
+    }
+}
+func testInitialSlotPreparationPublic() {
+    for slowQuery in [false, true] {
+        NG2Fake.reset(.walk)
+        NG2Fake.useFixedCaptureClock()
+        NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+        let id = identity(), fence = StartupCaptureFence(), stateLock = NSLock()
+        diagnoseFixture(id)
+        var aligned = false, armRecorded = false, stageChanges = false
+        var firstTickAt: UInt64 = 0, firstSlotTarget: UInt64 = 0, firstSlotNB: UInt64 = 0
+        var oldNearNB: UInt64 = 0, nextVariant = 0
+        var changedCaptureIDs: [Int: Int] = [:], observedChangeIDs = Set<Int>()
+        var publicationAt: UInt64 = 0, queryStart: UInt64 = 0, queryEnd: UInt64 = 0, mainEntry: UInt64 = 0
+        var heldID: UInt64 = 0, heldCommand: [String: JSONValue] = [:], queryCount = 0
+        NG2RuntimeTestHooks.beforeCaptureAdmission = {
+            fence.boundary()
+            stateLock.lock()
+            let changing = stageChanges && nextVariant < 3
+            let variant: Int32
+            if changing {
+                nextVariant += 1
+                variant = [Int32(1), 2, 1][nextVariant-1]
+                changedCaptureIDs[NG2Fake.countRequests()+1] = nextVariant
+            } else { variant = 1 }
+            stateLock.unlock()
+            if changing { NG2Fake.lock.lock(); NG2Fake.remoteVariant = variant; NG2Fake.lock.unlock() }
+        }
+        NG2RuntimeTestHooks.beforeControlTick = {
+            let current = report(id)
+            let moves = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+            stateLock.lock(); let wasAligned = aligned, wasArmed = armRecorded; stateLock.unlock()
+            if !wasAligned && (current["beat_period_ns"]?.intValue ?? 0) > 0 && moves.isEmpty {
+                fence.hold {
+                    let now = NG2Fake.virtualClock()
+                    NG2Fake.lock.lock(); let epoch = NG2Fake.phaseBase; NG2Fake.fixedCaptureAdvance = 20_000_000; NG2Fake.lock.unlock()
+                    let period: UInt64 = 520_000_000
+                    let phase = (now-epoch+150_000_000) % period
+                    let nextNB = now + period-phase
+                    let nearNB = nextNB-now > 2_570_056 ? nextNB : nextNB+period
+                    NG2Fake.advance(nearNB-2_570_056-now)
+                    stateLock.lock(); aligned = true; firstTickAt = NG2Fake.virtualClock(); oldNearNB = nearNB; stateLock.unlock()
+                }
+                return
+            }
+            if wasAligned && !wasArmed {
+                let target = UInt64(current["next_target_ns"]?.intValue ?? 0)
+                guard target > 150_000_000 else { return }
+                let nb = target-150_000_000
+                stateLock.lock(); let selectedAt = firstTickAt, near = oldNearNB; stateLock.unlock()
+                require(nb >= selectedAt+50_000_000 && abs(Int64(nb)-Int64(near+520_000_000)) < 5_000_000,
+                    "startup_first_slot_reserves_foreground_preparation_margin")
+                require(moves.isEmpty && current["input_state"]?.intValue == 0 && current["current_command_id"]?.intValue == 0,
+                    "startup_armed_slot_has_no_ticket_before_publication_window")
+                stateLock.lock(); armRecorded = true; stageChanges = true; firstSlotTarget = target; firstSlotNB = nb; stateLock.unlock()
+                fence.release()
+            }
+            let captureID = current["last_capture_id"]?.intValue ?? 0
+            stateLock.lock()
+            if changedCaptureIDs[captureID] != nil { observedChangeIDs.insert(captureID) }
+            let changing = stageChanges, observed = observedChangeIDs.count
+            stateLock.unlock()
+            if changing && observed < 3 {
+                require(moves.isEmpty && current["input_state"]?.intValue == 0 &&
+                    (current["scene_changes"]?.arrayValue ?? []).isEmpty,
+                    "startup_three_remote_changes_do_not_consume_initial_reservations")
+            }
+        }
+        NG2RuntimeTestHooks.beforeMainAdmission = {
+            let current = report(id)
+            let currentID = current["current_command_id"]?.intValue ?? 0
+            let command = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+                .first { $0["id"]?.intValue == currentID && $0["kind"]?.intValue == 4 }
+            guard let command else { return }
+            stateLock.lock()
+            let observed = observedChangeIDs.count, target = firstSlotTarget, nb = firstSlotNB
+            publicationAt = NG2Fake.virtualClock()
+            stateLock.unlock()
+            require(observed == 3 && (current["scene_changes"]?.arrayValue ?? []).isEmpty &&
+                command["target_ns"]?.intValue == Int(target) && command["not_before_ns"]?.intValue == Int(nb),
+                "startup_publication_waits_for_latest_three_changes_without_replan_budget")
+            require(nb >= publicationAt+50_000_000 && nb <= publicationAt+100_000_000,
+                "startup_first_ticket_is_published_inside_50_to_100ms_window")
+            fence.hold()
+        }
+        NG2Fake.lock.lock()
+        NG2Fake.beforeForegroundQuery = {
+            let current = report(id)
+            let currentID = current["current_command_id"]?.intValue ?? 0
+            guard (current["events"]?.arrayValue ?? []).contains(where: {
+                $0.objectValue?["id"]?.intValue == currentID && $0.objectValue?["kind"]?.intValue == 4
+            }) else { return }
+            stateLock.lock(); queryCount += 1; queryStart = NG2Fake.virtualClock(); stateLock.unlock()
+            NG2Fake.advance(slowQuery ? 120_000_000 : 11_692_042)
+            stateLock.lock(); queryEnd = NG2Fake.virtualClock(); stateLock.unlock()
+        }
+        NG2Fake.lock.unlock()
+        NG2RuntimeTestHooks.beforeMainAuthority = {
+            let current = report(id)
+            let currentID = current["current_command_id"]?.intValue ?? 0
+            guard (current["events"]?.arrayValue ?? []).contains(where: {
+                $0.objectValue?["id"]?.intValue == currentID && $0.objectValue?["kind"]?.intValue == 4
+            }) else { return }
+            stateLock.lock(); mainEntry = NG2Fake.virtualClock(); stateLock.unlock()
+            NG2Fake.advance(1_668_791)
+        }
+        NG2RuntimeTestHooks.scheduleTicket = { commandID, callback in
+            let command = (report(id)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+                .first { $0["id"]?.intValue == Int(commandID) && $0["kind"]?.intValue == 4 }
+            guard let command else { return false }
+            stateLock.lock(); heldID = commandID; heldCommand = command; stateLock.unlock()
+            NG2Fake.holdTicket(commandID, callback)
+            return true
+        }
+        NG2RuntimeTestHooks.afterTicketReturned = { commandID in
+            stateLock.lock(); let direction = commandID == heldID, target = firstSlotTarget; stateLock.unlock()
+            guard direction else { return }
+            if !slowQuery {
+                let observation = target+80_000_000, now = NG2Fake.virtualClock()
+                require(now <= observation, "startup_first_move_returns_before_original_observation_horizon")
+                NG2Fake.lock.lock(); NG2Fake.walkObservationAfter = observation; NG2Fake.lock.unlock()
+                NG2Fake.advance(observation-now)
+            }
+            NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(commandID); NG2Fake.lock.unlock()
+            fence.release()
+        }
+        require(call("necro_native_start", id).1 == nil, "startup_public_run_starts")
+        pump("startup_first_prepared_callback_is_held", timeout: 15) {
+            _ = call("necro_native_status", id, keepalive: true)
+            stateLock.lock(); defer { stateLock.unlock() }; return heldID != 0
+        }
+        stateLock.lock()
+        let commandID = heldID, original = heldCommand, queries = queryCount
+        let queryDuration = queryEnd-queryStart, selectedNB = firstSlotNB, queriedEnd = queryEnd
+        stateLock.unlock()
+        require(queries == 1 && queryDuration == (slowQuery ? 120_000_000 : 11_692_042) && NG2Fake.paths().isEmpty,
+            "startup_actual_AX_cost_precedes_callback_without_sending_input")
+        let now = NG2Fake.virtualClock()
+        if now < selectedNB { NG2Fake.advance(selectedNB-now) }
+        NG2Fake.releaseTicket(commandID)
+        pump("startup_actual_callback_and_capture_workers_drained", timeout: 15) {
+            _ = call("necro_native_status", id, keepalive: true)
+            return drained(id)
+        }
+        let final = report(id)
+        let moves = (final["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
+        require(moves.count == 1 && ["target_ns", "not_before_ns", "deadline_ns", "ordinal", "direction"].allSatisfy {
+            moves[0][$0] == original[$0]
+        }, "startup_one_original_slot_survives_prepare_callback_and_drain")
+        stateLock.lock(); let entry = mainEntry; stateLock.unlock()
+        if slowQuery {
+            let failure = final["dispatch_failure"]?.objectValue ?? [:]
+            require(final["inputs"]?.intValue == 0 && final["moves"]?.intValue == 0 && NG2Fake.paths().isEmpty &&
+                moves[0]["begin_ns"]?.intValue == 0 && failure["code"]?.stringValue == "too_late" &&
+                failure["query_end_ns"]?.intValue == Int(queriedEnd) && failure["main_entry_ns"]?.intValue == Int(entry) &&
+                failure["gate_ns"]?.intValue == Int(entry+1_668_791),
+                "startup_slow_AX_still_rejects_at_original_10ms_deadline_without_retry")
+        } else {
+            require(final["inputs"]?.intValue == 1 && final["moves"]?.intValue == 1 && final["goods"]?.intValue == 1 &&
+                final["dispatch_failure"] == .null && NG2Fake.paths().count == 1 &&
+                moves[0]["begin_ns"]?.intValue == Int(selectedNB+1_668_791) &&
+                moves[0]["begin_ns"]!.intValue! <= original["deadline_ns"]!.intValue!,
+                "startup_measured_AX_and_main_cost_send_one_move_in_original_window")
+        }
+        require(final["paused"]?.intValue == 1 && final["workers_drained"]?.boolValue == true &&
+            (final["scene_changes"]?.arrayValue ?? []).isEmpty && NG2Fake.taps().count == 1 && !runtime.hasLease,
+            "startup_final_pause_and_complete_actual_callback_drain")
+        fixtureFailureSnapshot = nil
+    }
+}
+// TEST053 PUBLIC FIXTURES END.
 testContinuousRevalidationCallbacksPublic()
 testPagedResultsPublic()
 testTargetDriftPlannerProof()
 testTargetDriftRevalidationCallbacksPublic()
+testStartupRemotePixelProof()
+testInitialSlotPreparationPublic()
 
 NG2Fake.reset(.pause)
 NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()

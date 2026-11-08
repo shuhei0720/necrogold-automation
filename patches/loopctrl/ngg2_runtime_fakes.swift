@@ -58,6 +58,7 @@ enum NG2Fake {
     // the timestamps supplied to the real C beat model. Other modes retain
     // their wall-clock and explicit watchdog/deadline-advance contracts.
     static var fixedClock: UInt64?
+    static var fixedCaptureAdvance: UInt64 = 80_000_000
     static var pending = 0
     static var replyData: Data?
     static var replyError: String?
@@ -66,7 +67,7 @@ enum NG2Fake {
     static var observeEntries: [UInt64] = []
     static var observeExits: [UInt64] = []
     static func reset(_ next: Mode) {
-        lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; authenticatedOwnerActive = true; frontPID = 42; callbacks = []; offset = 0; fixedClock = nil; pending = 0 }
+        lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; authenticatedOwnerActive = true; frontPID = 42; callbacks = []; offset = 0; fixedClock = nil; fixedCaptureAdvance = 80_000_000; pending = 0 }
         lock.fixtureLocked {
             replyData = nil; replyError = nil
             captureTimeProvider = nil
@@ -151,9 +152,10 @@ enum NG2Fake {
         let change = lock.fixtureLocked { () -> (() -> Void)? in
             let old = boundaryClockChange; boundaryClockChange = nil
             // An explicit admission/crossing owns its exact logical time.
-            // Ordinary captures sample a stable 82ms cadence: +80ms here,
-            // +2ms at reply, with the drawn HUD at the 1ms midpoint.
-            if old == nil, let now = fixedClock { fixedClock = now + 80_000_000 }
+            // Ordinary captures default to a stable 82ms cadence: +80ms here,
+            // +2ms at reply, with the drawn HUD at the 1ms midpoint. TEST053
+            // opts into +20ms only after its first phase fit.
+            if old == nil, let now = fixedClock { fixedClock = now + fixedCaptureAdvance }
             return old
         }
         change?()

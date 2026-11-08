@@ -1,0 +1,197 @@
+{
+  "schema": "ngg2-test053-fixtures-v1",
+  "source_zip_sha256": "237952c07a388101cbf73ee204991891c45f91f6030fbb399405eb19a3924650",
+  "source_reports": [
+    {
+      "run_id": "388744e136a944669dd0cae1c2f86a9b",
+      "sha256": "fe7fedd9cb2b77d72f536f63f36eed94340c306a73a4fc303eeb7bb2f11ec20a"
+    },
+    {
+      "run_id": "c934567d1600449e8ede6529b3c78150",
+      "sha256": "8f0260adacfa6041f87465208eb3290d2bd6ad5ebaac59df2d812efb939fc799"
+    }
+  ],
+  "count": 17,
+  "purpose": "Required known TEST052 startup/image/compiler replay. Synthetic HUD/time lead-in is not missing real future frames; no unseen/device acceptance.",
+  "images": [
+    {
+      "path": "test052-received/test-052/native-388744e136a944669dd0cae1c2f86a9b/images/capture-000001.png",
+      "sha256": "6da990f450a531e01b6363e4a4e48ec3ff6a58da887a801be8826ef8829a2ec4",
+      "bytes": 88364,
+      "capture_id": 1,
+      "state": 0,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-388744e136a944669dd0cae1c2f86a9b/images/capture-000004.png",
+      "sha256": "b3ef696ab9662a43e3879f82dccd17ca9d78fa8e9ccae8a45aac8004e82d8a47",
+      "bytes": 70333,
+      "capture_id": 4,
+      "state": 1,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-388744e136a944669dd0cae1c2f86a9b/images/capture-000008.png",
+      "sha256": "53143d8f12402633dc077e11702a640cd04a1fc1f46ea58be6e91163f18f37cd",
+      "bytes": 287731,
+      "capture_id": 8,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-388744e136a944669dd0cae1c2f86a9b/images/capture-000038.png",
+      "sha256": "9cea77ee045864b1daf6d8dacdd3a7141cdb54a9985f630d46715d6633e9a1d7",
+      "bytes": 291144,
+      "capture_id": 38,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-388744e136a944669dd0cae1c2f86a9b/images/capture-000045.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 45,
+      "state": 1,
+      "goods": 0,
+      "stable": false
+    },
+    {
+      "path": "test052-received/test-052/native-388744e136a944669dd0cae1c2f86a9b/images/capture-000046.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 46,
+      "state": 1,
+      "goods": 0,
+      "stable": false
+    },
+    {
+      "path": "test052-received/test-052/native-388744e136a944669dd0cae1c2f86a9b/images/capture-000047.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 47,
+      "state": 1,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-c934567d1600449e8ede6529b3c78150/images/capture-000001.png",
+      "sha256": "1051387aaa2addef3817000f0587366aa96aa10698e146289eedf20bf982e3f5",
+      "bytes": 90262,
+      "capture_id": 1,
+      "state": 0,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-c934567d1600449e8ede6529b3c78150/images/capture-000003.png",
+      "sha256": "f0c9d33f90881ad18c15b3d9c3e53984e13e659d7bcdbce08b7becb635356da6",
+      "bytes": 69907,
+      "capture_id": 3,
+      "state": 1,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-c934567d1600449e8ede6529b3c78150/images/capture-000008.png",
+      "sha256": "f4799e42da66a043e6a26ac03e8754cbc979a66ffaf971826fabe1406dd512fe",
+      "bytes": 293636,
+      "capture_id": 8,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-c934567d1600449e8ede6529b3c78150/images/capture-000034.png",
+      "sha256": "236c469db0626848d2bfd3df980583f4d2030b9d2e7fbb221d66c1eba3efa9e7",
+      "bytes": 300026,
+      "capture_id": 34,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-c934567d1600449e8ede6529b3c78150/images/capture-000035.png",
+      "sha256": "9d0db3faf68de1d27456a8253e215cea9bd9e32871bbf435ee57c19bf6bd3333",
+      "bytes": 301482,
+      "capture_id": 35,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-c934567d1600449e8ede6529b3c78150/images/capture-000036.png",
+      "sha256": "41e3b459d9a178fdafc9d179055a022564d454882763d00ea7b1fbad18a25faa",
+      "bytes": 300960,
+      "capture_id": 36,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-c934567d1600449e8ede6529b3c78150/images/capture-000037.png",
+      "sha256": "c7442f476b04ecf35b32a3a5681e3c3165e7d26d73c9aa837516ecf7cef21365",
+      "bytes": 298975,
+      "capture_id": 37,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test052-received/test-052/native-c934567d1600449e8ede6529b3c78150/images/capture-000041.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 41,
+      "state": 1,
+      "goods": 0,
+      "stable": false
+    },
+    {
+      "path": "test052-received/test-052/native-c934567d1600449e8ede6529b3c78150/images/capture-000042.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 42,
+      "state": 1,
+      "goods": 0,
+      "stable": false
+    },
+    {
+      "path": "test052-received/test-052/native-c934567d1600449e8ede6529b3c78150/images/capture-000043.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 43,
+      "state": 1,
+      "goods": 0,
+      "stable": true
+    }
+  ],
+  "motion_pairs_by_run": {
+    "c934567d1600449e8ede6529b3c78150": [
+      [
+        8,
+        34
+      ],
+      [
+        34,
+        35
+      ],
+      [
+        35,
+        36
+      ],
+      [
+        36,
+        37
+      ]
+    ],
+    "388744e136a944669dd0cae1c2f86a9b": [
+      [
+        8,
+        38
+      ]
+    ]
+  }
+}

@@ -1369,6 +1369,15 @@ class PerceptionPackageCallsiteTests(unittest.TestCase):
         report = json.loads((self.base / 'build-manifest.json').read_text())
         self.assertEqual(report['perception_build_profile'], profile)
 
+    def test_native_v10_profile_v2_is_included_in_actual_written_manifest(self):
+        from unittest.mock import Mock
+        profile = {'profile': 'strict-O2-v2', 'verified': True}
+        proof = Mock(return_value=profile)
+        self.run_package('necrogold_native_v10', proof)
+        proof.assert_called_once_with(self.upstream, required_version=2)
+        report = json.loads((self.base / 'build-manifest.json').read_text())
+        self.assertEqual(report['perception_build_profile'], profile)
+
     def test_native_v5_preserves_earlier_package_behavior_without_profile(self):
         from unittest.mock import Mock
         proof = Mock(side_effect=AssertionError('legacy package requested new profile'))
@@ -1479,6 +1488,9 @@ class PerceptionGuardMutationTests(unittest.TestCase):
 
     def test_actual_native_v8_package_profile_callsite_removal_is_detected(self):
         self.require_package_profile_callsite_removal_detected('test_native_v8_profile_v2_is_included_in_actual_written_manifest')
+
+    def test_actual_native_v10_package_profile_callsite_removal_is_detected(self):
+        self.require_package_profile_callsite_removal_detected('test_native_v10_profile_v2_is_included_in_actual_written_manifest')
 
 
 if __name__ == '__main__':

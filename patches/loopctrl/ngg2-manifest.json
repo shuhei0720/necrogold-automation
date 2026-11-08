@@ -3,8 +3,8 @@
   "upstream_commit": "6e25cf6a9f65bc86c372cdce94bdb151d0cf6767",
   "api_version": "1.98.14-ngg2",
   "capability": "necrogold_native_v1",
-  "client_capability": "necrogold_native_v9",
-  "patch_sha256": "b12e1956c1c40f8d769382d044c6bb35c9182240a34897d76d7ecc26ee0b1487",
+  "client_capability": "necrogold_native_v10",
+  "patch_sha256": "595e8d2b438abcaef3a4c37c36a27b6bda8ae10c3ccca1bdb9d7d4876f889dcc",
   "files": {
     "LoopCtrlUITests/ActionHandler.swift": {
       "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
@@ -19,7 +19,7 @@
     "LoopCtrlKit/RPCMethod.swift": {
       "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
       "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
-      "patched_sha256": "ba564933febe798fbfa3e12350087dd81b366dab9c39a9b88989e9818d814627"
+      "patched_sha256": "c8f2dd59d9cc1cdbed635225de24bae217e78688253a67a051475de3c66365c1"
     },
     "LoopCtrlKit/JSONRPCServer.swift": {
       "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
@@ -67,7 +67,7 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "46de50def0a29fbac19c764a52ee2786d33d02c841ac9929ac2b525d2ed503b1"
+      "sha256": "a3960eeb2242afb86689427d8f0b9d558d74d3c1343989eccc3e78473bbe9d42"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
@@ -87,7 +87,7 @@
     },
     "Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift": {
       "source": "NG2RPCContractsTests.swift",
-      "sha256": "a89071d1cade5f4ac565e76719d58c46be35524b2b74b05ec366b7efeda12f36"
+      "sha256": "e6a40be632929242c04e5b3d06dcad4d7b618eb7ae6d52efed7ac0514062ce5f"
     },
     "LoopCtrlUITests/NG2Raster.swift": {
       "source": "NG2Raster.swift",

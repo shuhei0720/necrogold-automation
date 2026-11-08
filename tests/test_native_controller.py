@@ -139,7 +139,149 @@ class NativeControllerTests(unittest.TestCase):
         self.assertEqual(PERIOD,self.status().beat_period_ns)
         return terrain
     def next_move(self):
-        ready,c=self.tick();self.assertEqual((ready,c.kind),(1,4));return c
+        ready,c=self.tick()
+        s=self.status()
+        if not ready and not s.inputs and not s.moves and not s.lead_confirmed and not s.reason and s.next_target_ns:
+            # Positive first-MOVE fixtures explicitly reach the publication
+            # window. Direct negative tick/begin tests never use this helper.
+            self.now=max(self.now,s.next_target_ns-s.lead_ns-100_000_000)
+            ready,c=self.tick()
+        self.assertEqual((ready,c.kind),(1,4));return c
+    def test_initial_slot_waits_before_publishing_a_far_first_beat(self):
+        self.fit();self.now=3_840_000_000
+        ready,command=self.tick()
+        self.assertEqual(0,ready)
+        self.assertEqual((0,0,0),(command.kind,self.status().input_state,len(self.events())))
+        self.assertEqual(4_480_000_000,self.status().next_target_ns)
+    def test_initial_slot_selects_preparation_margin_before_first_ticket(self):
+        self.fit();self.now=3_807_430_000
+        self.tick();status=self.status()
+        self.assertGreaterEqual(status.next_target_ns-status.lead_ns-self.now,50_000_000)
+        self.assertEqual((4_480_000_000,0,0),(status.next_target_ns,status.input_state,len(self.events())))
+    def armed_initial(self,terrain=None):
+        terrain=self.fit(terrain);self.now=3_840_000_000
+        self.assertEqual(0,self.tick()[0]);status=self.status()
+        self.assertEqual((4_480_000_000,0,0),(status.next_target_ns,status.input_state,len(self.events())))
+        return terrain,status.next_target_ns-status.lead_ns
+    def test_initial_slot_publication_boundaries_and_no_reselection(self):
+        for remaining,expected in ((100_000_001,0),(100_000_000,1),(50_000_000,1),(49_999_999,0)):
+            with self.subTest(remaining=remaining):
+                self.fresh_engine();terrain,not_before=self.armed_initial()
+                self.now=not_before-remaining;ready,command=self.tick()
+                self.assertEqual(expected,ready)
+                if expected:
+                    self.assertEqual((4,4_480_000_000,not_before,not_before+10_000_000,1),
+                                     (command.kind,command.target_ns,command.not_before_ns,command.deadline_ns,command.id))
+                    self.assertEqual(not_before+PERIOD+10_000_000,self.motion_wait().deadline_ns)
+                else:
+                    self.assertEqual((0,0,[]),(self.status().input_state,self.status().current_command_id,self.events()))
+                    if remaining>100_000_000:
+                        self.assertEqual(0,self.status().reason)
+                        for _ in range(3):self.assertEqual(0,self.tick()[0])
+                        self.now=not_before-100_000_000
+                        self.assertEqual((1,4),(lambda v:(v[0],v[1].kind))(self.tick()))
+                    else:
+                        self.assertEqual(9,self.status().reason)
+                        self.now+=PERIOD;self.observe(self.scene(2,2,terrain,beat=True))
+                        self.assertNotEqual(4,self.tick()[1].kind)
+                        self.assertFalse(any(e.command.kind==4 for e in self.events()))
+    def test_initial_slot_uses_latest_normal_planner_before_any_authority(self):
+        _,not_before=self.armed_initial()
+        latest=textured({**{(x,0):'floor' for x in range(-7,1)},(-8,0):'door',
+                         (-8,-1):'gold',(-8,1):'gold',(-4,-2):'stone',(5,1):'stone'})
+        self.assertEqual('left',nav.choose(latest,(0,0))['direction'])
+        self.now=not_before-100_000_000;self.observe(self.scene(2,2,latest,beat=True))
+        ready,command=self.tick()
+        self.assertEqual((1,4,1,self.number,4_480_000_000),(ready,command.kind,command.direction,
+                         command.source_capture_id,command.target_ns))
+        self.assertEqual([],self.scene_changes())
+        self.ack(command);self.observed_result(command,translated(latest,1))
+        self.assertEqual((1,1,-1,0),(self.status().inputs,self.status().moves,self.status().x,self.status().y))
+    def test_initial_slot_expiry_precedes_unknown_wait_and_never_recovers(self):
+        terrain,not_before=self.armed_initial();self.now=not_before-49_999_999
+        unknown=self.scene(0);self.observe(unknown)
+        self.assertEqual(0,self.tick()[0]);self.assertEqual((9,0),(self.status().reason,self.status().inputs))
+        self.now+=PERIOD;self.observe(self.scene(2,2,terrain,beat=True))
+        self.assertNotEqual(4,self.tick()[1].kind)
+        self.assertFalse(any(e.command.kind==4 for e in self.events()))
+    def test_initial_slot_goods_and_control_guards_prevent_publication(self):
+        for case in ('goods','foreground','locked','owner','cancel'):
+            with self.subTest(case=case):
+                self.fresh_engine();terrain,not_before=self.armed_initial();self.now=not_before-100_000_000
+                if case=='goods':
+                    terrain.goods='visible';self.observe(self.scene(2,2,terrain,beat=True),stable=0,prefix=99)
+                if case=='cancel':self.lib.ng2_controller_cancel(self.engine,self.now,2)
+                self.assertNotEqual(4,self.tick(front=int(case!='foreground'),locked=int(case=='locked'),owner=int(case!='owner'))[1].kind)
+                self.assertEqual({'goods':1,'foreground':3,'locked':4,'owner':5,'cancel':2}[case],self.status().reason)
+                self.assertFalse(any(e.command.kind==4 for e in self.events()))
+    def test_initial_slot_discarded_prefix_and_unstable_frames_do_not_replace_source(self):
+        for case in ('prefix','unstable','old_id'):
+            with self.subTest(case=case):
+                self.fresh_engine();terrain,not_before=self.armed_initial();source=self.status().last_capture_id
+                self.now=not_before-100_000_000
+                args={'prefix':1} if case=='prefix' else {'stable':0} if case=='unstable' else {'number':source}
+                self.assertEqual(0,self.observe(self.scene(2,2,terrain,beat=True),**args))
+                ready,command=self.tick();self.assertEqual((1,4,source),(ready,command.kind,command.source_capture_id))
+                self.assertEqual([],self.scene_changes())
+    def test_initial_slot_invalid_track_cannot_recover_via_immediate_successful_fit(self):
+        from tests.test_native_beat import NativeSample,NativeModel
+        terrain=textured();rows=[]
+        for _ in range(4):
+            self.now+=700_000_000;scene=self.scene(2,2,terrain,beat=True)
+            rows.append((self.now,scene.beat_remaining));self.observe(scene)
+        model=self.reconstructed_public_beat_model(rows)
+        self.assertEqual(0,self.tick()[0]);target=self.status().next_target_ns
+        self.now+=2;scene=self.scene(2,2,terrain,beat=True);scene.beat_remaining=(scene.beat_remaining+.09)%1
+        rows.append((self.now,scene.beat_remaining));samples=[]
+        for end,q in rows:
+            sample=NativeSample();self.assertEqual(1,self.lib.ng2_make_sample(q,104.,446.,end-2,end,C.byref(sample)));samples.append(sample)
+        samples=(NativeSample*len(samples))(*samples);updated=NativeModel()
+        self.assertEqual(0,self.lib.ng2_beat_track(C.byref(model),samples,len(samples),C.byref(updated)))
+        self.assertEqual(1,self.lib.ng2_beat_fit(samples,len(samples),C.byref(updated)))
+        self.assertTrue(updated.period_ns)
+        self.observe(scene)
+        self.assertEqual((8,0,0,[]),(self.status().reason,self.status().inputs,self.status().moves,self.events()))
+        self.now=target+PERIOD;self.observe(self.scene(2,2,terrain,beat=True))
+        self.assertNotEqual(4,self.tick()[1].kind)
+        self.assertFalse(any(e.command.kind==4 for e in self.events()))
+    def test_initial_slot_freezes_period_before_first_ticket_and_motion_horizon(self):
+        terrain=textured();original_period=515_000_000
+        def observed(bias=0):
+            scene=self.scene(2,2,terrain,beat=True)
+            scene.beat_remaining=(((5*SECOND-(self.now-1))%original_period)/original_period+bias)%1
+            self.observe(scene)
+        for _ in range(4):self.now+=700_000_000;observed()
+        self.assertEqual(0,self.tick()[0]);target=self.status().next_target_ns;not_before=target-self.status().lead_ns
+        self.now+=50_000_000;observed(.04)
+        self.assertNotEqual(original_period,self.status().beat_period_ns)
+        self.assertEqual(0,self.tick()[0]);self.assertEqual(target,self.status().next_target_ns)
+        self.now=not_before-100_000_000;ready,old=self.tick();wait=self.motion_wait()
+        self.assertEqual((1,4,target,not_before),(ready,old.kind,old.target_ns,old.not_before_ns))
+        self.assertEqual(target+original_period-150_000_000+10_000_000,wait.deadline_ns)
+        terrain.tiles[(-10,4)]='stone';self.now+=2;observed(.04);ready,new=self.tick()
+        self.assertEqual((1,4),(ready,new.kind))
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,wait.deadline_ns),
+                         (new.target_ns,new.not_before_ns,new.deadline_ns,self.motion_wait().deadline_ns))
+        self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,new.id,new.not_before_ns,1,0,1))
+    def test_initial_slot_fresh_publication_cannot_extend_original_source_or_phase_caps(self):
+        for horizon in ('source','phase'):
+            for late in (0,1):
+                with self.subTest(horizon=horizon,late=late):
+                    self.fresh_engine();terrain=self.fit();self.now=4_130_000_002
+                    self.observe(self.scene(2,2,terrain,beat=True))
+                    original_bound=(self.status().last_capture_start_ns if horizon=='source' else self.now-1)+3*SECOND
+                    self.now=6_700_000_000
+                    if horizon=='phase':self.observe(self.scene(2,2,terrain,beat=False))
+                    self.assertEqual(0,self.tick()[0]);target=self.status().next_target_ns
+                    self.assertEqual(7_080_000_000,target)
+                    self.now=target-150_000_000-100_000_000
+                    self.observe(self.scene(2,2,terrain,beat=True));ready,command=self.tick()
+                    self.assertEqual((1,4),(ready,command.kind))
+                    self.assertEqual(original_bound-200_000_000,command.deadline_ns)
+                    self.assertEqual(original_bound,self.motion_wait().deadline_ns)
+                    self.assertGreater(command.source_start_ns+3*SECOND,original_bound)
+                    self.now=command.deadline_ns+late
+                    self.assertEqual(1-late,self.lib.ng2_controller_begin(self.engine,command.id,self.now,1,0,1))
     def observed_result(self,command,terrain,offset=80_000_002):
         self.now=max(self.now+2,command.target_ns+offset)
         self.observe(self.scene(2,2,terrain,beat=True))
@@ -508,6 +650,72 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
             self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old_id,current.not_before_ns,1,0,1))
             self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,old_id,current.not_before_ns,1))
         self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,current.id,current.not_before_ns,1,0,1))
+    def test_required_test052_three_flickers_before_initial_publication(self):
+        manifest=json.loads((ROOT/'tests/test053-fixtures.json').read_text())
+        self.assertEqual(('ngg2-test053-fixtures-v1',17),(manifest['schema'],manifest['count']))
+        fixture_root=Path(os.environ.get('NECRO_TEST053_FIXTURE_ROOT','/workspace/analysis-evidence'))
+        analyze=self.lib.ng2_analyze_rgba
+        analyze.argtypes=[C.c_void_p,C.c_size_t,C.c_size_t,C.POINTER(Scene)]
+        class Decision(C.Structure):
+            _fields_=[(field,C.c_int32) for field in ('direction','reason','target_x','target_y','obstacle')]
+        class Motion(C.Structure):
+            _fields_=[(field,C.c_int32) for field in ('kind','dx','dy')]
+        class Entrance(C.Structure):
+            _fields_=[(field,C.c_int32) for field in ('valid','x','y','direction')]
+        choose=self.lib.ng2_choose
+        choose.argtypes=[C.POINTER(Scene),C.c_int32,C.c_int32,C.POINTER(C.c_uint16),C.c_size_t,C.POINTER(Entrance),C.POINTER(Decision)]
+        motion=self.lib.ng2_motion;motion.argtypes=[C.POINTER(Scene),C.POINTER(Scene),C.c_int32,C.POINTER(Motion)]
+        visits=(C.c_uint16*1089)();visits[16*33+16]=1
+        frames={};terrain={}
+        for entry in manifest['images']:
+            capture=entry['capture_id']
+            if 'native-c934567d1600449e8ede6529b3c78150/' not in entry['path'] or capture not in (34,35,36,37):continue
+            path=fixture_root/entry['path'];self.assertTrue(path.is_file(),str(path));raw=path.read_bytes()
+            self.assertEqual((entry['bytes'],entry['sha256']),(len(raw),hashlib.sha256(raw).hexdigest()))
+            with Image.open(path) as image:
+                rgba=image.convert('RGBA');pixels=rgba.tobytes();frame=Scene()
+                self.assertEqual((896,414),rgba.size)
+                self.assertEqual(0,analyze(pixels,len(pixels),rgba.width*4,C.byref(frame)))
+                terrain[capture]=nav.scan(image.convert('RGB'))
+            decision=Decision();entrance=Entrance()
+            self.assertEqual(1,choose(C.byref(frame),0,0,visits,1089,C.byref(entrance),C.byref(decision)))
+            self.assertEqual((1,8,-4,-1,1),tuple(getattr(decision,f) for f,_ in decision._fields_))
+            frames[capture]=frame
+        self.assertEqual({34,35,36,37},set(frames))
+        for before,after,changed_count in ((34,35,4),(35,36,1),(36,37,1)):
+            a,b=frames[before],frames[after];result=Motion()
+            self.assertEqual(changed_count,sum(x!=y for x,y in zip(a.tiles,b.tiles)))
+            self.assertEqual(bytes(a.protected_cells),bytes(b.protected_cells))
+            self.assertEqual([x==2 for x in a.tiles],[x==2 for x in b.tiles])
+            self.assertEqual(1,motion(C.byref(a),C.byref(b),1,C.byref(result)))
+            self.assertEqual((2,0,0),(result.kind,result.dx,result.dy))
+        # Only the real tile/texture scenes are replayed. Their HUD and clock
+        # below are explicit synthetic lead-in, not missing future device data.
+        self.fit(terrain[34]);self.now=3_840_000_000;self.assertEqual(0,self.tick()[0])
+        target=self.status().next_target_ns;not_before=target-self.status().lead_ns
+        for capture,now in zip((34,35,36,37),(3_850_000_000,3_930_000_000,4_010_000_000,4_090_000_000)):
+            self.now=now;frame=frames[capture];clock=self.scene(2,2,beat=True)
+            for field in ('beat_valid','beat_remaining','beat_spacing','beat_center'):setattr(frame,field,getattr(clock,field))
+            self.number=capture-1;self.assertEqual(1,self.observe(frame));self.assertEqual(0,self.tick()[0])
+            self.assertEqual((target,0,0),(self.status().next_target_ns,self.status().input_state,len(self.events())))
+            self.assertEqual([],self.scene_changes())
+        self.now=not_before-100_000_000;ready,original=self.tick()
+        self.assertEqual((1,4,1,37,target),(ready,original.kind,original.direction,original.source_capture_id,original.target_ns))
+        wait=self.motion_wait();current=original;frame=frames[37]
+        for attempt in range(1,4):
+            frame=Scene.from_buffer_copy(bytes(frame));frame.tiles[(4+5)*23+(-10+attempt)+11]=3
+            self.now+=2;clock=self.scene(2,2,beat=True)
+            for field in ('beat_valid','beat_remaining','beat_spacing','beat_center'):setattr(frame,field,getattr(clock,field))
+            self.assertEqual(1,self.observe(frame));ready,new=self.tick()
+            if attempt<3:
+                self.assertEqual((1,4),(ready,new.kind));current=new
+                self.assertEqual((original.target_ns,original.not_before_ns,original.deadline_ns,wait.deadline_ns),
+                                 (new.target_ns,new.not_before_ns,new.deadline_ns,self.motion_wait().deadline_ns))
+            else:self.assertNotEqual(4,new.kind)
+        self.assertEqual([1,1,0],[row.replan_allowed for row in self.scene_changes()])
+        self.assertEqual([1,2,2],[row.replan_count for row in self.scene_changes()])
+        self.assertEqual((17,0,0),(self.status().reason,self.status().inputs,self.status().moves))
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,current.id,current.not_before_ns,1,0,1))
     def test_continuous_rejects_reason_only_change_under_same_gold_and_target(self):
         terrain,old=self.continuous_walk();changed=deepcopy(terrain);changed.tiles.pop((-6,0))
         before=nav.choose(terrain,(-2,0));after=nav.choose(changed,(-2,0))
@@ -626,7 +834,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                              bytes(guarded)[expected*C.sizeof(SceneDetail):])
             self.assertEqual([d.command_id for d in self.scene_details()][:expected],
                              [guarded[i].command_id for i in range(expected)])
-    def reconstructed_public_beat_model(self,rows):
+    def reconstructed_public_beat_model(self,rows,allow_refit=True):
         from tests.test_native_beat import NativeSample,NativeModel
         make=self.lib.ng2_make_sample
         make.argtypes=[C.c_double,C.c_double,C.c_double,C.c_uint64,C.c_uint64,C.POINTER(NativeSample)]
@@ -639,6 +847,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
             if len(samples)>=4:
                 observed=(NativeSample*len(samples))(*samples);updated=NativeModel()
                 if not track(C.byref(model),observed,len(samples),C.byref(updated)):
+                    self.assertTrue(allow_refit or len(samples)==4,"valid-track fixture unexpectedly requires a new fit")
                     self.assertEqual(1,fit(observed,len(samples),C.byref(updated)))
                 model=updated
         return model
@@ -778,7 +987,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                     self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,new.id,self.now,1))
     def test_initial_replan_preserves_shorter_original_source_horizon_deadline(self):
         terrain=self.fit();self.now=4_130_000_002
-        self.observe(self.scene(2,2,terrain,beat=True));self.now=6_929_999_999
+        self.observe(self.scene(2,2,terrain,beat=True));self.now=6_830_000_000
         old=self.next_move()
         self.assertEqual((7_080_000_000,6_930_000_000,6_930_000_000),
                          (old.target_ns,old.not_before_ns,old.deadline_ns))
@@ -890,43 +1099,54 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         for _ in range(2):
             self.now+=2;scene=self.scene(2,2,changed,beat=True)
             scene.beat_remaining=(scene.beat_remaining+.13)%1;self.observe(scene)
-        self.assertGreater(self.status().beat_period_ns,PERIOD)
+        # This >.08 HUD jump now poisons the first slot instead of silently
+        # replacing the invalid tracked model by another successful fit.
+        self.assertEqual((8,0),(self.status().reason,self.status().inputs))
         self.assertEqual((old.target_ns,old.not_before_ns,old.ordinal),(new.target_ns,new.not_before_ns,new.ordinal))
         self.now=new.not_before_ns
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
         self.assertEqual(0,self.status().inputs)
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
     def test_initial_replan_phase_alignment_boundary_is_inclusive_for_original_period(self):
-        # Reconstruct the public fit/track output to establish that the fake
-        # HUD sequence actually reaches before/equal/after the original bound.
-        cases=((0.12831125,529_773_493,41_599_995,1),
-               (0.12831126475488247,529_773_494,41_600_000,1),
-               (0.1283112647548825,529_773_495,41_600_005,0))
-        for bias,expected_period,expected_delta,allowed in cases:
-            with self.subTest(bias=bias):
-                self.fresh_engine();terrain=textured();rows=[]
-                for _ in range(4):
-                    self.now+=700_000_000;scene=self.scene(2,2,terrain,beat=True)
-                    rows.append((self.now,scene.beat_remaining));self.observe(scene)
-                old=self.next_move();self.assertEqual(4_480_000_000,old.target_ns)
-                changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone';self.now+=2
-                scene=self.scene(2,2,changed,beat=True);rows.append((self.now,scene.beat_remaining));self.observe(scene)
-                ready,new=self.tick()
-                self.assertEqual((1,4),(ready,new.kind))
-                for _ in range(2):
-                    self.now+=2;scene=self.scene(2,2,changed,beat=True)
-                    scene.beat_remaining=(scene.beat_remaining+bias)%1
-                    rows.append((self.now,scene.beat_remaining));self.observe(scene)
-                self.assertEqual(expected_period,self.status().beat_period_ns)
-                model=self.reconstructed_public_beat_model(rows)
-                self.assertEqual(expected_period,model.period_ns)
-                forward=(model.epoch_ns-old.target_ns)%model.period_ns
-                aligned=old.target_ns+forward if forward<=model.period_ns//2 else old.target_ns-(model.period_ns-forward)
-                self.assertEqual(expected_delta,abs(aligned-old.target_ns))
-                self.assertEqual((old.target_ns,old.not_before_ns,old.ordinal),(new.target_ns,new.not_before_ns,new.ordinal))
-                self.now=new.not_before_ns
-                self.assertEqual(allowed,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
-                self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
+        # The old >.08 single HUD jump needed a new fit. An armed slot now
+        # poisons on that failure. Use genuine valid tracking with gradual
+        # <=.08 changes and an original515ms period to reach the same inclusive
+        # .08-original-period boundary without leaving the fixed profile.
+        cases=((.1018182,525_214_523,41_199_997,1),
+               (.1018182781279141,525_214_524,41_200_000,1),
+               (.10181827812791411,525_214_525,41_200_005,0))
+        for replan in (False,True):
+            for bias,expected_period,expected_delta,allowed in cases:
+                with self.subTest(replan=replan,bias=bias):
+                    self.fresh_engine();terrain=textured();rows=[];original_period=515_000_000
+                    def observed(bias=0):
+                        scene=self.scene(2,2,terrain,beat=True)
+                        scene.beat_remaining=(((5*SECOND-(self.now-1))%original_period)/original_period+bias)%1
+                        rows.append((self.now,scene.beat_remaining));self.observe(scene)
+                    for _ in range(4):
+                        self.now+=700_000_000;observed()
+                    self.assertEqual(original_period,self.status().beat_period_ns)
+                    old=self.next_move();self.assertEqual(4_485_000_000,old.target_ns);wait=self.motion_wait()
+                    if replan:terrain.tiles[(-10,4)]='stone'
+                    self.now+=2;observed(.04);ready,new=self.tick()
+                    if replan:self.assertEqual((1,4),(ready,new.kind))
+                    else:
+                        self.assertEqual(0,ready);new=old
+                        self.assertEqual([],self.scene_changes())
+                    for step in (.07,.09,.11,bias):
+                        self.now+=2;observed(step)
+                    self.assertEqual(expected_period,self.status().beat_period_ns)
+                    model=self.reconstructed_public_beat_model(rows,allow_refit=False)
+                    self.assertEqual(expected_period,model.period_ns)
+                    forward=(model.epoch_ns-old.target_ns)%model.period_ns
+                    aligned=old.target_ns+forward if forward<=model.period_ns//2 else old.target_ns-(model.period_ns-forward)
+                    self.assertEqual(expected_delta,abs(aligned-old.target_ns))
+                    self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
+                                     (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
+                    self.assertEqual(0 if allowed else 8,self.status().reason)
+                    self.now=new.not_before_ns
+                    self.assertEqual(allowed,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
+                    self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
     def test_initial_replan_expired_before_reissue_never_moves_to_a_later_beat(self):
         terrain=self.fit();old=self.next_move();changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
         self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.now=old.deadline_ns+1
@@ -984,13 +1204,13 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
     def test_actual_one_ns_late_end_cannot_cross_source_horizon(self):
         terrain=self.fit();self.now=4_130_000_002
         self.observe(self.scene(2,2,terrain,beat=True))
-        self.now=6_929_999_999
+        self.now=6_830_000_000
         command=self.next_move();self.assertEqual(7_080_000_000,command.target_ns)
         self.now=command.not_before_ns+1
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,command.id,self.now,1,0,1))
     def test_input_end_exactly_on_source_horizon_is_allowed(self):
         terrain=self.fit();self.now=4_130_000_002
-        self.observe(self.scene(2,2,terrain,beat=True));self.now=6_929_999_999
+        self.observe(self.scene(2,2,terrain,beat=True));self.now=6_830_000_000
         command=self.next_move();self.now=command.not_before_ns
         self.assertEqual(self.status().last_capture_start_ns+3*SECOND,self.now+150_000_000+50_000_000)
         self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,command.id,self.now,1,0,1))
@@ -1164,7 +1384,9 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                     else:
                         base=self.status().started_ns
                         first=base+177_200_000_000;epoch=base+179_800_000_000;bound=base+180*SECOND
-                    for n in range(25 if horizon=='walk' else 24):
+                    # End the valid positive fit before the strict first-slot
+                    # selection threshold; the original absolute bound stays.
+                    for n in range(24):
                         self.now=first+n*100_000_000;scene=self.scene(2,2,terrain,beat=True)
                         scene.beat_remaining=((epoch-(self.now-1))%PERIOD)/PERIOD;self.observe(scene)
                 command=self.next_move();record=self.motion_wait()
@@ -1411,7 +1633,9 @@ int main(void){
     p=ng2_controller_create(now);if(!p)return 21;
     for(i=0;i<27;++i){now+=100000000;beat(&before,now);
         if(ng2_controller_observe(p,&before,++id,now-2,now,0,1)!=1)return 22;}
-    if(ng2_controller_tick(p,now,1,0,1,&command)!=1||command.kind!=4)return 23;
+    if(ng2_controller_tick(p,now,1,0,1,&command)!=0)return 23;
+    ng2_controller_status(p,&status);now=status.next_target_ns-status.lead_ns-100000000;
+    if(ng2_controller_tick(p,now,1,0,1,&command)!=1||command.kind!=4)return 35;
     now=command.not_before_ns;if(ng2_controller_begin(p,command.id,now,1,0,1)!=1)return 24;
     now+=50000000;if(ng2_controller_complete(p,command.id,now,1)!=1)return 25;
     now=command.target_ns+80000002;beat(&after,now);
