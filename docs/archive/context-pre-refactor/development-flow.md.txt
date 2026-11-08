@@ -1,0 +1,159 @@
+# 採用するAI駆動開発フロー
+
+TEST053の途中停止を独立制御/画像分析し、既存台帳のTEST0548項目へ反復。プラン設計/網羅1周・安全2周でclose、旧実Cの2assertion Red/client3Redから最小Greenへ進んだ。元referenceの直接資格確認とUNKNOWN限定補助照合、厳密な診断/旧client互換を実装。host183/all141画像・client190・package205、[Mac CI42490824375](https://github.com/shuhei0720/necrogold-automation/actions/runs/42490824375)で55/Raster3/C同値-field/RPC/実compiler/IPA build71を確認。実生成report3個を実暗号HTTPclientまで接続した。開始応答stateのP2は診断projectionだけで修正し、build69の複雑なSwift試験式は全predicateを保つtypedlocalsへ分割。独立実装3観点第2周の実配布物/全source照合を台帳へ保存し、具体的TEST054を依頼する。実機の全要件受入とその結果後の工程⑧は未完了。
+
+TEST053提出時までの履歴:
+
+TEST052の2回の方向未送信を独立分析し、既存台帳のTEST0538項目へ反復した。fresh plan3観点各第2周でclose、旧公開Cの2assertion Redとclient2Redから最小Greenへ進んだ。初歩だけ拍を固定し、準備余裕と50〜100ms前の最新観測による予約を導入。host165/all124画像・client174・package202と[Mac CI42478480071](https://github.com/shuhei0720/necrogold-automation/actions/runs/42478480071)で全52/Raster3/C同値・field故障/実暗号RPC/実compiler/IPA build68を確認した。build67の既存模擬時計の窓飛越しは実Cで再生してtest-only setupを直し、元期限/全期待を維持。独立実装第2周の実配布物/全source照合を台帳へ保存し、具体的TEST053実機依頼へ進む。全経路毎拍/人より速い性能と全循環の受入・人間結果後の工程⑧は未完了。
+
+TEST052提出時までの履歴:
+
+二つ目のTEST051を独立2分析で再生し、安全な上1歩に対する遠いtargetだけの差と、画像回収のhost_deadlineを分離してTEST052の既存台帳8プランへ反復した。fresh planは設計1周・試験/安全2周でclose。実装前公開Cと実暗号HTTPの各2assertion Redからreason8/FLOOR限定の同action再検証とv10 bounded batchを実装した。実装第1周の再開再中断tail破棄は3assertion Redで再現して修正し、base64/画像境界の不足も補い、第2周source残P0/P1/P2なし。host153/all107画像・client170・patch199、[Mac CI42467835995](https://github.com/shuhei0720/necrogold-automation/actions/runs/42467835995)で全50/Raster3/実C同値/RPC/実compiler/IPA build66を確認。最終配布物/413sourceの同第2周照合を既存台帳へ保存して工程⑦のTEST052実機依頼へ進む。全経路毎拍/茶壁・扉/商品/人より速い性能と全循環の受入は実機証拠待ち。
+
+TEST051受領時までの履歴:
+
+TEST051の工程⑦で「かなり良い感じのスピードで扉前まで歩きポーズ」を受領した。独立した制御/回収の2分析で4入力/4MOVED・約520ms間隔・5歩目未送信screen停止を確認。差分の遠方DIRT→STONE自体はlocal safe_floor不成立の原因ではなく、操作前の完全画像が不足しているため扉/地形/保護条件のどれかを断定しない。保存済みcheckpointの実client回復をコピーした資料とfake応答で再生し、status/resultsのみ・同offset・GET0/start0を確認したが、実機cacheの存続は未確認。新しい制御実装や新規TDDを始めず、同IPA/同runの画像回収を先に実機依頼する。受領分析は既存台帳に追記し、閉じたTEST051実装第2周を再開しない。全経路毎拍/人より速い性能/商品到達の受入は未完了。
+
+TEST050のLEFT2後の未送信scene差停止と画像回収失敗を受け、TEST051の既存台帳8項目プランへ戻った。fresh-context設計/試験/安全を第2周で閉じ、旧公開Cの2MOVED後再予約期待・固定050 Runtimeの公開manifest要求・実暗号clientを実装前assertion Redで確認してから変更した。元の拍と安全条件を保つ予約更新、限定された分割結果回収、client v9/capv8を実装し、host/CIと[Mac CI42445994987](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987)でRuntime48/Raster3/両C同値・実compiler/RPC/IPA build64を通過した。実装第1周の取消/保存後期限・世代cache・独立route target試験を修正し、第2周のsource指摘は0。試験用HUDとcapture midpointの時計ずれ、固定時計でのquery起点変異の検出不足は、試験だけを直して元の全fault期待を維持した。実配布物と410sourceの同第2周照合は既存台帳末尾へ記録する。工程⑦として新IPA/完全sourceと具体的TEST051を必ず依頼し、実機の毎拍/人より速い動作・全周回の受入と受領後の工程⑧は続く。
+
+TEST050提出時の適用履歴:
+
+TEST049の左1歩確認後の次拍期限超過を受け、TEST050へ反復した。既存台帳の8項目プランをfresh-context設計/試験/安全各2周でclose。固定旧49の実生成PBXのNavigation flags欠落と旧Runtimeの公開observe_start欠落をMac named assertion Redで確認してから実装した。Navigationだけ追加strict O2、commit成功gate内C直前の固定時刻、clientv8/capv7とし、C算法/入力期限は維持する。host native130/all98必須画像・client130・patch193成功、[CI42430281026](https://github.com/shuhei0720/necrogold-automation/actions/runs/42430281026)で実PBX/raw compiler/profilev2・AppleClang両C同値/field変異・Runtime32/Raster3/RPC・IPA build52を通過した。先行51の無関係な準備時計の失敗はtest-onlyのshared logical clockで直し、元deadlineと全fault期待は維持した。独立実装3観点は第2周で実配布物/完全408sourceまで照合して閉じ、具体的TEST050実機依頼へ進む。毎拍/人より速い性能と全周回の受入・工程⑧は次の実機証拠まで未完了。
+
+TEST049提出時の適用履歴:
+
+TEST048の左1歩後の停止を受け、TEST049へ反復した。既存台帳の8項目プランをfresh-context設計/試験各1周・安全2周でcloseし、固定TEST048の実XcodeGen projectにO2設定がないnamed assertion RedをMacで観測してから設定を変更した。C算法・判定・期限を保ち、Perceptionだけstrict O2、client v7/capv6とする。全87必須画像/129native・125clientのホスト成功、Macの実PBX/response展開・168単体・Apple Clangの92Scene/40回転/129fingerprint同値・Runtime30/Raster3/暗号RPC/IPA build49を[CI42398487104](https://github.com/shuhei0720/necrogold-automation/actions/runs/42398487104)で確認した。Mac path aliasとlinker loader形式の検証側不具合は実ログ全行再生を経て直し、app不具合やprimary Redと混同しない。独立実装3観点は同第2周で実配布物と完全405sourceまで照合し、具体的TEST049実機依頼を行う。毎拍/人より速い性能や完全周回の受入・工程⑧は次の実機証拠まで未完了。
+
+以下は過去の適用履歴。
+
+TEST046受領からTEST047へ反復した。更新後方向0/EXIF8回転365〜1829msを根拠に、既存8項目プランをfresh-context設計/安全各1周・試験2周でclose。実行可能C stubの挙動Red→Green、旧Swift呼出0/期待1・詳細decode stub・旧Runtime診断欠落のコンパイル済Mac3Redを観測してから実装した。nullable EXIFのレビューP2も公開PNG試験の実値1/null期待Redから最小修正し、C上限試験のmaskは実packed buffer3ケースとguard単独削除3変異で故障検出を確認した。native128件/client118件はホスト全成功。画像保持fixtureのタイミング競合は本体・期限を変えず同じ画像の実MOVED＋goodsを観測するよう修正し、独立3担当が同第2周で確認。最終Mac/IPA・Runtime19変異・全source照合の証拠は既存台帳末尾へ保存する。工程⑦で新IPA/全コードとTEST047実機テストを依頼し、毎拍・人より速い動作や完全周回の受入は実機結果から判断する。
+
+TEST046提出時の適用履歴: TEST045の上1歩とポーズ/8画像回収を確認し、35px→36pxの間のUNKNOWN即停止と次拍に間に合わない処理費用を切り分けた。8項目プランをfresh-context設計/安全各1周・試験2周で確認。公開C ACK→UNKNOWN→MOVEDとRaster copy数のMac assertion Redから実装し、凍結全画素/2 Raster変異/Runtime15変異を確認。商品同時frameの歩数欠落も公開Redから修正し、旧結合期待を維持した。native112件/client112件はホスト全成功。新IPA/全コードとTEST046実機依頼を渡した後、更新後3実行の方向0/遅いEXIF8を受領して現在のTEST047へ進んだ。
+
+TEST045提出時の適用履歴: TEST044の方向未送信停止/画像回収失敗を受け、初入力前再計画・callback所有・結果回収を実装した。[既存台帳の8項目プラン](device-tests/README.md#test-044受領結果とtest-045の8項目プラン)に従いnative96件/クライアント105件のホスト成功とCIを確認。native CI42349253984ではSwift本体/12変異/暗号RPC/IPA build25を通過し、CRC/SHA・封印22ソースを照合した。独立実装レビュー3観点各2周で指摘なしとして、完全ソース配布と具体的な実機依頼へ進んだ。受領結果から現在のTEST046へ反復した。毎拍歩行・人より速い動作は未合格。以下はフロー原則と過去の適用履歴。
+
+TEST044受領後は、ゲーム起動/続行成功・方向入力前のscene差停止・結果回収rpc_deadlineを切り分け、TEST045の8項目へ戻った。プランの設計/安全各2周・試験網羅1周をfresh-contextで終了し、P0/P1/P2残件なし。元拍/期限を固定した初入力前だけの最大2再計画、旧callbackのID隔離と実終了までのdrain、結果専用8秒とhost残期限、固定差分診断/保持、native_v2新IPAを実装する。閉じたTEST044レビューの追加周ではなく、新実機不具合に対する工程①からの反復とする。
+
+ユーザー指定の [AI-Driven-Development Codex版](https://github.com/shuhei0720/AI-Driven-Development/blob/3cf01c46395e83696ba8900e429297ff5f249e2f/AI-Driven-Development-CAF-ALZ-Codex.md) を確認しました。
+
+参照commit: `3cf01c46395e83696ba8900e429297ff5f249e2f`、文書blob: `646fc7225c3b08d4073b59a4d862b3f52294b800`。2026-11-05（日本時間）確認。
+
+Azure/ALZの構築例そのものを移植するのではなく、要件分離、コンテキスト管理、TDD、独立レビュー、8ステップを適用します。
+
+| 原文の工程 | このプロジェクトでの成果物・条件 |
+| --- | --- |
+| 事前準備: 要件とルール | `requirements/necrogold.md`、`AGENTS.md`、`rules/`。何を・なぜ・合格条件を要件に置く |
+| 1. インタビュー式のプラン | `plans/rebuild.md`。概要・背景・詳細設計・テスト影響範囲・新規テストケース・実装順・コミット前テスト・スコープ外の8項目 |
+| 2. プランのAI相互レビュー | 設計、異常系・運用、セキュリティを独立担当でレビュー。作成経緯を渡さず資料・差分・基準を渡す |
+| 3. テスト網羅レビュー | 受け入れ条件とテストを対応。境界・異常・スコープ外の混入を確認。期待値は人間もレビューする |
+| 4. 実装 | プランの順序・担当に従う。計画外の大きな変更はプランへ反映し、未解決なら報告 |
+| 5. テスト実装と全通過 | 4と分離して後付けせず、機能ごとに先にRedを観測→最小Green→Refactor。実機試験はモックで代用しない |
+| 6. 実装のAI相互レビュー | 別担当が設計・境界・セキュリティ・ルールを確認。修正を含め最大3周 |
+| 7. 人間のレビュー | データの流れ、設計判断、代替案、根拠、実機結果と未検証事項を説明する |
+| 8. テスト駆動リファクタリング | Greenを確認してから責務分割・重複整理。仕様変更を混ぜない |
+
+原文には工程4の後に工程5が並びますが、同じ原文のTDD節が要求する「実装前に失敗を確認」を守り、実装とテストは1ケースずつ繰り返します。
+
+## P1.1〜P1.3時点の到達点（履歴）
+
+この節は各版を提出した時点の記録です。「未実施」「次」の記述も当時の状態を示します。最新結果・次工程は末尾のP1.4節と実機台帳を参照してください。
+
+要件・プラン・動画事例・旧版ソースを保存し、プランの独立レビューとテスト網羅レビューを2周行いました。残るP2の計測内訳も資料へ反映しました。継続指示によりP1の取得診断コードとホスト試験を実装しました。ゲーム操作ループと実機試験はまだ行っていません。旧版の保存は配布ではありません。
+
+P1計測ツールはホスト54試験を通過し、3観点の独立レビューを最大3周行いました。最終回で残った原画像保持テストの弱さは主担当が修正し、故意の再エンコードを検出することを確認しました。第4回の独立レビューは行っていません。現在は⑦人間レビューへ提示する段階で、⑧の人間レビュー後のリファクタリングとP1実機合格は未完了です。詳細は[現在の状態](status.md)と[P1レビュー記録](reviews/p1-review.md)に分けて保存します。
+
+その後、TEST-001の実機2実行でworker_failedが報告されました。人間レビューで得た不具合を新しい修正スコープP1.2へ戻し、[修正プラン](plans/p1-worker-diagnostics.md)、失敗を検出するテスト、実装、独立レビューを実施します。既存P1.1の第4回レビューと混同しません。実ゲームE2Eが未実施のまま、全体の8工程を完了としません。
+
+追加のreport受領後、TEST-001は計3実行と確認。TEST-002ではPython暗号でもSIGSYSが記録され、別スコープBUG-P1-002/P1.3へ戻りました。[タイマー互換性の修正計画](plans/p1-ish-timer.md)、[独立レビュー記録](reviews/p1-ish-timer.md)、[実機台帳](device-tests/README.md)に進捗を保存します。ホスト故障注入/模擬HTTP経路を実ゲームE2Eの合格とせず、この時点では人間によるTEST-003を未実施と明示しました。
+
+速度の暫定値、金壁への接近上限、対象アイテム正例はプランに未確定箇所を明示します。既に答えのある向き・操作設定・最重要要件を再質問しません。実機のバージョンや取得能力は小さな計測で取得して決めます。
+
+原文のPR投稿前承認はPRを作る段階に適用します。今回のリポジトリ作成と既存コード・資料の保存は、ユーザーから既に依頼されています。保存だけを理由に追加の承認を求めません。
+
+## P1.4 / BUG-P1-003
+
+TEST-003も取得前のtimer_already_in_useで不合格となったため、別の修正スコープへ戻る。[8項目プラン](plans/p1-owned-timer.md)で、専用workerのタイマー所有と、旧戻り値に依存しない契約を定義した。独立設計・異常系・安全レビュー、実装前Red、実装/ホストGreen、独立実装レビューを[記録](reviews/p1-owned-timer.md)する。旧タイマーの保存・復元というP1.3のテスト期待値を廃止する理由と代替契約をプランに明示した。人間レビューでTEST-004の結果を受領し、device_info・launch_app応答完了、画像0/12、session_deadlineを記録した。その後TEST-005でiSH前面11/12、TEST-006で継続処理付き12/12非黒取得と保存3枚のゲームのポーズ画面を確認した。さらにTEST-007でnative_i386による12/12非黒取得、保存3枚のゲーム確認、今回条件での復号時間短縮を確認した。TEST-008の標準画像を受領し、原画像間の形状比較を記録した。次の[画像幾何/入力契約の改修計画](plans/p1-geometry-validation.md)を①計画・②③独立レビューする段階。幾何判定の閾値と未知画像の評価集合は未確定であり、その部分の実装は未着手。最新結果・次工程の正本は[実機台帳](device-tests/README.md)を参照する。ホストの親子プロセス/HTTP試験は実ゲームE2Eの合格ではない。
+
+
+## 取得元照会補助（受信後の比率補正案を撤回）
+
+ユーザーの性能要件により取得元から横長で返す方針へ修正。①計画を差替え、②③設計・テスト・安全の独立レビュー、④⑤限定情報と親の出力検証をRed→Greenで実装、⑥別担当の実装レビューを行う。実機TEST-009による⑦人間レビューと、その後の⑧リファクタリングは未完了。補助コードの完成を横長取得や自動周回の完成とは呼ばない。[レビュー記録](reviews/p1-source-info.md)を参照。
+
+## TEST-009受領後・NG-G1
+
+人間レビューで取得元情報を受領。実機API1.98.14と公式v0.3.4のAPI版が一致した。次の変更単位は取得元の明示geometryモード。①8項目計画、②③独立設計/テスト/安全レビュー2周を実施しP0/P1を解消。LinuxにSwift/UIKitがないため、④の変更本体に先立ち⑤の元寸法式RedをmacOS CIで観測する準備をした。取得側本体・iOSビルド・⑥以降の検証は未完了。今回の小CIコードも別のfresh-context担当でレビューする。
+
+
+NG-G1実装では、元式のSwift Redを観測後、固定元3ファイルパッチ・ホスト試験・本番関数のSwift契約を実装。⑥の独立設計/テスト/安全レビューを実施し、設計指摘は第2回で解消。残るP2と実機未検証範囲は[今回の記録](reviews/ngg1-implementation.md)を参照。iOSビルド完了と⑦での端末導入は別工程。
+
+
+## P1.5クライアントまでの到達点
+
+取得元の実ビルド成功後、同計画のクライアント段階を実装。capability・応答geometry・実画像の照合をRed→Greenで進め、全131ホスト試験成功。⑥の独立設計/試験/安全レビューで出た丸め境界とdecode回数監視を修正し、第2回で確認した。[記録](reviews/p15-source-client.md)。現在は⑦として完成配布物とTEST-010を提示する段階。実機合格と⑧は未完了。
+
+
+## TEST-010の人間レビュー結果
+
+⑦で端末report・3原画像・終了画面を受領。12/12正常終了と正常な横長のゲームポーズを確認し、取得元の寸法修正を受け入れた。鮮度/座標/取消/速度は別未合格。生タイムスタンプから独立再計算し、証跡の独立レビューを行った。⑧は必要なリファクタリングが見つかっていないため変更なし。次の入力座標/期限契約は新しい変更単位として①計画へ戻す。過去の「TEST-010未実施」は提出時点の履歴。
+
+
+## TEST-011 読取専用の入力方式診断
+
+①[8項目計画](plans/p1-input-path.md)、②③fresh-context設計/網羅/安全レビュー、④⑤挙動Red→Green、⑥独立実装レビュー3周と指摘修正を完了。[記録](reviews/p1-test011-input-path.md)。既存runtimeを変えず読取モジュールを追加。最終全回帰167/167成功。3周後に主担当が試験時計/marker公開のfixtureだけを修正し、故障検出と全回帰を確認した。第4周は行っていない。⑦として配布物と[実機TEST-011](device-tests/011-input-path.md)を提示する段階。端末結果・実際の続行・⑧人間レビュー後の整理は未完了。
+
+## TEST-041 速度改善3点
+
+ユーザーの「1.2.3を改善」に基づき、①既存台帳の[8項目プラン](device-tests/README.md#test-041の8項目プラン)を要件と分離した。②③fresh-contextの設計は2周、試験/安全は各1周でプランを確認。④⑤曲がり角連続実行・選択spawn・候補handoffの既存public入口とpure report生成で実装前のassertion Redを観測してからGreenへ進んだ。新規64件と既存対象を合わせ400件375成功・旧外部画像不足25skip（32.994秒）。fixture不整合やAPI不在のエラーを挙動Redに数えていない。
+
+⑥独立実装レビューは設計2周・安全2周・試験3周。候補解析失敗後の自動resume、変更されたmodelでの追加入力、cold schemaのPillow import、計画と実送信prefix、重複/重なりイベントの移動加算を修正し、対応するassertion Red→Greenと故障注入で検出を確認。最終P0/P1/P2残件なし。3周を超える再レビューはしていない。[具体的な契約・検証記録](device-tests/README.md#test-041の実装検証)を正本として既存資料へ保存し、重複した計画/レビュー文書は増やさない。
+
+⑦として全コードとTEST041を提示し、ユーザーの実機確認を待つ。iSHでのfork動作・短縮量・毎拍歩行・人より速い性能はホスト試験では合格にしない。⑧はGreen後に観測追跡を小関数へ抽出した範囲までで、実機結果後のリファクタリングは未実施。GitHubの既承認ブランチへの保存に追加承認を求めない。
+
+## TEST-042 毎拍歩行に向けた準備短縮
+
+⑦のTEST041でfork/直接handoff、商品・最終ポーズは確認できたが、未送信2回と連続3→1縮退が残ったため①既存台帳の8項目プランへ戻った。②③fresh-context設計/試験/安全の各2周で、choose時contextをmint時・入力前・各followupまで固定すること、全新規observeの12回合算、2/3/4入力目の待機負例、前面だけ更新した後の同じtargetと1秒境界を具体化した。
+
+④⑤公開Driverを通した主Redは、経路探索回数の不一致1assertion、末尾sleep遅れによる不足8assertions、同期撮影4回期待に旧5回1assertion、前面だけ失効で送信できない1assertionで、全0errors。各最小Greenを確認後、境界・既存回帰を追加した。⑥各2周の独立レビューで検査後clockの時刻を捨てるP1を指摘され、2/3/4入力×遅延/取消/sessionの9assertion Red→Greenと独立メモリ変異で退行検出を確認。最終P0/P1/P2残件なし。
+
+関連432試験407成功・旧外部画像不足25skip（33.893秒）。新規32件はskip0。同期の旧追跡期待は新4点取得か明示的既存model追跡に分け、前面境界と実際に失効したfull画像の2回更新枠も別に検証した。仮想clockには末尾spinの時間進行を注入し、doorway fakeには実chooseの依存methodを結合した。fixture不整合のエラーはRedとは数えない。⑧はGreen後の小さな待機helperへの分割までで、⑦実機TEST042はこれから。全経路毎拍・人より速い速度は未合格。[正本の実装/検証記録](device-tests/README.md#test-042の実装検証)。
+
+TEST042の⑦で実機ZIPと「まだ遅い」を受領。商品/最終ポーズは確認したが、初方向23.831秒・walk26.229秒で速度未合格。2名の独立分析で初歩後の位相差による再同期、閉扉2入力の3秒期限超過、予定3→2縮退を再計算した。今回コード変更・新規TDDはなく、結果を既存台帳へ保存した。次の変更単位は観測と入力制御の並行化・取得側時刻の設計へ戻す必要があり、まだ実装/実機テストを配布していない。旧432件のホスト成功を性能受入にしない。
+
+## TEST-043 NG-G2 native制御
+
+①要件を変えず、観測待ちを短くするため取得元へ制御を移す[8項目プラン](device-tests/README.md#test-043--ng-g2の8項目プラン)を既存台帳へ保存した。②③設計・試験・安全を独立担当でレビューし、ABI、取得と入力の交差、owner/取消、固定した連続拍、通信断と結果回収の契約を補った。④⑤公開入口がコンパイル・実行できるstubでassertion Redを観測してから、画像認識・単発motion/経路・拍・状態機械・取得元glue・軽量clientを実装した。API欠落やコンパイルエラーを挙動Redには数えない。
+
+固定したTEST034〜042画像はGit外に置き、manifestの不足・hash不一致を必須検証で失敗にする。Pythonとの画像差分・C境界/算術・fake時計/取得/入力・Swift契約・既存取得元回帰・IPA構成と来歴を分けて記録する。初回CI用保存点 `ebc8e2d` と最終配布版は区別し、最終集計・独立実装レビュー・CI結果は[実機台帳](device-tests/README.md)を参照する。未確認のCI成功やレビュー完了は記載しない。
+
+⑦では新NG-G2 IPAと完全ソースを提示し、[TEST043の実行手順](device-tests/README.md#test-043実行手順)に従いiPhone上で `sh test_043.sh` を実行し `runtime/test-043` を返してもらう。API `1.98.14-ngg2` / capability `necrogold_native_v1` が必要。取得元の画像変換・取得時刻範囲・入力の成立と連続拍・商品優先・停止を実画面で確認する。ホスト差分やCI成功から端末性能へ換算しない。⑧の実機結果を受けた整理、目的指輪の未知評価/通知、対象なし確認後の自動周回と全受入は残る。
+
+TEST043の⑥は設計・試験・安全の各3周以内で終了し、最終P0/P1/P2残件なし。主Redと修正後の公開結合・実callsite変異、最終IPAのCRC/SHA/封印22source/manifestを照合済み。⑦として新NG-G2 IPAと完全ソースを渡し、具体的な実機TEST043とZIP返却を依頼する段階。ホスト・CIの成功と実機受入を分け、詳細は既存台帳末尾へ保存した。
+
+
+## TEST-044 開始前の接続確認と診断
+
+TEST043の⑦で「ゲーム開かず」と最初の接続エラーを受領した。native start未送信を確認し、①既存台帳の8項目プランへ戻った。②③設計・試験・安全はfresh-contextの各2周で、UI-free schemaと暗号認証の境界、retry表、総期限、保存後の取消/期限検査、診断projectionと旧journal互換を明示した。④⑤は既存公開run_session/実HTTPを用いる5 assertions Redと、GET method/接続分類の2 assertions Red（すべて0errors）を観測してから最小Greenへ進んだ。HTTP non200時の未読response.close不足も実response.isclosedの1assertion Redで再現して修正した。詳細と最終集計・実装レビューは既存台帳末尾に保存する。
+
+⑦では同じNG-G2 IPAと完全sourceを使い、新1-1ポーズからsh test_044.shを実行してruntime/test-044を返す実機テストを必ず依頼する。接続回復のホスト成功をゲーム起動/歩行/速度の実機合格としない。送信済み・unknown startの再送禁止や要件は維持する。
+
+⑥の独立実装レビューは設計/安全各2周・試験3周で終了し、P0/P1/P2残件なし。旧journalの画像metadata検査漏れは公開_loadの1 assertion Redから修正、retry表の試験不足は誤表変異の7 assertion failuresで故障検出を確認した。対象92件はホスト24.688秒・CI24.410秒で全成功/skip0、旧432件は407成功/外部画像不足25skip。最終[CI run42343772094](https://github.com/shuhei0720/necrogold-automation/actions/runs/42343772094)はa1424adに一致する。CIで正常系fixtureの時間枠不足を修正したが、本番コード・注入deadline試験・速度要件は変更していない。native/IPA/R12を維持し、⑦の完全ソース配布と実機依頼へ進む。⑧の整理とゲーム起動・歩行・性能受入は次の実機結果から行う。
+
+
+## TEST-048 解析と入力準備の分離
+
+TEST047実機で初LEFT未送信/input0・pause確認を受領し、①既存台帳の8項目プランへ戻った。②③設計/安全各1周・試験2周のfresh-contextレビューを閉じた。④⑤は固定TEST047 Runtime＋実C/公開walkのMac compile後に、前面確認が最終callbackの前にないことをnamed assertion Redとして観測した（CI42375674996）。その後にだけ純粋解析をcapture workerへ移し、同一tokenを保った先行前面準備と元拍の最終gateを実装する。新API/compile不足をRedに数えない。最終検証・⑥レビュー・新IPA/完全source・⑦実機依頼は既存実機台帳末尾へ記録する。毎拍/人より速い実機受入・⑧結果を受けた整理は残る。
+
+
+TEST048の④⑤は、先行前面確認/解析分離/固定診断を実装し、Macのproduction全結合Greenと30個の実callsite変異、Raster全画素/3変異、暗号RPCとIPA build43をCI42379084982で検証した。大きなSceneの値コピーによるstack圧迫が疑われるSIGBUSは専用heap所有へ修正し、fixture先行失敗2件は目的の故障が隠れない変異scopeへ直した。setup/compile失敗はRedに数えていない。native128件/client124件ホスト成功・skip0、CI native120件はprivate8再生を明示除外、client124件も成功。⑥は設計/試験/安全の第2周でcode/test P0/P1/P2なし、実IPA/22封印sourceと全400sourceの照合を同周で閉じる。⑦として新IPA/全コードと具体的TEST048を必ず依頼する。実機毎拍/人より速い性能と⑧の結果を受けた整理は未完了。最終証拠の正本は既存実機台帳末尾。
+
+
+## TEST-049 画像処理の限定最適化
+
+実行可能Red→Greenは、旧生成PBXの個別flags欠落、旧capv5で新clientが開始されること、実compile/packageの監査guardを削除した変異で確認した。O0参照側のflagsを変更せず、strict O2との全Scene/全画素比較をhost全87実画像とMacの合成入力へ適用する。通常response内の隠れた-c/後置O0/unsafe FP/Swift後置-O、保存証跡の改変と実package-callsiteも負例で拒否する。Clangのリンク専用loaderは不在をnofollowで確かめて分類するだけで、実compileとpackageのC証跡には厳格readerを必須とする。最終codeは7e388423cdfbd5072a9bf275b4bdc0f712492b5d、R12全40/NG-G1/全C算法/Runtime/Rasterは不変。
+
+工程⑥の同第2周の実IPA/全22封印source/実raw argvとresponse/全405sourceの照合と最終hashは、[既存実機台帳](device-tests/README.md#test-049実行手順)へ記録する。工程⑦として新IPAが必要な理由を説明し、TEST049とruntime/test-049全ZIP・初動/毎ビート/商品/最終pauseを必ず依頼する。ホストやMacの合格を毎拍歩行・人より速い性能の実機合格へ読み替えない。
+
+
+## TEST-050 移動判定の限定最適化と実行区間の記録
+
+実appでO0だったNavigationだけを既存Perceptionと同じstrict O2へ追加し、元のO0-only参照とviews/全73score/全Motion・Decision・Entrance・戻り値・入力不変をhost全98画像とMac合成境界で比較した。Runtimeのobserve_startは実producer欠落とguard前配置の実変異で検証し、取消/owner/世代失効時の非公開、clientのoptional欠落/順序/型/範囲/最大256行/暗号HTTP→保存も確認する。旧capv6/profilev1と旧journalv1..v7回復は維持し、新capv7では実2-source profilev2を必須とする。最終codeは48e7bc7aada89bcf77aa49fd6b01b18cd40ab3a1。具体的な⑦のTEST050新IPA/全source/ZIP返却依頼と、⑥の実artifact/408sourceのhash・独立照合は[既存実機台帳](device-tests/README.md#test-050実行手順)に保存する。ホストやCIの成功を実機の毎拍/人より速い性能へ読み替えない。

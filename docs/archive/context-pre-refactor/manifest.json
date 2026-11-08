@@ -1,0 +1,34 @@
+{
+  "format_version": 1,
+  "source_commit": "420c7ce3fb2e1fbe9f9ab7086891dd7e1118ba2e",
+  "files": [
+    {
+      "original_path": "AGENTS.md",
+      "snapshot": "agents.md.txt",
+      "bytes": 82150,
+      "sha256": "90b9f703083f43aed550cc46ce102a79d6e27f4444417aa2d9fc4fae1c0dd73c",
+      "original_url": "https://github.com/shuhei0720/necrogold-automation/blob/420c7ce3fb2e1fbe9f9ab7086891dd7e1118ba2e/AGENTS.md"
+    },
+    {
+      "original_path": "README.md",
+      "snapshot": "readme.md.txt",
+      "bytes": 9134,
+      "sha256": "3a837040ff7b6d4d9f43609788fb7724a0e79c22b7859ab34a57edcc4b8fef9b",
+      "original_url": "https://github.com/shuhei0720/necrogold-automation/blob/420c7ce3fb2e1fbe9f9ab7086891dd7e1118ba2e/README.md"
+    },
+    {
+      "original_path": "docs/status.md",
+      "snapshot": "status.md.txt",
+      "bytes": 40536,
+      "sha256": "edcb4f2e0c10f3f5092ea188ec23ed9135dab4e343d745727d21aa5c3b4bba60",
+      "original_url": "https://github.com/shuhei0720/necrogold-automation/blob/420c7ce3fb2e1fbe9f9ab7086891dd7e1118ba2e/docs/status.md"
+    },
+    {
+      "original_path": "docs/development-flow.md",
+      "snapshot": "development-flow.md.txt",
+      "bytes": 32369,
+      "sha256": "905741d41fab6ef2a18246f1811e03199df322f8d0cefcf3afc825c9ba502ec7",
+      "original_url": "https://github.com/shuhei0720/necrogold-automation/blob/420c7ce3fb2e1fbe9f9ab7086891dd7e1118ba2e/docs/development-flow.md"
+    }
+  ]
+}

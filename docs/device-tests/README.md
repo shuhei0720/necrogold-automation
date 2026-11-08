@@ -1,3 +1,5 @@
+> 履歴台帳です。本文中の「最新」「現在」「次」は各記録時点を示します。現在の事実・次工程は [最新状態](../status.md)、読む範囲は [索引](../context.md) を参照し、関係する節だけを読んでください。
+
 # 実機テスト台帳
 
 最新: **TEST-033は方向入力2回に対し実移動0。TEST-034は最初の1歩を確認して入力の先行量を選ぶ。** [最新手順](#test-034実行手順)。下の旧一覧は当時の履歴。
@@ -2395,3 +2397,14 @@ cd /mnt/necro_test054 && sh test_054.sh
 TEST054独立実装レビュー第2周・最終配布物/全ソース補足close: 設計・網羅・安全の3観点が、成功CI42490824375/code5dbf7a2/build71の実IPA/検証ZIP/55 named faults/Raster3/C同値-field/RPC/rawcompiler/PBX/6responses/22seal/9MachO、実生成3report→暗号clientの診断保存を独立照合し、P0/P1/P2残件なし。handover348db4deac70d0cdf074db6f9edf8beab7e58066の公開ZIP6,969,252bytes/SHA99433159585bce1ab37fda74caf6e09bf4a5987482a4c57df80603a9569fe9c5は全418tracked bytes/CRC/安全path一致、codeから既存5文書だけの差分とclean treeを確認した。
 
 このclose記録だけを追記した最終版も配布前に全418files/CRC/byteを再照合する。凍結code/native seal/IPAは変更しない。TEST054の新IPA・完全ソースと具体的実機試験を依頼し、全経路毎拍/人間以上の速度/商品・指輪通知/全周回の実機受入と結果後の工程⑧は未完了のまま引き継ぐ。
+
+
+## TEST054受領結果（2026-11-09 日本時間）
+
+ユーザー「一歩横に動いてポーズで止まった」、実ゲームを動かすMac試験とXを必要最低限十分にするrefactorを依頼。受領ZIP1,978,173bytes/SHA `15ae61c465bdabb99a34dabb2979abd43debfe586c323ecbf5337c7d48778a15`、report SHA `d9f3506ab95aced09a1ac14961ff1f2b219d1f8858b345137a8c1f3842ab4403`。v12/cap11とbuild時刻は一致するが、端末IPA hash/数値buildの証拠はない。
+
+1方向入力/1MOVED、商品0、最終ポーズ/drain/resolved確認。最初の入力は元NB+1.842022msで窓内、source60→68UNKNOWN→69MOVED。2歩目のUP command4/source69はbegin0。69→70で(-5,-1)DIRT→GOLD、(-5,0)DIRT→DOORを検出しvalidation8/SCREEN17停止。全protectedは不変、元deadlineはcapture終了時119.041501ms/observe終了時94.834709ms残る。
+
+11選択PNG/1,980,604bytesは全length/SHA/CRC/IEND/prefix/metadataが一致し、参照9枚も全て存在する。他54解析frameは保持されていない。C/Pillow/O0/strictO2の11Scene・28Motion・12Decision、69→70全73scoresが一致。69→70は厳密BLOCKED、原寸4領域も0px変位。新gold領域の同じ模様の明るさが増え、判定画素73→400が閾値280を越える。霧/照明/描画の原因までは切り分けない。
+
+実visits/entranceの完全Decisionは69のUP/reason8/FLOORから70のLEFT/reason6/DIRTへ変わる。旧UPを同actionとして許可する修正の根拠にはしない。TEST054 optionalreferenceは初歩に適用されず、今回の改善効果は未評価。Mac55は安全契約の模擬結合検査であり、実ゲーム到達率ではない。まず [挙動不変の整理計画](../plans/context-refactor.md) を行い、その後に新しいTEST055計画へ進む。生資料・全解析はGit外に置く。
