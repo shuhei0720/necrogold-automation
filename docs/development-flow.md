@@ -1,5 +1,9 @@
 # 採用するAI駆動開発フロー
 
+TEST049の左1歩確認後の次拍期限超過を受け、TEST050へ反復した。既存台帳の8項目プランをfresh-context設計/試験/安全各2周でclose。固定旧49の実生成PBXのNavigation flags欠落と旧Runtimeの公開observe_start欠落をMac named assertion Redで確認してから実装した。Navigationだけ追加strict O2、commit成功gate内C直前の固定時刻、clientv8/capv7とし、C算法/入力期限は維持する。host native130/all98必須画像・client130・patch193成功、[CI42430281026](https://github.com/shuhei0720/necrogold-automation/actions/runs/42430281026)で実PBX/raw compiler/profilev2・AppleClang両C同値/field変異・Runtime32/Raster3/RPC・IPA build52を通過した。先行51の無関係な準備時計の失敗はtest-onlyのshared logical clockで直し、元deadlineと全fault期待は維持した。独立実装3観点は第2周で実配布物/完全408sourceまで照合して閉じ、具体的TEST050実機依頼へ進む。毎拍/人より速い性能と全周回の受入・工程⑧は次の実機証拠まで未完了。
+
+TEST049提出時の適用履歴:
+
 TEST048の左1歩後の停止を受け、TEST049へ反復した。既存台帳の8項目プランをfresh-context設計/試験各1周・安全2周でcloseし、固定TEST048の実XcodeGen projectにO2設定がないnamed assertion RedをMacで観測してから設定を変更した。C算法・判定・期限を保ち、Perceptionだけstrict O2、client v7/capv6とする。全87必須画像/129native・125clientのホスト成功、Macの実PBX/response展開・168単体・Apple Clangの92Scene/40回転/129fingerprint同値・Runtime30/Raster3/暗号RPC/IPA build49を[CI42398487104](https://github.com/shuhei0720/necrogold-automation/actions/runs/42398487104)で確認した。Mac path aliasとlinker loader形式の検証側不具合は実ログ全行再生を経て直し、app不具合やprimary Redと混同しない。独立実装3観点は同第2周で実配布物と完全405sourceまで照合し、具体的TEST049実機依頼を行う。毎拍/人より速い性能や完全周回の受入・工程⑧は次の実機証拠まで未完了。
 
 以下は過去の適用履歴。
@@ -130,3 +134,8 @@ TEST048の④⑤は、先行前面確認/解析分離/固定診断を実装し�
 実行可能Red→Greenは、旧生成PBXの個別flags欠落、旧capv5で新clientが開始されること、実compile/packageの監査guardを削除した変異で確認した。O0参照側のflagsを変更せず、strict O2との全Scene/全画素比較をhost全87実画像とMacの合成入力へ適用する。通常response内の隠れた-c/後置O0/unsafe FP/Swift後置-O、保存証跡の改変と実package-callsiteも負例で拒否する。Clangのリンク専用loaderは不在をnofollowで確かめて分類するだけで、実compileとpackageのC証跡には厳格readerを必須とする。最終codeは7e388423cdfbd5072a9bf275b4bdc0f712492b5d、R12全40/NG-G1/全C算法/Runtime/Rasterは不変。
 
 工程⑥の同第2周の実IPA/全22封印source/実raw argvとresponse/全405sourceの照合と最終hashは、[既存実機台帳](device-tests/README.md#test-049実行手順)へ記録する。工程⑦として新IPAが必要な理由を説明し、TEST049とruntime/test-049全ZIP・初動/毎ビート/商品/最終pauseを必ず依頼する。ホストやMacの合格を毎拍歩行・人より速い性能の実機合格へ読み替えない。
+
+
+## TEST-050 移動判定の限定最適化と実行区間の記録
+
+実appでO0だったNavigationだけを既存Perceptionと同じstrict O2へ追加し、元のO0-only参照とviews/全73score/全Motion・Decision・Entrance・戻り値・入力不変をhost全98画像とMac合成境界で比較した。Runtimeのobserve_startは実producer欠落とguard前配置の実変異で検証し、取消/owner/世代失効時の非公開、clientのoptional欠落/順序/型/範囲/最大256行/暗号HTTP→保存も確認する。旧capv6/profilev1と旧journalv1..v7回復は維持し、新capv7では実2-source profilev2を必須とする。最終codeは48e7bc7aada89bcf77aa49fd6b01b18cd40ab3a1。具体的な⑦のTEST050新IPA/全source/ZIP返却依頼と、⑥の実artifact/408sourceのhash・独立照合は[既存実機台帳](device-tests/README.md#test-050実行手順)に保存する。ホストやCIの成功を実機の毎拍/人より速い性能へ読み替えない。

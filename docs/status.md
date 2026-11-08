@@ -2,11 +2,11 @@
 
 更新: 2026-11-08（日本時間）
 
-最新はTEST049を実装し、[CI42398487104](https://github.com/shuhei0720/necrogold-automation/actions/runs/42398487104)と新IPA build49を検証した段階。TEST048の左1歩後の停止は、移動後画像の処理が次拍期限を超えたためだった。NG2Perception.cだけをstrict O2でコンパイルし、判定・拍・入力・取消の条件を保つ。実生成PBXと実Clangのresponse展開でPerception1個のO2/no-fast-math/fp-contractoff、他C3個O0、Swift5モジュールOnoneを確認した。native129件は全87必須画像を含め成功・skip0、client125件もホスト/CI成功。Macは168単体・Apple Clangの92Scene全bytes/40回転/129fingerprint同値・Runtime30変異・Raster3変異・実暗号RPC・IPAが成功した。
+最新はTEST050を実装し、[CI42430281026](https://github.com/shuhei0720/necrogold-automation/actions/runs/42430281026)と新IPA build52を検証した段階。TEST049は左1歩を確認できたが、認識後のC observeを含む区間が次拍期限を超えて停止した。NG2Navigation.cも既存Perception同様strict O2でコンパイルし、成功commit gate内のC直前時刻observe_start_nsを追加した。C算法・判定閾値・元拍/入力期限・取消条件を保つ。実PBX/Clangのprofilev2は各一意Perception/Navigation strictO2、他C2個O0、Swift5モジュールOnoneを確認し、旧capv6/profilev1の厳格検証も維持する。native130件は全98必須画像を含めskip0成功、client130件もホスト/CI成功。Macは193単体・両C同値/field変異・Runtime32変異・Raster3変異・実暗号RPC・IPA成功。
 
-[TEST049 IPA build49](https://github.com/shuhei0720/necrogold-automation/actions/runs/42398487104/artifacts/13585172254)のCRC/SHA、封印22source、実バイナリのAPI/native_v6とHOST専用hook非混入を照合済み。新IPAへSideStore更新し、LoopCtrl完全終了/起動→Start Serverの後、[TEST049手順](device-tests/README.md#test-049実行手順)でruntime/test-049全ZIPと初動/毎ビート/商品/最終pauseを返してもらう。独立3観点の同第2周・完全405sourceの最終照合の証拠は既存台帳末尾へ保存する。毎拍/人より速い性能・指輪/通知/全周回の実機受入は未完了。
+[TEST050 IPA build52](https://github.com/shuhei0720/necrogold-automation/actions/runs/42430281026/artifacts/13597543717)のCRC/SHA、封印22source、実バイナリのAPI/native_v7とHOST hook非混入を照合済み。新IPAへSideStore更新し、LoopCtrl完全終了/起動→Start Serverの後、[TEST050手順](device-tests/README.md#test-050実行手順)でruntime/test-050全ZIPと初動/毎ビート/商品/最終pauseを返してもらう。独立3観点の第2周・完全408sourceの最終照合は既存台帳末尾へ記録する。毎拍/人より速い性能・指輪/通知/全周回の実機受入は未完了。
 
-TEST046提出時の履歴: 実装・ホスト/CI・新IPA build30を検証して実機テストを依頼した。35px UNKNOWNの同入力再確認と向き1の画素同値コピー削減を実装し、native112件/client112件ホスト成功、[CI42355682441](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441)でSwift15変異/暗号RPC/build30を確認、CRC/SHA/22ソースを照合。その後の実機は3実行方向0、向き8の処理が重く向き1最適化は未適用だった。その後TEST047も受領し、現在は上記TEST049へ進める。毎拍/人より速い性能は未合格。
+TEST046提出時の履歴: 実装・ホスト/CI・新IPA build30を検証して実機テストを依頼した。35px UNKNOWNの同入力再確認と向き1の画素同値コピー削減を実装し、native112件/client112件ホスト成功、[CI42355682441](https://github.com/shuhei0720/necrogold-automation/actions/runs/42355682441)でSwift15変異/暗号RPC/build30を確認、CRC/SHA/22ソースを照合。その後の実機は3実行方向0、向き8の処理が重く向き1最適化は未適用だった。その後TEST047も受領し、現在は上記TEST050へ進める。毎拍/人より速い性能は未合格。
 
 TEST045提出時の履歴: 実装・ホスト/CI・新IPA build25を確認して実機テストを依頼した。元拍/期限を維持した初入力前の最大2再計画と、結果専用最大8秒・固定差分診断を実装。native96件/クライアント105件はホスト全成功、client CI105件/native CI90件もskip0。Swift本体と12実callsite変異、暗号RPC、IPAビルドが[CI42349253984](https://github.com/shuhei0720/necrogold-automation/actions/runs/42349253984)で成功し、CRC/SHA・全22ソースを照合した。その後上1歩＋ポーズの実機結果を受領した。現在はTEST046の新IPAと[TEST046手順](device-tests/README.md#test-046実行手順)を使う。歩行・速度・毎拍受入は未合格。
 
