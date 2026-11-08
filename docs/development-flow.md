@@ -1,5 +1,9 @@
 # 採用するAI駆動開発フロー
 
+二つ目のTEST051を独立2分析で再生し、安全な上1歩に対する遠いtargetだけの差と、画像回収のhost_deadlineを分離してTEST052の既存台帳8プランへ反復した。fresh planは設計1周・試験/安全2周でclose。実装前公開Cと実暗号HTTPの各2assertion Redからreason8/FLOOR限定の同action再検証とv10 bounded batchを実装した。実装第1周の再開再中断tail破棄は3assertion Redで再現して修正し、base64/画像境界の不足も補い、第2周source残P0/P1/P2なし。host153/all107画像・client170・patch199、[Mac CI42467835995](https://github.com/shuhei0720/necrogold-automation/actions/runs/42467835995)で全50/Raster3/実C同値/RPC/実compiler/IPA build66を確認。最終配布物/413sourceの同第2周照合を既存台帳へ保存して工程⑦のTEST052実機依頼へ進む。全経路毎拍/茶壁・扉/商品/人より速い性能と全循環の受入は実機証拠待ち。
+
+TEST051受領時までの履歴:
+
 TEST051の工程⑦で「かなり良い感じのスピードで扉前まで歩きポーズ」を受領した。独立した制御/回収の2分析で4入力/4MOVED・約520ms間隔・5歩目未送信screen停止を確認。差分の遠方DIRT→STONE自体はlocal safe_floor不成立の原因ではなく、操作前の完全画像が不足しているため扉/地形/保護条件のどれかを断定しない。保存済みcheckpointの実client回復をコピーした資料とfake応答で再生し、status/resultsのみ・同offset・GET0/start0を確認したが、実機cacheの存続は未確認。新しい制御実装や新規TDDを始めず、同IPA/同runの画像回収を先に実機依頼する。受領分析は既存台帳に追記し、閉じたTEST051実装第2周を再開しない。全経路毎拍/人より速い性能/商品到達の受入は未完了。
 
 TEST050のLEFT2後の未送信scene差停止と画像回収失敗を受け、TEST051の既存台帳8項目プランへ戻った。fresh-context設計/試験/安全を第2周で閉じ、旧公開Cの2MOVED後再予約期待・固定050 Runtimeの公開manifest要求・実暗号clientを実装前assertion Redで確認してから変更した。元の拍と安全条件を保つ予約更新、限定された分割結果回収、client v9/capv8を実装し、host/CIと[Mac CI42445994987](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987)でRuntime48/Raster3/両C同値・実compiler/RPC/IPA build64を通過した。実装第1周の取消/保存後期限・世代cache・独立route target試験を修正し、第2周のsource指摘は0。試験用HUDとcapture midpointの時計ずれ、固定時計でのquery起点変異の検出不足は、試験だけを直して元の全fault期待を維持した。実配布物と410sourceの同第2周照合は既存台帳末尾へ記録する。工程⑦として新IPA/完全sourceと具体的TEST051を必ず依頼し、実機の毎拍/人より速い動作・全周回の受入と受領後の工程⑧は続く。

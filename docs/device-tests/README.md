@@ -2209,3 +2209,32 @@ clientの旧実暗号HTTPは512KiB画像のfragment保存が8回（期待2回）
 最終nativeホスト153件は107必須画像を含めskip0/69.639秒、Controller単独91件skip0/10.634秒、patch/compiler/package/RPC検証器199件skip0/1.448秒が成功。封印22sourceを固定upstream→G1→G2の実適用で照合した。Perception/Navigation/Beat/Raster/Runtime/Ticket/Core/Controller headerとNG-G1/R12は不変、native Controller本体とcapabilityだけを変更。seal SHA `301adad0a44218f2f0f9accf3a29b0b62a9e0a691782470b4418caccf29bcc9a`。capv9も厳密compiler profilev2を必須に保ち、旧v6/v1・v7/v8/v2を維持する。実機の毎拍/茶壁・扉/商品/人より速い性能と画像回収待ちは未受入。
 
 TEST052先行build65（CI42467143569/code439d29c）はhost141/client170に成功したが、Macの新公開結合のterminal待ちで停止した。実ログでは置換B id4が元notBefore308629986087nsぴったりで送信され、inputs3/moves3/path3、A/Bの実callback返却まで成功。新fake worldの石列がC商品fixtureの価格y165を上書きしgoods PARTIAL1のままとなり、次予約id5をtestが保持した状態だった。実Cの画素再生で旧goods1のassertion Redを確認し、共有Cの既存看板/商品/価格7矩形をworldの上層に保つtest-only修正でFLOOR/goods2へ戻した。新planner proofに実C goods-visible assertionを追加。既存input/window/owner/callback/drain/pause期待と時計は不変、native全22seal/Controller/Runtime/clientも不変。3担当が同じ実装第2周補足として独立画素再生・期待値を照合しP0/P1/P2なし。これは試験fixture不具合の訂正で、アプリ不具合や主挙動Redに数えない。診断artifact13612550872は78,534bytes/SHA `2c1ed5466fd8589973a9e263cdca43753718f9a3950c681bbdb8e24ddd597bc0`、全CRC/安全なinventoryを照合した。全50/実IPAは修正版CIで改めて確認する。
+
+### TEST052最終CI・配布物照合
+
+- code `76f5436cfb6567d443db4fbdd99d514d4e8689f1` / [Mac CI42467835995](https://github.com/shuhei0720/necrogold-automation/actions/runs/42467835995) / build66。実Runtime public結合と全50 named fault（旧48＋Controller after/pendingの過剰なtarget一致2変異）、Raster3、Perception/Navigationの不変O0参照との全構造/score/field同値と実変異、daemon drain、LoopCtrlKit、実暗号RPC owner-callsite変異、実compilerとIPAが成功。UIKit/XCTest/daemonはhost fakeで、実機受入とは区別する。
+- [IPA ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42467835995/artifacts/13613670839)は17,782,725bytes/SHA `532c3babc4b3d41e052aa025cf21b2832dfdca17711838028197ef181b4e185e`。内部`upstream/release/LoopCtrl.ipa`はbundle top.ebato.loopctrl / 0.3.4 / build66 / SHA `23bc6bb060c41e9f5f73c3bf2192dabef2a598c0d94f22fda00e9849674ccc25`。外ZIP/内IPA全CRC正常、runner/CLIあり・mobileprovisionなし。全22source/seal301adad0a44218f2f0f9accf3a29b0b62a9e0a691782470b4418caccf29bcc9aとdriver/upstream/patchが一致。
+- [Mac検証ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42467835995/artifacts/13613680802)は341,174bytes/SHA `660a68d44af79514ae4ef65418b1b0d13ec357070ce452de7e3d482b0441e047`。保存PBX/実raw compiler log/6 response files/実引数を結び、Perception/Navigation各1 strictO2/no-fast-math/fp-contract-off、Beat/Controller O0、Swift5モジュールOnoneを確認。actual profilev2とhelper flags/source hashesが一致。全9 Mach-OでHOST hook/fixture/spy非混入、実arm64 app/runnerにAPI/native_v9を確認。
+- host native153件は全107必須画像を含めskip0/69.639秒、Controller91件skip0/10.634秒、patch/compiler/package199件skip0/1.448秒。最終CI native141件はprivate12再生を明示除外してskip0/28.869秒。[証跡artifact13612561686](https://github.com/shuhei0720/necrogold-automation/actions/runs/42467835995/artifacts/13612561686)は4,292bytes/SHA `cdd8ec3131da3a11f6b16a67a3f042cab329e55e888acccfbf2331243d410835`、CRC/実logを照合。
+- host client170件skip0/41.011秒、[client CI42467143466](https://github.com/shuhei0720/necrogold-automation/actions/runs/42467143466)はclient commit `439d29cb7b6aa191196610e4c9468298ae3bde0a` で全170件skip0/41.202秒。最終配布版のclient/共有通信/新試験/起動scriptは当該commitと全bytes一致。[証跡artifact13611639728](https://github.com/shuhei0720/necrogold-automation/actions/runs/42467143466/artifacts/13611639728)は5,155bytes/SHA `4e671856201032d46d2083262bcc0fddc29c617dfd2d0d4e5892f725321e7bea`。batch/再中断tail/IO/期限/取消/旧v9・legacyの実暗号と保存回復を含む。保存時計モデルはiSH実速度の合格ではない。
+- 独立3観点の実装第2周はsourceのP0/P1/P2残件なし。最終実IPA/全source・compiler/50fault証拠と、既存5文書を更新した413source archiveの同第2周照合は以下へ追記する。実機毎拍/茶壁・扉/商品/人より速い性能/指輪/通知/全循環は未受入。
+
+## TEST-052実行手順
+
+**TEST052の実機テストをお願いします。** Controller/capabilityを変更したため新IPAが必要です。client v10 / API1.98.14-ngg2 / native_v9を使います。
+
+1. SafariでGitHubへログインし、[新IPA build66 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42467835995/artifacts/13613670839)をダウンロード・展開します。
+2. LoopCtrlでStop Server→完全終了し、SideStoreでZIP内`upstream/release/LoopCtrl.ipa`へ更新。LoopCtrlを開き直してStart Serverを押し、いつものVPN/ディスクイメージ接続を確認します。
+3. この配布版の完全ソースZIPをSafariで取得・展開します。フォルダ選択は`test_052.sh`があるフォルダです。前回051の未完了runtimeを新規052へコピーしません。
+4. 手動クイックリスタート後、開幕に金壁が見える新しい通常1-1を、画面端操作0・左側が下の向きでポーズします。
+5. iSHで実行します。
+
+```sh
+mkdir -p /mnt/necro_test052
+mount -t ios . /mnt/necro_test052
+cd /mnt/necro_test052 && sh test_052.sh
+```
+
+ポーズ後は画像回収の進捗が表示されます。**「TEST-052: 終了」が出てからruntime/test-052全体をZIPで返してください。** 初動・毎ビートの連続歩行・茶壁や扉の開通/進入・商品の可視・最終ポーズ・終了までの待ち時間を教えてください。
+
+結果回収未完了と表示されて処理が終了した場合だけ、同じLoopCtrl起動状態・同じソース/runtimeを保って`sh test_052.sh`を再実行すると、同じrun/export/cursorを回収します。回収完了済みなら再実行せず全ZIPを返します（resolved=trueでは新runが始まります）。同時に別テストを実行しません。今回の変更が茶壁/扉/全経路の実機成功を保証するものではなく、この実機資料で次の改善を判断します。

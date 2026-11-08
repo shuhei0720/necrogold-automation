@@ -2,18 +2,16 @@
 
 iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に金壁が見える回の金商人の商品を高速に確認し、目的の「呪いの指輪」の候補で停止するためのプロジェクトです。
 
-**TEST051受領:** 左へ4歩、約0.51〜0.52秒間隔の歩行を確認し、5歩目の送信前に停止しました。操作前画像の保存が途中なので、まず[回収完了後の全ZIP返却・未完了時だけの画像回収](docs/device-tests/README.md#test-051受領結果と画像回収)をお願いします。**この回収ではIPAを更新せず、LoopCtrlと元のruntime/test-051を保持してください。** 新規テストの起動手順とは区別します。
+**現在の版はTEST-052です。** TEST051再受領では左2歩を約0.521秒間隔で認識しました。次の上1マスは安全な床のままでも、別セルの認識変化で遠い目標位置が変わり停止していました。TEST052は同じ安全床への同じ操作・理由8の場合だけ、その目標位置の変化を同じ拍で再検証します。画像回収は最大4断片ずつ保存し、進捗を表示します。歩行/回収の元の期限は保ちます。
 
-**現在の版はTEST-051です。** TEST050はLEFT2/MOVED2・入力間隔515.147667msを確認したが、3歩目は未送信予約中のtile-only変化でreason17停止。PNG回収はresponse_cryptoのrpc_deadlineで0枚だった。TEST051は安全床・同じ金壁/全保護/完全Decision・厳密BLOCKEDを再確認できた未送信予約だけを元の同じ拍と期限で更新し、画像は64KiBずつ回収する。 制御と画像回収APIを変更するため、**新IPA build64へ更新してください。** client v9はAPI `1.98.14-ngg2` とcapability `necrogold_native_v8`を必要とします。[TEST051実行手順](docs/device-tests/README.md#test-051実行手順)を参照してください。毎拍1歩と人より速い動作の実機受入は未合格です。
-
-[新IPA build64 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987/artifacts/13604925448)は、実コンパイル設定・入力/停止の公開結合と48実callsite変異・暗号通信・パッケージ照合を通過しました。完全ソース410ファイルと配布物の証拠は[既存実機台帳](docs/device-tests/README.md#test-051実行手順)末尾に保存します。
+Controllerとcapabilityを変更したため、**[新IPA build66 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42467835995/artifacts/13613670839)へ更新してください。** client v10/API `1.98.14-ngg2` / `necrogold_native_v9`が必要です。[TEST052実行手順](docs/device-tests/README.md#test-052実行手順)を参照。ホスト153（107必須画像）/client170、Mac50/Raster3/RPC/実compiler/IPAの検証は成功。完全ソース413ファイルと最終独立照合は既存台帳末尾へ記録します。全経路での毎拍歩行と人より速い動作、茶壁・扉・商品への到達は実機で確認します。
 
 前版TEST-042は商品表示・最終ポーズに成功しましたが、速度は未合格でした。report開始→初入力23.831秒（04118.587秒）、walk26.229秒（04121.874秒）。拍の再同期で7.329秒、扉前の再観測で4.701秒の空白があり、full撮影＋解析だけで約1.25秒かかりました。[実機結果と原因](docs/device-tests/README.md#test-042受領結果2026-11-07-日本時間)を残し、この観測待ちを短縮するためNG-G2へ進んでいます。配置差があるため全時間差を変更の効果とはしません。
 
 - [計測ツールの使い方と結果の見方](docs/p1-probe-guide.md)
-- **TEST-051の実機確認をお願いします。** [実行手順](docs/device-tests/README.md#test-051実行手順)で新IPAへ更新し、LoopCtrl完全終了/起動→Start Server。開幕に金壁が見える新しい通常1-1を画面端操作0・左側が下でポーズし、iSHから `sh test_051.sh` を実行します。「終了」が出たら `runtime/test-051` 全体のZIPと、初動・毎ビートの歩行・商品・最終ポーズの結果を返してください。開発ブランチは`work/p1-capture-probe`です。
-- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_native_perception test_native_navigation test_native_beat test_native_controller test_native_raster test_protocol test_http_and_cli test_http_diagnostics test_native_walk test_native_connect test_native_results test_native_paged_results -v`。固定したTEST034〜042の66画像は`NECRO_TEST043_FIXTURE_ROOT`、TEST045の8画像は`NECRO_TEST046_FIXTURE_ROOT`、TEST046の5画像は`NECRO_TEST047_FIXTURE_ROOT`、TEST048の8画像は`NECRO_TEST049_FIXTURE_ROOT`、今回TEST049の11画像は`NECRO_TEST050_FIXTURE_ROOT`でGit外の場所を指定します。全98必須画像の不足・hash不一致は失敗にします。CIのprivate10試験の明示除外とローカル全件、旧回帰の外部画像不足skipは分け、最終集計は既存実機台帳を参照してください。
-- 完全な新規ソース: [native C/Swiftと取得元パッチ](patches/loopctrl/README.md)、[軽量iSHクライアント](necroprobe/native_walk.py)、[起動スクリプト](test_051.sh)。旧版40ファイルは未変更。
+- **TEST-052の実機確認をお願いします。** [手順](docs/device-tests/README.md#test-052実行手順)で新IPAへ更新し、LoopCtrl完全終了/起動→Start Server。開幕に金壁が見える新しい通常1-1を画面端操作0・左側が下でポーズし、iSHから `sh test_052.sh` を実行します。「TEST-052: 終了」後に `runtime/test-052` 全体のZIPと、初動・毎ビート・茶壁/扉・商品・最終ポーズ・画像回収待ち時間を返してください。開発ブランチは`work/p1-capture-probe`です。
+- 今回の対象試験: `PYTHONPATH=tests python3 -m unittest test_native_perception test_native_navigation test_native_beat test_native_controller test_native_raster test_protocol test_http_and_cli test_http_diagnostics test_native_walk test_native_connect test_native_results test_native_paged_results test_native_export_batch -v`。固定したTEST034〜042の66画像は`NECRO_TEST043_FIXTURE_ROOT`、TEST045の8画像は`NECRO_TEST046_FIXTURE_ROOT`、TEST046の5画像は`NECRO_TEST047_FIXTURE_ROOT`、TEST048の8画像は`NECRO_TEST049_FIXTURE_ROOT`、TEST049の11画像は`NECRO_TEST050_FIXTURE_ROOT`でGit外の場所を指定します。今回TEST051再受領の9画像は`NECRO_TEST052_FIXTURE_ROOT`で指定します。全107必須画像の不足・hash不一致は失敗にします。CIのprivate12試験の明示除外とローカル全件、旧回帰の外部画像不足skipは分け、最終集計は既存実機台帳を参照してください。
+- 完全な新規ソース: [native C/Swiftと取得元パッチ](patches/loopctrl/README.md)、[軽量iSHクライアント](necroprobe/native_walk.py)、[起動スクリプト](test_052.sh)。旧版40ファイルは未変更。
 - P1.1の検証: ホスト54試験と3観点の相互レビューを通過しましたが、[TEST-001](docs/device-tests/001-capture.md)の実機3実行はworker_failedでした。3reportを受領し、最初のdevice_infoの開始記録までで完了していないことを確認。ホスト通過を実機合格とは扱いません。
 - P1.2の[TEST-002](docs/device-tests/002-worker-diagnostics.md)はPython暗号でもゲーム起動前にSIGSYSで終了しました。
 - P1.3の[TEST-003](docs/device-tests/003-ish-timer.md)は`timer_already_in_use`でゲーム起動前に停止、取得0/12でした。
