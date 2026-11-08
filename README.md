@@ -2,6 +2,8 @@
 
 iPhone版ネクロダンサーで、通常オールゾーン1-1で、開幕に金壁が見える回の金商人の商品を高速に確認し、目的の「呪いの指輪」の候補で停止するためのプロジェクトです。
 
+**TEST051受領:** 左へ4歩、約0.51〜0.52秒間隔の歩行を確認し、5歩目の送信前に停止しました。操作前画像の保存が途中なので、まず[回収完了後の全ZIP返却・未完了時だけの画像回収](docs/device-tests/README.md#test-051受領結果と画像回収)をお願いします。**この回収ではIPAを更新せず、LoopCtrlと元のruntime/test-051を保持してください。** 新規テストの起動手順とは区別します。
+
 **現在の版はTEST-051です。** TEST050はLEFT2/MOVED2・入力間隔515.147667msを確認したが、3歩目は未送信予約中のtile-only変化でreason17停止。PNG回収はresponse_cryptoのrpc_deadlineで0枚だった。TEST051は安全床・同じ金壁/全保護/完全Decision・厳密BLOCKEDを再確認できた未送信予約だけを元の同じ拍と期限で更新し、画像は64KiBずつ回収する。 制御と画像回収APIを変更するため、**新IPA build64へ更新してください。** client v9はAPI `1.98.14-ngg2` とcapability `necrogold_native_v8`を必要とします。[TEST051実行手順](docs/device-tests/README.md#test-051実行手順)を参照してください。毎拍1歩と人より速い動作の実機受入は未合格です。
 
 [新IPA build64 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987/artifacts/13604925448)は、実コンパイル設定・入力/停止の公開結合と48実callsite変異・暗号通信・パッケージ照合を通過しました。完全ソース410ファイルと配布物の証拠は[既存実機台帳](docs/device-tests/README.md#test-051実行手順)末尾に保存します。

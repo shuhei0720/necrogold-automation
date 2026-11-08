@@ -2145,3 +2145,31 @@ cd /mnt/necro_test051 && sh test_051.sh
 **この新IPAと完全sourceからTEST051を依頼し、runtime/test-051全ZIPと初動/毎拍/商品/最終pauseの実機結果で次の改善を判断します。**
 
 TEST051実装第2周の最終照合を設計・試験・安全の3観点で終了した。全員が実IPA build64/封印22source/Runtime48 named変異の実ログ/Raster3/両C同値・field変異/実暗号RPC/実PBX・7,020行raw compiler log・6保存responseとC4/Swift5のprofilev2/全9 Mach-OのHOST hook非混入を独立照合し、P0/P1/P2残件なし。文書込みcommit `7e3f71ba90ec5c154c59d5e6bc4c64680029e466` の[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/archive/7e3f71ba90ec5c154c59d5e6bc4c64680029e466.zip)は6,895,013bytes/SHA `389b870197f626e75b22f1feaf1f6c305e24ed35fa2a7ee2642c4e808d1eb372`。rootと3担当が全410ファイルのcommitted bytes/全CRC/安全なinventoryを独立一致し、重複・欠落・余分・不一致0。実ビルドcode `01a4ea3cae83dfb3886e2b209ed0bd0639ea4766` からの変更は既存5文書だけで、配布版にはこの終了記録だけを追加する。最終配布ZIPもrootが全410bytes/CRCを再照合して渡す。毎拍・人より速い動作・商品到達・最終pauseは実機未受入のまま、上記TEST051とruntime/test-051全ZIPを依頼する。
+
+## TEST-051受領結果と画像回収
+
+2026-11-08（日本時間）、ユーザーから「かなり良い感じのスピードで歩き、扉の前まで歩いてポーズした」とtest-051.zipを受領した。145,773bytes/SHA `f2799f08073a95c40f4a72048b56dfb10ad1792450089a4176e78ae5ee92ed3c`、8entries、全CRC正常・重複/危険path/symlinkなし。生ZIP/report/画像/解析JSONはGit外へ置く。新規production変更や実装前Redを行った記録ではない。
+
+- run `d5cfae10dcf24308a1b6c376f57a5a54` / client v9 / build64。LEFT4・MOVED4、x=-4/y=0、lead_confirmed1、goods0、door_changes0/terrain_changes0、最終paused1/drained true/native_inflight false。
+- 実synth begin間隔は510.213833/520.847250/522.172625ms（中央値520.847250ms）。最後のlive period519.993503msとほぼ1拍ずつで、全4入力が各元window内だった。入力のゲーム受付時刻や動画との全拍対応は記録していない。user観察とログはこの4歩の改善を支持し、全経路/全配置/人より速い性能の合格とは区別する。
+- native開始→初入力4.209996958秒、accepted→初入力4.212301958秒、初FLOOR撮影終了（walk_started_ns）→初入力2.334738542秒。前テストとの配置/端末負荷差を除いた比較ではない。
+- ordinal5/id7はbegin0/outcome3、reason17/screenで未送信。cap73→74の差は(6,3)のDIRT4→STONE3だけ、changed_tiles1/protected0、両state FLOOR/goods UNKNOWN。detail.validation7（safe_floor条件不成立）、continuous_count0/chain0。この変更セルはLEFTのlocal判定範囲外で、gold集合も変えないため、local条件は両画像で既に不成立。次のセルが扉/茶壁か、gold bracketか、next周囲のprotectedかは、全Sceneと操作前PNGがなく確定できない。ユーザーの扉前という観察だけでguardを緩めない。今回continuous allowanceは0なので、4歩の実績をその再検証機能だけの効果にしない。
+- cap74のC observe開始は元deadlineの2.746595ms前、終了まで0.011750ms。時間切れで止まった記録ではない。今後の同拍再検証も元deadlineを延ばしたり次拍へ送ったりしない。
+- active.json/report.jsonは同一44,164bytes、resolved false/stop_reason null、保存された7RPC eventsは全error null。manifest18画像/4,031,316bytes、最初のcap81のoffset65,536以外は0、確定PNGは0。`.part`は65,536bytes、同fragmentのatomic `.tmp`は完全67,986bytesでmanifest SHA `c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b`と一致。全PNG chunk CRC/IEND/寸法/Pillowを検証してGit外へ復元し、GAME PAUSEを目視確認した。操作前の画像は復元できていない。
+- manifest RPCは2.691942秒、最初のchunk RPCは327.975ms。manifest応答後→最初のchunk要求の3.489926秒は検証/保存/準備を含み、fsyncだけの実測とはしない。次fragmentのatomic保存が確定する前のsnapshotだが、処理継続中・プロセス中断・保存停滞のどれかは断定できない。記録されたrpc_deadline/host_deadlineはない。
+
+**TEST051の回収結果を実機で確認してください。新IPAの更新・LoopCtrlの再起動・新しいランへの移動はせず、元のruntime/test-051を残してください。** iSHの処理がまだ続いている場合は終了表示を待ちます。既に回収が完了した場合は再実行せず、そのまま現在の全ZIPを返してください。
+
+**iSHに「端末側の停止は確認済みですが、結果の回収は未完了です。同じ実行IDを保持しています。」と表示されて処理が終了した場合だけ**、前回の同じフォルダで次を実行します。受領ZIP時点は未完了でも、その後実機側の回収が完了している可能性があるため、古いZIPだけから再実行を判断しません。
+
+```sh
+cd /mnt/necro_test051 && sh test_051.sh
+```
+
+前回のマウントがなくなった場合だけ、`mkdir -p /mnt/necro_test051`、`mount -t ios . /mnt/necro_test051`で、**前回のruntime/test-051が入った同じソースフォルダ**を選んでから上記を実行します。新しく展開した空のruntimeフォルダは使いません。処理中に別の回収を重ねて起動しないでください。
+
+既存v9 clientは未解決journalならstatus（keepalive false）と同一run/exportのresultsで回収を再開します。journalがresolved=trueなら新runを開始するため、完了後の無条件再実行は行いません。保存済みコピー＋fake応答の独立再生ではcap81のoffset65,536から残2,450bytesを取得してhash一致のPNGを確定し、次のcap1/offset0へ進み、start/cancelなしを確認した。これはhost上の回復試験で、実機の同owner/current-run/cache存続を保証するものではない。残りは約3.966MB/74chunksで、画像回収だけの90秒枠を超えた場合も既得file/cursorを保つ。cacheが既に失効していたら同一run回収は成立せず、そのエラーを確認してから次の新規テストへ進む。
+
+**「TEST-051: 終了」が出てから、runtime/test-051全体をZIPで返してください。** 途中でエラー/取消になった場合も部分フォルダだけを選ばず全体を返します。これを基に扉/地形/保護のどの条件を改善するか決める。今回の画像不足を理由に、UNKNOWN/保護/元拍/入力回数の安全条件を緩めない。
+
+今回の受領記録と回収手順は独立した制御・回収の2分析で照合し、observe区間の0.011750ms、初FLOOR撮影終了を使う時刻表現、atomic保存確定前という表現、resolved=trueでは再実行しない条件を修正した。両担当が追加の具体的誤りなしを確認。rootも保存済みコピー＋fake応答による同offset回復/画像hash/次画像への進行/start0/cancel0を再現した。変更は既存5文書だけで、build64のproduction全source・起動script・入力制御・画像回収は未変更。新規IPAや新規テスト合格を作った記録ではなく、次の実機資料を待つ工程⑦の受領・再依頼である。

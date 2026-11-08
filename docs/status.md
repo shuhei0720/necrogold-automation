@@ -2,6 +2,8 @@
 
 更新: 2026-11-08（日本時間）
 
+TEST051実機を受領。左4入力/4MOVED、間隔510.213833/520.847250/522.172625ms（最終period519.993503ms）を確認した。5歩目は未送信のままreason17/screen、連続再検証validation7で停止。差分は遠方(6,3)のDIRT4→STONE3だけで、前後のlocal safe_floor不成立の内訳は全Scene/操作前PNG不足により未確定。画像回収は18枚のmanifestと最初の65,536bytesまでのcheckpointがあり、同画像の完全なatomic tmpから最終PAUSEだけを検証復元できた。処理継続中/中断/保存停滞のどれかは未確定。 最終ポーズは復元PNGでも確認したが、商品は未確認。現在は[同一runの読取専用回収](device-tests/README.md#test-051受領結果と画像回収)を実機依頼する段階。IPA更新や歩行やり直しは不要。制御本体は配布build64から変更していない。
+
 最新はTEST051を実装し、[CI42445994987](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987)と新IPA build64を検証した段階。TEST050はLEFT2/MOVED2・入力間隔515.147667msを確認したが、3歩目は未送信予約中のtile-only変化でreason17停止。PNG回収はresponse_cryptoのrpc_deadlineで0枚だった。TEST051は安全床・同じ金壁/全保護/完全Decision・厳密BLOCKEDを再確認できた未送信予約だけを元の同じ拍と期限で更新し、画像は64KiBずつ回収する。 元の拍/全入力期限と既存の初歩前再計画を保ち、連続歩行用の更新は同一予約2回/run8回まで。変化の詳細は固定3×4セルで記録する。client v9/capv8は分割回収・同一IDでの途中再開・復号前wire上限・期限/取消の保存後検査を加え、旧v1..v8 journalはlegacy GET0/start0を維持する。
 
 [TEST051 IPA build64](https://github.com/shuhei0720/necrogold-automation/actions/runs/42445994987/artifacts/13604925448)のCRC/SHA・封印22source・実Mach-O API/native_v8とHOST hook非混入を照合済み。nativeホスト144件（全98必須画像）に続き、追加後Controller86件、client156件、patch/compiler/package198件が成功。CI native137件はprivate10再生を明示除外する。実Mac Runtime48/Raster3/両C同値・実暗号RPC/実compiler profilev2も成功。独立実装3観点の第2周と最終410sourceの照合は既存台帳末尾へ保存する。新IPAへ更新し、[TEST051手順](device-tests/README.md#test-051実行手順)でruntime/test-051全ZIPと初動/毎拍/商品/最終pauseを返してもらう。毎拍/人より速い性能、指輪/通知/全周回/耐久の実機受入は未完了。
