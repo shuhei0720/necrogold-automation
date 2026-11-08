@@ -2065,3 +2065,5 @@ cd /mnt/necro_test050 && sh test_050.sh
 - artifact保持期限は2026-12-08 UTC。code/IPA以後の更新は既存5文書だけ。完全source408追跡ファイルの固定commit archiveを回収し全CRC/全bytesを照合する。独立実装3観点は第2周で実配布物と最終sourceまで確認して閉じる。毎拍/人より速い性能、指輪/通知/完全周回・耐久は実機証拠まで未受入。
 
 **上記build52と完全sourceからTEST050の実機テストを依頼する。** `runtime/test-050`全ZIPと、初動・毎ビート連続して歩くか・商品到達・最後のポーズを返してもらい、追加した実observe区間も含めて次の改善を判断する。
+
+完全source最終照合: GitHub commit `154a65a858818067d5d5e43b30c22efa9d7b3af0` のAPI取得ZIPは6,863,462bytes/SHA-256 `9c4fc3afab6526a53e7a2911f294ca455b5ef2b98a0e32f1bdbf4fc9f1588fd6`。root・設計・試験・安全が全CRC/安全なinventoryと408/408追跡ファイルの全bytes一致を独立確認し、重複/unsafe/symlink/欠落/余分/不一致はすべて0。実IPA/全22封印source/実PBX・raw compiler argv・response/両C同値・Runtime32/Raster3/RPCも独立照合し、実装レビュー3観点は第2周でP0/P1/P2残件なしとして終了。この1段落だけを台帳へ追記し、返却する最終commit archiveもrootで全408ファイルを再照合する。code/tests/manifest/IPAはbuild52から不変で、実機の毎拍・速度・全周回は未受入のまま。
