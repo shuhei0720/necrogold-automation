@@ -20,9 +20,9 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v11'
+REVISION = 'native-walk-v12'
 API_VERSION = '1.98.14-ngg2'
-CAPABILITY = 'necrogold_native_v10'
+CAPABILITY = 'necrogold_native_v11'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -38,8 +38,8 @@ MAX_CHUNK_WIRE = 256 * 1024
 CHUNK_BYTES = 64 * 1024
 EXPORT_BATCH_CHUNKS = 4
 EXPORT_BATCH_BYTES = 256 * 1024
-PAGED_REVISIONS = frozenset(('native-walk-v9', 'native-walk-v10', 'native-walk-v11'))
-BATCHED_REVISIONS = frozenset(('native-walk-v10', 'native-walk-v11'))
+PAGED_REVISIONS = frozenset(('native-walk-v9', 'native-walk-v10', 'native-walk-v11', 'native-walk-v12'))
+BATCHED_REVISIONS = frozenset(('native-walk-v10', 'native-walk-v11', 'native-walk-v12'))
 _HTTP_TRANSPORT_TYPE = HttpTransport
 MAX_SCHEMA_ATTEMPTS = 4
 SCHEMA_BUDGET_NS = 8_000_000_000
@@ -372,7 +372,7 @@ def _load(base):
         _require(record.get('revision') in ('native-walk-v1', 'native-walk-v2', 'native-walk-v3',
                                           'native-walk-v4', 'native-walk-v5', 'native-walk-v6',
                                           'native-walk-v7', 'native-walk-v8',
-                                          'native-walk-v9', 'native-walk-v10', REVISION)
+                                          'native-walk-v9', 'native-walk-v10', 'native-walk-v11', REVISION)
                  and record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -381,7 +381,8 @@ def _load(base):
                  and record['native_state'] in STATES | {None}
                  and record['stop_reason'] in ERROR_CODES | {None}, 'native_journal_invalid')
         if record['native_report'] is not None:
-            record['native_report'] = _report(record['native_report'])
+            record['native_report'] = _report(record['native_report'],
+                require_motion_references=record['revision'] == 'native-walk-v12')
         _require(_result_metadata(record['result_metadata']) == record['result_metadata'], 'native_journal_invalid')
         record['images'] = _stored_images(record['images'])
         if 'image_export' in record:
@@ -521,7 +522,96 @@ def _dispatch_failure(value):
     return {key:value[key] for key in keys}
 
 
-def _report(value, depth=0):
+def _motion_references(value):
+    keys = ('command_id', 'authority_capture_id', 'reference_capture_id',
+            'reference_start_ns', 'reference_prefix', 'observed_capture_id',
+            'reference_eligible', 'primary_motion', 'fallback_attempted',
+            'fallback_motion', 'selected_capture_id', 'selected_motion')
+    flags = ('reference_eligible', 'fallback_attempted')
+    motions = ('primary_motion', 'fallback_motion', 'selected_motion')
+    _require(type(value) is list and len(value) <= 16, 'invalid_native_report')
+    rows = []
+    for row in value:
+        _require(type(row) is dict and set(row) == set(keys), 'invalid_native_report')
+        for key in keys:
+            item = row[key]
+            if key in flags:
+                _require(type(item) is bool, 'invalid_native_report')
+            elif key in motions:
+                _require(type(item) is int and 0 <= item <= 7, 'invalid_native_report')
+            else:
+                _require(_ns(item), 'invalid_native_report')
+        _require(row['command_id'] > 0 and row['authority_capture_id'] > 0
+                 and row['selected_capture_id'] > 0, 'invalid_native_report')
+        if row['reference_capture_id'] == 0:
+            _require(row['reference_start_ns'] == row['reference_prefix'] == 0
+                     and not row['reference_eligible'], 'invalid_native_report')
+        if row['reference_eligible']:
+            _require(0 < row['reference_capture_id'] < row['authority_capture_id'],
+                     'invalid_native_report')
+        if row['observed_capture_id'] == 0:
+            _require(not row['fallback_attempted']
+                     and row['primary_motion'] == row['fallback_motion'] == row['selected_motion'] == 0
+                     and row['selected_capture_id'] == row['authority_capture_id'],
+                     'invalid_native_report')
+        else:
+            fallback = row['primary_motion'] == 0 and row['reference_eligible']
+            _require(row['fallback_attempted'] == fallback
+                     and (fallback or row['fallback_motion'] == 0), 'invalid_native_report')
+            selected_fallback = fallback and row['fallback_motion'] == 1
+            _require(row['selected_capture_id'] == row['reference_capture_id' if selected_fallback
+                         else 'authority_capture_id']
+                     and row['selected_motion'] == (1 if selected_fallback else row['primary_motion']),
+                     'invalid_native_report')
+        rows.append({key:row[key] for key in keys})
+    _require(len({row['command_id'] for row in rows}) == len(rows), 'invalid_native_report')
+    return rows
+
+
+def _motion_reference_events(report):
+    events = report.get('events')
+    _require(type(events) is list, 'invalid_native_report')
+    moves, ack_ids, previous_ack = [], set(), 0
+    for event in events:
+        if event.get('outcome') == 2:
+            _require(event.get('kind') in (1, 2, 3, 4) and _ns(event.get('id'))
+                     and event['id'] > previous_ack and event['id'] not in ack_ids,
+                     'invalid_native_report')
+            if event['kind'] == 4:
+                moves.append((event, previous_ack))
+            ack_ids.add(event['id'])
+            previous_ack = event['id']
+    rows = report['motion_references']
+    _require([row['command_id'] for row in rows] == [event['id'] for event, _ in moves],
+             'invalid_native_report')
+    for row, (event, prefix) in zip(rows, moves):
+        _require(row['authority_capture_id'] == event.get('source_capture_id')
+                 and row['selected_motion'] == event.get('motion'), 'invalid_native_report')
+        observed = event.get('observed_capture_id')
+        _require(_ns(observed), 'invalid_native_report')
+        if row['observed_capture_id'] != observed:
+            # Goods names its holding frame in the existing event before the
+            # visual time gate. An early/late goods frame is not a new motion
+            # assessment; retain the last actual UNKNOWN/TWEEN (or none).
+            _require(report.get('goods') == 1 and event is moves[-1][0]
+                     and row['observed_capture_id'] < observed
+                     and row['selected_motion'] in (0, 7), 'invalid_native_report')
+        if row['reference_capture_id']:
+            _require(row['reference_capture_id'] <= row['authority_capture_id']
+                     and row['reference_prefix'] == prefix
+                     and _ns(event.get('source_start_ns'))
+                     and row['reference_start_ns'] <= event['source_start_ns'], 'invalid_native_report')
+        if row['observed_capture_id']:
+            _require(row['observed_capture_id'] > row['authority_capture_id'], 'invalid_native_report')
+        if row['selected_capture_id'] != row['authority_capture_id']:
+            direction = event.get('direction')
+            _require(direction in (1, 2, 3, 4)
+                     and (event.get('dx'), event.get('dy'))
+                         == {1:(-1,0), 2:(1,0), 3:(0,-1), 4:(0,1)}[direction],
+                     'invalid_native_report')
+
+
+def _report(value, depth=0, *, require_motion_references=False):
     _require(type(value) is dict and depth <= 3 and len(value) <= 128, 'invalid_native_report')
     result = {}
     for key, item in value.items():
@@ -559,6 +649,9 @@ def _report(value, depth=0):
             result[key] = _scene_change_details(item)
         elif key == 'motion_wait':
             result[key] = _motion_wait(item)
+        elif key == 'motion_references':
+            _require(depth == 0, 'invalid_native_report')
+            result[key] = _motion_references(item)
         elif key == 'raster_samples':
             result[key] = _raster_samples(item)
         elif key == 'raster_samples_dropped':
@@ -583,6 +676,9 @@ def _report(value, depth=0):
     if depth == 0:
         _require(result.get('schema') == 'ngg2-native-v1' and _uuid(result.get('clock_id'))
                  and 'input_state' in result and 'device_now_ns' in result, 'invalid_native_report')
+        _require(not require_motion_references or 'motion_references' in result, 'invalid_native_report')
+        if 'motion_references' in result:
+            _motion_reference_events(result)
         if 'scene_change_details' in result and 'scene_changes' in result:
             ids = ('command_id','source_capture_id','observed_capture_id')
             _require([[row[key] for key in ids] for row in result['scene_changes']]
@@ -591,13 +687,13 @@ def _report(value, depth=0):
     return result
 
 
-def _status(value, run_id):
+def _status(value, run_id, *, require_motion_references=False):
     _require(type(value) is dict and value.get('run_id') == run_id
              and value.get('profile') == PROFILE and type(value.get('state')) is str
              and value['state'] in STATES,
              'invalid_native_status')
     _require('api_version' not in value or value['api_version'] == API_VERSION, 'invalid_native_status')
-    return value['state'], _report(value.get('report'))
+    return value['state'], _report(value.get('report'), require_motion_references=require_motion_references)
 
 
 def _result_metadata(value):
@@ -740,8 +836,8 @@ def _export_checkpoint(value):
             else value[key] for key in keys}
 
 
-def _manifest(value, run_id):
-    state, report = _status(value, run_id)
+def _manifest(value, run_id, *, require_motion_references=False):
+    state, report = _status(value, run_id, require_motion_references=require_motion_references)
     _require(state in TERMINAL and value.get('result_mode') == 'manifest'
              and _uuid(value.get('export_id')) and type(value.get('chunk_bytes')) is int
              and value['chunk_bytes'] == CHUNK_BYTES, 'invalid_native_images')
@@ -811,7 +907,8 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
                 # Display is optional and cannot invalidate durable evidence.
                 pass
             check()
-    state, report, metadata, incoming = _manifest(call({'run_id':run_id, 'mode':'manifest'}), run_id)
+    state, report, metadata, incoming = _manifest(call({'run_id':run_id, 'mode':'manifest'}), run_id,
+        require_motion_references=record['revision'] == 'native-walk-v12')
     # Manifest validation and storage consume the same bounded export attempt.
     check()
     current = record.get('image_export')
@@ -955,7 +1052,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                 raise
 
         def accept(value):
-            state, report = _status(value, run_id)
+            state, report = _status(value, run_id,
+                require_motion_references=record['revision'] == 'native-walk-v12')
             record.update(state=state, native_state=state, native_report=report)
             if state in TERMINAL or report.get('cancel_requested') is True:
                 record['cancel_confirmed'] = True
@@ -1179,8 +1277,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
 
 def parser():
-    ap = argparse.ArgumentParser(description='TEST053: 初歩の予約準備と毎拍歩行を確認')
-    ap.add_argument('--output', default='runtime/test-053')
+    ap = argparse.ArgumentParser(description='TEST054: 歩行の照合画像と毎拍歩行を確認')
+    ap.add_argument('--output', default='runtime/test-054')
     ap.add_argument('--token-store', default=str(Path.home()/'.loopctrl/token.json'))
     ap.add_argument('--store-key')
     ap.add_argument('--python-crypto', action='store_true')
@@ -1212,7 +1310,7 @@ def main(argv=None):
             attempts = record.get('preflight', {}).get('attempts', [])
             kind = attempts[-1]['diagnostic']['kind'] if attempts else None
             if record['stop_reason'] == 'native_capability_missing':
-                print('NG-G2の版・機能が一致しません。TEST053用の新IPAとLoopCtrlの起動状態を確認してください。')
+                print('NG-G2の版・機能が一致しません。TEST054用の新IPAとLoopCtrlの起動状態を確認してください。')
             elif kind == 'refused':
                 print('LoopCtrlへの接続が拒否されました。まだゲームの開始要求は送っていません。')
             elif record['stop_reason'] in ('rpc_deadline', 'host_deadline') or kind in ('timeout','deadline'):
@@ -1233,7 +1331,7 @@ def main(argv=None):
             'pairing_missing', 'pairing_ambiguous', 'invalid_pairing_record', 'already_running',
             'native_journal_invalid', 'timer_already_in_use', 'timer_handler_in_use',
             'timer_unusable', 'timer_setup_failed') else 'client_failed'
-        print('TEST053停止: ' + reason, file=sys.stderr)
+        print('TEST054停止: ' + reason, file=sys.stderr)
         return 2
     finally:
         for sig, handler in previous.items():

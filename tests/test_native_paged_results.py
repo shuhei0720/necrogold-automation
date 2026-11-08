@@ -457,8 +457,8 @@ class PagedResultsTests(TimerTestCase):
                 manifest_seen = [False]
                 manifest = native._manifest
                 save = native._save
-                def late_manifest(value,run_id):
-                    selected = manifest(value,run_id)
+                def late_manifest(value,run_id,*,require_motion_references=False):
+                    selected = manifest(value,run_id,require_motion_references=require_motion_references)
                     manifest_seen[0] = True
                     if stage == 'manifest_validation':
                         now[0] = 500_000_000
@@ -478,10 +478,7 @@ class PagedResultsTests(TimerTestCase):
                     self.assertEqual([32],record['image_export']['offsets'])
                     self.assertEqual(1,len(record['images']))
 
-    def test_client_053_script_and_capability_require_initial_slot_runtime(self):
-        self.assertEqual('native-walk-v11',native.REVISION)
-        self.assertEqual('necrogold_native_v10',native.CAPABILITY)
-        self.assertEqual('runtime/test-053',native.parser().parse_args([]).output)
+    def test_053_script_keeps_its_original_version_and_output(self):
         path = Path(native.__file__).resolve().parents[1]/'test_053.sh'
         self.assertEqual(0,subprocess.run(['sh','-n',str(path)],capture_output=True).returncode)
         self.assertIn('native-walk-v11 / 1.98.14-ngg2',path.read_text())

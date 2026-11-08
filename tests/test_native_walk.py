@@ -115,7 +115,8 @@ class NativeServer:
                               'report': {'schema': 'ngg2-native-v1', 'clock_id': run_id,
                                          'device_now_ns': 10, 'input_state': fake.input_state,
                                          'paused': 0, 'terminal': int(state == 'stopped'),
-                                         'reason_name': 'cancelled'}}
+                                         'reason_name': 'cancelled',
+                                         'events': [], 'motion_references': []}}
                     if method == 'necro_native_results':
                         result['images'] = []
                 if fake.transform:
@@ -387,7 +388,7 @@ class NativeWalkTests(TimerTestCase):
             if method == 'necro_native_start':
                 result['state'] = 'accepted'
                 result['report'] = {key: result['report'][key] for key in (
-                    'schema', 'clock_id', 'device_now_ns', 'input_state')}
+                    'schema', 'clock_id', 'device_now_ns', 'input_state', 'events', 'motion_references')}
                 result['report']['terminal'] = 0
             return result
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=transform) as server:

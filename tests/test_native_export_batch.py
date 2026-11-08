@@ -307,7 +307,10 @@ class ExportBatchTests(TimerTestCase):
     def test_literal_v10_suffix_survives_repeated_interruption_and_read_only_recovery(self):
         self.assert_unverified_suffix_survives_partial_replay('native-walk-v10')
 
-    def assert_unverified_suffix_survives_partial_replay(self, revision):
+    def test_literal_v11_suffix_survives_repeated_interruption_and_read_only_recovery(self):
+        self.assert_unverified_suffix_survives_partial_replay('native-walk-v11', legacy_trace=True)
+
+    def assert_unverified_suffix_survives_partial_replay(self, revision, legacy_trace=False):
         class Crash(Exception):
             pass
         for replayed in (1, 2, 3):
@@ -323,6 +326,14 @@ class ExportBatchTests(TimerTestCase):
                         self.execute(server, folder)
                 seed = native._load(Path(folder))
                 seed['revision'] = revision
+                if legacy_trace:
+                    seed['native_report'].pop('motion_references')
+                    transform = server.transform
+                    def without_trace(method, result):
+                        result = transform(method, result)
+                        result['report'].pop('motion_references', None)
+                        return result
+                    server.transform = without_trace
                 native._save(Path(folder), seed)
                 server.schema_calls.clear()
                 recovery_start = len(server.calls)
@@ -366,6 +377,12 @@ class ExportBatchTests(TimerTestCase):
                     for m, p in server.calls[recovery_start:]))
 
     def test_literal_v10_nonzero_checkpoint_keeps_four_chunk_saves_and_read_only_recovery(self):
+        self.assert_batched_nonzero_checkpoint('native-walk-v10')
+
+    def test_literal_v11_nonzero_checkpoint_keeps_four_chunk_saves_and_read_only_recovery(self):
+        self.assert_batched_nonzero_checkpoint('native-walk-v11', legacy_trace=True)
+
+    def assert_batched_nonzero_checkpoint(self, revision, legacy_trace=False):
         image = image_item(size=512*1024)
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True,
                 transform=paged.page_images(image)) as server:
@@ -377,7 +394,15 @@ class ExportBatchTests(TimerTestCase):
             server.page_transform = cancel_first_chunk
             first = self.execute(server, folder, cancelled=lambda: stopped[0])
             self.assertEqual([65536], first['image_export']['offsets'])
-            first['revision'] = 'native-walk-v10'
+            first['revision'] = revision
+            if legacy_trace:
+                first['native_report'].pop('motion_references')
+                transform = server.transform
+                def without_trace(method, result):
+                    result = transform(method, result)
+                    result['report'].pop('motion_references', None)
+                    return result
+                server.transform = without_trace
             native._save(Path(folder), first)
             server.page_transform = None
             server.schema_calls.clear()
@@ -391,7 +416,7 @@ class ExportBatchTests(TimerTestCase):
             with patch.object(native, '_atomic', side_effect=trace):
                 recovered = self.execute(server, folder)
             self.assertTrue(recovered['resolved'], recovered['stop_reason'])
-            self.assertEqual('native-walk-v10', recovered['revision'])
+            self.assertEqual(revision, recovered['revision'])
             self.assertEqual([327680, 524288], fragments)
             self.assertEqual(image['sha256'], recovered['images'][0]['sha256'])
             self.assertEqual([], server.schema_calls)

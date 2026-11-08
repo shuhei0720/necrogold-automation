@@ -490,6 +490,15 @@ class NativeResultsTests(TimerTestCase):
                     'not_before_ns','deadline_ns','source_capture_id','source_start_ns','phase_sample_ns',
                     'begin_ns','end_ns','observed_capture_id','outcome','reason','motion','dx','dy')}
                     for _ in range(64)])
+            report['motion_references'] = []
+            for index, event in enumerate(report['events'][:16]):
+                command_id, authority = index+1, index+100
+                event.update(id=command_id, kind=4, outcome=2, source_capture_id=authority)
+                report['motion_references'].append(dict(command_id=command_id,
+                    authority_capture_id=authority, reference_capture_id=0, reference_start_ns=0,
+                    reference_prefix=0, observed_capture_id=0, reference_eligible=False,
+                    primary_motion=0, fallback_attempted=False, fallback_motion=0,
+                    selected_capture_id=authority, selected_motion=0))
             if method == 'necro_native_results':
                 images = []
                 for i in range(20):
@@ -506,6 +515,7 @@ class NativeResultsTests(TimerTestCase):
             self.assertEqual('native_input_unresolved', record['stop_reason'])
             self.assertEqual(dispatch_failure(), record['native_report']['dispatch_failure'])
             self.assertEqual(3,len(record['native_report']['scene_change_details']))
+            self.assertEqual(16,len(record['native_report']['motion_references']))
             self.assertEqual((256,64,3,32,20), tuple(len(value) for value in (
                 record['native_report']['captures'], record['native_report']['events'],
                 record['native_report']['scene_changes'], record['native_report']['raster_samples'], record['images'])))
@@ -753,8 +763,8 @@ class NativeResultsTests(TimerTestCase):
             self.assertEqual(['/schema'], server.schema_calls)
             self.assertEqual([], server.calls)
 
-    def test_fresh_native_v10_capability_starts_exactly_once(self):
-        tags = ['necrogold_native_v1','necrogold_native_v2','necrogold_native_v3','necrogold_native_v4','necrogold_native_v5','necrogold_native_v6','necrogold_native_v7','necrogold_native_v8','necrogold_native_v9','necrogold_native_v10']
+    def test_fresh_native_v11_capability_starts_exactly_once(self):
+        tags = ['necrogold_native_v'+str(version) for version in range(1,12)]
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, capabilities=tags) as server:
             record = self.execute(server, folder)
             self.assertTrue(record['resolved'])
