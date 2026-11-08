@@ -573,7 +573,13 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         + '            }\n'
         + '            let analyzed: Int32 = NG2RuntimeTestHooks.analysisRGBA != nil ? controlQueue.sync(execute: scanFrame) : scanFrame()\n')
     mutations['worker-analysis'] = (scan,synchronous_scan,'FAIL pure_analysis_hold_does_not_block_final_MOVE')
-    for label,(old,new,expected) in [('worker-analysis', mutations.pop('worker-analysis'))]:
+    # Exercise the new placement proof and the cases not completed by the
+    # previous Mac run before the remaining established mutant inventory.
+    first_mutations = ['observe-start-placement', 'dispatch-failure-first',
+        'dispatch-failure-generation', 'dispatch-failure-command',
+        'dispatch-failure-query-start', 'motion-clock', 'worker-analysis']
+    for label in first_mutations:
+        old, new, expected = mutations.pop(label)
         print('Runtime mutation: '+label, flush=True)
         if source.count(old)!=1: raise ValueError('runtime_mutation_target: '+label)
         (stage/'NG2Runtime.swift').write_text(source.replace(old,new))

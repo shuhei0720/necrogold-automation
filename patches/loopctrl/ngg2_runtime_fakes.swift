@@ -47,6 +47,7 @@ enum NG2Fake {
     static var pending = 0
     static var replyData: Data?
     static var replyError: String?
+    static var captureTimeProvider: (() -> UInt64)?
     static var observeClock: UInt64 = 10
     static var observeEntries: [UInt64] = []
     static var observeExits: [UInt64] = []
@@ -54,6 +55,7 @@ enum NG2Fake {
         lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; frontPID = 42; callbacks = []; offset = 0; pending = 0 }
         lock.fixtureLocked {
             replyData = nil; replyError = nil
+            captureTimeProvider = nil
             observeClock = 10; observeEntries = []; observeExits = []
             beforeForegroundQuery = nil
             gesturePaths = []; tapPoints = []; walkX = 0; walkY = 0
@@ -264,7 +266,8 @@ enum NG2CaptureBridge {
     static var pendingRequests: UInt { NG2Fake.lock.fixtureLocked { UInt(NG2Fake.pending) } }
     static func prepare() -> Bool { Thread.isMainThread }
     static func requestJPEG(_ reply: @escaping (Data?, String?) -> Void) {
-        let capturedAt = NG2Fake.virtualClock()
+        let timeProvider = NG2Fake.lock.fixtureLocked { NG2Fake.captureTimeProvider }
+        let capturedAt = timeProvider?() ?? NG2Fake.virtualClock()
         let mode = NG2Fake.lock.fixtureLocked { () -> NG2Fake.Mode in
             NG2Fake.requests += 1; NG2Fake.pending += 1
             if NG2Fake.mode == .hold {

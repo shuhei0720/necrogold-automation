@@ -45,7 +45,7 @@ func diagnoseFixture(_ id: String) {
             "path_count": .int(NG2Fake.paths().count), "touch_count": .int(NG2Fake.countTouches())]
     }
 }
-func admitFirstFixtureMove(_ id: String, expectedID: UInt64? = nil) {
+func admitFirstFixtureMove(_ id: String, expectedID: UInt64? = nil, afterAlignment: ((UInt64) -> Void)? = nil) {
     let current = report(id)
     let currentID = current["current_command_id"]?.intValue ?? 0
     let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
@@ -63,6 +63,7 @@ func admitFirstFixtureMove(_ id: String, expectedID: UInt64? = nil) {
         let now = NG2Fake.virtualClock()
         require(now <= deadline, "fixture_current_move_not_late_before_admission")
         if now < at { NG2Fake.advance(at-now) }
+        afterAlignment?(max(now, at))
     }, "fixture_move_admission_capture_boundary")
     NG2RuntimeTestHooks.beforeMainAuthority = nil
 }
@@ -934,17 +935,50 @@ let subtileExports = Set((subtileResult.0?["images"]?.arrayValue ?? []).compactM
 require(subtileResult.1 == nil && subtileExports.contains(subtileUnknownID), "motion_first_UNKNOWN_frame_pinned_beyond_recent_window")
 fixtureFailureSnapshot = nil
 
-// Cross the original motion deadline during real analysis, while the image's
-// request interval is still before that deadline. The next production tick
+// Cross the original motion deadline before committing an analyzed image,
+// while its request and analysis end remain before it. The next production tick
 // must use its actual clock. A second tick may never repair a missed first one.
 NG2Fake.reset(.walk)
 let motionLate = identity()
 diagnoseFixture(motionLate)
 NG2Fake.lock.lock(); NG2Fake.walkPixelInset = 1; NG2Fake.walkGoodsEnabled = false; NG2Fake.lock.unlock()
-NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
+// Host scheduling and PNG/analysis cost do not advance this fixture's clock
+// after the admitted MOVE. Keep every real capture interval positive, advance
+// to an eligible post-ACK phase, then cross only at the explicit boundary below.
+let motionFixtureClockLock = NSLock()
+var motionFixtureClock: UInt64?
+var motionFixtureLastClock: UInt64 = 0
+func motionFixtureNow() -> UInt64 {
+    motionFixtureClockLock.lock(); defer { motionFixtureClockLock.unlock() }
+    let value = max(motionFixtureClock ?? NG2Fake.virtualClock(), motionFixtureLastClock+1)
+    motionFixtureLastClock = value
+    if motionFixtureClock != nil { motionFixtureClock = value+1 }
+    return value
+}
+NG2RuntimeTestHooks.clock = { motionFixtureNow() }
+NG2Fake.lock.lock(); NG2Fake.captureTimeProvider = { motionFixtureNow() }; NG2Fake.lock.unlock()
 NG2RuntimeTestHooks.beforeCaptureAdmission = { NG2Fake.performBoundaryClockChange(); NG2Fake.waitForCapturePermit() }
 alignInitialFixtureMove(motionLate)
-NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(motionLate) }
+NG2RuntimeTestHooks.beforeMainAuthority = {
+    admitFirstFixtureMove(motionLate, afterAlignment: { aligned in
+        motionFixtureClockLock.lock()
+        motionFixtureClock = max(aligned, motionFixtureLastClock+1)
+        motionFixtureClockLock.unlock()
+    })
+}
+NG2RuntimeTestHooks.afterTicketReturned = { id in
+    let snapshot = report(motionLate)
+    let events = (snapshot["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    guard let move = events.first(where: { $0["id"]?.intValue == Int(id) && $0["kind"]?.intValue == 4 }) else { return }
+    let eligible = UInt64(move["target_ns"]!.intValue!)+80_000_001
+    let deadline = UInt64(snapshot["motion_wait"]!.objectValue!["deadline_ns"]!.intValue!)
+    require(snapshot["input_state"]?.intValue == 3 && eligible < deadline,
+        "motion_deadline_fixture_actual_ACK_has_original_observation_window")
+    motionFixtureClockLock.lock()
+    motionFixtureClock = max(eligible, motionFixtureLastClock+1)
+    motionFixtureClockLock.unlock()
+    NG2RuntimeTestHooks.afterTicketReturned = nil
+}
 scheduleFirstFixtureMove(motionLate, holdingPause: true)
 var crossedMotionDeadline = false
 var deadlineTicks = 0
@@ -952,10 +986,11 @@ NG2RuntimeTestHooks.beforeAnalysisCommit = {
     let wait = report(motionLate)["motion_wait"]?.objectValue ?? [:]
     guard !crossedMotionDeadline, wait["active"]?.boolValue == true && wait["attempts"]?.intValue == 1 else { return }
     let deadline = UInt64(wait["deadline_ns"]!.intValue!)
-    require(NG2Fake.virtualClock() < deadline, "motion_deadline_fixture_analysis_starts_before_original_deadline")
+    require(motionFixtureNow() < deadline, "motion_deadline_fixture_analysis_starts_before_original_deadline")
     require(NG2Fake.changeClockAtCaptureBoundary {
         let now = NG2Fake.virtualClock()
         if now <= deadline { NG2Fake.advance(deadline+1-now) }
+        motionFixtureClockLock.lock(); motionFixtureClock = deadline+1; motionFixtureClockLock.unlock()
         NG2Fake.lock.lock(); NG2Fake.captureLimit = NG2Fake.requests; NG2Fake.lock.unlock()
     }, "motion_deadline_fixture_crosses_at_capture_boundary")
     crossedMotionDeadline = true
@@ -983,7 +1018,9 @@ let lateSource = (lateReport["captures"]?.arrayValue ?? []).compactMap { $0.obje
 require(lateReport["reason"]?.intValue == 9 && lateWait["active"]?.boolValue == false &&
     lateReport["inputs"]?.intValue == 1 && lateReport["moves"]?.intValue == 0 && NG2Fake.paths().count == 1 &&
     latePause["source_capture_id"]?.intValue != lateMove["source_capture_id"]?.intValue &&
-    lateSource?["stable"]?.boolValue == true && lateSource?["completed_prefix_end"]?.intValue == lateMove["id"]?.intValue,
+    lateSource?["stable"]?.boolValue == true && lateSource?["completed_prefix_end"]?.intValue == lateMove["id"]?.intValue &&
+    (lateSource?["end_ns"]?.intValue ?? Int.max) <= (lateWait["deadline_ns"]?.intValue ?? 0) &&
+    (lateSource?["analysis_end_ns"]?.intValue ?? Int.max) < (lateWait["deadline_ns"]?.intValue ?? 0),
     "motion_deadline_rechecked_after_analysis_before_next_tick")
 NG2RuntimeTestHooks.beforeAnalysisCommit = nil
 NG2RuntimeTestHooks.beforeControlTick = nil

@@ -2033,3 +2033,23 @@ TEST050プランレビューは設計・試験網羅・安全の各第2周でP0/
 `b6cf4729097afef884412778a1092c219d7184ae` / [Mac baseline CI42428036219](https://github.com/shuhei0720/necrogold-automation/actions/runs/42428036219)で、固定TEST049の実XcodeGen生成PBXに対する`FAIL NG2Navigation_strict_O2_is_applied_once`、固定旧Runtimeのcompile後の公開resultsに対する`FAIL MISSING_observe_start_ns`を、各returncode1/stderr空のnamed assertion Redとして観測した。新IPA生成をmanifest gateで止めた保存点であり完成版ではない。baseline検証ZIP13595873975は395,252bytes/SHA-256 `67803c6eb8d7109c68e4c03866e2ccd53afd0ad3cde5386f97cdfde3a20cd269`。観測後だけapp Navigation flagsとRuntime producerを実装した。clientも実暗号HTTPの旧v6開始と開始時刻欠落の2assertion failures/0errorsから、v8拒否/固定型保存へGreenになった。
 
 実装中のhost全native130件は98必須画像を含めskip0成功（59.293秒）、Navigation/Perception34件も成功（50.437秒）。既存Navigation18件は元O0-onlyとstrict O2の両方で独立Python期待を保ち、新private1件は98views/113組×73score bytes/392Decision/452Motion/3,616Entranceと戻り値/入力不変を比較。client130件はホストskip0成功（30.838秒）、[CI42428036205](https://github.com/shuhei0720/necrogold-automation/actions/runs/42428036205)も成功。compiler136/package14を含む全patch193件はskip0成功（1.363秒）。これらは実機毎拍の合格ではなく、最終Mac/新IPA/実compiler証跡/独立実装レビューへ進むための確認。
+
+実装レビュー第1周はfresh-context設計・試験網羅・安全の3担当でsource/testのP0/P1/P2なし。独立再実行でもnative130・client130・patch193とNavigation合成profile/実Decision変異を確認した。実Mac/IPA/実compiler/fullsourceの確認は配布前に同レビューで継続する。
+
+`fba12c9b940e3d55c7e7f8f6babeace8f51f4738` / CI42428373121/build51は、IPA・実profilev2・AppleClang21/arm64の両C同値/実field変異・Raster3・production Runtime Greenを通過した。その後のdispatch-failure-first変異は、目的のassertionより先に既存motionLate fixtureの準備assertionで終了した。独立確認ではその時刻が元deadline+25.290181ms、直前のcapture commitがdeadline−93.092486msで、実時間依存のPNG/解析費用が準備区間を超えた。これは目的の変異Redにも新機能/実機不具合にも数えない。失敗検証ZIP13596429914は235,797bytes/SHA-256 `223bed49e6b9bf7576ebf6e1b83778138d86b5d133d539f52b36c0c569aa9778`、CRC正常。
+
+app Runtime/封印`1974d7fff205f1d77b0e9d9245a57032b80411119e0770014a6084408be24e48`は変えず、fixture時計だけを既存capture境界でmonotonicに固定し、実ACK後の元target+80ms+1nsから元deadline+1への意図的な横断を再現する。JPEG/HUDの描画とRuntimeも同じfixture時計を使い、providerはfake lockの外で実行・resetで解除する。元capture end/analysis endが元deadline前という期待も追加し、全32変異を残したまま新placement/未完了dispatch/motion-clockを先頭へ移す。独立3観点は第2周でこのtest-only3ファイルの変更と時計domain/lock順を確認し、P0/P1/P2残件なし。最終Macを再実行し、各named Redと実配布物を確認する。
+
+## TEST-050実行手順
+
+**TEST050の新IPAへ更新する。** 今回はアプリ内Navigationのコンパイル設定と時刻記録を変更するため新IPAが必要。LoopCtrlのStop Serverを押して完全終了し、下記の検証済みIPA ZIPをSafariでGitHubへログインして保存・展開する。`upstream/release/LoopCtrl.ipa`をSideStoreのMy Apps → ＋から更新する。LoopCtrlを起動し直し、いつものVPN/ディスクイメージ接続とStart Serverの起動済み表示を確認する。API1.98.14-ngg2/native_v1..v7が必要で、native-walk-v8はv7不足ならゲーム開始前に拒否する。
+
+完全source ZIPを展開し、開幕に金壁が見える新しい通常1-1を画面端操作0・左側が下の向きでポーズする。iSHで次を実行し、フォルダ選択では展開した **test_050.shがある完全sourceフォルダ** を指定する。
+
+```sh
+mkdir -p /mnt/necro_test050
+mount -t ios . /mnt/necro_test050
+cd /mnt/necro_test050 && sh test_050.sh
+```
+
+**TEST050の実機テストをお願いします。** 起動/初歩までの待ち、毎ビートで1歩ずつ続くか、商品が見える位置まで行くか、最後にポーズするかを確認し、終了後の **runtime/test-050全体をZIPでこのチャットへ返す**。未起動/零歩/途中停止でも同じZIPを返す。可能なら心臓と歩行の短い動画も添える。最終ポーズが未確認なら手動でポーズする。旧runtimeは混ぜず、別試験を同時実行しない。毎拍/人より速い性能、指輪/通知/完全周回・耐久は実機での受入まで未完了。
