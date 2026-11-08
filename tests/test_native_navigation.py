@@ -5,6 +5,7 @@ External images are calibration replays, not device acceptance measurements.
 import ctypes as C
 from collections import defaultdict
 from copy import deepcopy
+from functools import wraps
 import math
 import hashlib
 import json
@@ -13,8 +14,8 @@ import random
 from unittest.mock import patch
 
 from PIL import Image, ImageChops, ImageStat
-from necroprobe import shop_navigation as nav, motion_stats
-from test_native_perception import required_fixtures
+from necroprobe import shop_navigation as nav, motion_stats, native_scan, navigation_stats
+from test_native_perception import required_fixtures, required_profile_fixtures
 from pathlib import Path
 import subprocess
 import tempfile
@@ -98,11 +99,34 @@ def native_scene(tiles, signature=b'', goods='unknown', protected=()):
     return out
 
 
+def both_navigation_profiles(cls):
+    """Execute the established independent expectations under both compilers."""
+    def wrap(method):
+        @wraps(method)
+        def run(self):
+            try:
+                for name, library in self.libraries.items():
+                    with self.subTest(profile=name):
+                        self.lib = library
+                        # Force Pillow instead of an installed native helper.
+                        with patch.object(native_scan, '_native', None), \
+                                patch.object(navigation_stats, '_native', None), \
+                                patch.object(motion_stats, '_native', None):
+                            method(self)
+            finally:
+                self.__dict__.pop('lib', None)
+        return run
+    for name, method in tuple(vars(cls).items()):
+        if name.startswith('test_') and name != 'test_required_test049_navigation_strict_optimization_parity':
+            setattr(cls, name, wrap(method))
+    return cls
+
+
+@both_navigation_profiles
 class NativeNavigationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
-        cls.library = Path(cls.temp.name) / 'navigation.so'
         wrapper = Path(cls.temp.name) / 'wrapper.c'
         wrapper.write_text(r'''#include "NG2Navigation.c"
 void ng2_test_view(const unsigned char *raw,unsigned char *out) {
@@ -135,25 +159,39 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
     return strong_texture(&views[0],&views[1],candidates,expanded,regions);
 }
 ''')
-        subprocess.run(['cc', '-std=c99', '-O2', '-Wall', '-Wextra', '-Werror', '-pedantic',
-                        '-fPIC', '-shared', '-I' + str(CORE), str(wrapper),
-                        str(CORE / 'NG2Perception.c'),
-                        '-lm', '-o', str(cls.library)], check=True)
-        cls.lib = C.CDLL(str(cls.library))
-        cls.lib.ng2_choose.argtypes = [C.POINTER(Scene), C.c_int32, C.c_int32,
+        perception = Path(cls.temp.name) / 'perception.o'
+        subprocess.run(['cc', '-std=c99', '-O2', '-fno-fast-math', '-ffp-contract=off',
+                        '-fPIC', '-c', str(CORE / 'NG2Perception.c'), '-o', str(perception)], check=True)
+        cls.libraries = {}
+        cls.compile_commands = {}
+        for name, flags in (('unchanged_o0', ['-O0']),
+                            ('strict_o2', ['-O2', '-fno-fast-math', '-ffp-contract=off'])):
+            library = Path(cls.temp.name) / (name + '.so')
+            command = ['cc', '-std=c99', *flags, '-Wall', '-Wextra', '-Werror', '-pedantic',
+                       '-fPIC', '-shared', '-I' + str(CORE), str(wrapper), str(perception),
+                       '-lm', '-o', str(library)]
+            subprocess.run(command, check=True)
+            cls.compile_commands[name] = command
+            cls.libraries[name] = lib = C.CDLL(str(library))
+            cls.configure_library(lib)
+        cls.lib = cls.libraries['strict_o2']
+
+    @staticmethod
+    def configure_library(lib):
+        lib.ng2_choose.argtypes = [C.POINTER(Scene), C.c_int32, C.c_int32,
                                       C.POINTER(C.c_uint16), C.c_size_t,
                                       C.POINTER(Entrance), C.POINTER(Decision)]
-        cls.lib.ng2_motion.argtypes = [C.POINTER(Scene), C.POINTER(Scene), C.c_int32, C.POINTER(Motion)]
-        cls.lib.ng2_entered_gate.argtypes = [C.POINTER(Scene), C.POINTER(Scene), C.c_int32,
+        lib.ng2_motion.argtypes = [C.POINTER(Scene), C.POINTER(Scene), C.c_int32, C.POINTER(Motion)]
+        lib.ng2_entered_gate.argtypes = [C.POINTER(Scene), C.POINTER(Scene), C.c_int32,
                                            C.c_int32, C.c_int32, C.c_int32, C.POINTER(Entrance)]
-        cls.lib.ng2_test_view.argtypes = [C.c_char_p, C.c_void_p]
-        cls.lib.ng2_test_scores.argtypes = [C.c_char_p, C.c_char_p, C.POINTER(C.c_double)]
-        cls.lib.ng2_test_evaluate.argtypes = [C.POINTER(Scene), C.POINTER(Scene), C.c_int,
+        lib.ng2_test_view.argtypes = [C.c_char_p, C.c_void_p]
+        lib.ng2_test_scores.argtypes = [C.c_char_p, C.c_char_p, C.POINTER(C.c_double)]
+        lib.ng2_test_evaluate.argtypes = [C.POINTER(Scene), C.POINTER(Scene), C.c_int,
                                             C.POINTER(C.c_double), C.POINTER(Motion)]
-        cls.lib.ng2_test_strong.argtypes = [C.c_char_p, C.c_char_p, C.c_int, C.c_int]
-        cls.lib.ng2_test_texture_strength.argtypes = [C.c_int]*3
-        cls.lib.ng2_test_texture_lead.argtypes = [C.c_int]*4
-        cls.lib.ng2_analyze_rgba.argtypes = [C.c_void_p, C.c_size_t, C.c_size_t, C.POINTER(Scene)]
+        lib.ng2_test_strong.argtypes = [C.c_char_p, C.c_char_p, C.c_int, C.c_int]
+        lib.ng2_test_texture_strength.argtypes = [C.c_int]*3
+        lib.ng2_test_texture_lead.argtypes = [C.c_int]*4
+        lib.ng2_analyze_rgba.argtypes = [C.c_void_p, C.c_size_t, C.c_size_t, C.POINTER(Scene)]
 
     @classmethod
     def tearDownClass(cls):
@@ -221,8 +259,10 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
                 values[(y+16)*33+x+16] = count
         context = None if entrance is None else Entrance(1, *entrance['gate'], DIRS[entrance['direction']])
         out = Decision()
+        inputs = (bytes(native), bytes(values), None if context is None else bytes(context))
         status = self.lib.ng2_choose(C.byref(native), *position, values, 1089,
                                     None if context is None else C.byref(context), C.byref(out))
+        self.assertEqual(inputs, (bytes(native), bytes(values), None if context is None else bytes(context)))
         return status, out
 
     def assert_choose(self, scene, position=(0, 0), visits=None, entrance=None):
@@ -239,11 +279,14 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
 
     def motion(self, before, after, direction, scores=None):
         a, b, out = as_native(canonical(before)), as_native(canonical(after)), Motion()
+        inputs = bytes(a), bytes(b)
         if scores is None:
             self.assertEqual(1, self.lib.ng2_motion(C.byref(a), C.byref(b), DIRS[direction], C.byref(out)))
         else:
             values = (C.c_double * 73)(*scores)
             self.lib.ng2_test_evaluate(C.byref(a), C.byref(b), DIRS[direction], values, C.byref(out))
+            self.assertEqual(tuple(scores), tuple(values))
+        self.assertEqual(inputs, (bytes(a), bytes(b)))
         return out
 
     def assert_motion(self, before, after, direction, expected=None, scores=None):
@@ -373,7 +416,9 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
 
     def assert_entered(self,before,after,direction,position,outcome,expected):
         a,b,out=as_native(canonical(before)),as_native(canonical(after)),Entrance()
+        inputs=bytes(a),bytes(b)
         result=self.lib.ng2_entered_gate(C.byref(a),C.byref(b),DIRS[direction],*position,MOTIONS[outcome],C.byref(out))
+        self.assertEqual(inputs,(bytes(a),bytes(b)))
         reference=nav.entered_gate(canonical(before),canonical(after),direction,position,1,outcome)
         self.assertEqual(expected,reference is not None)
         self.assertEqual(expected,bool(result));self.assertEqual(expected,bool(out.valid))
@@ -545,6 +590,162 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
                         self.assertEqual(expected,value)
                 pairs+=1
         self.assertGreaterEqual(pairs,25)
+
+    def test_required_test049_navigation_strict_optimization_parity(self):
+        """98 known images and all 15 new FLOOR pairs; no speed extrapolation."""
+        from test_native_perception import NativePerceptionTests, NativeScene
+        manifest = json.loads((ROOT / 'tests/test050-fixtures.json').read_text())
+        self.assertEqual(('ngg2-test050-fixtures-v1', 11), (manifest['schema'], manifest['count']))
+        self.assertEqual('84c30bff8567b893184a67fd18f67ab71adee4f298b3ab7d82f7166c4f19c39a',
+                         manifest['source_zip_sha256'])
+        self.assertEqual('a1e266be56ee9bc0c69e2bac5a8439133d78cf65db39f4ea7b6936794ef34683',
+                         manifest['source_report_sha256'])
+        self.assertEqual([6, 33, 34, 36, 45, 46], manifest['floor_capture_ids'])
+        ids = manifest['floor_capture_ids']
+        self.assertEqual([[a, b] for k, a in enumerate(ids) for b in ids[k+1:]], manifest['floor_pairs'])
+        self.assertEqual(list(nav.DIRECTIONS), manifest['directions'])
+        baseline = self.compile_commands['unchanged_o0']
+        self.assertIn('-O0', baseline)
+        self.assertFalse(any(flag in baseline for flag in ('-O2', '-fno-fast-math', '-ffp-contract=off')))
+        for flag in ('-O2', '-fno-fast-math', '-ffp-contract=off'):
+            self.assertIn(flag, self.compile_commands['strict_o2'])
+
+        counts = defaultdict(int)
+        def public(name, arguments, output_type, inputs):
+            snapshots = [bytes(value) for value in inputs]
+            results = []
+            for index, library in enumerate(self.libraries.values()):
+                output = output_type()
+                C.memset(C.byref(output), 0xa5 if index == 0 else 0x5a, C.sizeof(output))
+                result = getattr(library, name)(*arguments, C.byref(output))
+                self.assertEqual(snapshots, [bytes(value) for value in inputs], name + ' mutated its input')
+                results.append((result, bytes(output)))
+            self.assertEqual(results[0], results[1], name + ' return/full output bytes changed')
+            counts[name] += 1
+            return results[0][0], output_type.from_buffer_copy(results[0][1])
+
+        views = {}
+        def view(scene):
+            raw = bytes(scene.signature)
+            outputs = []
+            for library in self.libraries.values():
+                output = (C.c_ubyte * (3 * 23296))()
+                library.ng2_test_view(raw, output)
+                self.assertEqual(raw, bytes(scene.signature))
+                outputs.append(bytes(output))
+            self.assertEqual(outputs[0], outputs[1], 'entire normalized/texture/positive views changed')
+            normalized, texture, positive = nav._motion_view(raw, full_texture=True)
+            self.assertEqual(normalized + texture.tobytes() + positive.tobytes(), outputs[0])
+            counts['views'] += 1
+            return normalized
+
+        def pair(a, b, old_reference, new_reference):
+            inputs = bytes(a), bytes(b)
+            old_raw, new_raw = bytes(a.signature), bytes(b.signature)
+            scores = []
+            for library in self.libraries.values():
+                output = (C.c_double * 73)()
+                library.ng2_test_scores(old_raw, new_raw, output)
+                self.assertEqual(inputs, (bytes(a), bytes(b)))
+                self.assertEqual((old_raw, new_raw), (bytes(a.signature), bytes(b.signature)),
+                                 'score probe mutated its signature inputs')
+                scores.append(bytes(output))
+            self.assertEqual(scores[0], scores[1], 'all 73 double score bytes changed')
+            values = (C.c_double * 73).from_buffer_copy(scores[0])
+            expected_scores = nav._pillow_motion_scores(views[old_raw], views[new_raw])
+            for actual, (expected, _, _) in zip(values, expected_scores):
+                self.assertAlmostEqual(expected, actual, places=12)
+            counts['scores'] += 1
+            for direction in nav.DIRECTIONS:
+                result, motion = public('ng2_motion', (C.byref(a), C.byref(b), DIRS[direction]),
+                                        Motion, (a, b))
+                valid = a.state == b.state == 2
+                self.assertEqual(int(valid), result)
+                if valid:
+                    # Pillow scores are independently computed above and reused
+                    # without mutating their candidate order between directions.
+                    with patch.object(motion_stats, 'scores', side_effect=lambda *_: list(expected_scores)):
+                        expected = nav.motion(old_reference, new_reference, direction)
+                    self.assertEqual(MOTIONS[expected], motion.kind)
+                    if expected == 'moved':
+                        self.assertEqual(nav.DIRECTIONS[direction], (motion.dx, motion.dy))
+                    elif expected != 'unexpected':
+                        self.assertEqual((0, 0), (motion.dx, motion.dy))
+                else:
+                    self.assertEqual(bytes(Motion()), bytes(motion))
+                for outcome in range(8):
+                    entered, entrance = public('ng2_entered_gate',
+                        (C.byref(a), C.byref(b), DIRS[direction], 0, 0, outcome), Entrance, (a, b))
+                    expected = (nav.entered_gate(old_reference, new_reference, direction,
+                                                (0, 0), 1, 'moved' if outcome == 1 else 'unknown')
+                                if valid else None)
+                    self.assertEqual(expected is not None, bool(entered))
+                    expected_bytes = (bytes(Entrance(1, *expected['gate'], DIRS[expected['direction']]))
+                                      if expected else bytes(Entrance()))
+                    self.assertEqual(expected_bytes, bytes(entrance))
+
+        NativePerceptionTests.setUpClass()
+        try:
+            perception = NativePerceptionTests()
+            old_path = Path(self.temp.name) / 'perception-unchanged-o0.so'
+            subprocess.run(['cc', '-std=c99', '-O0', '-fPIC', '-shared',
+                            str(CORE / 'NG2Perception.c'), '-lm', '-o', str(old_path)], check=True)
+            old = C.CDLL(str(old_path))
+            old.ng2_analyze_rgba.argtypes = [C.c_void_p, C.c_size_t, C.c_size_t, C.POINTER(NativeScene)]
+            new_floors = {}
+            with patch.object(native_scan, '_native', None), patch.object(navigation_stats, '_native', None), \
+                    patch.object(motion_stats, '_native', None):
+                for filename, entry, path in required_profile_fixtures():
+                    with self.subTest(manifest=filename, path=entry['path']):
+                        with Image.open(path) as source:
+                            image = source.convert('RGB')
+                        self.assertEqual((896, 414), image.size)
+                        analyzed = perception.assert_reference(image)
+                        scene = Scene.from_buffer_copy(bytes(analyzed))
+                        reference = canonical(nav.scan(image)) if scene.state == 2 else None
+                        raw = bytes(scene.signature)
+                        views[raw] = view(scene)
+                        if filename == 'test050-fixtures.json':
+                            self.assertEqual({'path', 'sha256', 'bytes', 'capture_id', 'state', 'goods', 'stable'}, set(entry))
+                            for key in ('bytes', 'capture_id', 'state', 'goods'):
+                                self.assertIs(type(entry[key]), int)
+                            self.assertIs(type(entry['stable']), bool)
+                            self.assertEqual(entry['bytes'], path.stat().st_size)
+                            self.assertEqual((entry['state'], entry['goods']), (scene.state, scene.goods))
+                            rgba = image.convert('RGBA').tobytes()
+                            unchanged = NativeScene()
+                            self.assertEqual(0, old.ng2_analyze_rgba(rgba, len(rgba), 3584, C.byref(unchanged)))
+                            self.assertEqual(bytes(unchanged), bytes(analyzed), 'new Perception full Scene parity')
+                            counts['new_perception'] += 1
+                            if scene.state == 2:
+                                new_floors[entry['capture_id']] = scene, reference
+                        for position in ((0, 0), (-1, 0)):
+                            for visited in (False, True):
+                                visits = (C.c_uint16 * 1089)()
+                                visits[(position[1]+16)*33+position[0]+16] = int(visited)
+                                result, decision = public('ng2_choose',
+                                    (C.byref(scene), *position, visits, 1089, None), Decision, (scene, visits))
+                                if reference is None:
+                                    self.assertEqual((0, bytes(Decision())), (result, bytes(decision)))
+                                else:
+                                    expected = nav.choose(reference, position, {position: int(visited)})
+                                    self.assertEqual(bool(expected['direction']), bool(result))
+                                    self.assertEqual(DIRS[expected['direction']], decision.direction)
+                                    self.assertEqual(REASONS[expected['reason']], decision.reason)
+                                    self.assertEqual(expected['target'] or (0, 0), (decision.target_x, decision.target_y))
+                                    obstacle = KINDS.get(reference.tiles.get(nav.DIRECTIONS[expected['direction']]), 0) if expected['direction'] else 0
+                                    self.assertEqual(obstacle, decision.obstacle)
+                        pair(scene, scene, reference, reference)
+                        counts['images'] += 1
+                for before_id, after_id in manifest['floor_pairs']:
+                    with self.subTest(before=before_id, after=after_id):
+                        a, before = new_floors[before_id]
+                        b, after = new_floors[after_id]
+                        pair(a, b, before, after)
+        finally:
+            NativePerceptionTests.tearDownClass()
+        self.assertEqual({'images': 98, 'new_perception': 11, 'views': 98, 'scores': 113,
+                          'ng2_choose': 392, 'ng2_motion': 452, 'ng2_entered_gate': 3616}, dict(counts))
 
 
 if __name__ == '__main__':

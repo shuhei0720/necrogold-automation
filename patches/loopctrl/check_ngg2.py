@@ -272,6 +272,67 @@ def perception_profile_contract(upstream, output, *, compiler='clang'):
             'scope': 'same production C file, unchanged O0 and strict O2 complete synthetic Scene/RGBA output parity'}
 
 
+def navigation_profile_contract(upstream, output, *, compiler='clang'):
+    """Compare whole Navigation outputs and static scores with untouched O0."""
+    stage = output/'navigation-profile'; stage.mkdir(exist_ok=True)
+    native = upstream/'LoopCtrlUITests'
+    probe = HERE/'ngg2_navigation_profile_tests.c'
+    base = [compiler, '-std=c99', '-Wall', '-Wextra', '-Werror', '-pedantic', '-I', str(native)]
+    reference_object = stage/'reference.o'
+    static_object = stage/'strict-static-probes.o'
+    commands = {
+        'reference': [*base, '-O0', '-DNG2_NAVIGATION_PROFILE_WRAPPER=1',
+            '-DNG2_PROFILE_REFERENCE=1', '-c', str(probe), '-o', str(reference_object)],
+        'static-probes': [*base, '-O2', *STRICT_PERCEPTION_FP,
+            '-DNG2_NAVIGATION_PROFILE_WRAPPER=1', '-c', str(probe), '-o', str(static_object)],
+    }
+    for label, command in commands.items():
+        built = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        (output/('navigation-profile-'+label+'-compile.txt')).write_text(built.stdout+built.stderr)
+        checked(built)
+    production_object = output/'raster/NG2Navigation.o'
+    if not production_object.is_file():
+        raise ValueError('navigation_profile_production_object_missing')
+
+    def run(label, object_path):
+        executable = stage/(label+'-tests')
+        command = [*base, '-O0', str(probe), str(reference_object), str(static_object),
+            str(object_path), '-lm', '-o', str(executable)]
+        built = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        (output/('navigation-profile-'+label+'-compile.txt')).write_text(built.stdout+built.stderr)
+        checked(built)
+        result = subprocess.run([str(executable.resolve())], capture_output=True, text=True, timeout=120)
+        (output/('navigation-profile-'+label+'-tests.txt')).write_text(result.stdout+result.stderr)
+        return result
+
+    green = run('production-green', production_object)
+    checked(green)
+    if not green.stdout.startswith('PASS strict O2 Navigation matches unchanged O0;') or green.stderr:
+        raise RuntimeError('navigation_profile_production_contract_missing')
+    source = (native/'NG2Navigation.c').read_text()
+    old = 'out->target_y=y;'
+    if source.count(old) != 1:
+        raise ValueError('navigation_profile_whole_decision_mutation_target')
+    mutation_source = stage/'NG2Navigation-mutated.c'
+    mutation_source.write_text(source.replace(old, 'out->target_y=y+1;'))
+    mutation_object = stage/'navigation-mutated.o'
+    built = subprocess.run([*base, '-O2', *STRICT_PERCEPTION_FP,
+        '-c', str(mutation_source), '-o', str(mutation_object)], capture_output=True, text=True, timeout=120)
+    (output/'navigation-profile-whole-decision-mutation-compile.txt').write_text(built.stdout+built.stderr)
+    checked(built)
+    red = run('whole-decision-mutation-red', mutation_object)
+    require_red(red, 'FAIL strict_O2_and_unchanged_O0_entire_Decision_bytes')
+    return {'production_green': green.stdout.strip(), 'mutation_red': red.stdout.strip(),
+            'compiled': True, 'reference_flags': ['-O0'],
+            'optimized_flags': ['-O2', *STRICT_PERCEPTION_FP],
+            'compiler': subprocess.check_output([compiler, '--version'], text=True, timeout=30).strip(),
+            'architecture': platform.machine(),
+            'source_sha256': hashlib.sha256((native/'NG2Navigation.c').read_bytes()).hexdigest(),
+            'test_source_sha256': hashlib.sha256(probe.read_bytes()).hexdigest(),
+            'compile_commands': commands,
+            'scope': 'actual production strict Navigation public API, unchanged O0, complete views/73-score bytes/Motion/Decision/Entrance/boundary and input parity'}
+
+
 def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
     native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red else upstream / 'LoopCtrlUITests'
@@ -451,6 +512,10 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             'orientation: frame.diagnosticOrientation))',
             'orientation: trace.orientation))',
             'FAIL capture_failure_real_C_analysis_rejection_is_reported'),
+        'observe-start-connection': (
+            '"observe_start_ns": number(observeStart), ',
+            '',
+            'FAIL MISSING_observe_start_ns'),
     }
     mutations.update({
         'authority-origin': ('start: authority.start, end: authority.end, now: now)',
@@ -483,6 +548,16 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             '"query_start_ns": authority.start == 0 ? .null : number(authority.end)',
             'FAIL dispatch_failure_actual_producer_exact_schema_and_reason_foreground'),
     })
+    observe_clock = '                    let observeStart = Self.now()\n'
+    observe_gate = '                let committed = run.lock.ng2Locked { () -> Bool in\n'
+    if source.count(observe_clock) != 1 or source.count(observe_gate) != 1:
+        raise ValueError('runtime_observe_start_placement_mutation_target')
+    # Moving the real producer sample ahead of the commit guard observes the
+    # gate clock (+100), while the independent C boundary enters at +200.
+    misplaced_observe = source.replace(observe_clock, '').replace(observe_gate,
+        '                let observeStart = Self.now()\n'+observe_gate)
+    mutations['observe-start-placement'] = (source, misplaced_observe,
+        'FAIL observe_start_actual_committed_C_entry')
     scan_begin = source.index('            #if NG2_RUNTIME_HOST_TEST\n            let analysisRGBA = NG2RuntimeTestHooks.analysisRGBA?')
     scan_end = source.index('            let frame = NG2Frame(',scan_begin)
     scan = source[scan_begin:scan_end]
@@ -550,7 +625,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     (stage/'NG2Controller.c').write_text(controller.replace(old, new))
     print('Runtime mutation: motion-reference', flush=True)
     try:
-        built = subprocess.run(['clang', '-std=c11', '-O2', '-I', str(native),
+        built = subprocess.run(['clang', '-std=c11', *native_object_flags('NG2Controller.c'), '-I', str(native),
             '-c', str(stage/'NG2Controller.c'), '-o', str(controller_object)],
             capture_output=True, text=True, timeout=120)
         (output/'runtime-motion-reference-C-compile.txt').write_text(built.stdout+built.stderr)
@@ -569,7 +644,10 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         result = compile_run(sources, stage/(label+'-tests'), output, 'runtime-'+label+'-mutation-red', extra, run_timeout=120)
         require_red(result, expected); reds[label]=result.stdout.strip()
         print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
+    if len(reds) != 32:
+        raise RuntimeError('runtime_expected_32_named_mutation_reds')
     return {'production_green':green.stdout.strip(),'mutation_red':reds,'compiled':True,
+            'native_object_flags': {path.name: native_object_flags(path.name) for path in sorted(native.glob('NG2*.c'))},
             'scope':'Actual Runtime public API, raster, real C, main ticket and lifecycle with UIKit/XCTest/daemon fakes'}
 
 
@@ -723,6 +801,7 @@ def main():
                   'authority_freshness_mutation_red': authority_mutation.stdout.strip(),
                   'api': api_contract(upstream, output), 'raster': raster_contract(upstream, output),
                   'perception_profile': perception_profile_contract(upstream, output),
+                  'navigation_profile': navigation_profile_contract(upstream, output),
                   'runtime': runtime_contract(upstream, output), 'daemon':capture_contract(upstream, output),
                   'source_sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                       for p in sorted((upstream/'LoopCtrlUITests').glob('NG2*')) if p.is_file()},

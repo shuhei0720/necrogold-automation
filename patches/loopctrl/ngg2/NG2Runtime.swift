@@ -596,11 +596,18 @@ final class NG2Runtime {
                 // gate. Analysis runs outside this gate; stale results do not.
                 let committed = run.lock.ng2Locked { () -> Bool in
                     guard run.generation == analysisGeneration, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return false }
+                    #if NG2_RUNTIME_HOST_TEST
+                    NG2RuntimeObserveTestHooks.beforeObserve?()
+                    #endif
+                    let observeStart = Self.now()
                     ng2_controller_observe(core, scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0)
+                    #if NG2_RUNTIME_HOST_TEST
+                    NG2RuntimeObserveTestHooks.afterObserve?()
+                    #endif
                     run.captures.append(.object(["id": number(frame.id), "start_ns": number(frame.start),
                         "end_ns": number(frame.end), "decode_end_ns": number(frame.decodeEnd),
                         "analysis_start_ns": number(frame.analysisStart), "analysis_end_ns": number(frame.analysisEnd),
-                        "observe_end_ns": number(Self.now()),
+                        "observe_start_ns": number(observeStart), "observe_end_ns": number(Self.now()),
                         "completed_prefix_start": number(frame.startPrefix), "completed_prefix_end": number(frame.prefix),
                         "inflight_start": .bool(frame.startInFlight), "inflight_end": .bool(frame.endInFlight),
                         "stable": .bool(frame.stable)]))

@@ -141,6 +141,7 @@ final class NG2RPCContractsTests: XCTestCase {
         XCTAssertTrue(capabilities.contains("necrogold_native_v4"))
         XCTAssertTrue(capabilities.contains("necrogold_native_v5"))
         XCTAssertTrue(capabilities.contains("necrogold_native_v6"))
+        XCTAssertTrue(capabilities.contains("necrogold_native_v7"))
         receivedLock.lock(); let dispatched = received.count; receivedLock.unlock()
         XCTAssertEqual(dispatched, 0)
     }

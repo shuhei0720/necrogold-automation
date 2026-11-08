@@ -101,7 +101,7 @@
 
      /// When this binary was built, as "YYYY-MM-DD HH:MM".
      ///
-@@ -569,6 +584,12 @@
+@@ -569,6 +584,13 @@
      /// call (no separate /schema fetch needed). Keep in sync with what the server
      /// actually implements.
      static let capabilityTags: [String] = [
@@ -111,6 +111,7 @@
 +        "necrogold_native_v4", // native pixel orientation and first capture-failure diagnostics
 +        "necrogold_native_v5", // worker perception and prepared deadline-bound input
 +        "necrogold_native_v6", // strict source-specific optimized perception
++        "necrogold_native_v7", // strict Navigation and committed observe timing
          "envelope_v1",         // /pair + encrypted /rpc envelopes (HMAC-SHA256)
          "stream_ticket",       // stream_ticket RPC → single-use ?ticket= for /stream + /logs
          "video_stream",        // GET /stream (framed H.264, docs/remote-control.md)
@@ -260,18 +261,21 @@
          });
 --- a/project.yml
 +++ b/project.yml
-@@ -115,6 +115,10 @@
+@@ -115,6 +115,13 @@
      platform: iOS
      sources:
        - path: LoopCtrlUITests
 +        excludes:
 +          - NG2Perception.c
++          - NG2Navigation.c
 +      - path: LoopCtrlUITests/NG2Perception.c
++        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
++      - path: LoopCtrlUITests/NG2Navigation.c
 +        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
        - path: LoopCtrlKit
        # The operating manual, bundled so GET /skill can serve it at runtime.
        - path: SKILL.md
-@@ -227,6 +231,11 @@
+@@ -227,6 +234,11 @@
      platform: macOS
      deploymentTarget: "13.0"
      sources:

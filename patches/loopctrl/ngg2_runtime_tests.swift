@@ -564,6 +564,8 @@ cancelDrain(staleMainClock)
 for revoked in ["cancel", "owner"] {
     NG2Fake.reset(.pause)
     let analysisRace = identity()
+    NG2RuntimeObserveTestHooks.beforeObserve = { NG2Fake.enterObserveBoundary() }
+    NG2RuntimeObserveTestHooks.afterObserve = { NG2Fake.leaveObserveBoundary() }
     NG2RuntimeTestHooks.beforeAnalysisCommit = {
         if revoked == "cancel" { _ = call("necro_native_cancel", analysisRace) }
         // Pause is visible before its off-lock notification is delivered.
@@ -578,7 +580,55 @@ for revoked in ["cancel", "owner"] {
     require(snapshot["raster_samples"]?.arrayValue?.isEmpty == true && snapshot["raster_samples_dropped"]?.intValue == 0,
         "revoked_analysis_never_commits_raster_trace_"+revoked)
     require(NG2Fake.countTouches() == 0, "revoked_analysis_no_input_"+revoked)
+    let boundaries = NG2Fake.observeBoundaries()
+    require(snapshot["captures"]?.arrayValue?.isEmpty == true && boundaries.0.isEmpty && boundaries.1.isEmpty,
+        "revoked_analysis_never_publishes_capture_or_observe_start_"+revoked)
+    RemoteSession.shared.paused = false
+    require(call("necro_native_results", analysisRace).0?["report"]?.objectValue?["captures"]?.arrayValue?.isEmpty == true,
+        "revoked_analysis_public_results_have_no_observe_start_"+revoked)
 }
+
+// A generation replacement alone revokes the analyzed frame. Keep the next
+// capture outside admission until the actual cycle has rejected this one;
+// cancellation used for drain happens only after observing that rejection.
+NG2Fake.reset(.pause)
+let observeGenerationRace = identity()
+let releaseGenerationCapture = DispatchSemaphore(value: 0)
+var observeGenerationRevoked = false
+var observeGenerationProcessed = false
+NG2RuntimeTestHooks.beforeCaptureAdmission = {
+    if NG2Fake.countRequests() > 0 { releaseGenerationCapture.wait() }
+}
+NG2RuntimeTestHooks.beforeAnalysisCommit = {
+    _ = runtime.testFailureGeneration(observeGenerationRace, advance: true)
+    NG2Fake.lock.lock(); observeGenerationRevoked = true; NG2Fake.lock.unlock()
+    NG2RuntimeTestHooks.beforeAnalysisCommit = nil
+}
+NG2RuntimeTestHooks.beforeControlTick = {
+    NG2Fake.lock.lock()
+    if observeGenerationRevoked { observeGenerationProcessed = true }
+    NG2Fake.lock.unlock()
+}
+NG2RuntimeObserveTestHooks.beforeObserve = { NG2Fake.enterObserveBoundary() }
+NG2RuntimeObserveTestHooks.afterObserve = { NG2Fake.leaveObserveBoundary() }
+require(call("necro_native_start", observeGenerationRace).1 == nil, "observe_start_generation_fixture_start")
+pump("observe_start_generation_actual_cycle_processed") {
+    NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }; return observeGenerationProcessed
+}
+let observeGenerationSnapshot = report(observeGenerationRace)
+let observeGenerationBoundaries = NG2Fake.observeBoundaries()
+require(observeGenerationSnapshot["cancel_requested"]?.boolValue == false &&
+    observeGenerationSnapshot["accepted_frames"]?.intValue == 0 &&
+    observeGenerationSnapshot["analyzed_capture_count"]?.intValue == 0 &&
+    observeGenerationSnapshot["retained_image_count"]?.intValue == 0 &&
+    observeGenerationSnapshot["captures"]?.arrayValue?.isEmpty == true &&
+    observeGenerationBoundaries.0.isEmpty && observeGenerationBoundaries.1.isEmpty,
+    "generation_only_revoked_analysis_never_publishes_capture_or_observe_start")
+_ = call("necro_native_cancel", observeGenerationRace)
+releaseGenerationCapture.signal()
+pump("observe_start_generation_public_drain") { drained(observeGenerationRace) }
+require(call("necro_native_results", observeGenerationRace).0?["report"]?.objectValue?["captures"]?.arrayValue?.isEmpty == true &&
+    NG2Fake.countTouches() == 0, "generation_only_revoked_public_results_have_no_observe_start_or_input")
 
 // The real foreground PID lookup performs synchronous XCTest IPC. Holding it
 // must leave the public non-UI status and cancel endpoints responsive.

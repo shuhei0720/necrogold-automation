@@ -36,6 +36,32 @@ def required_fixtures():
         yield path
 
 
+def required_profile_fixtures():
+    """All 98 required images; missing private evidence is a local failure."""
+    sets = (("test043-fixtures.json", "NECRO_TEST043_FIXTURE_ROOT", 66),
+            ("test046-fixtures.json", "NECRO_TEST046_FIXTURE_ROOT", 8),
+            ("test047-fixtures.json", "NECRO_TEST047_FIXTURE_ROOT", 5),
+            ("test049-fixtures.json", "NECRO_TEST049_FIXTURE_ROOT", 8),
+            ("test050-fixtures.json", "NECRO_TEST050_FIXTURE_ROOT", 11))
+    for filename, variable, count in sets:
+        manifest = json.loads((ROOT / "tests" / filename).read_text())
+        if type(manifest["count"]) is not int or manifest["count"] != count \
+                or len(manifest["images"]) != count \
+                or len({entry["path"] for entry in manifest["images"]}) != count:
+            raise AssertionError(f"invalid required profile manifest: {filename}")
+        root = Path(os.environ.get(variable, "/workspace/analysis-evidence"))
+        for entry in manifest["images"]:
+            relative = Path(entry["path"])
+            if relative.is_absolute() or ".." in relative.parts:
+                raise AssertionError(f"invalid profile fixture path: {relative}")
+            path = root / relative
+            if not path.is_file():
+                raise AssertionError(f"missing required profile fixture: {path}")
+            if hashlib.sha256(path.read_bytes()).hexdigest() != entry["sha256"]:
+                raise AssertionError(f"profile fixture hash mismatch: {path}")
+            yield filename, entry, path
+
+
 def synthetic_floor():
     image = Image.new("RGB", (896,414))
     for name in ("icon", "footer", "zone_one", "floor_one"):

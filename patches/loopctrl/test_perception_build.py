@@ -37,12 +37,14 @@ def generated_project(flags=None):
         'MAIN': {'isa': 'PBXGroup', 'children': ['UITEST_GROUP', 'APP_GROUP'],
                  'sourceTree': 'SOURCE_ROOT', 'path': ''},
         'UITEST_GROUP': {'isa': 'PBXGroup', 'path': 'LoopCtrlUITests',
-                         'children': ['PERCEPTION_REF', 'OTHER_C_REF', 'SWIFT_REF'],
+                         'children': ['PERCEPTION_REF', 'NAVIGATION_REF', 'OTHER_C_REF', 'SWIFT_REF'],
                          'sourceTree': '<group>'},
         'APP_GROUP': {'isa': 'PBXGroup', 'path': 'LoopCtrl',
                       'children': ['APP_REF'], 'sourceTree': '<group>'},
         'PERCEPTION_REF': {'isa': 'PBXFileReference', 'path': 'NG2Perception.c',
                            'sourceTree': '<group>', 'lastKnownFileType': 'sourcecode.c.c'},
+        'NAVIGATION_REF': {'isa': 'PBXFileReference', 'path': 'NG2Navigation.c',
+                           'sourceTree': '<group>'},
         'OTHER_C_REF': {'isa': 'PBXFileReference', 'path': 'NG2Beat.c',
                         'sourceTree': '<group>'},
         'SWIFT_REF': {'isa': 'PBXFileReference', 'path': 'NG2Runtime.swift',
@@ -51,11 +53,13 @@ def generated_project(flags=None):
                     'sourceTree': '<group>'},
         'PERCEPTION_BUILD': {'isa': 'PBXBuildFile', 'fileRef': 'PERCEPTION_REF',
                              'settings': {'COMPILER_FLAGS': flags}},
+        'NAVIGATION_BUILD': {'isa': 'PBXBuildFile', 'fileRef': 'NAVIGATION_REF',
+                             'settings': {'COMPILER_FLAGS': '-O2 -fno-fast-math -ffp-contract=off'}},
         'OTHER_C_BUILD': {'isa': 'PBXBuildFile', 'fileRef': 'OTHER_C_REF'},
         'SWIFT_BUILD': {'isa': 'PBXBuildFile', 'fileRef': 'SWIFT_REF'},
         'APP_BUILD': {'isa': 'PBXBuildFile', 'fileRef': 'APP_REF'},
         'UITEST_SOURCES': {'isa': 'PBXSourcesBuildPhase',
-                           'files': ['OTHER_C_BUILD', 'PERCEPTION_BUILD', 'SWIFT_BUILD']},
+                           'files': ['OTHER_C_BUILD', 'PERCEPTION_BUILD', 'NAVIGATION_BUILD', 'SWIFT_BUILD']},
         'APP_SOURCES': {'isa': 'PBXSourcesBuildPhase', 'files': ['APP_BUILD']},
         'FRAMEWORKS': {'isa': 'PBXFrameworksBuildPhase', 'files': []},
         'UITEST_TARGET': {'isa': 'PBXNativeTarget', 'name': 'LoopCtrlUITests',
@@ -65,16 +69,62 @@ def generated_project(flags=None):
     }}
 
 
+class NavigationProjectContractTests(unittest.TestCase):
+    def test_new_project_contains_both_independent_strict_sources(self):
+        profile = checker.project_contract(generated_project())
+        self.assertEqual(profile['format_version'], 2)
+        self.assertEqual(set(profile['sources']), set(checker.STRICT_SOURCES))
+        for name, row in profile['sources'].items():
+            self.assertEqual(row['source'], name)
+            self.assertEqual(row['source_count'], 1)
+            self.assertEqual(row['compiler_flags'], checker.FLAGS)
+
+    def test_old049_perception_valid_navigation_missing_flags_reaches_named_assertion(self):
+        project = generated_project()
+        del project['objects']['NAVIGATION_BUILD']['settings']
+        with self.assertRaisesRegex(checker.ProfileError,
+                '^NG2Navigation_strict_O2_is_applied_once$'):
+            checker.project_contract(project)
+
+    def test_navigation_duplicate_build_is_rejected_independently(self):
+        project = generated_project()
+        project['objects']['UITEST_SOURCES']['files'].append('NAVIGATION_BUILD')
+        with self.assertRaisesRegex(checker.ProfileError, '^navigation_project_source_count$'):
+            checker.project_contract(project)
+
+    def test_navigation_post_o0_and_fast_math_are_rejected(self):
+        for suffix in (' -O0', ' -ffast-math'):
+            project = generated_project()
+            project['objects']['NAVIGATION_BUILD']['settings']['COMPILER_FLAGS'] += suffix
+            with self.subTest(suffix=suffix), self.assertRaisesRegex(checker.ProfileError,
+                    '^NG2Navigation_strict_O2_is_applied_once$'):
+                checker.project_contract(project)
+
+    def test_navigation_wrong_source_and_extra_target_are_rejected(self):
+        for elsewhere in (False, True):
+            project = generated_project()
+            if elsewhere:
+                project['objects']['NAVIGATION_REF']['path'] = 'elsewhere/NG2Navigation.c'
+            else:
+                project['objects']['APP_SOURCES']['files'].append('NAVIGATION_BUILD')
+            with self.subTest(elsewhere=elsewhere), self.assertRaisesRegex(
+                    checker.ProfileError, '^navigation_project_(wrong_source|extra_target)$'):
+                checker.project_contract(project)
+
+
 class PerceptionProjectContractTests(unittest.TestCase):
+    def contract(self, project):
+        return checker.project_contract(project, profile_version=1)
+
     def reject(self, project, reason):
         with self.assertRaises(checker.ProfileError) as raised:
-            checker.project_contract(project)
+            self.contract(project)
         self.assertEqual(str(raised.exception), reason)
 
     def test_generated_target_phase_groups_and_exact_flags_are_accepted(self):
         project = generated_project()
         before = copy.deepcopy(project)
-        self.assertEqual(checker.project_contract(project), {
+        self.assertEqual(self.contract(project), {
             'format_version': 1, 'target': 'LoopCtrlUITests',
             'source': 'NG2Perception.c', 'source_count': 1,
             'compiler_flags': ['-O2', '-fno-fast-math', '-ffp-contract=off'],
@@ -82,7 +132,7 @@ class PerceptionProjectContractTests(unittest.TestCase):
         self.assertEqual(project, before)
 
     def test_flag_list_is_accepted(self):
-        checker.project_contract(generated_project(list(checker.FLAGS)))
+        self.contract(generated_project(list(checker.FLAGS)))
 
     def test_missing_flags_reaches_named_primary_contract_assertion(self):
         project = generated_project()
@@ -210,7 +260,7 @@ class PerceptionProjectContractTests(unittest.TestCase):
         ref = project['objects']['PERCEPTION_REF']
         ref['sourceTree'] = 'SOURCE_ROOT'
         ref['path'] = 'LoopCtrlUITests/NG2Perception.c'
-        checker.project_contract(project)
+        self.contract(project)
 
     def test_unrelated_sources_groups_and_disconnected_cycle_are_ignored(self):
         project = generated_project()
@@ -222,7 +272,7 @@ class PerceptionProjectContractTests(unittest.TestCase):
             'UNUSED_PERCEPTION': {'isa': 'PBXFileReference',
                                   'path': 'NG2Perception.c', 'sourceTree': '<group>'},
         })
-        checker.project_contract(project)
+        self.contract(project)
 
 
 class PerceptionEffectiveFlagsTests(unittest.TestCase):
@@ -742,13 +792,13 @@ class PerceptionCompileLogTests(unittest.TestCase):
         for name in self.names:
             (self.sources / (name + '.c')).write_text('/* ' + name + ' fixture */\n')
         self.profile = checker.project_contract(generated_project())
-        self.profile['source_sha256'] = hashlib.sha256(
-            (self.sources / 'NG2Perception.c').read_bytes()).hexdigest()
+        self.profile['source_sha256'] = {name: hashlib.sha256(
+            (self.sources / name).read_bytes()).hexdigest() for name in checker.STRICT_SOURCES}
         self.profile['project_sha256'] = '0' * 64
 
     def c_command(self, name, flags=None, source=None, output=None, arch='arm64'):
         if flags is None:
-            flags = list(checker.FLAGS) if name == 'NG2Perception' else ['-O0']
+            flags = list(checker.FLAGS) if name + '.c' in checker.STRICT_SOURCES else ['-O0']
         if source is None:
             source = self.sources / (name + '.c')
         if output is None:
@@ -765,7 +815,9 @@ class PerceptionCompileLogTests(unittest.TestCase):
         return shlex.join(args)
 
     def commands(self):
-        return [self.c_command(name) for name in self.names] + [self.swift_command()]
+        return [self.c_command(name) for name in self.names] + [
+            self.swift_command(module=module) for module in sorted(checker.SWIFT_TARGETS - {checker.TARGET})
+        ] + [self.swift_command()]
 
     def inspect(self, lines):
         self.log.write_text('\n'.join(lines) + '\n')
@@ -774,15 +826,15 @@ class PerceptionCompileLogTests(unittest.TestCase):
 
     def test_actual_command_shapes_record_strict_source_and_other_c_o0(self):
         result = self.inspect(['CompileC harmless build progress', *self.commands()])
-        self.assertEqual(result['format_version'], 1)
+        self.assertEqual(result['format_version'], 2)
         self.assertEqual(result['target'], 'LoopCtrlUITests')
         self.assertEqual(result['arch'], 'arm64')
-        self.assertEqual(result['profile'], 'strict-O2-v1')
+        self.assertEqual(result['profile'], 'strict-O2-v2')
         self.assertEqual(result['source_sha256'], self.profile['source_sha256'])
         self.assertEqual(result['project_profile'], self.profile)
         self.assertEqual(len(result['perception_compiles']), 1)
         self.assertEqual(set(result['other_c_profiles']),
-                         {'NG2Beat.c', 'NG2Navigation.c', 'NG2Controller.c'})
+                         {'NG2Beat.c', 'NG2Controller.c'})
         self.assertEqual(result['swift_optimization'], '-Onone')
         self.assertEqual(result['response_files'], [])
 
@@ -798,7 +850,8 @@ class PerceptionCompileLogTests(unittest.TestCase):
                  '-Xlinker', '@executable_path/Frameworks']
         lines[-1] = self.swift_command(flags, driver=True)
         result = self.inspect(lines)
-        self.assertIn('@rpath/LoopCtrlBroadcast.debug.dylib', result['swift_compiles'][0]['arguments'])
+        row = next(row for row in result['swift_compiles'] if '@rpath/LoopCtrlBroadcast.debug.dylib' in row['arguments'])
+        self.assertIn('@rpath/LoopCtrlBroadcast.debug.dylib', row['arguments'])
         self.assertEqual(result['swift_optimization'], '-Onone')
         self.assertEqual(result['response_files'], [])
 
@@ -886,6 +939,13 @@ class PerceptionCompileLogTests(unittest.TestCase):
         with self.assertRaises(checker.ProfileError):
             self.inspect(self.commands()[:-1])
 
+    def test_all_five_swift_modules_must_have_onone_evidence_in_v2(self):
+        for missing in checker.SWIFT_TARGETS:
+            lines = [line for line in self.commands() if
+                     '-module-name ' + missing + ' ' not in line]
+            with self.subTest(module=missing), self.assertRaises(checker.ProfileError):
+                self.inspect(lines)
+
     def test_all_perception_compiles_must_have_the_strict_profile(self):
         lines = self.commands() + [self.c_command('NG2Perception', ['-O0'])]
         with self.assertRaises(checker.ProfileError):
@@ -914,10 +974,61 @@ class PerceptionCompileLogTests(unittest.TestCase):
 
     def test_other_c_cannot_inherit_perception_optimization(self):
         for index, name in enumerate(self.names[1:], 1):
+            if name == 'NG2Navigation':
+                continue
             lines = self.commands()
             lines[index] = self.c_command(name, list(checker.FLAGS))
             with self.subTest(source=name), self.assertRaises(checker.ProfileError):
                 self.inspect(lines)
+
+    def test_navigation_compile_post_o0_is_rejected(self):
+        lines = self.commands()
+        lines[2] = self.c_command('NG2Navigation', list(checker.FLAGS) + ['-O0'])
+        with self.assertRaises(checker.ProfileError):
+            self.inspect(lines)
+
+    def test_navigation_compile_unsafe_fp_switches_are_rejected(self):
+        for option in ('-ffast-math', '-fassociative-math', '-ffp-contract=fast',
+                       '-fno-honor-nans', '-Xclang'):
+            lines = self.commands()
+            lines[2] = self.c_command('NG2Navigation', list(checker.FLAGS) + [option])
+            with self.subTest(option=option), self.assertRaises(checker.ProfileError):
+                self.inspect(lines)
+
+    def test_both_strict_sources_must_compile_exactly_once(self):
+        for name in ('NG2Perception', 'NG2Navigation'):
+            with self.subTest(source=name), self.assertRaisesRegex(
+                    checker.ProfileError, '^perception_compile_strict_source_count$'):
+                self.inspect(self.commands() + [self.c_command(name)])
+
+    def test_navigation_wrong_source_and_target_are_rejected(self):
+        for wrong_source in (False, True):
+            lines = self.commands()
+            if wrong_source:
+                lines[2] = self.c_command('NG2Navigation',
+                    source=self.upstream / 'Other/NG2Navigation.c')
+            else:
+                lines[2] = self.c_command('NG2Navigation', output=(self.upstream
+                    / 'build/LoopCtrl.build/Debug-iphoneos/Other.build/NG2Navigation.o'))
+            with self.subTest(wrong_source=wrong_source), self.assertRaises(checker.ProfileError):
+                self.inspect(lines)
+
+    def test_navigation_response_candidate_must_have_strict_profile(self):
+        response = self.upstream / 'build/navigation.rsp'
+        response.parent.mkdir()
+        lines = self.commands()
+        lines[2] = '/usr/bin/clang @build/navigation.rsp'
+        for suffix in ([], ['-O0'], ['-ffast-math']):
+            response.write_text(shlex.join(shlex.split(self.c_command(
+                'NG2Navigation', list(checker.FLAGS) + suffix))[1:]))
+            if suffix:
+                with self.subTest(suffix=suffix), self.assertRaises(checker.ProfileError):
+                    self.inspect(lines)
+            else:
+                result = self.inspect(lines)
+                self.assertEqual(result['navigation_compiles'][0]['optimization'], '-O2')
+                self.assertEqual(result['response_files'][0]['sha256'],
+                                 hashlib.sha256(response.read_bytes()).hexdigest())
 
     def test_target_swift_optimization_must_remain_onone(self):
         for flags in (['-O'], ['-Onone', '-O'], ['-Osize']):
@@ -1016,6 +1127,63 @@ class PerceptionSavedProfileTests(unittest.TestCase):
     def test_saved_actual_profile_roundtrip(self):
         self.assertEqual(self.read_profile(), self.saved)
 
+    def test_saved_navigation_fields_and_duplicate_records_are_revalidated(self):
+        original = copy.deepcopy(self.saved)
+        for mutation in ('optimization', 'unsafe', 'source_hash', 'wrong_source',
+                         'wrong_target', 'duplicate', 'missing'):
+            self.saved = copy.deepcopy(original)
+            row = self.saved['navigation_compiles'][0]
+            if mutation == 'optimization':
+                row['optimization'] = '-O0'
+                for key in ('arguments', 'raw_arguments'):
+                    row[key].append('-O0')
+            elif mutation == 'unsafe':
+                for key in ('arguments', 'raw_arguments'):
+                    row[key].append('-ffast-math')
+            elif mutation == 'source_hash':
+                row['source_sha256'] = 'a' * 64
+            elif mutation in ('wrong_source', 'wrong_target'):
+                option = '-c' if mutation == 'wrong_source' else '-o'
+                value = str(self.upstream / ('Elsewhere/NG2Navigation.c' if option == '-c'
+                    else 'build/Debug-iphoneos/Elsewhere.build/NG2Navigation.o'))
+                for key in ('arguments', 'raw_arguments'):
+                    args = row[key]
+                    args[args.index(option) + 1] = value
+            elif mutation == 'duplicate':
+                self.saved['navigation_compiles'].append(copy.deepcopy(row))
+            else:
+                del self.saved['navigation_compiles']
+            self.write_profile()
+            with self.subTest(mutation=mutation), self.assertRaises(checker.ProfileError):
+                self.read_profile()
+
+    def test_saved_navigation_response_is_reexpanded_and_rehashed(self):
+        response = self.upstream / 'build/navigation.rsp'
+        response.parent.mkdir()
+        response.write_text(shlex.join(checker.FLAGS))
+        lines = self.commands()
+        lines[2] = self.c_command('NG2Navigation', ['@build/navigation.rsp'])
+        self.saved = self.inspect(lines)
+        self.write_profile()
+        self.assertEqual(self.read_profile(), self.saved)
+        response.write_text(shlex.join(checker.FLAGS) + ' -ffast-math')
+        with self.assertRaises(checker.ProfileError):
+            self.read_profile()
+
+    def test_saved_profile_rejects_missing_swift_module_and_boolean_source_count(self):
+        original = copy.deepcopy(self.saved)
+        self.saved['swift_compiles'] = [row for row in self.saved['swift_compiles']
+                                       if row['module'] != 'LoopCtrlBroadcast']
+        del self.saved['swift_profiles']['LoopCtrlBroadcast']
+        self.write_profile()
+        with self.assertRaises(checker.ProfileError):
+            self.read_profile()
+        self.saved = original
+        self.saved['project_profile']['sources'][checker.NAVIGATION]['source_count'] = True
+        self.write_profile()
+        with self.assertRaises(checker.ProfileError):
+            self.read_profile()
+
     def test_saved_profile_revalidates_real_swift_loader_literals(self):
         lines = self.commands()
         lines[-1] = self.swift_command(['-Onone', '-Xlinker', '-install_name',
@@ -1026,7 +1194,8 @@ class PerceptionSavedProfileTests(unittest.TestCase):
         self.assertEqual(self.read_profile(), self.saved)
         # Changing the source context back into an unadmitted @ token must not
         # inherit the valid loader exception from the earlier proof.
-        raw = self.saved['swift_compiles'][0]['raw_arguments']
+        raw = next(row['raw_arguments'] for row in self.saved['swift_compiles']
+                   if '@rpath/LoopCtrlBroadcast.debug.dylib' in row['raw_arguments'])
         index = raw.index('@rpath/LoopCtrlBroadcast.debug.dylib')
         del raw[index - 1]
         self.write_profile()
@@ -1178,7 +1347,7 @@ class PerceptionPackageCallsiteTests(unittest.TestCase):
         proof = Mock(side_effect=checker.ProfileError('missing actual proof'))
         with self.assertRaisesRegex(checker.ProfileError, 'missing actual proof'):
             self.run_package('necrogold_native_v6', proof)
-        proof.assert_called_once_with(self.upstream)
+        proof.assert_called_once_with(self.upstream, required_version=1)
         self.assertFalse((self.base / 'build-manifest.json').exists())
 
     def test_native_v5_preserves_earlier_package_behavior_without_profile(self):
@@ -1192,7 +1361,7 @@ class PerceptionPackageCallsiteTests(unittest.TestCase):
         profile = {'profile': 'strict-O2-v1', 'verified': True}
         proof = Mock(return_value=profile)
         self.run_package('necrogold_native_v6', proof)
-        proof.assert_called_once_with(self.upstream)
+        proof.assert_called_once_with(self.upstream, required_version=1)
         report = json.loads((self.base / 'build-manifest.json').read_text())
         self.assertEqual(report['perception_build_profile'], profile)
 
@@ -1243,6 +1412,14 @@ class PerceptionGuardMutationTests(unittest.TestCase):
     def test_actual_pbx_source_count_guard_removal_is_detected(self):
         self.require_guard_removal_detected('perception_project_source_count',
             PerceptionProjectContractTests, 'test_repeated_build_entry_is_rejected')
+
+    def test_actual_two_source_compile_count_guard_removal_is_detected(self):
+        self.require_guard_removal_detected('perception_compile_strict_source_count',
+            PerceptionCompileLogTests, 'test_both_strict_sources_must_compile_exactly_once')
+
+    def test_actual_all_five_swift_module_guard_removal_is_detected(self):
+        self.require_guard_removal_detected('perception_compile_swift_evidence_missing',
+            PerceptionCompileLogTests, 'test_all_five_swift_modules_must_have_onone_evidence_in_v2')
 
     def test_actual_native_v6_package_profile_callsite_removal_is_detected(self):
         source_path = HERE / 'verify_package.py'

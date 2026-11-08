@@ -1,6 +1,6 @@
 # LoopCtrl取得元の画像寸法修正 NG-G1
 
-TEST049では、初LEFTを送信できた一方で移動確認画像の変換/解析が次拍期限を超えた結果を受け、NG2Perception.cだけを -O2 -fno-fast-math -ffp-contract=off でビルドする。C/Swiftの算法や全体Debug設定、撮影prefix/世代/取消/goods優先と元の各期限は維持する。生成PBXの一意性と実Clangのresponse-file展開後の有効flagsを保存し、package provenanceでも必須検証する。API1.98.14-ngg2にnative_v6を追加し、clientv7/test_049.shは新IPAを必要とする。更新理由はアプリ内C処理のコンパイル方法変更。SideStore更新後はLoopCtrlを完全終了/起動してStart Server。新IPA/全sourceの証跡と実機依頼は[既存台帳](../../docs/device-tests/README.md)末尾のTEST049を参照する。
+TEST050では、1歩の確認後に次拍期限を超えたTEST049を受け、既存のPerceptionに加えNG2Navigation.cだけを -O2 -fno-fast-math -ffp-contract=off でビルドする。C算法・判定閾値・元拍/入力期限、他C2個/ObjC/Swift/全体Debugは維持する。成功commit gate内のC observe直前にobserve_start_nsを記録し、既存observe_end_nsとの区間を次の実機で計測する。実生成PBXとraw Clang/response証跡のprofilev2をnative_v7のpackageで必須とし、旧native_v6のprofilev1検証を保持する。clientv8/test_050.shは新IPAが必要。SideStore更新後はLoopCtrlを完全終了/起動してStart Server。新IPA/全sourceの証跡と実機依頼は[既存台帳](../../docs/device-tests/README.md)末尾のTEST050を参照する。毎拍歩行と人より速い性能は実機受入まで未完了。
 
 ## NG-G2 / TEST043 native制御の追加
 

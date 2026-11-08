@@ -55,7 +55,7 @@ def inspect_native_sources(upstream, driver):
             or manifest.get('api_version') != '1.98.14-ngg2'
             or manifest.get('capability') != 'necrogold_native_v1'
             or manifest.get('client_capability', 'necrogold_native_v1')
-               not in ('necrogold_native_v1', 'necrogold_native_v2', 'necrogold_native_v3', 'necrogold_native_v4', 'necrogold_native_v5', 'necrogold_native_v6')):
+               not in ('necrogold_native_v1', 'necrogold_native_v2', 'necrogold_native_v3', 'necrogold_native_v4', 'necrogold_native_v5', 'necrogold_native_v6', 'necrogold_native_v7')):
         raise ValueError('native_manifest_identity')
     patch = driver / 'patches/loopctrl/ngg2.patch'
     if hashlib.sha256(patch.read_bytes()).hexdigest() != manifest['patch_sha256']:
@@ -79,9 +79,11 @@ def main():
     upstream, driver, ipa = map(Path, sys.argv[1:])
     report = inspect_ipa(ipa)
     report.update(inspect_native_sources(upstream, driver))
-    if report['client_capability'] == 'necrogold_native_v6':
+    if report['client_capability'] in ('necrogold_native_v6', 'necrogold_native_v7'):
         from check_perception_build import read_compile_profile
-        report['perception_build_profile'] = read_compile_profile(upstream)
+        required_version = 2 if report['client_capability'] == 'necrogold_native_v7' else 1
+        report['perception_build_profile'] = read_compile_profile(
+            upstream, required_version=required_version)
     report.update({
         'upstream_commit': command('git', 'rev-parse', 'HEAD', cwd=upstream),
         'driver_commit': command('git', 'rev-parse', 'HEAD', cwd=driver),

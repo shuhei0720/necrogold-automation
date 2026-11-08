@@ -1,0 +1,184 @@
+{
+  "schema": "ngg2-test050-fixtures-v1",
+  "source_zip_sha256": "84c30bff8567b893184a67fd18f67ab71adee4f298b3ab7d82f7166c4f19c39a",
+  "source_report_sha256": "a1e266be56ee9bc0c69e2bac5a8439133d78cf65db39f4ea7b6936794ef34683",
+  "count": 11,
+  "purpose": "Required known TEST049 Navigation compiler-profile and independent Pillow replay; no device performance prediction or unseen evaluation.",
+  "images": [
+    {
+      "path": "test049-received/test-049/native-c70ae79e308a43d4be2cb6b84962f0a7/images/capture-000001.png",
+      "sha256": "cdd500dfb2d97d9951277e7a129df594ea1d35f7a978099240d9064f80014cc9",
+      "bytes": 78544,
+      "capture_id": 1,
+      "state": 0,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test049-received/test-049/native-c70ae79e308a43d4be2cb6b84962f0a7/images/capture-000002.png",
+      "sha256": "e1bc53f2a1bd159af115ec29c5c337a065545771d486a9ab786007977977ead0",
+      "bytes": 68267,
+      "capture_id": 2,
+      "state": 1,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test049-received/test-049/native-c70ae79e308a43d4be2cb6b84962f0a7/images/capture-000006.png",
+      "sha256": "4ff5ee66fa6fe3c688dcb9a695ad19c8ac81534eddd8d08a4351d8107debb07e",
+      "bytes": 279639,
+      "capture_id": 6,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test049-received/test-049/native-c70ae79e308a43d4be2cb6b84962f0a7/images/capture-000033.png",
+      "sha256": "9a1688e5478a260c11f57737111c5b14a97993c6937ae89a9d06455d3343b3c5",
+      "bytes": 287442,
+      "capture_id": 33,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test049-received/test-049/native-c70ae79e308a43d4be2cb6b84962f0a7/images/capture-000034.png",
+      "sha256": "a32d0997dccf4f83857b710d4433f66dace95f97b06e90d3db0c40da1c9e2f8d",
+      "bytes": 289443,
+      "capture_id": 34,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test049-received/test-049/native-c70ae79e308a43d4be2cb6b84962f0a7/images/capture-000036.png",
+      "sha256": "37851703e58863b1b03e556c050a397f6cf960cb02b1ec74bae1811d7797dd83",
+      "bytes": 290891,
+      "capture_id": 36,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test049-received/test-049/native-c70ae79e308a43d4be2cb6b84962f0a7/images/capture-000045.png",
+      "sha256": "e088ef7b140d3bb624ebdf0aa72a3432f349e289625907d36110cce7f9ea9cf1",
+      "bytes": 284004,
+      "capture_id": 45,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test049-received/test-049/native-c70ae79e308a43d4be2cb6b84962f0a7/images/capture-000046.png",
+      "sha256": "19a9b811b1cb7303837480892f317580fc503e8b989b3d5f9321b8576fb8df23",
+      "bytes": 284857,
+      "capture_id": 46,
+      "state": 2,
+      "goods": 0,
+      "stable": true
+    },
+    {
+      "path": "test049-received/test-049/native-c70ae79e308a43d4be2cb6b84962f0a7/images/capture-000049.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 49,
+      "state": 1,
+      "goods": 0,
+      "stable": false
+    },
+    {
+      "path": "test049-received/test-049/native-c70ae79e308a43d4be2cb6b84962f0a7/images/capture-000050.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 50,
+      "state": 1,
+      "goods": 0,
+      "stable": false
+    },
+    {
+      "path": "test049-received/test-049/native-c70ae79e308a43d4be2cb6b84962f0a7/images/capture-000051.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 51,
+      "state": 1,
+      "goods": 0,
+      "stable": true
+    }
+  ],
+  "floor_capture_ids": [
+    6,
+    33,
+    34,
+    36,
+    45,
+    46
+  ],
+  "floor_pairs": [
+    [
+      6,
+      33
+    ],
+    [
+      6,
+      34
+    ],
+    [
+      6,
+      36
+    ],
+    [
+      6,
+      45
+    ],
+    [
+      6,
+      46
+    ],
+    [
+      33,
+      34
+    ],
+    [
+      33,
+      36
+    ],
+    [
+      33,
+      45
+    ],
+    [
+      33,
+      46
+    ],
+    [
+      34,
+      36
+    ],
+    [
+      34,
+      45
+    ],
+    [
+      34,
+      46
+    ],
+    [
+      36,
+      45
+    ],
+    [
+      36,
+      46
+    ],
+    [
+      45,
+      46
+    ]
+  ],
+  "directions": [
+    "left",
+    "right",
+    "up",
+    "down"
+  ]
+}
