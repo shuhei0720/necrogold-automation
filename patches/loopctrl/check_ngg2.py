@@ -732,7 +732,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             'FAIL paged_cached_manifest_reply_rechecks_auth_owner'),
         'export-manifest-reply-current': (
             'guard exportEligibleLocked(run, generation: generation), run.exportCache?.id == id else {',
-            'guard ownerActive(run), generation == run.generation else {',
+            'guard (current !== run ? (ownerActive(run) && generation == run.generation) : (exportEligibleLocked(run, generation: generation) && run.exportCache?.id == id)) else {',
             'FAIL paged_cached_manifest_reply_rechecks_current_run'),
         'export-chunk-reply-owner': (
             'guard exportEligibleLocked(run, generation: generation), run.exportCache?.id == exportID else {',
@@ -740,7 +740,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             'FAIL paged_cached_chunk_reply_rechecks_auth_owner'),
         'export-chunk-reply-current': (
             'guard exportEligibleLocked(run, generation: generation), run.exportCache?.id == exportID else {',
-            'guard ownerActive(run), generation == run.generation else {',
+            'guard (current !== run ? (ownerActive(run) && generation == run.generation) : (exportEligibleLocked(run, generation: generation) && run.exportCache?.id == exportID)) else {',
             'FAIL paged_cached_chunk_reply_rechecks_current_run'),
         'export-chunk-offset': (
             '"capture_id": .int(captureID), "offset": .int(offset)',
