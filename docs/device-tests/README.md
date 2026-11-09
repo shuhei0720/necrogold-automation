@@ -2609,3 +2609,12 @@ cd /mnt/necro_test060 && sh test_060.sh
 両方lead_confirmed=0/moves=0なので、TEST060の連続新ordinal予約gateには到達していない。今回の結果をそのgateの成功/失敗証明にはしない。初歩の同期失効と、初歩ACK後に完了変位を確認できる画像/処理時刻が調査対象である。期限やmotion閾値を緩める修正は行っていない。
 
 全16完成PNG（1回目7/2回目9）のbytes/SHA/寸法896×414/全chunk CRC、両native reportのstrict v13構造を確認。各image_exportと個別PNG集合は一致し、part/不足参照0。これは個別runの回収確認であり、原2run ZIPへの単一run評価器の整合passではない。途中画像25枚ずつが未保持で、完全Controller再生はできない。生ZIP/PNG/report/解析コードと証拠はGit外。新CI・全試験suite・新IPA・回収済みrunの再実行は実施していない。
+
+
+## TEST061 配布（2026-11-10 日本時間）
+
+[設計](../plans/test061-verified-progress.md)・[検証](../reviews/test061.md)・[配布物と手順](../status.md#test061の配布物)。実機未実施。code c8ad31f21f21f0d44bc79fc35b488005291a8aa8、Mac93/client22同commit成功。API1.98.15-ngg2/cap13/client v14、SideStore新IPA/build93更新とLoopCtrl完全終了/起動が必要。
+
+原060の初歩前BEATとACK後UNKNOWN/次拍期限停止を、元12秒の未送信再取得・入力/画像期限分離・真の確認後の新位相選択で修正。閾値/UNKNOWN無再送/商品優先・購入禁止を維持。合成商店10例とRuntime shop16の契約は成功したが実機到達の合格にしない。
+
+新通常1-1の金壁可視ポーズ、左側が下/端0から`test_061.sh`。歩行中はゲーム前面、自動PAUSE後約5秒でiSHへ戻り終了表示を待ち、`runtime/test-061`全ZIPを返却依頼する。商品が見えるまでの到達・扉開放/入店・拍の空きを確認。回収済み060の再実行は依頼しない。

@@ -37,3 +37,18 @@ code339bd74の[Mac92](https://github.com/shuhei0720/necrogold-automation/actions
 配布照合担当がRuntime応答の旧API1.98.14残存を発見。実clientが新応答を拒否するP1であり、API15へ修正。start/status/results/manifestの実応答APIを公開Swift fixtureでassertし、checkerは旧14をnamed rejectionでcompile前に拒否する。packageも旧14の再sealを拒否するguardを加える。HTTP結合の外側mock APIだけでは検出できなかったため、実producerとの境界検査を補った。
 
 C最終184件は49.988秒で成功、実行前後C/header/test SHA一致。29新Recoveryも成功。旧184 method保持、assert1014→1035、削除/減少/skipなし。
+
+
+## 最終Mac93・実配布物
+
+code `c8ad31f21f21f0d44bc79fc35b488005291a8aa8` の[Mac93](https://github.com/shuhei0720/necrogold-automation/actions/runs/42656077891)・[client22](https://github.com/shuhei0720/necrogold-automation/actions/runs/42656083101)が同commitで成功。host179 Controller/29 Recovery/12 Beat/3 world/266 packageはcommitted AST・rawログ・実行commandを全ID一致で照合、private5除外名も一致。localはprivateを含むController184成功、assert1014→1035を保持。client212件/48.761秒。
+
+新Swift公開fixtureは実API15のstart/status/results/manifest、初歩complete0再取得・旧callback無作用・元12秒、35px UNKNOWN→36px MOVED→新位相、全4proofのactualcommit/次actualtick、全producer5の実PAUSE後保持を確認。新Swift3＋C complete0の計4故障はcompile成功後の指定assertでRed。独立shop16も成功（正常/掘削/PF商品到達13、PA/CA/UN保護停止3）。Cのslow-camera world10例と別集計。world160/全Runtime59・実Macゲームは未実行。
+
+IPA ZIP SHA `76be95054f992162846279d19165e289ade853d409ddbeb793e2a58c92b7efa7`、内部build93 IPA SHA `2c9990545330c59072a0c6d46a7c1b55d458075693c11cd1d624ba8d9b4433c5`。22seal（変更5/不変17）/R12原40/G1、raw compiler/PBX/4C/5Swift/6RSP、strict O2-v2とO0/Onone、実9Mach-O/98 HOST・旧API marker非混入を照合。build-source ZIPは全472tracked bytes/CRC/path一致。配布先/hashはstatusに固定する。
+
+実Runtime recovery producer5件（raw SHA `d3b483b19a6ed3c30aa828cc3b87fcd802578a7cce62577276ea11b1009b1aff`）→暗号HTTP→client v14→両journalで診断完全一致。clock1/2、消去前model/sample snapshot8件を保持。実shop16 report（raw SHA `b6c57a81f5f8f5433c1b0178ac3f614262927aebdd9c253180b922a7c516e228`）の4診断をstrict v14へ通し、独立worldの操作/移動/商品/保護停止と照合した。外側HTTP lifecycle/画像はfixtureでありゲーム通信/実機受入ではない。
+
+Git外の配布検証器が最初`begin<end`を要求したが、模擬FastActionHandlerは同nsでreturnでき、実Cも`begin<=end`を許す。開始窓は全MOVEで正常。非逆行条件へ修正し、10ms窓を独立検査、早期/遅刻/広い窓/逆行endの否定系を追加して実配布物を再確認した。製品コードやassertを緩めていない。
+
+これらは次の実機試験へ渡せる同一性・回帰の確認。商品到達率/毎拍/人超えの実測は未受入であり、TEST061実機を具体的に依頼する。
