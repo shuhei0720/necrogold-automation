@@ -199,6 +199,12 @@ class NGG2RuntimeVerifierTests(unittest.TestCase):
                 with self.subTest(anchor=anchor), self.assertRaises(ValueError):
                     checker.test056_host_fixture_seam(broken, self.runtime)
 
+    def test_host_seam_rejects_an_end_marker_without_any_begin(self):
+        original = without_host_fixture_seams(self.runtime)
+        for name in ('METHOD', 'SNAPSHOT'):
+            with self.subTest(marker=name), self.assertRaises(ValueError):
+                checker.test056_host_fixture_seam(original+'// TEST056 HOST '+name+' END.\n', self.runtime)
+
 
 if __name__ == '__main__':
     unittest.main()

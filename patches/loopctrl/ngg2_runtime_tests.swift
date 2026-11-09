@@ -1257,8 +1257,11 @@ for id in rejectedIDs { NG2Fake.releaseTicket(id) }
 pump("rejected_difference_drained") { drained(rejectedDifference) }
 let rejectedResult = call("necro_native_results", rejectedDifference)
 let rejectedExports = Set((rejectedResult.0?["images"]?.arrayValue ?? []).compactMap { $0.objectValue?["capture_id"]?.intValue })
+let rejectedReferences = Set((rejectedResult.0?["report"]?.objectValue?["referenced_capture_ids"]?.arrayValue ?? []).compactMap { $0.intValue })
 require(rejectedResult.1 == nil && rejectedExports.contains(rejected["source_capture_id"]!.intValue!) &&
-    rejectedExports.contains(rejected["observed_capture_id"]!.intValue!), "rejected_difference_frames_pinned_beyond_recent_window")
+    rejectedExports.contains(rejected["observed_capture_id"]!.intValue!) &&
+    rejectedReferences.contains(rejected["source_capture_id"]!.intValue!) &&
+    rejectedReferences.contains(rejected["observed_capture_id"]!.intValue!), "rejected_difference_frames_pinned_beyond_recent_window")
 fixtureFailureSnapshot = nil
 
 // Public trace telemetry is committed with each actual analysis, bounded to
@@ -2905,19 +2908,45 @@ func testStopEvidenceRetentionPublic() {
         evidenceIDs(missingResult.0?["omitted_capture_ids"]).contains(9999) &&
         !evidenceIDs(missingResult.0?["exported_capture_ids"]).contains(9999),
         "stop_evidence_unavailable_priority_is_reported_without_fabrication")
+    let oversized = publicExportFixture()
+    require(runtime.testSeedStopEvidence(oversized, pinnedIDs: Array(100...119).map { UInt64($0) },
+        recentIDs: [1, 2, 3, 4], initialID: 100, terminalID: 1,
+        changes: [evidenceChange(2, 3)], moveSources: [4]), "stop_evidence_oversized_priority_seed")
+    NG2RuntimeExportTestHooks.transformExportPNG = { png, capture in
+        let length = 512*1024+(capture == 1 ? 1 : 0)
+        var padded = png; padded.append(Data(repeating: 0, count: length-png.count)); return padded
+    }
+    let oversizedManifest = pagedCall(oversized)
+    let oversizedLegacy = call("necro_native_results", oversized)
+    require(oversizedManifest.1 == nil && oversizedLegacy.1 == nil &&
+        !evidenceIDs(oversizedManifest.0?["exported_capture_ids"]).contains(1) &&
+        evidenceIDs(oversizedManifest.0?["omitted_capture_ids"]).contains(1) &&
+        !evidenceIDs(report(oversized)["missing_capture_ids"]).contains(1) &&
+        oversizedManifest.0?["exported_capture_ids"] == oversizedLegacy.0?["exported_capture_ids"] &&
+        oversizedManifest.0?["total_bytes"]?.intValue == 4*1024*1024,
+        "stop_evidence_oversized_priority_remains_retained_but_honestly_omitted")
+    NG2RuntimeExportTestHooks.transformExportPNG = nil
     for paged in [false, true] {
-        let failure = publicExportFixture()
-        require(runtime.testSeedStopEvidence(failure, pinnedIDs: [100], recentIDs: [1], initialID: 100,
-            terminalID: 1, changes: [], moveSources: []), "stop_evidence_encoding_failure_seed")
-        let storage = runtime.testExportStorageObserver(failure)!
-        NG2RuntimeExportTestHooks.transformExportPNG = { _, _ in nil }
-        let failed = paged ? pagedCall(failure) : call("necro_native_results", failure)
-        require(failed.1 != nil && storage()[0] == 0,
-            "stop_evidence_encoder_nil_returns_error_without_partial_cache")
-        NG2RuntimeExportTestHooks.transformExportPNG = nil
-        let retry = paged ? pagedCall(failure) : call("necro_native_results", failure)
-        require(retry.1 == nil && evidenceIDs(retry.0?["exported_capture_ids"]) == Set([1, 100]),
-            "stop_evidence_encoder_nil_releases_token_for_normal_retry")
+        for failedID in [UInt64(1), 100] {
+            let failure = publicExportFixture()
+            require(runtime.testSeedStopEvidence(failure, pinnedIDs: [100], recentIDs: [1], initialID: 100,
+                terminalID: 1, changes: [], moveSources: []), "stop_evidence_encoding_failure_seed")
+            let storage = runtime.testExportStorageObserver(failure)!
+            var attemptedIDs: [UInt64] = []
+            NG2RuntimeExportTestHooks.transformExportPNG = { png, capture in
+                attemptedIDs.append(capture)
+                return capture == failedID ? nil : png
+            }
+            let failed = paged ? pagedCall(failure) : call("necro_native_results", failure)
+            require(attemptedIDs == (failedID == 1 ? [1] : [1, 100]),
+                "stop_evidence_encoder_nil_exercises_first_and_later_image")
+            require(failed.1 != nil && storage()[0] == 0,
+                "stop_evidence_encoder_nil_returns_error_without_partial_cache")
+            NG2RuntimeExportTestHooks.transformExportPNG = nil
+            let retry = paged ? pagedCall(failure) : call("necro_native_results", failure)
+            require(retry.1 == nil && evidenceIDs(retry.0?["exported_capture_ids"]) == Set([1, 100]),
+                "stop_evidence_encoder_nil_releases_token_for_normal_retry")
+        }
     }
     print("PASS production Runtime public API/TEST056 synthetic diagnostic retention and original export bounds; no game progress asserted")
 }

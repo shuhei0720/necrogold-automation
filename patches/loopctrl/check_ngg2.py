@@ -235,11 +235,10 @@ def test056_host_fixture_seam(source, fixture_runtime_source):
     declarations = (
         'count = events.withUnsafeMutableBufferPointer { ng2_controller_events(core, $0.baseAddress, $0.count) }',
         'changeCount = changes.withUnsafeMutableBufferPointer { ng2_controller_scene_changes(core, $0.baseAddress, $0.count) }')
-    seeded = ['// TEST056 HOST '+label+' BEGIN.' in source for label in ('METHOD', 'SNAPSHOT')]
-    if any(seeded):
-        source_markers = ['// TEST056 HOST '+label+' '+edge+'.'
-                          for label in ('METHOD', 'SNAPSHOT') for edge in ('BEGIN', 'END')]
-        if not all(seeded) or any(source.count(marker) != 1 for marker in source_markers) or any(source.count(block) != 1 for block in blocks):
+    source_markers = ['// TEST056 HOST '+label+' '+edge+'.'
+                      for label in ('METHOD', 'SNAPSHOT') for edge in ('BEGIN', 'END')]
+    if any(marker in source for marker in source_markers):
+        if any(source.count(marker) != 1 for marker in source_markers) or any(source.count(block) != 1 for block in blocks):
             raise ValueError('runtime_test056_fixture_seam_existing')
         for block in blocks:
             source = source.replace(block, '', 1)
@@ -270,6 +269,39 @@ def test056_host_fixture_seam(source, fixture_runtime_source):
     if restored != original:
         raise ValueError('runtime_test056_nonfixture_bytes_changed')
     return source
+
+
+def test056_runtime_mutation_reds(source, sources, stage, output, extra, tests):
+    mutations = {
+        'stop-evidence-pin-priority': (
+            '            let priority = priorityCaptureIDs(run)',
+            '            let priority = [run.terminalCaptureID, run.found?.id, run.initial?.id].compactMap { $0 }',
+            'FAIL stop_evidence_latest_scene_comparisons_survive_pin_saturation'),
+        'stop-evidence-selection-priority': (
+            '        let priority = priorityCaptureIDs(run).compactMap { available[$0] }',
+            '        let priority = [run.images.last, run.found, run.initial].compactMap { $0 }',
+            'FAIL stop_evidence_latest_comparisons_precede_selection_and_4MiB_budget'),
+    }
+    if set(mutations) != EXPECTED_TEST056_MUTATIONS:
+        raise RuntimeError('runtime_exact_two_test056_fault_inventory_required')
+    reds, hashes = {}, {}
+    (stage/'main.swift').write_text(test056_public_fixture_source(tests))
+    try:
+        for label, (old, new, expected) in mutations.items():
+            if source.count(old) != 1:
+                raise ValueError('runtime_test056_mutation_target: '+label)
+            mutated = source.replace(old, new)
+            (stage/'NG2Runtime.swift').write_text(mutated)
+            print('Runtime mutation: '+label, flush=True)
+            result = compile_run(sources, stage/(label+'-tests'), output,
+                'runtime-'+label+'-mutation-red', extra, run_timeout=120)
+            require_red(result, expected); reds[label] = result.stdout.strip()
+            hashes[label] = hashlib.sha256(mutated.encode()).hexdigest()
+            print('Runtime mutation observed: '+label+' / '+result.stdout.strip().splitlines()[-1], flush=True)
+    finally:
+        (stage/'NG2Runtime.swift').write_text(source)
+        (stage/'main.swift').write_text(tests)
+    return reds, hashes
 
 
 def api_contract(upstream, output):
@@ -689,6 +721,14 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         return {'production_green': green.stdout.strip(), 'compiled': True,
                 'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
                 'scope': 'Synthetic latest diagnostic snapshot through production cache retention, legacy/paged PNG bytes, original export bounds; no game progress asserted'}
+    if new056_mutations_only:
+        evidence_reds, evidence_hashes = test056_runtime_mutation_reds(
+            source, sources, stage, output, extra, (HERE/'ngg2_runtime_tests.swift').read_text())
+        return {'production_green': green.stdout.strip(), 'compiled': True,
+                'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                'mutation_red': evidence_reds, 'test056_mutation_count': len(evidence_reds),
+                'test056_mutation_runtime_sha256': evidence_hashes, 'mutation_selection': 'test056_only',
+                'scope': 'Production diagnostic pin and selection faults detected independently with synthetic snapshots; no game progress asserted'}
     if public055_only:
         return {'production_green': green.stdout.strip(), 'compiled': True,
                 'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
@@ -725,6 +765,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     startup_calls = 'testStartupRemotePixelProof()\ntestInitialSlotPreparationPublic()\n'
     reference_calls = 'testOriginalMotionReferencePixelProof()\ntestOriginalMotionReferenceCallbacksPublic()\n'
     fresh_calls = 'testFreshRevalidationPixelProof()\ntestFreshRevalidationCallbacksPublic()\n'
+    evidence_calls = 'testStopEvidenceRetentionPublic()\n'
     if all_tests.count(new_calls) != 1 or all_tests.count(target_calls) != 1 or all_tests.count(startup_calls) != 1 or all_tests.count(reference_calls) != 1 or all_tests.count(fresh_calls) != 1:
         raise ValueError('runtime_test051_public_calls_boundary')
     if selected_mutations is not None:
@@ -733,7 +774,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         # Run the complete production Green above, then the exact established
         # fault with all original preceding fixtures and its named assertion.
         # This is a real selected execution, never a synthetic Red substitute.
-        (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n').replace(target_calls, '\n').replace(startup_calls, '\n').replace(reference_calls, '\n').replace(fresh_calls, '\n'))
+        (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n').replace(target_calls, '\n').replace(startup_calls, '\n').replace(reference_calls, '\n').replace(fresh_calls, '\n').replace(evidence_calls, '\n'))
         ownership = '        guard ownsTicket(run, command, generation: generation) else { return }'
         if source.count(ownership) != 1:
             raise ValueError('runtime_stale_entry_mutation_target')
@@ -754,7 +795,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         # Established faults retain their original fixtures/assertions. Execute
         # new public fixtures once in production Green and for their own faults,
         # avoiding dozens of unrelated repeated PNG boundary stress runs.
-        (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n').replace(target_calls, '\n').replace(startup_calls, '\n').replace(reference_calls, '\n').replace(fresh_calls, '\n'))
+        (stage/'main.swift').write_text(all_tests.replace(new_calls, '\n').replace(target_calls, '\n').replace(startup_calls, '\n').replace(reference_calls, '\n').replace(fresh_calls, '\n').replace(evidence_calls, '\n'))
         reds = {}
         clock_begin = source.index('        DispatchQueue.main.sync {', source.index('    private func execute('))
         clock_end = source.index('                run.inFlight = true', clock_begin)
@@ -1252,6 +1293,12 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             raise RuntimeError('runtime_exact_57_fault_inventory_and_five_actual_producer_reports_required')
     elif selection == 'test055_only' and set(reds) != {'fresh-revalidation-disabled', 'fresh-old-direction-reused'}:
         raise RuntimeError('runtime_exact_two_test055_fault_inventory_required')
+    evidence_reds, evidence_hashes = {}, {}
+    if selection == 'all_57':
+        evidence_reds, evidence_hashes = test056_runtime_mutation_reds(source, sources, stage, output, extra, all_tests)
+        reds.update(evidence_reds); selection = 'all_59'
+        if set(reds) != EXPECTED_RUNTIME_MUTATIONS | EXPECTED_TEST056_MUTATIONS:
+            raise RuntimeError('runtime_exact_59_fault_inventory_required')
     (stage/'NG2Runtime.swift').write_text(source)
     (stage/'main.swift').write_text(all_tests)
     return {'production_green':green.stdout.strip(),'mutation_red':reds,'compiled':True,
@@ -1259,6 +1306,8 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             'test052_mutation_count': len(target_mutations),
             'test053_mutation_count': len(startup_mutations),
             'test055_mutation_count': len(fresh_mutations),
+            'test056_mutation_count': len(evidence_reds),
+            'test056_mutation_runtime_sha256': evidence_hashes,
             'test055_controller_sha256': hashlib.sha256(controller.encode()).hexdigest(),
             'test055_mutation_controller_sha256': fresh_mutation_sources,
             'test055_actual_native_report_count': len(fresh_reports),

@@ -103,6 +103,9 @@ private final class NG2Run {
     var latest: NG2Frame?
     var images: [NG2Frame] = []
     var pinned: [UInt64: NG2Frame] = [:]
+    // Cached on controlQueue with the C snapshot. Results never query C.
+    var diagnosticCaptureIDs: [UInt64] = []
+    var terminalCaptureID: UInt64?
     var references = Set<UInt64>()
     var analyzedFrames: UInt64 = 0
     var evictedFrames: UInt64 = 0
@@ -347,9 +350,20 @@ final class NG2Runtime {
         return allowed && (generation == nil || generation == run.generation)
     }
 
+    private func priorityCaptureIDs(_ run: NG2Run) -> [UInt64] {
+        var ids: [UInt64] = []
+        for id in [run.terminalCaptureID, run.found?.id, run.initial?.id].compactMap({ $0 }) + run.diagnosticCaptureIDs {
+            if id != 0 && !ids.contains(id) { ids.append(id) }
+        }
+        return ids
+    }
+
     private func selectedExportFrames(_ run: NG2Run) -> [NG2Frame] {
+        var available = run.pinned
+        for frame in run.images + [run.initial, run.found].compactMap({ $0 }) { available[frame.id] = frame }
+        let priority = priorityCaptureIDs(run).compactMap { available[$0] }
         var frames: [NG2Frame] = []
-        for frame in [run.images.last, run.found, run.initial].compactMap({ $0 })
+        for frame in priority + [run.images.last].compactMap({ $0 })
             + run.pinned.values.sorted(by: { $0.id > $1.id }) + Array(run.images.reversed()) {
             if !frames.contains(where: { $0.id == frame.id }) { frames.append(frame) }
         }
@@ -1159,6 +1173,18 @@ final class NG2Runtime {
         // TEST056 HOST SNAPSHOT END.
         run.lock.ng2Locked {
             var required = Set<UInt64>()
+            var diagnosticIDs: [UInt64] = []
+            // C retains first1/latest2 in chronological order. Only the latest
+            // two comparisons precede cumulative evidence, newest first.
+            for change in changes.prefix(min(changeCount, changes.count)).suffix(2).reversed() {
+                for id in [change.source_capture_id, change.observed_capture_id] where id != 0 {
+                    if !diagnosticIDs.contains(id) { diagnosticIDs.append(id) }
+                }
+            }
+            if let source = events.prefix(min(count, events.count)).last(where: { $0.command.kind == 4 })?.command.source_capture_id,
+               source != 0 && !diagnosticIDs.contains(source) { diagnosticIDs.append(source) }
+            run.diagnosticCaptureIDs = diagnosticIDs
+            run.terminalCaptureID = s.terminal != 0 && s.last_capture_id != 0 ? s.last_capture_id : nil
             for event in events.prefix(min(count, events.count)) {
                 if event.command.source_capture_id != 0 { required.insert(event.command.source_capture_id) }
                 if event.observed_capture_id != 0 { required.insert(event.observed_capture_id) }
@@ -1177,10 +1203,11 @@ final class NG2Runtime {
             run.references.formUnion(required)
             var available = run.pinned
             for frame in run.images + [run.initial, run.found].compactMap({ $0 }) { available[frame.id] = frame }
-            let anchors = Set([run.initial?.id, run.found?.id, s.terminal != 0 ? s.last_capture_id : nil].compactMap { $0 })
-            for id in anchors.sorted() where run.pinned[id] == nil {
+            let priority = priorityCaptureIDs(run)
+            let protected = Set(priority)
+            for id in priority where run.pinned[id] == nil {
                 guard let frame = available[id] else { continue }
-                if run.pinned.count == 20, let evicted = run.pinned.keys.sorted().first(where: { !anchors.contains($0) }) {
+                if run.pinned.count == 20, let evicted = run.pinned.keys.sorted().first(where: { !protected.contains($0) }) {
                     run.pinned.removeValue(forKey: evicted); run.evictedFrames += 1
                 }
                 if run.pinned.count < 20 { run.pinned[id] = frame }

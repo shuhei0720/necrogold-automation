@@ -77,7 +77,7 @@ FRESH後はその拍で旧referenceを永久失格とし、再作成・SAMEで�
 
 ## 13. Exportと保存
 
-PNGは最大20枚・各512KiB・総4MiB。chunk64KiB、manifest wire512KiB/chunk wire256KiB。batchは最大4chunk/256KiBでも、各chunkの検証・取消・期限を省かない。検証済みprefixだけをhash/cursorへ反映し、atomic fragmentをjournalsより先に保存する。再中断でも物理的な未検証suffix全体を保持する。active journalが回復の権限を持つ。
+PNG上限は20枚・各512KiB・計4MiB。初期/商品/停止と最新比較を優先。chunk64KiB、manifest wire512KiB/chunk wire256KiB。batchは最大4chunk/256KiBでも、各chunkの検証・取消・期限を省かない。検証済みprefixだけをhash/cursorへ反映し、atomic fragmentをjournalsより先に保存する。再中断でも物理的な未検証suffix全体を保持する。active journalが回復の権限を持つ。
 
 ordinary RPC2秒、結果専用8秒、export1試行90秒を残session180秒以内に収める。所有するterminal/drained runだけが結果を公開し、古い返信で新しいcacheを消さない。回収成功を未知inputの解決にしない。取消・lock・同時実行・世代/ownerの既存guardを維持する。
 

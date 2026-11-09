@@ -12,7 +12,7 @@
 | 地形・移動・入口・商品 | `patches/loopctrl/ngg2/NG2Navigation.c`、`NG2Perception.c`、`NG2Core.h` | `tests/test_native_navigation.py`、`test_native_perception.py`、必要時だけ[動画観察](video-2-analysis.md) |
 | 取得・画像変換 | `patches/loopctrl/ngg2/NG2Raster.swift`、`NG2CaptureBridge.m`、Perceptionのorientation処理 | `tests/test_native_raster.py`、`patches/loopctrl/ngg2_raster_tests.swift` |
 | 並行処理・前面・取消・drain | `patches/loopctrl/ngg2/NG2Runtime.swift`、`NG2Ticket.swift` | `patches/loopctrl/ngg2_runtime_tests.swift` の対応する公開fixture、`check_ngg2.py` の該当mutation |
-| 診断・旧journal・結果回収 | `necroprobe/native_walk.py` の `_report`、`_load`、`_collect_paged`、`run_session`、Runtimeのresults/cache | `tests/test_native_results.py`、`test_native_motion_references.py`、`test_native_paged_results.py`、`test_native_export_batch.py` |
+| 診断・旧journal・結果回収 | `necroprobe/native_walk.py` の `_report`、`_load`、`_collect_paged`、`run_session`、Runtimeのcache/priorityCaptureIDs/selectedExportFrames/results | `tests/test_native_results.py`、`test_native_motion_references.py`、`test_native_paged_results.py`、`test_native_export_batch.py` |
 | 接続・起動・暗号HTTP | `necroprobe/native_walk.py` のpreflightとstart、`protocol.py` | `tests/test_native_connect.py`、`test_http_diagnostics.py`、`test_protocol.py`、`test_http_and_cli.py` |
 | 実記録の評価 | `tools/evaluate_device_recording.py` のarchive/lineage/partial/milestone | `tests/test_device_recording.py`、[証明範囲](testing.md) |
 | compiler・封印・IPA | `patches/loopctrl/check_perception_build.py`、`apply_ngg2.py`、`verify_package.py` | `patches/loopctrl/test_*.py`、[Mac workflow](../.github/workflows/loopctrl-geometry.yml) |
