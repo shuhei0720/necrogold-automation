@@ -242,7 +242,24 @@ def test058_public_fixture_source(tests, *, baseline=False):
     combined = tests.split(marker)[0] + fixture
     if baseline and hashlib.sha256(combined.encode()).hexdigest() != TEST058_RED_FIXTURE_SHA256:
         raise ValueError('runtime_test058_observed_red_fixture_hash')
-    return combined
+    return test058_baseline_release_barrier(combined) if baseline else combined
+
+
+def test058_baseline_release_barrier(source):
+    """Wait for the fixed old Runtime's callback publication before releasing it.
+
+    The original observed Red source is hashed before this HOST harness-only
+    insertion. No production source, timing value or assertion is replaced.
+    """
+    anchor = '    NG2Fake.releaseTicket(replacement)\n'
+    barrier = '''    pump("test058_baseline_replacement_callback_is_held_before_release") {
+        NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
+        return NG2Fake.heldTickets[replacement] != nil
+    }
+'''
+    if source.count(anchor) != 1 or 'test058_baseline_replacement_callback_is_held_before_release' in source:
+        raise ValueError('runtime_test058_baseline_release_barrier_anchor')
+    return source.replace(anchor, barrier+anchor)
 
 
 def test058_shop_fixture_source(tests):
@@ -775,6 +792,8 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                 'stderr': green.stderr, 'source_commit': TEST057_RUNTIME_COMMIT,
                 'source_sha256': TEST057_RUNTIME_SHA256,
                 'fixture_sha256': hashlib.sha256((stage/'main.swift').read_bytes()).hexdigest(),
+                'original_observed_fixture_sha256': TEST058_RED_FIXTURE_SHA256,
+                'host_release_barrier': True,
                 'scope': 'fixed unchanged TEST057 Runtime/native sources; public synthetic lead-in and received057 timing intervals; not complete device replay'}
     if public058_shop_only:
         checked(green)

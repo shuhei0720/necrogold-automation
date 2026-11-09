@@ -207,6 +207,20 @@ class NGG2RuntimeVerifierTests(unittest.TestCase):
 
 
 class Test058PublicSelectionTests(unittest.TestCase):
+    def test_baseline_release_barrier_preserves_every_original_byte_and_assertion(self):
+        source = 'before\n    NG2Fake.releaseTicket(replacement)\nafter\n'
+        combined = checker.test058_baseline_release_barrier(source)
+        barrier = combined.removeprefix('before\n').split('    NG2Fake.releaseTicket(replacement)\n')[0]
+        self.assertIn('NG2Fake.heldTickets[replacement] != nil', barrier)
+        self.assertIn('NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }', barrier)
+        self.assertEqual(combined.replace(barrier, '', 1), source)
+        self.assertNotIn('NG2Fake.advance', barrier)
+        self.assertNotIn('require(', barrier)
+    def test_baseline_release_barrier_rejects_missing_duplicate_or_reinjection(self):
+        anchor = '    NG2Fake.releaseTicket(replacement)\n'
+        for source in ('', anchor+anchor, checker.test058_baseline_release_barrier(anchor)):
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                checker.test058_baseline_release_barrier(source)
     def test_selects_only_real_helpers_and_new_executable_fixture(self):
         tests=(HERE/'ngg2_runtime_tests.swift').read_text()
         fixture=(HERE/'ngg2_dispatch_preparation_tests.swift').read_text()
