@@ -2592,3 +2592,20 @@ cd /mnt/necro_test060 && sh test_060.sh
 ```
 
 歩行中はゲーム前面を保ち、**自動ポーズ後5秒ほど待ったらiSHへ戻って構いません。** 「TEST-060: 終了」まで待って、`runtime/test-060` 全体をZIPで返してください。連続歩行、扉を開けて通過するか、商品が見えるかを確認します。終了前の再実行や別テストの同時実行はしません。回収済みTEST059の追加回収のための再実行は不要です。
+
+
+<a id="test060-received"></a>
+
+## TEST060受領結果（2026-11-10 日本時間）
+
+ユーザー報告「2回。1回目は0歩、2回目は左へ1歩」。原ZIP2,486,435bytes/SHA `86d8e4e6dab068d10a152292502a23d53caadc0af1dd682d3151ee83d8f4d2fd`。2runを含み、activeは2回目reportと完全一致。両方client v13/API1.98.14-ngg2/server build文字列2026-11-09 14:50（build91と整合）。resolved=true、paused/terminal=1、workers_drained=true、capture/dispatch failureなし、商品0/2。
+
+1回目run9118ccef614543b48e45daf34c90dccb、report SHA `4607161168788a39df44079634eb2e25b28d055932b9566b504f86c35c5ddb4e`。inputs/moves=0、reason8/BEAT、RESUMEと最終PAUSEの2eventだけ。初歩target115802823726273、lead150ms。最終PAUSE予約115802505777916は初歩準備上限の117.948357ms前、入力notBeforeの167.948357ms前で、LATE停止ではない。capture30のobserve終了115802505391125から0.386791ms後にPAUSE予約。初歩の拍追跡/同拍補正の失効経路に該当するが、各更新のmodel/sample列と途中PNGが無く、具体的な拒否条件/失敗captureは未確定。保持6/30は実CでFLOOR/金壁候補/HUD有効。
+
+2回目runcc70cfc0f2374c2e8e52147b7fbb3d51、report SHA `fbf304fc73cc903e6608248d211cd123b951df19e75dd307e82c4fd605a7b71e`。LEFT1入力、nativeの移動計上は0、reason9/LATE。初歩2/source27→3/source28へINITIAL_ALLOWED再予約（遠方(-2,4)DIRT→UNKNOWN）。両者の元target115902347222184/notBefore115902197222184/D115902207222184は同一、旧2は未送信。3はbegin115902203982916/end115902498809250、元入力窓内で開始しACKまで294.826334ms。
+
+移動確認元D115902726217518、ACK後残227.408268ms。唯一の有効な移動確認画像32はACK後35.293583msに取得開始、capture終了D前157.373643ms、observe終了D前80.457727ms。実Cの28→32はUNKNOWN、best(signature sx9)score .653069456、runner sx8 .728164652、gap .075095196で既存.08条件も不足。地形4領域のrawpixel照合は右へ約34〜35pxのずれを支持するが、完全な1tile変位や無害な揺れとは断定しない。27→28はstrict BLOCKED、27→32と6→32もUNKNOWNなので、単に旧参照へ戻して成功にはできない。再送信せず、確認元Dの2.602607ms後（115902728820125）にPAUSE予約へ移行した。
+
+両方lead_confirmed=0/moves=0なので、TEST060の連続新ordinal予約gateには到達していない。今回の結果をそのgateの成功/失敗証明にはしない。初歩の同期失効と、初歩ACK後に完了変位を確認できる画像/処理時刻が調査対象である。期限やmotion閾値を緩める修正は行っていない。
+
+全16完成PNG（1回目7/2回目9）のbytes/SHA/寸法896×414/全chunk CRC、両native reportのstrict v13構造を確認。各image_exportと個別PNG集合は一致し、part/不足参照0。これは個別runの回収確認であり、原2run ZIPへの単一run評価器の整合passではない。途中画像25枚ずつが未保持で、完全Controller再生はできない。生ZIP/PNG/report/解析コードと証拠はGit外。新CI・全試験suite・新IPA・回収済みrunの再実行は実施していない。

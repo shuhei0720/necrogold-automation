@@ -1,16 +1,18 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。TEST059は上3歩後に第4入力前の画像比較で停止し、商品未達。TEST060では連続歩行の初回予約を新しい画像から作るよう修正。Mac91全体成功・新IPA/ソース/実compilerを照合済み。TEST060の実機試験待ち。実機の商品到達・全経路毎拍・人より速い実効処理は未受入。回収済みTEST059は再実行しない。
+更新: 2026-11-10（日本時間）。TEST060を2回受領。1回目は初歩MOVE予約前にBEAT停止、2回目は左1入力後の移動確認UNKNOWN→LATE停止。商品確認0/2。両runは回収完了/PAUSE/drain済み。詳しいBEAT失効内訳はログ不足で未確定。[受領結果](device-tests/README.md#test060-received)。修正版はまだ作成していない。
 
-## 今回の変更
+[最新開発方針](development-flow.md#最新の運用方針2026-11-10-日本時間)を保存済み。品質を維持し変更に応じて単体/関連回帰/関連結合/フルCIを選ぶ。固定時間の目標は置かない。現在はログ解析だけで、CI/新IPA/回収済みrun再実行は行わない。短いCI経路の実装は未整備。
 
-TEST059の4th MOVEはsource54→55のmotion UNKNOWNで停止。原画は共通1rawpxの地形ずれがあり、motion閾値を緩めて静止とは扱わない。notBeforeへ57ms/Dへ67ms残り、lateではない。14完成PNGと別0入力run・未完了exportを区別する。[受領事実](device-tests/README.md#test059受領結果2026-11-09-日本時間)。
+## 直前TEST060の変更（実機は未達）
+
+TEST059の3歩後の画像比較停止を受けた修正。[受領事実](device-tests/README.md#test059受領結果2026-11-09-日本時間)と原画の解析は保持する。
 
 TEST060は未予約の連続新ordinalだけ、同じ元拍のnotBefore100ms前以降、画像取得開始200ms前以降から初回予約する。移動直後の古い確認画像へ早期に固定せず、最新Sceneと通常plannerを使う。更新前の元Dをactualtickまで保ち、HUD補正による期限後の復活を拒否。予約後期限/再予約/UNKNOWN無再送/商品優先・親motion期限は維持する。[計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。
 
 200msは画像処理85ms/取得間隔90ms/準備20ms＋余裕5msの合成成功域から導出した値であり、実機性能の保証ではない。原1pxの揺れを再現したworldや、原059の未収録第4入力を再生したと主張しない。
 
-## 配布物
+## 直前TEST060の配布物（受領済み）
 
 | 項目 | 保存先・同一性 |
 | --- | --- |
@@ -19,11 +21,11 @@ TEST060は未予約の連続新ordinalだけ、同じ元拍のnotBefore100ms前�
 | 内部IPA | `upstream/release/LoopCtrl.ipa` / build91 / SHA `6587ef9794a2efc93295eef66ea558d2e528fdbda27497e66b3eea222dd6dacc` |
 | 診断ZIP | artifact13683973589 / 650,690bytes / SHA `6cff2ed87ffa51c868da6285ee9ba40ca368c33132df450e1f869620d4407fb3` |
 | native-host | artifact13682046081 / 778,200bytes / SHA `cb49d2b92056a41fbe29c49e29ed8b2db62d3e22dd7bdcec8da710d89816b659` |
-| 完全source | [資料込みbranch ZIP](https://github.com/shuhei0720/necrogold-automation/archive/refs/heads/work/p1-capture-probe.zip)。最終返却は文書保存commitへ固定し、全462tracked bytes/CRC/pathとcodeとの差分が文書だけであることを照合する |
+| 完全source | [TEST060配布時の固定ZIP](https://codeload.github.com/shuhei0720/necrogold-automation/zip/42e625b0311c79c6d3e6acf19a150b9316fcc2a4)。全462tracked bytes/CRC/path一致、codeとの差分は文書だけ |
 
 codeのbuild-source ZIPは7,204,755bytes / SHA `53d7cb93165ded23883443fc5975a42c35fefdb183af0b6af8a458b3676df19e`、全462ファイル一致。
 
-22seal中Controller.cだけ変更、他21はTEST059baseline5ef0ec3と同一。C `3a16d0b675061dd60b632f419437094e9fea82e90e9027efe01c61910f73f7cb` / seal `3b768e55930227ee0345447d24022717382d776125fcc652a905c232ac8b93e5`、API1.98.14-ngg2/cap12/client v13維持。R12原40/G1不変。native修正のため新IPA更新が必要。IPAの保存先はMac CIページ。SafariでGitHubログイン後、Artifactsの loopctrl-ngg2-unsigned を選ぶ。公開releaseは作らない。最終返却では実取得を確認した期限付き直接リンクも渡す。
+22seal中Controller.cだけ変更、他21はTEST059baseline5ef0ec3と同一。C `3a16d0b675061dd60b632f419437094e9fea82e90e9027efe01c61910f73f7cb` / seal `3b768e55930227ee0345447d24022717382d776125fcc652a905c232ac8b93e5`、API1.98.14-ngg2/cap12/client v13維持。R12原40/G1不変。これは直前TEST060/build91の配布記録で、当時native修正のためIPA更新を依頼した。現在のルール更新・受領解析では追加更新を依頼しない。過去IPAの保存先はMac CIページのArtifacts。公開releaseは作らない。
 
 ## 検証
 
@@ -35,17 +37,13 @@ Mac91は公開native258/31厳密除外、Runtime既存59＋058別2故障、新06
 
 Mac88/90のHOST時計同期失敗とMac89の診断出力形式失敗は、全体成功には数えない。第3周の補足でHOSTだけを修正し、375require/checker・元D/10msを維持。既存legacy047の未使用helperも古い固定fakeへ型互換を維持するが、旧modeの新しい実Swift試験は未実施。[検証の詳細](reviews/test060.md#test060-final-mac)。
 
-## 実機手順（TEST060）
+## 今回確認した停止箇所
 
-LoopCtrlをStop Server→完全終了→SideStoreで新IPAへ更新→再起動/Start Server。通常のVPN/ディスクイメージ接続を確認。完全sourceを展開し、新しい通常オールゾーン1-1で開幕の金壁が見える回を、左側が下・画面端0でポーズする。フォルダ選択では test_060.sh があるフォルダを選ぶ。
+1回目はinputs/moves=0、reason8/BEAT。同期targetは選ばれていたが初歩予約は出ておらず、準備上限より約118ms前にPAUSEへ移った。capture30はFLOOR/金壁候補/HUD有効。途中25枚と各更新model/sampleが未保持で、track/補正のどの条件で失効したかは断定できない。
 
-```sh
-mkdir -p /mnt/necro_test060
-mount -t ios . /mnt/necro_test060
-cd /mnt/necro_test060 && sh test_060.sh
-```
+2回目はLEFT1、C計上moves=0、reason9/LATE。27→28の初歩再予約後、28→32の実C motionがUNKNOWN。画像上は地形が右へ約34〜35pxずれるが、既存の1歩完了条件を満たさない。確認画像は1枚だけで、motion元Dの2.603ms後に停止。原参照27へ戻してもUNKNOWNで、古い画像への単純な差し戻しでは解決しない。両runともlead_confirmed=0で、TEST060の連続歩行初回予約gateには未到達。
 
-歩行中はゲーム前面。自動ポーズ後5秒ほど待ったらiSHへ戻ってよい。「TEST-060: 終了」後に runtime/test-060 全体をZIPで返す。連続歩行、開扉、入店、商品が見えるかを確認する。[詳細手順](device-tests/README.md#test-060実行手順)。
+受領済みTEST060は再実行しない。現在は初歩の拍失効内訳と、移動確認画像のタイミングが調査対象。期限/認識閾値を緩めたり、未収録画像で成功を補わない。新しい実装版を作成・確認してから具体的実機テストを依頼する。
 
 ## コンテキストと未受入
 
