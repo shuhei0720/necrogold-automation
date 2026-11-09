@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。TEST059受領: UP3後に第4入力前の画像比較で停止、商品未達。**TEST060を開発中、新IPAは未配布**。[今回の計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。回収済みTEST059は再実行しない。
+更新: 2026-11-09（日本時間）。TEST059受領: UP3後に第4入力前の画像比較で停止、商品未達。**TEST060を開発中、新IPAは未配布**。code `f4162d91eb28fd016340b877746436ea61b301e9` / [Mac88](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620754044)を実行中、client20は成功。[今回の計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。回収済みTEST059は再実行しない。
 
 ## 今回の修正と受領結果
 
@@ -9,6 +9,8 @@ TEST059はUP3/MOVED3・商品0。第4MOVEをsource54で予約後、55との比�
 TEST058はLEFT2/MOVED2後にlate停止。12PNG/journalsは完全回収・整合pass、商品到達fail。cap54で次DOWN/FLOORを認識できたが、未予約の次notBeforeが親由来deadlineより3.280ms後となり、第3MOVEを作る前に停止した。停止tickは元期限より約113.7ms早く、capture/dispatch failureはない。[受領事実](device-tests/README.md#test058受領結果2026-11-09-日本時間)。
 
 TEST059は親motionの元期限内で移動を確認し、未予約candidateのtarget/10ms窓を同じ補正拍から対更新する。追加observeも元nominal/periodをアンカーとし、初回reserveで一体凍結する。予約済み/SAME/FRESHの期限、8%補正境界、source/model/phase/session/walk予算、取消・UNKNOWN無再送・商品保護を維持する。原058の未収録DOWN応答は作らず、既知12画像と合成Cの証明範囲を分ける。
+
+localはController184/他native102/world3の計289method、203既知paths、315位相、160到達＋停止2、client197/package228が成功。公開CI258/private31を厳密照合し、新C1変更/他21維持、実装第2周3担当clear。build-source ZIP462全tracked bytes/CRC/path一致。Mac全故障・実compiler/新IPAは未完了。[検証](reviews/test060.md)。
 
 ## 直前TEST059の配布物（受領済み）
 

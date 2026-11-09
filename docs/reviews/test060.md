@@ -39,3 +39,10 @@ Controller旧165＋新19＝184件、51.566秒/skip0で成功。旧956assert call
 他native/evaluator102件・203既知pathsは136.814秒、client197件は52.596秒、package228件は最終sealで1.619秒、すべて成功/skip0。新worldは3method/160正常＋停止2が最終Cで138.275秒成功。全160で6入力/5移動/開扉1/goods/PAUSE1と連続6拍を確認し、今回は未評価最終ACK例外は未使用。caseごとのCfitとworld時刻の約±2ms差も保存し、時計の同期や未来captureは行わない。原1px揺れを再現した試験ではない。
 
 合計native/evaluator/worldは289method、公開CI対象258/private厳密31除外。旧C fixed b3は長い合成goal自体に到達するため「旧goal不合格」と捏造せず、ordinal2〜6のpublication/sourceの各5違反を独立集計する。新policy2＋expiry1、旧059 C rollback1、Runtime59＋058別2は別集計。Mac全体・実compiler/IPA・配布source照合はこれから実施する。
+
+
+## 最終Mac開始
+
+正式code `f4162d91eb28fd016340b877746436ea61b301e9` をpush。[Mac88](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620754044)でnative258/新C3故障/旧C1故障・全Swift/Runtime/実compiler/新IPAを実行中。[client20](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620758236)は同codeで成功。標準公開runnerを維持する。
+
+build-source ZIPは7,198,806bytes、SHA `620e243e4e895527350414aa8b0898774967870776719f9d38775a255dcfa319`、462全tracked bytes/CRC/path一致。設計が原ZIPを独立再照合し、Controllerのみ変更/他21/R12原40/G1も保持。最終delivery/contracts検証器は059の条件を維持。安全が実compiler検証器とMach-O旧81 marker＋test060_（82）を点検し、通常/-Oの合成selfcheckで88拒否/8magicを確認した。actual IPAはまだ検証していない。
