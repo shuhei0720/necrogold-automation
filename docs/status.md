@@ -6,7 +6,7 @@
 
 TEST057はRIGHT1/MOVED1後、次UPの送信が期限に間に合わず停止。経路外のDIRT→FLOOR変動でSAME再予約し、observe後の残余5.017msに対しAX照会11.312ms。capture失敗ではない。次UPへの床は認識できるが、入店/商品確認は未達。[受領事実](device-tests/README.md#test057受領結果2026-11-09-日本時間)。
 
-TEST058では同logical MOVEの資格をC epochで証明し、元のfresh前面確認/leaseを共有、重い診断JSONを入力直前から外す。全期限・予算・商品保護を維持する。独立な閉扉/壁/商品のworldで、実gestureから開通→進入→商品→PAUSEまでを結合する。[計画](plans/test058-shop-dispatch.md)・[16例の期待](tests/test058-world-cases.md)・[検証](reviews/test058.md)。Controller153件Green、旧RuntimeのMac assertion Redを準備中。新IPAは未配布。
+TEST058では同logical MOVEの資格をC epochで証明し、元のfresh前面確認/leaseを共有、重い診断JSONを入力直前から外す。全期限・予算・商品保護を維持する。独立な閉扉/壁/商品のworldで、実gestureから開通→進入→商品→PAUSEまでを結合する。[計画](plans/test058-shop-dispatch.md)・[16例の期待](tests/test058-world-cases.md)・[検証](reviews/test058.md)。Controller153件、local native/evaluator249・client197・package224成功。旧RuntimeのMac assertion Redと新Runtime/world16の初回Greenを確認。追加境界・新2故障・旧Runtime全件をMac78で確認中。新IPAは未配布。
 
 回収ZIPは完成7PNGの途中checkpointで、直接停止の画像はあるが全11枚の回収は未了。追加回収の再実行は依頼せず、次の開発へ進む。
 
