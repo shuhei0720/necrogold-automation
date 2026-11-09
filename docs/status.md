@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。TEST059受領: UP3後に第4入力前の画像比較で停止、商品未達。**TEST060を開発中、新IPAは未配布**。code `f4162d91eb28fd016340b877746436ea61b301e9` / [Mac88](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620754044)を実行中、client20は成功。[今回の計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。回収済みTEST059は再実行しない。
+更新: 2026-11-09（日本時間）。TEST059受領: UP3後に第4入力前の画像比較で停止、商品未達。**TEST060を開発中、新IPAは未配布**。code `f4162d91eb28fd016340b877746436ea61b301e9` / [Mac88](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620754044)はnative258成功後に既存SwiftのHOST時刻同期で失敗。HOST修正の第3周3担当clear、Mac再実行待ち。client20は成功。[今回の計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。回収済みTEST059は再実行しない。
 
 ## 今回の修正と受領結果
 

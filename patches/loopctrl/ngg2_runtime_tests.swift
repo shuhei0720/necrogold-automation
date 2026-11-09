@@ -67,6 +67,33 @@ func admitFirstFixtureMove(_ id: String, expectedID: UInt64? = nil, afterAlignme
     }, "fixture_move_admission_capture_boundary")
     NG2RuntimeTestHooks.beforeMainAuthority = nil
 }
+// A held revalidation callback owns its original clock boundary. Keep PNG
+// admission stopped until that exact callback returns, while allowing its
+// explicit clock change to finish without a normal capture spending80ms first.
+func test060_revalidationCaptureBoundary() {
+    var explicitBoundaryHandled = false
+    while true {
+        NG2Fake.lock.lock()
+        let blocked = NG2Fake.captureLimit.map { NG2Fake.requests >= $0 } ?? false
+        let change = NG2Fake.boundaryClockChange
+        NG2Fake.boundaryClockChange = nil
+        // Permit and the ordinary clock step are one Fake-lock operation;
+        // a limit installed after a permit read cannot be bypassed later.
+        if !blocked && change == nil && !explicitBoundaryHandled, let now = NG2Fake.fixedClock {
+            NG2Fake.fixedClock = now + NG2Fake.fixedCaptureAdvance
+        }
+        NG2Fake.lock.unlock()
+        if let change { change(); explicitBoundaryHandled = true }
+        if !blocked { return }
+        // The existing changeClockAtCaptureBoundary retains its2s timeout.
+        // No fake, run or fixture lock is held while parked or executing it.
+        Thread.sleep(forTimeInterval: 0.001)
+    }
+}
+func test060_revalidationEvidence(_ label: String, staleFirst: Bool, oldID: UInt64,
+                                  newID: UInt64, event: [String: JSONValue]) {
+    print("EVIDENCE test060_revalidation \(label) stale_first=\(staleFirst) old_id=\(oldID) new_id=\(newID) now_ns=\(NG2Fake.virtualClock()) not_before_ns=\(event["not_before_ns"]?.intValue ?? -1) deadline_ns=\(event["deadline_ns"]?.intValue ?? -1) begin_ns=\(event["begin_ns"]?.intValue ?? -1)")
+}
 func alignInitialFixtureMove(_ id: String) {
     // Every caller uses the matching synthetic virtual clock (or its owned
     // motion-deadline wrapper). The real raster/perception/beat path now sees
@@ -1588,10 +1615,7 @@ func testContinuousRevalidationCallbacksPublic() {
         NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
         let id = identity()
         diagnoseFixture(id)
-        NG2RuntimeTestHooks.beforeCaptureAdmission = {
-            NG2Fake.waitForCapturePermit()
-            NG2Fake.performBoundaryClockChange()
-        }
+        NG2RuntimeTestHooks.beforeCaptureAdmission = { test060_revalidationCaptureBoundary() }
         alignInitialFixtureMove(id)
         NG2RuntimeTestHooks.afterTicketReturned = { returned in
             NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
@@ -1673,12 +1697,19 @@ func testContinuousRevalidationCallbacksPublic() {
                 after["main_ticket_outstanding"]?.boolValue == true && !drained(id) && NG2Fake.paths().count == 2,
                 "continuous_old_return_keeps_public_replacement_reservation")
         }
+        NG2RuntimeTestHooks.afterTicketReturned = { returned in
+            NG2Fake.lock.lock()
+            NG2Fake.returnedTickets.insert(returned)
+            if returned == newID { NG2Fake.captureLimit = nil }
+            NG2Fake.lock.unlock()
+        }
         NG2RuntimeTestHooks.beforeMainAuthority = {
             admitFirstFixtureMove(id, expectedID: newID) { _ in
                 NG2Fake.lock.lock(); NG2Fake.walkGoodsEnabled = true; NG2Fake.lock.unlock()
             }
         }
-        NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
+        test060_revalidationEvidence("continuous_before_release", staleFirst: staleFirst,
+            oldID: oldID, newID: newID, event: replacement)
         NG2Fake.releaseTicket(newID)
         if staleFirst {
             pump("continuous_replacement_callback_actually_returned") {
@@ -1697,6 +1728,8 @@ func testContinuousRevalidationCallbacksPublic() {
         let terminal = report(id)
         let finalMoves = (terminal["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
         let sent = finalMoves.first { $0["id"]?.intValue == Int(newID) }!
+        test060_revalidationEvidence("continuous_sent", staleFirst: staleFirst,
+            oldID: oldID, newID: newID, event: sent)
         require(terminal["inputs"]?.intValue == 3 && NG2Fake.paths().count == 3 &&
             (sent["begin_ns"]?.intValue ?? 0) >= old["not_before_ns"]!.intValue! &&
             (sent["begin_ns"]?.intValue ?? Int.max) <= old["deadline_ns"]!.intValue!,
@@ -1997,10 +2030,7 @@ func testTargetDriftRevalidationCallbacksPublic() {
         NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
         let id = identity()
         diagnoseFixture(id)
-        NG2RuntimeTestHooks.beforeCaptureAdmission = {
-            NG2Fake.waitForCapturePermit()
-            NG2Fake.performBoundaryClockChange()
-        }
+        NG2RuntimeTestHooks.beforeCaptureAdmission = { test060_revalidationCaptureBoundary() }
         alignInitialFixtureMove(id)
         NG2RuntimeTestHooks.afterTicketReturned = { returned in
             NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
@@ -2087,12 +2117,19 @@ func testTargetDriftRevalidationCallbacksPublic() {
                 after["main_ticket_outstanding"]?.boolValue == true && !drained(id) && NG2Fake.paths().count == 2,
                 "target_drift_old_return_keeps_public_replacement_reservation")
         }
+        NG2RuntimeTestHooks.afterTicketReturned = { returned in
+            NG2Fake.lock.lock()
+            NG2Fake.returnedTickets.insert(returned)
+            if returned == newID { NG2Fake.captureLimit = nil }
+            NG2Fake.lock.unlock()
+        }
         NG2RuntimeTestHooks.beforeMainAuthority = {
             admitFirstFixtureMove(id, expectedID: newID) { _ in
                 NG2Fake.lock.lock(); NG2Fake.walkGoodsEnabled = true; NG2Fake.lock.unlock()
             }
         }
-        NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
+        test060_revalidationEvidence("target_drift_before_release", staleFirst: staleFirst,
+            oldID: oldID, newID: newID, event: replacement)
         NG2Fake.releaseTicket(newID)
         if staleFirst {
             pump("target_drift_replacement_callback_actually_returned") {
@@ -2111,6 +2148,8 @@ func testTargetDriftRevalidationCallbacksPublic() {
         let terminal = report(id)
         let finalMoves = (terminal["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
         let sent = finalMoves.first { $0["id"]?.intValue == Int(newID) }!
+        test060_revalidationEvidence("target_drift_sent", staleFirst: staleFirst,
+            oldID: oldID, newID: newID, event: sent)
         require(terminal["inputs"]?.intValue == 3 && NG2Fake.paths().count == 3 &&
             (sent["begin_ns"]?.intValue ?? 0) >= old["not_before_ns"]!.intValue! &&
             (sent["begin_ns"]?.intValue ?? Int.max) <= old["deadline_ns"]!.intValue!,
@@ -2440,10 +2479,7 @@ func testOriginalMotionReferenceCallbacksPublic() {
         NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
         let id = identity()
         diagnoseFixture(id)
-        NG2RuntimeTestHooks.beforeCaptureAdmission = {
-            NG2Fake.waitForCapturePermit()
-            NG2Fake.performBoundaryClockChange()
-        }
+        NG2RuntimeTestHooks.beforeCaptureAdmission = { test060_revalidationCaptureBoundary() }
         alignInitialFixtureMove(id)
         NG2RuntimeTestHooks.afterTicketReturned = { returned in
             NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
@@ -2541,10 +2577,10 @@ func testOriginalMotionReferenceCallbacksPublic() {
                 NG2Fake.lock.unlock()
             }
         }
-        if earlyGoods {
-            NG2RuntimeTestHooks.afterTicketReturned = { returned in
-                NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
-                guard returned == newID else { return }
+        NG2RuntimeTestHooks.afterTicketReturned = { returned in
+            NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
+            guard returned == newID else { return }
+            if earlyGoods {
                 require(NG2Fake.changeClockAtCaptureBoundary {
                     let at = UInt64(replacement["target_ns"]!.intValue!)+40_000_000
                     let now = NG2Fake.virtualClock()
@@ -2552,8 +2588,10 @@ func testOriginalMotionReferenceCallbacksPublic() {
                     NG2Fake.advance(at-now)
                 }, "motion_reference_early_goods_uses_complete_capture_boundary")
             }
+            NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
         }
-        NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
+        test060_revalidationEvidence("motion_reference_before_release", staleFirst: staleFirst,
+            oldID: oldID, newID: newID, event: replacement)
         NG2Fake.releaseTicket(newID)
         if staleFirst {
             pump("motion_reference_replacement_callback_actually_returned") {
@@ -2572,6 +2610,8 @@ func testOriginalMotionReferenceCallbacksPublic() {
         let terminal = report(id)
         let finalMoves = (terminal["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
         let sent = finalMoves.first { $0["id"]?.intValue == Int(newID) }!
+        test060_revalidationEvidence("motion_reference_sent", staleFirst: staleFirst,
+            oldID: oldID, newID: newID, event: sent)
         require(terminal["moves"]?.intValue == (earlyGoods ? 2 : 3) && terminal["goods"]?.intValue == 1 &&
             sent["outcome"]?.intValue == 2 && sent["motion"]?.intValue == (earlyGoods ? 0 : 1),
             "motion_reference_original_source_confirms_actual_third_move")
@@ -2696,10 +2736,7 @@ func testFreshRevalidationCallbacksPublic() {
         NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
         let id = identity()
         diagnoseFixture(id)
-        NG2RuntimeTestHooks.beforeCaptureAdmission = {
-            NG2Fake.waitForCapturePermit()
-            NG2Fake.performBoundaryClockChange()
-        }
+        NG2RuntimeTestHooks.beforeCaptureAdmission = { test060_revalidationCaptureBoundary() }
         alignInitialFixtureMove(id)
         var queryIDs = [Int]()
         var queryTimes = [Int: UInt64]()
@@ -2821,9 +2858,11 @@ func testFreshRevalidationCallbacksPublic() {
                 require(report(id)["inputs"]?.intValue == 3 && NG2Fake.paths().count == 3,
                     "fresh_revalidation_latest_reservation_synthesizes_exactly_once")
                 _ = call("necro_native_cancel", id)
+                NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
             }
         }
-        NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
+        test060_revalidationEvidence("fresh_revalidation_before_release", staleFirst: staleFirst,
+            oldID: oldID, newID: newID, event: replacement)
         NG2Fake.releaseTicket(newID)
         pump("fresh_revalidation_new_callback_actual_ACK_return") {
             NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }
@@ -2833,6 +2872,8 @@ func testFreshRevalidationCallbacksPublic() {
         let terminal = report(id)
         let finalMoves = (terminal["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.filter { $0["kind"]?.intValue == 4 }
         let sent = finalMoves.first { $0["id"]?.intValue == Int(newID) }!
+        test060_revalidationEvidence("fresh_revalidation_sent", staleFirst: staleFirst,
+            oldID: oldID, newID: newID, event: sent)
         require(terminal["inputs"]?.intValue == 3 && terminal["moves"]?.intValue == 2 && terminal["x"]?.intValue == 0 &&
             terminal["y"]?.intValue == -2 && terminal["terrain_changes"]?.intValue == 0 && terminal["door_changes"]?.intValue == 0 &&
             sent["outcome"]?.intValue == 2 && sent["motion"]?.intValue == 0 && sent["observed_capture_id"]?.intValue == 0 &&

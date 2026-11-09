@@ -46,3 +46,21 @@ Controller旧165＋新19＝184件、51.566秒/skip0で成功。旧956assert call
 正式code `f4162d91eb28fd016340b877746436ea61b301e9` をpush。[Mac88](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620754044)でnative258/新C3故障/旧C1故障・全Swift/Runtime/実compiler/新IPAを実行中。[client20](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620758236)は同codeで成功。標準公開runnerを維持する。
 
 build-source ZIPは7,198,806bytes、SHA `620e243e4e895527350414aa8b0898774967870776719f9d38775a255dcfa319`、462全tracked bytes/CRC/path一致。設計が原ZIPを独立再照合し、Controllerのみ変更/他21/R12原40/G1も保持。最終delivery/contracts検証器は059の条件を維持。安全が実compiler検証器とMach-O旧81 marker＋test060_（82）を点検し、通常/-Oの合成selfcheckで88拒否/8magicを確認した。actual IPAはまだ検証していない。
+
+
+## Mac88の失敗（成功扱いしない）
+
+native-host258件/31除外、旧0593variant、新060旧policy2/current3/3故障、world160＋停止2はCI実artifactで成功し、独立網羅が全行・source/test/profile・GitHub metadataを照合した。artifact13676331469は778,206bytes/SHA `c636bd394b784922ab71414e436058fd10b3883632a06c521f2e1cb52961c984`。client20も実artifact197件成功。
+
+Mac88はqualified準備15/新2故障/独立world16を通過した後、主Runtime positiveのtestContinuousRevalidationCallbacksPublicで `fixture_current_move_not_late_before_admission` 失敗。remoteVariant1の(-10,1)FLOOR→STONEのSAME再予約4が未送信で、capture45 observe時の元D残36.347203msに対して次capture46が模擬時計を82ms進め、実admission時はD+45.652797ms。targetDriftの(-1,-1)FLOOR→DIRTとは区別する。元D/10msを緩めず、保持callback解放前のcapture再開とboundary時計の順をHOST fixtureで同期する。主Runtime59故障/LoopCtrlKit/RPC/IPAは未完了で、Mac88全体を成功と数えない。
+
+修正前validation artifact13675264534は287,109bytes/SHA `1e0606ba2b1d9f91f23ed60999f29283b84dc81df46466cb5524d2b8618209b9`。原log/snapshot/解析はGit外。production C3a16/22seal/他native21・public C289/world160は固定したまま、HOST修正を実装第3周の設計/網羅/安全レビューで確認し、Mac全体を再実行する。
+
+
+## 実装第3周: HOST clock/callback同期
+
+`ngg2_runtime_tests.swift`だけを修正、SHA `5615df1e2a35368619b39578d215688073bda8644abaca79b166073492655e3f`。4同形fixtureに共有HOST境界を使い、permit判定と通常80ms進行をFake.lock内で一体化。capture停止中も明示時計要求だけlock外で処理し、PNGは取得せず、境界処理後に80msを重ねない。newIDの実afterTicketReturnedでのみ解除し、oldIDでは解除しない。OriginalReferenceのearlyGoods境界→解除、FRESHのACK確認→cancel→解除も維持した。
+
+元require375ブロック（入れ子込み377式）の全bytes/順序を保持し、元D・10ms・2秒時計待機/fixture pump期限・owner/取消/lease/drainのpredicateを変更しない。EVIDENCEは欠損fieldでもtrapせず、旧mutantの指定assertをログが隠さない。package228/1.544秒とdiffcheck成功。limit設定前に既に進んだ取得は巻戻さず元assertでfail closedとする限定を残す。
+
+設計/網羅/安全の第3周は追加P0/P1/P2なし。C3a16/Runtime/他native21、seal3b768、Controller184/315位相/world160+2/clientのソースは不変。新helper2名はtest060_ prefix、Mach-O検査の82markerへ含め、自己検査は46HOST宣言/88拒否/8magicを確認。実Swift/59故障の各指定RedとIPAは次のMac全体で実確認する。
