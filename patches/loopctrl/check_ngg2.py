@@ -242,7 +242,31 @@ def test058_public_fixture_source(tests, *, baseline=False):
     combined = tests.split(marker)[0] + fixture
     if baseline and hashlib.sha256(combined.encode()).hexdigest() != TEST058_RED_FIXTURE_SHA256:
         raise ValueError('runtime_test058_observed_red_fixture_hash')
-    return test058_baseline_release_barrier(combined) if baseline else combined
+    return test058_baseline_release_barrier(test058_baseline_capture_clock_barrier(combined)) if baseline else combined
+
+
+def test058_baseline_capture_clock_barrier(source):
+    """Keep the fixed fixture's clock on its one intended changed capture.
+
+    Older frames may already be queued for observe when the capture boundary
+    arms. Neither these frames nor a second request may consume its 5.017ms.
+    """
+    changes = (
+        ('    var actualObserveEnd: UInt64 = 0\n',
+         '    var actualObserveEnd: UInt64 = 0\n    var expectedObserveEnd: UInt64 = 0\n'),
+        ('        if armedObservation {\n',
+         '        if armedObservation && NG2Fake.virtualClock() >= expectedObserveEnd {\n'),
+        ('                NG2Fake.advance(captureStart-now)\n',
+         '                NG2Fake.lock.lock(); NG2Fake.captureLimit = NG2Fake.requests+1; NG2Fake.lock.unlock()\n'
+         '                stateLock.lock(); expectedObserveEnd = deadline-observedRemainder; stateLock.unlock()\n'
+         '                NG2Fake.advance(captureStart-now)\n'))
+    if 'var expectedObserveEnd:' in source:
+        raise ValueError('runtime_test058_baseline_capture_clock_reinjection')
+    for old, new in changes:
+        if source.count(old) != 1:
+            raise ValueError('runtime_test058_baseline_capture_clock_anchor')
+        source = source.replace(old, new)
+    return source
 
 
 def test058_baseline_release_barrier(source):
@@ -798,6 +822,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                 'fixture_sha256': hashlib.sha256((stage/'main.swift').read_bytes()).hexdigest(),
                 'original_observed_fixture_sha256': TEST058_RED_FIXTURE_SHA256,
                 'host_release_barrier': True,
+                'host_capture_clock_barrier': True,
                 'scope': 'fixed unchanged TEST057 Runtime/native sources; public synthetic lead-in and received057 timing intervals; not complete device replay'}
     if public058_shop_only:
         checked(green)

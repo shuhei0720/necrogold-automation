@@ -103,6 +103,7 @@ jobs:
         run: |
           python3 driver/patches/loopctrl/apply_patch.py upstream
           python3 driver/patches/loopctrl/apply_ngg2.py upstream
+          python3 driver/patches/loopctrl/check_ngg2.py --test058-red-only upstream "$RUNNER_TEMP/test058-baseline"
           python3 driver/patches/loopctrl/check_ngg2.py --test058-public-only upstream "$RUNNER_TEMP/test058-preparation"
           python3 driver/patches/loopctrl/check_ngg2.py --test058-new-mutations-only upstream "$RUNNER_TEMP/test058-faults"
           python3 driver/patches/loopctrl/check_ngg2.py --test058-shop-only upstream "$RUNNER_TEMP/test058-shop"
@@ -113,6 +114,8 @@ jobs:
         with:
           name: loopctrl-test058-quick
           path: |
+            ${{ runner.temp }}/test058-baseline/*.json
+            ${{ runner.temp }}/test058-baseline/*.txt
             ${{ runner.temp }}/test058-preparation/*.json
             ${{ runner.temp }}/test058-preparation/*.txt
             ${{ runner.temp }}/test058-faults/*.json

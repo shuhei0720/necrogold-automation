@@ -43,6 +43,7 @@ func test058PreparedContinuousCase(_ fault: String) {
     var original: [String: JSONValue] = [:]
     var armedObservation = false, lateObservationCompleted = false
     var actualObserveEnd: UInt64 = 0
+    var expectedObserveEnd: UInt64 = 0
     var queryingID = 0
     var queryStarts: [Int: UInt64] = [:], queryEnds: [Int: UInt64] = [:]
     var injectedQueries = 0
@@ -79,7 +80,7 @@ func test058PreparedContinuousCase(_ fault: String) {
     NG2Fake.lock.unlock()
     NG2RuntimeObserveTestHooks.afterObserve = {
         stateLock.lock()
-        if armedObservation {
+        if armedObservation && NG2Fake.virtualClock() >= expectedObserveEnd {
             armedObservation = false; lateObservationCompleted = true
             actualObserveEnd = NG2Fake.virtualClock()
             NG2Fake.lock.lock(); NG2Fake.captureLimit = NG2Fake.requests; NG2Fake.lock.unlock()
@@ -124,8 +125,13 @@ func test058PreparedContinuousCase(_ fault: String) {
                 let now = NG2Fake.virtualClock()
                 require(now <= captureStart, "test058_original_ticket_has_time_for_received_remainder")
                 NG2Fake.advance(captureStart-now)
-                NG2Fake.lock.lock(); NG2Fake.remoteVariant = 1; NG2Fake.lock.unlock()
-                stateLock.lock(); armedObservation = true; stateLock.unlock()
+                NG2Fake.lock.lock()
+                NG2Fake.remoteVariant = 1
+                // One intended capture may finish; a queued older frame must
+                // not consume the observe hook before that capture's +2ms end.
+                NG2Fake.captureLimit = NG2Fake.requests+1
+                NG2Fake.lock.unlock()
+                stateLock.lock(); expectedObserveEnd = deadline-observedRemainder; armedObservation = true; stateLock.unlock()
             }, "test058_changed_capture_owns_clock_boundary")
         }
         return true
@@ -167,6 +173,10 @@ func test058PreparedContinuousCase(_ fault: String) {
     require(observedEnd+observedRemainder == deadline && starts[Int(old)] != nil &&
         (injected == 0 || (injected == 1 && ends[Int(replacement)]!-starts[Int(replacement)]! == replacementQueryCost)),
         "test058_received_observe_remainder_and_independent_AX_cost_are_exact")
+    let authorityCapture = (before["captures"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        .first { $0["id"] == replacementEvent["source_capture_id"] }
+    require(authorityCapture?["observe_end_ns"]?.intValue == Int(observedEnd),
+        "test058_received_remainder_uses_actual_replacement_source_C_observe_end")
     print("EVIDENCE test058 observe_remaining_ns=\(deadline-observedEnd) replacement_AX_ns=\(injected == 0 ? 0 : replacementQueryCost) old_id=\(old) replacement_id=\(replacement)")
     NG2RuntimeTestHooks.beforeMainAuthority = nil
     #if NG2_PREPARATION_TEST058_GREEN

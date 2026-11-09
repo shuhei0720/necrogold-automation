@@ -207,6 +207,24 @@ class NGG2RuntimeVerifierTests(unittest.TestCase):
 
 
 class Test058PublicSelectionTests(unittest.TestCase):
+    def test_baseline_capture_clock_barrier_preserves_asserts_and_time_values(self):
+        source = ('    var actualObserveEnd: UInt64 = 0\n'
+            '        if armedObservation {\n'
+            '                NG2Fake.advance(captureStart-now)\n'
+            'require(observedEnd+observedRemainder == deadline, "unchanged")\n')
+        selected = checker.test058_baseline_capture_clock_barrier(source)
+        self.assertIn('captureLimit = NG2Fake.requests+1', selected)
+        self.assertIn('NG2Fake.virtualClock() >= expectedObserveEnd', selected)
+        self.assertIn('expectedObserveEnd = deadline-observedRemainder', selected)
+        self.assertEqual(selected.count('NG2Fake.advance('), 1)
+        self.assertTrue(selected.endswith('require(observedEnd+observedRemainder == deadline, "unchanged")\n'))
+    def test_baseline_capture_clock_barrier_rejects_missing_duplicate_and_reinjection(self):
+        source = ('    var actualObserveEnd: UInt64 = 0\n'
+            '        if armedObservation {\n'
+            '                NG2Fake.advance(captureStart-now)\n')
+        for bad in ('', source+source, checker.test058_baseline_capture_clock_barrier(source)):
+            with self.subTest(source=bad), self.assertRaises(ValueError):
+                checker.test058_baseline_capture_clock_barrier(bad)
     def test_baseline_release_barrier_preserves_every_original_byte_and_assertion(self):
         source = 'before\n    NG2Fake.releaseTicket(replacement)\nafter\n'
         combined = checker.test058_baseline_release_barrier(source)
