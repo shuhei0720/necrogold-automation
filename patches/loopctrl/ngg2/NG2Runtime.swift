@@ -537,6 +537,55 @@ final class NG2Runtime {
         }
     }
     #if NG2_RUNTIME_HOST_TEST
+    // TEST056 HOST METHOD BEGIN.
+    // Configure retained rasters and a diagnostic snapshot only after actual
+    // workers drain. A temporary core makes the unchanged cache query path
+    // executable; its empty diagnostics are replaced by the fixture snapshot.
+    // No priority IDs, pin replacement, or export selection are injected.
+    func testSeedStopEvidence(_ id: String, pinnedIDs: [UInt64]?, recentIDs: [UInt64],
+                              initialID: UInt64, foundID: UInt64 = 0, terminalID: UInt64,
+                              changes: [NG2ControllerSceneChange], moveSources: [UInt64]) -> Bool {
+        guard recentIDs.count <= 4, changes.count <= 3, moveSources.count <= 64,
+              pinnedIDs == nil || (pinnedIDs!.count <= 20 && Set(pinnedIDs!).count == pinnedIDs!.count) else { return false }
+        return controlQueue.sync {
+            guard let run = lock.ng2Locked({ current }), run.id == id, run.core == nil else { return false }
+            let prepared = lock.ng2Locked {
+                run.lock.ng2Locked { () -> Bool in
+                    guard exportEligibleLocked(run), run.exportBuildID == nil,
+                          let original = selectedExportFrames(run).first else { return false }
+                    func clone(_ id: UInt64) -> NG2Frame {
+                        NG2Frame(id: id, start: original.start, end: original.end, decodeEnd: original.decodeEnd,
+                            generation: original.generation, analysisStart: original.analysisStart, analysisEnd: original.analysisEnd,
+                            analysis: original.analysis, startPrefix: original.startPrefix, prefix: original.prefix,
+                            startInFlight: original.startInFlight, endInFlight: original.endInFlight, stable: original.stable,
+                            rgba: original.rgba, rasterTrace: original.rasterTrace, encodedBytes: original.encodedBytes,
+                            diagnosticOrientation: original.diagnosticOrientation)
+                    }
+                    if let ids = pinnedIDs { run.pinned = Dictionary(uniqueKeysWithValues: ids.map { ($0, clone($0)) }) }
+                    run.images = recentIDs.map(clone)
+                    run.initial = initialID == 0 ? nil : clone(initialID)
+                    run.found = foundID == 0 ? nil : clone(foundID)
+                    let configured = Set(run.pinned.keys).union(recentIDs).union([initialID, foundID].filter { $0 != 0 })
+                    run.references.formUnion(configured); run.analyzedFrames = max(64, UInt64(run.references.count))
+                    run.exportCache = nil
+                    return true
+                }
+            }
+            guard prepared, let core = ng2_controller_create(Self.now()) else { return false }
+            run.core = core
+            defer { NG2RuntimeEvidenceTestHooks.snapshot = nil; ng2_controller_destroy(core); run.core = nil }
+            var status = NG2ControllerStatus(); status.terminal = terminalID == 0 ? 0 : 1; status.last_capture_id = terminalID
+            let events = moveSources.enumerated().map { index, source -> NG2ControllerEvent in
+                var event = NG2ControllerEvent(); event.command.id = UInt64(index+1)
+                event.command.kind = 4; event.command.source_capture_id = source
+                return event
+            }
+            NG2RuntimeEvidenceTestHooks.snapshot = (events, changes)
+            cache(run, status)
+            return true
+        }
+    }
+    // TEST056 HOST METHOD END.
     static var testFrameStride: Int { MemoryLayout<NG2Frame>.stride }
     // Public export tests clone an actual retained raster only after drain.
     // No controller state, input outcome, or production cache is injected.
@@ -1089,9 +1138,9 @@ final class NG2Runtime {
             run.lock.ng2Locked { run.uiFrozen = true }
         }
         var events = [NG2ControllerEvent](repeating: NG2ControllerEvent(), count: 64)
-        let count = events.withUnsafeMutableBufferPointer { ng2_controller_events(core, $0.baseAddress, $0.count) }
+        var count = events.withUnsafeMutableBufferPointer { ng2_controller_events(core, $0.baseAddress, $0.count) }
         var changes = [NG2ControllerSceneChange](repeating: NG2ControllerSceneChange(), count: 3)
-        let changeCount = changes.withUnsafeMutableBufferPointer { ng2_controller_scene_changes(core, $0.baseAddress, $0.count) }
+        var changeCount = changes.withUnsafeMutableBufferPointer { ng2_controller_scene_changes(core, $0.baseAddress, $0.count) }
         var details = [NG2ControllerSceneDetail](repeating: NG2ControllerSceneDetail(), count: 3)
         let detailCount = details.withUnsafeMutableBufferPointer { ng2_controller_scene_details(core, $0.baseAddress, $0.count) }
         var motionWait = NG2ControllerMotionWait()
@@ -1100,6 +1149,14 @@ final class NG2Runtime {
         let motionReferenceCount = motionReferences.withUnsafeMutableBufferPointer {
             ng2_controller_motion_references(core, $0.baseAddress, $0.count)
         }
+        // TEST056 HOST SNAPSHOT BEGIN.
+        #if NG2_RUNTIME_HOST_TEST
+        if let fixture = NG2RuntimeEvidenceTestHooks.snapshot {
+            events = fixture.events; count = events.count
+            changes = fixture.changes; changeCount = changes.count
+        }
+        #endif
+        // TEST056 HOST SNAPSHOT END.
         run.lock.ng2Locked {
             var required = Set<UInt64>()
             for event in events.prefix(min(count, events.count)) {

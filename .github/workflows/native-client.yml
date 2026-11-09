@@ -18,6 +18,7 @@ on:
       - 'test_053.sh'
       - 'test_054.sh'
       - 'test_055.sh'
+      - 'test_056.sh'
       - 'tests/test_http_diagnostics.py'
       - 'tests/test_native_connect.py'
       - 'tests/test_native_walk.py'
@@ -43,7 +44,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate the shell entry point
-        run: sh -n test_055.sh
+        run: |
+          sh -n test_055.sh
+          sh -n test_056.sh
       - name: Prepare the existing legacy image-test dependency
         run: |
           python3 -m venv "$RUNNER_TEMP/test055-venv"

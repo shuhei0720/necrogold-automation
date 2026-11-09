@@ -2820,6 +2820,108 @@ func testFreshRevalidationCallbacksPublic() {
     }
 }
 // TEST055 PUBLIC FIXTURES END.
+// TEST056 PUBLIC FIXTURES BEGIN.
+func evidenceChange(_ source: UInt64, _ observed: UInt64) -> NG2ControllerSceneChange {
+    var change = NG2ControllerSceneChange(); change.source_capture_id = source; change.observed_capture_id = observed
+    return change
+}
+func evidenceIDs(_ value: JSONValue?) -> Set<Int> { Set((value?.arrayValue ?? []).compactMap { $0.intValue }) }
+func testStopEvidenceRetentionPublic() {
+    // This is synthetic diagnostic pressure on one real committed raster.
+    // It supplies no C decision, game response, movement, or shop progress.
+    let id = publicExportFixture()
+    let comparisons = [evidenceChange(8, 9), evidenceChange(10, 11), evidenceChange(12, 13)]
+    require(runtime.testSeedStopEvidence(id, pinnedIDs: Array(200...218).map { UInt64($0) }+[14],
+        recentIDs: [10, 11, 12, 13], initialID: 200, foundID: 201, terminalID: 0,
+        changes: comparisons, moveSources: [219, 14]), "stop_evidence_saturated_fixture_seed")
+    require(runtime.testSeedStopEvidence(id, pinnedIDs: nil, recentIDs: [15, 16, 17, 18],
+        initialID: 200, foundID: 201, terminalID: 15, changes: comparisons, moveSources: [219, 14]),
+        "stop_evidence_recent_window_advanced_through_real_cache")
+    let expected: Set<Int> = [10, 11, 12, 13, 14, 15, 200, 201]
+    let pressure = report(id)
+    require(pressure["pinned_image_count"]?.intValue == 20 && pressure["recent_image_count"]?.intValue == 4 &&
+        expected.isDisjoint(with: evidenceIDs(pressure["missing_capture_ids"])),
+        "stop_evidence_latest_scene_comparisons_survive_pin_saturation")
+    require(pressure["last_capture_id"]?.intValue == 15 && evidenceIDs(pressure["missing_capture_ids"]).contains(8) &&
+        evidenceIDs(pressure["missing_capture_ids"]).contains(9),
+        "stop_evidence_terminal_snapshot_and_cumulative_missing_are_honest")
+    NG2RuntimeExportTestHooks.transformExportPNG = { png, _ in
+        require(png.count < 512*1024, "stop_evidence_real_PNG_before_boundary_padding")
+        var padded = png; padded.append(Data(repeating: 0, count: 512*1024-png.count)); return padded
+    }
+    let legacy = call("necro_native_results", id)
+    require(legacy.1 == nil && evidenceIDs(legacy.0?["exported_capture_ids"]) == expected &&
+        legacy.0?["exported_images"]?.intValue == 8 && legacy.0?["retained_images"]?.intValue == 20,
+        "stop_evidence_latest_comparisons_precede_selection_and_4MiB_budget")
+    let manifest = pagedCall(id)
+    require(manifest.1 == nil && evidenceIDs(manifest.0?["exported_capture_ids"]) == expected &&
+        manifest.0?["total_bytes"]?.intValue == 4*1024*1024 && manifest.0?["retained_images"]?.intValue == 20 &&
+        manifest.0?["omitted_capture_ids"] == legacy.0?["omitted_capture_ids"],
+        "stop_evidence_legacy_and_paged_share_all_eight_priority_frames")
+    let legacyImages = (legacy.0?["images"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    for row in (manifest.0?["images"]?.arrayValue ?? []).compactMap({ $0.objectValue }) {
+        let capture = row["capture_id"]!
+        let original = legacyImages.first { $0["capture_id"] == capture }!
+        var assembled = Data()
+        while assembled.count < row["byte_length"]!.intValue! {
+            let chunk = pagedCall(id, mode: .string("chunk"), extra: ["export_id": manifest.0!["export_id"]!,
+                "capture_id": capture, "offset": .int(assembled.count)])
+            require(chunk.1 == nil, "stop_evidence_real_priority_PNG_chunk")
+            assembled.append(Data(base64Encoded: chunk.0!["data_base64"]!.stringValue!)!)
+        }
+        require(assembled == Data(base64Encoded: original["data_base64"]!.stringValue!) &&
+            ["sha256", "capture_start_ns", "capture_end_ns", "completed_prefix", "decode_end_ns",
+             "stable_prefix", "pixel_width", "pixel_height"].allSatisfy { row[$0] == original[$0] },
+            "stop_evidence_priority_PNG_bytes_metadata_and_prefix_match_legacy")
+    }
+    NG2RuntimeExportTestHooks.transformExportPNG = nil
+    for count in 0...3 {
+        let variant = publicExportFixture()
+        let changes = [evidenceChange(90, 91), evidenceChange(1, 2), evidenceChange(3, 4)]
+        let selected = Array(changes.suffix(count))
+        require(runtime.testSeedStopEvidence(variant, pinnedIDs: Array(100...119).map { UInt64($0) },
+            recentIDs: [1, 2, 3, 4], initialID: 100, foundID: 101, terminalID: 4,
+            changes: selected, moveSources: [103, 102]), "stop_evidence_comparison_count_seed")
+        var needed: Set<Int> = [100, 101, 102, 4]
+        for change in selected.suffix(2) { needed.insert(Int(change.source_capture_id)); needed.insert(Int(change.observed_capture_id)) }
+        let exported = call("necro_native_results", variant)
+        require(exported.1 == nil && needed.isSubset(of: evidenceIDs(exported.0?["exported_capture_ids"])) &&
+            (report(variant)["pinned_image_count"]?.intValue ?? 21) <= 20,
+            "stop_evidence_zero_one_two_three_comparisons_"+String(count))
+        require(runtime.testSeedStopEvidence(variant, pinnedIDs: nil, recentIDs: [1, 2, 3, 4],
+            initialID: 3, foundID: 2, terminalID: 1, changes: [evidenceChange(1, 1), evidenceChange(1, 2)],
+            moveSources: [1]), "stop_evidence_updated_anchors_and_duplicate_seed")
+        let updated = pagedCall(variant)
+        require(updated.1 == nil && Set([1, 2, 3]).isSubset(of: evidenceIDs(updated.0?["exported_capture_ids"])) &&
+            updated.0?["exported_images"]?.intValue == evidenceIDs(updated.0?["exported_capture_ids"]).count,
+            "stop_evidence_updated_anchors_and_duplicates_export_once")
+    }
+    let missing = publicExportFixture()
+    require(runtime.testSeedStopEvidence(missing, pinnedIDs: Array(100...119).map { UInt64($0) },
+        recentIDs: [1, 2, 3, 4], initialID: 100, terminalID: 4,
+        changes: [evidenceChange(9999, 4)], moveSources: [2]), "stop_evidence_missing_fixture_seed")
+    let missingResult = pagedCall(missing)
+    require(missingResult.1 == nil && evidenceIDs(report(missing)["missing_capture_ids"]).contains(9999) &&
+        evidenceIDs(missingResult.0?["omitted_capture_ids"]).contains(9999) &&
+        !evidenceIDs(missingResult.0?["exported_capture_ids"]).contains(9999),
+        "stop_evidence_unavailable_priority_is_reported_without_fabrication")
+    for paged in [false, true] {
+        let failure = publicExportFixture()
+        require(runtime.testSeedStopEvidence(failure, pinnedIDs: [100], recentIDs: [1], initialID: 100,
+            terminalID: 1, changes: [], moveSources: []), "stop_evidence_encoding_failure_seed")
+        let storage = runtime.testExportStorageObserver(failure)!
+        NG2RuntimeExportTestHooks.transformExportPNG = { _, _ in nil }
+        let failed = paged ? pagedCall(failure) : call("necro_native_results", failure)
+        require(failed.1 != nil && storage()[0] == 0,
+            "stop_evidence_encoder_nil_returns_error_without_partial_cache")
+        NG2RuntimeExportTestHooks.transformExportPNG = nil
+        let retry = paged ? pagedCall(failure) : call("necro_native_results", failure)
+        require(retry.1 == nil && evidenceIDs(retry.0?["exported_capture_ids"]) == Set([1, 100]),
+            "stop_evidence_encoder_nil_releases_token_for_normal_retry")
+    }
+    print("PASS production Runtime public API/TEST056 synthetic diagnostic retention and original export bounds; no game progress asserted")
+}
+// TEST056 PUBLIC FIXTURES END.
 testContinuousRevalidationCallbacksPublic()
 testPagedResultsPublic()
 testTargetDriftPlannerProof()
@@ -2830,6 +2932,7 @@ testOriginalMotionReferencePixelProof()
 testOriginalMotionReferenceCallbacksPublic()
 testFreshRevalidationPixelProof()
 testFreshRevalidationCallbacksPublic()
+testStopEvidenceRetentionPublic()
 
 NG2Fake.reset(.pause)
 NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()

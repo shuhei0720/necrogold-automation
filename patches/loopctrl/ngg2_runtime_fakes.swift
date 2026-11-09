@@ -16,7 +16,12 @@ enum NG2RuntimeExportTestHooks {
     static var beforeExportEncode: (() -> Void)?
     static var afterExportEncode: (() -> Void)?
     static var beforeExportReply: (() -> Void)?
-    static var transformExportPNG: ((Data, UInt64) -> Data)?
+    static var transformExportPNG: ((Data, UInt64) -> Data?)?
+}
+// Synthetic diagnostic snapshots only. This does not produce controller
+// decisions or game responses; the Runtime's real retention/export code runs.
+enum NG2RuntimeEvidenceTestHooks {
+    static var snapshot: (events: [NG2ControllerEvent], changes: [NG2ControllerSceneChange])?
 }
 enum NG2Fake {
     enum Mode { case empty, pause, hold, walk, reply }

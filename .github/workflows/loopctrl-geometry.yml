@@ -149,6 +149,7 @@ jobs:
         with:
           path: driver
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: Souitou-iop/LoopCtrl
@@ -171,6 +172,8 @@ jobs:
           brew install xcodegen
           (cd upstream && xcodegen generate --spec project.yml)
           python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
+      - name: Observe fixed TEST055 stop-evidence retention assertion Red
+        run: python3 driver/patches/loopctrl/check_ngg2.py --test056-red-only upstream "$RUNNER_TEMP/test056-baseline"
       - name: Run production Swift native contracts using the declared per-source profile
         run: python3 driver/patches/loopctrl/check_ngg2.py upstream "$RUNNER_TEMP/ngg2"
       - name: Run existing LoopCtrlKit tests
@@ -281,6 +284,8 @@ jobs:
             ${{ runner.temp }}/geometry-baseline/*.txt
             ${{ runner.temp }}/geometry-ngg1/*.json
             ${{ runner.temp }}/geometry-ngg1/*.txt
+            ${{ runner.temp }}/test056-baseline/*.json
+            ${{ runner.temp }}/test056-baseline/*.txt
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt
             ${{ runner.temp }}/ngg2/perception-build/

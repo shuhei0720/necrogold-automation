@@ -14,6 +14,9 @@ TEST049_RUNTIME_COMMIT = 'bbdff15852cc4070392c54cc039b00d49cacd77c'
 TEST049_RUNTIME_SHA256 = 'c41bc2ca168518775b73851a40ba055bc566d7c29ac13e7c4ded0573ec2e6fd9'
 TEST050_RUNTIME_COMMIT = '53f722c6d925e0df5c84d377acc59b2e32cf8135'
 TEST050_RUNTIME_SHA256 = '1938af7edd09a6b6689363cd9ad03d93148425e56256a2dc18bcab3b973115ab'
+TEST055_RUNTIME_COMMIT = '2d77c02665c27d0e1e813c8d6bb65ec980d26b2b'
+TEST055_RUNTIME_SHA256 = 'b83c19d30294228abb6aeae9a339917d3c9afde8f5a57d01b1575a2e3b76d261'
+EXPECTED_TEST056_MUTATIONS = frozenset(('stop-evidence-pin-priority', 'stop-evidence-selection-priority'))
 
 
 EXPECTED_RUNTIME_MUTATIONS = frozenset((
@@ -128,7 +131,8 @@ def execute(source, destination, label):
 
 
 def require_red(result, expected=EXPECTED_RED):
-    if result.returncode != 1 or result.stdout.strip().splitlines()[-1] != expected or result.stderr:
+    lines = result.stdout.strip().splitlines()
+    if result.returncode != 1 or not lines or lines[-1] != expected or result.stderr:
         print(result.stdout, end='', file=sys.stderr)
         print(result.stderr, end='', file=sys.stderr)
         raise RuntimeError('compiled_behavioral_red_not_observed')
@@ -202,6 +206,70 @@ def test055_public_fixture_source(tests):
         tests.split(markers[2])[1].split(markers[3])[0]+
         '\ntestFreshRevalidationPixelProof()\ntestFreshRevalidationCallbacksPublic()\n'
         'print("PASS production Runtime public API/TEST055 latest Decision, original window, callback ownership and actual diagnostics fixtures")\n')
+
+
+def test056_public_fixture_source(tests):
+    prefix = '// TEST051 MANIFEST FIXTURE END.\n'
+    markers = ('// TEST051 PUBLIC FIXTURES BEGIN.\n', '// TEST051 PUBLIC FIXTURES END.\n',
+               '// TEST056 PUBLIC FIXTURES BEGIN.\n', '// TEST056 PUBLIC FIXTURES END.\n')
+    if any(tests.count(marker) != 1 for marker in (prefix, *markers)):
+        raise ValueError('runtime_test056_public_fixture_boundary')
+    return (tests.split(prefix)[0]+prefix+
+        tests.split(markers[0])[1].split(markers[1])[0]+
+        tests.split(markers[2])[1].split(markers[3])[0]+
+        '\ntestStopEvidenceRetentionPublic()\n')
+
+
+def test056_host_fixture_seam(source, fixture_runtime_source):
+    """Add identical HOST-only fixture setup, preserving the old pin/selection bytes."""
+    blocks = []
+    for label, indent in (('METHOD', '    '), ('SNAPSHOT', '        ')):
+        begin = indent+'// TEST056 HOST '+label+' BEGIN.\n'
+        end = indent+'// TEST056 HOST '+label+' END.\n'
+        if fixture_runtime_source.count(begin) != 1 or fixture_runtime_source.count(end) != 1:
+            raise ValueError('runtime_test056_fixture_seam_boundary')
+        start, finish = fixture_runtime_source.index(begin), fixture_runtime_source.index(end)+len(end)
+        if start >= finish:
+            raise ValueError('runtime_test056_fixture_seam_order')
+        blocks.append(fixture_runtime_source[start:finish])
+    declarations = (
+        'count = events.withUnsafeMutableBufferPointer { ng2_controller_events(core, $0.baseAddress, $0.count) }',
+        'changeCount = changes.withUnsafeMutableBufferPointer { ng2_controller_scene_changes(core, $0.baseAddress, $0.count) }')
+    seeded = ['// TEST056 HOST '+label+' BEGIN.' in source for label in ('METHOD', 'SNAPSHOT')]
+    if any(seeded):
+        source_markers = ['// TEST056 HOST '+label+' '+edge+'.'
+                          for label in ('METHOD', 'SNAPSHOT') for edge in ('BEGIN', 'END')]
+        if not all(seeded) or any(source.count(marker) != 1 for marker in source_markers) or any(source.count(block) != 1 for block in blocks):
+            raise ValueError('runtime_test056_fixture_seam_existing')
+        for block in blocks:
+            source = source.replace(block, '', 1)
+        for declaration in declarations:
+            source = source.replace('var '+declaration, 'let '+declaration)
+    original = source
+    selection_start = source.index('    private func selectedExportFrames(')
+    selection_end = source.index('    private func imageMetadata(', selection_start)
+    pin_start = source.index('        run.lock.ng2Locked {\n            var required = Set<UInt64>()')
+    pin_end = source.index('        let encoded = events.', pin_start)
+    old_selection, old_pin = source[selection_start:selection_end], source[pin_start:pin_end]
+    for declaration in declarations:
+        if source.count('let '+declaration) != 1:
+            raise ValueError('runtime_test056_fixture_seam_count')
+        source = source.replace('let '+declaration, 'var '+declaration)
+    for anchor, block in zip(('    static var testFrameStride:',
+                             '        run.lock.ng2Locked {\n            var required = Set<UInt64>()'), blocks):
+        if source.count(anchor) != 1:
+            raise ValueError('runtime_test056_fixture_seam_anchor')
+        source = source.replace(anchor, block+anchor, 1)
+    if source.count(old_selection) != 1 or source.count(old_pin) != 1:
+        raise ValueError('runtime_test056_old_pin_selection_bytes_changed')
+    restored = source
+    for block in blocks:
+        restored = restored.replace(block, '', 1)
+    for declaration in declarations:
+        restored = restored.replace('var '+declaration, 'let '+declaration)
+    if restored != original:
+        raise ValueError('runtime_test056_nonfixture_bytes_changed')
+    return source
 
 
 def api_contract(upstream, output):
@@ -456,7 +524,7 @@ def navigation_profile_contract(upstream, output, *, compiler='clang'):
             'scope': 'actual production strict Navigation public API, unchanged O0, complete views/73-score bytes/Motion/Decision/Entrance/boundary and input parity'}
 
 
-def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False, selected_mutations=None, public052_only=False, new052_mutations_only=False, public053_only=False, new053_mutations_only=False, public054_only=False, new054_mutations_only=False, public055_only=False, new055_mutations_only=False):
+def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False, selected_mutations=None, public052_only=False, new052_mutations_only=False, public053_only=False, new053_mutations_only=False, public054_only=False, new054_mutations_only=False, public055_only=False, new055_mutations_only=False, expect_evidence_red=False, public056_only=False, new056_mutations_only=False):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
     native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red or expect_manifest_red else upstream / 'LoopCtrlUITests'
     if baseline_native is not None:
@@ -499,6 +567,14 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         (stage/'main.swift').write_text(test054_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
     if public055_only or new055_mutations_only:
         (stage/'main.swift').write_text(test055_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
+    if expect_evidence_red or public056_only or new056_mutations_only:
+        (stage/'main.swift').write_text(test056_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
+    if expect_evidence_red:
+        source = subprocess.check_output(['git', 'show', TEST055_RUNTIME_COMMIT+
+            ':patches/loopctrl/ngg2/NG2Runtime.swift'], cwd=HERE).decode()
+        if hashlib.sha256(source.encode()).hexdigest() != TEST055_RUNTIME_SHA256:
+            raise ValueError('runtime_stop_evidence_baseline_source_hash')
+        source = test056_host_fixture_seam(source, (HERE/'ngg2/NG2Runtime.swift').read_text())
     if expect_manifest_red:
         source = subprocess.check_output(['git', 'show', TEST050_RUNTIME_COMMIT+
             ':patches/loopctrl/ngg2/NG2Runtime.swift'], cwd=HERE).decode()
@@ -555,10 +631,19 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     objects = sorted((output/'raster').glob('NG2*.o'))+[stage/'fixture.o', scene_object]
     extra = ['-D', 'NG2_RUNTIME_HOST_TEST', '-Xcc', '-I'+str(native), '-Xcc', '-I'+str(HERE), '-import-objc-header', stage/'NG2RuntimeFixture.h', *objects]
     green = compile_run(sources, stage/'runtime-tests', output,
+        'runtime-stop-evidence-baseline-red' if expect_evidence_red else
         'runtime-manifest-baseline-red' if expect_manifest_red else
         'runtime-observe-baseline-red' if expect_observe_red else
         'runtime-dispatch-baseline-red' if expect_dispatch_red else
         'runtime-failure-baseline-red' if expect_capture_red else 'runtime-production-green', extra, run_timeout=120)
+    if expect_evidence_red:
+        require_red(green, 'FAIL stop_evidence_latest_scene_comparisons_survive_pin_saturation')
+        return {'baseline_red': green.stdout.strip(), 'compiled': True, 'returncode': 1,
+                'stderr': green.stderr, 'source_commit': TEST055_RUNTIME_COMMIT,
+                'source_sha256': TEST055_RUNTIME_SHA256,
+                'host_fixture_source_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                'old_pin_selection_bytes_unchanged': True,
+                'scope': 'Fixed TEST055 Runtime with identical HOST-only retained-raster/synthetic diagnostic snapshot setup; real cache retention and PNG export; no controller decision or game progress asserted'}
     if expect_manifest_red:
         require_red(green, 'FAIL MISSING_paged_results_manifest')
         return {'baseline_red': green.stdout.strip(), 'compiled': True, 'returncode': 1,
@@ -600,6 +685,10 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         fresh_reports_digest = hashlib.sha256(encoded_reports).hexdigest()
     if (public055_only or new055_mutations_only) and len(fresh_reports) != 2:
         raise RuntimeError('runtime_test055_two_actual_native_reports_missing')
+    if public056_only:
+        return {'production_green': green.stdout.strip(), 'compiled': True,
+                'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                'scope': 'Synthetic latest diagnostic snapshot through production cache retention, legacy/paged PNG bytes, original export bounds; no game progress asserted'}
     if public055_only:
         return {'production_green': green.stdout.strip(), 'compiled': True,
                 'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
@@ -1242,10 +1331,13 @@ def main():
     parser.add_argument('--test054-new-mutations-only', action='store_true')
     parser.add_argument('--test055-public-only', action='store_true')
     parser.add_argument('--test055-new-mutations-only', action='store_true')
+    parser.add_argument('--test056-red-only', action='store_true')
+    parser.add_argument('--test056-public-only', action='store_true')
+    parser.add_argument('--test056-new-mutations-only', action='store_true')
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
-    if args.test051_red_only or args.test051_public_only or args.test051_runtime_only or args.test051_new_mutations_only or args.test051_selected_mutations is not None or args.test052_public_only or args.test052_new_mutations_only or args.test053_public_only or args.test053_new_mutations_only or args.test054_public_only or args.test054_new_mutations_only or args.test055_public_only or args.test055_new_mutations_only:
-        if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only, args.test051_new_mutations_only, args.test051_selected_mutations is not None, args.test052_public_only, args.test052_new_mutations_only, args.test053_public_only, args.test053_new_mutations_only, args.test054_public_only, args.test054_new_mutations_only, args.test055_public_only, args.test055_new_mutations_only)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
+    if args.test051_red_only or args.test051_public_only or args.test051_runtime_only or args.test051_new_mutations_only or args.test051_selected_mutations is not None or args.test052_public_only or args.test052_new_mutations_only or args.test053_public_only or args.test053_new_mutations_only or args.test054_public_only or args.test054_new_mutations_only or args.test055_public_only or args.test055_new_mutations_only or args.test056_red_only or args.test056_public_only or args.test056_new_mutations_only:
+        if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only, args.test051_new_mutations_only, args.test051_selected_mutations is not None, args.test052_public_only, args.test052_new_mutations_only, args.test053_public_only, args.test053_new_mutations_only, args.test054_public_only, args.test054_new_mutations_only, args.test055_public_only, args.test055_new_mutations_only, args.test056_red_only, args.test056_public_only, args.test056_new_mutations_only)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
             parser.error('TEST051 standalone mode requires fixed upstream and output directory')
         upstream, output = args.paths
         output.mkdir(parents=True, exist_ok=True)
@@ -1266,6 +1358,15 @@ def main():
                 data = subprocess.check_output(['git', 'show', TEST050_RUNTIME_COMMIT+
                     ':patches/loopctrl/ngg2/'+name], cwd=HERE)
                 (native/name).write_bytes(data)
+        if args.test056_red_only:
+            native = output/'test055-native-baseline'
+            native.mkdir(exist_ok=True)
+            for name in ('NG2Core.h', 'NG2Controller.h', 'NG2Templates.h', 'NG2Perception.c',
+                         'NG2Navigation.c', 'NG2Beat.c', 'NG2Controller.c', 'NG2Ticket.swift',
+                         'NG2Raster.swift', 'NG2Runtime.swift'):
+                data = subprocess.check_output(['git', 'show', TEST055_RUNTIME_COMMIT+
+                    ':patches/loopctrl/ngg2/'+name], cwd=HERE)
+                (native/name).write_bytes(data)
         flags = {}
         for source in sorted(native.glob('NG2*.c')):
             flags[source.name] = native_object_flags(source.name)
@@ -1282,7 +1383,9 @@ def main():
                       public052_only=args.test052_public_only, new052_mutations_only=args.test052_new_mutations_only,
                       public053_only=args.test053_public_only, new053_mutations_only=args.test053_new_mutations_only,
                       public054_only=args.test054_public_only, new054_mutations_only=args.test054_new_mutations_only,
-                      public055_only=args.test055_public_only, new055_mutations_only=args.test055_new_mutations_only),
+                      public055_only=args.test055_public_only, new055_mutations_only=args.test055_new_mutations_only,
+                      expect_evidence_red=args.test056_red_only, public056_only=args.test056_public_only,
+                      new056_mutations_only=args.test056_new_mutations_only),
                   'native_object_flags': flags, 'device_test': 'not_run'}
         (output/'ngg2-swift-contract.json').write_text(json.dumps(report, indent=2)+'\n')
         print(report['runtime'].get('baseline_red', report['runtime'].get('production_green')))
