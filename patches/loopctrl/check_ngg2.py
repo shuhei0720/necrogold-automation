@@ -235,6 +235,17 @@ def test061_producer_reports(stdout, output):
             'producer_reports_sha256': hashlib.sha256(data).hexdigest()}
 
 
+def require_test061_runtime_api(source):
+    begin = '    private func response(_ run: NG2Run) -> [String: JSONValue] {\n'
+    end = '    private func historical('
+    if source.count(begin) != 1 or source.count(end) != 1:
+        raise ValueError('runtime_test061_response_api15_required')
+    response = source.split(begin, 1)[1].split(end, 1)[0]
+    if (response.count('"api_version"') != 1
+        or response.count('"api_version": .string("1.98.15-ngg2")') != 1):
+        raise ValueError('runtime_test061_response_api15_required')
+
+
 def require_test061_green(result):
     checked(result)
     if (not result.stdout.strip().endswith(TEST061_PUBLIC_PASS) or result.stderr
@@ -1726,13 +1737,14 @@ def capture_contract(upstream, output):
 
 
 def test061_contract(upstream, output, *, mutations_only=False):
+    native = upstream / 'LoopCtrlUITests'
+    require_test061_runtime_api((native / 'NG2Runtime.swift').read_text())
     output.mkdir(parents=True, exist_ok=True)
     (output / 'api').mkdir(exist_ok=True)
     types = (upstream / 'LoopCtrlKit/RPCTypes.swift').read_text().split('// MARK: - Auth Types\n', 1)
     if len(types) != 2:
         raise ValueError('rpc_types_boundary')
     (output / 'api/RPCTypes.swift').write_text(types[0])
-    native = upstream / 'LoopCtrlUITests'
     objects, provenance = test061_native_objects(native, output)
     report = {'runtime': runtime_contract(upstream, output, public061_only=not mutations_only,
                   new061_mutations_only=mutations_only, native_objects=objects),

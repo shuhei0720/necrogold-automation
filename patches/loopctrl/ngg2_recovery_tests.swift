@@ -74,10 +74,14 @@ private func finish061(_ run: String, cancel: Bool = true) -> [String: JSONValue
     require(!runtime.hasLease, "test061_lease_released_only_after_actual_drain")
     let result = call("necro_native_results", run)
     require(result.1 == nil, "test061_public_results_after_drain")
+    require(result.0?["api_version"]?.stringValue == "1.98.15-ngg2",
+        "test061_actual_results_envelope_requires_API15")
     let manifest = runtime.handle(method: "necro_native_results", params: [
         "run_id": .string(run), "_necro_owner": .string("fixture-owner"), "mode": .string("manifest")])
     require(manifest.1 == nil && manifest.0?["report"]?.objectValue?["recovery"] == result.0?["report"]?.objectValue?["recovery"],
         "test061_manifest_and_results_preserve_same_recovery")
+    require(manifest.0?["api_version"]?.stringValue == "1.98.15-ngg2",
+        "test061_actual_manifest_envelope_requires_API15")
     fixtureFailureSnapshot = nil
     return result.0?["report"]?.objectValue ?? [:]
 }
@@ -156,11 +160,15 @@ private func test061AcceptedRecovery() {
     let run = identity()
     let accepted = call("necro_native_start", run)
     require(accepted.1 == nil, "test061_public_accepted_start")
+    require(accepted.0?["api_version"]?.stringValue == "1.98.15-ngg2",
+        "test061_actual_start_envelope_requires_API15")
     let empty = accepted.0?["report"]?.objectValue?["recovery"]?.objectValue ?? [:]
     assertRecoverySchema061(empty)
     require(empty["mode"]?.intValue == 0 && empty["record_count"]?.intValue == 0 && empty["records"]?.arrayValue?.isEmpty == true,
         "test061_accepted_response_zero_recovery")
     pump("test061_accepted_capture_outstanding") { NG2Fake.countRequests() == 1 }
+    require(call("necro_native_status", run).0?["api_version"]?.stringValue == "1.98.15-ngg2",
+        "test061_actual_status_envelope_requires_API15")
     require(runtime.hasLease, "test061_pending_capture_owns_lease")
     _ = finish061(run)
 }
@@ -337,11 +345,18 @@ private func test061LateVisualPublic(rejectPhase: Bool) {
         if report(run)["moves"]?.intValue == 1 {
             state.lock(); moved = true; state.unlock()
             permit061(NG2Fake.countRequests())
+            // Continue actual control time while captures are parked. The
+            // ordinary50ms status cache must publish the following C tick;
+            // a flag set before tick is not evidence that recovery completed.
+            NG2Fake.advance(50_000_000)
             NG2RuntimeTestHooks.beforeControlTick = nil
         }
     }
     permit061(NG2Fake.countRequests()+1)
-    pump("test061_late_actual_same_before_36px_MOVED", timeout: 10) { state.lock(); defer { state.unlock() }; return moved }
+    pump("test061_late_actual_same_before_36px_MOVED", timeout: 10) {
+        state.lock(); let proofCommitted = moved; state.unlock()
+        return proofCommitted && recovery061(run)["post_move_reacquisitions"]?.intValue == 1
+    }
     let proof = report(run), trace = recovery061(run)
     let event = events061(run).first { $0["id"] == original["id"] } ?? [:]
     require(proof["moves"]?.intValue == 1 && proof["inputs"]?.intValue == 1 && event["motion"]?.intValue == 1 &&
@@ -380,6 +395,7 @@ private func test061ActualCommitPublic(_ branch: String, afterObserve: Bool = fa
     let run = identity(); start061(run)
     let state = NSLock()
     var armed = false, injected = false, assessedID: UInt64 = 0, deadline: UInt64 = 0
+    var postObserveTicks = 0
     var beforeInputs = 0, beforeMoves = 0, beforeDoors = 0, beforeTerrain = 0
     NG2RuntimeTestHooks.scheduleTicket = { id, callback in
         guard let event = events061(run).first(where: { $0["id"]?.intValue == Int(id) }), event["kind"]?.intValue == 4 else { return false }
@@ -414,6 +430,16 @@ private func test061ActualCommitPublic(_ branch: String, afterObserve: Bool = fa
         require(start <= end && end < deadline, "test061_actual_capture_ends_before_visual_deadline_"+branch)
         if afterObserve {
             NG2RuntimeObserveTestHooks.afterObserve = { NG2Fake.advance(deadline+1-NG2Fake.virtualClock()); NG2RuntimeObserveTestHooks.afterObserve = nil }
+            NG2RuntimeTestHooks.beforeControlTick = {
+                state.lock(); postObserveTicks += 1; let ticks = postObserveTicks; state.unlock()
+                if ticks == 2 {
+                    // The first C tick runs exactly atD+1ns. Progress time
+                    // only after it so its finished state reaches the normal
+                    // public cache even while capture admission is parked.
+                    NG2Fake.advance(50_000_000)
+                    NG2RuntimeTestHooks.beforeControlTick = nil
+                }
+            }
         } else {
             NG2Fake.advance(deadline+1_000_000-NG2Fake.virtualClock())
         }
@@ -440,6 +466,9 @@ private func test061ActualCommitPublic(_ branch: String, afterObserve: Bool = fa
             current["door_changes"]?.intValue == doors+(branch == "door_opened" ? 1 : 0) &&
             current["terrain_changes"]?.intValue == terrain+(branch == "terrain_opened" ? 1 : 0),
             "test061_after_C_tick_proves_selected_real_motion_branch_"+branch)
+        let expiry = records061(run).last ?? [:]
+        require(expiry["clock"]?.intValue == 2 && ns061(expiry, "at_ns") == deadline+1,
+            "test061_first_actual_tick_stops_exactly_at_visual_D_plus_one_"+branch)
         if branch == "blocked" {
             require(current["lead_ns"]?.intValue == 75_000_000,
                 "test061_after_C_tick_proves_BLOCKED_retune_before_stopping")

@@ -967,7 +967,7 @@ final class NG2Runtime {
         report["referenced_capture_ids"] = .array(projection.references.sorted().map { number($0) })
         report["missing_capture_ids"] = .array(projection.references.subtracting(projection.retained).sorted().map { number($0) })
         return ["run_id": .string(projection.id), "profile": .string(Self.profile), "state": .string(projection.state),
-            "api_version": .string("1.98.14-ngg2"), "report": .object(report)]
+            "api_version": .string("1.98.15-ngg2"), "report": .object(report)]
     }
 
     private func historical(_ snapshot: [String: JSONValue]) -> [String: JSONValue] {

@@ -40,7 +40,14 @@ class NGG2ApplyTests(unittest.TestCase):
         target.parent.mkdir()
         target.write_bytes(self.old)
         (self.root / 'untouched.txt').write_text('preserve\n')
-        self.extra = b'// native fixture\n'
+        self.extra = b'''// native fixture
+    private func response(_ run: NG2Run) -> [String: JSONValue] {
+        return ["api_version": .string("1.98.15-ngg2"), "report": .object(report)]
+    }
+    private func historical(_ snapshot: [String: JSONValue]) -> [String: JSONValue] {
+        return snapshot
+    }
+'''
         (self.assets / 'NG2Runtime.swift').write_bytes(self.extra)
         self.patch_path = Path(self.temp.name) / 'ngg2.patch'
         self.patch_path.write_text(''.join(difflib.unified_diff(
@@ -378,6 +385,21 @@ class NGG2ApplyTests(unittest.TestCase):
         manifest['client_capability'] = 'necrogold_native_v13'
         path.write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, 'native_manifest_identity'):
+            verifier.inspect_native_sources(self.root, driver)
+
+    def test_package_provenance_rejects_even_resealed_stale_runtime_envelope_api(self):
+        import json
+        driver = self.native_report_fixture()
+        path = driver / 'patches/loopctrl/ngg2-manifest.json'
+        manifest = json.loads(path.read_text())
+        manifest['client_capability'] = 'necrogold_native_v13'
+        runtime = self.root / self.added
+        stale = runtime.read_bytes().replace(b'1.98.15-ngg2', b'1.98.14-ngg2')
+        stale += b'// unrelated expected version: 1.98.15-ngg2\n'
+        runtime.write_bytes(stale)
+        manifest['additions'][self.added]['sha256'] = sha(stale)
+        path.write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, 'native_runtime_response_api'):
             verifier.inspect_native_sources(self.root, driver)
 
     def test_package_provenance_rejects_changed_native_source(self):

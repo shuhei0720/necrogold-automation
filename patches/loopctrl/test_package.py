@@ -102,6 +102,20 @@ class NativePackageProfileTests(unittest.TestCase):
     def write_manifest(self):
         (self.patchdir / 'ngg2-manifest.json').write_text(json.dumps(self.manifest))
 
+    def enable_native_v13(self):
+        raw = b'''    private func response(_ run: NG2Run) -> [String: JSONValue] {
+        return ["api_version": .string("1.98.15-ngg2"), "report": .object(report)]
+    }
+    private func historical(_ snapshot: [String: JSONValue]) -> [String: JSONValue] {
+        return snapshot
+    }
+'''
+        (self.sources / 'NG2Runtime.swift').write_bytes(raw)
+        self.manifest['additions']['LoopCtrlUITests/NG2Runtime.swift'] = {
+            'source': 'NG2Runtime.swift', 'sha256': hashlib.sha256(raw).hexdigest()}
+        self.manifest['client_capability'] = 'necrogold_native_v13'
+        self.write_manifest()
+
     def write_profile(self, version):
         strict_sources = {'NG2Perception.c'}
         if version == 2:
@@ -198,23 +212,20 @@ class NativePackageProfileTests(unittest.TestCase):
         self.assertEqual(profile['navigation_compiles'][0]['optimization'], '-O2')
 
     def test_native_v13_package_requires_compiler_proof_before_writing(self):
-        self.manifest['client_capability'] = 'necrogold_native_v13'
-        self.write_manifest()
+        self.enable_native_v13()
         with self.assertRaisesRegex(self.checker.ProfileError, 'compile_profile_missing'):
             self.run_package()
         self.assertFalse(self.report_path.exists())
 
     def test_native_v13_package_rejects_valid_legacy_profile(self):
-        self.manifest['client_capability'] = 'necrogold_native_v13'
-        self.write_manifest()
+        self.enable_native_v13()
         self.write_profile(1)
         with self.assertRaises(self.checker.ProfileError):
             self.run_package()
         self.assertFalse(self.report_path.exists())
 
     def test_native_v13_package_writes_both_strict_source_proofs(self):
-        self.manifest['client_capability'] = 'necrogold_native_v13'
-        self.write_manifest()
+        self.enable_native_v13()
         profile = self.write_profile(2)
         result = self.run_package()
         self.assertEqual(result['client_capability'], 'necrogold_native_v13')

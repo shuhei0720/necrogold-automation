@@ -460,6 +460,32 @@ class Test061PublicSelectionTests(unittest.TestCase):
                     checker.test061_producer_reports('\n'.join(lines), output)
                 self.assertFalse((output / 'runtime-test061-recovery-reports.json').exists())
 
+    def test_actual_Runtime_response_requires_api15_and_rejects_same_source_api14(self):
+        source = (HERE / 'ngg2/NG2Runtime.swift').read_text()
+        checker.require_test061_runtime_api(source)
+        actual = '"api_version": .string("1.98.15-ngg2")'
+        self.assertEqual(source.count(actual), 1)
+        old_api = source.replace(actual, '"api_version": .string("1.98.14-ngg2")')
+        with self.assertRaisesRegex(ValueError, 'runtime_test061_response_api15_required'):
+            checker.require_test061_runtime_api(old_api)
+        # An API15 literal outside the actual response cannot repair the value.
+        with self.assertRaisesRegex(ValueError, 'runtime_test061_response_api15_required'):
+            checker.require_test061_runtime_api(old_api + '\n// ' + actual + '\n')
+
+    def test_old_response_API_is_rejected_before_any_TEST061_native_compile(self):
+        source = (HERE / 'ngg2/NG2Runtime.swift').read_text().replace(
+            '"api_version": .string("1.98.15-ngg2")', '"api_version": .string("1.98.14-ngg2")')
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            native = root / 'upstream' / 'LoopCtrlUITests'; native.mkdir(parents=True)
+            (native / 'NG2Runtime.swift').write_text(source)
+            with patch.object(checker, 'test061_native_objects') as compile_native, \
+                    patch.object(checker.subprocess, 'run') as compile_other, \
+                    self.assertRaisesRegex(ValueError, 'runtime_test061_response_api15_required'):
+                checker.test061_contract(root / 'upstream', root / 'output')
+            compile_native.assert_not_called()
+            compile_other.assert_not_called()
+
     def test_green_rejects_zero_missing_skip_and_unexpected_diagnostic_results(self):
         accepted = subprocess.CompletedProcess(['focused-runtime'], 0,
                                                checker.TEST061_PUBLIC_PASS + '\n', '')

@@ -44,6 +44,22 @@ def command(*args, cwd=None):
     return subprocess.check_output(args, cwd=cwd, text=True, timeout=30).strip()
 
 
+def require_runtime_response_api(source, expected):
+    """Bind the actual response envelope to the reviewed manifest version.
+
+    This is the package boundary, independent of focused checker execution.
+    An unrelated version comment or a resealed stale response cannot pass.
+    """
+    begin = '    private func response(_ run: NG2Run) -> [String: JSONValue] {\n'
+    end = '    private func historical('
+    if source.count(begin) != 1 or source.count(end) != 1:
+        raise ValueError('native_runtime_response_api')
+    response = source.split(begin, 1)[1].split(end, 1)[0]
+    if (response.count('"api_version"') != 1
+            or response.count('"api_version": .string("' + expected + '")') != 1):
+        raise ValueError('native_runtime_response_api')
+
+
 def inspect_native_sources(upstream, driver):
     """The packaged native build must use every sealed production source."""
     manifest_path = driver / 'patches/loopctrl/ngg2-manifest.json'
@@ -69,6 +85,11 @@ def inspect_native_sources(upstream, driver):
         source = upstream / path
         if source.is_symlink() or hashlib.sha256(source.read_bytes()).hexdigest() != digest:
             raise ValueError('native_source_hash: ' + name)
+    if manifest.get('client_capability') == 'necrogold_native_v13':
+        runtime = 'LoopCtrlUITests/NG2Runtime.swift'
+        if runtime not in expected:
+            raise ValueError('native_runtime_response_api')
+        require_runtime_response_api((upstream / runtime).read_text(), manifest['api_version'])
     return {'api_version': manifest['api_version'], 'capability': manifest['capability'],
         'client_capability': manifest.get('client_capability', 'necrogold_native_v1'),
         'native_manifest_sha256': hashlib.sha256(manifest_raw).hexdigest(),

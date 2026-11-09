@@ -28,3 +28,12 @@ Controller全methodは変更が広いため実行。変更した境界の新C Re
 第2周の実装差分確認で設計/安全のP1/P2は解消。網羅担当のP2（Swift after-C tickが対象proof成立を固定していない）はreason9・選択ACKのmotion/observed ID/creditとBLOCKEDのlead75msをassertして解消。worldの歩数不足許容も最終GOODS ACKだけに限定した。3観点とも残P0/P1/P2なし。その後の初歩capture終了D前/actualcommit D後の6行補正は追加Red/Greenで、診断clock1を保ち元12秒の入口は実commitで拒否する。
 
 local最終Cは`b1bbe02da9a17ef8618aae5f7e36f059ed5736fd7cce970c0249f8ddf620f894`。新Recovery29、補強後world3method/10case、package263が成功。client212と最大reportの追加1件も成功。patched upstreamで公開Controller179/Recovery28/Beat12/world3/package262を先行確認し、最後の境界補正後は関連Recovery29/world3/package263を再確認した。全Controller184の最終確認、Macの新公開結合/4故障/shop16・実IPA/compiler照合は配布前に結果を追記する。
+
+
+## Mac92の配布前検出と修正
+
+code339bd74の[Mac92](https://github.com/shuhei0720/necrogold-automation/actions/runs/42654733040)はhost179/29/12/3/package263成功。実RuntimeのSwiftcompileと未送信producer3件のPAUSE/回収が成功したが、lateMOVEDでfixtureのhook通知がCtick/cache公開より先に見える競合で停止。待機と50msの模擬時計前進を追加し、厳密D+1nsのtickとproof/creditのassertは保持した。Mac92全体成功やIPA完成には数えない。
+
+配布照合担当がRuntime応答の旧API1.98.14残存を発見。実clientが新応答を拒否するP1であり、API15へ修正。start/status/results/manifestの実応答APIを公開Swift fixtureでassertし、checkerは旧14をnamed rejectionでcompile前に拒否する。packageも旧14の再sealを拒否するguardを加える。HTTP結合の外側mock APIだけでは検出できなかったため、実producerとの境界検査を補った。
+
+C最終184件は49.988秒で成功、実行前後C/header/test SHA一致。29新Recoveryも成功。旧184 method保持、assert1014→1035、削除/減少/skipなし。
