@@ -1,12 +1,10 @@
 # Native制御の不変条件
 
-入口は [context索引](../context.md)、現行版・結果・次工程は [status](../status.md)。数値境界や相互関係の変更は、要件・変更単位の計画・Redから検証する。
+入口は[context](../context.md)、現行版は[status](../status.md)。境界変更は要件・計画・Redで検証する。
 
 ## 1. 要件と作業権限
 
 [要件](../requirements/necrogold.md)・[AGENTS](../../AGENTS.md#守ること) の起点/設定、gold/未知保持、毎拍/速度、iPhone単体を維持する。
-
-保存権限は継続する。scopeはstatusの計画に置き、過去の命令を現在の指示にしない。
 
 ## 2. 保存資料と秘密値
 
@@ -20,7 +18,7 @@ main.syncでrun lock外のAX前面照会を行い、最終callbackの実return�
 
 ## 4. 初期slot
 
-初歩だけ、lead+50msの準備余裕を持つ拍を一度選ぶ。予約公開はnotBeforeの100〜50ms前に最新の通常判断から行い、それ以前にticket/event/replanを作らない。元の拍を次の拍へ取り直さない。待機・公開・beginで同じ拍と凍結境界を再検証し、失効modelは直後のrefitでも救済しない。retuneと確認済み連続歩行へこの初歩専用規則を持ち込まない。
+初歩だけ、lead+50msの準備余裕を持つ拍を一度選ぶ。予約公開はnotBeforeの100〜50ms前に最新の通常判断から行い、それ以前にticket/event/replanを作らない。元の拍を次の拍へ取り直さない。待機・公開・beginで同じ拍と凍結境界を再検証し、失効modelは直後のrefitでも救済しない。retuneへ流用しない。確認済み連続歩行は§6の別方針。
 
 ## 5. 未送信の再予約
 
@@ -41,9 +39,9 @@ FRESH（validation12）はlead確認済み連続MOVEで、SAME不成立時に最
 | MOVE入力窓 | 元notBeforeから10ms以内 |
 | 状態遷移 / heartbeat | 4秒 / 5秒、watchdogは100ms周期 |
 
-model、source、phase、walk、session、dispatch、motionの元境界は短縮だけを許し、refitやsource更新で延ばさない。全期限・取消は待機と保存の後にも検査する。主処理と停止・結果回収の期限は各専用契約を守る。
+model/source/phase/walk/session/dispatch/motionの元境界は短縮のみ。refit/source更新で延長せず、待機/保存後も期限・取消を検査する。主処理/停止/回収は各専用期限を守る。
 
-親motion期限と未予約の次ordinalは別。次candidateは同nominal/元periodからtarget/窓を対更新し、初回reserveで凍結。親・予約済み期限は延長しない。[059計画](../plans/test059-next-slot.md)。
+親motionと未予約の次ordinalは別。candidateは同nominal/元periodからtarget/窓を対更新し、初回reserveで凍結。連続新ordinalだけ初回発行はnotBefore100ms前以降、source取得開始は200ms前以降まで待つ。元D超過を先に拒否し、親/既存ticket/再予約/retuneは変更しない。[059](../plans/test059-next-slot.md)・[060](../plans/test060-continuous-admission.md)。
 
 ## 7. 拍とleadの有限試行
 

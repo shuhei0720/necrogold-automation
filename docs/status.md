@@ -1,14 +1,16 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。TEST058の2歩後停止を修正し、TEST059の新IPA build87を検証済み。**次はTEST059のiPhone実機テスト**。[計画](plans/test059-next-slot.md)・[レビュー](reviews/test059.md)。
+更新: 2026-11-09（日本時間）。TEST059受領: UP3後に第4入力前の画像比較で停止、商品未達。**TEST060を開発中、新IPAは未配布**。[今回の計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。回収済みTEST059は再実行しない。
 
 ## 今回の修正と受領結果
+
+TEST059はUP3/MOVED3・商品0。第4MOVEをsource54で予約後、55との比較がUNKNOWNとなりSCREEN停止。2遠方FLOOR→DIRT、次UP/床/金壁/保護は同じ。原画は背景1pxの位相差を示し、motion閾値を緩めて静止と扱わない。残期限67msでlateではない。TEST060は未予約の連続次slotだけ、notBefore100ms前以降・source取得開始200ms前以降から初回予約する新方針を検討。元拍/予約後期限/再予約/UNKNOWN無再送を維持する。200msはL85/cadence90/prep20+5余裕の合成成功域で検証し、実性能保証とはしない。14完成画像と別0入力run/未完了exportを区別。[受領事実](device-tests/README.md#test059受領結果2026-11-09-日本時間)。
 
 TEST058はLEFT2/MOVED2後にlate停止。12PNG/journalsは完全回収・整合pass、商品到達fail。cap54で次DOWN/FLOORを認識できたが、未予約の次notBeforeが親由来deadlineより3.280ms後となり、第3MOVEを作る前に停止した。停止tickは元期限より約113.7ms早く、capture/dispatch failureはない。[受領事実](device-tests/README.md#test058受領結果2026-11-09-日本時間)。
 
 TEST059は親motionの元期限内で移動を確認し、未予約candidateのtarget/10ms窓を同じ補正拍から対更新する。追加observeも元nominal/periodをアンカーとし、初回reserveで一体凍結する。予約済み/SAME/FRESHの期限、8%補正境界、source/model/phase/session/walk予算、取消・UNKNOWN無再送・商品保護を維持する。原058の未収録DOWN応答は作らず、既知12画像と合成Cの証明範囲を分ける。
 
-## TEST059の配布物
+## 直前TEST059の配布物（受領済み）
 
 | 項目 | 同一性 |
 | --- | --- |
@@ -29,7 +31,7 @@ Mac87は既存Runtime59故障＋TEST058の2故障を全検出し、新C rollback
 
 rawPBX/実compilerログ・4C/5Swift/6RSP、22seal、IPA9Mach-Oの81 HOST marker非混入、455file build-source ZIPを実物照合。実producer5件→暗号client/journalと、world16→strict v13の診断3配列も一致。これらは合成world/fixture通信であり、Mac実ゲームE2EやiPhone商品到達の合格ではない。
 
-## TEST059の実機テスト
+## 直前の実機手順（TEST059・受領済み）
 
 LoopCtrlをStop Server→完全終了→SideStoreで新IPAへ更新→再起動/Start Server。いつものVPN/ディスクイメージ接続を確認し、完全sourceを展開する。新しい通常オールゾーン1-1で開幕の金壁が見える回を、左側が下・画面端0でポーズする。iSHのフォルダ選択では `test_059.sh` があるフォルダを選ぶ。
 

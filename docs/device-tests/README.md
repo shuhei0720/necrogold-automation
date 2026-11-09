@@ -2558,3 +2558,16 @@ cd /mnt/necro_test059 && sh test_059.sh
 ```
 
 歩行中はゲーム前面を保ち、**自動ポーズ後5秒ほど待ったらiSHへ戻って構いません。** 「TEST-059: 終了」まで待ち、`runtime/test-059` 全体をZIPで返してください。壁付近から曲がって進むか、扉を開けて通過するか、商品が見えたか、連続歩行を確認します。終了前の再実行や別テストの同時実行はしません。回収済みTEST058の追加回収のための再実行は不要です。
+
+
+## TEST059受領結果（2026-11-09 日本時間）
+
+ユーザー報告「上に3歩歩いて止まった。商品を確認するところまで」。元ZIP3,723,124bytes/SHA `900b06ffcaecb973a3c97a9b794702ac031cdc5f40437558ee19844e434dce0b`。activeとrun d411b59e938c40719be2c40ab4c77939 reportは同SHA `9079fe8f191308fb2cfccb3fffa7dbbb8fe9903c91bad92663cc60fa9504eecd`。UP3入力/3MOVED、位置(0,-3)、開通0/商品0。server build2026-11-09 11:27はbuild87と整合。別run8975は0入力/geometry20、828×1792/orientation1のmetadata aspect失格であり3歩runと混ぜない。
+
+第4MOVE7はsource54/UP/元notBefore=`103892758141688`/D=`103892768141688`で予約済み。54→55に遠方(8,2),(10,2)のFLOOR→DIRT2セル、保護0変化があり、最新Navは両方UP/FLOOR/reason7/target(0,-1)、閉扉は(0,-2)。continuous validation11/MOTIONで予約を中止しSCREEN17→PAUSE/drain。55capture終了時もDへ124.767438ms、observe終了時67.049188ms、notBeforeへ57.049188ms残り、late/dispatch/capture failureではない。
+
+原54→55の実C/Pillow motionはUNKNOWN。最良shift0 score .4781565097605613が.45より高い。runnerup .7416326817320964、gap .2634761719715351で.08の不足ではない。zero signed support502/opposite52で95%証明は不成立。8独立地形領域は1rawpx縦変位を支持し、HUDは静止。照明だけ/厳密静止と断定しない。同じ参照47→54/47→55、およびauthority48→55は既存UP unit MOVEDを満たすが、別の証明へ勝手に流用しない。Nav/Perception/Motion閾値は維持する。
+
+14完成PNGは全bytes/SHA/PNG CRCを確認、O0/strictO2/Pillowの全Scene、15pairs/all73score/4方向が一致。export16枚のうち59未回収、60.partは全PNG bytesまで到達しているが未finalizeで、resolved=false/host_deadline。原ZIPは2runとpartを含むためstrict評価はunsupported_or_multiple_run_layout/invalid、milestone unknown/exit2。native報告と原画像から商品未達は明らかだが、評価器の整合passや完全Controller再生とは呼ばない。追加回収目的の059再実行は依頼しない。
+
+[TEST060計画](../plans/test060-continuous-admission.md)は同じ次拍の未予約candidateから、新しい画像で初回予約する時間方針を追加する。原画像にない第4入力以降を再生できたと主張せず、独立長経路worldの開扉/進入/商品/PAUSEと毎拍を別検証する。原ZIP/PNG/report/解析はGit外。
