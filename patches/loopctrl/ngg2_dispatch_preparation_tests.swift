@@ -133,13 +133,20 @@ func test058PreparedContinuousCase(_ fault: String) {
     pump("test058_real_continuous_SAME_replacement_created", timeout: 15) {
         let current = call("necro_native_status", id, keepalive: true).0?["report"]?.objectValue ?? [:]
         let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
-        stateLock.lock(); defer { stateLock.unlock() }
+        stateLock.lock()
         // A due preparation can be executed directly in the production queue.
         // Its public event is still required even when it was never held here.
         if oldID != 0, let latest = events.last(where: {
             $0["kind"]?.intValue == 4 && $0["ordinal"] == original["ordinal"] && $0["id"]?.intValue != Int(oldID)
         }) { replacementID = UInt64(latest["id"]!.intValue!) }
-        return replacementID != 0 && (fault != "direct_due" || returned.contains(replacementID))
+        let offeredID = replacementID, alreadyReturned = returned.contains(replacementID)
+        stateLock.unlock()
+        guard offeredID != 0 else { return false }
+        if fault == "direct_due" { return alreadyReturned }
+        // Publishing the C event precedes prepare() and the actual callback
+        // offer. Releasing before holdTicket would be a lost no-op release.
+        NG2Fake.lock.lock(); let offered = NG2Fake.heldTickets[offeredID] != nil; NG2Fake.lock.unlock()
+        return offered
     }
     let before = report(id)
     stateLock.lock()
