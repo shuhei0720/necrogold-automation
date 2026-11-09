@@ -68,7 +68,7 @@ controllerの入力prefixが収録と異なったら、未収録のafter frame�
 
 ## Macで実ゲームを動かす追加方針
 
-日本版は [公式App Store](https://apps.apple.com/jp/app/id1085123767) にmacOS 11以降・Apple M1以降への対応が掲載されている。Macでの実行を不可能とは断定しない。現在の作業環境はLinuxでゲーム/Xcode/Steamがなく、標準Mac CIにも正規ゲームの導入・App Store権限・実画面取得/入力adapterは用意されていない。実ゲームのインストール・起動試験は未実施。
+日本版の [App Store](https://apps.apple.com/jp/app/id1085123767) にはmacOS 11/M1以降の互換欄と「macOSでは検証されていません」の表示がある。[標準macos-26 CI](https://docs.github.com/en/actions/reference/runners/github-hosted-runners) はM1/arm64 VMだが、正規本体・実行認証・当該VMでのゲーム起動・GUI adapterは未成立。ユーザーはMacを持たずCIだけでの試験を想定している。自己窓のGUI診断を別に行い、成功しても実ゲーム試験とは呼ばない。技術的不可能とも断定しない。
 
 導入後は、正規に導入した同じ日本版、固定viewport/操作設定、production C判断につながるGUI capture/input、独立した移動/開通/商品oracleを用意する。配置・animationの異なるケースで実入力時刻、画像、拍、全実行の成否を保存する。現行のfakeが返した成功値をそのoracleに使わない。
 

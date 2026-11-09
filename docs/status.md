@@ -1,37 +1,37 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。TEST055結果を受領。[TEST056の診断保存修正](plans/test056-stop-evidence.md)は計画レビューと旧処理の実Mac assertion Redを完了し、実装を検証中。履歴の「現在」「次」は各記録時点を示す。
+更新: 2026-11-09（日本時間）。TEST055を受領し、診断版TEST056を配布して実機結果を待つ段階。履歴の「現在」「次」は各記録時点を示す。
 
-## 今回の修正
+## 受領結果と今回の修正
 
-TEST055は5入力/5MOVED後、扉前で停止。入力間隔は約0.52秒、歩行開始→初入力は2.212秒。新FRESHと旧reference fallbackは実作動した。最後は再予約run8の上限（validation5）で未送信取消→ポーズ。開通0/商品0で未到達。
+TEST055は5入力/5MOVED後、扉前で停止。入力間隔は約0.52秒、歩行開始→初入力2.212秒。最後は再予約run8の上限（validation5）で未送信取消→ポーズ。開通0/商品0。新FRESHと旧reference fallbackは動いたが、店到達の受入は未完了。[受領事実](device-tests/README.md#test055受領結果2026-11-09-日本時間)。
 
-停止直前125/126/127のPNGはpin飽和・選択枠の問題で欠落。静止壁のDIRT/STONEの色境界変動は他の保存画像で確認したが、最後の完全Decisionは再評価できない。TEST056は最新比較をpin/exportで優先する診断修正であり、歩行の予算・認識・安全条件は変えない。[受領事実](device-tests/README.md#test055受領結果2026-11-09-日本時間)。
+停止直前125/126/127のPNGがpin飽和・20枚選択から欠けたため、TEST056は最新2比較と最新MOVE source・初期/商品/停止画像を、pin保持とexportの両方で優先する。最大8優先・pin20/選択20/各512KiB/総4MiBを維持。歩行のrun8/chain2/input16・認識・入力/期限/UNKNOWN無再送は変更していない。扉前停止の制御修正は、回収する原画像を使って判断する。[計画](plans/test056-stop-evidence.md)。
 
 ## 配布版
 
 | 項目 | 同一性 |
 | --- | --- |
-| native code / Mac CI | `4eb44648b673ada10a878a6e8753cb53e75e9678` / [CI42503501049](https://github.com/shuhei0720/necrogold-automation/actions/runs/42503501049) |
-| IPA | [build72 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42503501049/artifacts/13627766971) / SHA `c9eae0e8524ca8d8aa4d5efbb24f5db732b80d75989fb91d93b93c920da63c84` |
+| native code / Mac CI | `8639b96b40679c7c4d8a72920d9a0cbad62a1199` / [CI42540821478](https://github.com/shuhei0720/necrogold-automation/actions/runs/42540821478) |
+| IPA | [build74 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42540821478/artifacts/13642073084) / 内部IPA SHA `c875a3407fb7c9b05e89d6c3180f5536d6f87a7a07c45bb56f9b950afa5fbebe` |
 | client / API / capability | v13 / 1.98.14-ngg2 / necrogold_native_v12 |
-| native seal | `3812b22751076748cf7ce868fc774efe6ce95c5846c84e8406900c2b21cc2be5` / 全22source一致 |
+| native seal | `de8650590944bcfa77064ba90b500edebfa5978b1d81033eafdddb32df81247d` / 全22source一致 |
 
-上表は受領TEST055に対応する配布版。TEST056は未ビルド・未配布。受領runは回収済みなので再回収目的の再実行はしない。TEST056の検証済みIPA/source完成後に、新1-1からの具体的実機依頼を提示する。
+**[TEST056の実機テスト](device-tests/README.md#test-056実行手順)をお願いします。** 新IPAへSideStore更新→LoopCtrl完全終了/起動→Start Server、新sourceの `sh test_056.sh` を新1-1ポーズから実行し、終了後 `runtime/test-056` 全ZIPを返してください。画像保存がnative側のためIPA更新が必要。TEST055は回収済みで再回収目的の再実行はしない。
 
-## 検証した範囲
+## 検証範囲
 
-local229件（native207＋評価器22）/全152必須画像、client197、package208が成功。client公開CI197、native公開CI208/private21明示除外。実Mac57故障/Raster3/C同値-field/暗号RPC/実compiler/IPAを確認。実生成report3+2個を実暗号HTTPのclientへ接続し3診断配列と両journalを照合した。外側RPC状態/画像はfixtureであり、実ゲームE2Eではない。[検証記録](reviews/test055.md)。
+local native/評価器229件・全152必須画像/skip0、package221、client公開CI197が成功。client関連50入力fileはCI版と同一。native公開CI208/private21明示除外、実Mac旧Runtime assertion Red→新保存Green・旧57＋新2故障/Raster3/C同値-field/RPC/実compiler/IPAを確認した。全9Mach-OのHOST/fixture非混入も照合。[検証記録](reviews/test056.md)。
 
-TEST054の記録評価はintegrity pass・商品未到達fail/exit1。54画像とmodel履歴不足で完全Controller再生=false、LEFT後は未収録。元PNG/HUD/時刻を変えず、既知不合格を成功にしない。
+実生成report3+2を暗号HTTPのclientへ渡し、3診断配列と両journalを照合した。外側RPC状態/画像はfixtureで実ゲームE2Eではない。実TEST055はintegrity pass・商品未到達fail/exit1、78画像不足で完全Controller再生=falseのまま。
 
 ## コンテキストと未受入
 
-[挙動不変の整理](plans/context-refactor.md)を2866be6で完了。旧4文書を元bytesで保存し、通常入口を約11KBへ縮小、要件正本と全履歴は保持した。[作業索引](context.md)。
+AIの初読を約177KBから約11KBへ整理し、旧4資料・要件・履歴を保持。[作業索引](context.md)。
 
-日本版はApple Silicon Mac対応だが、現在は正規ゲーム本体/GUI adapter未導入で実ゲーム試験は未実施。利用可能な環境を確認中。Macを開発検証へ使い、利用者のiPhone単体運用を変えない。
+ユーザーはMacを持たずCIでの実ゲーム試験を想定。標準CIはM1 VMだが、正規ゲーム導入/認証/起動は未成立。App StoreもmacOS未検証を表示。別branchの自己窓GUI診断と実ゲームを区別し、iPhone単体運用を維持する。
 
-全経路毎拍・人より速い性能・商品/指輪の未知評価と通知・自動周回・耐久はiPhone実機で未受入。
+TEST056 iPhone受入、全経路毎拍・人より速い性能・商品/指輪の未知評価と通知・自動周回・耐久、Mac実ゲームは未受入。
 
 <a id="test-011結果と今回の変更"></a>
 

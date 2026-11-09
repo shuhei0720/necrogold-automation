@@ -2442,3 +2442,25 @@ cd /mnt/necro_test055 && sh test_055.sh
 17原PNG/4,191,696bytesは全SHA/CRC/lineage一致。95capture行の78枚は未収録。125/126はpin20飽和で保持されず、127はrecentに残ったが選択20に入らなかった。63/64/74は選択後のbytes制限で省略され、個別サイズ超過と総量超過は切分け不能。静止した111/112/113の石壁はB/RがSTONE閾値.53を跨ぐが、最終3枚の原因までは断定しない。
 
 記録評価はintegrity pass、`goods_visible_and_paused=fail`/exit1、完全Controller再生=false。単体/模擬Mac試験・ZIP部分評価・実ゲーム試験を区別する。次は[TEST056診断保存](../plans/test056-stop-evidence.md)で最新比較を保持/選択とも優先する。動作guard/予算/閾値は維持し、生資料・解析はGit外。
+
+
+## TEST056 最終Mac・配布物
+
+診断保存のみ修正。code `8639b96b40679c7c4d8a72920d9a0cbad62a1199` / [Mac74](https://github.com/shuhei0720/necrogold-automation/actions/runs/42540821478)。全59故障（旧57＋pin/選択2）/Raster3/C同値-field/暗号RPC/実compiler/IPAと22seal/9Mach-Oを照合。実producer3+2→暗号clientの診断配列/両journalも一致。実ゲーム到達の合格ではない。[検証](../reviews/test056.md)。
+
+## TEST-056実行手順
+
+**TEST056の実機テストをお願いします。** 新v13 sourceと[新IPA build74 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42540821478/artifacts/13642073084)を使います。nativeの画像保存が変わったためIPA更新が必要です。扉前停止の制御条件は維持し、今回は停止直前の原画像を揃える診断版です。
+
+1. Safariでリンクを開き、IPAはGitHubログイン後に取得・展開します。
+2. LoopCtrlをStop Server→完全終了し、SideStoreでZIP内の `upstream/release/LoopCtrl.ipa` へ更新。LoopCtrl再起動→Start Server、通常のVPN/ディスクイメージ接続を確認します。
+3. 完全sourceを展開し、フォルダ選択では `test_056.sh` があるフォルダを選びます。
+4. 手動クイックリスタートし、開幕金壁が見える新しい通常オールゾーン1-1を、画面端0・左側が下でポーズして実行します。
+
+```sh
+mkdir -p /mnt/necro_test056
+mount -t ios . /mnt/necro_test056
+cd /mnt/necro_test056 && sh test_056.sh
+```
+
+**「TEST-056: 終了」後、`runtime/test-056` 全体をZIPで返してください。** 歩き出し、停止位置、扉を開けたか、商品が見えたかを確認します。扉前停止でも終了まで待ち、同時に別テストを動かしません。回収済みrunは再実行せず返し、終了した未回収だけ同じprocess/source/runtimeで回復します。
