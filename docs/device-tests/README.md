@@ -2474,3 +2474,24 @@ cd /mnt/necro_test056 && sh test_056.sh
 最終103→104・104→105は各2セルの分類変動で、方向RIGHTを維持するSAME検証が許可された。run予算超過ではない。105のobserve開始は元MOVE deadlineの10.098ms前、終了は1.567ms後で、次tickがlate停止→PAUSE。期限の延長を根拠付けるものではない。
 
 TEST056の診断保存は成功。最新2比較の103/104/105、最新取消MOVE source104、実送信source93、初期1/停止114を保持。全18原PNGのSHA/bytes一致、各512KiB・総4MiB内、参照欠損0。ただし87解析capture中69PNGは未収録で、完全Controller再生=false。記録評価はintegrity pass、商品到達fail/exit1。原ZIP/PNG/report/解析はGit外に保存する。
+
+## TEST057 最終Mac・配布物
+
+暗い床のbright band内のB下限だけを校正し、他の認識条件・入力期限・予算・安全契約を維持。code `0ea4689e08069579d472ac151ad920987d24a4af` / [Mac75](https://github.com/shuhei0720/necrogold-automation/actions/runs/42553613021)成功。全59故障/Raster3/C全Scene・Decision parity-field/旧色式semantic Red/実RPC/実compiler/IPA22seal/9Mach-Oを照合。全170既知pathの校正と回帰であり、未知ランの商品到達は次の実機受入で確認する。[検証](../reviews/test057.md)。
+
+## TEST-057実行手順
+
+**TEST057の実機テストをお願いします。** [新IPA build75 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42553613021/artifacts/13648160394)と、新しい完全sourceを使います。認識がnative側なのでIPA更新が必要です。
+
+1. Safariでリンクを開き、IPAはGitHubログイン後に取得・展開します。
+2. LoopCtrlをStop Server→完全終了し、SideStoreでZIP内の `upstream/release/LoopCtrl.ipa` へ更新。再起動→Start Server、いつものVPN/ディスクイメージ接続を確認します。
+3. 完全sourceを展開し、フォルダ選択では `test_057.sh` があるフォルダを選びます。
+4. 新しい通常オールゾーン1-1で開幕の金壁が見える回を、左側が下・画面端0でポーズして実行します。
+
+```sh
+mkdir -p /mnt/necro_test057
+mount -t ios . /mnt/necro_test057
+cd /mnt/necro_test057 && sh test_057.sh
+```
+
+歩行中はゲーム画面を保ち、**自動ポーズ後5秒ほど待ったらiSHへ戻って構いません。** 「TEST-057: 終了」まで待ち、`runtime/test-057` 全体をZIPで返してください。往復せず進むか、扉を開けたか、商品が見えたか、歩行間隔を確認します。終了前の再実行・別テストの同時実行はしません。回収済みTEST056は再実行せず、終了した未回収runだけ同じprocess/source/runtimeで回復します。

@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。TEST056を受領し、床の色境界を修正するTEST057を検証中。履歴の「現在」「次」は記録時点を示す。
+更新: 2026-11-09（日本時間）。TEST056を受領し、床の色境界を修正するTEST057を配布する段階。履歴の「現在」「次」は記録時点を示す。
 
 ## 受領結果と今回の修正
 
@@ -8,11 +8,20 @@ TEST056はLEFT→RIGHT→LEFTの3入力/3MOVED後late停止、商品0。同じwo
 
 TEST057は明るい床band内のB下限だけに155の色幅を加え、他の色/texture条件、Nav/Controller/Runtime、run8/chain2/input16・入力期限・UNKNOWN無再送は維持する。既存152＋受領18の全170画像を検証し、既知の最終3枚の分類が一致する。全ての色揺れ・未知配置の往復を解消した保証ではない。[計画](plans/test057-floor-quantization.md)・[検証](reviews/test057.md)。
 
-## 開発・配布状態
+## 配布版
 
-TEST057の旧C/Pythonで実画像・合成のassertion Redを観測した。local238件の初回に旧再解析期待1件が失敗し、そのmoduleの期待・未観測分岐を訂正して22/22成功。他216件は不変で成功。全170path/skip0、package221、client197成功。独立3観点sourceレビューの指摘を解消し、実Mac/IPA検証へ進む。新IPA/完全sourceはまだ未配布、旧TEST056は回収済みで再実行しない。
+| 項目 | 同一性 |
+| --- | --- |
+| native code / Mac CI | `0ea4689e08069579d472ac151ad920987d24a4af` / [CI75](https://github.com/shuhei0720/necrogold-automation/actions/runs/42553613021) |
+| IPA | [build75 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42553613021/artifacts/13648160394) / SHA `3ade6cbf0e47e5ee2e0f9991268002912b5743268a82c0d658b17b920fe35ac2` |
 
-native22sourceのうち変更はPerceptionだけ、他21は同一。seal `cee2d62641fdbb29fc235158568afdcafe6a5aba30e7ae0eb0f70a022583c4e5`。client v13 / API1.98.14-ngg2 / cap12、R12/G1原bytesを維持する。認識がnative側のため、TEST057は新IPA更新後に実機を依頼する。
+native22sourceのうち変更はPerceptionだけ、他21は同一。seal `cee2d62641fdbb29fc235158568afdcafe6a5aba30e7ae0eb0f70a022583c4e5`。client v13 / API1.98.14-ngg2 / cap12、R12/G1原bytesを維持。
+
+**[TEST057の実機テスト](device-tests/README.md#test-057実行手順)をお願いします。** 認識がnative側なのでIPA更新が必要。LoopCtrl完全終了/SideStore更新/Start Server後、新sourceの `sh test_057.sh` を新1-1ポーズから実行し、終了後 `runtime/test-057` 全ZIPを返す。歩行中はゲーム画面、自動ポーズ後はiSHへ戻って終了表示を待てる。回収済みTEST056は再実行しない。
+
+## 検証範囲
+
+旧C/Pythonの実画像・合成assertion Red→最小修正。local238件の初回に旧再解析期待1件が失敗し、対象moduleの期待・未観測分岐訂正後22/22成功、他216件は不変で成功。全170path/skip0、package221、client197成功。公開native CI216/private22除外、client CI197成功。Mac全59故障/Raster3/C全Scene/Decision parity-field・旧色式semantic Red/実RPC/実compilerを確認。IPA22seal/9Mach-O非混入も照合した。実producer3+2→暗号client/journal一致はfixtureの結合試験で、実ゲームE2Eではない。[検証](reviews/test057.md)。
 
 ## コンテキストと未受入
 
