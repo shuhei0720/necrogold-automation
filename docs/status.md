@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。TEST059受領: UP3後に第4入力前の画像比較で停止、商品未達。**TEST060はMac再検証待ち、新IPAは未配布**。[Mac89](https://github.com/shuhei0720/necrogold-automation/actions/runs/42625173334)のnative258・長経路160＋停止2・新C3故障と主Runtime positiveは通過したが、追加HOST診断が先頭PASSの形式検査で失敗。Mac88の時計同期に続くHOST出力順の補足修正中で、59故障/IPAは未完了。production Cは固定、client20は成功。[今回の計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。回収済みTEST059は再実行しない。
+更新: 2026-11-09（日本時間）。TEST059受領: UP3後に第4入力前の画像比較で停止、商品未達。**TEST060はMac再検証待ち、新IPAは未配布**。Mac88/90はHOST capture-clock同期、Mac89はHOST診断出力の形式で失敗。90はnative258/長経路160＋停止2/C故障が成功したが、newID保持前に次captureが82ms進む残競合を再現した。元D/assertを維持して同期を修正中。59故障/IPAは未完了、production Cは固定、client20は成功。[今回の計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。回収済みTEST059は再実行しない。
 
 ## 今回の修正と受領結果
 

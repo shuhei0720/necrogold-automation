@@ -110,6 +110,57 @@ func test060_flushRevalidationEvidence() {
     test060_revalidationEvidenceLock.unlock()
     for line in lines { print(line) }
 }
+// The capture worker sees these original procedural pixels before publishing
+// the frame to controlQueue. Freeze its next admission here, independently of
+// when the replacement ticket is committed, prepared or offered.
+final class test060_RevalidationImageFence {
+    private let x: Int, y: Int
+    private let rgb: (Int, Int, Int)
+    private let noisy: Bool
+    private var oldID: UInt64 = 0
+    private var armed = false
+    init(x: Int, y: Int, rgb: (Int, Int, Int), noisy: Bool = false) {
+        self.x = x; self.y = y; self.rgb = rgb; self.noisy = noisy
+    }
+    func arm(_ commandID: UInt64) {
+        NG2Fake.lock.lock()
+        if oldID == 0 { oldID = commandID; armed = true }
+        NG2Fake.lock.unlock()
+    }
+    func inspect(_ rgba: Data) -> Data {
+        NG2Fake.lock.lock()
+        let eligible = armed && NG2Fake.heldTickets[oldID] != nil
+        NG2Fake.lock.unlock()
+        guard eligible && rgba.count == 896*414*4 else { return rgba }
+        let matches = rgba.withUnsafeBytes { raw -> Bool in
+            let pixels = raw.bindMemory(to: UInt8.self)
+            for py in y-12...y+12 { for px in x-12...x+12 {
+                let at = (py*896+px)*4
+                let delta = Int(pixels[at])-rgb.0
+                if pixels[at+3] != 255 || (noisy ? abs(delta) > 4 : delta != 0) ||
+                    Int(pixels[at+1])-rgb.1 != delta || Int(pixels[at+2])-rgb.2 != delta { return false }
+            } }
+            return true
+        }
+        guard matches else { return rgba }
+        NG2Fake.lock.lock()
+        if armed && NG2Fake.heldTickets[oldID] != nil {
+            // One shot: the same marker remains in later goods images.
+            armed = false
+            NG2Fake.captureLimit = NG2Fake.requests
+        }
+        NG2Fake.lock.unlock()
+        return rgba
+    }
+    func releaseForNonMove() {
+        NG2Fake.lock.lock()
+        armed = false
+        // A rejected replan can produce a holding PAUSE without newID. Its
+        // original pixels/drain must still reach the existing named asserts.
+        if oldID != 0 { NG2Fake.captureLimit = nil }
+        NG2Fake.lock.unlock()
+    }
+}
 func alignInitialFixtureMove(_ id: String) {
     // Every caller uses the matching synthetic virtual clock (or its owned
     // motion-deadline wrapper). The real raster/perception/beat path now sees
@@ -1631,6 +1682,8 @@ func testContinuousRevalidationCallbacksPublic() {
         NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
         let id = identity()
         diagnoseFixture(id)
+        let imageFence = test060_RevalidationImageFence(x: 88, y: 243, rgb: (80, 80, 80))
+        NG2RuntimeTestHooks.analysisRGBA = { imageFence.inspect($0) }
         NG2RuntimeTestHooks.beforeCaptureAdmission = { test060_revalidationCaptureBoundary() }
         alignInitialFixtureMove(id)
         NG2RuntimeTestHooks.afterTicketReturned = { returned in
@@ -1642,13 +1695,17 @@ func testContinuousRevalidationCallbacksPublic() {
         NG2RuntimeTestHooks.scheduleTicket = { commandID, callback in
             let current = report(id)
             let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
-            guard let event = events.first(where: { $0["id"]?.intValue == Int(commandID) }),
-                event["kind"]?.intValue == 4 else { return false }
+            guard let event = events.first(where: { $0["id"]?.intValue == Int(commandID) }) else { return false }
+            guard event["kind"]?.intValue == 4 else {
+                imageFence.releaseForNonMove()
+                return false
+            }
             if (current["inputs"]?.intValue ?? 0) < 2 {
                 NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(id, expectedID: commandID) }
                 callback(); return true
             }
             NG2Fake.holdTicket(commandID, callback)
+            imageFence.arm(commandID)
             NG2Fake.lock.lock()
             NG2Fake.remoteVariant = 1
             if NG2Fake.heldTickets.count >= 2 { NG2Fake.captureLimit = NG2Fake.requests }
@@ -2046,6 +2103,8 @@ func testTargetDriftRevalidationCallbacksPublic() {
         NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
         let id = identity()
         diagnoseFixture(id)
+        let imageFence = test060_RevalidationImageFence(x: 412, y: 171, rgb: (100, 50, 10))
+        NG2RuntimeTestHooks.analysisRGBA = { imageFence.inspect($0) }
         NG2RuntimeTestHooks.beforeCaptureAdmission = { test060_revalidationCaptureBoundary() }
         alignInitialFixtureMove(id)
         NG2RuntimeTestHooks.afterTicketReturned = { returned in
@@ -2057,13 +2116,17 @@ func testTargetDriftRevalidationCallbacksPublic() {
         NG2RuntimeTestHooks.scheduleTicket = { commandID, callback in
             let current = report(id)
             let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
-            guard let event = events.first(where: { $0["id"]?.intValue == Int(commandID) }),
-                event["kind"]?.intValue == 4 else { return false }
+            guard let event = events.first(where: { $0["id"]?.intValue == Int(commandID) }) else { return false }
+            guard event["kind"]?.intValue == 4 else {
+                imageFence.releaseForNonMove()
+                return false
+            }
             if (current["inputs"]?.intValue ?? 0) < 2 {
                 NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(id, expectedID: commandID) }
                 callback(); return true
             }
             NG2Fake.holdTicket(commandID, callback)
+            imageFence.arm(commandID)
             NG2Fake.lock.lock()
             NG2Fake.remoteVariant = 1
             if NG2Fake.heldTickets.count >= 2 { NG2Fake.captureLimit = NG2Fake.requests }
@@ -2495,6 +2558,8 @@ func testOriginalMotionReferenceCallbacksPublic() {
         NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
         let id = identity()
         diagnoseFixture(id)
+        let imageFence = test060_RevalidationImageFence(x: 88, y: 243, rgb: (80, 80, 80))
+        NG2RuntimeTestHooks.analysisRGBA = { imageFence.inspect($0) }
         NG2RuntimeTestHooks.beforeCaptureAdmission = { test060_revalidationCaptureBoundary() }
         alignInitialFixtureMove(id)
         NG2RuntimeTestHooks.afterTicketReturned = { returned in
@@ -2506,13 +2571,17 @@ func testOriginalMotionReferenceCallbacksPublic() {
         NG2RuntimeTestHooks.scheduleTicket = { commandID, callback in
             let current = report(id)
             let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
-            guard let event = events.first(where: { $0["id"]?.intValue == Int(commandID) }),
-                event["kind"]?.intValue == 4 else { return false }
+            guard let event = events.first(where: { $0["id"]?.intValue == Int(commandID) }) else { return false }
+            guard event["kind"]?.intValue == 4 else {
+                imageFence.releaseForNonMove()
+                return false
+            }
             if (current["inputs"]?.intValue ?? 0) < 2 {
                 NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(id, expectedID: commandID) }
                 callback(); return true
             }
             NG2Fake.holdTicket(commandID, callback)
+            imageFence.arm(commandID)
             NG2Fake.lock.lock()
             NG2Fake.motionReferenceVariant = 1
             if NG2Fake.heldTickets.count >= 2 { NG2Fake.captureLimit = NG2Fake.requests }
@@ -2752,6 +2821,8 @@ func testFreshRevalidationCallbacksPublic() {
         NG2RuntimeTestHooks.clock = { NG2Fake.virtualClock() }
         let id = identity()
         diagnoseFixture(id)
+        let imageFence = test060_RevalidationImageFence(x: 340, y: 243, rgb: (199, 164, 63), noisy: true)
+        NG2RuntimeTestHooks.analysisRGBA = { imageFence.inspect($0) }
         NG2RuntimeTestHooks.beforeCaptureAdmission = { test060_revalidationCaptureBoundary() }
         alignInitialFixtureMove(id)
         var queryIDs = [Int]()
@@ -2771,14 +2842,18 @@ func testFreshRevalidationCallbacksPublic() {
         NG2RuntimeTestHooks.scheduleTicket = { commandID, callback in
             let current = report(id)
             let events = (current["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
-            guard let event = events.first(where: { $0["id"]?.intValue == Int(commandID) }),
-                event["kind"]?.intValue == 4 else { return false }
+            guard let event = events.first(where: { $0["id"]?.intValue == Int(commandID) }) else { return false }
+            guard event["kind"]?.intValue == 4 else {
+                imageFence.releaseForNonMove()
+                return false
+            }
             if (current["inputs"]?.intValue ?? 0) < 2 {
                 NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(id, expectedID: commandID) }
                 callback(); return true
             }
             if originalMotionDeadline == nil { originalMotionDeadline = current["motion_wait"]?.objectValue?["deadline_ns"] }
             NG2Fake.holdTicket(commandID, callback)
+            imageFence.arm(commandID)
             NG2Fake.lock.lock()
             NG2Fake.freshRevalidationVariant = 1
             if NG2Fake.heldTickets.count >= 2 { NG2Fake.captureLimit = NG2Fake.requests }

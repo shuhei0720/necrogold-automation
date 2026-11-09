@@ -74,3 +74,15 @@ Mac88はqualified準備15/新2故障/独立world16を通過した後、主Runtim
 補足後HOST source SHA `8661cdd1c35d2b49ca7016f667abc5de96207a37edcc196ccfc6c31e364cb8d6`。元時点で作った文字列だけ専用lock付きbufferへ保存し、full成功の既存最終PASS直前にflushする。先頭の元054PASS/末尾の元全体PASS、REPORT順序・375require全bytes/順序・checkerを保持。選択fixtureではmainのflushを含めず、旧故障の末尾指定FAILへ出力を足さない。package228/1.712秒成功。設計が旧047診断modeの型検査互換P1も発見し、旧hash固定fakeにないfixedClock/fixedCaptureAdvanceの新分岐だけを既存LEGACY_CAPTURE_BASELINEで除外した。旧fake/checker/current構成は不変、旧modeの実Swift再実行は未主張。外部Mach-O自己検査は新3helperを含む47HOST宣言/82marker/88拒否/8magicに更新し、通常/-Oとも成功。
 
 第3周HOST補足の最終8661版を設計・網羅・安全が独立照合し、上記legacy互換P1の解消を含め残P0/P1/P2なし。現行構成の元条件を維持し、実Swift全体/59指定Red/新IPAの再確認へ進む。
+
+## Mac90のclock競合再現
+
+[Mac90](https://github.com/shuhei0720/necrogold-automation/actions/runs/42628115605) / code `8c7f4bf008baca62726b4c9d045fe06aecdb2109` も全体失敗。native258/31除外・world160＋停止2・C旧059/新060故障は成功、artifact13680405405は778,206bytes/SHA `c28883fe8844944c83b23cfbba607244faf20394c1c654e8bea9d05af0d290ee`。qualified準備/058別2/world16通過後、主Runtime positiveのContinuous/SAME staleFirst=trueで元 `fixture_current_move_not_late_before_admission` が失敗。新bufferは未flushで、89のstdout形式とは別。
+
+old3/source44→new4/source45、cap45 observe終了 `417241568398`、元D `417277915601`（残36.347203ms）。cap46 start `417321568398` / end `417323568398` に82ms進行し、元D+45.652797ms。newID側のlimit設置前に次captureが許可される残競合を実再現した。診断artifact13678839954は267,435bytes/SHA `7c46025014aa3860c02a82ef5a22a9028255d18e90c551e2890a3d2c6ca3a1d2`。Runtime59/LoopCtrlKit/RPC/IPAは未実施。元Dやassertを緩めず、旧ticketを保持した時点から必要な再検証画像だけを許すHOST同期を第3周の未解決点として修正し、決定的な旧Red/新Greenを追加確認する。
+
+第3周の時計修正補足はHOST SHA `1fa26a9893897087b103d2193a832491103c742bd2521f2087b467216de7fbfd`。既存analysisRGBA hookで実変更画像の25×25領域をreadonly照合し、同capture workerがC解析/frame公開を行う前にcaptureLimit=requestsを置く。旧held IDだけでarmし、一度発火したら解除、元Dataをそのまま返す。未変更の先行画像は止めず、newID実returnまたは非MOVE offerの既存PAUSE経路で取得を再開する。後段のnewID offer時まで待つ競合を閉じ、元clock/source/D/assert/checkerは変更しない。
+
+strict Cで4markerの旧不一致/新一致と1→3/1→4/1→3/4→2分類を実測。375require全bytes/順序、4scope/旧047prefix互換、package228/1.814秒を確認。2順序を強制したモデルでは、旧同期がD+45.652797ms、新同期がcap45終了時のclock/requests45のまま待つことを確認した。これはSwift実行のassertion Red/Greenや、実Runtimeで強制したinterleaving試験ではない。次Mac CIで元の公開fixture・59指定故障・18診断行を実照合する。Mach-O自己検査は新classを含む48HOST宣言/82marker/88拒否/8magicを通常/-Oで確認した。
+
+第3周の上記1fa26版補足を設計・網羅・安全が独立確認し、追加P0/P1/P2なし。実行上の解消は次のMac全体で判定し、88/89/90の失敗は保持する。
