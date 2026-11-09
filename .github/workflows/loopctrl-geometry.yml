@@ -1,23 +1,14 @@
 name: LoopCtrl native control and geometry
 
 on:
-  push:
-    branches: [work/p1-capture-probe]
-    paths:
-      - 'patches/loopctrl/**'
-      - 'tests/test_native_*.py'
-      - 'tests/test_device_recording.py'
-      - 'tests/test*-fixtures.json'
-      - 'tools/evaluate_device_recording.py'
-      - '.github/workflows/loopctrl-geometry.yml'
   workflow_dispatch:
     inputs:
       native_lane:
-        description: Full validation or TEST058 fixed-source assertion Red
+        description: Focused TEST061 validation and IPA, or explicit full milestone validation
         type: choice
         required: true
-        default: full
-        options: [full, test058-red, test058-quick]
+        default: focused
+        options: [focused, full, test058-red, test058-quick]
 
 permissions:
   contents: read
@@ -25,7 +16,7 @@ permissions:
 jobs:
   native-contract-red:
     needs: native-source-ready
-    if: needs.native-source-ready.outputs.ready != 'true'
+    if: inputs.native_lane == 'full' && needs.native-source-ready.outputs.ready != 'true'
     runs-on: macos-26
     timeout-minutes: 10
     steps:
@@ -146,7 +137,7 @@ jobs:
           fi
   native-host-contracts:
     needs: native-source-ready
-    if: needs.native-source-ready.outputs.ready == 'true' && inputs.native_lane != 'test058-red'
+    if: needs.native-source-ready.outputs.ready == 'true' && (inputs.native_lane == 'full' || inputs.native_lane == 'test058-quick')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -245,9 +236,188 @@ jobs:
             ${{ runner.temp }}/test060-world/*.txt
           if-no-files-found: error
           retention-days: 30
+  test061-host-contracts:
+    needs: native-source-ready
+    if: inputs.native_lane == 'focused' || (inputs.native_lane == 'full' && needs.native-source-ready.outputs.ready == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Install existing image-test dependency in an isolated environment
+        run: |
+          python3 -m venv "$RUNNER_TEMP/test061-host-venv"
+          "$RUNNER_TEMP/test061-host-venv/bin/pip" install Pillow==11.3.0
+      - name: Apply exact sealed native source and run selected host contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f driver/patches/loopctrl/ngg2-manifest.json
+          mkdir -p "$RUNNER_TEMP/test061-host"
+          python3 driver/patches/loopctrl/apply_patch.py upstream
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream
+          "$RUNNER_TEMP/test061-host-venv/bin/python" driver/patches/loopctrl/run_test061_host.py driver upstream "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/host-command.txt"
+      - name: Save selected host evidence and explicit test inventory
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-ngg2-native-host
+          path: ${{ runner.temp }}/test061-host/
+          if-no-files-found: error
+          retention-days: 30
+  focused-build:
+    needs: [native-source-ready, test061-host-contracts]
+    if: inputs.native_lane == 'focused' && needs.native-source-ready.outputs.ready == 'true'
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Apply guarded source and seal used for TEST061 execution and IPA
+        run: |
+          python3 driver/patches/loopctrl/apply_patch.py upstream
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream
+      - name: Install build tools
+        run: |
+          brew install xcodegen
+          rustup target add aarch64-apple-ios
+          xcodebuild -version
+          rustc --version
+      - name: Generate and inspect actual source-specific project configuration
+        run: |
+          (cd upstream && xcodegen generate --spec project.yml)
+          python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
+      - name: Run actual Runtime TEST061 public integration fixtures
+        run: python3 driver/patches/loopctrl/check_ngg2.py --test061-public-only upstream "$RUNNER_TEMP/test061-runtime"
+      - name: Detect TEST061 boundary rollback faults
+        run: python3 driver/patches/loopctrl/check_ngg2.py --test061-new-mutations-only upstream "$RUNNER_TEMP/test061-faults"
+      - name: Run independent actual Runtime shop world16 endpoint
+        run: python3 driver/patches/loopctrl/check_ngg2.py --test058-shop-only upstream "$RUNNER_TEMP/test058-shop"
+      - name: Run actual LoopCtrlKit API and capability contracts
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          xcodebuild test -project LoopCtrl.xcodeproj -scheme LoopCtrlKitTests -destination platform=macOS -quiet 2>&1 | tee "$RUNNER_TEMP/ngg2/loopctrlkit-tests.txt"
+      - name: Configure unsigned build
+        working-directory: upstream
+        run: |
+          mkdir -p Config
+          printf '// CI: unsigned build, no team.\nDEVELOPMENT_TEAM =\n' > Config/Local.xcconfig
+      - name: Build and package unsigned IPA
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          make ipa UNSIGNED=1 EXTRA_BUILD_SETTINGS="CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER" 2>&1 | tee "$RUNNER_TEMP/ngg2/ios-build.txt"
+          Scripts/package-release.sh 2>&1 | tee "$RUNNER_TEMP/ngg2/ios-package.txt"
+      - name: Preserve actual compiler inputs for verification diagnostics
+        if: always()
+        env:
+          NATIVE_ARG_PROOF: ${{ runner.temp }}/ngg2/perception-build/raw-build-args
+        run: |
+          python3 - <<'PYPROOF'
+          import hashlib
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('profile_reader', 'driver/patches/loopctrl/check_perception_build.py')
+          reader = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(reader)
+          upstream = Path('upstream').resolve()
+          output = Path(os.environ['NATIVE_ARG_PROOF'])
+          output.mkdir(parents=True, exist_ok=True)
+          snapshot = {'format_version': 1, 'responses': [], 'errors': [], 'truncated': False}
+          budget = 0
+          build = upstream / 'build'
+          for path in sorted(build.rglob('*')) if build.is_dir() else []:
+              if path.is_symlink() or not path.is_file() or not (path.suffix == '.resp' or path.name.endswith('.SwiftFileList')):
+                  continue
+              if len(snapshot['responses']) >= 256 or path.stat().st_size > 2*1024*1024 or budget + path.stat().st_size > 8*1024*1024:
+                  snapshot['truncated'] = True
+                  continue
+              try:
+                  _, records = reader.expand_response_args(['@'+str(path)], upstream, output)
+                  snapshot['responses'].extend(records)
+                  budget += sum(record['bytes'] for record in records)
+              except reader.ProfileError as error:
+                  snapshot['errors'].append({'path': path.relative_to(upstream).as_posix(), 'code': str(error)})
+          project = upstream / 'LoopCtrl.xcodeproj/project.pbxproj'
+          if project.is_file() and not project.is_symlink():
+              raw = project.read_bytes()
+              (output/'project.pbxproj').write_bytes(raw)
+              snapshot['project_sha256'] = hashlib.sha256(raw).hexdigest()
+              (output/'project-model.json').write_text(json.dumps(reader.read_project(project), indent=2)+'\n')
+          (output/'snapshot.json').write_text(json.dumps(snapshot, indent=2)+'\n')
+          PYPROOF
+      - name: Verify actual source-specific Perception compiler profile
+        run: python3 driver/patches/loopctrl/check_perception_build.py --compile-profile upstream "$RUNNER_TEMP/ngg2/ios-build.txt" "$RUNNER_TEMP/ngg2/perception-build"
+      - name: Verify package and record provenance
+        run: python3 driver/patches/loopctrl/verify_package.py upstream driver upstream/release/LoopCtrl.ipa
+      - name: Save unsigned IPA
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-ngg2-unsigned
+          path: |
+            upstream/release/LoopCtrl.ipa
+            upstream/release/SHA256SUMS.txt
+            upstream/release/build-manifest.json
+            upstream/release/native-perception-profile.json
+            upstream/LoopCtrl.xcodeproj/project.pbxproj
+            upstream/LICENSE
+            upstream/NOTICE.md
+            driver/patches/loopctrl/NOTICE-LoopCtrl.md
+            upstream/LoopCtrlUITests/ActionCommand.swift
+            upstream/LoopCtrlUITests/ActionHandler.swift
+            upstream/LoopCtrlKit/RPCMethod.swift
+            upstream/LoopCtrlUITests/LoopCtrlUITests.swift
+            upstream/LoopCtrlUITests/ScreenStream.swift
+            upstream/LoopCtrlUITests/ObjCException.m
+            upstream/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
+            upstream/LoopCtrlUITests/NG2*
+            upstream/Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift
+            upstream/project.yml
+            upstream/LoopCtrlKit/JSONRPCServer.swift
+            upstream/LoopCtrlKit/RemoteSession.swift
+            driver/patches/loopctrl/ngg2-manifest.json
+            driver/patches/loopctrl/ngg2_runtime_scene_fixtures.c
+            driver/patches/loopctrl/ngg2_runtime_scene_fixtures.h
+          if-no-files-found: error
+          retention-days: 30
+      - name: Save test and build diagnostics
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: loopctrl-ngg2-validation
+          path: |
+            ${{ runner.temp }}/test061-runtime/
+            ${{ runner.temp }}/test061-faults/
+            ${{ runner.temp }}/test058-shop/
+            ${{ runner.temp }}/ngg2/*.json
+            ${{ runner.temp }}/ngg2/*.txt
+            ${{ runner.temp }}/ngg2/perception-build/
+          if-no-files-found: error
+          retention-days: 30
   build:
-    needs: [native-source-ready, native-host-contracts]
-    if: needs.native-source-ready.outputs.ready == 'true' && inputs.native_lane != 'test058-red' && inputs.native_lane != 'test058-quick'
+    needs: [native-source-ready, native-host-contracts, test061-host-contracts]
+    if: inputs.native_lane == 'full' && needs.native-source-ready.outputs.ready == 'true'
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -280,6 +450,10 @@ jobs:
           python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
       - name: Observe fixed TEST057 dispatch preparation assertion Red
         run: python3 driver/patches/loopctrl/check_ngg2.py --test058-red-only upstream "$RUNNER_TEMP/test058-baseline"
+      - name: Run actual Runtime TEST061 public integration fixtures
+        run: python3 driver/patches/loopctrl/check_ngg2.py --test061-public-only upstream "$RUNNER_TEMP/test061-runtime"
+      - name: Detect TEST061 boundary rollback faults
+        run: python3 driver/patches/loopctrl/check_ngg2.py --test061-new-mutations-only upstream "$RUNNER_TEMP/test061-faults"
       - name: Run qualified TEST058 preparation deadline contract
         run: python3 driver/patches/loopctrl/check_ngg2.py --test058-public-only upstream "$RUNNER_TEMP/test058-preparation"
       - name: Detect TEST058 preparation reuse and diagnostic priority faults
@@ -394,6 +568,8 @@ jobs:
         with:
           name: loopctrl-ngg2-validation
           path: |
+            ${{ runner.temp }}/test061-runtime/
+            ${{ runner.temp }}/test061-faults/
             ${{ runner.temp }}/geometry-baseline/*.json
             ${{ runner.temp }}/geometry-baseline/*.txt
             ${{ runner.temp }}/geometry-ngg1/*.json

@@ -10,7 +10,7 @@ from unittest.mock import patch
 from necroprobe import native_walk as native
 from necroprobe.crypto import mac, python_xor
 from necroprobe.validation import ProbeError
-from test_native_walk import NativeServer
+from test_native_walk import NativeServer, bind_legacy_api
 from test_protocol import KEY
 import test_native_paged_results as paged
 from timer_support import TimerTestCase
@@ -65,8 +65,8 @@ class MotionReferenceTests(TimerTestCase):
     client = paged.PagedResultsTests.client
     execute = paged.PagedResultsTests.execute
 
-    def test_client_055_revision_and_required_capability(self):
-        self.assertEqual(('native-walk-v13', 'necrogold_native_v12'),
+    def test_current_revision_and_required_capability(self):
+        self.assertEqual(('native-walk-v14', 'necrogold_native_v13'),
             (native.REVISION, native.CAPABILITY))
 
     def test_fresh_client_refuses_old_v12_client_capabilities_before_start(self):
@@ -80,9 +80,9 @@ class MotionReferenceTests(TimerTestCase):
             self.assertEqual([], server.calls)
 
     def test_client_055_revision_capability_and_output(self):
-        self.assertEqual('native-walk-v13', native.REVISION)
-        self.assertEqual('necrogold_native_v12', native.CAPABILITY)
-        self.assertEqual('runtime/test-055', native.parser().parse_args([]).output)
+        self.assertEqual('native-walk-v14', native.REVISION)
+        self.assertEqual('necrogold_native_v13', native.CAPABILITY)
+        self.assertEqual('runtime/test-061', native.parser().parse_args([]).output)
         path = Path(native.__file__).resolve().parents[1]/'test_055.sh'
         self.assertEqual(0, subprocess.run(['sh','-n',str(path)], capture_output=True).returncode)
         self.assertIn('native-walk-v13 / 1.98.14-ngg2', path.read_text())
@@ -304,6 +304,7 @@ class MotionReferenceTests(TimerTestCase):
             for version in (12,13):
                 missing = deepcopy(original)
                 missing['revision'] = 'native-walk-v'+str(version)
+                bind_legacy_api(missing)
                 missing['native_report'].pop('motion_references')
                 native._save(Path(folder), missing)
                 with self.subTest(version=version), self.assertRaisesRegex(ProbeError, 'native_journal_invalid'):
@@ -311,6 +312,7 @@ class MotionReferenceTests(TimerTestCase):
             for version in range(1,12):
                 legacy = deepcopy(original)
                 legacy['revision'] = 'native-walk-v'+str(version)
+                bind_legacy_api(legacy)
                 if version < 9:
                     legacy.pop('image_export', None)
                 native._save(Path(folder), legacy)
@@ -325,6 +327,7 @@ class MotionReferenceTests(TimerTestCase):
                 transform=add_reference_report) as server:
             seed = self.execute(server, folder)
             seed.update(revision='native-walk-v11', resolved=False)
+            bind_legacy_api(seed)
             seed['native_report'].pop('motion_references')
             native._save(Path(folder), seed)
             def legacy(method, result):
@@ -348,6 +351,7 @@ class MotionReferenceTests(TimerTestCase):
             seed = self.execute(server, folder)
             self.assertTrue(seed['resolved'], seed['stop_reason'])
             seed.update(revision='native-walk-v12', resolved=False)
+            bind_legacy_api(seed)
             native._save(Path(folder), seed)
             server.capabilities = ['necrogold_native_v11']
             server.schema_calls.clear()
@@ -374,6 +378,7 @@ class MotionReferenceTests(TimerTestCase):
             seed = self.execute(server, folder)
             self.assertTrue(seed['resolved'], seed['stop_reason'])
             seed.update(revision='native-walk-v12', resolved=False)
+            bind_legacy_api(seed)
             native._save(Path(folder), seed)
             def missing(method, result):
                 add_reference_report(method, result)

@@ -1,98 +1,107 @@
 # Native制御の不変条件
 
-入口は[context](../context.md)、現行版は[status](../status.md)。境界変更は要件・計画・Redで検証する。
+入口[context](../context.md)、現行版[status](../status.md)。境界変更は要件/計画/Redで検証。
 
-## 1. 要件と作業権限
+## 1. 要件/権限
 
-[要件](../requirements/necrogold.md)・[AGENTS](../../AGENTS.md#守ること) の起点/設定、gold/未知保持、毎拍/速度、iPhone単体を維持する。
+起点/設定・gold/未知保持・毎拍/速度・iPhone単体は[要件](../requirements/necrogold.md)/[AGENTS](../../AGENTS.md#守ること)に従う。
 
 ## 2. 保存資料と秘密値
 
-`legacy/r12/` 全40ファイルを [元manifest](../r12-source-manifest.json) とbyte一致で保存する。NG-G1と保護されたnative資産は変更単位の対象外なら維持する。元raw ZIP/PNG/report/log・端末設定・pairing/秘密値はGit外。
+`legacy/r12/`40ファイルは[元manifest](../r12-source-manifest.json)とbyte一致。scope外のNG-G1/保護native資産は不変。raw ZIP/PNG/report/log・端末設定・pairing/秘密値はGit外。
 
 ## 3. 入力owner・prefix・取消
 
-時計は端末のmonotonic ns。取得開始/終了の両境界で同じcompleted prefix、inflightなしを確認した安定画像だけを入力権限にする。交差・古い世代・取消済み画像は使わない。C呼出しはcontrolQueueで直列化し、mainでのbegin中はそのcallerを同期停止する。純粋な画像解析はcapture worker、公開Sceneはimmutableなheap所有とし、observeと証跡をowner/generation/cancelの同じgateでcommitする。capture・解析・main callbackの実終了までdrainする。画像の最新優先・上限、EXIF1〜8、px/pt変換、alpha/sRGB/比率/stride/範囲/overlapの検査を維持する。
+端末monotonic nsを使用。取得両境界の同completed prefix・inflightなしの安定画像だけが入力権限。交差/旧世代/取消済みは拒否。CはcontrolQueue直列、main begin中caller同期停止。解析はcapture worker、Sceneはimmutable heap所有。observe/証跡は同owner/generation/cancel gateでcommitし、capture/解析/main実終了までdrain。最新優先/queue上限・EXIF1〜8・px/pt・alpha/sRGB/比率/stride/範囲/overlap検査を保つ。
 
-main.syncでrun lock外のAX前面照会を行い、最終callbackの実returnまで同じleaseを保持する。最終callbackにAX IPCを置かず、query-start≤end≤now・開始から1秒以内をIPC/待機込みで検査。C epochが証明する同logical MOVEのSAME/FRESHだけ、同run/clock/owner/世代/PID/prefix・元拍/期限のfresh sampleを共有可。初歩/retune/ACK後は共有不可。最新ID/方向/座標・実時刻・前面/ロック・owner/世代/取消・元C ticketをsynth直前に検査して1回だけ送る。旧IDは新状態を変更しない。未確認inputは1件、UNKNOWN再送/自動cleanupは禁止。停止後/別アプリへ旧画像で入力しない。
+main.sync/run lock外でAX前面照会し、callback実returnまでlease保持。最終callbackにAX IPCを置かず、query-start≤end≤now・1秒以内を待機/IPC込みで検査。sample共有はC epochで証明された同logical MOVEのSAME/FRESH、同run/clock/owner/世代/PID/prefix・元拍/期限だけ（初歩/retune/ACK後不可）。synth直前に最新ID/方向/座標/実時計/前面/lock/owner/世代/取消/元ticketを検査し1回送信。旧IDは新状態不変、未確認input≤1。UNKNOWN再送/自動cleanup、停止後/別アプリへの旧画像入力は禁止。
 
-## 4. 初期slot
+## 4. 初期slotと再取得
 
-初歩だけ、lead+50msの準備余裕を持つ拍を一度選ぶ。予約公開はnotBeforeの100〜50ms前に最新の通常判断から行い、それ以前にticket/event/replanを作らない。元の拍を次の拍へ取り直さない。待機・公開・beginで同じ拍と凍結境界を再検証し、失効modelは直後のrefitでも救済しない。retuneへ流用しない。確認済み連続歩行は§6の別方針。
+初歩はlead+50msの準備を持つ拍を選び、notBefore100〜50ms前に最新通常判断から公開。それ以前のticket/event/replan生成は禁止。元拍/境界は§6で検査。
+
+再取得はinputs/moves/lead_confirmed=0・取消/商品/終了なしの未発行candidate/state1確実未送信初歩・再予約pendingだけ。track/同拍8%補正/stale/準備窓/未送信D失効で旧IDをnot_sent、slot全field/initial_ticket/model/raw撤回。event/replan/入力予算不変、同observe refit禁止。後続HUDの既存2秒span/fitで別候補選択。旧ticket時刻/ordinal不変。
+
+元sync+12秒不変、公開/begin/completeも等号終了。TicketGuardのbegin短絡→complete0も純粋なD超過の初歩state1だけ撤回。期限内complete0/state2/3/4/retune/confirmed continuous/権限失効は対象外。旧ID/状態検査を時計/予算更新より先に行う。確認後同期は§8。
 
 ## 5. 未送信の再予約
 
-初歩は最大2回。確認済み連続MOVEは1chain最大2回・run最大8回。両者とも確実な未送信、両Sceneのsafe_floor・同gold・strict BLOCKEDを再検証する。初歩は同directionとorigin/next近傍の保護を検査する。continuousは全protected一致、元/保存の完全5field Decisionと最新actionも検査する。元target/notBefore/deadline/period/ordinalとmotion horizonを保持する。continuousのreason8/FLOORでは許可済みの遠いtarget座標だけの変化を扱えるが、direction/reason/obstacleと最新判断を再検査する。未知inputや期限切れを次拍予約に置き換えない。
+初歩≤2回、確認済continuousはchain≤2/run≤8。確実未送信・両Scene safe_floor/同gold/strict BLOCKEDが必須。初歩は同direction/origin・next近傍保護、continuousは全protected/元・保存の完全5field Decision/最新actionを検査。元target/notBefore/deadline/period/ordinal/horizon保持。reason8/FLOORは許可済み遠方target座標だけ変更可（direction/reason/obstacle/最新判断を再検査）。未知inputの次拍置換は禁止、初歩失効は§4で撤回。
 
-FRESH（validation12）はlead確認済み連続MOVEで、SAME不成立時に最新判断へ切り替える別経路。両FLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE・origin FLOOR・全protected不変・source5fieldの単一証明・strict BLOCKEDを要求する。全230セルでUNKNOWN→FLOOR/DIRT/STONE/GOLD/DOOR、FLOOR→DIRT/STONE/GOLD/DOOR、DIRT→STONE/GOLD/DOORだけを許し、GOLD/STONE/DOOR/ITEMは不変。新DOORはgold bracket必須。
+FRESH（validation12）はlead確認済みcontinuousでSAME不成立時に最新判断へ替える。両FLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE・origin FLOOR・全protected不変・source5field単一証明・strict BLOCKEDを要求。全230セルでUNKNOWN→FLOOR/DIRT/STONE/GOLD/DOOR、FLOOR→DIRT/STONE/GOLD/DOOR、DIRT→STONE/GOLD/DOORだけ許可。GOLD/STONE/DOOR/ITEM不変、新DOORはgold bracket必須。
 
-最新の通常plannerが許可する1MOVEを別ID/latest sourceへ予約し、pending全5fieldと最新direction/x/yを再検査する。FRESH→SAMEでも元方向へ戻さない。SAMEとchain2/run8・同じ拍/ordinal/全凍結期限を共有する。未予約のFRESHを重ねず、元source/phaseのhorizonをsource更新で延ばさない。
-
+通常plannerの1MOVEを別ID/latest sourceへ予約。pending全5field/最新direction・x・yを検査。FRESH→SAMEで元方向へ戻さず、SAMEとchain2/run8・同拍/ordinal/全凍結期限を共有。未予約FRESHの重複/元source・phase horizon延長は禁止。
 
 ## 6. 全期限・予算
 
-| 項目 | 維持する上限・境界 |
+| 項目 | 上限・境界 |
 | --- | --- |
 | 方向入力 / restart | 16回 / 12回 |
 | walk / session | 45秒 / 180秒 |
 | source画像 / 位相 / 前面query-start | 3秒 / 3秒 / 1秒 |
 | MOVE入力窓 | 元notBeforeから10ms以内 |
-| 状態遷移 / heartbeat | 4秒 / 5秒、watchdogは100ms周期 |
+| 状態遷移 / heartbeat | 4秒 / 5秒、watchdog100ms周期 |
 
-model/source/phase/walk/session/dispatch/motionの元境界は短縮のみ。refit/source更新で延長せず、待機/保存後も期限・取消を検査する。主処理/停止/回収は各専用期限を守る。
+初reserveでscheduleD=min(元次拍notBefore+10ms,元source/phase/walk/session期限)、visualD=min(元source開始+3秒,元phase sample+3秒,walk+45秒,session+180秒)を凍結。SAME/FRESH/初歩再予約の期限/原点延長は禁止。scheduleDは高速次拍/限定fallbackの親期限、visualDは同ACK画像確認期限。model/source/phase/dispatchも短縮のみ。待機/保存後も期限/取消/主処理・停止・回収の専用期限を検査。
 
-親motionと次ordinalは別。同nominal/元periodでcandidateのtarget/窓を対更新し、初回reserveで凍結。連続の初回発行はnotBefore100ms前/取得開始200ms前以降。更新前/親motionのDは次の実時計tickまでmin保持し、超過なら発行拒否。既存ticket/再予約/retuneは変更しない。[059](../plans/test059-next-slot.md)・[060](../plans/test060-continuous-admission.md)。
+親motion/次ordinalを分離。同nominal/元periodでcandidate target/窓を対更新し初reserveで凍結。continuous初回はnotBefore100ms前/取得開始200ms前以降。更新前Dを次actualtickまでmin保持、超過は発行拒否。[061設計](../plans/test061-verified-progress.md)。
 
 ## 7. 拍とleadの有限試行
 
-ライブHUDから通常1-1のprofile（周期0.515〜0.530秒）を確認する。動画の約0.52秒や命令送信時刻を固定epoch・実受付幅にしない。初期leadは未確認。150/75/225/300/375/450/25msを各1回まで、安全な床でACK後のstrict BLOCKEDと同じgold/経路を確認した場合だけ試せる。UNKNOWN・partial・商品変化・gate/dirt/保護対象ではretuneしない。同方向の実1歩MOVEDでleadを選択し、全試行を元の入力・walk予算に含める。
+通常1-1 profile（0.515〜0.530秒）はlive HUDで確認。動画0.52秒/送信時刻を固定epoch・受付幅にしない。初期lead未確認、150/75/225/300/375/450/25msを各1回、安全床/ACK後strict BLOCKED/同gold・経路確認時だけ試す。UNKNOWN/partial/商品変化/gate/dirt/保護対象はretune禁止。同方向実1歩MOVEDでlead選択、全試行を元入力/walk予算へ算入。
 
 ## 8. ACKと移動確認
 
-ACKはゲーム移動の証拠ではない。ACK既知state3のMOVEだけ、同じcommand/before画像で、安定したACK prefixのafterを確認する。取得開始はmax(ACK完了,target+80ms)以降。UNKNOWN/TWEENの適格評価は最大3回、元の次拍およびsource/phase/walk/sessionのmotion期限内とする。現在のbefore画像を別画像へ置き換えて確認回数や期限を回復しない。cleanupには最新ACK prefixの新鮮なFLOORが必要。
+ACKだけで移動扱いしない。state3同MOVE/command/before・安定ACK prefix、取得開始≥max(ACK,target+80ms)、UNKNOWN/TWEEN≤3評価、visualD内。before差替えで回数/期限を回復禁止。ACK中HUD失効は次入力の位相資格を撤回し同MOVE確認は継続。state4 UNKNOWN synthはUI凍結・再送/cleanup禁止。通常cleanupは最新ACK prefixの新鮮FLOOR必須。
 
-motionの全73候補、強度.45・差.08、通常texture支持300/75%、構造補助95%・全候補15pp差・2領域各100等の既存条件を保つ。MOVEDは符号付き同方向unit変位、partial/逆方向/未知は成功にしない。開扉・茶壁破壊は進入と分離し、開通だけで歩数を増やさない。観測済みgold/保護セル/入口の規則を維持し、入力回数から移動を推定しない。
+RuntimeはC直前observeStartをobserve_atへ渡す。MOVED/DOOR_OPENED/TERRAIN_OPENED/BLOCKED-retuneはcapture終了≤actualcommit≤visualD、次actualtickまでvisualD保持。C中/直後の超過も新入力禁止。旧observeはmax(capture終了,last_now)。期限後GOODSは保持し移動creditを拒否。
+
+高速確認は元continuous拍を保持。遅い真の移動/開通確認やACK中位相失効は旧次候補/reference/preparationを破棄して再同期（UNKNOWN/TWEEN不可）。新slotはmodel採用HUD ID≥proof ID・将来拍prep≥50ms必須。失効位相は新HUDでfit、episode元12秒は再失効でも不変、walk/sessionで制限。初歩/retune/開通後も準備余裕必須。再取得の拍間隔を毎拍/速度受入と区別。
+
+motion全73候補、強度.45/差.08、texture支持300/75%、構造補助95%/全候補15pp差/2領域各100を保つ。MOVEDは同方向unit変位のみ。開扉/茶壁破壊と進入を分け、開通で歩数を増やさない。partial/逆方向/未知/入力数で移動を捏造せず、観測gold/保護/入口を維持。
 
 ## 9. 元画像による限定fallback
 
-入力権限は常に最新Scene。別のimmutableな元Sceneとcapture/start/prefix・元ticket・period/期限・完全Decision・位置/visits/entranceを、lead確認済み/moves>0のcontinuous safe-floor logical MOVEだけに保持する。単に元画像を保存しただけでは適格にならず、資格付き未送信更新が必要。
+入力権限は最新Scene。immutable元Scene/capture・start・prefix/元ticket・period・期限/完全Decision/位置・visits・entranceはlead確認済/moves>0のcontinuous safe-floor logical MOVEだけ保持。資格付き未送信更新が必須。
 
-元画像から送信前の**全ての**安定current-prefix画像へ直接strict BLOCKED(dx=dy=0)を確認する。mask0、HUD/signatureのみの観測、pending→reserveも含む。両FLOOR・GOODS_UNKNOWN・GOLD_CANDIDATE・safe_floor、全gold/全保護、元/保存/最新の5field Decision、位置/visits/入口・prefix・全凍結境界を検査する。最初の不成立でlogical MOVE中の資格を永久失効し、取り直さない。
+元画像から送信前の全安定current-prefix画像へ直接strict BLOCKED(dx=dy=0)を確認。mask0/HUD/signatureのみ/pending→reserveも含む。両FLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE・safe_floor、全gold/保護、元/保存/最新5field Decision、位置/visits/入口/prefix/全凍結境界を検査。初不成立で同MOVE中の資格は永久失効。
 
-FRESH後はその拍で旧referenceを永久失格とし、再作成・SAMEでの復活を禁止する。primary UNKNOWNの時だけ、資格ある元画像で既存ng2_motionを補助実行し、同方向unit MOVEDのみ採用する。TWEEN/BLOCKED/既知結果/開扉等を上書きしない。初歩・retune・次ordinalへ持ち越さない。任意referenceの失格は、既存reason8の再予約や最新primaryによる確認の追加拒否条件ではない。
+FRESH後の旧referenceは再作成/SAME復活禁止。primary UNKNOWN時だけ元画像で既存ng2_motionを補助し同方向unit MOVEDのみ採用。TWEEN/BLOCKED/既知/開扉等を上書きせず、初歩/retune/次ordinalへ流用しない。fallbackはscheduleD/元位相で失効しvisualDへ延長しない。reference失格だけでreason8再予約/primary確認を追加拒否しない。
 
 ## 10. 商品優先
 
-商品latchは追加入力より先。適格な同一商品frameで既存移動確認を1回行ってcreditできるが、UNKNOWN/TWEENでも商品を保持して閉じ、再観測待ちで入力を続けない。earliest前/期限後の商品frameは移動を捏造せず、最後に実際に評価した診断を残す。不可視を対象なしとせず、候補保持・購入禁止・通知の要件を落とさない。
+商品latchを追加入力より優先。適格な同一商品frameの移動確認は1回credit可、UNKNOWN/TWEENも商品保持して終了。earliest前/期限後は移動を捏造せず最終実評価診断を残す。不可視≠対象なし、候補保持/購入禁止/通知を維持。
 
 ## 11. ABIと診断
 
-既存Status192B/Event128B/Scene23864BとMotionWait layoutの意味を保つ。SceneDetail.validationは2=SAME、12=FRESH_ALLOWED。別queryのMotionReferenceは80B、成功ACK MOVEごと最大16行。閉じた12keyは command_id / authority_capture_id / reference_capture_id / reference_start_ns / reference_prefix / observed_capture_id / reference_eligible / primary_motion / fallback_attempted / fallback_motion / selected_capture_id / selected_motion。
+Status192B/Event128B/Scene23864Bは不変。MotionWait48B layoutも不変だがdeadline_nsはvisualDへ意味変更（cap13で識別）。SceneDetail.validation=2 SAME/12 FRESH_ALLOWED。別query MotionReference80B/ACK MOVE≤16行（[12key閉schema](../../necroprobe/native_walk.py)）。
 
-観測前はobserved=0、全motion=0、attempted=false、selected=authority。reference_prefixは直前の未送信eventではなく同logical MOVE前の最終ACK。未適格fallbackを評価済みと表示しない。通常はeventとtraceのobservedを一致させる。goods=1の最終ACK MOVEに限り、traceの未評価/最後のUNKNOWN・TWEENを保ち、後の商品event observedとの差を認める。初回応答の空配列は応答コピーへ補い、保存reportのaccepted lifecycleを変えない。その他の診断も閉schema/型/件数上限・最初の故障記録の意味を維持する。
+観測前observed=全motion=0・attempted=false・selected=authority。reference_prefixは同MOVE前の最終ACK（未送信event除外）。未適格fallbackの評価済表示は禁止。通常event/trace observed一致、goods=1最終ACK MOVEだけ未評価/最後のUNKNOWN・TWEEN traceと後の商品event observedとの差を許す。
+
+RecoveryTrace192B/RecoveryStatus456Bの別getterで消去前model/raw samples≤13をsnapshotしrefit/最終PAUSE/export後も保持。最初/最新≤2件、sequence=1/record_count、dropped_records=record_count−保持件数。mode0通常/1初歩/2確認後、reason1〜8、clock1capture_end/2actual_tick/3actual_commit、episode0の失効記録も可。[061閉schema/enum](../plans/test061-verified-progress.md#診断と互換)の全named fieldを保存し、ns/countは非bool非負int<2^63、model/sample型/有限double/enum/件数/sequenceと余剰key拒否を検査。初期counter/ns=0・mode0・records=[]。accepted空診断の補完は応答copyだけで保存report/lifecycle不変。既存閉診断/初故障記録も保持。
 
 ## 12. 新規起動と旧client回復
 
-新規起動はstatusの対応capabilityを要求する。保存revisionのliteralに従い、native-walk-v12/v13はmotion_references必須、旧版では不在を許すが存在すれば厳密検査する。v10/v11/v12/v13は4chunk batch、v9は1chunk、v1〜v8はlegacy回復。started journalは元UUIDでGET0/start0、unknown startを再送しない。fresh preflightだけ許可済みtransientエラーを最大4試行/計8秒/各2秒で再確認する。
+新規はnative-walk-v14/API1.98.15-ngg2/cap necrogold_native_v13を要求し完全reportのrecovery必須。v12〜v14はmotion_references必須。旧版は新診断不在可、存在時は同じ閉schema検査。保存literal v1〜v13はAPI1.98.14へpreflight（ready含む）/status/result_metadataを固定し、global API更新で拒否も両API許可もしない。v10〜v14は4chunk batch、v9は1chunk、v1〜v8はlegacy。started回復は元UUID/clock/owner・GET0/start0、unknown start無再送。未開始旧journalの初startは同UUIDでv14へ移行。fresh preflightだけ許可済transientを最大4試行/計8秒/各2秒で再確認。
 
 ## 13. Exportと保存
 
-PNG上限は20枚・各512KiB・計4MiB。初期/商品/停止と最新比較を優先。chunk64KiB、manifest wire512KiB/chunk wire256KiB。batchは最大4chunk/256KiBでも、各chunkの検証・取消・期限を省かない。検証済みprefixだけをhash/cursorへ反映し、atomic fragmentをjournalsより先に保存する。再中断でも物理的な未検証suffix全体を保持する。active journalが回復の権限を持つ。
+PNG≤20枚/各512KiB/計4MiB、初期/商品/停止/最新比較優先。chunk64KiB、manifest wire512KiB/chunk wire256KiB。batch≤4chunk/256KiBも各chunk検証/取消/期限必須。検証済prefixだけhash/cursorへ反映、atomic fragmentをjournalsより先に保存。再中断も未検証suffix全体保持、active journalが回復権限。
 
-ordinary RPC2秒、結果専用8秒、export1試行90秒を残session180秒以内に収める。所有するterminal/drained runだけが結果を公開し、古い返信で新しいcacheを消さない。回収成功を未知inputの解決にしない。取消・lock・同時実行・世代/ownerの既存guardを維持する。
+ordinary RPC2秒/結果8秒/export1試行90秒を残session180秒へ収める。所有terminal/drained runだけ公開し、旧返信で新cacheを消さない。回収成功≠未知input解決。§3のguard/同時実行排除を維持。
 
 ## 14. Compileと封印
 
-profilev2はPerception/Navigationだけstrict O2（-fno-fast-math、-ffp-contract=off）、Beat/ControllerはO0、SwiftはOnone。native_v6/profilev1との旧互換を保つ。22封印source・実PBX・raw compiler引数/response・profile・build manifest・IPAを同じcodeへ結び、app/runnerのAPI/capabilityと全Mach-OのHOST/fixture/spy非混入を照合する。配布source ZIPも全tracked bytes/CRC/pathを確認する。公開CIは標準macos-26/ubuntu-latestを使う。
+profilev2はPerception/Navigationのみstrict O2（-fno-fast-math/-ffp-contract=off）、Beat/Controller O0、Swift Onone。native_v6/profilev1互換を保つ。22封印source/実PBX/raw compiler引数・response/profile/manifest/IPAを同codeへ結び、app/runner API/cap・全Mach-O HOST/fixture/spy非混入を照合。source ZIP全tracked bytes/CRC/pathも照合。標準macos-26/ubuntu-latestを使う。
 
-## 15. Fixtureと実機の証明範囲
+## 15. 検証の範囲
 
-[testing](../testing.md)に区分と実行入口を置く。必須実画像の不足/hash不一致はlocal失敗とし、CIの明示除外と区別する。合成・録画再生・通信結合・compiler/IPA検証は実ゲーム到達やiPhone性能の合格ではない。未測定・欠落・失敗を0費用や成功に置き換えず、未知評価はラン単位で分離する。
+区分/入口は[testing](../testing.md)。必須実画像不足/hash不一致はlocal失敗、CI明示除外と区別。合成/録画/通信/IPA検証を実ゲーム到達/iPhone性能の合格にせず、未測定/欠落/失敗を0費用/成功にしない。未知評価はrun単位。
 
 ## 16. 開発工程
 
-工程・fresh3観点/最大3周・TDD・人間レビューは [開発フロー](../development-flow.md) を正本とする。
+工程/TDD/レビューは[開発フロー](../development-flow.md)に従う。
 
 ## 17. 配布と実機依頼
 
-[AGENTSの保存と返却](../../AGENTS.md#保存と返却) に従い、日本語/JST・完全source・具体的実機手順・終了後runtime全ZIPを提示する。native/cap変更時は新IPA、SideStore更新→LoopCtrl完全終了/起動→Start Server。新通常1-1ポーズから、同時テストなし。回収済みrunを追加回収目的で再実行せず、終了した未回収だけ同じprocess/source/runtimeで回復する。
+配布は[AGENTS](../../AGENTS.md#保存と返却)の日本語/JST・完全source/具体的手順/runtime全ZIP返却。native/cap変更は新IPA、SideStore更新→LoopCtrl完全終了/起動→Start Server。新通常1-1ポーズ、同時テスト禁止。回収済runは再実行せず、終了未回収だけ同process/source/runtimeで回復。

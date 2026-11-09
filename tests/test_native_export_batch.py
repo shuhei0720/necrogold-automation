@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from necroprobe import native_walk as native
 import test_native_paged_results as paged
-from test_native_walk import NativeServer, image_item
+from test_native_walk import NativeServer, image_item, bind_legacy_api
 from timer_support import TimerTestCase
 
 
@@ -329,6 +329,7 @@ class ExportBatchTests(TimerTestCase):
                         self.execute(server, folder)
                 seed = native._load(Path(folder))
                 seed['revision'] = revision
+                bind_legacy_api(seed)
                 if legacy_trace:
                     seed['native_report'].pop('motion_references')
                     transform = server.transform
@@ -403,6 +404,7 @@ class ExportBatchTests(TimerTestCase):
             first = self.execute(server, folder, cancelled=lambda: stopped[0])
             self.assertEqual([65536], first['image_export']['offsets'])
             first['revision'] = revision
+            bind_legacy_api(first)
             if legacy_trace:
                 first['native_report'].pop('motion_references')
                 transform = server.transform
@@ -447,6 +449,7 @@ class ExportBatchTests(TimerTestCase):
             first = self.execute(server, folder, cancelled=lambda: stopped[0])
             self.assertEqual([65536], first['image_export']['offsets'])
             first['revision'] = 'native-walk-v9'
+            bind_legacy_api(first)
             native._save(Path(folder), first)
             server.page_transform = None
             server.schema_calls.clear()

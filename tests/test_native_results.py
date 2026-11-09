@@ -15,7 +15,7 @@ from necroprobe import protocol
 from necroprobe.crypto import Crypto
 from necroprobe.protocol import HttpTransport
 from necroprobe.validation import ProbeError
-from test_native_walk import NativeServer, image_item
+from test_native_walk import NativeServer, image_item, bind_legacy_api
 from test_protocol import KEY, TOK
 from timer_support import TimerTestCase
 
@@ -153,6 +153,7 @@ class NativeResultsTests(TimerTestCase):
             legacy = deepcopy(record)
             legacy.pop('image_export', None)
             legacy['revision'] = 'native-walk-v5'
+            bind_legacy_api(legacy)
             legacy.pop('image_export', None)
             legacy['native_report']['dispatch_failure'] = dispatch_failure(error='PRIVATE', raw='PRIVATE')
             native._save(Path(folder), legacy)
@@ -314,6 +315,7 @@ class NativeResultsTests(TimerTestCase):
             legacy = deepcopy(record)
             legacy.pop('image_export', None)
             legacy['revision'] = 'native-walk-v4'
+            bind_legacy_api(legacy)
             legacy.pop('image_export', None)
             legacy['native_report']['capture_failure'] = capture_failure(error='PRIVATE', raw='PRIVATE')
             native._save(Path(folder), legacy)
@@ -338,6 +340,7 @@ class NativeResultsTests(TimerTestCase):
                         legacy.pop('image_export', None)
                         legacy.update(revision=revision, state=state, native_state='running', resolved=False,
                                       cancel_attempted=False, cancel_attempts=0, cancel_confirmed=False)
+                        bind_legacy_api(legacy)
                         native._save(Path(folder), legacy)
                         server.schema_calls.clear()
                         before = len(server.calls)
@@ -387,6 +390,7 @@ class NativeResultsTests(TimerTestCase):
                     legacy = deepcopy(record)
                     legacy.pop('image_export', None)
                     legacy['revision'] = 'native-walk-v3'
+                    bind_legacy_api(legacy)
                     legacy.pop('image_export', None)
                     legacy['native_report']['motion_wait']['private'] = 'PRIVATE'
                     for row in legacy['native_report']['raster_samples']:
@@ -464,6 +468,7 @@ class NativeResultsTests(TimerTestCase):
                     native._load(Path(folder))
 
     def test_maximum_report_trace_images_and_host_diagnostics_fit_the_json_node_limit(self):
+        from test_native_recovery_results import recorded_recovery, sample
         samples = [raster_sample(i) for i in [1]+list(range(226,257))]
         def maximum(method, result):
             report = result['report']
@@ -491,6 +496,9 @@ class NativeResultsTests(TimerTestCase):
                     'begin_ns','end_ns','observed_capture_id','outcome','reason','motion','dx','dy')}
                     for _ in range(64)])
             report['motion_references'] = []
+            report['recovery'] = recorded_recovery()
+            for row in report['recovery']['records']:
+                row['samples'] = [sample() for _ in range(13)]
             for index, event in enumerate(report['events'][:16]):
                 command_id, authority = index+1, index+100
                 event.update(id=command_id, kind=4, outcome=2, source_capture_id=authority)
@@ -516,6 +524,7 @@ class NativeResultsTests(TimerTestCase):
             self.assertEqual(dispatch_failure(), record['native_report']['dispatch_failure'])
             self.assertEqual(3,len(record['native_report']['scene_change_details']))
             self.assertEqual(16,len(record['native_report']['motion_references']))
+            self.assertEqual([13,13], [len(row['samples']) for row in record['native_report']['recovery']['records']])
             self.assertEqual((256,64,3,32,20), tuple(len(value) for value in (
                 record['native_report']['captures'], record['native_report']['events'],
                 record['native_report']['scene_changes'], record['native_report']['raster_samples'], record['images'])))
@@ -680,6 +689,7 @@ class NativeResultsTests(TimerTestCase):
                 legacy = deepcopy(first)
                 legacy.pop('image_export', None)
                 legacy['revision'] = revision
+                bind_legacy_api(legacy)
                 legacy.pop('image_export', None)
                 native._save(Path(folder), legacy)
                 server.schema_calls.clear()
@@ -763,8 +773,8 @@ class NativeResultsTests(TimerTestCase):
             self.assertEqual(['/schema'], server.schema_calls)
             self.assertEqual([], server.calls)
 
-    def test_fresh_native_v12_capability_starts_exactly_once(self):
-        tags = ['necrogold_native_v'+str(version) for version in range(1,13)]
+    def test_fresh_native_v13_capability_starts_exactly_once(self):
+        tags = ['necrogold_native_v'+str(version) for version in range(1,14)]
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, capabilities=tags) as server:
             record = self.execute(server, folder)
             self.assertTrue(record['resolved'])

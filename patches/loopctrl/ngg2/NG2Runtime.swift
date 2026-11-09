@@ -13,6 +13,7 @@ enum NG2RuntimeTestHooks {
     static var beforeMainAdmission: (() -> Void)?
     static var beforeMainAuthority: (() -> Void)?
     static var beforeAnalysisCommit: (() -> Void)?
+    static var beforeAnalysisFrameCommit: ((UInt64, UInt64, UInt64, UInt64, Bool) -> Void)?
     static var afterForegroundQuery: (() -> Void)?
     static var beforeControlTick: (() -> Void)?
     static var scheduleTicket: ((UInt64, @escaping () -> Void) -> Bool)?
@@ -132,6 +133,13 @@ private struct NG2RasterSample {
     let trace: NG2Raster.Trace
 }
 
+// Copy retained C recovery records and their raw samples at the same serial
+// cache boundary. Report/export encoding must never query a later live model.
+private struct NG2RecoveryRecord {
+    let trace: NG2ControllerRecoveryTrace
+    let samples: [NG2BeatSample]
+}
+
 private final class NG2ControllerSnapshot {
     let status: NG2ControllerStatus
     let events: [NG2ControllerEvent]
@@ -139,11 +147,15 @@ private final class NG2ControllerSnapshot {
     let details: [NG2ControllerSceneDetail]
     let motionWait: NG2ControllerMotionWait
     let motionReferences: [NG2ControllerMotionReference]
+    let recovery: NG2ControllerRecoveryStatus
+    let recoveryRecords: [NG2RecoveryRecord]
     init(status: NG2ControllerStatus, events: [NG2ControllerEvent], changes: [NG2ControllerSceneChange],
          details: [NG2ControllerSceneDetail], motionWait: NG2ControllerMotionWait,
-         motionReferences: [NG2ControllerMotionReference]) {
+         motionReferences: [NG2ControllerMotionReference], recovery: NG2ControllerRecoveryStatus,
+         recoveryRecords: [NG2RecoveryRecord]) {
         self.status = status; self.events = events; self.changes = changes; self.details = details
         self.motionWait = motionWait; self.motionReferences = motionReferences
+        self.recovery = recovery; self.recoveryRecords = recoveryRecords
     }
 }
 
@@ -903,6 +915,8 @@ final class NG2Runtime {
         if report.isEmpty {
             report["events"] = .array([])
             report["motion_references"] = .array([])
+            // Accepted response defaults belong only to this response copy.
+            report["recovery"] = encodeRecovery(NG2ControllerRecoveryStatus(), records: [])
         }
         report["schema"] = .string("ngg2-native-v1")
         if report["input_state"] == nil { report["input_state"] = .int(0) }
@@ -1152,6 +1166,7 @@ final class NG2Runtime {
             let analysisGeneration = frame.generation
             let scene = frame.analysis.scene
                 #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeTestHooks.beforeAnalysisFrameCommit?(frame.id, frame.start, frame.end, frame.prefix, frame.stable)
                 NG2RuntimeTestHooks.beforeAnalysisCommit?()
                 #endif
                 // Commit observation and image evidence at one cancellation
@@ -1162,7 +1177,7 @@ final class NG2Runtime {
                     NG2RuntimeObserveTestHooks.beforeObserve?()
                     #endif
                     let observeStart = Self.now()
-                    ng2_controller_observe(core, scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0)
+                    ng2_controller_observe_at(core, scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0, observeStart)
                     #if NG2_RUNTIME_HOST_TEST
                     NG2RuntimeObserveTestHooks.afterObserve?()
                     #endif
@@ -1455,6 +1470,17 @@ final class NG2Runtime {
         let motionReferenceCount = motionReferences.withUnsafeMutableBufferPointer {
             ng2_controller_motion_references(core, $0.baseAddress, $0.count)
         }
+        var recovery = NG2ControllerRecoveryStatus()
+        ng2_controller_recovery_status(core, &recovery)
+        let retainedRecoveryCount = Int(min(recovery.record_count, 2))
+        let traces = [recovery.records.0, recovery.records.1]
+        let recoveryRecords: [NG2RecoveryRecord] = (0..<retainedRecoveryCount).map { index in
+            var samples = [NG2BeatSample](repeating: NG2BeatSample(), count: 13)
+            let count = samples.withUnsafeMutableBufferPointer {
+                ng2_controller_recovery_samples(core, index, $0.baseAddress, $0.count)
+            }
+            return NG2RecoveryRecord(trace: traces[index], samples: Array(samples.prefix(min(count, samples.count))))
+        }
         // TEST056 HOST SNAPSHOT BEGIN.
         #if NG2_RUNTIME_HOST_TEST
         if let fixture = NG2RuntimeEvidenceTestHooks.snapshot {
@@ -1469,7 +1495,8 @@ final class NG2Runtime {
                 events: Array(events.prefix(min(count, events.count))),
                 changes: Array(changes.prefix(min(changeCount, changes.count))),
                 details: Array(details.prefix(min(detailCount, details.count))), motionWait: motionWait,
-                motionReferences: Array(motionReferences.prefix(min(motionReferenceCount, motionReferences.count))))
+                motionReferences: Array(motionReferences.prefix(min(motionReferenceCount, motionReferences.count))),
+                recovery: recovery, recoveryRecords: recoveryRecords)
             var diagnosticIDs: [UInt64] = []
             // C retains first1/latest2 in chronological order. Only the latest
             // two comparisons precede cumulative evidence, newest first.
@@ -1607,10 +1634,42 @@ final class NG2Runtime {
             "discarded_frames": number(s.discarded_frames), "beat_period_ns": number(s.beat_period_ns),
             "events": .array(encoded), "scene_changes": .array(encodedChanges), "scene_change_details": .array(encodedDetails),
             "motion_references": .array(encodedMotionReferences),
+            "recovery": encodeRecovery(snapshot.recovery, records: snapshot.recoveryRecords),
             "motion_wait": .object(["command_id": number(motionWait.command_id),
                 "source_capture_id": number(motionWait.source_capture_id), "last_capture_id": number(motionWait.last_capture_id),
                 "deadline_ns": number(motionWait.deadline_ns), "attempts": integer(motionWait.attempts),
                 "last_motion": integer(motionWait.last_motion), "active": .bool(motionWait.active == 1)])]
         return report
+    }
+
+    private func encodeRecovery(_ recovery: NG2ControllerRecoveryStatus, records: [NG2RecoveryRecord]) -> JSONValue {
+        let encodedRecords = records.map { record -> JSONValue in
+            let r = record.trace, model = r.model
+            let samples = record.samples.map { sample -> JSONValue in
+                .object(["start_ns": number(sample.start_ns), "end_ns": number(sample.end_ns),
+                    "midpoint_ns": number(sample.midpoint_ns), "half_width_ns": .double(sample.half_width_ns),
+                    "spacing": .double(sample.spacing), "center": .double(sample.center), "q": .double(sample.q)])
+            }
+            return .object(["sequence": number(r.sequence), "episode_id": number(r.episode_id),
+                "reason": integer(r.reason), "clock": integer(r.clock), "at_ns": number(r.at_ns),
+                "capture_id": number(r.capture_id), "command_id": number(r.command_id),
+                "abandoned_target_ns": number(r.abandoned_target_ns), "sync_deadline_ns": number(r.sync_deadline_ns),
+                "model": .object(["period_ns": number(model.period_ns), "epoch_ns": number(model.epoch_ns),
+                    "first_ns": number(model.first_ns), "last_ns": number(model.last_ns),
+                    "gap_ns": number(model.gap_ns), "prediction_span_ns": number(model.prediction_span_ns),
+                    "sample_count": integer(model.sample_count), "mode": integer(model.mode),
+                    "candidate_count": integer(model.candidate_count), "residual": .double(model.residual),
+                    "maximum": .double(model.maximum), "alternate": .double(model.alternate),
+                    "alias_gap": .double(model.alias_gap), "half_width_max_ns": .double(model.half_width_max_ns),
+                    "tracking_error": .double(model.tracking_error), "extrapolation_budget": .double(model.extrapolation_budget)]),
+                "samples": .array(samples)])
+        }
+        return .object(["initial_reacquisitions": number(recovery.initial_reacquisitions),
+            "post_move_reacquisitions": number(recovery.post_move_reacquisitions),
+            "episode_id": number(recovery.episode_id), "mode": integer(recovery.mode),
+            "schedule_deadline_ns": number(recovery.schedule_deadline_ns),
+            "visual_deadline_ns": number(recovery.visual_deadline_ns), "ack_ns": number(recovery.ack_ns),
+            "record_count": number(recovery.record_count), "dropped_records": number(recovery.dropped_records),
+            "records": .array(encodedRecords)])
     }
 }

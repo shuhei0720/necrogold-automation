@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -90,6 +91,176 @@ def native_object_flags(name, *, test049=False):
     # Match the app's per-source profile. Controller and Beat stay Debug O0.
     strict = name == 'NG2Perception.c' or (name == 'NG2Navigation.c' and not test049)
     return ['-O2', *STRICT_PERCEPTION_FP] if strict else ['-O0']
+
+EXPECTED_TEST061_RUNTIME_MUTATIONS = frozenset(('recovery-actual-commit', 'recovery-records-connection', 'recovery-stale-callback'))
+EXPECTED_TEST061_C_MUTATIONS = frozenset(('recovery-unsent-complete0',))
+TEST061_PUBLIC_ENTRYPOINTS = ('test061RecoveryPublic',)
+TEST061_PUBLIC_PASS = 'PASS production Runtime public API/TEST061 recovery and actual commit fixtures'
+TEST061_NATIVE_SOURCES = frozenset(('NG2Beat.c', 'NG2Controller.c', 'NG2Navigation.c', 'NG2Perception.c'))
+
+
+def test061_public_fixture_source(tests):
+    """Select the shared helper declarations and only the new executable fixture."""
+    marker = '// This public request is intentionally runnable'
+    if tests.count(marker) != 1:
+        raise ValueError('runtime_test061_public_fixture_boundary')
+    fixture = (HERE / 'ngg2_recovery_tests.swift').read_text()
+    calls = re.findall(r'^(test\w+)\(\)$', fixture, flags=re.MULTILINE)
+    if (calls != list(TEST061_PUBLIC_ENTRYPOINTS)
+        or any(fixture.count('func ' + name + '(') != 1 for name in TEST061_PUBLIC_ENTRYPOINTS)
+        or 'require(' not in fixture
+        or fixture.count('print("' + TEST061_PUBLIC_PASS + '")') != 1):
+        raise ValueError('runtime_test061_public_fixture_body')
+    return tests.split(marker)[0] + fixture
+
+
+def test061_runtime_mutations():
+    return {
+        'recovery-actual-commit': (
+            'ng2_controller_observe_at(core, scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0, observeStart)',
+            'ng2_controller_observe_at(core, scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0, frame.end)',
+            'FAIL test061_actual_commit_after_visual_deadline_rejects_all_motion_credit_moved'),
+        'recovery-records-connection': (
+            '"recovery": encodeRecovery(snapshot.recovery, records: snapshot.recoveryRecords)',
+            '"recovery": encodeRecovery(snapshot.recovery, records: [])',
+            'FAIL test061_unsent_retirement_records_actual_tick_and_frozen_old_ticket'),
+        'recovery-stale-callback': (
+            '        guard ownsTicket(run, command, generation: generation) else { return }',
+            '        // TEST061 fault: stale callback reaches final authority hooks',
+            'FAIL test061_stale_callback_skips_authority'),
+    }
+
+
+def test061_runtime_mutation_reds(source, sources, stage, output, extra):
+    mutations = test061_runtime_mutations()
+    if set(mutations) != EXPECTED_TEST061_RUNTIME_MUTATIONS:
+        raise RuntimeError('runtime_test061_exact_fault_inventory_required')
+    reds, hashes = {}, {}
+    try:
+        for label, (old, new, expected) in mutations.items():
+            if source.count(old) != 1:
+                raise ValueError('runtime_test061_mutation_target: ' + label)
+            mutated = source.replace(old, new)
+            (stage / 'NG2Runtime.swift').write_text(mutated)
+            print('Runtime TEST061 mutation: ' + label, flush=True)
+            result = compile_run(sources, stage / (label + '-tests'), output,
+                'runtime-test061-' + label + '-mutation-red', extra, run_timeout=300)
+            require_red(result, expected)
+            reds[label] = result.stdout.strip()
+            hashes[label] = hashlib.sha256(mutated.encode()).hexdigest()
+    finally:
+        (stage / 'NG2Runtime.swift').write_text(source)
+    return {'mutation_red': reds, 'mutation_count': len(reds), 'mutation_runtime_sha256': hashes,
+            'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
+            'fixture_sha256': hashlib.sha256((stage / 'main.swift').read_bytes()).hexdigest(),
+            'compiled': True, 'entrypoints': list(TEST061_PUBLIC_ENTRYPOINTS), 'device_test': 'not_run',
+            'scope': 'only focused TEST061 public fixture against three new actual Runtime boundary faults; synthetic frames and clock'}
+
+
+def test061_controller_mutation():
+    return ('initial_recover(p,NG2_RECOVERY_UNSENT_DEADLINE,NG2_RECOVERY_ACTUAL_TICK,now,p->s.last_capture_id);return 1;',
+            'finish(p,now,NG2_REASON_LATE);return 1;',
+            'FAIL test061_unsent_deadline_complete0_reacquires')
+
+
+def test061_controller_mutation_red(native, sources, stage, output, extra):
+    source = (native / 'NG2Controller.c').read_text()
+    old, new, expected = test061_controller_mutation()
+    if source.count(old) != 1:
+        raise ValueError('runtime_test061_C_mutation_target')
+    original_objects = [value for value in extra if Path(str(value)).name == 'NG2Controller.o']
+    if len(original_objects) != 1:
+        raise ValueError('runtime_test061_single_controller_object_required')
+    mutated = source.replace(old, new)
+    path = stage / 'NG2Controller-test061-unsent.c'; path.write_text(mutated)
+    target = stage / 'NG2Controller-test061-unsent.o'
+    flags = native_object_flags('NG2Controller.c')
+    built = subprocess.run(['clang', '-std=c11', *flags, '-I', str(native), '-c', str(path),
+        '-o', str(target)], capture_output=True, text=True, timeout=120)
+    (output / 'runtime-test061-recovery-unsent-complete0-compile.txt').write_text(built.stdout + built.stderr)
+    checked(built)
+    mutated_extra = [target if value == original_objects[0] else value for value in extra]
+    result = compile_run(sources, stage / 'recovery-unsent-complete0-tests', output,
+        'runtime-test061-recovery-unsent-complete0-mutation-red', mutated_extra, run_timeout=300)
+    require_red(result, expected)
+    return {'mutation_red': {'recovery-unsent-complete0': result.stdout.strip()},
+            'mutation_C_sha256': {'recovery-unsent-complete0': hashlib.sha256(mutated.encode()).hexdigest()},
+            'mutation_C_flags': flags}
+
+
+def test061_mutation_reds(source, native, sources, stage, output, extra):
+    report = test061_runtime_mutation_reds(source, sources, stage, output, extra)
+    c_report = test061_controller_mutation_red(native, sources, stage, output, extra)
+    report['mutation_red'].update(c_report['mutation_red'])
+    if set(report['mutation_red']) != EXPECTED_TEST061_RUNTIME_MUTATIONS | EXPECTED_TEST061_C_MUTATIONS:
+        raise RuntimeError('runtime_test061_exact_four_fault_inventory_required')
+    report.update({key: value for key, value in c_report.items() if key != 'mutation_red'})
+    report.update(mutation_count=len(report['mutation_red']), runtime_mutation_count=3, controller_mutation_count=1,
+                  scope='only focused TEST061 public fixture against three Runtime boundary faults and one C unsent retirement fault; synthetic frames and clock')
+    return report
+
+
+def test061_producer_reports(stdout, output):
+    tags = {'REPORT test061_recovery_unsent ': 3, 'REPORT test061_recovery_late ': 2}
+    selected = {tag: [line.removeprefix(tag) for line in stdout.splitlines() if line.startswith(tag)]
+                for tag in tags}
+    if any(len(selected[tag]) != count for tag, count in tags.items()):
+        raise RuntimeError('runtime_test061_exact_five_producer_reports_required')
+    rows = [line for tag in tags for line in selected[tag]]
+    def reject_nonfinite(value):
+        raise ValueError('runtime_test061_nonfinite_producer: ' + value)
+    reports = [json.loads(line, parse_constant=reject_nonfinite) for line in rows]
+    if any(not isinstance(report, dict) or not isinstance(report.get('recovery'), dict) for report in reports):
+        raise RuntimeError('runtime_test061_actual_producer_recovery_required')
+    if any(type(report.get('terminal')) is not int or report['terminal'] != 1
+           or type(report.get('paused')) is not int or report['paused'] != 1
+           or report.get('workers_drained') is not True for report in reports):
+        raise RuntimeError('runtime_test061_actual_paused_terminal_drained_producers_required')
+    groups = [report['recovery'].get('records') for report in reports]
+    if any(not isinstance(group, list) or any(not isinstance(record, dict) for record in group) for group in groups):
+        raise RuntimeError('runtime_test061_actual_producer_records_required')
+    records = [record for group in groups for record in group]
+    if any(type(record.get('clock')) is not int for record in records):
+        raise RuntimeError('runtime_test061_actual_producer_clock_type')
+    clocks = {record['clock'] for record in records}
+    snapshots = [record for record in records if isinstance(record.get('model'), dict)
+                 and type(record['model'].get('period_ns')) is int and record['model']['period_ns'] > 0
+                 and isinstance(record.get('samples'), list) and record['samples']]
+    if not {1, 2}.issubset(clocks) or len(snapshots) < 2:
+        raise RuntimeError('runtime_test061_retained_capture_and_tick_models_samples_required')
+    data = ('[\n' + ',\n'.join(rows) + '\n]\n').encode()
+    target = output / 'runtime-test061-recovery-reports.json'; target.write_bytes(data)
+    return {'producer_reports': len(reports), 'producer_report_clocks': sorted(clocks),
+            'retained_model_sample_snapshots': len(snapshots), 'producer_reports_file': target.name,
+            'producer_reports_sha256': hashlib.sha256(data).hexdigest()}
+
+
+def require_test061_green(result):
+    checked(result)
+    if (not result.stdout.strip().endswith(TEST061_PUBLIC_PASS) or result.stderr
+        or re.search(r'(?im)^\s*skip(?:ped)?(?:\s|$)', result.stdout)):
+        raise RuntimeError('runtime_test061_public_contract_missing')
+
+
+def test061_native_objects(native, output):
+    """Compile the actual patched app sources, independent of previous raster output."""
+    sources = sorted(native.glob('NG2*.c'))
+    if {source.name for source in sources} != TEST061_NATIVE_SOURCES:
+        raise ValueError('native_C_source_set')
+    stage = output / 'test061-native'; stage.mkdir(exist_ok=True)
+    objects, provenance = [], {}
+    for source in sources:
+        target = stage / (source.stem + '.o')
+        flags = native_object_flags(source.name)
+        built = subprocess.run(['clang', '-std=c11', *flags, '-I', str(native),
+            '-c', str(source), '-o', str(target)], capture_output=True, text=True, timeout=120)
+        (output / ('test061-' + source.stem + '-compile.txt')).write_text(built.stdout + built.stderr)
+        checked(built)
+        objects.append(target)
+        provenance[source.name] = {'flags': flags, 'source': str(source),
+                                  'sha256': hashlib.sha256(source.read_bytes()).hexdigest()}
+    return objects, provenance
+
 
 EXPECTED_RED = 'FAIL cancelled_ticket_not_sent'
 # The original permits() stub was successfully compiled and produced this
@@ -662,7 +833,7 @@ def navigation_profile_contract(upstream, output, *, compiler='clang'):
             'scope': 'actual production strict Navigation public API, unchanged O0, complete views/73-score bytes/Motion/Decision/Entrance/boundary and input parity'}
 
 
-def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False, selected_mutations=None, public052_only=False, new052_mutations_only=False, public053_only=False, new053_mutations_only=False, public054_only=False, new054_mutations_only=False, public055_only=False, new055_mutations_only=False, expect_evidence_red=False, public056_only=False, new056_mutations_only=False, expect_preparation_red=False, public058_only=False, public058_shop_only=False, green_only=False, new058_mutations_only=False):
+def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False, selected_mutations=None, public052_only=False, new052_mutations_only=False, public053_only=False, new053_mutations_only=False, public054_only=False, new054_mutations_only=False, public055_only=False, new055_mutations_only=False, expect_evidence_red=False, public056_only=False, new056_mutations_only=False, expect_preparation_red=False, public058_only=False, public058_shop_only=False, green_only=False, new058_mutations_only=False, public061_only=False, new061_mutations_only=False, native_objects=None):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
     native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red or expect_manifest_red else upstream / 'LoopCtrlUITests'
     if baseline_native is not None:
@@ -695,6 +866,8 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     shutil.copyfile(HERE/'ngg2_runtime_fakes.swift', stage/'Fakes.swift')
     shutil.copyfile(HERE/'ngg2_runtime_tests.swift', stage/'main.swift')
     source = (native/'NG2Runtime.swift').read_text()
+    if public061_only or new061_mutations_only:
+        (stage/'main.swift').write_text(test061_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
     if expect_preparation_red or public058_only or new058_mutations_only:
         (stage/'main.swift').write_text(test058_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text(), baseline=expect_preparation_red))
     if public058_shop_only:
@@ -775,7 +948,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     (stage/'NG2Runtime.swift').write_text(source)
     sources = [output/'api/RPCTypes.swift', native/'NG2Ticket.swift', native/'NG2Raster.swift',
                stage/'Fakes.swift', stage/'NG2Runtime.swift', stage/'main.swift']
-    objects = sorted((output/'raster').glob('NG2*.o'))+[stage/'fixture.o', scene_object]
+    objects = (list(native_objects) if native_objects is not None else sorted((output/'raster').glob('NG2*.o'))) + [stage/'fixture.o', scene_object]
     extra = ['-D', 'NG2_RUNTIME_HOST_TEST', '-Xcc', '-I'+str(native), '-Xcc', '-I'+str(HERE), '-import-objc-header', stage/'NG2RuntimeFixture.h', *objects]
     if expect_capture_red:
         # Fixed TEST047 predates afterWatchdogCheck. Its selected fixture does
@@ -783,6 +956,8 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         extra += ['-D', 'NG2_RUNTIME_LEGACY_CAPTURE_BASELINE']
     if public058_only or new058_mutations_only:
         extra += ['-D', 'NG2_PREPARATION_TEST058_GREEN']
+    if new061_mutations_only:
+        return test061_mutation_reds(source, native, sources, stage, output, extra)
     if new058_mutations_only:
         mutations={
             'preparation-reuse-disabled': ('        if let reusable { return reusable }',
@@ -813,7 +988,15 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         'runtime-manifest-baseline-red' if expect_manifest_red else
         'runtime-observe-baseline-red' if expect_observe_red else
         'runtime-dispatch-baseline-red' if expect_dispatch_red else
-        'runtime-failure-baseline-red' if expect_capture_red else 'runtime-production-green', extra, run_timeout=300 if public058_shop_only else 120)
+        'runtime-failure-baseline-red' if expect_capture_red else 'runtime-production-green', extra, run_timeout=300 if public058_shop_only or public061_only else 120)
+    if public061_only:
+        require_test061_green(green)
+        return {'production_green': green.stdout.strip(), 'compiled': True, 'device_test': 'not_run',
+                'fixture_sha256': hashlib.sha256((stage/'main.swift').read_bytes()).hexdigest(),
+                'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                'entrypoints': list(TEST061_PUBLIC_ENTRYPOINTS),
+                **test061_producer_reports(green.stdout, output),
+                'scope': 'focused public Runtime/actual patched C recovery and commit-clock fixtures; synthetic frames and clock'}
     if expect_preparation_red:
         require_red(green, 'FAIL MISSING_prepared_continuous_reissue_sends_within_original_frozen_deadline')
         return {'baseline_red': green.stdout.strip(), 'compiled': True, 'returncode': green.returncode,
@@ -1542,6 +1725,22 @@ def capture_contract(upstream, output):
             'scope':'Actual ObjC legacy timeout and direct async callback bodies, fake private daemon classes'}
 
 
+def test061_contract(upstream, output, *, mutations_only=False):
+    output.mkdir(parents=True, exist_ok=True)
+    (output / 'api').mkdir(exist_ok=True)
+    types = (upstream / 'LoopCtrlKit/RPCTypes.swift').read_text().split('// MARK: - Auth Types\n', 1)
+    if len(types) != 2:
+        raise ValueError('rpc_types_boundary')
+    (output / 'api/RPCTypes.swift').write_text(types[0])
+    native = upstream / 'LoopCtrlUITests'
+    objects, provenance = test061_native_objects(native, output)
+    report = {'runtime': runtime_contract(upstream, output, public061_only=not mutations_only,
+                  new061_mutations_only=mutations_only, native_objects=objects),
+              'native_sources': provenance, 'device_test': 'not_run'}
+    (output / 'ngg2-swift-contract.json').write_text(json.dumps(report, indent=2) + '\n')
+    return report
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--red-only', action='store_true')
@@ -1570,8 +1769,20 @@ def main():
     parser.add_argument('--test058-shop-only', action='store_true')
     parser.add_argument('--test058-runtime-green-only', action='store_true')
     parser.add_argument('--test058-new-mutations-only', action='store_true')
+    parser.add_argument('--test061-public-only', action='store_true')
+    parser.add_argument('--test061-new-mutations-only', action='store_true')
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
+    if args.test061_public_only or args.test061_new_mutations_only:
+        other_modes = [value for name, value in vars(args).items()
+                       if name not in ('paths', 'test061_public_only', 'test061_new_mutations_only')]
+        if (sum((args.test061_public_only, args.test061_new_mutations_only)) != 1
+            or any(other_modes) or len(args.paths) != 2):
+            parser.error('TEST061 standalone mode requires patched upstream and output directory')
+        upstream, output = args.paths
+        report = test061_contract(upstream, output, mutations_only=args.test061_new_mutations_only)
+        print(report['runtime'].get('production_green', report['runtime'].get('mutation_red')))
+        return
     if args.test051_red_only or args.test051_public_only or args.test051_runtime_only or args.test051_new_mutations_only or args.test051_selected_mutations is not None or args.test052_public_only or args.test052_new_mutations_only or args.test053_public_only or args.test053_new_mutations_only or args.test054_public_only or args.test054_new_mutations_only or args.test055_public_only or args.test055_new_mutations_only or args.test056_red_only or args.test056_public_only or args.test056_new_mutations_only or args.test058_red_only or args.test058_public_only or args.test058_shop_only or args.test058_runtime_green_only or args.test058_new_mutations_only:
         if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only, args.test051_new_mutations_only, args.test051_selected_mutations is not None, args.test052_public_only, args.test052_new_mutations_only, args.test053_public_only, args.test053_new_mutations_only, args.test054_public_only, args.test054_new_mutations_only, args.test055_public_only, args.test055_new_mutations_only, args.test056_red_only, args.test056_public_only, args.test056_new_mutations_only, args.test058_red_only, args.test058_public_only, args.test058_shop_only, args.test058_runtime_green_only, args.test058_new_mutations_only)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
             parser.error('TEST051 standalone mode requires fixed upstream and output directory')
@@ -1583,7 +1794,7 @@ def main():
         if len(types) != 2:
             raise ValueError('rpc_types_boundary')
         (output/'api/RPCTypes.swift').write_text(types[0])
-        native = HERE/'ngg2'
+        native = upstream/'LoopCtrlUITests' if args.test058_shop_only else HERE/'ngg2'
         if args.test051_red_only:
             native = output/'test050-native-baseline'
             native.mkdir(exist_ok=True)

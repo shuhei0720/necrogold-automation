@@ -86,7 +86,7 @@ class NativePackageProfileTests(unittest.TestCase):
         (self.patchdir / 'ngg2.patch').write_text('fixture patch\n')
         self.manifest = {
             'upstream_commit': self.checker.UPSTREAM,
-            'api_version': '1.98.14-ngg2',
+            'api_version': '1.98.15-ngg2',
             'capability': 'necrogold_native_v1',
             'client_capability': 'necrogold_native_v7',
             'patch_sha256': self.checker.digest((self.patchdir / 'ngg2.patch').read_bytes()),
@@ -192,6 +192,32 @@ class NativePackageProfileTests(unittest.TestCase):
     def test_native_v7_package_writes_both_strict_source_proofs(self):
         profile = self.write_profile(2)
         result = self.run_package()
+        self.assertEqual(result['perception_build_profile'], profile)
+        self.assertEqual(profile['format_version'], 2)
+        self.assertEqual(profile['perception_compiles'][0]['optimization'], '-O2')
+        self.assertEqual(profile['navigation_compiles'][0]['optimization'], '-O2')
+
+    def test_native_v13_package_requires_compiler_proof_before_writing(self):
+        self.manifest['client_capability'] = 'necrogold_native_v13'
+        self.write_manifest()
+        with self.assertRaisesRegex(self.checker.ProfileError, 'compile_profile_missing'):
+            self.run_package()
+        self.assertFalse(self.report_path.exists())
+
+    def test_native_v13_package_rejects_valid_legacy_profile(self):
+        self.manifest['client_capability'] = 'necrogold_native_v13'
+        self.write_manifest()
+        self.write_profile(1)
+        with self.assertRaises(self.checker.ProfileError):
+            self.run_package()
+        self.assertFalse(self.report_path.exists())
+
+    def test_native_v13_package_writes_both_strict_source_proofs(self):
+        self.manifest['client_capability'] = 'necrogold_native_v13'
+        self.write_manifest()
+        profile = self.write_profile(2)
+        result = self.run_package()
+        self.assertEqual(result['client_capability'], 'necrogold_native_v13')
         self.assertEqual(result['perception_build_profile'], profile)
         self.assertEqual(profile['format_version'], 2)
         self.assertEqual(profile['perception_compiles'][0]['optimization'], '-O2')

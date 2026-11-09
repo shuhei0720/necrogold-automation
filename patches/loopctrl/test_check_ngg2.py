@@ -1,5 +1,6 @@
 """Guard Runtime assertion-Red provenance and public fixture selection."""
 import importlib.util
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -261,6 +262,293 @@ class Test058PublicSelectionTests(unittest.TestCase):
                 target.write_text(content)
                 with patch.object(checker,'HERE',Path(folder)),self.assertRaises(ValueError):
                     checker.test058_public_fixture_source(tests)
+
+
+class Test061PublicSelectionTests(unittest.TestCase):
+    fixture = ('func test061RecoveryPublic() {\n'
+               '    require(true, "test061_fixture_boundary")\n}\n'
+               'test061RecoveryPublic()\n'
+               'print("PASS production Runtime public API/TEST061 recovery and actual commit fixtures")\n')
+
+    def select(self, fixture=None, tests=None):
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / 'ngg2_recovery_tests.swift').write_text(
+                self.fixture if fixture is None else fixture)
+            with patch.object(checker, 'HERE', Path(folder)):
+                return checker.test061_public_fixture_source(
+                    (HERE / 'ngg2_runtime_tests.swift').read_text() if tests is None else tests)
+
+    def test_selects_only_registered_recovery_fixture_with_original_helpers(self):
+        selected = self.select()
+        calls = re.findall(r'^(test\w+)\(\)$', selected, flags=re.MULTILINE)
+        self.assertEqual(calls, ['test061RecoveryPublic'])
+        self.assertTrue(selected.endswith(self.fixture))
+        self.assertIn('func require(', selected)
+        self.assertNotIn('func testPagedResultsManifestPublicBaseline(', selected)
+        self.assertNotIn('testShopWorld058Public()', selected)
+
+    def test_actual_recovery_fixture_is_registered_and_contains_no_old_top_level_calls(self):
+        selected = checker.test061_public_fixture_source((HERE / 'ngg2_runtime_tests.swift').read_text())
+        calls = re.findall(r'^(test\w+)\(\)$', selected, flags=re.MULTILINE)
+        self.assertEqual(calls, ['test061RecoveryPublic'])
+        self.assertIn('test061_unsent_deadline_complete0_reacquires', selected)
+        self.assertIn('test061_actual_commit_after_visual_deadline_rejects_all_motion_credit_', selected)
+        self.assertNotIn('testShopWorld058Public()', selected)
+
+    def test_rejects_missing_or_duplicate_helper_boundary(self):
+        tests = (HERE / 'ngg2_runtime_tests.swift').read_text()
+        marker = '// This public request is intentionally runnable'
+        for broken in (tests.replace(marker, ''), tests + marker):
+            with self.subTest(source=broken[-40:]), self.assertRaisesRegex(
+                    ValueError, 'runtime_test061_public_fixture_boundary'):
+                self.select(tests=broken)
+
+    def test_rejects_empty_nonexecuting_duplicate_or_unregistered_fixture(self):
+        cases = ('', '// no executable test',
+                 self.fixture.replace('test061RecoveryPublic()\n', ''),
+                 self.fixture + 'test061RecoveryPublic()\n',
+                 self.fixture + 'testShopWorld058Public()\n',
+                 self.fixture.replace('    require(true, "test061_fixture_boundary")\n', ''),
+                 self.fixture.replace('func test061RecoveryPublic()', 'func unregisteredFixture()'))
+        for fixture in cases:
+            with self.subTest(fixture=fixture), self.assertRaisesRegex(
+                    ValueError, 'runtime_test061_public_fixture_body'):
+                self.select(fixture)
+
+    def test_three_new_faults_are_separate_and_match_current_Runtime_once(self):
+        mutations = checker.test061_runtime_mutations()
+        self.assertEqual(set(mutations), checker.EXPECTED_TEST061_RUNTIME_MUTATIONS)
+        self.assertEqual(len(mutations), 3)
+        self.assertFalse(set(mutations) & (checker.EXPECTED_RUNTIME_MUTATIONS |
+                                         checker.EXPECTED_TEST056_MUTATIONS))
+        runtime = (HERE / 'ngg2/NG2Runtime.swift').read_text()
+        for label, (old, new, expected) in mutations.items():
+            with self.subTest(label=label):
+                self.assertEqual(runtime.count(old), 1)
+                self.assertNotEqual(old, new)
+                self.assertTrue(expected.startswith('FAIL test061_'))
+
+    def test_mutation_runner_keeps_focused_fixture_and_restores_Runtime(self):
+        mutations = checker.test061_runtime_mutations()
+        source = '\n'.join(value[0] for value in mutations.values())
+        with tempfile.TemporaryDirectory() as folder:
+            stage = Path(folder)
+            (stage / 'main.swift').write_text(self.fixture)
+            (stage / 'NG2Runtime.swift').write_text(source)
+            sources = [stage / 'NG2Runtime.swift', stage / 'main.swift']
+            def compile_focused(actual_sources, executable, output, label, extra, **kwargs):
+                self.assertEqual(actual_sources, sources)
+                self.assertEqual((stage / 'main.swift').read_text(), self.fixture)
+                key = label.removeprefix('runtime-test061-').removesuffix('-mutation-red')
+                old, new, expected = mutations[key]
+                self.assertEqual((stage / 'NG2Runtime.swift').read_text(), source.replace(old, new))
+                return subprocess.CompletedProcess(['focused-runtime'], 1, expected + '\n', '')
+            with patch.object(checker, 'compile_run', side_effect=compile_focused) as compile_call, \
+                    patch('builtins.print'):
+                report = checker.test061_runtime_mutation_reds(source, sources, stage, stage, ['objects'])
+            self.assertEqual(compile_call.call_count, 3)
+            self.assertEqual(report['mutation_count'], 3)
+            self.assertEqual(set(report['mutation_red']), set(mutations))
+            self.assertEqual((stage / 'NG2Runtime.swift').read_text(), source)
+            self.assertEqual((stage / 'main.swift').read_text(), self.fixture)
+
+    def test_mutation_runner_rejects_compile_error_and_wrong_assertion_then_restores_source(self):
+        mutations = checker.test061_runtime_mutations()
+        source = '\n'.join(value[0] for value in mutations.values())
+        for compile_failure in (True, False):
+            with self.subTest(compile_failure=compile_failure), tempfile.TemporaryDirectory() as folder:
+                stage = Path(folder)
+                (stage / 'main.swift').write_text(self.fixture)
+                (stage / 'NG2Runtime.swift').write_text(source)
+                outcome = (subprocess.CalledProcessError(1, ['swiftc']) if compile_failure else
+                           subprocess.CompletedProcess(['focused-runtime'], 1, 'FAIL other_assertion\n', ''))
+                with patch.object(checker, 'compile_run', **(
+                        {'side_effect': outcome} if compile_failure else {'return_value': outcome})) as run, \
+                        patch('builtins.print'), self.assertRaises(
+                            subprocess.CalledProcessError if compile_failure else RuntimeError):
+                    checker.test061_runtime_mutation_reds(source, [], stage, stage, [])
+                self.assertEqual(run.call_count, 1)
+                self.assertEqual((stage / 'NG2Runtime.swift').read_text(), source)
+                self.assertEqual((stage / 'main.swift').read_text(), self.fixture)
+
+    def test_controller_complete0_fault_matches_current_source_and_substitutes_one_object(self):
+        source = (HERE / 'ngg2/NG2Controller.c').read_text()
+        old, new, expected = checker.test061_controller_mutation()
+        self.assertEqual(source.count(old), 1)
+        self.assertEqual(checker.EXPECTED_TEST061_C_MUTATIONS, frozenset(('recovery-unsent-complete0',)))
+        self.assertFalse(checker.EXPECTED_TEST061_C_MUTATIONS & checker.EXPECTED_TEST061_RUNTIME_MUTATIONS)
+        with tempfile.TemporaryDirectory() as folder:
+            stage = Path(folder)
+            native = stage / 'upstream'; native.mkdir()
+            (native / 'NG2Controller.c').write_text(source)
+            original = stage / 'app' / 'NG2Controller.o'
+            extra = ['-D', 'NG2_RUNTIME_HOST_TEST', original, stage / 'app' / 'NG2Perception.o']
+            red = subprocess.CompletedProcess(['focused-runtime'], 1, expected + '\n', '')
+            with patch.object(checker.subprocess, 'run', return_value=
+                    subprocess.CompletedProcess(['clang'], 0, '', '')) as clang, \
+                    patch.object(checker, 'compile_run', return_value=red) as swift:
+                report = checker.test061_controller_mutation_red(native, ['sources'], stage, stage, extra)
+            self.assertEqual(set(report['mutation_red']), {'recovery-unsent-complete0'})
+            command = clang.call_args.args[0]
+            self.assertIn('-O0', command)
+            self.assertEqual(command[command.index('-I') + 1], str(native))
+            mutated_source = Path(command[command.index('-c') + 1])
+            self.assertEqual(mutated_source.read_text(), source.replace(old, new))
+            actual_extra = swift.call_args.args[4]
+            self.assertNotIn(original, actual_extra)
+            self.assertEqual(actual_extra[:2], extra[:2])
+            self.assertEqual(actual_extra[-1], extra[-1])
+            self.assertEqual(Path(actual_extra[2]).name, 'NG2Controller-test061-unsent.o')
+            self.assertEqual((native / 'NG2Controller.c').read_text(), source)
+
+    def test_controller_compile_failure_is_never_a_named_assertion_red(self):
+        old, _, _ = checker.test061_controller_mutation()
+        with tempfile.TemporaryDirectory() as folder:
+            stage = Path(folder)
+            (stage / 'NG2Controller.c').write_text(old)
+            with patch.object(checker.subprocess, 'run', return_value=
+                    subprocess.CompletedProcess(['clang'], 1, 'FAIL fake\n', 'error: C failed\n')), \
+                    patch.object(checker, 'compile_run') as swift, patch('builtins.print'), \
+                    self.assertRaises(subprocess.CalledProcessError):
+                checker.test061_controller_mutation_red(stage, [], stage, stage, [stage / 'app' / 'NG2Controller.o'])
+            swift.assert_not_called()
+
+    def producer_stdout(self, *, clock=1, samples=True, count=5):
+        rows = []
+        for index in range(count):
+            report = {'terminal': 1, 'paused': 1, 'workers_drained': True,
+                      'recovery': {'records': [{'clock': clock if index == 0 else 2,
+                'model': {'period_ns': 520_000_000}, 'samples': [{}] if samples else []}]}}
+            tag = 'REPORT test061_recovery_unsent ' if index < 3 else 'REPORT test061_recovery_late '
+            rows.append(tag + json.dumps(report))
+        return '\n'.join(rows) + '\n'
+
+    def test_producer_artifact_contains_exact_five_actual_report_rows_and_artifact_hash(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)
+            evidence = checker.test061_producer_reports(self.producer_stdout(), output)
+            artifact = output / 'runtime-test061-recovery-reports.json'
+            self.assertEqual(len(json.loads(artifact.read_text())), 5)
+            self.assertEqual(evidence['producer_reports'], 5)
+            self.assertEqual(evidence['producer_report_clocks'], [1, 2])
+            self.assertEqual(evidence['retained_model_sample_snapshots'], 5)
+            self.assertEqual(evidence['producer_reports_sha256'], checker.hashlib.sha256(artifact.read_bytes()).hexdigest())
+
+    def test_producer_artifact_rejects_missing_clock_or_empty_snapshot_or_wrong_count(self):
+        for stdout in (self.producer_stdout(count=4), self.producer_stdout(count=6),
+                       self.producer_stdout(clock=2), self.producer_stdout(clock=True),
+                       self.producer_stdout(samples=False),
+                       self.producer_stdout().replace('520000000', 'NaN', 1)):
+            with self.subTest(stdout=stdout[:100]), tempfile.TemporaryDirectory() as folder:
+                output = Path(folder)
+                with self.assertRaises((RuntimeError, ValueError)):
+                    checker.test061_producer_reports(stdout, output)
+                self.assertFalse((output / 'runtime-test061-recovery-reports.json').exists())
+
+    def test_producer_artifact_rejects_unpaused_nonterminal_or_undrained_lifecycle(self):
+        for key, value in (('terminal', 0), ('terminal', True), ('terminal', None),
+                           ('paused', 0), ('paused', True), ('paused', None),
+                           ('workers_drained', False), ('workers_drained', 1), ('workers_drained', None)):
+            lines = self.producer_stdout().splitlines()
+            tag = 'REPORT test061_recovery_unsent '
+            first = json.loads(lines[0].removeprefix(tag))
+            first[key] = value
+            lines[0] = tag + json.dumps(first)
+            with self.subTest(key=key, value=value), tempfile.TemporaryDirectory() as folder:
+                output = Path(folder)
+                with self.assertRaisesRegex(RuntimeError, 'runtime_test061_actual_paused_terminal_drained_producers_required'):
+                    checker.test061_producer_reports('\n'.join(lines), output)
+                self.assertFalse((output / 'runtime-test061-recovery-reports.json').exists())
+
+    def test_green_rejects_zero_missing_skip_and_unexpected_diagnostic_results(self):
+        accepted = subprocess.CompletedProcess(['focused-runtime'], 0,
+                                               checker.TEST061_PUBLIC_PASS + '\n', '')
+        checker.require_test061_green(accepted)
+        for stdout, stderr in (('', ''), ('PASS other fixture\n', ''),
+                               ('SKIP TEST061\n' + accepted.stdout, ''),
+                               (' skipped fixture\n' + accepted.stdout, ''),
+                               (accepted.stdout, 'unexpected diagnostic\n')):
+            with self.subTest(stdout=stdout, stderr=stderr), self.assertRaisesRegex(
+                    RuntimeError, 'runtime_test061_public_contract_missing'):
+                checker.require_test061_green(subprocess.CompletedProcess(
+                    ['focused-runtime'], 0, stdout, stderr))
+        with patch('builtins.print'), self.assertRaises(subprocess.CalledProcessError):
+            checker.require_test061_green(subprocess.CompletedProcess(
+                ['focused-runtime'], 1, accepted.stdout, ''))
+
+    def test_new_standalone_modes_dispatch_without_historical_runtime_modes(self):
+        for flag, mutations in (('--test061-public-only', False),
+                                ('--test061-new-mutations-only', True)):
+            with self.subTest(flag=flag), tempfile.TemporaryDirectory() as folder:
+                paths = [str(Path(folder) / 'upstream'), str(Path(folder) / 'output')]
+                report = {'runtime': {'production_green': 'focused result'}}
+                with patch.object(checker.sys, 'argv', ['check_ngg2.py', flag, *paths]), \
+                        patch.object(checker, 'test061_contract', return_value=report) as focused, \
+                        patch.object(checker, 'runtime_contract') as historical, patch('builtins.print'):
+                    checker.main()
+                focused.assert_called_once_with(Path(paths[0]), Path(paths[1]), mutations_only=mutations)
+                historical.assert_not_called()
+
+    def test_new_standalone_modes_reject_conflicting_modes_and_missing_paths(self):
+        for arguments in (['--test061-public-only', '--test061-new-mutations-only', 'a', 'b'],
+                          ['--test061-public-only', '--test058-shop-only', 'a', 'b'],
+                          ['--test061-public-only', '--red-only', 'a', 'b'],
+                          ['--test061-public-only', 'a']):
+            with self.subTest(arguments=arguments), \
+                    patch.object(checker.sys, 'argv', ['check_ngg2.py', *arguments]), \
+                    patch.object(checker, 'test061_contract') as focused, \
+                    patch.object(checker.sys, 'stderr'), self.assertRaises(SystemExit) as error:
+                checker.main()
+            self.assertEqual(error.exception.code, 2)
+            focused.assert_not_called()
+
+    def test_native_compile_uses_only_four_current_upstream_sources_and_app_flags(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)
+            native = output / 'upstream' / 'LoopCtrlUITests'
+            native.mkdir(parents=True)
+            names = ('NG2Beat.c', 'NG2Controller.c', 'NG2Navigation.c', 'NG2Perception.c')
+            for name in names:
+                (native / name).write_text('/* ' + name + ' */\n')
+            with patch.object(checker.subprocess, 'run', return_value=
+                    subprocess.CompletedProcess(['clang'], 0, '', '')) as compile_call:
+                objects, provenance = checker.test061_native_objects(native, output)
+            self.assertEqual(set(provenance), set(names))
+            self.assertEqual(len(objects), 4)
+            self.assertEqual(compile_call.call_count, 4)
+            for call in compile_call.call_args_list:
+                command = call.args[0]
+                source = Path(command[command.index('-c') + 1])
+                target = Path(command[command.index('-o') + 1])
+                self.assertEqual(source.parent, native)
+                self.assertEqual(target.parent, output / 'test061-native')
+                flags = checker.native_object_flags(source.name)
+                self.assertEqual(provenance[source.name]['flags'], flags)
+                self.assertTrue(all(flag in command for flag in flags))
+            self.assertTrue(all(path.parent == output / 'test061-native' for path in objects))
+
+    def test_native_compile_rejects_missing_extra_or_failed_sources(self):
+        names = ('NG2Beat.c', 'NG2Controller.c', 'NG2Navigation.c', 'NG2Perception.c')
+        for selected in (names[:-1], names + ('NG2Unexpected.c',)):
+            with tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                native = root / 'native'; native.mkdir()
+                for name in selected:
+                    (native / name).write_text('/* fixture */\n')
+                with patch.object(checker.subprocess, 'run') as run, self.assertRaisesRegex(
+                        ValueError, 'native_C_source_set'):
+                    checker.test061_native_objects(native, root)
+                run.assert_not_called()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            native = root / 'native'; native.mkdir()
+            for name in names:
+                (native / name).write_text('/* fixture */\n')
+            with patch.object(checker.subprocess, 'run', return_value=
+                    subprocess.CompletedProcess(['clang'], 1, '', 'error: compile failed\n')) as run, \
+                    patch('builtins.print'), self.assertRaises(subprocess.CalledProcessError):
+                checker.test061_native_objects(native, root)
+            self.assertEqual(run.call_count, 1)
 
 
 if __name__ == '__main__':

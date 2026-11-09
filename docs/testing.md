@@ -1,6 +1,6 @@
 # 検証の入口と証明範囲
 
-件数/commit/配布/実機結果は[status](status.md)、条件は[契約](contracts/native-control.md)、受入は[要件](requirements/necrogold.md)。本書はsuiteの入口であり実行記録ではない。
+件数/commit/配布/実機結果は[status](status.md)、条件は[契約](contracts/native-control.md)、受入は[要件](requirements/necrogold.md)。
 
 ## 検証層
 
@@ -12,11 +12,11 @@
 | Compiler・IPA | `patches/loopctrl/test_*.py`、`check_perception_build.py`、`check_ngg2_rpc.py`、`verify_package.py` | 実compile/profile/所有者callsite/封印/配布物の来歴。ゲームが入力を受けた証明ではない |
 | 原トレースの時系列再生 | 下記の追加方針 | 実収録prefixと時刻・画像に対する退行。異なる操作への未来応答を録画から生成しない |
 | Macの実ゲーム | 下記の導入条件 | 正規ゲームを実際に起動して到達/開通/商品を独立確認。未導入・未実施 |
-| iPhone実機E2E | [実ゲームE2E](device-tests/game-e2e.md)、最新statusのTEST手順 | 同じLoopCtrl/ゲーム/取得/touch経路で実画面の移動・拍・商品・ポーズ・性能を確認。HTTP成功やACKだけを成功にしない |
+| iPhone実機E2E | [実ゲームE2E](device-tests/game-e2e.md)、最新statusのTEST手順 | 同じLoopCtrl/ゲーム/touch経路で実画面の移動・拍・商品・ポーズ・性能を確認。HTTP成功やACKだけを成功にしない |
 
 ## 必須実画像とCIの除外
 
-現行local再生集合は203 image paths。`tests/test_native_perception.py` の `required_profile_fixtures` と各manifestで件数/path/hashを検査し、未配置・不一致は失敗する。raw画像はGit外。
+local再生203paths。`tests/test_native_perception.py` の `required_profile_fixtures` と各manifestで件数/path/hashを検査し、未配置・不一致は失敗する。raw画像はGit外。
 
 | Manifest | 環境変数 | path数 |
 | --- | --- | --- |
@@ -34,34 +34,34 @@
 | `tests/test059-fixtures.json` | `NECRO_TEST059_FIXTURE_ROOT` | 12 |
 | `tests/test060-fixtures.json` | `NECRO_TEST060_FIXTURE_ROOT` | 14 |
 
-各rootへ相対pathで配置する。058 manifestは受領057の完成7/報告11枚、059は受領058全12枚、060は受領059の完成14/報告16枚。AI目視は暫定、商品未観測は陰性にしない。元ZIPもGit外へ置き、`NECRO_TEST055_RECORDING_ZIP=/private/test-054.zip`、`NECRO_TEST058_RECORDING_ZIP=/private/test-057.zip`、`NECRO_TEST059_RECORDING_ZIP=/private/test-058.zip`、`NECRO_TEST060_RECORDING_ZIP=/private/test-059.zip` をexportする。SHA256は対応test/manifestに固定。
+rootへ相対配置する。AI目視は暫定、商品未観測は陰性にしない。元ZIPもGit外へ置き、`NECRO_TEST055_RECORDING_ZIP=/private/test-054.zip`、`NECRO_TEST058_RECORDING_ZIP=/private/test-057.zip`、`NECRO_TEST059_RECORDING_ZIP=/private/test-058.zip`、`NECRO_TEST060_RECORDING_ZIP=/private/test-059.zip` をexportする。SHA256は対応test/manifestに固定。
 
-[native workflow](../.github/workflows/loopctrl-geometry.yml) は私有資料31methodを名前の厳密照合で除外する。各受領画像のPerception/Nav/Motion parityと実記録評価を分ける。057は未完了unknown/exit2、058は整合pass・商品未達fail/exit1、059は複数run/partでinvalid/unknown/exit2。未収録操作の未来画像は使わない。local全件・CI除外・旧suiteの外部画像不足skipは別集計。既知調整画像/同run隣接画像は未見評価に数えない。
+[native workflow](../.github/workflows/loopctrl-geometry.yml) は私有資料31methodを名前の厳密照合で除外する。原記録は057未完了、058商品未達、059複数runであり、整合性と到達を分ける。未収録操作の未来画像は使わない。local・CI除外・旧skipは別集計。既知調整画像/同run隣接画像は未見評価に数えない。
 
 ## TEST058の独立合成商店world
 
-`ngg2_shop_world_tests.swift` の公開入口は `SmallShopWorld` へ実gestureの方向/時刻を渡す。自身の地形・扉・掘削・位置・商品遮蔽から896×414 RGBAを描き、report/Decision/期待操作列をworld更新のoracleにしない。独立epoch/520ms周期、150ms先行±10ms受付・同拍重複拒否は合成条件。
+`ngg2_shop_world_tests.swift` は実gestureから独立地形/位置で画像を描き、report/Decisionをoracleにしない。520ms周期・150ms先行±10ms受付・同拍重複拒否は合成。
 
 [16ケース](tests/test058-world-cases.md) は四方向×閉じた木/鉄扉の正常8例（方向入力4/変位3）、四方向の迂回掘削4例（7/5）、PF（遠いPARTIAL→VISIBLE）、PA（隣接PARTIAL保護停止）、CA（未送信取消）、UN（消費済みUNKNOWN・無再送）。開通/掘削だけでは変位せず、商品確認後は追加方向入力0・PAUSE1。CA/UNはPAUSE0で別検証する。production C/Runtimeの合成結合であり、実ゲームの受付・成功率・iPhone受入を証明しない。
 
-## TEST060の連続初回予約と長経路world
+## TEST061の対象選択
 
-`test_native_goal_world.py` は[固定期待](tests/test060-world-cases.md)の160終端/遅延停止、Controllerは全1ms位相を別検査する。source200ms/公開100msは[新方針](plans/test060-continuous-admission.md)。独立地形/時計/受付から開扉→進入→商品/PAUSEと連続拍を検査し、実1px揺れ/実ゲームの再現とは呼ばない。
+`loopctrl-geometry.yml` は手動focusedを既定、fullは明示手動。`run_test061_host.py` がpatched upstreamをC試験へ結ぶ。Controller全公開method＋新recovery/関連Beat/package、Macは新061公開結合/指定故障＋独立shop16、実IPA/compile/sealを選ぶ。client互換/暗号HTTPはclient workflow。private Controller5件はlocalで別実施し、除外名を厳密照合する。
+
+`test_native_recovery_world.py` は独立地形の四方向×木鉄扉8例、LEFT→UPの曲がり、画像処理遅延だけの例を検査する。取得24/復号60/解析16ms・周期105ms・ACK295msは合成。移動途中35pxではUNKNOWN、36pxの確認後に再同期し、開扉→進入→商品/PAUSEまで通す。拍の空きも記録し毎拍成功と呼ばない。
+
+旧`test_native_goal_world.py`の[160経路](tests/test060-world-cases.md)・Runtime既存59故障はfullに残す。原060の未収録画像やゲーム応答の再現ではない。実施結果は版ごとのreviewへ記録する。
 
 ## 代表コマンド
 
-rootでPython/Pillow/C compilerとfixture rootsを準備する。methodは [context](context.md) から `rg -n` で絞る。
+Python/Pillow/C compilerとfixture rootsを準備し、[context](context.md)から対象を絞る。
 
-Nativeのlocal全件:
-
-```sh
-PYTHONPATH=tests python3 -m unittest test_native_perception test_native_navigation test_native_beat test_native_controller test_native_raster test_device_recording test_native_goal_world -v
-```
+Nativeの対象methodは`PYTHONPATH=tests python3 -m unittest MODULE.CLASS.METHOD -v`。full集合はworkflowの明示modeを参照する。
 
 Client・実HTTP・回復:
 
 ```sh
-PYTHONPATH=tests python3 -m unittest test_protocol test_http_and_cli test_http_diagnostics test_native_walk test_native_connect test_native_results test_native_paged_results test_native_export_batch test_native_motion_references -v
+PYTHONPATH=tests python3 -m unittest test_protocol test_http_and_cli test_http_diagnostics test_native_walk test_native_connect test_native_results test_native_paged_results test_native_export_batch test_native_motion_references test_native_recovery_results -v
 ```
 
 Patch・compile/package監査:
@@ -70,7 +70,7 @@ Patch・compile/package監査:
 python3 -m unittest discover -s patches/loopctrl -p 'test_*.py' -v
 ```
 
-Swift/fault/実compiler/IPAは[native workflow](../.github/workflows/loopctrl-geometry.yml)、暗号clientは[client workflow](../.github/workflows/native-client.yml)。helper単独の成功は全工程完了ではない。
+Swift/fault/実compiler/IPAは[native workflow](../.github/workflows/loopctrl-geometry.yml)、暗号clientは[client workflow](../.github/workflows/native-client.yml)。単独成功は全工程完了ではない。
 
 ## 原トレース再生方針
 
@@ -86,4 +86,4 @@ Swift/fault/実compiler/IPAは[native workflow](../.github/workflows/loopctrl-ge
 
 導入後は正規日本版/固定viewportでproduction CへGUI capture/inputを接続。独立の移動/商品oracleと配置別の時刻/画像/拍/全成否を保存し、fake値で成功にしない。
 
-Mac/GUI成功をiPhone受入にしない。touch/取得/LoopCtrl経路・実性能はiPhoneで確認し、通常運用をPC必須へ変えない。
+Mac/GUI成功をiPhone受入にしない。touch/取得/実性能はiPhoneで確認し、通常運用をPC必須へ変えない。

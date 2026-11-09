@@ -1,10 +1,10 @@
 {
   "format_version": 1,
   "upstream_commit": "6e25cf6a9f65bc86c372cdce94bdb151d0cf6767",
-  "api_version": "1.98.14-ngg2",
+  "api_version": "1.98.15-ngg2",
   "capability": "necrogold_native_v1",
-  "client_capability": "necrogold_native_v12",
-  "patch_sha256": "c4cd71c27af0a53ee8dccac9d1dc7080e6542f2424592c51c5c48465830fe0c8",
+  "client_capability": "necrogold_native_v13",
+  "patch_sha256": "01774af37e1e9987b51a8631580ef9dd18ceb471b42e2ffb85e8e7bda3079bb8",
   "files": {
     "LoopCtrlUITests/ActionHandler.swift": {
       "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
@@ -19,7 +19,7 @@
     "LoopCtrlKit/RPCMethod.swift": {
       "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
       "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
-      "patched_sha256": "11803132d0c8454fd29c322baa0f5793a1fcd4d0f8499d38dcaee2851c4094c7"
+      "patched_sha256": "7de7b0197715160795f78742b11d477ae63bd7e8787d5609a323cae65f6944c6"
     },
     "LoopCtrlKit/JSONRPCServer.swift": {
       "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
@@ -67,11 +67,11 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "3a16d0b675061dd60b632f419437094e9fea82e90e9027efe01c61910f73f7cb"
+      "sha256": "b1bbe02da9a17ef8618aae5f7e36f059ed5736fd7cce970c0249f8ddf620f894"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
-      "sha256": "55351a72b508e10437a32fea8510f74b8f1931719215a72fbbdee3d59ec070a0"
+      "sha256": "a17ffefcf30932097d4308928a3b746c62908b0b44932429dbb243e0a8012b1e"
     },
     "LoopCtrlUITests/NG2Core.h": {
       "source": "NG2Core.h",
@@ -87,7 +87,7 @@
     },
     "Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift": {
       "source": "NG2RPCContractsTests.swift",
-      "sha256": "dcad84a726e822fd37db543143ac80f89ea67e0fcd65b356cc7c9d76448f6d83"
+      "sha256": "ea2dc6fa2e1250c6066ca0334d2266a2bf94aa369d50d8dcf29665f4839f4b21"
     },
     "LoopCtrlUITests/NG2Raster.swift": {
       "source": "NG2Raster.swift",
@@ -95,7 +95,7 @@
     },
     "LoopCtrlUITests/NG2Runtime.swift": {
       "source": "NG2Runtime.swift",
-      "sha256": "e2f06df9f4decc5ee1437b034f32f4c6958b62a8a84c50c1aaa6d4ed34e9461b"
+      "sha256": "de695141c42ebaf770ffab194ba518f54012a65f051cc88394d33a42654ca9da"
     },
     "LoopCtrlUITests/NG2Templates.h": {
       "source": "NG2Templates.h",

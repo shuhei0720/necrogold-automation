@@ -216,7 +216,7 @@ class NGG2ApplyTests(unittest.TestCase):
         destination = driver / 'patches/loopctrl'
         destination.mkdir(parents=True)
         manifest = dict(self.manifest, upstream_commit=applier.UPSTREAM_COMMIT,
-                        api_version='1.98.14-ngg2', capability='necrogold_native_v1')
+                        api_version='1.98.15-ngg2', capability='necrogold_native_v1')
         import json
         (destination / 'ngg2-manifest.json').write_text(json.dumps(manifest))
         (destination / 'ngg2.patch').write_bytes(self.patch_path.read_bytes())
@@ -318,10 +318,26 @@ class NGG2ApplyTests(unittest.TestCase):
         self.assertEqual(2, verifier.required_native_profile(accepted['client_capability']))
 
     def test_package_profile_version_preserves_old_and_current_capabilities(self):
-        for version in range(1, 13):
+        for version in range(1, 14):
             with self.subTest(capability=version):
                 expected = None if version < 6 else (1 if version == 6 else 2)
                 self.assertEqual(expected, verifier.required_native_profile('necrogold_native_v'+str(version)))
+
+    def test_package_provenance_records_native_v13_with_strict_profile_v2(self):
+        import json
+        driver = self.native_report_fixture()
+        path = driver / 'patches/loopctrl/ngg2-manifest.json'
+        manifest = json.loads(path.read_text())
+        manifest['client_capability'] = 'necrogold_native_v13'
+        path.write_text(json.dumps(manifest))
+        accepted = None
+        try:
+            accepted = verifier.inspect_native_sources(self.root, driver)
+        except ValueError:
+            pass
+        self.assertIsNotNone(accepted, 'native_v13_package_is_supported')
+        self.assertEqual('necrogold_native_v13', accepted['client_capability'])
+        self.assertEqual(2, verifier.required_native_profile(accepted['client_capability']))
 
     def test_package_provenance_preserves_native_v3_client_capability(self):
         import json
@@ -349,6 +365,17 @@ class NGG2ApplyTests(unittest.TestCase):
         path = driver / 'patches/loopctrl/ngg2-manifest.json'
         manifest = json.loads(path.read_text())
         manifest['client_capability'] = 'unknown'
+        path.write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, 'native_manifest_identity'):
+            verifier.inspect_native_sources(self.root, driver)
+
+    def test_package_provenance_rejects_previous_api_for_current_build(self):
+        import json
+        driver = self.native_report_fixture()
+        path = driver / 'patches/loopctrl/ngg2-manifest.json'
+        manifest = json.loads(path.read_text())
+        manifest['api_version'] = '1.98.14-ngg2'
+        manifest['client_capability'] = 'necrogold_native_v13'
         path.write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, 'native_manifest_identity'):
             verifier.inspect_native_sources(self.root, driver)

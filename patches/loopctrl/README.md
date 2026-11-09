@@ -4,7 +4,7 @@ TEST050では、1歩の確認後に次拍期限を超えたTEST049を受け、�
 
 ## NG-G2 / TEST043 native制御の追加
 
-固定上流とNG-G1の画像幾何を保持し、NG-G2ではiPhone内のC判定・拍同期とSwiftの取得・期限付き単発入力を組み合わせる。API版は`1.98.14-ngg2`、capabilityは`necrogold_native_v1`。iSHは`necro_native_start/status/cancel/results`から実行と記録を管理し、capabilityのないNG-G1へ新しい入力を要求しない。商品候補を保持し、自動購入しない。実機の毎拍成功・所要時間はTEST043で確認する。
+固定上流とNG-G1の画像幾何を保持し、NG-G2ではiPhone内のC判定・拍同期とSwiftの取得・期限付き単発入力を組み合わせる。API版は`1.98.15-ngg2`、capabilityは`necrogold_native_v1`。iSHは`necro_native_start/status/cancel/results`から実行と記録を管理し、capabilityのないNG-G1へ新しい入力を要求しない。商品候補を保持し、自動購入しない。新clientはnative-walk-v14/cap13を要求する。商品到達・毎拍性能はTEST061実機で確認する。
 
 NG-G2は既存9ファイルへの差分と`ngg2/NG2*`のC/Swift/Objective-Cソースを含む。実RPC契約のSwift試験だけは`Tests/LoopCtrlKitTests`へ配置する。`ngg2-manifest.json`がNG-G1適用済み入力、差分、追加ソースの全SHA-256を固定する。追加先の既存ファイル・symlink・不一致・二重適用は導入前に拒否し、置換障害では導入したファイルを戻す。CIはmanifestを生成せず、レビュー済みmanifestに一致するソースだけをビルドする。
 
@@ -19,9 +19,9 @@ python3 patches/loopctrl/check_ngg2.py /path/to/LoopCtrl /tmp/ngg2-contracts
 
 開発時にソースを更新した場合は、固定上流にNG-G1だけを適用した別checkoutで`python3 patches/loopctrl/apply_ngg2.py --seal /path/to/ngg1-checkout`を実行し、manifest差分もレビューする。既存NG-G1のパッチ・manifestとR12は変更しない。
 
-macOS workflowはmanifestのない先行段階ではコンパイル可能なSwift stubの挙動Redだけを実行する。manifest保存後はNG-G1/NG-G2契約、unsigned IPAと既存LoopCtrlKit試験、構成・来歴検査へ進み、IPA・SHA-256・manifest・改変取得元と追加ソースの全文をprivate Actions artifactへ保存する。SideStoreでの更新とTEST043実機確認が別途必要で、CI成功を実機合格にはしない。
+macOS workflowはmanifestのない先行段階ではコンパイル可能なSwift stubの挙動Redだけを実行する。現在は手動focusedを既定、fullを明示手動とする。関連NG-G2契約、unsigned IPA、LoopCtrlKit試験、構成・来歴検査を行い、IPA・SHA-256・manifest・改変取得元と追加ソース全文をpublic Actions artifactへ保存する。SideStore更新と実機確認が必要で、CI成功を実機合格にはしない。
 
-native Cのsynthetic契約はUbuntu CIでも実行する。private実画像が必要な8試験はCIの明示除外一覧に記録し、既知66画像とTEST045の8画像/TEST046の5画像の比較・実画像sanitizerはローカルの必須試験で実行する。画像不足をskipして全件成功にはしない。Raster専用のC呼出spyは別objectだけをrenameしてリンクし、本番とRuntimeは元の4 C objectsを使う。
+native Cのsynthetic契約はUbuntu CIでも実行する。private実画像のCI除外名を厳密に記録し、関連する実画像再生はlocal必須として別集計する。画像不足をskipして全件成功にはしない。Raster専用のC呼出spyは別objectだけをrenameしてリンクし、本番とRuntimeは元の4 C objectsを使う。
 
 公式v0.3.4 commit `6e25cf6a9f65bc86c372cdce94bdb151d0cf6767` に適用する診断用パッチ。API版は `1.98.14-ngg1`、新capabilityは `screenshot_image_geometry_v1`。変更済みの取得元3ファイルはActionsの配布artifactにも全文を含める。
 

@@ -13,7 +13,7 @@ from necroprobe import native_walk as native
 from necroprobe.crypto import Crypto
 from necroprobe.protocol import HttpTransport
 from necroprobe.validation import ProbeError
-from test_native_walk import NativeServer, image_item
+from test_native_walk import NativeServer, image_item, bind_legacy_api
 from test_protocol import KEY, TOK
 from test_native_results import scene_change
 from timer_support import TimerTestCase
@@ -351,6 +351,7 @@ class PagedResultsTests(TimerTestCase):
                     NativeServer(finish=True) as server:
                 seed = self.execute(server,folder)
                 seed.update(revision=revision,resolved=False)
+                bind_legacy_api(seed)
                 if revision not in native.PAGED_REVISIONS:
                     seed.pop('image_export')
                 native._save(Path(folder),seed)
@@ -457,8 +458,10 @@ class PagedResultsTests(TimerTestCase):
                 manifest_seen = [False]
                 manifest = native._manifest
                 save = native._save
-                def late_manifest(value,run_id,*,require_motion_references=False):
-                    selected = manifest(value,run_id,require_motion_references=require_motion_references)
+                def late_manifest(value,run_id,*,require_motion_references=False,
+                                  require_recovery=False,api_version=native.API_VERSION):
+                    selected = manifest(value,run_id,require_motion_references=require_motion_references,
+                        require_recovery=require_recovery,api_version=api_version)
                     manifest_seen[0] = True
                     if stage == 'manifest_validation':
                         now[0] = 500_000_000
@@ -564,6 +567,7 @@ class PagedResultsTests(TimerTestCase):
                     self.assertEqual(before,len(server.calls))
             damaged = deepcopy(record)
             damaged['revision'] = 'native-walk-v8'
+            bind_legacy_api(damaged)
             native._save(Path(folder),damaged)
             with self.assertRaisesRegex(ProbeError,'native_journal_invalid'):
                 self.execute(server,folder)

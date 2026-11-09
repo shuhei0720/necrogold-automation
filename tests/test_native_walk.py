@@ -26,6 +26,15 @@ from test_protocol import KEY, TOK, sealed_reply
 from timer_support import TimerTestCase
 
 
+def bind_legacy_api(record):
+    """Keep relabelled legacy fixtures faithful to their original ready preflight."""
+    if record['revision'] != native.REVISION:
+        if record.get('preflight', {}).get('server') is not None:
+            record['preflight']['server']['server_version'] = '1.98.14-ngg2'
+        if 'api_version' in record.get('result_metadata', {}):
+            record['result_metadata']['api_version'] = '1.98.14-ngg2'
+
+
 class NativeServer:
     def __init__(self, *, lose=(), input_state=0, capabilities=None, version=None,
                  finish=False, transform=None, lose_before=(), reject_info_active=False,
@@ -116,7 +125,11 @@ class NativeServer:
                                          'device_now_ns': 10, 'input_state': fake.input_state,
                                          'paused': 0, 'terminal': int(state == 'stopped'),
                                          'reason_name': 'cancelled',
-                                         'events': [], 'motion_references': []}}
+                                         'events': [], 'motion_references': [],
+                                         'recovery': dict(initial_reacquisitions=0,
+                                             post_move_reacquisitions=0, episode_id=0, mode=0,
+                                             schedule_deadline_ns=0, visual_deadline_ns=0, ack_ns=0,
+                                             record_count=0, dropped_records=0, records=[])}}
                     if method == 'necro_native_results':
                         result['images'] = []
                 if fake.transform:
@@ -388,7 +401,7 @@ class NativeWalkTests(TimerTestCase):
             if method == 'necro_native_start':
                 result['state'] = 'accepted'
                 result['report'] = {key: result['report'][key] for key in (
-                    'schema', 'clock_id', 'device_now_ns', 'input_state', 'events', 'motion_references')}
+                    'schema', 'clock_id', 'device_now_ns', 'input_state', 'events', 'motion_references', 'recovery')}
                 result['report']['terminal'] = 0
             return result
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True, transform=transform) as server:
@@ -597,6 +610,7 @@ class NativeImageTests(TimerTestCase):
             result['images'] = [dict(metadata,name='frame-'+str(i)+'.png',bytes=native.MAX_IMAGE)
                                 for i in range(8)]
             result['revision'] = 'native-walk-v8'
+            bind_legacy_api(result)
             result.pop('image_export', None)
             native._save(Path(folder), result)
             self.assertEqual(result['images'], native._load(Path(folder))['images'])

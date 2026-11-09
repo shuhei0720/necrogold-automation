@@ -14,6 +14,7 @@ import tempfile
 import unittest
 from PIL import Image
 from necroprobe import shop_navigation as nav
+from tests.test_native_beat import NativeModel
 
 ROOT=Path(__file__).resolve().parents[1]
 CORE=ROOT/'patches/loopctrl/ngg2'
@@ -58,6 +59,14 @@ class MotionReference(C.Structure):
                                       'reference_start_ns','reference_prefix','observed_capture_id')],
               *[(k,C.c_int32) for k in ('reference_eligible','primary_motion','fallback_attempted','fallback_motion')],
               ('selected_capture_id',C.c_uint64),('selected_motion',C.c_int32)]
+class RecoveryTrace(C.Structure):
+    _fields_=[*[(k,C.c_uint64) for k in ('sequence','episode_id','at_ns','capture_id','command_id',
+                                      'abandoned_target_ns','sync_deadline_ns')],
+              ('model',NativeModel),*[(k,C.c_int32) for k in ('reason','clock','sample_count')]]
+class RecoveryStatus(C.Structure):
+    _fields_=[*[(k,C.c_uint64) for k in ('initial_reacquisitions','post_move_reacquisitions','episode_id',
+                                      'schedule_deadline_ns','visual_deadline_ns','ack_ns','record_count','dropped_records')],
+              ('mode',C.c_int32),('records',RecoveryTrace*2)]
 KINDS={'floor':1,'gold':2,'stone':3,'dirt':4,'door':5,'item':6}
 DIRS={1:(-1,0),2:(1,0),3:(0,-1),4:(0,1)}
 
@@ -83,8 +92,15 @@ class NativeControllerTests(unittest.TestCase):
         cls.temp=tempfile.TemporaryDirectory()
         library=Path(cls.temp.name)/'controller.so'
         cls.sources=[CORE/name for name in ('NG2Controller.c','NG2Perception.c','NG2Navigation.c','NG2Beat.c')]
-        subprocess.run(['cc','-std=c99','-O2','-Wall','-Wextra','-Werror','-pedantic','-ffp-contract=off','-fPIC','-shared',
-                        *map(str,cls.sources),'-lm','-o',str(library)],check=True)
+        objects=[]
+        for source in cls.sources:
+            obj=Path(cls.temp.name)/(source.stem+'.o')
+            profile=(['-O2','-fno-fast-math','-ffp-contract=off']
+                     if source.stem in ('NG2Perception','NG2Navigation') else ['-O0'])
+            subprocess.run(['cc','-std=c99',*profile,'-Wall','-Wextra','-Werror','-pedantic','-fPIC',
+                            '-c',str(source),'-o',str(obj)],check=True)
+            objects.append(str(obj))
+        subprocess.run(['cc','-shared',*objects,'-lm','-o',str(library)],check=True)
         cls.lib=C.CDLL(str(library));l=cls.lib
         l.ng2_controller_create.argtypes=[C.c_uint64];l.ng2_controller_create.restype=C.c_void_p
         l.ng2_controller_destroy.argtypes=[C.c_void_p]
@@ -122,8 +138,10 @@ class NativeControllerTests(unittest.TestCase):
         return s
     def observe(self,s,number=None,prefix=None,stable=1,start=None,end=None):
         self.number+=1
-        return self.lib.ng2_controller_observe(self.engine,C.byref(s),self.number if number is None else number,
+        result=self.lib.ng2_controller_observe(self.engine,C.byref(s),self.number if number is None else number,
             self.now-2 if start is None else start,self.now if end is None else end,self.prefix if prefix is None else prefix,stable)
+        if result==1:self._last_fixture_scene=Scene.from_buffer_copy(bytes(s))
+        return result
     def tick(self,front=1,locked=0,owner=1):
         c=Command();result=self.lib.ng2_controller_tick(self.engine,self.now,front,locked,owner,C.byref(c));return result,c
     def status(self):
@@ -132,6 +150,10 @@ class NativeControllerTests(unittest.TestCase):
         out=(Event*64)();n=self.lib.ng2_controller_events(self.engine,out,64);return list(out)[:n]
     def motion_wait(self):
         out=MotionWait();self.lib.ng2_controller_motion_wait(self.engine,C.byref(out));return out
+    def recovery(self):
+        query=self.lib.ng2_controller_recovery_status
+        query.argtypes=[C.c_void_p,C.POINTER(RecoveryStatus)]
+        out=RecoveryStatus();query(self.engine,C.byref(out));return out
     def preparation_epoch(self,command,now=None):
         query=self.lib.ng2_controller_preparation_epoch
         query.argtypes=[C.c_void_p,C.c_uint64,C.c_uint64];query.restype=C.c_uint64
@@ -363,6 +385,16 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
         elif not ready and terrain is not None and s.lead_confirmed and s.moves and not s.reason and not s.input_state:
             self.publish_procedural_candidate(terrain)
             ready,c=self.tick()
+        if not ready and self.status().phase==4 and self.status().inputs and self.status().next_target_ns and not self.status().reason:
+            # Positive synthetic retune/opening fixtures explicitly acquire a
+            # current HUD in the new slot's publication window.
+            state=self.status();self.now=max(self.now,state.next_target_ns-state.lead_ns-100_000_000)
+            if terrain is not None:frame=self.scene(2,2,terrain,beat=True)
+            else:
+                frame=Scene.from_buffer_copy(bytes(self._last_fixture_scene))
+                frame.beat_valid=1;frame.beat_remaining=((5*SECOND-(self.now-1))%PERIOD)/PERIOD
+                frame.beat_spacing=104.;frame.beat_center=446.
+            self.observe(frame);ready,c=self.tick()
         self.assertEqual((ready,c.kind),(1,4));return c
     def test_initial_slot_waits_before_publishing_a_far_first_beat(self):
         self.fit();self.now=3_840_000_000
@@ -389,7 +421,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
                 if expected:
                     self.assertEqual((4,4_480_000_000,not_before,not_before+10_000_000,1),
                                      (command.kind,command.target_ns,command.not_before_ns,command.deadline_ns,command.id))
-                    self.assertEqual(not_before+PERIOD+10_000_000,self.motion_wait().deadline_ns)
+                    self.assertEqual(not_before+PERIOD+10_000_000,self.recovery().schedule_deadline_ns)
                 else:
                     self.assertEqual((0,0,[]),(self.status().input_state,self.status().current_command_id,self.events()))
                     if remaining>100_000_000:
@@ -398,7 +430,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
                         self.now=not_before-100_000_000
                         self.assertEqual((1,4),(lambda v:(v[0],v[1].kind))(self.tick()))
                     else:
-                        self.assertEqual(9,self.status().reason)
+                        self.assertEqual(0,self.status().reason)
+                        self.assertEqual((1,0),(self.recovery().mode,self.status().next_target_ns))
                         self.now+=PERIOD;self.observe(self.scene(2,2,terrain,beat=True))
                         self.assertNotEqual(4,self.tick()[1].kind)
                         self.assertFalse(any(e.command.kind==4 for e in self.events()))
@@ -417,7 +450,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
     def test_initial_slot_expiry_precedes_unknown_wait_and_never_recovers(self):
         terrain,not_before=self.armed_initial();self.now=not_before-49_999_999
         unknown=self.scene(0);self.observe(unknown)
-        self.assertEqual(0,self.tick()[0]);self.assertEqual((9,0),(self.status().reason,self.status().inputs))
+        self.assertEqual(0,self.tick()[0]);self.assertEqual((0,0),(self.status().reason,self.status().inputs))
+        self.assertEqual((1,0),(self.recovery().mode,self.status().next_target_ns))
         self.now+=PERIOD;self.observe(self.scene(2,2,terrain,beat=True))
         self.assertNotEqual(4,self.tick()[1].kind)
         self.assertFalse(any(e.command.kind==4 for e in self.events()))
@@ -457,7 +491,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
         self.assertEqual(1,self.lib.ng2_beat_fit(samples,len(samples),C.byref(updated)))
         self.assertTrue(updated.period_ns)
         self.observe(scene)
-        self.assertEqual((8,0,0,[]),(self.status().reason,self.status().inputs,self.status().moves,self.events()))
+        self.assertEqual((0,0,0,[]),(self.status().reason,self.status().inputs,self.status().moves,self.events()))
+        self.assertEqual((1,0),(self.recovery().mode,self.status().beat_period_ns))
         self.now=target+PERIOD;self.observe(self.scene(2,2,terrain,beat=True))
         self.assertNotEqual(4,self.tick()[1].kind)
         self.assertFalse(any(e.command.kind==4 for e in self.events()))
@@ -474,7 +509,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
         self.assertEqual(0,self.tick()[0]);self.assertEqual(target,self.status().next_target_ns)
         self.now=not_before-100_000_000;ready,old=self.tick();wait=self.motion_wait()
         self.assertEqual((1,4,target,not_before),(ready,old.kind,old.target_ns,old.not_before_ns))
-        self.assertEqual(target+original_period-150_000_000+10_000_000,wait.deadline_ns)
+        self.assertEqual(target+original_period-150_000_000+10_000_000,self.recovery().schedule_deadline_ns)
         terrain.tiles[(-10,4)]='stone';self.now+=2;observed(.04);ready,new=self.tick()
         self.assertEqual((1,4),(ready,new.kind))
         self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,wait.deadline_ns),
@@ -509,6 +544,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
         status=self.status()
         self.assertEqual((1,1,1,0,0),(status.inputs,status.moves,status.lead_confirmed,
                                      status.input_state,status.reason))
+        self.assertEqual(0,self.tick()[0])  # Confirm the real proof clock before later candidate faults.
         return terrain,parent,status.next_target_ns-status.lead_ns
     def test_continuous_first_reservation_waits_until_publication_window(self):
         terrain,parent,not_before=self.unreserved_continuous_candidate()
@@ -614,9 +650,12 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
         terrain,parent,not_before=self.unreserved_continuous_candidate()
         old_target=self.status().next_target_ns;deadline=not_before+10_000_000
         self.now=deadline+5_000_000
-        # A late duplicate callback cannot ACK again, but its actual public
-        # clock is known to C. A backdated acquisition must not erase it.
+        # A duplicate completion is inert. The real control tick, rather than
+        # that obsolete callback, establishes the expiry clock.
+        before=bytes(self.status())
         self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,parent.id,self.now,1))
+        self.assertEqual(before,bytes(self.status()))
+        self.assertNotEqual(4,self.tick()[1].kind)
         start=deadline-70_000_000;end=deadline-1_000_000
         frame=self.scene(2,2,terrain,beat=True)
         frame.beat_remaining=(((5*SECOND-(start+end)//2)%PERIOD)/PERIOD+.04)%1
@@ -820,7 +859,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
                     self.assertGreaterEqual(self.now,not_before-100_000_000)
                     self.assertLessEqual(self.now+20_000_000,not_before-5_000_000)
                     self.assertGreaterEqual(waits,1)
-                    self.assertEqual(target+PERIOD-self.status().lead_ns+10_000_000,self.motion_wait().deadline_ns)
+                    self.assertEqual(target+PERIOD-self.status().lead_ns+10_000_000,self.recovery().schedule_deadline_ns)
                     # Preparation consumes real synthetic time before begin;
                     # the source is not re-stamped and no next beat is chosen.
                     self.now=max(not_before,self.now+20_000_000)
@@ -875,10 +914,11 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
             self.now+=20_000_000;scene=self.scene(2,2,after,beat=True)
             scene.beat_remaining=(scene.beat_remaining+bias)%1
             self.observe(scene)
-        self.now=(wait.deadline_ns+parent_deadline_offset if parent_deadline_offset is not None
+        self.now=(self.recovery().schedule_deadline_ns+parent_deadline_offset if parent_deadline_offset is not None
                   else max(self.now+2,parent.target_ns+80_000_002))
         scene=self.scene(2,2,after,beat=True);scene.beat_remaining=(scene.beat_remaining+bias)%1
         self.observe(scene)
+        if parent_deadline_offset is None:self.assertEqual(0,self.tick()[0])
         return after,parent,wait
     def use_next_slot_probe(self):
         """Inspect private candidates and boundary arithmetic, without input mocks."""
@@ -901,6 +941,7 @@ void test059_set(NG2Controller *p,int field,uint64_t value){
         case 8:p->beat_failed=(int)value;break;case 9:p->command_period=value;break;
         case 11:p->model.last_ns=value;break;
         case 12:p->model.first_ns=value;break;case 13:p->model.epoch_ns=value;break;
+        case 14:p->s.walk_started_ns=value;break;
         default:p->model.mode=(int32_t)value;}
 }
 int test059_update(NG2Controller *p){return update_next_slot_candidate(p);}
@@ -1021,13 +1062,14 @@ int test059_update(NG2Controller *p){return update_next_slot_candidate(p);}
             with self.subTest(late=late):
                 self.fresh_engine();_,parent,wait=self.unreserved_slot_after_hud_drift(parent_deadline_offset=late)
                 self.assertEqual(wait.deadline_ns,self.motion_wait().deadline_ns)
-                self.assertEqual((2,2 if not late else 1),(self.status().inputs,self.status().moves))
+                self.assertEqual((2,2),(self.status().inputs,self.status().moves))
                 ready,child=self.tick()
                 if not late:
                     self.assertEqual((1,4,parent.ordinal+1),(ready,child.kind,child.ordinal))
                     self.assertEqual(child.not_before_ns+10_000_000,child.deadline_ns)
                 else:
-                    self.assertNotEqual(4,child.kind);self.assertEqual(9,self.status().reason)
+                    self.assertNotEqual(4,child.kind);self.assertEqual(0,self.status().reason)
+                    self.assertEqual(2,self.recovery().mode)
                     self.now+=PERIOD;self.assertNotEqual(4,self.tick()[1].kind)
                     self.assertEqual(2,len([e for e in self.events() if e.command.kind==4]))
     def test_next_unreserved_child_reservation_and_reissue_freeze_all_original_fields(self):
@@ -1092,6 +1134,7 @@ int test059_update(NG2Controller *p){return update_next_slot_candidate(p);}
                 self.fresh_engine();terrain,parent=self.continuous_walk(moves=1,direction=1)
                 if case=='poisoned_phase':
                     self.ack(parent);after=translated(terrain,1);self.observed_result(parent,after)
+                    self.assertEqual(0,self.tick()[0])
                     self.now+=2;scene=self.scene(2,2,after,beat=True);scene.beat_remaining=(scene.beat_remaining+.3)%1
                     self.observe(scene);self.assertEqual(8,self.status().reason)
                     self.now+=2;self.observe(self.scene(2,2,after,beat=True))
@@ -1353,7 +1396,7 @@ void test055_mutate(NG2Controller *p,int which,uint64_t value){
         new=self.next_move()
         self.assertEqual((5,2,1,70,207,49),(new.id,new.ordinal,new.direction,new.source_capture_id,new.x,new.y))
         self.assertEqual((1,6,-4,0,4),self.private_choice())
-        self.assertEqual((521723193,30617857365985),(self.lib.test055_value(self.engine,0),wait.deadline_ns))
+        self.assertEqual((521723193,30617857365985),(self.lib.test055_value(self.engine,0),self.recovery().schedule_deadline_ns))
         self.assertEqual(wait.deadline_ns,self.motion_wait().deadline_ns)
         self.assertEqual((1,1,0,1,3),(self.status().inputs,self.status().moves,self.status().x,self.status().y,self.status().last_completed_id))
     def test_fresh_monotone_relation_all_tile_pairs_and_door_brackets(self):
@@ -2642,7 +2685,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                 result=self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1)
                 self.assertEqual(1-late,result)
                 if late:
-                    self.assertEqual((9,0),(self.status().reason,self.status().inputs))
+                    self.assertEqual((0,0),(self.status().reason,self.status().inputs))
+                    self.assertEqual(1,self.recovery().mode)
                     self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,new.id,self.now,1))
     def test_initial_replan_preserves_shorter_original_source_horizon_deadline(self):
         terrain=self.fit();self.now=4_130_000_002
@@ -2658,7 +2702,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         self.assertGreater(new.source_start_ns,old.source_start_ns)
         self.now=old.deadline_ns+1
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
-        self.assertEqual((9,0),(self.status().reason,self.status().inputs))
+        self.assertEqual((0,0),(self.status().reason,self.status().inputs))
+        self.assertEqual(1,self.recovery().mode)
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
     def test_initial_replan_guard_and_cancel_still_reject_latest_id(self):
         for case,front,locked,owner,reason in (('foreground',0,0,1,3),('locked',1,1,1,4),
@@ -2748,7 +2793,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         old=self.next_move();changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone';self.now+=2
         scene=self.scene(2,2,changed,beat=True);scene.beat_remaining=(scene.beat_remaining+.16)%1
         self.observe(scene);self.assertNotEqual(4,self.tick()[1].kind)
-        self.assertNotEqual(0,self.status().reason)
+        self.assertEqual(0,self.status().reason)
+        self.assertEqual((1,0),(self.recovery().mode,self.status().current_command_id))
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
         self.now=old.deadline_ns+PERIOD;self.observe(self.scene(2,2,changed,beat=True))
         self.assertNotEqual(4,self.tick()[1].kind);self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
@@ -2761,9 +2807,10 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         for _ in range(2):
             self.now+=2;scene=self.scene(2,2,changed,beat=True)
             scene.beat_remaining=(scene.beat_remaining+.13)%1;self.observe(scene)
-        # This >.08 HUD jump now poisons the first slot instead of silently
-        # replacing the invalid tracked model by another successful fit.
-        self.assertEqual((8,0),(self.status().reason,self.status().inputs))
+        # This >.08 HUD jump retires the unsent slot and clears its model;
+        # it cannot silently refit and reuse the old input authority.
+        self.assertEqual((0,0),(self.status().reason,self.status().inputs))
+        self.assertEqual((1,0),(self.recovery().mode,self.status().beat_period_ns))
         self.assertEqual((old.target_ns,old.not_before_ns,old.ordinal),(new.target_ns,new.not_before_ns,new.ordinal))
         self.now=new.not_before_ns
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
@@ -2797,7 +2844,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                         self.assertEqual([],self.scene_changes())
                     for step in (.07,.09,.11,bias):
                         self.now+=2;observed(step)
-                    self.assertEqual(expected_period,self.status().beat_period_ns)
+                    self.assertEqual(expected_period,self.status().beat_period_ns if allowed else
+                                     self.recovery().records[min(self.recovery().record_count-1,1)].model.period_ns)
                     model=self.reconstructed_public_beat_model(rows,allow_refit=False)
                     self.assertEqual(expected_period,model.period_ns)
                     forward=(model.epoch_ns-old.target_ns)%model.period_ns
@@ -2805,7 +2853,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                     self.assertEqual(expected_delta,abs(aligned-old.target_ns))
                     self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
                                      (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
-                    self.assertEqual(0 if allowed else 8,self.status().reason)
+                    self.assertEqual(0,self.status().reason)
+                    self.assertEqual(0 if allowed else 1,self.recovery().mode)
                     self.now=new.not_before_ns
                     self.assertEqual(allowed,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
                     self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
@@ -2813,7 +2862,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         terrain=self.fit();old=self.next_move();changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
         self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.now=old.deadline_ns+1
         self.assertNotEqual(4,self.tick()[1].kind)
-        self.assertNotEqual(0,self.status().reason)
+        self.assertEqual(0,self.status().reason)
+        self.assertEqual((1,0),(self.recovery().mode,self.status().current_command_id))
         self.now+=PERIOD;self.observe(self.scene(2,2,changed,beat=True));self.assertNotEqual(4,self.tick()[1].kind)
         self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
     def test_fixed_ordinals_allow_observed_turn_and_never_skip_late_beat(self):
@@ -2826,6 +2876,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         self.assertLessEqual(second.deadline_ns,first.target_ns+PERIOD-150_000_000+10_000_000)
         self.ack(second);after=translated(after,2);self.observed_result(second,after)
         s=self.status();self.assertEqual((s.moves,s.x,s.y,s.last_ordinal),(2,1,-1,2))
+        self.assertEqual(0,self.tick()[0])  # The fast proof is committed before testing its unissued child.
         self.now=second.target_ns+PERIOD-150_000_000+10_000_001
         self.assertEqual(0,self.tick()[0]);self.assertEqual(9,self.status().reason)
         self.assertEqual(2,len([e for e in self.events() if e.command.kind==4]))
@@ -2849,7 +2900,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         stationary opening, unit movement, and ambiguous texture have distinct
         outcomes; this is not game E2E or a recorded future-input response.
         """
-        from test_native_navigation import quantized_gate_image
+        from tests.test_native_navigation import quantized_gate_image
         analyze=self.lib.ng2_analyze_rgba
         analyze.argtypes=[C.c_void_p,C.c_size_t,C.c_size_t,C.POINTER(Scene)]
         for name,direction in (('left',1),('up',3)):
@@ -2910,7 +2961,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         self.assertEqual(0,self.tick()[0])
         self.now=command.deadline_ns+1
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,command.id,self.now,1,0,1))
-        self.assertEqual((self.status().input_state,self.status().reason),(0,9))
+        self.assertEqual((self.status().input_state,self.status().reason),(0,0))
+        self.assertEqual((1,0),(self.recovery().mode,self.status().current_command_id))
         self.assertEqual(3,self.events()[-1].outcome)
         self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,command.id,self.now,1))
     def test_source_horizon_includes_lead_and_fifty_ms_end(self):
@@ -3002,7 +3054,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         terrain=self.fit();command=self.next_move();reserved=self.motion_wait()
         self.assertEqual((command.id,command.source_capture_id,0,0,0),
                          (reserved.command_id,reserved.source_capture_id,reserved.last_capture_id,reserved.attempts,reserved.active))
-        self.assertEqual(command.target_ns+PERIOD-150_000_000+10_000_000,reserved.deadline_ns)
+        self.assertEqual(command.target_ns+PERIOD-150_000_000+10_000_000,self.recovery().schedule_deadline_ns)
         self.ack(command);self.assertEqual(1,self.motion_wait().active)
         unknown=translated(terrain,command.direction);unknown.signature=bytes([40])*23296
         for n in range(2):
@@ -3096,25 +3148,29 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
     def test_visual_wait_keeps_original_source_phase_walk_and_session_horizons(self):
         for horizon in ('source','phase','walk','session'):
             with self.subTest(horizon=horizon):
-                self.fresh_engine();terrain=textured()
+                self.fresh_engine();terrain=textured();prior_inputs=0
                 if horizon in ('source','phase'):
                     self.fit(terrain);old_source=self.status().last_capture_start_ns;old_phase=self.now-1
                     self.now+=2_400_000_000
                     if horizon=='phase':self.observe(self.scene(2,2,terrain,beat=False))
                     bound=(old_source if horizon=='source' else old_phase)+3*SECOND
+                elif horizon=='walk':
+                    # A first unsent MOVE cannot wait45s past its12s initial
+                    # sync budget. Establish a real public MOVED, then use an
+                    # explicit private clock probe for this independent cap.
+                    self.use_next_slot_probe();self.now+=60*SECOND
+                    self.fit(terrain);parent=self.next_move();self.ack(parent)
+                    terrain=translated(terrain,parent.direction);self.observed_result(parent,terrain)
+                    self.assertEqual(0,self.tick()[0]);prior_inputs=1
+                    self.lib.test059_set(self.engine,14,self.now-(45*SECOND-600_000_000))
+                    bound=self.status().walk_started_ns+45*SECOND
                 else:
-                    if horizon=='walk':
-                        self.fit(terrain);base=self.status().walk_started_ns
-                        first=base+42_200_000_000;epoch=base+44_800_000_000;bound=base+45*SECOND
-                    else:
-                        base=self.status().started_ns
-                        first=base+177_200_000_000;epoch=base+179_800_000_000;bound=base+180*SECOND
-                    # End the valid positive fit before the strict first-slot
-                    # selection threshold; the original absolute bound stays.
+                    base=self.status().started_ns
+                    first=base+177_200_000_000;epoch=base+179_800_000_000;bound=base+180*SECOND
                     for n in range(24):
                         self.now=first+n*100_000_000;scene=self.scene(2,2,terrain,beat=True)
                         scene.beat_remaining=((epoch-(self.now-1))%PERIOD)/PERIOD;self.observe(scene)
-                command=self.next_move();record=self.motion_wait()
+                command=self.next_move(terrain if horizon=='walk' else None);record=self.motion_wait()
                 self.assertEqual(bound,record.deadline_ns)
                 self.assertLess(bound,command.target_ns+PERIOD-150_000_000+10_000_000)
                 self.ack(command);unknown=deepcopy(terrain);unknown.signature=bytes([40])*23296
@@ -3123,7 +3179,8 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                 self.now=bound+1
                 self.assertNotEqual(4,self.tick()[1].kind)
                 self.assertEqual(0,self.motion_wait().active)
-                self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+                self.assertEqual(prior_inputs+1,len([e for e in self.events() if e.command.kind==4]))
+
     def test_wrong_direction_and_two_tiles_stop_without_visual_retry(self):
         for amount in (-9,18):
             with self.subTest(amount=amount):
@@ -3223,13 +3280,18 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         second=self.next_move(after);self.ack(second)
         self.now=second.target_ns+PERIOD-150_000_000+10_000_001
         self.assertEqual(0,self.tick()[0])
-        self.assertEqual((self.status().terminal,self.status().reason,self.status().moves),(0,9,1))
+        self.assertEqual((self.status().terminal,self.status().reason,self.status().moves),(0,0,1))
+        self.assertEqual((3,1),(self.status().input_state,self.motion_wait().active))
         self.assertEqual(0,self.tick()[0])  # Last floor predates the second ACK.
+        self.now=self.motion_wait().deadline_ns+1
+        self.assertEqual(0,self.tick()[0]);self.assertEqual(9,self.status().reason)
+        self.assertEqual(0,self.tick()[0])
         self.now+=2;self.observe(self.scene(2,2,translated(after,3),beat=True))
         ready,pause=self.tick();self.assertEqual((ready,pause.kind),(1,2))
     def test_phase_discontinuity_never_reacquires_after_confirmation(self):
         terrain=self.fit();first=self.next_move();self.ack(first)
         after=translated(terrain,3);self.observed_result(first,after)
+        self.assertEqual(0,self.tick()[0])
         self.now+=10_000_000;bad=self.scene(2,2,after,beat=True)
         bad.beat_remaining=(bad.beat_remaining+.2)%1
         self.observe(bad)
@@ -3265,7 +3327,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
     def test_initial_sync_twelve_second_limit_and_walk_forty_five(self):
         terrain=textured();self.observe(self.scene(2,2,terrain));walk=self.status().walk_started_ns
         self.now=walk+12*SECOND;self.observe(self.scene(2,2,terrain))
-        self.assertEqual(0,self.tick()[0]);self.assertEqual(8,self.status().reason)
+        ready,pause=self.tick();self.assertEqual((1,2),(ready,pause.kind));self.assertEqual(8,self.status().reason)
         other=self.lib.ng2_controller_create(SECOND);self.addCleanup(self.lib.ng2_controller_destroy,other)
         self.engine=other;self.now=SECOND+100_000_000;self.number=0;self.prefix=0
         self.observe(self.scene(2,2,terrain));walk=self.status().walk_started_ns
@@ -3313,10 +3375,10 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         third=self.next_move(after);self.assertEqual(2,third.ordinal)
     def test_blocked_initial_trials_stop_when_original_next_beat_cannot_fit_observation(self):
         terrain=self.fit()
-        for lead in (150,75,225,300,375,450):
+        for lead in (150,75,225,300,375,450,25):
             self.assertEqual(lead*1_000_000,self.status().lead_ns)
             command=self.next_move();self.ack(command);self.observed_result(command,terrain)
-        self.assertEqual((self.status().reason,self.status().lead_confirmed,self.status().inputs),(9,0,6))
+        self.assertEqual((self.status().reason,self.status().lead_confirmed,self.status().inputs),(10,0,7))
         self.assertEqual(0,self.status().moves)
     def test_stale_old_id_and_observation_before_creation_are_rejected(self):
         self.assertEqual(0,self.observe(self.scene(),start=SECOND-2,end=SECOND))

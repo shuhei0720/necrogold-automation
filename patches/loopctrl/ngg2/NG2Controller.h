@@ -79,6 +79,52 @@ typedef struct {
     uint64_t selected_capture_id;
     int32_t selected_motion;
 } NG2ControllerMotionReference;
+enum {
+    NG2_RECOVERY_NORMAL=0,
+    NG2_RECOVERY_INITIAL=1,
+    NG2_RECOVERY_POST_MOVE=2
+};
+enum {
+    NG2_RECOVERY_TRACK=1,
+    NG2_RECOVERY_ALIGNMENT=2,
+    NG2_RECOVERY_MODEL_STALE=3,
+    NG2_RECOVERY_PREPARATION=4,
+    NG2_RECOVERY_UNSENT_DEADLINE=5,
+    NG2_RECOVERY_VISUAL_SCHEDULE=6,
+    NG2_RECOVERY_VISUAL_PHASE=7,
+    NG2_RECOVERY_SYNC_BUDGET=8
+};
+enum {
+    NG2_RECOVERY_CAPTURE_END=1,
+    NG2_RECOVERY_ACTUAL_TICK=2,
+    NG2_RECOVERY_ACTUAL_COMMIT=3
+};
+
+/* Immutable diagnostic snapshot taken BEFORE resetting the model/samples.
+ * `sample_count` is the raw snapshot count (0..13), not model.sample_count.
+ * This POD field guides the separate samples query; it is not a wire key.
+ */
+typedef struct {
+    uint64_t sequence, episode_id, at_ns, capture_id, command_id;
+    uint64_t abandoned_target_ns, sync_deadline_ns;
+    NG2BeatModel model;
+    int32_t reason, clock, sample_count;
+} NG2ControllerRecoveryTrace;
+
+/* `record_count` counts ALL records, `dropped_records` counts overwritten
+ * snapshots, so retained_count=min(record_count,2) and
+ * dropped_records=record_count-retained_count. Initial bytes are all zero.
+ * records[0] is the first snapshot. records[1] is latest if record_count>=2.
+ * One coherent getter returns both records/model snapshots on controlQueue.
+ */
+typedef struct {
+    uint64_t initial_reacquisitions, post_move_reacquisitions, episode_id;
+    uint64_t schedule_deadline_ns, visual_deadline_ns, ack_ns;
+    uint64_t record_count, dropped_records;
+    int32_t mode;
+    NG2ControllerRecoveryTrace records[2];
+} NG2ControllerRecoveryStatus;
+
 /* Defaults: 16 directions, 12 restarts, 45s walking, 180s session. */
 NG2Controller *ng2_controller_create(uint64_t now);
 void ng2_controller_destroy(NG2Controller *controller);
@@ -86,6 +132,10 @@ void ng2_controller_destroy(NG2Controller *controller);
  * command at both boundaries. Scene bytes are copied before returning. */
 int ng2_controller_observe(NG2Controller *, const NG2Scene *, uint64_t capture_id,
     uint64_t start_ns, uint64_t end_ns, uint64_t completed_prefix, int32_t stable);
+/* Runtime supplies the real C-call commit clock; legacy observe uses
+ * max(capture end,last known controller clock). Neither may backdate proof. */
+int ng2_controller_observe_at(NG2Controller *, const NG2Scene *, uint64_t capture_id,
+    uint64_t start_ns, uint64_t end_ns, uint64_t completed_prefix, int32_t stable, uint64_t commit_ns);
 /* Tick reserves at most one immutable ticket. 1=ticket,0=none,-1=invalid. */
 int ng2_controller_tick(NG2Controller *, uint64_t now, int32_t foreground,
     int32_t locked, int32_t owner_active, NG2Command *out);
@@ -108,6 +158,9 @@ size_t ng2_controller_events(const NG2Controller *, NG2ControllerEvent *out, siz
 size_t ng2_controller_scene_changes(const NG2Controller *, NG2ControllerSceneChange *out, size_t capacity);
 size_t ng2_controller_scene_details(const NG2Controller *, NG2ControllerSceneDetail *out, size_t capacity);
 void ng2_controller_motion_wait(const NG2Controller *, NG2ControllerMotionWait *out);
+void ng2_controller_recovery_status(const NG2Controller *, NG2ControllerRecoveryStatus *out);
+size_t ng2_controller_recovery_samples(const NG2Controller *, size_t record_index,
+    NG2BeatSample *out, size_t capacity);
 size_t ng2_controller_motion_references(const NG2Controller *, NG2ControllerMotionReference *out, size_t capacity);
 const char *ng2_reason_name(int32_t reason);
 #endif

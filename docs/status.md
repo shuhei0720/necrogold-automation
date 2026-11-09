@@ -1,56 +1,27 @@
 # 最新状態
 
-更新: 2026-11-10（日本時間）。TEST060は商品確認0/2（初歩前BEAT／左入力後UNKNOWN→確認期限切れ）。[受領結果](device-tests/README.md#test060-received)。TEST061の[全体設計](plans/test061-verified-progress.md)を設計/網羅/安全の第2周で確認済み。初歩再取得と入力/画像確認の期限分離、実commit時計、診断/旧回復、商品までの結合を実装する段階。新IPAは未配布。回収済みTEST060は再実行しない。
+更新: 2026-11-10（日本時間）。TEST061実装・配布前検証中。[全体設計](plans/test061-verified-progress.md)・[検証記録](reviews/test061.md)。新IPAは未配布。回収済みTEST060は再実行しない。
 
-[最新開発方針](development-flow.md#最新の運用方針2026-11-10-日本時間)を維持。固定時間なし・品質を落とさず影響範囲で検証を選ぶ。focused CIを整備し、fullは明示的な節目に残す。[検証記録](reviews/test061.md)。
+## TEST061の修正
 
-## 直前TEST060の変更（実機は未達）
+初歩の確実な未送信失効は、旧IDを撤回し元12秒以内でライブHUDを再取得する。ACK後は次拍の入力期限と、元source/phase各3秒・walk45秒・session180秒の画像確認期限を分ける。途中35pxはUNKNOWNのまま待ち、真の移動/開通を確認後に次行動を決める。旧次拍が過ぎていれば新しい将来拍へ同期する。実commitとC処理後の実時計も期限を検査し、UNKNOWN再送・閾値緩和・移動の推測は行わない。
 
-TEST059の3歩後の画像比較停止を受けた修正。[受領事実](device-tests/README.md#test059受領結果2026-11-09-日本時間)と原画の解析は保持する。
+API1.98.15-ngg2/cap13/client v14。失効前model/sampleの最初・最新snapshotを保存し、旧v1〜v13 journalは保存API1.98.14で回収する。Beat/Nav/Perception/Raster/入力座標・R12原40/G1は不変。source sealと実IPAの同一性はビルド後に確認する。
 
-TEST060は未予約の連続新ordinalだけ、同じ元拍のnotBefore100ms前以降、画像取得開始200ms前以降から初回予約する。移動直後の古い確認画像へ早期に固定せず、最新Sceneと通常plannerを使う。更新前の元Dをactualtickまで保ち、HUD補正による期限後の復活を拒否。予約後期限/再予約/UNKNOWN無再送/商品優先・親motion期限は維持する。[計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。
+旧Cで途中停止のassertion Redを確認。修正Cの独立商店worldは四方向×木鉄8例＋LEFT→UPの曲がり＋処理遅延のみの計10ケースで、開扉→進入→商品/PAUSEが成功。合成clock/画像であり、実機の到達率・毎拍・速度の合格ではない。関連client212method成功。C全回帰・Swift公開結合/故障・実IPA/compiler・全source照合の最終結果は検証記録へ追記する。
 
-200msは画像処理85ms/取得間隔90ms/準備20ms＋余裕5msの合成成功域から導出した値であり、実機性能の保証ではない。原1pxの揺れを再現したworldや、原059の未収録第4入力を再生したと主張しない。
+## 直前TEST060の受領事実
 
-## 直前TEST060の配布物（受領済み）
+[受領記録](device-tests/README.md#test060-received)。商品確認0/2。1回目inputs/moves0でBEAT停止。準備上限より約118ms前にPAUSEへ移ったが、途中25画像とmodel/sampleの欠落により失効内訳は断定できない。
 
-| 項目 | 保存先・同一性 |
-| --- | --- |
-| code / Mac CI | `04b213f27364bc9e5cf3c68f9caf031f842fba97` / [Mac91](https://github.com/shuhei0720/necrogold-automation/actions/runs/42632308407) 全体成功 |
-| IPA ZIP | [CI配布ページ](https://github.com/shuhei0720/necrogold-automation/actions/runs/42632308407) → Artifacts → `loopctrl-ngg2-unsigned`（13683333087）。17,823,847bytes / SHA `d131787aa5a823a2e9a8fc42da52e73e7cd6ab3c96e7f4a08cda52288d275a11` |
-| 内部IPA | `upstream/release/LoopCtrl.ipa` / build91 / SHA `6587ef9794a2efc93295eef66ea558d2e528fdbda27497e66b3eea222dd6dacc` |
-| 診断ZIP | artifact13683973589 / 650,690bytes / SHA `6cff2ed87ffa51c868da6285ee9ba40ca368c33132df450e1f869620d4407fb3` |
-| native-host | artifact13682046081 / 778,200bytes / SHA `cb49d2b92056a41fbe29c49e29ed8b2db62d3e22dd7bdcec8da710d89816b659` |
-| 完全source | [TEST060配布時の固定ZIP](https://codeload.github.com/shuhei0720/necrogold-automation/zip/42e625b0311c79c6d3e6acf19a150b9316fcc2a4)。全462tracked bytes/CRC/path一致、codeとの差分は文書だけ |
+2回目LEFT1、C計上moves0、LATE停止。実Cの28→32比較はUNKNOWN。画像は約34〜35pxずれるが既存の1歩完了条件を満たさず、適格確認画像1枚だけで元motion期限の2.603ms後に停止。原参照27でもUNKNOWN。両runともlead_confirmed0で連続歩行の予約gateへ未到達。期限/認識閾値を緩めず、未収録の未来画像を作らない。
 
-codeのbuild-source ZIPは7,204,755bytes / SHA `53d7cb93165ded23883443fc5975a42c35fefdb183af0b6af8a458b3676df19e`、全462ファイル一致。
+TEST060 code `04b213f27364bc9e5cf3c68f9caf031f842fba97` / [Mac91](https://github.com/shuhei0720/necrogold-automation/actions/runs/42632308407)。配布物・旧検証件数は[配布時の固定記録](https://github.com/shuhei0720/necrogold-automation/blob/42e625b0311c79c6d3e6acf19a150b9316fcc2a4/docs/status.md)と[review060](reviews/test060.md#test060-final-mac)へ保存。CI成功を実機合格に数えない。
 
-22seal中Controller.cだけ変更、他21はTEST059baseline5ef0ec3と同一。C `3a16d0b675061dd60b632f419437094e9fea82e90e9027efe01c61910f73f7cb` / seal `3b768e55930227ee0345447d24022717382d776125fcc652a905c232ac8b93e5`、API1.98.14-ngg2/cap12/client v13維持。R12原40/G1不変。これは直前TEST060/build91の配布記録で、当時native修正のためIPA更新を依頼した。現在のルール更新・受領解析では追加更新を依頼しない。過去IPAの保存先はMac CIページのArtifacts。公開releaseは作らない。
+## 運用・未受入
 
-## 検証
+[最新開発方針](development-flow.md#最新の運用方針2026-11-10-日本時間): 固定時間なし、品質を落とさず変更範囲で単体/関連回帰と必要な結合を選ぶ。focusedを手動既定、fullは明示的な節目だけ。新実装の返却時は検証済みIPA/完全source・更新/再起動・iSH手順を示し、runtime全ZIPの実機返却を必ず依頼する。
 
-local Controller184/他native102/world3の計289method、203既知paths、315独立位相、world160到達＋停止2、client197/package228が成功。旧165method/956assert callを保持し、setupのみ新予約時刻へ合わせた。公開258/private31を厳密照合。新C3故障は既存Runtime59/058別2/旧059 C別1から分ける。
+ユーザーはMacを持たず、実機試験を担当する。CIのMac実ゲームは正規ゲーム導入/認証/起動が未成立。通常利用はiPhoneだけで完結する要件を維持する。商品到達率・毎拍/人より速い処理・対象指輪の未知評価・通知・自動周回・耐久は未受入。
 
-Mac91は公開native258/31厳密除外、Runtime既存59＋058別2故障、新060 C3＋旧059 C1故障、独立Swift world16・追加C world160＋停止2、Raster3・C全Scene/Decision parity-field/旧色式Red・暗号RPC・LoopCtrlKitが成功。client197は同一client/launcher/workflowのclient20成功へbindingした。
-
-実PBX/実compilerログ/4C/5Swift/6RSP、22seal、IPA全9Mach-O/82HOST marker非混入を実物照合。実Runtime producer5件→暗号client/両journal、およびworld16→strict v13の診断3配列も一致。合成world・fixture通信の結果であり、Mac実ゲームやiPhone受入ではない。
-
-Mac88/90のHOST時計同期失敗とMac89の診断出力形式失敗は、全体成功には数えない。第3周の補足でHOSTだけを修正し、375require/checker・元D/10msを維持。既存legacy047の未使用helperも古い固定fakeへ型互換を維持するが、旧modeの新しい実Swift試験は未実施。[検証の詳細](reviews/test060.md#test060-final-mac)。
-
-## 今回確認した停止箇所
-
-1回目はinputs/moves=0、reason8/BEAT。同期targetは選ばれていたが初歩予約は出ておらず、準備上限より約118ms前にPAUSEへ移った。capture30はFLOOR/金壁候補/HUD有効。途中25枚と各更新model/sampleが未保持で、track/補正のどの条件で失効したかは断定できない。
-
-2回目はLEFT1、C計上moves=0、reason9/LATE。27→28の初歩再予約後、28→32の実C motionがUNKNOWN。画像上は地形が右へ約34〜35pxずれるが、既存の1歩完了条件を満たさない。確認画像は1枚だけで、motion元Dの2.603ms後に停止。原参照27へ戻してもUNKNOWNで、古い画像への単純な差し戻しでは解決しない。両runともlead_confirmed=0で、TEST060の連続歩行初回予約gateには未到達。
-
-受領済みTEST060は再実行しない。現在は初歩の拍失効内訳と、移動確認画像のタイミングが調査対象。期限/認識閾値を緩めたり、未収録画像で成功を補わない。新しい実装版を作成・確認してから具体的実機テストを依頼する。
-
-## コンテキストと未受入
-
-初読3文書は16KiB以内。旧資料・要件・履歴を維持した[索引](context.md)。生ZIP/PNG/report/解析はGit外。原059の14画像を未知評価へ数えない。
-
-ユーザーはMacを持たずCIでの実ゲームを想定。自己窓CIは画面取得/キー/原PNGの変化だけを実測し、正規ゲーム導入/認証/起動は未成立。Mac実ゲームは未実施で、通常利用をiPhoneだけで完結する要件を維持する。TEST060の実機商品到達、毎拍/人より速い処理、対象指輪の未知評価・通知・自動周回・耐久は未受入。
-
-<a id="test-011結果と今回の変更"></a>
-
-TEST011は[整理前statusの固定版](https://github.com/shuhei0720/necrogold-automation/blob/420c7ce3fb2e1fbe9f9ab7086891dd7e1118ba2e/docs/status.md#test-011結果と今回の変更)に保存した。
+初読3文書は16KiB以内。[作業索引](context.md)から必要な正本/関数/試験へ進む。rawZIP/画像/report/logはGit外。公開releaseは作らず、標準public CIのArtifactsへ保存する。
