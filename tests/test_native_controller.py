@@ -519,6 +519,218 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
             terrain=translated(terrain,direction);self.observed_result(command,terrain)
         self.assertEqual((moves,moves,1),(self.status().inputs,self.status().moves,self.status().lead_confirmed))
         return terrain,self.next_move()
+    def unreserved_slot_after_hud_drift(self,bias=.04,parent_deadline_offset=None):
+        """Real parent ACK/MOVED, with synthetic HUD changes before eligibility."""
+        terrain,parent=self.continuous_walk(moves=1,direction=1)
+        self.ack(parent);wait=self.motion_wait();after=translated(terrain,1)
+        for _ in range(7):
+            self.now+=20_000_000;scene=self.scene(2,2,after,beat=True)
+            scene.beat_remaining=(scene.beat_remaining+bias)%1
+            self.observe(scene)
+        self.now=(wait.deadline_ns+parent_deadline_offset if parent_deadline_offset is not None
+                  else max(self.now+2,parent.target_ns+80_000_002))
+        scene=self.scene(2,2,after,beat=True);scene.beat_remaining=(scene.beat_remaining+bias)%1
+        self.observe(scene)
+        return after,parent,wait
+    def use_next_slot_probe(self):
+        """Inspect private candidates and boundary arithmetic, without input mocks."""
+        cls=type(self)
+        if not hasattr(cls,'_test059_probe'):
+            directory=Path(cls.temp.name);source=directory/'next-slot-probe.c'
+            source.write_text('#include "'+str(CORE/'NG2Controller.c')+'"\n'+r'''
+uint64_t test059_value(const NG2Controller *p,int field){
+    switch(field){case 0:return p->next_nominal;case 1:return p->next_period;
+        case 2:return p->next_deadline;case 3:return (uint64_t)p->beat_failed;
+        default:return p->command_period;}
+}
+void test059_set(NG2Controller *p,int field,uint64_t value){
+    switch(field){case 0:p->next_nominal=value;break;case 1:p->next_period=value;break;
+        case 2:p->model.epoch_ns=value;break;case 3:p->model.period_ns=value;break;
+        case 4:p->s.lead_ns=value;break;case 5:p->s.input_state=(int32_t)value;break;
+        case 6:p->replan_pending=(int)value;break;case 7:p->continuous_pending=(int)value;break;
+        case 8:p->beat_failed=(int)value;break;case 9:p->command_period=value;break;
+        default:p->model.mode=(int32_t)value;}
+}
+int test059_update(NG2Controller *p){return update_next_slot_candidate(p);}
+''')
+            library=directory/'next-slot-probe.so'
+            subprocess.run(['cc','-std=c99','-O2','-Wall','-Wextra','-Werror','-pedantic',
+                            '-ffp-contract=off','-fPIC','-shared',str(source),
+                            *map(str,(CORE/name for name in ('NG2Perception.c','NG2Navigation.c','NG2Beat.c'))),
+                            '-lm','-o',str(library)],check=True)
+            probe=C.CDLL(str(library))
+            for name in dir(self.lib):
+                if name.startswith('ng2_'):
+                    old,new=getattr(self.lib,name),getattr(probe,name)
+                    new.argtypes,new.restype=old.argtypes,old.restype
+            probe.test059_value.argtypes=[C.c_void_p,C.c_int];probe.test059_value.restype=C.c_uint64
+            probe.test059_set.argtypes=[C.c_void_p,C.c_int,C.c_uint64]
+            probe.test059_update.argtypes=[C.c_void_p];probe.test059_update.restype=C.c_int
+            cls._test059_probe=probe
+        original=self.lib;self.lib=cls._test059_probe;self.addCleanup(setattr,self,'lib',original)
+        self.fresh_engine()
+    def next_slot_pair(self):
+        return self.status().next_target_ns,self.lib.test059_value(self.engine,2)
+    def test_next_unreserved_slot_candidate_uses_current_corrected_target_window(self):
+        _,parent,wait=self.unreserved_slot_after_hud_drift()
+        before=self.status();target=before.next_target_ns
+        self.assertEqual((2,2,0,0),(before.inputs,before.moves,before.input_state,before.reason))
+        self.assertLess(self.now,wait.deadline_ns)
+        self.assertEqual(wait.deadline_ns,self.motion_wait().deadline_ns)
+        self.assertGreater(target-(parent.target_ns+PERIOD),10_000_000)
+        ready,child=self.tick()
+        self.assertEqual((1,4),(ready,child.kind),
+                         'new_unreserved_slot_candidate_uses_current_corrected_target_window')
+        self.assertEqual((target,target-before.lead_ns,target-before.lead_ns+10_000_000,parent.ordinal+1),
+                         (child.target_ns,child.not_before_ns,child.deadline_ns,child.ordinal))
+        self.assertEqual((2,2,1),(self.status().inputs,self.status().moves,self.status().input_state))
+    def test_next_unreserved_candidate_positive_and_negative_phase_shifts(self):
+        for bias in (0.,.025,.04,.06,.075,-.025,-.06):
+            with self.subTest(bias=bias):
+                self.fresh_engine();_,parent,wait=self.unreserved_slot_after_hud_drift(bias)
+                before=self.status();target=before.next_target_ns;ready,child=self.tick()
+                self.assertEqual((1,4),(ready,child.kind))
+                self.assertEqual((target,target-before.lead_ns,target-before.lead_ns+10_000_000,parent.ordinal+1),
+                                 (child.target_ns,child.not_before_ns,child.deadline_ns,child.ordinal))
+                self.assertLess(self.now,wait.deadline_ns)
+                self.assertLessEqual(abs(target-parent.target_ns-PERIOD),.08*PERIOD)
+                self.assertEqual(self.number,child.source_capture_id)
+    def test_next_unreserved_candidate_additional_hud_updates_keep_original_anchor_and_pair(self):
+        self.use_next_slot_probe();terrain,parent,wait=self.unreserved_slot_after_hud_drift()
+        nominal=parent.target_ns+PERIOD;targets=[]
+        for bias in (.06,.02,-.02):
+            self.now+=20_000_000;scene=self.scene(2,2,terrain,beat=True)
+            scene.beat_remaining=(scene.beat_remaining+bias)%1;self.observe(scene)
+            target,deadline=self.next_slot_pair();targets.append(target)
+            self.assertEqual((0,0),(self.status().input_state,self.status().reason))
+            self.assertEqual((nominal,PERIOD),(self.lib.test059_value(self.engine,0),self.lib.test059_value(self.engine,1)))
+            self.assertEqual(target-self.status().lead_ns+10_000_000,deadline)
+            self.assertEqual(wait.deadline_ns,self.motion_wait().deadline_ns)
+        self.assertGreater(len(set(targets)),1)
+        ready,child=self.tick();self.assertEqual((1,4),(ready,child.kind))
+        self.assertEqual(self.next_slot_pair(),(child.target_ns,child.deadline_ns))
+    def test_next_slot_candidate_eight_percent_uses_parent_period_without_cumulative_drift(self):
+        self.use_next_slot_probe();self.unreserved_slot_after_hud_drift(0.)
+        nominal=10*SECOND;parent_period=515_000_000
+        for shift in (10_000_000,10_000_001,20_000_000,40_000_000,-20_000_000,
+                      41_200_000,-41_200_000,41_200_001,-41_200_001,60_000_000):
+            with self.subTest(shift=shift):
+                for field,value in ((0,nominal),(1,parent_period),(2,nominal+shift),(3,525_000_000)):
+                    self.lib.test059_set(self.engine,field,value)
+                before=self.next_slot_pair();allowed=int(abs(shift)<=41_200_000)
+                self.assertEqual(allowed,self.lib.test059_update(self.engine))
+                self.assertEqual((nominal,parent_period),(self.lib.test059_value(self.engine,0),self.lib.test059_value(self.engine,1)))
+                self.assertEqual((nominal+shift,nominal+shift-150_000_000+10_000_000) if allowed else before,self.next_slot_pair())
+    def test_next_slot_parent_period_overflow_never_creates_new_candidate(self):
+        self.use_next_slot_probe();limit=1<<63
+        for which in ('limit','above_parent_addition','equal_parent_addition'):
+            with self.subTest(which=which):
+                self.fresh_engine();terrain,parent=self.continuous_walk(moves=1,direction=1);self.ack(parent)
+                # Arithmetic-only corruption of a frozen period. No game/model
+                # period is relaxed and the real MOVED assessment still runs.
+                value={'limit':limit,'above_parent_addition':limit-1,
+                       'equal_parent_addition':limit-parent.target_ns}[which]
+                self.lib.test059_set(self.engine,9,value)
+                self.observed_result(parent,translated(terrain,1))
+                self.assertEqual((2,2,15),(self.status().inputs,self.status().moves,self.status().reason))
+                self.assertEqual((0,0),(self.status().next_target_ns,self.lib.test059_value(self.engine,0)))
+                self.assertNotEqual(4,self.tick()[1].kind)
+    def test_next_slot_candidate_time_arithmetic_rejects_partial_pair_commits(self):
+        self.use_next_slot_probe();limit=1<<63
+        # lead=0 exists only in this arithmetic probe, never as input authority.
+        cases=((150_000_000-1,150_000_000-1,150_000_000,0),
+               (150_000_000,150_000_000,150_000_000,1),
+               (limit-1,limit-1,150_000_000,1),(limit,limit-1,150_000_000,0),
+               (limit-1,limit,150_000_000,0),(0,0,150_000_000,0),
+               (limit-10_000_000-1,limit-10_000_000-1,0,1),
+               (limit-10_000_000,limit-10_000_000,0,0))
+        for nominal,target,lead,allowed in cases:
+            with self.subTest(nominal=nominal,target=target,lead=lead):
+                self.fresh_engine();self.unreserved_slot_after_hud_drift(0.)
+                for field,value in ((0,nominal),(2,target),(4,lead)):
+                    self.lib.test059_set(self.engine,field,value)
+                before=self.next_slot_pair();self.assertEqual(allowed,self.lib.test059_update(self.engine))
+                self.assertEqual((target,target-lead+10_000_000) if allowed else before,self.next_slot_pair())
+    def test_next_slot_candidate_never_updates_issued_pending_or_poisoned_state(self):
+        self.use_next_slot_probe()
+        for field,value in ((5,1),(5,2),(5,3),(5,4),(6,1),(7,1),(7,2),(8,1),(10,0)):
+            with self.subTest(field=field,value=value):
+                self.fresh_engine();self.unreserved_slot_after_hud_drift(0.)
+                self.lib.test059_set(self.engine,2,self.status().next_target_ns+20_000_000)
+                self.lib.test059_set(self.engine,field,value);before=self.next_slot_pair()
+                self.assertEqual(0,self.lib.test059_update(self.engine));self.assertEqual(before,self.next_slot_pair())
+                if field==8:self.assertEqual(1,self.lib.test059_value(self.engine,3))
+    def test_next_unreserved_parent_motion_deadline_equality_and_expiry_are_unchanged(self):
+        for late in (0,1):
+            with self.subTest(late=late):
+                self.fresh_engine();_,parent,wait=self.unreserved_slot_after_hud_drift(parent_deadline_offset=late)
+                self.assertEqual(wait.deadline_ns,self.motion_wait().deadline_ns)
+                self.assertEqual((2,2 if not late else 1),(self.status().inputs,self.status().moves))
+                ready,child=self.tick()
+                if not late:
+                    self.assertEqual((1,4,parent.ordinal+1),(ready,child.kind,child.ordinal))
+                    self.assertEqual(child.not_before_ns+10_000_000,child.deadline_ns)
+                else:
+                    self.assertNotEqual(4,child.kind);self.assertEqual(9,self.status().reason)
+                    self.now+=PERIOD;self.assertNotEqual(4,self.tick()[1].kind)
+                    self.assertEqual(2,len([e for e in self.events() if e.command.kind==4]))
+    def test_next_unreserved_child_reservation_and_reissue_freeze_all_original_fields(self):
+        self.use_next_slot_probe();terrain,_,_=self.unreserved_slot_after_hud_drift()
+        child=self.next_move();wait=self.motion_wait();period=self.lib.test059_value(self.engine,4)
+        pair=self.next_slot_pair();original=bytes(child)
+        self.now+=5_000_000;scene=self.scene(2,2,terrain,beat=True)
+        scene.beat_remaining=(scene.beat_remaining+.06)%1;self.observe(scene)
+        self.assertEqual(original,bytes(self.events()[-1].command));self.assertEqual(pair,self.next_slot_pair())
+        self.assertEqual((period,wait.deadline_ns),(self.lib.test059_value(self.engine,4),self.motion_wait().deadline_ns))
+        changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone';self.now+=2
+        self.observe(self.scene(2,2,changed,beat=True));replacement=self.next_move()
+        self.assertEqual(2,self.scene_details()[-1].validation)
+        self.assertEqual((child.target_ns,child.not_before_ns,child.deadline_ns,child.ordinal,period,wait.deadline_ns),
+                         (replacement.target_ns,replacement.not_before_ns,replacement.deadline_ns,replacement.ordinal,
+                          self.lib.test059_value(self.engine,4),self.motion_wait().deadline_ns))
+    def test_next_unreserved_child_deadline_equality_and_plus_one_are_unchanged(self):
+        for late in (0,1):
+            with self.subTest(late=late):
+                self.fresh_engine();self.unreserved_slot_after_hud_drift();child=self.next_move()
+                self.now=child.deadline_ns+late
+                self.assertEqual(1-late,self.lib.ng2_controller_begin(self.engine,child.id,self.now,1,0,1))
+                self.assertEqual(9 if late else 0,self.status().reason)
+    def test_next_unreserved_candidate_expiry_and_stale_authority_never_choose_another_beat(self):
+        for case in ('deadline','source','phase'):
+            with self.subTest(case=case):
+                self.fresh_engine();terrain,_,_=self.unreserved_slot_after_hud_drift()
+                if case=='deadline':self.now=self.status().next_target_ns-self.status().lead_ns+10_000_000+1
+                elif case=='source':self.now=self.status().last_capture_start_ns+3*SECOND+1
+                else:
+                    self.now+=3*SECOND+1;self.observe(self.scene(2,2,terrain,beat=False))
+                self.assertNotEqual(4,self.tick()[1].kind)
+                self.assertEqual({'deadline':9,'source':7,'phase':8}[case],self.status().reason)
+                self.now+=PERIOD;self.observe(self.scene(2,2,terrain,beat=True))
+                self.assertNotEqual(4,self.tick()[1].kind)
+                self.assertEqual(2,len([e for e in self.events() if e.command.kind==4]))
+    def test_next_slot_ack_unknown_and_failed_phase_never_create_child_authority(self):
+        self.use_next_slot_probe()
+        for case in ('synth_unknown','motion_unknown','poisoned_phase'):
+            with self.subTest(case=case):
+                self.fresh_engine();terrain,parent=self.continuous_walk(moves=1,direction=1)
+                if case=='poisoned_phase':
+                    self.ack(parent);after=translated(terrain,1);self.observed_result(parent,after)
+                    self.now+=2;scene=self.scene(2,2,after,beat=True);scene.beat_remaining=(scene.beat_remaining+.3)%1
+                    self.observe(scene);self.assertEqual(8,self.status().reason)
+                    self.now+=2;self.observe(self.scene(2,2,after,beat=True))
+                    self.assertEqual(1,self.lib.test059_value(self.engine,3))
+                elif case=='synth_unknown':
+                    self.now=parent.not_before_ns;self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,parent.id,self.now,1,0,1))
+                    self.now+=1;self.assertEqual(1,self.lib.ng2_controller_complete(self.engine,parent.id,self.now,-1))
+                    self.assertEqual((4,11),(self.status().input_state,self.status().reason))
+                else:
+                    self.ack(parent);wait=self.motion_wait();pair=self.next_slot_pair()
+                    unknown=deepcopy(terrain);unknown.signature=bytes([61])*23296
+                    self.observed_result(parent,unknown)
+                    self.assertEqual((3,1,0),(self.status().input_state,self.motion_wait().attempts,self.motion_wait().last_motion))
+                    self.assertEqual((pair,wait.deadline_ns),(self.next_slot_pair(),self.motion_wait().deadline_ns))
+                self.assertNotEqual(4,self.tick()[1].kind)
+                self.assertEqual(2,len([e for e in self.events() if e.command.kind==4]))
     def scene_details(self):
         query=self.lib.ng2_controller_scene_details
         query.argtypes=[C.c_void_p,C.POINTER(SceneDetail),C.c_size_t];query.restype=C.c_size_t
@@ -1823,7 +2035,9 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                          (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
         self.ack(new);self.observed_result(new,translated(changed,1))
         next_command=self.next_move()
-        self.assertEqual(new.target_ns+PERIOD-150_000_000+10_000_000,next_command.deadline_ns)
+        # The parent/reissue remains frozen above. This is a new ordinal whose
+        # first window follows its own corrected target, within fresh horizons.
+        self.assertEqual(next_command.target_ns-150_000_000+10_000_000,next_command.deadline_ns)
     def test_continuous_phase_revocation_and_stale_horizons_never_resend(self):
         for case in ('phase_changed','source_expired','model_expired'):
             with self.subTest(case=case):
@@ -2132,7 +2346,9 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         self.assertEqual((1,1),(self.status().inputs,self.status().moves))
         self.assertEqual(2,len([e for e in self.events() if e.command.kind==4]))
         ready,following=self.tick();self.assertEqual((1,4),(ready,following.kind))
-        self.assertEqual(new.target_ns+PERIOD-150_000_000+10_000_000,following.deadline_ns)
+        # The initial replan fields remain frozen above; only the new child
+        # ordinal anchors its initial 10ms window to the current corrected beat.
+        self.assertEqual(following.target_ns-150_000_000+10_000_000,following.deadline_ns)
     def test_initial_replan_invalidated_model_stops_instead_of_waiting_for_new_beat(self):
         terrain=textured()
         for _ in range(4):

@@ -1,0 +1,542 @@
+{
+  "schema": "ngg2-test059-fixtures-v1",
+  "source_zip_sha256": "5a10c1c76237e15133843d13231206157b43f1e66cc42873b2de9cbf8c70c369",
+  "source_reports": [
+    {
+      "run_id": "ff55bc0398a64132a4efde046fd8dffe",
+      "sha256": "d7e09206f382e6c80794859c63f7c06f36b0ed32aecd41bb1214b393e9041533"
+    }
+  ],
+  "count": 12,
+  "dimensions": [
+    896,
+    414
+  ],
+  "purpose": "Required known TEST058 originals from a resolved complete export. Preserve original HUD/pixels, the two recorded LEFT unit moves, and latest unexecuted DOWN/FLOOR choice. Known-run regression only; not complete Controller replay, future DOWN game response, unseen evaluation, or live-game acceptance.",
+  "visual_label_evidence": "AI agents directly inspected all twelve original896x414 PNGs and native-size grid context. These are provisional AI observations, not human-confirmed labels. Initial capture1 is visually a transient inset pause but its unmodified detector result remains UNKNOWN. After two LEFT moves a brown wall is visible to the left and observed FLOOR continues below. Readable merchandise/prices are unobserved, never a negative item label.",
+  "source_capture_geometry": {
+    "source_width": 828,
+    "source_height": 1792,
+    "orientation": 8,
+    "decoded_width": 896,
+    "decoded_height": 414
+  },
+  "collection_scope": {
+    "resolved": true,
+    "reported_exported_capture_ids": [
+      1,
+      2,
+      7,
+      39,
+      40,
+      46,
+      47,
+      53,
+      54,
+      59,
+      60,
+      61
+    ],
+    "complete_png_capture_ids": [
+      1,
+      2,
+      7,
+      39,
+      40,
+      46,
+      47,
+      53,
+      54,
+      59,
+      60,
+      61
+    ],
+    "not_available_as_complete_png": [],
+    "unstable_prefix_capture_ids": [
+      59,
+      60
+    ]
+  },
+  "ai_visual_state_by_capture": {
+    "1": "pause_in_transient_inset",
+    "2": "pause",
+    "7": "floor",
+    "39": "floor",
+    "40": "floor",
+    "46": "floor",
+    "47": "floor",
+    "53": "floor",
+    "54": "floor",
+    "59": "pause",
+    "60": "pause",
+    "61": "pause"
+  },
+  "ai_visual_goods_by_capture": {
+    "1": "unobserved",
+    "2": "unobserved",
+    "7": "unobserved",
+    "39": "unobserved",
+    "40": "unobserved",
+    "46": "unobserved",
+    "47": "unobserved",
+    "53": "unobserved",
+    "54": "unobserved",
+    "59": "unobserved",
+    "60": "unobserved",
+    "61": "unobserved"
+  },
+  "images": [
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000001.png",
+      "sha256": "71b1c96750e58e3eb304b3f67258db6211b0cc2c5d73a81d5cf2bb3b0a568a2c",
+      "bytes": 89500,
+      "capture_id": 1,
+      "state": 0,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 0
+    },
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000002.png",
+      "sha256": "e1bc53f2a1bd159af115ec29c5c337a065545771d486a9ab786007977977ead0",
+      "bytes": 68267,
+      "capture_id": 2,
+      "state": 1,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 0
+    },
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000007.png",
+      "sha256": "f056e75b4236c105a037598b8c3da2e80060a02af94a5742b9461408759f0c0d",
+      "bytes": 331135,
+      "capture_id": 7,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 1
+    },
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000039.png",
+      "sha256": "c6da8bdf91cce571dfb1a42d9407f5cf222ef6cd0d09a4a3bbf6c6a30b5d493d",
+      "bytes": 333538,
+      "capture_id": 39,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 1
+    },
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000040.png",
+      "sha256": "a41babdcceb0d945b2a5c047d374a37c66db05cc336829af9bdf60c931716641",
+      "bytes": 333715,
+      "capture_id": 40,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 1
+    },
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000046.png",
+      "sha256": "356196750345367bb0bbeac2b9b286f246d545db13d3ba9c913569fe8e3d6aa0",
+      "bytes": 323131,
+      "capture_id": 46,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 3
+    },
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000047.png",
+      "sha256": "2380e1c4b6fb1e8d9af2af8690d9ba6dc3a9b7e7c8031917b2a022b1ea09393e",
+      "bytes": 324838,
+      "capture_id": 47,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 3
+    },
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000053.png",
+      "sha256": "b8881ae43882037e88f6fa234bb2b7494affc42ddcc8d69a9130dbe4de0498da",
+      "bytes": 320799,
+      "capture_id": 53,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 4
+    },
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000054.png",
+      "sha256": "1501a4a8f7a11d72c95d65adbd9e48e2b32b53c971ae718154ff27f415c1e9d3",
+      "bytes": 317824,
+      "capture_id": 54,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 4
+    },
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000059.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 59,
+      "state": 1,
+      "goods": 0,
+      "stable": false,
+      "completed_prefix": 4
+    },
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000060.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 60,
+      "state": 1,
+      "goods": 0,
+      "stable": false,
+      "completed_prefix": 5
+    },
+    {
+      "path": "received058/test-058/native-ff55bc0398a64132a4efde046fd8dffe/images/capture-000061.png",
+      "sha256": "c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b",
+      "bytes": 67986,
+      "capture_id": 61,
+      "state": 1,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 5
+    }
+  ],
+  "floor_capture_ids": [
+    7,
+    39,
+    40,
+    46,
+    47,
+    53,
+    54
+  ],
+  "reviewed_gold_cells_by_capture": {
+    "1": [],
+    "2": [],
+    "7": [
+      [
+        -5,
+        2
+      ]
+    ],
+    "39": [
+      [
+        -5,
+        2
+      ]
+    ],
+    "40": [
+      [
+        -5,
+        2
+      ]
+    ],
+    "46": [
+      [
+        -4,
+        2
+      ]
+    ],
+    "47": [
+      [
+        -4,
+        2
+      ]
+    ],
+    "53": [
+      [
+        -3,
+        2
+      ]
+    ],
+    "54": [
+      [
+        -3,
+        2
+      ]
+    ],
+    "59": [],
+    "60": [],
+    "61": []
+  },
+  "recorded_planner_contexts": [
+    {
+      "capture_ids": [
+        7,
+        39,
+        40
+      ],
+      "completed_prefix": 1,
+      "position": [
+        0,
+        0
+      ],
+      "visits": [
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "entrance": {
+        "valid": 0,
+        "x": 0,
+        "y": 0,
+        "direction": 0
+      },
+      "decision": [
+        1,
+        8,
+        -3,
+        1,
+        1
+      ],
+      "reviewed_floor_route": [
+        [
+          -1,
+          0
+        ],
+        [
+          -2,
+          0
+        ],
+        [
+          -2,
+          1
+        ],
+        [
+          -3,
+          1
+        ]
+      ]
+    },
+    {
+      "capture_ids": [
+        47
+      ],
+      "completed_prefix": 3,
+      "position": [
+        -1,
+        0
+      ],
+      "visits": [
+        [
+          0,
+          0,
+          1
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ],
+      "entrance": {
+        "valid": 0,
+        "x": 0,
+        "y": 0,
+        "direction": 0
+      },
+      "decision": [
+        1,
+        8,
+        -2,
+        1,
+        1
+      ],
+      "reviewed_floor_route": [
+        [
+          -1,
+          0
+        ],
+        [
+          -1,
+          1
+        ],
+        [
+          -2,
+          1
+        ]
+      ]
+    },
+    {
+      "capture_ids": [
+        54
+      ],
+      "completed_prefix": 4,
+      "position": [
+        -2,
+        0
+      ],
+      "visits": [
+        [
+          0,
+          0,
+          1
+        ],
+        [
+          -1,
+          0,
+          1
+        ],
+        [
+          -2,
+          0,
+          1
+        ]
+      ],
+      "entrance": {
+        "valid": 0,
+        "x": 0,
+        "y": 0,
+        "direction": 0
+      },
+      "decision": [
+        4,
+        8,
+        -1,
+        1,
+        1
+      ],
+      "reviewed_floor_route": [
+        [
+          0,
+          1
+        ],
+        [
+          -1,
+          1
+        ]
+      ]
+    }
+  ],
+  "recorded_move_pairs": [
+    [
+      40,
+      47,
+      "left",
+      -1,
+      0
+    ],
+    [
+      47,
+      54,
+      "left",
+      -1,
+      0
+    ]
+  ],
+  "motion_pairs": [
+    [
+      39,
+      40
+    ],
+    [
+      40,
+      46
+    ],
+    [
+      40,
+      47
+    ],
+    [
+      47,
+      53
+    ],
+    [
+      47,
+      54
+    ],
+    [
+      53,
+      54
+    ]
+  ],
+  "directions": [
+    "left",
+    "right",
+    "up",
+    "down"
+  ],
+  "expected_motion_by_pair": {
+    "39,40": {
+      "left": "blocked",
+      "right": "blocked",
+      "up": "blocked",
+      "down": "blocked"
+    },
+    "40,46": {
+      "left": "unknown",
+      "right": "unknown",
+      "up": "unknown",
+      "down": "unknown"
+    },
+    "40,47": {
+      "left": "moved",
+      "right": "unexpected",
+      "up": "unexpected",
+      "down": "unexpected"
+    },
+    "47,53": {
+      "left": "unknown",
+      "right": "unknown",
+      "up": "unknown",
+      "down": "unknown"
+    },
+    "47,54": {
+      "left": "moved",
+      "right": "unexpected",
+      "up": "unexpected",
+      "down": "unexpected"
+    },
+    "53,54": {
+      "left": "blocked",
+      "right": "blocked",
+      "up": "blocked",
+      "down": "blocked"
+    }
+  },
+  "expected_displacement_by_pair": {
+    "39,40": [
+      0,
+      0
+    ],
+    "40,46": [
+      0,
+      0
+    ],
+    "40,47": [
+      -1,
+      0
+    ],
+    "47,53": [
+      0,
+      0
+    ],
+    "47,54": [
+      -1,
+      0
+    ],
+    "53,54": [
+      0,
+      0
+    ]
+  },
+  "unexecuted_down_continuation": {
+    "direction": "down",
+    "candidate_capture_ids": [
+      54
+    ],
+    "latest_authority_capture_id": 54,
+    "emitted_move_command_ids": [],
+    "following_gameplay_capture_ids": [],
+    "terminal_pause_capture_id": 61
+  },
+  "planner_context_scope": "Use only recorded confirmed positions. Captures46/53 remain intermediate UNKNOWN motion comparisons and do not authorize the post-confirmation planner context."
+}

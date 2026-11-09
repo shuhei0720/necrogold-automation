@@ -14,11 +14,11 @@
 | Macの実ゲーム | 下記の導入条件 | 正規ゲームを実際に起動して到達/開通/商品を独立確認。未導入・未実施 |
 | iPhone実機E2E | [実ゲームE2E](device-tests/game-e2e.md)、最新statusのTEST手順 | 同じLoopCtrl/ゲーム/取得/touch経路で実画面の移動・拍・商品・ポーズ・性能を確認。HTTP成功やACKだけを成功にしない |
 
-Swiftの通常fixtureは `fastGesture` で位置、`walkedPNG` で画面を合成する。ゲーム全体の再現ではない。受入は全対象実行を分母に成否/未判定・停止理由・配置/設定を記録し、ホスト件数を実機突破率にしない。
+通常fixtureは `fastGesture`/`walkedPNG` で位置/画面を合成する。実機受入は全対象実行の成否/未判定・停止理由・配置/設定で集計し、ホスト件数を突破率にしない。
 
 ## 必須実画像とCIの除外
 
-現行local再生集合は177 image paths。`tests/test_native_perception.py` の `required_profile_fixtures` と各manifestで件数/path/hashを検査し、未配置・不一致は失敗する。raw画像はGit外。
+現行local再生集合は189 image paths。`tests/test_native_perception.py` の `required_profile_fixtures` と各manifestで件数/path/hashを検査し、未配置・不一致は失敗する。raw画像はGit外。
 
 | Manifest | 環境変数 | path数 |
 | --- | --- | --- |
@@ -33,10 +33,11 @@ Swiftの通常fixtureは `fastGesture` で位置、`walkedPNG` で画面を合�
 | `tests/test055-fixtures.json` | `NECRO_TEST055_FIXTURE_ROOT` | 11 |
 | `tests/test057-fixtures.json` | `NECRO_TEST057_FIXTURE_ROOT` | 18 |
 | `tests/test058-fixtures.json` | `NECRO_TEST058_FIXTURE_ROOT` | 7 |
+| `tests/test059-fixtures.json` | `NECRO_TEST059_FIXTURE_ROOT` | 12 |
 
-各rootへmanifest相対pathで配置する。TEST058 manifestは受領TEST057の完成7PNG。報告11枚の回収は未完了で、AI目視は暫定、商品未観測を陰性にしない。元ZIPもGit外へ置き、`NECRO_TEST055_RECORDING_ZIP=/private/test-054.zip` と `NECRO_TEST058_RECORDING_ZIP=/private/test-057.zip` をexportする。SHA256は対応test/manifestに固定。
+各rootへ相対pathで配置する。058 manifestは受領057の完成7/報告11枚、059は受領058の全12枚。AI目視は暫定、商品未観測は陰性にしない。元ZIPもGit外へ置き、`NECRO_TEST055_RECORDING_ZIP=/private/test-054.zip`、`NECRO_TEST058_RECORDING_ZIP=/private/test-057.zip`、`NECRO_TEST059_RECORDING_ZIP=/private/test-058.zip` をexportする。SHA256は対応test/manifestに固定。
 
-[native workflow](../.github/workflows/loopctrl-geometry.yml) は私有資料25methodを名前の厳密照合で除外する。追加3件は受領画像のPerception/strict parity、Nav/Motion parity・実RIGHT/未送信UP部分再生、不完全ZIP評価（`active_report_mismatch`・unknown・exit2）。未収録UPの未来画像は使わない。local全件・CI除外・旧suiteの外部画像不足skipは別集計。既知調整画像/同run隣接画像は未見評価に数えない。
+[native workflow](../.github/workflows/loopctrl-geometry.yml) は私有資料28methodを名前の厳密照合で除外する。各受領画像のPerception/Nav/Motion parityと実記録評価を分ける。057は未完了unknown/exit2、058は整合pass・商品未達fail/exit1。未収録操作の未来画像は使わない。local全件・CI除外・旧suiteの外部画像不足skipは別集計。既知調整画像/同run隣接画像は未見評価に数えない。
 
 ## TEST058の独立合成商店world
 
@@ -66,7 +67,7 @@ Patch・compile/package監査:
 python3 -m unittest discover -s patches/loopctrl -p 'test_*.py' -v
 ```
 
-MacのSwift/Raster/実C・fault検出→実compiler/IPAの順序、upstream/flagsは [workflow](../.github/workflows/loopctrl-geometry.yml) を参照。入口は `check_ngg2.py`、LoopCtrlKit tests、`check_ngg2_rpc.py`、IPA build、`check_perception_build.py`、`verify_package.py`。client CIは [別workflow](../.github/workflows/native-client.yml)。helper単独の成功は全工程完了ではない。
+Swift/Raster/実C・fault検出→実compiler/IPA、upstream/flagsは [workflow](../.github/workflows/loopctrl-geometry.yml) を参照。入口は `check_ngg2.py`、LoopCtrlKit tests、`check_ngg2_rpc.py`、IPA build、`check_perception_build.py`、`verify_package.py`。client CIは [別workflow](../.github/workflows/native-client.yml)。helper単独の成功は全工程完了ではない。
 
 ## 原トレース再生方針
 

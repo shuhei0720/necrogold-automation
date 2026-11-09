@@ -37,7 +37,7 @@ def required_fixtures():
 
 
 def required_profile_fixtures():
-    """All 177 required image paths; missing private evidence is a local failure."""
+    """All 189 required image paths; missing private evidence is a local failure."""
     sets = (("test043-fixtures.json", "NECRO_TEST043_FIXTURE_ROOT", 66),
             ("test046-fixtures.json", "NECRO_TEST046_FIXTURE_ROOT", 8),
             ("test047-fixtures.json", "NECRO_TEST047_FIXTURE_ROOT", 5),
@@ -48,7 +48,8 @@ def required_profile_fixtures():
             ("test054-fixtures.json", "NECRO_TEST054_FIXTURE_ROOT", 17),
             ("test055-fixtures.json", "NECRO_TEST055_FIXTURE_ROOT", 11),
             ("test057-fixtures.json", "NECRO_TEST057_FIXTURE_ROOT", 18),
-            ("test058-fixtures.json", "NECRO_TEST058_FIXTURE_ROOT", 7))
+            ("test058-fixtures.json", "NECRO_TEST058_FIXTURE_ROOT", 7),
+            ("test059-fixtures.json", "NECRO_TEST059_FIXTURE_ROOT", 12))
     for filename, variable, count in sets:
         manifest = json.loads((ROOT / "tests" / filename).read_text())
         if type(manifest["count"]) is not int or manifest["count"] != count \
@@ -344,8 +345,8 @@ class NativePerceptionTests(unittest.TestCase):
                            "sha256": "ff829d73b15a98d17615e663b8a6d41c8e953747af0b4739da89bcd6f67d6b19"}],
                          manifest["source_reports"])
         fixtures = list(required_profile_fixtures())
-        self.assertEqual(177, len(fixtures))
-        self.assertEqual(177, len({str(path) for _, _, path in fixtures}))
+        self.assertEqual(189, len(fixtures))
+        self.assertEqual(189, len({str(path) for _, _, path in fixtures}))
         with tempfile.TemporaryDirectory(prefix="ngg2-test057-profile-") as directory:
             library_path = Path(directory) / "reference-o0.so"
             subprocess.run(["cc", "-std=c99", "-O0", "-fPIC", "-shared",
@@ -449,6 +450,78 @@ class NativePerceptionTests(unittest.TestCase):
                 self.assertEqual(0, scenes[cid].tiles[11], "door cell(0,-5) overlaps HUD")
                 for y in range(-4, 0):
                     self.assertEqual(1, scenes[cid].tiles[(y+5)*23+11], "observed upper corridor")
+
+    def test_required_test058_original_complete_capture_and_strict_parity(self):
+        """Twelve known originals; complete export is not goods acceptance."""
+        manifest = json.loads((ROOT / "tests/test059-fixtures.json").read_text())
+        self.assertEqual(("ngg2-test059-fixtures-v1", 12, [896, 414]),
+                         (manifest["schema"], manifest["count"], manifest["dimensions"]))
+        self.assertEqual("5a10c1c76237e15133843d13231206157b43f1e66cc42873b2de9cbf8c70c369",
+                         manifest["source_zip_sha256"])
+        self.assertEqual([{"run_id": "ff55bc0398a64132a4efde046fd8dffe",
+                           "sha256": "d7e09206f382e6c80794859c63f7c06f36b0ed32aecd41bb1214b393e9041533"}],
+                         manifest["source_reports"])
+        ids = [1, 2, 7, 39, 40, 46, 47, 53, 54, 59, 60, 61]
+        self.assertEqual({"resolved": True, "reported_exported_capture_ids": ids,
+                          "complete_png_capture_ids": ids, "not_available_as_complete_png": [],
+                          "unstable_prefix_capture_ids": [59, 60]}, manifest["collection_scope"])
+        self.assertEqual({"source_width": 828, "source_height": 1792, "orientation": 8,
+                          "decoded_width": 896, "decoded_height": 414}, manifest["source_capture_geometry"])
+        floor_ids = [7, 39, 40, 46, 47, 53, 54]
+        self.assertEqual(floor_ids, manifest["floor_capture_ids"])
+        self.assertEqual({str(cid): ("pause_in_transient_inset" if cid == 1 else
+                                    "floor" if cid in floor_ids else "pause") for cid in ids},
+                         manifest["ai_visual_state_by_capture"])
+        self.assertEqual(dict.fromkeys(map(str, ids), "unobserved"), manifest["ai_visual_goods_by_capture"])
+        states = {1: 0, 2: 1, 7: 2, 39: 2, 40: 2, 46: 2, 47: 2, 53: 2, 54: 2, 59: 1, 60: 1, 61: 1}
+        prefixes = {1: 0, 2: 0, 7: 1, 39: 1, 40: 1, 46: 3, 47: 3, 53: 4, 54: 4, 59: 4, 60: 5, 61: 5}
+        gold = {str(cid): ([[-5, 2]] if cid in (7, 39, 40) else [[-4, 2]] if cid in (46, 47)
+                          else [[-3, 2]] if cid in (53, 54) else []) for cid in ids}
+        self.assertEqual(gold, manifest["reviewed_gold_cells_by_capture"])
+        with tempfile.TemporaryDirectory(prefix="ngg2-test059-perception-") as directory:
+            library_path = Path(directory) / "reference-o0.so"
+            subprocess.run(["cc", "-std=c99", "-O0", "-fPIC", "-shared",
+                            str(CORE / "NG2Perception.c"), "-lm", "-o", str(library_path)], check=True)
+            reference = C.CDLL(str(library_path))
+            reference.ng2_analyze_rgba.argtypes = self.native.ng2_analyze_rgba.argtypes
+            reference.ng2_analyze_rgba.restype = C.c_int
+            scenes, original_hashes = {}, {}
+            for filename, entry, path in required_profile_fixtures():
+                if filename != "test059-fixtures.json":
+                    continue
+                with self.subTest(capture=entry["capture_id"]):
+                    cid = entry["capture_id"]
+                    self.assertEqual((entry["bytes"], entry["sha256"]),
+                                     (path.stat().st_size, hashlib.sha256(path.read_bytes()).hexdigest()))
+                    with Image.open(path) as source:
+                        self.assertEqual((896, 414), source.size)
+                        image = source.convert("RGB")
+                    raw = image.convert("RGBA").tobytes()
+                    unchanged = NativeScene()
+                    self.assertEqual(0, reference.ng2_analyze_rgba(raw, len(raw), 3584, C.byref(unchanged)))
+                    analyzed = self.assert_reference(image)
+                    self.assertEqual(bytes(unchanged), bytes(analyzed), "entire Scene bytes O0/strictO2")
+                    self.assertEqual((states[cid], 0), (entry["state"], entry["goods"]))
+                    self.assertEqual((entry["state"], entry["goods"]), (analyzed.state, analyzed.goods))
+                    self.assertEqual(cid not in (59, 60), entry["stable"])
+                    self.assertEqual(prefixes[cid], entry["completed_prefix"])
+                    self.assertEqual(gold[str(cid)],
+                                     [[i % 23-11, i // 23-5] for i, kind in enumerate(analyzed.tiles) if kind == 2])
+                    self.assertEqual(0, sum(analyzed.protected_cells))
+                    self.assertNotIn(5, analyzed.tiles, "no observed gold bracket in received058")
+                    if analyzed.state != 2:
+                        self.assertEqual(bytes(230), bytes(analyzed.protected_cells))
+                        self.assertEqual(bytes(23296), bytes(analyzed.signature))
+                        self.assertEqual((0, 0, 0), (analyzed.beat_remaining, analyzed.beat_spacing, analyzed.beat_center))
+                    scenes[cid] = analyzed; original_hashes[cid] = entry["sha256"]
+            self.assertEqual(set(ids), set(scenes))
+            self.assertEqual((0, 1, 1), (scenes[1].state, scenes[2].state, scenes[61].state))
+            self.assertEqual(1, len({original_hashes[cid] for cid in (59, 60, 61)}))
+            # The wall is not relabelled FLOOR to make a third LEFT safe.
+            # The next DOWN cell is independently observed FLOOR in both frames.
+            for cid in (53, 54):
+                self.assertEqual(4, scenes[cid].tiles[5 * 23+10])
+                self.assertEqual(1, scenes[cid].tiles[6 * 23+11])
 
     def test_fixture_check_fails_on_missing(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, NECRO_TEST043_FIXTURE_ROOT=directory):

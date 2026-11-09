@@ -483,6 +483,52 @@ class DeviceRecordingTests(unittest.TestCase):
         self.assertFalse(result['coverage']['live_game_e2e'])
         self.assertEqual(2,audit.exit_code(result))
 
+    def test_required_test058_complete_recording_is_not_goods_acceptance(self):
+        """Private complete export proves a recorded failure, not game acceptance."""
+        path = Path(os.environ.get('NECRO_TEST059_RECORDING_ZIP',
+            '/tmp/codex-remote-attachments/01a1b13e-8e5b-732b-955c-6407d4e00082/'
+            '52CCAA26-94AD-4EC8-8DAD-2654B6686716/1-test-058.zip'))
+        run_id = 'ff55bc0398a64132a4efde046fd8dffe'
+        digest = '5a10c1c76237e15133843d13231206157b43f1e66cc42873b2de9cbf8c70c369'
+        self.assertTrue(path.is_file(), 'required private TEST058 recording missing')
+        self.assertEqual(digest, hashlib.sha256(path.read_bytes()).hexdigest())
+        result = audit.evaluate_recording(path, core=self.core)
+        self.assertEqual(digest, result['source_zip_sha256'])
+        self.assertEqual(run_id, result['run_id'])
+        self.assertEqual('pass', result['integrity']['status'])
+        self.assertEqual('fail', result['recorded_milestone']['status'])
+        self.assertEqual('recorded_terminal_without_goods', result['recorded_milestone']['reason'])
+        self.assertTrue(result['recorded_milestone']['safe_terminal'])
+        self.assertEqual([], result['recorded_milestone']['goods_capture_ids'])
+        self.assertEqual(1, audit.exit_code(result))
+        self.assertEqual((48, 12, 36), tuple(result['coverage'][key] for key in
+            ('capture_rows', 'retained_pngs', 'unretained_capture_count')))
+        self.assertFalse(result['coverage']['full_controller_replay'])
+        self.assertFalse(result['coverage']['live_game_e2e'])
+        with zipfile.ZipFile(path) as archive:
+            record = json.loads(archive.read(f'test-058/native-{run_id}/report.json'))
+        native = record['native_report']
+        self.assertTrue(record['resolved'])
+        self.assertTrue(native['workers_drained'])
+        self.assertEqual((2, 2, -2, 0, 0, 1, 9, 'late', 0, 0, 1, 0), tuple(native[key] for key in
+            ('inputs', 'moves', 'x', 'y', 'goods', 'paused', 'reason', 'reason_name',
+             'door_changes', 'terrain_changes', 'terminal', 'input_state')))
+        acknowledged = [event for event in native['events'] if event['kind'] == 4 and event['outcome'] == 2]
+        self.assertEqual([(3, 1, 1, -1, 0, 47), (4, 1, 1, -1, 0, 54)],
+            [tuple(event[key] for key in ('id', 'direction', 'motion', 'dx', 'dy', 'observed_capture_id'))
+             for event in acknowledged])
+        partial = result['c_partial_evaluation']
+        self.assertEqual('evaluated', partial['status'])
+        self.assertFalse(partial['controller_replayed'])
+        self.assertEqual([-2, 0], partial['reconstructed_final_position'])
+        self.assertEqual([(3, 40, 47, 1, -1, 0), (4, 47, 54, 1, -1, 0)],
+            [tuple(row[key] for key in ('command_id', 'before', 'after', 'direction', 'dx', 'dy'))
+             for row in partial['motions'] if row['kind'] == 1])
+        scenes = {row['capture_id']: row for row in partial['scenes']}
+        self.assertEqual(12, len(scenes))
+        self.assertTrue(all(row['goods'] == 0 for row in scenes.values()))
+        self.assertEqual(1, scenes[61]['state'])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -4,13 +4,13 @@
 
 ## 1. 要件と作業権限
 
-[要件正本](../requirements/necrogold.md) と [AGENTSの要件](../../AGENTS.md#守ること) を参照する。起点/向き・設定、開幕gold/入口、未知/候補保持、毎拍/人より速い性能、iPhone単体を維持する。
+[要件](../requirements/necrogold.md)・[AGENTS](../../AGENTS.md#守ること) の起点/設定、gold/未知保持、毎拍/速度、iPhone単体を維持する。
 
-保存権限は継続する。現scopeはstatusから辿る計画に置き、過去の命令を現在の指示にしない。
+保存権限は継続する。scopeはstatusの計画に置き、過去の命令を現在の指示にしない。
 
 ## 2. 保存資料と秘密値
 
-`legacy/r12/` 全40ファイルを [元manifest](../r12-source-manifest.json) とbyte一致で保存する。NG-G1と保護されたnative資産は変更単位の対象外なら維持する。元資料・raw ZIP/PNG/report/log、端末設定、pairing token、秘密値はGit外に置く。
+`legacy/r12/` 全40ファイルを [元manifest](../r12-source-manifest.json) とbyte一致で保存する。NG-G1と保護されたnative資産は変更単位の対象外なら維持する。元raw ZIP/PNG/report/log・端末設定・pairing/秘密値はGit外。
 
 ## 3. 入力owner・prefix・取消
 
@@ -42,6 +42,8 @@ FRESH（validation12）はlead確認済み連続MOVEで、SAME不成立時に最
 | 状態遷移 / heartbeat | 4秒 / 5秒、watchdogは100ms周期 |
 
 model、source、phase、walk、session、dispatch、motionの元境界は短縮だけを許し、refitやsource更新で延ばさない。全期限・取消は待機と保存の後にも検査する。主処理と停止・結果回収の期限は各専用契約を守る。
+
+親motion期限と未予約の次ordinalは別。次candidateは同nominal/元periodからtarget/窓を対更新し、初回reserveで凍結。親・予約済み期限は延長しない。[059計画](../plans/test059-next-slot.md)。
 
 ## 7. 拍とleadの有限試行
 

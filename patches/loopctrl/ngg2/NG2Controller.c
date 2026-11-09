@@ -141,6 +141,22 @@ static int corrected(const NG2Controller *p,uint64_t nominal,uint64_t period,uin
 static int initial_slot_active(const NG2Controller *p){
     return p->initial_slot_target&&!p->s.inputs&&!p->s.moves&&!p->s.lead_confirmed;
 }
+/* A confirmed parent's next ordinal has no command yet. Track one physical
+ * beat from that immutable nominal/period, pairing its current target/window.
+ * Once reserved (including a pending reissue), only the ticket's guards apply. */
+static int update_next_slot_candidate(NG2Controller *p){
+    uint64_t target,not_before;
+    if(p->s.input_state!=0||p->replan_pending||p->continuous_pending||p->beat_failed
+        ||!p->next_nominal||!valid_time(p->next_nominal)||!p->next_period
+        ||!ng2_beat_model_valid(&p->model)
+        ||!corrected(p,p->next_nominal,p->next_period,&target)
+        ||!valid_time(target)||target<p->s.lead_ns)return 0;
+    not_before=target-p->s.lead_ns;
+    if(not_before>=NS_LIMIT-10000000)return 0;
+    p->s.next_target_ns=target;
+    p->next_deadline=not_before+10000000;
+    return 1;
+}
 static void add_sample(NG2Controller *p,const NG2Scene *scene,uint64_t start,uint64_t end){
     NG2BeatSample sample;NG2BeatModel updated;size_t i,drop;
     uint64_t previous=p->model.last_ns;
@@ -173,8 +189,9 @@ static void add_sample(NG2Controller *p,const NG2Scene *scene,uint64_t start,uin
         if(p->s.input_state==1&&p->command.kind==NG2_ACTION_MOVE){
             if(!corrected(p,p->command.target_ns,p->command_period,&target))p->beat_failed=1;
         }else if(p->next_nominal){
-            if(!corrected(p,p->next_nominal,p->next_period,&target))p->beat_failed=1;
-            else p->s.next_target_ns=target;
+            if(p->s.input_state==0&&!p->replan_pending&&!p->continuous_pending){
+                if(!update_next_slot_candidate(p))p->beat_failed=1;
+            }else if(!corrected(p,p->next_nominal,p->next_period,&target))p->beat_failed=1;
         }
     }
     if(initial_slot_active(p)){
@@ -456,16 +473,11 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
         p->s.phase=NG2_PHASE_SYNC;return;
     }else {finish(p,end,NG2_REASON_MOVEMENT);return;}
     p->s.last_ordinal=p->command.ordinal;
-    if(p->command.target_ns>=NS_LIMIT-p->command_period){
+    if(p->command_period>=NS_LIMIT||p->command.target_ns>=NS_LIMIT-p->command_period){
         p->s.next_target_ns=0;p->next_nominal=0;finish(p,end,NG2_REASON_SESSION);return;
     }
     p->next_nominal=p->command.target_ns+p->command_period;p->next_period=p->command_period;
-    p->next_deadline=p->next_nominal-p->s.lead_ns+10000000;
-    p->s.next_target_ns=p->next_nominal;
-    if(ng2_beat_model_valid(&p->model)){
-        uint64_t target;if(corrected(p,p->next_nominal,p->next_period,&target))p->s.next_target_ns=target;
-        else p->beat_failed=1;
-    }
+    if(!update_next_slot_candidate(p))p->beat_failed=1;
     p->s.phase=NG2_PHASE_WALK;
 }
 int ng2_controller_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,
