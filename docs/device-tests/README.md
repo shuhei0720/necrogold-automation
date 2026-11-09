@@ -2464,3 +2464,13 @@ cd /mnt/necro_test056 && sh test_056.sh
 ```
 
 **「TEST-056: 終了」後、`runtime/test-056` 全体をZIPで返してください。** 歩き出し、停止位置、扉を開けたか、商品が見えたかを確認します。扉前停止でも終了まで待ち、同時に別テストを動かしません。回収済みrunは再実行せず返し、終了した未回収だけ同じprocess/source/runtimeで回復します。
+
+## TEST056受領結果（2026-11-09 日本時間）
+
+ユーザー報告「左右に行ったり来たりして終わった」。元ZIP 3,963,480bytes/SHA `c0d1735b978ee61e124d6721326fdcb5a6bae8a67fe87145efc23a3fb27c815c`、report SHA `ff829d73b15a98d17615e663b8a6d41c8e953747af0b4739da89bcd6f67d6b19`。3入力/3MOVEDはLEFT→RIGHT→LEFT、最終(-1,0)、扉/地形開通0・商品0。ACKに加え実C Motionと背景36px変位を照合。到達受入は不合格。
+
+遠方のworld目標(1,-4)は同じ。無入力の91→93で直上(0,-1)がFLOOR→DIRTとなり、予約UPから実送信LEFTへ変わった。RGB中央値(42,26,24)→(44,27,24)がfloor条件 `55*r<=100*b` を跨ぐ。その1セルだけfloorへ戻す診断反実仮想でUPへ戻る。これは原画像の分類原因の検査であり、未実行の上移動を成功と数えない。
+
+最終103→104・104→105は各2セルの分類変動で、方向RIGHTを維持するSAME検証が許可された。run予算超過ではない。105のobserve開始は元MOVE deadlineの10.098ms前、終了は1.567ms後で、次tickがlate停止→PAUSE。期限の延長を根拠付けるものではない。
+
+TEST056の診断保存は成功。最新2比較の103/104/105、最新取消MOVE source104、実送信source93、初期1/停止114を保持。全18原PNGのSHA/bytes一致、各512KiB・総4MiB内、参照欠損0。ただし87解析capture中69PNGは未収録で、完全Controller再生=false。記録評価はintegrity pass、商品到達fail/exit1。原ZIP/PNG/report/解析はGit外に保存する。

@@ -37,7 +37,7 @@ def required_fixtures():
 
 
 def required_profile_fixtures():
-    """All 152 required image paths; missing private evidence is a local failure."""
+    """All 170 required image paths; missing private evidence is a local failure."""
     sets = (("test043-fixtures.json", "NECRO_TEST043_FIXTURE_ROOT", 66),
             ("test046-fixtures.json", "NECRO_TEST046_FIXTURE_ROOT", 8),
             ("test047-fixtures.json", "NECRO_TEST047_FIXTURE_ROOT", 5),
@@ -46,7 +46,8 @@ def required_profile_fixtures():
             ("test052-fixtures.json", "NECRO_TEST052_FIXTURE_ROOT", 9),
             ("test053-fixtures.json", "NECRO_TEST053_FIXTURE_ROOT", 17),
             ("test054-fixtures.json", "NECRO_TEST054_FIXTURE_ROOT", 17),
-            ("test055-fixtures.json", "NECRO_TEST055_FIXTURE_ROOT", 11))
+            ("test055-fixtures.json", "NECRO_TEST055_FIXTURE_ROOT", 11),
+            ("test057-fixtures.json", "NECRO_TEST057_FIXTURE_ROOT", 18))
     for filename, variable, count in sets:
         manifest = json.loads((ROOT / "tests" / filename).read_text())
         if type(manifest["count"]) is not int or manifest["count"] != count \
@@ -271,6 +272,119 @@ class NativePerceptionTests(unittest.TestCase):
                         self.assertAlmostEqual(expected, actual, places=12)
             finally:
                 NativeNavigationTests.tearDownClass()
+
+    def test_floor_quantization_integer_band_boundaries(self):
+        """SHOP-02: preserve observed dark floor without admitting warm walls.
+
+        Fixed RGB8 medians represent the reviewed TEST056 floor colours and
+        exact integer boundaries, rather than a second copy of the classifier.
+        The white challenge overlay is not required for the positive evidence.
+        """
+        cases = (
+            ("observed_floor_44_27_24", (44, 27, 24), 1),
+            ("new_lower_equal", (41, 25, 21), 1),
+            ("new_lower_inside_by_five", (50, 30, 26), 1),
+            ("new_lower_outside_by_five", (52, 31, 27), 4),
+            ("new_lower_outside_blue_unit", (41, 25, 20), 4),
+            ("unchanged_dark_red38", (38, 23, 17), 1),
+            ("bright_red39", (39, 24, 20), 1),
+            ("bright_red52", (52, 31, 28), 1),
+            ("excluded_red53", (53, 33, 29), 4),
+            ("green_lower_equal", (40, 18, 21), 1),
+            ("green_lower_outside", (40, 17, 21), 4),
+            ("green_upper_equal", (50, 34, 29), 1),
+            ("green_upper_outside", (50, 35, 29), 3),
+            ("blue_upper_equal", (40, 26, 28), 1),
+            ("blue_upper_outside", (40, 26, 29), 0),
+            ("green_blue_difference_equal", (50, 32, 26), 1),
+            ("green_blue_difference_outside", (50, 33, 26), 4),
+            ("warm_dirt_stays_blocked", (50, 25, 25), 4),
+            ("brown_dirt_stays_blocked", (50, 32, 15), 4),
+            ("stone_stays_blocked", (50, 36, 30), 3),
+            ("unbracketed_wood_stays_unknown", (63, 19, 0), 0),
+            ("unknown_stays_unknown", (5, 3, 3), 0),
+        )
+        for name, color, expected in cases:
+            with self.subTest(boundary=name, rgb=color):
+                image = synthetic_floor()
+                values = [tuple(max(0, min(255, channel +
+                          (0 if i == 624 else -3 if i % 2 else 3)))
+                          for channel in color) for i in range(625)]
+                cell = Image.new("RGB", (25, 25)); cell.putdata(values)
+                image.paste(cell, (400, 195))  # relative(-1,0), outside HUD
+                result = self.assert_reference(image)
+                self.assertEqual(expected, result.tiles[5*23+10], name)
+                self.assertEqual(0, sum(result.protected_cells))
+        image = synthetic_floor()
+        image.paste((41, 25, 21), (400, 195, 425, 220))
+        self.assertNotEqual(1, self.assert_reference(image).tiles[5*23+10],
+                            "flat colour must not become floor")
+        image = synthetic_floor()
+        image.paste((41, 25, 21), (112, 87, 137, 112))
+        self.assertEqual(0, self.assert_reference(image).tiles[2*23+2],
+                         "HUD overlap must remain unknown")
+        image = synthetic_floor()
+        cell = Image.new("RGB", (25, 25))
+        cell.putdata([(199, 164, 63) if i < 280 else
+                      tuple(c + (-3 if i % 2 else 3) for c in (41, 25, 21))
+                      for i in range(625)])
+        image.paste(cell, (400, 195))
+        self.assertEqual(2, self.assert_reference(image).tiles[5*23+10],
+                         "280 gold pixels must precede dark-floor evidence")
+
+    def test_required_test056_original_floor_labels_and_strict_parity(self):
+        """18 known originals; AI visual floor labels, not a successful new run."""
+        manifest = json.loads((ROOT / "tests/test057-fixtures.json").read_text())
+        self.assertEqual(("ngg2-test057-fixtures-v1", 18, 39),
+                         (manifest["schema"], manifest["count"], manifest["visual_floor_label_count"]))
+        self.assertEqual("c0d1735b978ee61e124d6721326fdcb5a6bae8a67fe87145efc23a3fb27c815c",
+                         manifest["source_zip_sha256"])
+        self.assertEqual([{"run_id": "414c5fcf2f444e56bd079559f2fcf51c",
+                           "sha256": "ff829d73b15a98d17615e663b8a6d41c8e953747af0b4739da89bcd6f67d6b19"}],
+                         manifest["source_reports"])
+        fixtures = list(required_profile_fixtures())
+        self.assertEqual(170, len(fixtures))
+        self.assertEqual(170, len({str(path) for _, _, path in fixtures}))
+        with tempfile.TemporaryDirectory(prefix="ngg2-test057-profile-") as directory:
+            library_path = Path(directory) / "reference-o0.so"
+            subprocess.run(["cc", "-std=c99", "-O0", "-fPIC", "-shared",
+                            str(CORE / "NG2Perception.c"), "-lm", "-o", str(library_path)], check=True)
+            reference = C.CDLL(str(library_path))
+            reference.ng2_analyze_rgba.argtypes = self.native.ng2_analyze_rgba.argtypes
+            reference.ng2_analyze_rgba.restype = C.c_int
+            images, label_count = {}, 0
+            for filename, entry, path in fixtures:
+                with self.subTest(manifest=filename, image=path.name):
+                    with Image.open(path) as source:
+                        self.assertEqual((896, 414), source.size)
+                        image = source.convert("RGB")
+                    raw = image.convert("RGBA").tobytes()
+                    old = NativeScene()
+                    self.assertEqual(0, reference.ng2_analyze_rgba(raw, len(raw), 3584, C.byref(old)))
+                    current = self.assert_reference(image)
+                    self.assertEqual(bytes(old), bytes(current), "all Scene bytes O0/strictO2")
+                    if filename != "test057-fixtures.json":
+                        continue
+                    self.assertEqual(entry["bytes"], path.stat().st_size)
+                    self.assertEqual((entry["state"], entry["goods"]), (current.state, current.goods))
+                    for x, y in entry["reviewed_floor_cells"]:
+                        self.assertEqual(1, current.tiles[(y+5)*23+x+11],
+                                         f"native-size reviewed floor {entry['capture_id']}:{x},{y}")
+                        label_count += 1
+                    self.assertEqual(entry["reviewed_gold_cells"],
+                                     [[i%23-11, i//23-5] for i,k in enumerate(current.tiles) if k == 2])
+                    self.assertEqual(0, sum(current.protected_cells))
+                    self.assertNotIn(5, current.tiles, "no observed door bracket in received056")
+                    images[entry["capture_id"]] = current
+            self.assertEqual(39, label_count)
+            self.assertEqual(18, len(images))
+            self.assertEqual(bytes(images[103].tiles), bytes(images[104].tiles))
+            self.assertEqual(bytes(images[104].tiles), bytes(images[105].tiles))
+            # Calibration removes the latest comparison churn. The remaining
+            # off-route difference is recorded, never relabelled as full replay.
+            self.assertEqual([(0, 2, 4, 1)],
+                             [(i%23-11, i//23-5, a, b) for i, (a,b) in
+                              enumerate(zip(images[91].tiles, images[93].tiles)) if a != b])
 
     def test_fixture_check_fails_on_missing(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, NECRO_TEST043_FIXTURE_ROOT=directory):

@@ -453,15 +453,18 @@ class DeviceRecordingTests(unittest.TestCase):
         self.assertEqual((1,0,1),pairs[60,69])
         self.assertEqual((2,0,0),pairs[69,70])
         decisions = {row['capture_id']:row for row in partial['navigation']}
-        for capture_id,expected in ((69,(3,8,-4,0,1)),(70,(1,6,-4,0,4))):
+        # TEST057 corrects reviewed floor pixels; this is the current analyzer's
+        # decision, while the original report/motion and failed goal stay fixed.
+        for capture_id,expected in ((69,(1,8,-4,0,1)),(70,(1,7,-4,0,1))):
             row = decisions[capture_id]
             self.assertEqual(expected,tuple(row['decision'][key] for key in
                 ('direction','reason','target_x','target_y','obstacle')))
             self.assertEqual([0,1],row['position'])
             self.assertEqual({'0,0':1,'0,1':1},row['visits'])
             self.assertEqual(0,row['entrance']['valid'])
-        self.assertEqual([dict(capture_id=70,recorded_direction=3,candidate_direction=1,
-                             continuation='not_recorded',future_frame_used=False)],partial['counterfactual_branches'])
+        self.assertEqual([dict(capture_id=capture,recorded_direction=direction,candidate_direction=1,
+                               continuation='not_recorded',future_frame_used=False)
+                          for capture,direction in ((60,4),(70,3))],partial['counterfactual_branches'])
         self.assertTrue(all(row['after'] not in (77,78,79) for row in partial['motions']))
 
 

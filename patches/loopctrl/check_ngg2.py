@@ -16,6 +16,8 @@ TEST050_RUNTIME_COMMIT = '53f722c6d925e0df5c84d377acc59b2e32cf8135'
 TEST050_RUNTIME_SHA256 = '1938af7edd09a6b6689363cd9ad03d93148425e56256a2dc18bcab3b973115ab'
 TEST055_RUNTIME_COMMIT = '2d77c02665c27d0e1e813c8d6bb65ec980d26b2b'
 TEST055_RUNTIME_SHA256 = 'b83c19d30294228abb6aeae9a339917d3c9afde8f5a57d01b1575a2e3b76d261'
+TEST056_PERCEPTION_COMMIT = '5638dc2aa9744b73cfc5a204d17cdfe75bb9cb03'
+TEST056_PERCEPTION_SHA256 = 'eda7134a56f3bc43baed5de75933de0a4d72f92da7497ea972787c4b979648c3'
 EXPECTED_TEST056_MUTATIONS = frozenset(('stop-evidence-pin-priority', 'stop-evidence-selection-priority'))
 
 
@@ -449,12 +451,12 @@ def perception_profile_contract(upstream, output, *, compiler='clang'):
     if not production_object.is_file():
         raise ValueError('perception_profile_production_object_missing')
 
-    def run(label, object_path):
+    def run(label, object_path, reference_path=reference_object):
         executable = stage/(label+'-tests')
         command = [compiler, '-std=c11', '-O2', *STRICT_PERCEPTION_FP,
             '-Wall', '-Wextra', '-Werror', '-pedantic', '-I', str(native), '-I', str(HERE),
             str(HERE/'ngg2_perception_profile_tests.c'), str(HERE/'ngg2_runtime_scene_fixtures.c'),
-            str(reference_object), str(object_path), '-lm', '-o', str(executable)]
+            str(reference_path), str(object_path), '-lm', '-o', str(executable)]
         built = subprocess.run(command, capture_output=True, text=True, timeout=120)
         (output/('perception-profile-'+label+'-compile.txt')).write_text(built.stdout+built.stderr)
         checked(built)
@@ -483,7 +485,37 @@ def perception_profile_contract(upstream, output, *, compiler='clang'):
     checked(built)
     red = run('whole-scene-mutation-red', mutation_object)
     require_red(red, 'FAIL strict_O2_and_unchanged_O0_entire_scene_bytes')
+    # Both old objects use the fixed, unmodified TEST056 classifier. Semantic
+    # expectations must reject it even when its O0/O2 outputs agree exactly.
+    baseline = subprocess.check_output(['git', 'show', TEST056_PERCEPTION_COMMIT+
+        ':patches/loopctrl/ngg2/NG2Perception.c'], cwd=HERE)
+    if hashlib.sha256(baseline).hexdigest() != TEST056_PERCEPTION_SHA256:
+        raise ValueError('test057_fixed_perception_baseline_hash')
+    boundary = '55*r<=100*b+155'
+    include = '#include "NG2Core.h"'
+    if original.count(boundary) != 1 or original.split(include,1)[1].replace(
+            boundary, '55*r<=100*b') != baseline.decode().split(include,1)[1]:
+        raise ValueError('test057_only_floor_boundary_differs_from_fixed_baseline')
+    baseline_source = stage/'perception-test056-baseline.c'
+    baseline_source.write_bytes(baseline)
+    baseline_objects = []
+    for label, flags in (('o0', ['-O0', *renames]),
+                         ('strict-o2', ['-O2', *STRICT_PERCEPTION_FP])):
+        target = stage/('test056-baseline-'+label+'.o')
+        built = subprocess.run([compiler, '-std=c11', *flags, '-I', str(native),
+            '-c', str(baseline_source), '-o', str(target)],
+            capture_output=True, text=True, timeout=120)
+        (output/('perception-test056-baseline-'+label+'-compile.txt')).write_text(built.stdout+built.stderr)
+        checked(built); baseline_objects.append(target)
+    baseline_red = run('test057-fixed-colour-baseline-red', baseline_objects[1], baseline_objects[0])
+    require_red(baseline_red, 'FAIL profile_floor_quantization_known_tile')
     return {'production_green': green.stdout.strip(), 'mutation_red': red.stdout.strip(),
+            'test057_baseline_red': baseline_red.stdout.strip(),
+            'test057_baseline_returncode': baseline_red.returncode,
+            'test057_baseline_stderr': baseline_red.stderr,
+            'test057_baseline_commit': TEST056_PERCEPTION_COMMIT,
+            'test057_baseline_sha256': TEST056_PERCEPTION_SHA256,
+            'test057_only_floor_boundary_differs': True,
             'compiled': True, 'reference_flags': ['-O0'],
             'optimized_flags': ['-O2', *STRICT_PERCEPTION_FP],
             'compiler': subprocess.check_output([compiler, '--version'], text=True, timeout=30).strip(),

@@ -1,0 +1,531 @@
+{
+  "schema": "ngg2-test057-fixtures-v1",
+  "source_zip_sha256": "c0d1735b978ee61e124d6721326fdcb5a6bae8a67fe87145efc23a3fb27c815c",
+  "source_reports": [
+    {
+      "run_id": "414c5fcf2f444e56bd079559f2fcf51c",
+      "sha256": "ff829d73b15a98d17615e663b8a6d41c8e953747af0b4739da89bcd6f67d6b19"
+    }
+  ],
+  "count": 18,
+  "dimensions": [
+    896,
+    414
+  ],
+  "purpose": "Required known TEST056 originals for TEST057 dark-floor quantization calibration. Native-size AI visual review (not user-confirmed annotation) identifies39 formerly DIRT cells as continuous dark-brown floor, often under white challenge text. Includes all18 retained PNG paths, with duplicate terminal pixels preserved by capture ID. Not unseen evaluation, new trajectory, complete Controller replay, or live-game acceptance.",
+  "visual_label_evidence": "Each listed floor cell was inspected by AI agents (not user-confirmed) in original-scale108px context around the36px cell; wall/shop boundaries also checked in original896x414 frames. Source pixels are unchanged. The historical report remains unchanged.",
+  "images": [
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000001.png",
+      "sha256": "f8af2a27c77d54384ad94a0bf52bb863a4f5e2ff1d4430056e6881572c07fdca",
+      "bytes": 73273,
+      "capture_id": 1,
+      "state": 0,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 0,
+      "reviewed_floor_cells": [],
+      "reviewed_gold_cells": []
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000008.png",
+      "sha256": "b956ea49a2a9245dc0f4ba3e1da06eb20eacf34af278e604341023d232c0b11c",
+      "bytes": 72387,
+      "capture_id": 8,
+      "state": 1,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 0,
+      "reviewed_floor_cells": [],
+      "reviewed_gold_cells": []
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000015.png",
+      "sha256": "c1edded79d618f342f4b385407c1f0fb3cfcbab96996496318292aee98fb7285",
+      "bytes": 274143,
+      "capture_id": 15,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 1,
+      "reviewed_floor_cells": [
+        [
+          0,
+          -1
+        ],
+        [
+          -1,
+          2
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          2,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000068.png",
+      "sha256": "2c1f4963f96013507dd669a039dbb643e467e3a743bf60b7037888e02146d9af",
+      "bytes": 270891,
+      "capture_id": 68,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 1,
+      "reviewed_floor_cells": [
+        [
+          0,
+          -1
+        ],
+        [
+          1,
+          -1
+        ],
+        [
+          -1,
+          2
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          2,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000079.png",
+      "sha256": "7823ce6ef8a7bdd49e996635f4e9cc4c6cc208057071ccd829bdd5025c61625e",
+      "bytes": 276318,
+      "capture_id": 79,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 2,
+      "reviewed_floor_cells": [
+        [
+          0,
+          -1
+        ],
+        [
+          1,
+          -1
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          3,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000080.png",
+      "sha256": "870e154ab5a856ff04c5d5b0c47c4b27395102eddbdefbc7b52d60f181daa2f2",
+      "bytes": 274716,
+      "capture_id": 80,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 2,
+      "reviewed_floor_cells": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          3,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000082.png",
+      "sha256": "2287699f2e41e59f2a1b9d3ee5f4c73fb7ab9d22b288d31ad58bfe2ed364358b",
+      "bytes": 273110,
+      "capture_id": 82,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 2,
+      "reviewed_floor_cells": [
+        [
+          1,
+          -1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          3,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000090.png",
+      "sha256": "a63bf3fd39dff43aca4b8b806c6e62e05517d0267ee92b900fb939111b6e6dab",
+      "bytes": 276187,
+      "capture_id": 90,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 4,
+      "reviewed_floor_cells": [
+        [
+          -1,
+          -1
+        ],
+        [
+          0,
+          -1
+        ],
+        [
+          -1,
+          2
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          2,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000091.png",
+      "sha256": "7274543825d2e38eafa93331f137fd137594ebf545b789cf24fdd169b6da367d",
+      "bytes": 274826,
+      "capture_id": 91,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 4,
+      "reviewed_floor_cells": [
+        [
+          1,
+          -1
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          2,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000093.png",
+      "sha256": "e2b9486c9e69ab35c52c07490e8219c52d3f505891fba04de6bbc1dbff8f863f",
+      "bytes": 275841,
+      "capture_id": 93,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 4,
+      "reviewed_floor_cells": [
+        [
+          0,
+          -1
+        ],
+        [
+          1,
+          -1
+        ],
+        [
+          -1,
+          2
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          2,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000101.png",
+      "sha256": "71abcd8fc88c9c65c1f51c27d573e051acf5de331d5045770296f24e32ed1186",
+      "bytes": 280080,
+      "capture_id": 101,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 6,
+      "reviewed_floor_cells": [
+        [
+          0,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          3,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000102.png",
+      "sha256": "23a509a8e078d9f6dd33e3eaf203fa78a77e6d73c75bedab7b28164fdccf1d8c",
+      "bytes": 280241,
+      "capture_id": 102,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 6,
+      "reviewed_floor_cells": [
+        [
+          1,
+          -1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          3,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000103.png",
+      "sha256": "4968a7ff438621ada51eaa2c12134337ed0fb918e374ac3ff6772048b55cdbc8",
+      "bytes": 283133,
+      "capture_id": 103,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 6,
+      "reviewed_floor_cells": [
+        [
+          0,
+          -1
+        ],
+        [
+          1,
+          -1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          3,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000104.png",
+      "sha256": "7916945837b0f8ee77b6b2d2cb9f3205816f9d9e8213028ce59ba2e8c4985c2a",
+      "bytes": 284238,
+      "capture_id": 104,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 6,
+      "reviewed_floor_cells": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          3,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000105.png",
+      "sha256": "8dc7ef7b9c7bfcf86b50aa34be402c36e94a63a8ed4db5f8315c58f022279c13",
+      "bytes": 285857,
+      "capture_id": 105,
+      "state": 2,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 6,
+      "reviewed_floor_cells": [
+        [
+          2,
+          1
+        ],
+        [
+          -1,
+          2
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reviewed_gold_cells": [
+        [
+          3,
+          -5
+        ]
+      ]
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000112.png",
+      "sha256": "1f65161449e8d86c427d0c2443eba0e9dda7a5060993d9e0297cb6f35604cd15",
+      "bytes": 69528,
+      "capture_id": 112,
+      "state": 1,
+      "goods": 0,
+      "stable": false,
+      "completed_prefix": 6,
+      "reviewed_floor_cells": [],
+      "reviewed_gold_cells": []
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000113.png",
+      "sha256": "1f65161449e8d86c427d0c2443eba0e9dda7a5060993d9e0297cb6f35604cd15",
+      "bytes": 69528,
+      "capture_id": 113,
+      "state": 1,
+      "goods": 0,
+      "stable": false,
+      "completed_prefix": 9,
+      "reviewed_floor_cells": [],
+      "reviewed_gold_cells": []
+    },
+    {
+      "path": "received056/test-056/native-414c5fcf2f444e56bd079559f2fcf51c/images/capture-000114.png",
+      "sha256": "1f65161449e8d86c427d0c2443eba0e9dda7a5060993d9e0297cb6f35604cd15",
+      "bytes": 69528,
+      "capture_id": 114,
+      "state": 1,
+      "goods": 0,
+      "stable": true,
+      "completed_prefix": 9,
+      "reviewed_floor_cells": [],
+      "reviewed_gold_cells": []
+    }
+  ],
+  "floor_capture_ids": [
+    15,
+    68,
+    79,
+    80,
+    82,
+    90,
+    91,
+    93,
+    101,
+    102,
+    103,
+    104,
+    105
+  ],
+  "visual_floor_label_count": 39,
+  "same_prefix_comparisons": [
+    [
+      80,
+      82
+    ],
+    [
+      91,
+      93
+    ],
+    [
+      103,
+      104
+    ],
+    [
+      104,
+      105
+    ]
+  ],
+  "recorded_move_pairs": [
+    [
+      68,
+      80,
+      "left",
+      -1,
+      0
+    ],
+    [
+      82,
+      91,
+      "right",
+      1,
+      0
+    ],
+    [
+      93,
+      103,
+      "left",
+      -1,
+      0
+    ]
+  ],
+  "limitations": [
+    "Only18 of87 analyzed captures have retained PNGs; missing captures prevent full original Controller replay.",
+    "With +155, latest103/104/105 tiles match, but91/93 still differ at the route-external cell(0,2).",
+    "Recorded report decisions and stop reasons describe the old classifier; recalibrated image expectations do not rewrite that history."
+  ]
+}

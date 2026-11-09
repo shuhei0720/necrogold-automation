@@ -1,5 +1,5 @@
-/* TEST043: portable RGBA perception, matching gold_scan, shop_navigation and
- * beat_sync.extract. Known-image thresholds are preserved, not recalibrated.
+/* Portable RGBA perception, matching gold_scan, shop_navigation and
+ * beat_sync.extract. TEST057 calibrates only the bright-floor lower B boundary.
  * No image scaling, interpolation, shared mutable state or external assets. */
 #include "NG2Core.h"
 #include "NG2Templates.h"
@@ -138,7 +138,7 @@ static void ng2_tiles(const unsigned char *rgba,size_t stride,NG2Scene *out){
             med[c]=v;if((uint64_t)625*squares[c]-(uint64_t)sum[c]*sum[c]>=(uint64_t)4*625*625)spread=1;}
         r=med[0];g=med[1];b=med[2];if(r<6||g<3)continue;
         if(spread&&((r<=38&&44*r<=100*b&&100*b<=90*r&&40*r<=100*g&&100*g<=90*r
-                    &&abs(g-b)<=fmax(2,.18*r))||(38<r&&r<=52&&55*r<=100*b&&100*b<=70*r
+                    &&abs(g-b)<=fmax(2,.18*r))||(38<r&&r<=52&&55*r<=100*b+155&&100*b<=70*r
                     &&45*r<=100*g&&100*g<=68*r&&abs(g-b)<=fmax(2,.12*r))))out->tiles[idx]=NG2_TILE_FLOOR;
         else if(r>40&&100*b>53*r&&100*g>69*r)out->tiles[idx]=NG2_TILE_STONE;
         else if(100*b<55*r&&100*g>42*r)out->tiles[idx]=NG2_TILE_DIRT;

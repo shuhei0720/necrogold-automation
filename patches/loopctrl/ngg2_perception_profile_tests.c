@@ -19,7 +19,7 @@ extern size_t ref_ng2_orient_rgba(const uint8_t *,size_t,int32_t,int32_t,int32_t
 #define STRIDE ((size_t)WIDTH*4)
 #define RGBA_LENGTH (STRIDE*HEIGHT)
 
-static unsigned scene_cases,orientation_cases,fingerprint_cases;
+static unsigned scene_cases,orientation_cases,fingerprint_cases,floor_quantization_cases;
 static NG2Scene *reference_scene,*optimized_scene;
 
 static void require(int condition,const char *name){
@@ -105,6 +105,113 @@ static void scenes(void){
     compare_scene(rgba,RGBA_LENGTH,STRIDE,-1,NG2_UNKNOWN,NG2_GOODS_UNKNOWN);
     free(rgba);
 }
+static void quantization_floor(uint8_t *rgba){
+    opaque_black(rgba);
+    paint_mask(rgba,&ng2_template_icon);paint_mask(rgba,&ng2_template_footer);
+    paint_mask(rgba,&ng2_template_zone_one);paint_mask(rgba,&ng2_template_floor_one);
+}
+static int quantization_noise(int n,int texture){
+    if(!texture||n==624)return 0;
+    if(texture==2){
+        /* Population variance is exactly4:620*4+9+9+1+1=625*4. */
+        if(n<310)return -2;
+        if(n<620)return 2;
+        return n==620?-3:n==621?3:n==622?-1:1;
+    }
+    return n%2?-(texture==3?2:3):(texture==3?2:3);
+}
+static void quantization_cell(uint8_t *rgba,int tx,int ty,int r,int g,int b,int texture){
+    int x,y,n=0,cx=448+36*tx,cy=207+36*ty;
+    for(y=cy-12;y<cy+13;++y)for(x=cx-12;x<cx+13;++x){
+        size_t at=((size_t)y*WIDTH+(size_t)x)*4;
+        int noise=quantization_noise(n++,texture);
+        rgba[at]=(uint8_t)(r+noise);rgba[at+1]=(uint8_t)(g+noise);
+        rgba[at+2]=(uint8_t)(b+noise);rgba[at+3]=255;
+    }
+}
+static void quantization_tile(int x,int y,int expected){
+    int index=(y+5)*23+x+11;
+    require(reference_scene->tiles[index]==expected&&optimized_scene->tiles[index]==expected,
+            "profile_floor_quantization_known_tile");
+    ++floor_quantization_cases;
+}
+static void floor_quantization(void){
+    /* Fixed semantic expectations, not copied from either compiler output.
+     * TEST056's visually confirmed floor(44,27,24) motivates the first row.
+     * The remaining rows bound only bright-floor lower B by+155; dark-floor,
+     * upper limits, texture and the obstacle precedence stay independent. */
+    static const struct { int r,g,b,texture,expected; } cases[]={
+        {44,27,24,1,NG2_TILE_FLOOR}, /* Known TEST056 floor, old formula rejects. */
+        {41,25,21,1,NG2_TILE_FLOOR}, /* Exact lower equality:55*41=100*21+155. */
+        {50,30,26,1,NG2_TILE_FLOOR}, /* Inside by5, not a ratio.50 extension. */
+        {52,31,27,1,NG2_TILE_DIRT},  /* Outside by5:2860>2700+155. */
+        {41,25,20,1,NG2_TILE_DIRT},
+        {38,23,17,1,NG2_TILE_FLOOR}, /* Existing dark-band boundary. */
+        {39,23,17,1,NG2_TILE_DIRT},
+        {39,23,20,1,NG2_TILE_FLOOR},
+        {39,23,19,1,NG2_TILE_DIRT},
+        {52,31,28,1,NG2_TILE_FLOOR},
+        {53,33,29,1,NG2_TILE_DIRT},
+        {53,33,30,1,NG2_TILE_UNKNOWN},
+        {50,34,30,1,NG2_TILE_FLOOR}, /* G upper equality. */
+        {50,35,30,1,NG2_TILE_STONE},
+        {40,18,22,1,NG2_TILE_FLOOR}, /* G lower equality. */
+        {40,17,21,1,NG2_TILE_DIRT},  /* Only G lower fails the floor band. */
+        {40,17,22,1,NG2_TILE_UNKNOWN},
+        {40,24,28,1,NG2_TILE_FLOOR}, /* B upper equality. */
+        {40,25,29,1,NG2_TILE_UNKNOWN},
+        {50,32,26,1,NG2_TILE_FLOOR}, /* abs(G-B)=.12*R. */
+        {50,33,26,1,NG2_TILE_DIRT},
+        {44,27,24,2,NG2_TILE_FLOOR}, /* Population stddev exactly2. */
+        {44,27,24,3,NG2_TILE_DIRT},  /* Population stddev just below2. */
+        {40,25,23,0,NG2_TILE_UNKNOWN},
+        {39,24,22,1,NG2_TILE_FLOOR}, /* Existing positive colour assertions. */
+        {40,25,23,1,NG2_TILE_FLOOR},
+        {45,30,30,1,NG2_TILE_FLOOR},
+        {52,35,29,1,NG2_TILE_FLOOR},
+        {50,36,30,1,NG2_TILE_STONE}, /* Existing excluded colour assertions. */
+        {50,25,25,1,NG2_TILE_DIRT},  /* A blanket B/R>=.50 would accept this. */
+        {45,32,29,1,NG2_TILE_STONE},
+        {53,33,31,1,NG2_TILE_UNKNOWN},
+        {70,70,65,1,NG2_TILE_STONE},
+        {50,32,15,1,NG2_TILE_DIRT},
+        {63,19,4,1,NG2_TILE_UNKNOWN}, /* Unbracketed wood is not floor/door. */
+        {3,3,3,0,NG2_TILE_UNKNOWN}
+    };
+    uint8_t *rgba=allocate(RGBA_LENGTH);size_t k;int n,goods;
+    for(k=0;k<sizeof(cases)/sizeof(cases[0]);++k){
+        quantization_floor(rgba);
+        quantization_cell(rgba,-1,0,cases[k].r,cases[k].g,cases[k].b,cases[k].texture);
+        compare_scene(rgba,RGBA_LENGTH,STRIDE,0,NG2_FLOOR,NG2_GOODS_UNKNOWN);
+        quantization_tile(-1,0,cases[k].expected);
+    }
+    /* Gold's625-pixel sample count wins before the floor median/variance.
+     * At279 gold pixels the remaining346 floor pixels still determine it. */
+    for(n=279;n<=280;++n){
+        int i;quantization_floor(rgba);quantization_cell(rgba,-1,0,44,27,24,1);
+        for(i=0;i<n;++i){size_t at=((size_t)(195+i/25)*WIDTH+(size_t)(400+i%25))*4;
+            rgba[at]=199;rgba[at+1]=164;rgba[at+2]=63;}
+        compare_scene(rgba,RGBA_LENGTH,STRIDE,0,NG2_FLOOR,NG2_GOODS_UNKNOWN);
+        quantization_tile(-1,0,n==280?NG2_TILE_GOLD:NG2_TILE_FLOOR);
+    }
+    quantization_floor(rgba);quantization_cell(rgba,-10,-3,44,27,24,1);
+    compare_scene(rgba,RGBA_LENGTH,STRIDE,0,NG2_FLOOR,NG2_GOODS_UNKNOWN);
+    quantization_tile(-10,-3,NG2_TILE_UNKNOWN); /* HUD overlap still excludes. */
+    require(ng2_fixture_floor_rgba(rgba,RGBA_LENGTH,0,0,.25,1)==1,
+            "profile_floor_quantization_goods_fixture");
+    quantization_cell(rgba,-1,0,44,27,24,1);
+    compare_scene(rgba,RGBA_LENGTH,STRIDE,0,NG2_FLOOR,NG2_GOODS_VISIBLE);
+    quantization_tile(-1,0,NG2_TILE_FLOOR);
+    for(goods=-7;goods<=-5;++goods){
+        int index=3*23+goods+11;
+        require(optimized_scene->tiles[index]==NG2_TILE_ITEM
+                &&optimized_scene->protected_cells[index]
+                &&optimized_scene->protected_cells[index-23]
+                &&optimized_scene->protected_cells[index+23],
+                "profile_floor_quantization_merchandise_protected");
+    }
+    free(rgba);
+}
 static uint64_t hash_bytes(const uint8_t *bytes,size_t length){
     uint64_t hash=UINT64_C(1469598103934665603);size_t k;
     for(k=0;k<length;++k){hash^=bytes[k];hash*=UINT64_C(1099511628211);}
@@ -149,7 +256,7 @@ int main(void){
     const char *compiler,*architecture;
     reference_scene=allocate(sizeof(*reference_scene));
     optimized_scene=allocate(sizeof(*optimized_scene));
-    scenes();orientations();fingerprints();
+    scenes();floor_quantization();orientations();fingerprints();
     free(reference_scene);free(optimized_scene);
 #if defined(__clang__)
     compiler="Clang " __clang_version__;
@@ -166,7 +273,9 @@ int main(void){
     architecture="other";
 #endif
     printf("PASS strict O2 perception matches unchanged O0; Scene=%u/all %zu bytes; "
-           "orientation=%u/all output bytes; fingerprint=%u; compiler=%s; arch=%s\n",
-           scene_cases,sizeof(NG2Scene),orientation_cases,fingerprint_cases,compiler,architecture);
+           "orientation=%u/all output bytes; fingerprint=%u; floor_quantization=%u; "
+           "compiler=%s; arch=%s\n",
+           scene_cases,sizeof(NG2Scene),orientation_cases,fingerprint_cases,
+           floor_quantization_cases,compiler,architecture);
     return 0;
 }

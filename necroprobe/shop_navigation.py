@@ -181,9 +181,10 @@ def scan(image):
             dark_floor = (r <= 38 and 44 * r <= 100 * b <= 90 * r
                           and 40 * r <= 100 * g <= 90 * r and abs(g-b) <= max(2,.18*r))
             # TEST019: lit floor around the player reaches medians39..45.
-            # This narrow positive band excludes both existing stone (g/r>.69)
-            # and dirt (b/r<.55); unknown pixels never become floor by default.
-            bright_floor = (38 < r <= 52 and 55*r <= 100*b <= 70*r
+            # TEST057: calibrate only lower B for observed small colour changes.
+            # RGB R/B changes of one unit move 55*R-100*B by at most155.
+            # The other hue, texture and brightness bounds still apply.
+            bright_floor = (38 < r <= 52 and 55*r <= 100*b + 155 and 100*b <= 70*r
                             and 45*r <= 100*g <= 68*r and abs(g-b) <= max(2,.12*r))
             if ((dark_floor or bright_floor)
                     and (spread_enough if spread_enough is not None else max(stats.stddev) >= 2)):

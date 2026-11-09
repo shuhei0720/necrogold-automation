@@ -429,12 +429,54 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
             frames[capture]=frame
         self.assertEqual({60,69,70},set(frames))
         return frames,terrain
-    def received_test055_replan(self):
+    def legacy_test055_synthetic_frames(self):
+        """Small explicit synthetic maps preserve the former FRESH route guard.
+
+        Random texture, newly revealed terrain and the DOWN translation are
+        synthetic. No historical DOWN recording becomes a new LEFT response.
+        """
+        initial=textured({(0,0):'floor',(0,1):'floor',(-5,2):'gold'})
+        tiles={(0,0):'floor',(0,-1):'floor',(-1,0):'dirt',(-2,0):'floor',
+               (-3,0):'floor',(-4,0):'floor',(-5,0):'dirt',
+               (-5,-1):'dirt',(-5,1):'gold'}
+        tiles.update({(x,-1):'floor' for x in range(-4,0)})
+        changed=dict(tiles);changed[(-5,-1)]='gold';changed[(-5,0)]='door'
+        moved_signature=translated(initial,4).signature
+        terrain={60:initial,69:nav.Scene(tiles,{(-5,1)},'unknown',set(),moved_signature),
+                 70:nav.Scene(changed,{(-5,-1),(-5,1)},'unknown',set(),moved_signature)}
+        return {capture:self.scene(2,2,current) for capture,current in terrain.items()},terrain
+    def test_required_test057_actual055_classification_and_original_down_motion(self):
+        """Reviewed floor labels change routes, never the old recorded input."""
         frames,terrain=self.received_test055_frames()
-        # A public synthetic fit/ACK lead-in establishes the real recorded
-        # position(0,1), visits and no entered gate using actual60->69 pixels.
-        # Command numbers, HUD and timing here are synthetic, not the missing
-        # device beat model or a claimed full original Controller replay.
+        expected={60:(1,8,-3,1,1),69:(1,8,-4,0,1),70:(1,7,-4,0,1)}
+        choose=self.lib.ng2_choose
+        choose.argtypes=[C.POINTER(Scene),C.c_int32,C.c_int32,C.POINTER(C.c_uint16),
+                         C.c_size_t,C.POINTER(C.c_int32),C.POINTER(C.c_int32)]
+        # Decision and entrance are five and four int32 fields respectively.
+        for capture,position,visited in ((60,(0,0),((0,0),)),(69,(0,1),((0,0),(0,1))),
+                                         (70,(0,1),((0,0),(0,1)))):
+            visits=(C.c_uint16*1089)()
+            for x,y in visited:visits[(y+16)*33+x+16]=1
+            decision=(C.c_int32*5)();entrance=(C.c_int32*4)()
+            self.assertEqual(1,choose(C.byref(frames[capture]),*position,visits,1089,entrance,decision))
+            self.assertEqual(expected[capture],tuple(decision))
+            reference=nav.choose(terrain[capture],position,{point:1 for point in visited})
+            self.assertEqual(('left',expected[capture][1],expected[capture][2:4]),
+                             (reference['direction'],{'observed_floor_vantage':8,'approach_gate':7}[reference['reason']],
+                              reference['target']))
+        motion=self.lib.ng2_motion
+        motion.argtypes=[C.POINTER(Scene),C.POINTER(Scene),C.c_int32,C.POINTER(C.c_int32)]
+        result=(C.c_int32*3)()
+        self.assertEqual(1,motion(C.byref(frames[60]),C.byref(frames[69]),4,result))
+        self.assertEqual((1,0,1),tuple(result),'original DOWN input still has DOWN pixel displacement')
+        self.assertEqual([(-5,-1,4,2),(-5,0,4,5)],
+                         [(i%23-11,i//23-5,a,b) for i,(a,b) in
+                          enumerate(zip(frames[69].tiles,frames[70].tiles)) if a!=b])
+    def received_test055_replan(self):
+        frames,terrain=self.legacy_test055_synthetic_frames()
+        # Preserve the old UP-vantage -> LEFT-DIRT FRESH contract with explicit
+        # synthetic grids/texture/clock. Actual TEST055 now plans LEFT first;
+        # its recorded DOWN images are checked separately above.
         self.fit(terrain[60])
         def observed(capture):
             frame=Scene.from_buffer_copy(bytes(frames[capture]));clock=self.scene(2,2,beat=True)
@@ -452,13 +494,13 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *v,size_t n,
         self.assertEqual((3,0),(retired.outcome,retired.begin_ns))
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
         return old,wait,self.tick()
-    def test_required_test055_actual69_70_latest_dirt_plan(self):
+    def test_explicit_synthetic_test055_latest_dirt_plan(self):
         old,wait,(ready,new)=self.received_test055_replan()
         self.assertEqual((1,4,1,207,49,70),(ready,new.kind,new.direction,new.x,new.y,new.source_capture_id))
         self.assertNotEqual(old.id,new.id)
         self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
                          (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
-    def test_required_test055_actual69_70_latest_authority_and_frozen_beat(self):
+    def test_explicit_synthetic_test055_latest_authority_and_frozen_beat(self):
         old,wait,(ready,new)=self.received_test055_replan()
         self.assertEqual((12,1,1),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count,
                                    self.scene_details()[-1].chain_count))
@@ -582,8 +624,9 @@ void test055_mutate(NG2Controller *p,int which,uint64_t value){
         return before,after,old,wait
     def private_choice(self,pending=False):
         values=(C.c_int32*5)();self.lib.test055_choice(self.engine,int(pending),values);return tuple(values)
-    def test_required_test055_actual_private_context_exact_clock_and_pending_full_decision(self):
-        frames,_=self.received_test055_frames()
+    def test_explicit_synthetic_test055_private_context_exact_clock_and_pending_full_decision(self):
+        # The former real-image acceptance now uses explicit synthetic terrain.
+        frames,_=self.legacy_test055_synthetic_frames()
         _,_,old,wait=self.fresh_private_case(frames[69],frames[70])
         self.assertEqual((4,2,3,69,30617475642792,30617325642792,30617335642792),
                          (old.id,old.ordinal,old.direction,old.source_capture_id,old.target_ns,old.not_before_ns,old.deadline_ns))
@@ -1266,7 +1309,9 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
             self.assertEqual((1,8,-4,-1,1),tuple(getattr(decision,f) for f,_ in decision._fields_))
             frames[capture]=frame
         self.assertEqual({34,35,36,37},set(frames))
-        for before,after,changed_count in ((34,35,4),(35,36,1),(36,37,1)):
+        # Reviewed floor stabilization removes the fourth old34->35 label flip.
+        # The remaining three/one/one changes still exercise pre-publication drift.
+        for before,after,changed_count in ((34,35,3),(35,36,1),(36,37,1)):
             a,b=frames[before],frames[after];result=Motion()
             self.assertEqual(changed_count,sum(x!=y for x,y in zip(a.tiles,b.tiles)))
             self.assertEqual(bytes(a.protected_cells),bytes(b.protected_cells))
@@ -1300,7 +1345,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         self.assertEqual([1,2,2],[row.replan_count for row in self.scene_changes()])
         self.assertEqual((17,0,0),(self.status().reason,self.status().inputs,self.status().moves))
         self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,current.id,current.not_before_ns,1,0,1))
-    def received_test053_reference_walk(self,after_capture):
+    def received_test053_reference_walk(self,after_capture,synthetic_reissue=True):
         manifest=json.loads((ROOT/'tests/test054-fixtures.json').read_text())
         self.assertEqual(('ngg2-test054-fixtures-v1',17),(manifest['schema'],manifest['count']))
         fixture_root=Path(os.environ.get('NECRO_TEST054_FIXTURE_ROOT','/workspace/analysis-evidence'))
@@ -1320,11 +1365,16 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
             frames[capture]=frame
         self.assertEqual({63,77,89,99,101,after_capture},set(frames))
         # Missing initial source62 and real intermediate clocks are not
-        # invented: fit uses an explicit synthetic63 scene/HUD lead-in.
+        # invented: fit uses an explicit synthetic63 scene/HUD lead-in. When
+        # synthetic_reissue is set,101 additionally has one artificial remote
+        # restriction: TEST057 otherwise makes its tiles identical to99.
         self.fit(terrain[63]);self.assertEqual(0,self.tick()[0])
         self.now=self.status().next_target_ns-self.status().lead_ns-100_000_000
         def observed(capture):
             frame=Scene.from_buffer_copy(bytes(frames[capture]));clock=self.scene(2,2,beat=True)
+            if capture==101 and synthetic_reissue:
+                self.assertEqual(0,frame.tiles[(4+5)*23-10+11])
+                frame.tiles[(4+5)*23-10+11]=3
             for field in ('beat_valid','beat_remaining','beat_spacing','beat_center'):setattr(frame,field,getattr(clock,field))
             self.number=capture-1;self.assertEqual(1,self.observe(frame))
         observed(63)
@@ -1334,14 +1384,25 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         self.assertEqual((3,3,-1,-2,1),(self.status().inputs,self.status().moves,self.status().x,
                                       self.status().y,self.status().lead_confirmed))
         old=self.next_move();wait=self.motion_wait();self.assertEqual((3,99),(old.direction,old.source_capture_id))
-        self.now+=2;observed(101);new=self.next_move()
-        self.assertNotEqual(old.id,new.id)
+        self.now+=2;observed(101)
+        if synthetic_reissue:
+            new=self.next_move();self.assertNotEqual(old.id,new.id)
+            self.assertEqual(101,new.source_capture_id)
+            self.assertEqual([2],[detail.validation for detail in self.scene_details()])
+            retired=[event for event in self.events() if event.command.id==old.id][0]
+            self.assertEqual((3,0),(retired.outcome,retired.begin_ns))
+            self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+        else:
+            new=old
+            self.assertEqual(bytes(frames[99].tiles),bytes(frames[101].tiles))
+            self.assertEqual((0,old.id,99),(self.tick()[0],self.status().current_command_id,new.source_capture_id))
+            self.assertEqual([],self.scene_details())
         self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
                          (new.target_ns,new.not_before_ns,new.deadline_ns,new.ordinal,self.motion_wait().deadline_ns))
-        self.assertEqual(101,new.source_capture_id)
         self.ack(new);self.now=max(self.now+2,new.target_ns+80_000_002);observed(after_capture)
         return old,new,wait
     def test_required_test053_original_reference_after_reissue(self):
+        """Real signatures plus explicit synthetic101 restriction retain old guard."""
         for capture in (110,111):
             with self.subTest(after_capture=capture):
                 self.fresh_engine();self.received_test053_reference_walk(capture)
@@ -1352,6 +1413,20 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                                  (row.authority_capture_id,row.reference_capture_id,row.reference_prefix))
                 self.assertEqual((capture,1,0,1,1,99,1),(row.observed_capture_id,row.reference_eligible,
                                  row.primary_motion,row.fallback_attempted,row.fallback_motion,row.selected_capture_id,row.selected_motion))
+    def test_required_test057_actual053_identical_tiles_keep_original_authority(self):
+        """Known pixels with a synthetic clock, not full original Controller replay."""
+        for capture in (110,111):
+            with self.subTest(after_capture=capture):
+                self.fresh_engine();old,current,wait=self.received_test053_reference_walk(capture,False)
+                self.assertEqual((old.id,old.source_capture_id),(current.id,99))
+                self.assertEqual((4,4,-1,-3),(self.status().inputs,self.status().moves,self.status().x,self.status().y))
+                self.assertEqual(4,len([event for event in self.events() if event.command.kind==4]))
+                row=self.motion_references()[-1]
+                self.assertEqual((99,capture,0,1,0,0,99,1),
+                                 (row.authority_capture_id,row.observed_capture_id,row.reference_eligible,
+                                  row.primary_motion,row.fallback_attempted,row.fallback_motion,
+                                  row.selected_capture_id,row.selected_motion))
+                self.assertEqual(wait.deadline_ns,self.motion_wait().deadline_ns)
     def test_motion_reference_unit_unknown_uses_only_matching_unit_fallback_all_directions(self):
         self.motion_selection_wrapper()
         for direction,(dx,dy) in DIRS.items():
@@ -2036,6 +2111,69 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                 second=self.next_move();self.assertEqual(1,second.ordinal);self.ack(second)
                 inside=translated(opened,3);self.observed_result(second,inside)
                 self.assertEqual((self.status().moves,self.status().y,self.status().lead_confirmed,self.status().last_ordinal),(1,-1,1,1));self.hold_goods(inside)
+    def test_quantized_gold_bracket_keeps_controller_probe_and_stop_guards(self):
+        """Synthetic RGB boundary -> real perception/planner -> fake-clock Controller.
+
+        Gate-colored FLOOR remains excluded from safe-floor revalidation. A
+        stationary opening, unit movement, and ambiguous texture have distinct
+        outcomes; this is not game E2E or a recorded future-input response.
+        """
+        from test_native_navigation import quantized_gate_image
+        analyze=self.lib.ng2_analyze_rgba
+        analyze.argtypes=[C.c_void_p,C.c_size_t,C.c_size_t,C.POINTER(Scene)]
+        for name,direction in (('left',1),('up',3)):
+            dx,dy=DIRS[direction]
+            for inside in (False,True):
+                with self.subTest(direction=name,inside=inside,case='safe_floor'):
+                    image=quantized_gate_image(name,inside);raw=image.convert('RGBA').tobytes();frame=Scene()
+                    self.assertEqual(0,analyze(raw,len(raw),3584,C.byref(frame)))
+                    self.assertEqual((2,2,0),(frame.state,frame.gold_state,frame.goods))
+                    self.assertEqual(1 if inside else 5,frame.tiles[(dy+5)*23+dx+11])
+                    terrain=nav.scan(image)
+                    self.assertEqual((name,'gate_single_probe',(dx,dy)),
+                                     (lambda q:(q['direction'],q['reason'],q['target']))(nav.choose(terrain)))
+                    self.assertEqual(1,nav.burst_count(terrain,nav.choose(terrain)))
+                    self.fresh_engine();self.fit(terrain);old=self.next_move()
+                    self.assertEqual((4,direction,1 if inside else 0),(old.kind,old.direction,old.ordinal))
+                    restricted=deepcopy(terrain);restricted.tiles[(8,3)]='stone'
+                    self.now+=2;self.observe(self.scene(2,2,restricted,beat=True))
+                    self.assertEqual((3,0),(self.events()[-1].outcome,self.events()[-1].begin_ns))
+                    self.assertEqual((3,0),(self.scene_details()[-1].validation,self.scene_changes()[-1].replan_allowed))
+                    self.assertEqual((17,0,0),(self.status().reason,self.status().inputs,self.status().moves))
+                    self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,old.not_before_ns,1,0,1))
+                    self.assertNotEqual(4,self.tick()[1].kind)
+                    self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+                with self.subTest(direction=name,inside=inside,case='stationary_opening'):
+                    self.fresh_engine();self.fit(terrain);command=self.next_move();self.ack(command)
+                    opened=deepcopy(terrain);opened.tiles[(dx,dy)]='floor'
+                    self.observed_result(command,opened)
+                    status=self.status()
+                    self.assertEqual((1,0,0,0),(status.inputs,status.moves,status.x,status.y))
+                    self.assertEqual((0 if inside else 1,0),(status.door_changes,status.terrain_changes))
+                    self.assertEqual(0,status.lead_confirmed)
+                    self.assertEqual(2 if inside else 3,self.events()[-1].motion)
+                    if inside:
+                        self.assertEqual(10,status.reason)
+                        self.assertNotEqual(4,self.tick()[1].kind)
+                        self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
+            # The inside-band FLOOR has an actual unit translation in this
+            # explicitly constructed Scene; ACK alone never increments moves.
+            terrain=nav.scan(quantized_gate_image(name,True))
+            self.fresh_engine();self.fit(terrain);command=self.next_move();self.ack(command)
+            self.assertEqual(0,self.status().moves)
+            self.observed_result(command,translated(terrain,direction))
+            self.assertEqual((1,1,dx,dy,1,0),(self.status().inputs,self.status().moves,
+                             self.status().x,self.status().y,self.status().lead_confirmed,self.status().door_changes))
+            self.assertEqual((1,dx,dy),(self.events()[-1].motion,self.events()[-1].dx,self.events()[-1].dy))
+            ambiguous=deepcopy(terrain);ambiguous.signature=bytes([40])*23296
+            self.fresh_engine();self.fit(ambiguous);command=self.next_move();self.ack(command)
+            for _ in range(3):
+                self.observed_result(command,ambiguous);self.now+=2
+            self.assertEqual((1,0,0,10),(self.status().inputs,self.status().moves,
+                                      self.status().door_changes,self.status().reason))
+            self.assertEqual((3,0),(self.motion_wait().attempts,self.events()[-1].motion))
+            self.assertNotEqual(4,self.tick()[1].kind)
+            self.assertEqual(1,len([e for e in self.events() if e.command.kind==4]))
     def test_queued_main_late_guard_and_single_consumption(self):
         self.fit();command=self.next_move()
         self.assertEqual(0,self.tick()[0])

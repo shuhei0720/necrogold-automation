@@ -18,7 +18,7 @@ Swiftの通常fixtureでは `fastGesture` が歩行座標を更新し、`walkedP
 
 ## 必須実画像とCIの除外
 
-現行のlocal再生集合は152 image paths。`tests/test_native_perception.py` の `required_profile_fixtures` と各manifestが件数/path/hashの検査元で、未配置・不一致は失敗する。raw画像はGitへ追加しない。
+現行のlocal再生集合は170 image paths。`tests/test_native_perception.py` の `required_profile_fixtures` と各manifestが件数/path/hashの検査元で、未配置・不一致は失敗する。raw画像はGitへ追加しない。
 
 | Manifest | 環境変数 | path数 |
 | --- | --- | --- |
@@ -31,8 +31,9 @@ Swiftの通常fixtureでは `fastGesture` が歩行座標を更新し、`walkedP
 | `tests/test053-fixtures.json` | `NECRO_TEST053_FIXTURE_ROOT` | 17 |
 | `tests/test054-fixtures.json` | `NECRO_TEST054_FIXTURE_ROOT` | 17 |
 | `tests/test055-fixtures.json` | `NECRO_TEST055_FIXTURE_ROOT` | 11 |
+| `tests/test057-fixtures.json` | `NECRO_TEST057_FIXTURE_ROOT` | 18 |
 
-各rootからmanifestの相対pathへ辿れるよう配置する。実記録のlocal必須caseには、元TEST054 ZIPをGit外へ置き `export NECRO_TEST055_RECORDING_ZIP=/private/test-054.zip` も設定する。ZIP SHA256は `15ae61c465bdabb99a34dabb2979abd43debfe586c323ecbf5337c7d48778a15`。[native workflow](../.github/workflows/loopctrl-geometry.yml) は私有画像を持たず、21個のlocal必須replay methodを名前で明示除外し、除外集合が変われば失敗させる。local全件、CI除外、旧suiteの外部画像不足skipを別集計する。既知調整画像や同runの隣接画像を、未見評価として数えない。
+各rootへmanifest相対pathで配置する（全170path）。localには元TEST054 ZIPをGit外へ置き `export NECRO_TEST055_RECORDING_ZIP=/private/test-054.zip` も設定する。ZIP SHA256は `15ae61c465bdabb99a34dabb2979abd43debfe586c323ecbf5337c7d48778a15`。[native workflow](../.github/workflows/loopctrl-geometry.yml) は私有画像22methodを名前の厳密照合で除外する。TEST057で旧FRESH合成3例を公開CIへ戻し、実画像4例を除外集合へ加える。local全件・CI除外・旧suiteの外部画像不足skipは別集計。既知調整画像や同run隣接画像は未見評価に数えない。
 
 ## 代表コマンド
 
