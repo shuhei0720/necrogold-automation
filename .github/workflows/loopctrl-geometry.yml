@@ -257,6 +257,8 @@ jobs:
           python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
       - name: Observe fixed TEST057 dispatch preparation assertion Red
         run: python3 driver/patches/loopctrl/check_ngg2.py --test058-red-only upstream "$RUNNER_TEMP/test058-baseline"
+      - name: Preserve fixed TEST047 capture baseline compatibility
+        run: python3 driver/patches/loopctrl/check_ngg2.py --test047-red-only upstream "$RUNNER_TEMP/test047-baseline"
       - name: Run qualified TEST058 preparation deadline contract
         run: python3 driver/patches/loopctrl/check_ngg2.py --test058-public-only upstream "$RUNNER_TEMP/test058-preparation"
       - name: Detect TEST058 preparation reuse and diagnostic priority faults
@@ -377,6 +379,8 @@ jobs:
             ${{ runner.temp }}/geometry-ngg1/*.txt
             ${{ runner.temp }}/test058-baseline/*.json
             ${{ runner.temp }}/test058-baseline/*.txt
+            ${{ runner.temp }}/test047-baseline/*.json
+            ${{ runner.temp }}/test047-baseline/*.txt
             ${{ runner.temp }}/test058-preparation/*.json
             ${{ runner.temp }}/test058-preparation/*.txt
             ${{ runner.temp }}/test058-faults/*.json

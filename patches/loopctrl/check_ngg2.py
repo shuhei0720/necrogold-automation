@@ -753,6 +753,10 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                stage/'Fakes.swift', stage/'NG2Runtime.swift', stage/'main.swift']
     objects = sorted((output/'raster').glob('NG2*.o'))+[stage/'fixture.o', scene_object]
     extra = ['-D', 'NG2_RUNTIME_HOST_TEST', '-Xcc', '-I'+str(native), '-Xcc', '-I'+str(HERE), '-import-objc-header', stage/'NG2RuntimeFixture.h', *objects]
+    if expect_capture_red:
+        # Fixed TEST047 predates afterWatchdogCheck. Its selected fixture does
+        # not use the later owner fence; preserve its original Runtime bytes.
+        extra += ['-D', 'NG2_RUNTIME_LEGACY_CAPTURE_BASELINE']
     if public058_only or new058_mutations_only:
         extra += ['-D', 'NG2_PREPARATION_TEST058_GREEN']
     if new058_mutations_only:

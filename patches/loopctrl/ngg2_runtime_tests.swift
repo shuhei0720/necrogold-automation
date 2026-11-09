@@ -102,6 +102,7 @@ func scheduleFirstFixtureMove(_ run: String, holdingPause: Bool = false) {
 
 // Owner-only guard proofs must reach that guard before the independent
 // watchdog cancels. Other watchdog tests and production behavior stay active.
+#if !NG2_RUNTIME_LEGACY_CAPTURE_BASELINE
 final class TestOwnerWatchdogFence {
     private let id: String
     private let entered = DispatchSemaphore(value: 0)
@@ -132,6 +133,7 @@ final class TestOwnerWatchdogFence {
         NG2RuntimeTestHooks.afterWatchdogCheck = nil
     }
 }
+#endif
 
 // This public request is intentionally runnable against the fixed TEST050
 // Runtime, with no dependence on new C diagnostic symbols or producer hooks.
