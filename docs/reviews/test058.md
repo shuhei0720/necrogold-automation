@@ -20,4 +20,14 @@ local native/evaluator249件/全177path/skip0、client197件、package224件が�
 
 fresh実装レビュー第1周で設計/安全は静的P0/P1/P2なし。網羅P1(a)連続2再予約の実経路、P1(b)due直実行・診断先行・snapshot圧迫を追加。freeze `03302de` は実callback15例、productionの11key/epoch/IDに接続したpure16例、SAME2/FRESH→SAME×callback両順4例、pin20＋6実commit/旧encode保持/原PNG bytes・SHA・metadataの取消・失効・商品終端3例を持つ。期限/owner/lock等は同期main hook内で注入しtimer先行失効との競合を防ぐ。3担当が同周で静的追加指摘なし、P1(a)(b)はMac原ログの確認待ち。
 
-[Mac78](https://github.com/shuhei0720/necrogold-automation/actions/runs/42565588321)で追加境界・reuse無効/診断先行の別2故障・world16・全旧Runtime Greenを確認中。既存59故障は別集計で維持する。22seal中の変更はController.c/.h/Runtime.swiftだけで他19source同一、R12全40/G1不変を独立照合。全Mac/実compiler/IPA/完全sourceの最終照合は未了。compile失敗をRed、合成worldを実ゲームE2E、既知7PNGを未知受入と扱わない。
+[Mac78](https://github.com/shuhei0720/necrogold-automation/actions/runs/42565588321)で追加境界・reuse無効/診断先行の別2故障・world16・全旧Runtime Greenが成功。3担当が原artifactとRuntime SHAを独立照合し、第1周のP1(a)(b)を解消した。既存59故障は別集計で維持する。22seal中の変更はController.c/.h/Runtime.swiftだけで他19source同一、R12全40/G1不変を独立照合。
+
+## 試験の同期修正と最終検証
+
+full79は固定旧Redで新event公開直後・callback登録前にreleaseが空振りし、callback返却待ちで失敗した。期待MISSING Redへ到達した成功とは数えない。元d936 fixture SHA `1d17bcf7a5c4c3b0eca981de7cb6f161827fcfbbcbb71be180cfdf952f5f2c10`を検査後、HOST待機だけ挿入した実行fixture SHAは `c41647ccf903b0a209b5cec3ec464041faf010f822b44164eac67fb3a0c36304`。挿入除去で元bytesを完全復元でき、旧Runtime/C・時計・assertは不変。current側も実hold登録を待ち、direct_dueの実return待ちは維持した。
+
+full81は旧59の3番目のmutationで、対象guardへ到達する前に通常owner producerのassertが失敗。100ms watchdogが先に取消し、入力0・reason5・drain済み・dispatch_failure=nullで停止した合法な競合だった。対象の旧analysis-owner・旧producer-owner・新058ownerだけ、実fault直前に健康なwatchdog checkをID限定でparkし、解析drain/実callback返却とowner復元後に解放するHOST fenceを追加。lockを保持して待たず、他のwatchdog試験・native値・元assert・全故障の期待は不変。3担当が静的補足を確認し、package226件成功。
+
+新共通classはhook未導入の固定047では未使用なので条件付きで除外した。full83へ一時追加した旧047全体の確認は、既存のRaster期待が現版に対して古く失敗した。今回の必須laneから撤回し、旧047全体の再現は未受入・別scopeとする。成功結果へ数えない。full80/82は途中候補として取消した。
+
+[最終Mac84](https://github.com/shuhei0720/necrogold-automation/actions/runs/42586379842)、code `5a190d3285d8f32cc0aa381d35d4566e8e27766f`で必須の固定058/056 Red・旧色Red・全旧59＋新2・world16・実compiler/IPAを確認中。client18は197件成功し、client/launcherは最終codeまで不変。完全build-source ZIPは450tracked files全bytes/CRC/path一致、SHA `6ba1353cb11381eca36404eaed0bca75b76b905dda9ee54999b5f241e7e040f0`。実compiler/IPA/最終配布sourceの照合は未了。compile失敗をRed、合成worldを実ゲームE2E、既知7PNGを未知受入と扱わない。
