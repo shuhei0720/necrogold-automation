@@ -2525,3 +2525,14 @@ cd /mnt/necro_test058 && sh test_058.sh
 ```
 
 歩行中はゲーム前面を保ち、**自動ポーズ後5秒ほど待ったらiSHへ戻って構いません。** 「TEST-058: 終了」まで待ち、`runtime/test-058` 全体をZIPで返してください。連続歩行、扉を開けて通過するか、商品が見えたかを確認します。終了前の再実行や別テストの同時実行はしません。回収済みTEST057の追加回収のための再実行は不要です。
+
+
+## TEST058受領結果（2026-11-09 日本時間）
+
+ユーザー報告「壁まで2歩左に歩いて止まった」。元ZIP2,644,010bytes/SHA `5a10c1c76237e15133843d13231206157b43f1e66cc42873b2de9cbf8c70c369`、active/report同SHA `d7e09206f382e6c80794859c63f7c06f36b0ed32aecd41bb1214b393e9041533`。v13/API1.98.14、build時刻2026-11-09 09:07。12PNG全length/SHA/CRC一致、参照欠落0、resolved=true/PAUSE/drain済み。strict評価はintegrity pass・商品到達fail/exit1、完全Controller再生=false。
+
+LEFT2入力/2MOVED、最終(-2,0)、door/terrain/goods0。実C/Pillowで40→47と47→54の左unit変位を確認し、46/53はUNKNOWN。cap54は左隣DIRT・下FLOORで、最新plannerはDOWN/FLOOR/reason8、target(-1,1)と[down,left]床経路。第3方向入力を送った証拠はなく、壁に衝突して止まったと断定しない。商品は未観測。
+
+停止はreason9/late、capture/dispatch failureなし。親event4のmotion deadline `96955181537247` に対し、次の補正target `96955334816816`/lead150msでnotBefore=`96955184816816`となり、親由来の期限を3.279569ms超える。停止tick自体は期限の113.685497ms前、cap54 observe終了も114.020206ms前。処理が遅着したのではなく、未予約の次ordinalのtargetだけ+13.279569ms補正して古い期限を流用した空窓が原因。原058runにqualified continuous SAME/FRESHはなく、058 lease共有の実機改善効果は今回から主張しない。
+
+[TEST059計画](../plans/test059-next-slot.md)で、親motion期限と未予約の次slotを分離し、target/窓を対更新・初回reserveで凍結する。元12画像は既知回帰へ限定し、未収録DOWNの未来応答を作らない。回収済み058の再実行は依頼しない。生ZIP/画像/report/解析はGit外。

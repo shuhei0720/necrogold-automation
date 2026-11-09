@@ -1,8 +1,10 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。TEST058を実ビルド・検証済み。次はiPhoneで商店への進入・商品確認を受け入れる。[手順](device-tests/README.md#test-058実行手順)。
+更新: 2026-11-09（日本時間）。TEST058を受領し、次ordinalの拍補正と古い期限による空窓停止を確認。TEST059を開発中、新IPAは未配布。[計画](plans/test059-next-slot.md)。
 
 ## 今回の修正と受領結果
+
+TEST058はLEFT2/MOVED2後にlate停止。12PNGとjournalsは完全回収・整合pass、商品到達fail。次DOWNは認識できるが、未予約の次notBeforeが親由来deadlineより3.280ms後となり、第3MOVEを作る前に停止した。TEST059は親motion期限を維持し、未予約candidateのtarget/窓だけ対更新して初回reserveで凍結する。旧Cのassertion Red→最小Greenとrollback Redを確認し、回帰中。[受領事実](device-tests/README.md#test058受領結果2026-11-09-日本時間)。
 
 TEST057はRIGHT1/MOVED1後、次UPの送信が期限に間に合わず停止。経路外のDIRT→FLOORでSAME再予約し、observe後の残余5.017msに対しAX照会11.312ms。capture失敗ではない。次UPへの床は認識できるが、入店/商品確認は未達。[受領事実](device-tests/README.md#test057受領結果2026-11-09-日本時間)。
 
@@ -10,7 +12,7 @@ TEST058はC epochで同logical MOVEの資格を証明し、元のfresh前面確�
 
 TEST057 ZIPは完成7PNGの途中checkpointで、strict評価はintegrity invalid/到達unknown。直接原因の証拠は保持され、追加回収の再実行は依頼しない。
 
-## 現在の配布物
+## 直前の配布物（受領済み）
 
 | 項目 | 同一性 |
 | --- | --- |
@@ -36,7 +38,7 @@ Mac84はworld16/Raster3/C全Scene・Decision parity-field/旧色式Red/実RPC/�
 
 ユーザーはMacを持たずCIでの実ゲームを想定。[自己窓CI](https://github.com/shuhei0720/necrogold-automation/actions/runs/42545599822)は画面取得/キー/原PNGの赤→青を実測したが、正規ゲーム導入/認証/起動は未成立。Mac実ゲームは未実施で、iPhone単体要件を維持する。
 
-TEST058のiPhone受入、全経路毎拍・人より速い性能・商品/指輪の未知評価と通知・自動周回・耐久は未受入。
+TEST059のiPhone受入、全経路毎拍・人より速い性能・商品/指輪の未知評価と通知・自動周回・耐久は未受入。
 
 <a id="test-011結果と今回の変更"></a>
 
