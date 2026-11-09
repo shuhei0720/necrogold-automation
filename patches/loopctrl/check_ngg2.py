@@ -742,7 +742,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         mutations={
             'preparation-reuse-disabled': ('        if let reusable { return reusable }',
                 '        if let reusable, false { return reusable }',
-                'FAIL test058_qualified_reissue_preserves_original_sample_start_end_preparedID_and_epoch_none'),
+                'FAIL MISSING_prepared_continuous_reissue_sends_within_original_frozen_deadline'),
             'preparation-json-before-dispatch': ('                    cache(run, observedStatus)',
                 '                    cache(run, observedStatus)\n                    flushReport(run)',
                 'FAIL test058_full_JSON_waits_until_timed_callback_has_entered_main')}

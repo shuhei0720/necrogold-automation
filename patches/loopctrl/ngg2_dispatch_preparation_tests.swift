@@ -162,7 +162,24 @@ func test058PreparedContinuousCase(_ fault: String) {
     print("EVIDENCE test058 observe_remaining_ns=\(deadline-observedEnd) replacement_AX_ns=\(injected == 0 ? 0 : replacementQueryCost) old_id=\(old) replacement_id=\(replacement)")
     NG2RuntimeTestHooks.beforeMainAuthority = nil
     #if NG2_PREPARATION_TEST058_GREEN
-    NG2RuntimeTestHooks.beforeMainAuthority = { stateLock.lock(); finalEntered = true; stateLock.unlock() }
+    NG2RuntimeTestHooks.beforeMainAuthority = {
+        stateLock.lock(); finalEntered = true; stateLock.unlock()
+        // The control caller is synchronously stopped at this hook. Test final
+        // admission separately from a timer that may legitimately revoke first.
+        if fault == "owner" { NG2Fake.lock.lock(); NG2Fake.authenticatedOwnerActive = false; NG2Fake.lock.unlock() }
+        if fault == "lock" { LockStateMonitor.monitor.isLocked = true }
+        if fault == "controller" { runtime.testInvalidateControllerTicket(id) }
+        if fault == "deadline_equal" { NG2Fake.advance(observedRemainder) }
+        if fault == "too_late" { NG2Fake.advance(observedRemainder+1) }
+        if fault == "too_early" {
+            NG2Fake.lock.lock(); NG2Fake.fixedClock = UInt64(frozen["not_before_ns"]!.intValue!)-1; NG2Fake.lock.unlock()
+        }
+        if ["authority_equal", "authority_plus_one", "authority_reverse"].contains(fault), let authority = originalAuthority {
+            let now = fault == "authority_reverse" ? authority[1]-1
+                : authority[0]+1_000_000_000+(fault == "authority_plus_one" ? 1 : 0)
+            NG2Fake.lock.lock(); NG2Fake.fixedClock = now; NG2Fake.lock.unlock()
+        }
+    }
     require(originalAuthority != nil && (fault == "direct_due" || originalAuthority == runtime.testPreparedAuthority(id, commandID: replacement)),
         "test058_qualified_reissue_preserves_original_sample_start_end_preparedID_and_epoch_"+fault)
     var previousContext: [UInt64]?
@@ -170,23 +187,6 @@ func test058PreparedContinuousCase(_ fault: String) {
     if fault == "pid" { previousContext = runtime.testPreparationContext(id, expectedPID: 43) }
     if fault == "prefix" { previousContext = runtime.testPreparationContext(id, prefix: 999_999) }
     if fault == "cancel" { _ = call("necro_native_cancel", id) }
-    if fault == "owner" { NG2Fake.lock.lock(); NG2Fake.authenticatedOwnerActive = false; NG2Fake.lock.unlock() }
-    if fault == "lock" { LockStateMonitor.monitor.isLocked = true }
-    if fault == "controller" {
-        NG2RuntimeTestHooks.beforeMainAuthority = {
-            stateLock.lock(); finalEntered = true; stateLock.unlock(); runtime.testInvalidateControllerTicket(id)
-        }
-    }
-    if fault == "deadline_equal" { NG2Fake.advance(observedRemainder) }
-    if fault == "too_late" { NG2Fake.advance(observedRemainder+1) }
-    if fault == "too_early" {
-        NG2Fake.lock.lock(); NG2Fake.fixedClock = UInt64(frozen["not_before_ns"]!.intValue!)-1; NG2Fake.lock.unlock()
-    }
-    if ["authority_equal", "authority_plus_one", "authority_reverse"].contains(fault), let authority = originalAuthority {
-        let now = fault == "authority_reverse" ? authority[1]-1
-            : authority[0]+1_000_000_000+(fault == "authority_plus_one" ? 1 : 0)
-        NG2Fake.lock.lock(); NG2Fake.fixedClock = now; NG2Fake.lock.unlock()
-    }
     #endif
     NG2Fake.releaseTicket(replacement)
     pump("test058_replacement_callback_actually_returned") {
@@ -417,8 +417,11 @@ func test058TwoReissuesPublic(fresh: Bool, staleFirst: Bool, retentionExit: Stri
     require(pending == 0, "test058_chain_clock_changes_between_completed_captures")
     if now < notBefore { NG2Fake.advance(notBefore-now) }
     if retentionExit == "expired" {
-        let deadline = UInt64(latest["deadline_ns"]!.intValue!), at = NG2Fake.virtualClock()
-        if at <= deadline { NG2Fake.advance(deadline-at+1) }
+        NG2RuntimeTestHooks.beforeMainAuthority = {
+            let deadline = UInt64(latest["deadline_ns"]!.intValue!), at = NG2Fake.virtualClock()
+            if at <= deadline { NG2Fake.advance(deadline-at+1) }
+            NG2RuntimeTestHooks.beforeMainAuthority = nil
+        }
     }
     release(latestID)
     let acknowledged = report(id)
