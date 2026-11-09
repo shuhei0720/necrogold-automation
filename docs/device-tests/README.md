@@ -2503,3 +2503,25 @@ cd /mnt/necro_test057 && sh test_057.sh
 source45→46の経路外(2,0)DIRT→FLOORでSAME再予約。UP/ordinal2/元targetと期限は不変。凍結窓5.250148ms、observe記録終了時残余5.017107ms、そこからAX開始まで5.176042ms、AX11.311875ms。query開始で0.158935ms超過、最終gateは11.613976ms超過しbegin0で停止。reason6/captureは未送信complete(0)の写像で、capture_failure=null/timeoutなし。前回bright-band校正は今回のdark-band変動を対象にせず、旧式でもNavは同じなので到達改善とは数えない。
 
 ZIPは未完了checkpoint。完成7PNG＋capture6.part262,144bytesで、manifest11枚の全回収ではない。report/activeはsaveの途中状態と整合し、resolved=false。RPC失敗・timeout・取消・正常終了の最終記録がなく、取得途中/中断等の原因は特定不能。strict評価器はactive_report_mismatchでintegrity invalid/exit2、到達評価unknown。直接停止の証拠は揃うため回収再実行を依頼せず開発を継続する。原ZIP/report/画像・実C/Pillow解析はGit外。
+
+
+## TEST058 最終Mac・配布物
+
+TEST057の再予約で起きた期限超過を修正。同logical MOVEの資格付き準備共有・診断JSONの入力後処理・due直実行を加え、全期限/予算/安全条件を維持した。code `5a190d3285d8f32cc0aa381d35d4566e8e27766f` / [Mac84](https://github.com/shuhei0720/necrogold-automation/actions/runs/42586379842)で旧59＋新2故障・world16・Raster3・C parity-field・実RPC・実compiler・新IPAが成功。22seal/3変更19同一、R12原40/G1、IPA9Mach-Oを照合。[検証](../reviews/test058.md)。合成worldは実ゲーム到達の合格ではない。
+
+## TEST-058実行手順
+
+**TEST058の実機テストをお願いします。** [新IPA build84 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42586379842/artifacts/13660334564)と新しい完全sourceを使います。native修正のためIPA更新が必要です。
+
+1. Safariでリンクを開き、IPAはGitHubログイン後にZIPを取得・展開します。
+2. LoopCtrlをStop Server→完全終了。SideStoreでZIP内の `upstream/release/LoopCtrl.ipa` に更新し、再起動→Start Server、いつものVPN/ディスクイメージ接続を確認します。
+3. 完全sourceを展開し、フォルダ選択では `test_058.sh` があるフォルダを選びます。
+4. 新しい通常オールゾーン1-1で開幕の金壁が見える回を、左側が下・画面端0でポーズして実行します。
+
+```sh
+mkdir -p /mnt/necro_test058
+mount -t ios . /mnt/necro_test058
+cd /mnt/necro_test058 && sh test_058.sh
+```
+
+歩行中はゲーム前面を保ち、**自動ポーズ後5秒ほど待ったらiSHへ戻って構いません。** 「TEST-058: 終了」まで待ち、`runtime/test-058` 全体をZIPで返してください。連続歩行、扉を開けて通過するか、商品が見えたかを確認します。終了前の再実行や別テストの同時実行はしません。回収済みTEST057の追加回収のための再実行は不要です。

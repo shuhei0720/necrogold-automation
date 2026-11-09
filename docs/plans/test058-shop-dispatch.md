@@ -1,6 +1,6 @@
 # TEST058: 連続入力の送信準備と商店到達結合の8項目計画
 
-状態: fresh計画レビュー完了（設計/網羅は第3周の地形訂正までclear、安全第1周clear）。2026-11-09（日本時間）。[要件](../requirements/necrogold.md)のSHOP-02/GOODS-01/BEAT/STOPを維持し、1歩だけで止まる原因と商店までの結合不足を扱う。
+状態: 実装・Mac84実ビルド検証完了、iPhone受入待ち。fresh計画レビューは設計/網羅第3周の地形訂正までclear、安全第1周clear。2026-11-09（日本時間）。[要件](../requirements/necrogold.md)のSHOP-02/GOODS-01/BEAT/STOPを維持し、1歩だけで止まる原因と商店までの結合不足を扱う。
 
 ## 1. 概要
 

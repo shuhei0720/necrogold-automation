@@ -18,7 +18,7 @@ fresh安全第1周clear。設計第1周P1「証跡snapshot/pinとJSON延期が�
 
 local native/evaluator249件/全177path/skip0、client197件、package224件が成功。原057の7完成PNGはO0/strictO2/Pillowで全Scene・73scoresを照合し、実RIGHTと未実行UP判断までを評価した。未完了ZIPのstrict評価を追加し、integrity invalid/goal unknownを合格へ変えない。CI private除外25はlocal全件と別集計。
 
-fresh実装レビュー第1周で設計/安全は静的P0/P1/P2なし。網羅P1(a)連続2再予約の実経路、P1(b)due直実行・診断先行・snapshot圧迫を追加。freeze `03302de` は実callback15例、productionの11key/epoch/IDに接続したpure16例、SAME2/FRESH→SAME×callback両順4例、pin20＋6実commit/旧encode保持/原PNG bytes・SHA・metadataの取消・失効・商品終端3例を持つ。期限/owner/lock等は同期main hook内で注入しtimer先行失効との競合を防ぐ。3担当が同周で静的追加指摘なし、P1(a)(b)はMac原ログの確認待ち。
+fresh実装レビュー第1周で設計/安全は静的P0/P1/P2なし。網羅P1(a)連続2再予約の実経路、P1(b)due直実行・診断先行・snapshot圧迫を追加。freeze `03302de` は実callback15例、productionの11key/epoch/IDに接続したpure16例、SAME2/FRESH→SAME×callback両順4例、pin20＋6実commit/旧encode保持/原PNG bytes・SHA・metadataの取消・失効・商品終端3例を持つ。期限/owner/lock等は同期main hook内で注入しtimer先行失効との競合を防ぐ。3担当が同周で静的追加指摘なし。P1(a)(b)は下記Mac78の原ログ照合で解消した。
 
 [Mac78](https://github.com/shuhei0720/necrogold-automation/actions/runs/42565588321)で追加境界・reuse無効/診断先行の別2故障・world16・全旧Runtime Greenが成功。3担当が原artifactとRuntime SHAを独立照合し、第1周のP1(a)(b)を解消した。既存59故障は別集計で維持する。22seal中の変更はController.c/.h/Runtime.swiftだけで他19source同一、R12全40/G1不変を独立照合。
 
@@ -30,4 +30,17 @@ full81は旧59の3番目のmutationで、対象guardへ到達する前に通常o
 
 新共通classはhook未導入の固定047では未使用なので条件付きで除外した。full83へ一時追加した旧047全体の確認は、既存のRaster期待が現版に対して古く失敗した。今回の必須laneから撤回し、旧047全体の再現は未受入・別scopeとする。成功結果へ数えない。full80/82は途中候補として取消した。
 
-[最終Mac84](https://github.com/shuhei0720/necrogold-automation/actions/runs/42586379842)、code `5a190d3285d8f32cc0aa381d35d4566e8e27766f`で必須の固定058/056 Red・旧色Red・全旧59＋新2・world16・実compiler/IPAを確認中。client18は197件成功し、client/launcherは最終codeまで不変。完全build-source ZIPは450tracked files全bytes/CRC/path一致、SHA `6ba1353cb11381eca36404eaed0bca75b76b905dda9ee54999b5f241e7e040f0`。実compiler/IPA/最終配布sourceの照合は未了。compile失敗をRed、合成worldを実ゲームE2E、既知7PNGを未知受入と扱わない。
+[最終Mac84](https://github.com/shuhei0720/necrogold-automation/actions/runs/42586379842)、code `5a190d3285d8f32cc0aa381d35d4566e8e27766f`で必須の固定058/056 Red・旧色Red・全旧59＋新2・world16・実compiler/IPAが成功。client18は197件成功し、client/launcherは最終codeまで不変。完全build-source ZIPは450tracked files全bytes/CRC/path一致、SHA `6ba1353cb11381eca36404eaed0bca75b76b905dda9ee54999b5f241e7e040f0`。実compiler/IPAの実物も照合済み。資料込みの最終配布sourceは閉じるcommitで照合する。compile失敗をRed、合成worldを実ゲームE2E、既知7PNGを未知受入と扱わない。
+
+
+## Mac84・配布物の実物照合
+
+- IPA ZIP artifact `13660334564` /17,822,347bytes/SHA `33e13bfe060610f1c96a562bbebdc8505d275c718a8416b515d15efd4af5db79`。内部IPA build84/SHA `0ed81f68c50986d60848293b9c0a5c9fc54664c4a23626d6c9d0dd0487491f20`。
+- 検証 artifact `13661456112` /633,816bytes/SHA `3d12b0720bc4d4a4f6ab204d1d9a3a3dd9b8770efe547b47d8d3081834b7e7f8`。旧59故障と新2故障の全末尾は各指定assertion、world16の実stdout/report hash・固定入力/変位・停止理由は一致。
+- seal22/変更3・不変19/R12原40/G1、app/runnerのAPI1.98.14/cap12、全9Mach-OのHOST80marker非混入、CRC/来歴を照合。
+- raw PBX・実build log・4C/5Swift/6RSPを結合。Perception/Navはstrict O2、他CはO0、SwiftはOnoneで、HOST macroはない。
+- 実producer3+2を暗号localhost HTTPからclient v13へ渡し、3診断配列とactive/report両journalが一致。world16もstrict v13と独立worldの入力/変位/終端に一致。外側lifecycle/画像がfixtureである結合検査を実ゲーム受入にはしない。
+
+Git外の検証記録は `test058-final-{package,compile-proof,macho}-verification.json`、`test058-final-swift-contract.json`、`test058-final-native-client-coupling.json`、`test058-final-world-client-parser.json`。fresh設計・網羅・安全3担当が同じ第1周で原artifact/ログ/実source/IPA/compilerを独立照合し、残P0/P1/P2なし。前回のowner競合FAILを新しいnamed Redとして誤受理していないことも確認した。
+
+最終引き継ぎは資料だけを更新したcommitへ固定し、配布する完全source ZIPの450全tracked bytes・CRC・path・過不足を再照合する。コードはMac84のbuild対象と同一で、実機の商品到達・毎拍・人より速い性能は今回のiPhone受入で確認する。
