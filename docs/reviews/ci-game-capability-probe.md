@@ -12,4 +12,8 @@ fresh設計・網羅・安全の計画第2周は残P0/P1/P2なし。実装第1�
 
 ## 実測
 
-Swift compile、実画面取得/入力、artifact/run/source/PNG hashesの照合は未実施。結果が揃った後に追記し、measurement完了とcapability passを分離する。
+[実CI42545599822](https://github.com/shuhei0720/necrogold-automation/actions/runs/42545599822) / source `8950e7be48c20bb927d204b34f4a835c1bd95beb` / attempt1で測定完了。arm64/macOS26.7.2、Swift compile成功、画面/入力preflight true。自窓400×272の外部PNGが赤100%から青100%へ変化し、外部CGEvent.postToPidの押下/解放、アプリ側keyDown/keyUp各1・draw1増分を記録。clock bracket/来歴/完了/cleanup（残process0）が揃い、自己窓のcapability_pass=true。game_e2e=false、MetalはApple Paravirtual device1件列挙だけでcommand実行は未検査。
+
+artifact ZIP17,671bytes/SHA `3e0365451171a1a8d38af099bb51aa341e824e78f56e5b73cab2649a59af1a3c`。manifestにsource3件と元PNG/summaryのhashを保存し、Git外でgit show/CRC/path/全bytesと原画素を再計算した。before PNG SHA `f4831979a62b5e6f435094741da5407501c9bbaa94912fbad4ae01804fd517b5`、after `3d9932339e09c589c3648361ba36362e1641100e13258e9ef6fbdb1bcaa19db6`。nonce/所有のraw stateは非公開で、保存済みboolの整合だけを確認する。
+
+この測定で正規日本版ゲームの導入/認証/起動を確認したとは扱わない。独立source第4周を行っていない留保も上記のまま維持し、今回の正常完了データの結論を恒久的なadapter運用へ広げない。
