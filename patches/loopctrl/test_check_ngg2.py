@@ -206,5 +206,30 @@ class NGG2RuntimeVerifierTests(unittest.TestCase):
                 checker.test056_host_fixture_seam(original+'// TEST056 HOST '+name+' END.\n', self.runtime)
 
 
+class Test058PublicSelectionTests(unittest.TestCase):
+    def test_selects_only_real_helpers_and_new_executable_fixture(self):
+        tests=(HERE/'ngg2_runtime_tests.swift').read_text()
+        fixture=(HERE/'ngg2_dispatch_preparation_tests.swift').read_text()
+        selected=checker.test058_public_fixture_source(tests)
+        self.assertTrue(selected.endswith(fixture))
+        self.assertNotIn('// This public request is intentionally runnable',selected)
+        self.assertIn('func require(',selected)
+        self.assertIn('MISSING_prepared_continuous_reissue_sends_within_original_frozen_deadline',selected)
+    def test_rejects_missing_or_duplicated_helper_boundary(self):
+        tests=(HERE/'ngg2_runtime_tests.swift').read_text()
+        marker='// This public request is intentionally runnable'
+        for broken in (tests.replace(marker,''),tests+marker):
+            with self.subTest(source=broken[-40:]),self.assertRaises(ValueError):
+                checker.test058_public_fixture_source(broken)
+    def test_rejects_empty_or_nonexecuting_new_fixture(self):
+        tests=(HERE/'ngg2_runtime_tests.swift').read_text()
+        with tempfile.TemporaryDirectory() as folder:
+            target=Path(folder)/'ngg2_dispatch_preparation_tests.swift'
+            for content in ('','// no executable body','func test058PreparedContinuousDeadlinePublic() {}'):
+                target.write_text(content)
+                with patch.object(checker,'HERE',Path(folder)),self.assertRaises(ValueError):
+                    checker.test058_public_fixture_source(tests)
+
+
 if __name__ == '__main__':
     unittest.main()

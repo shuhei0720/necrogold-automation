@@ -1,14 +1,16 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。TEST056を受領し、床の色境界を修正するTEST057を配布する段階。履歴の「現在」「次」は記録時点を示す。
+更新: 2026-11-09（日本時間）。TEST057の右1歩停止を受領し、送信準備と商店到達結合を改善するTEST058を開発中。履歴の「現在」「次」は記録時点を示す。
 
 ## 受領結果と今回の修正
 
-TEST056はLEFT→RIGHT→LEFTの3入力/3MOVED後late停止、商品0。同じworld目標への通路がRGB1〜2の変動でFLOOR/DIRTを跨ぎ、上予約を取り消していた。最終SAME検証終了は元deadlineの1.567ms後。最新比較103/104/105は全て保存され、TEST056の診断目的は達成。到達受入は不合格。[受領事実](device-tests/README.md#test056受領結果2026-11-09-日本時間)。
+TEST057はRIGHT1/MOVED1後、次UPの送信が期限に間に合わず停止。経路外のDIRT→FLOOR変動でSAME再予約し、observe後の残余5.017msに対しAX照会11.312ms。capture失敗ではない。次UPへの床は認識できるが、入店/商品確認は未達。[受領事実](device-tests/README.md#test057受領結果2026-11-09-日本時間)。
 
-TEST057は明るい床band内のB下限だけに155の色幅を加え、他の色/texture条件、Nav/Controller/Runtime、run8/chain2/input16・入力期限・UNKNOWN無再送は維持する。既存152＋受領18の全170画像を検証し、既知の最終3枚の分類が一致する。全ての色揺れ・未知配置の往復を解消した保証ではない。[計画](plans/test057-floor-quantization.md)・[検証](reviews/test057.md)。
+TEST058では同logical MOVEの資格をC epochで証明し、元のfresh前面確認/leaseを共有、重い診断JSONを入力直前から外す。全期限・予算・商品保護を維持する。独立な閉扉/壁/商品のworldで、実gestureから開通→進入→商品→PAUSEまでを結合する。[計画](plans/test058-shop-dispatch.md)・[16例の期待](tests/test058-world-cases.md)・[検証](reviews/test058.md)。Controller153件Green、旧RuntimeのMac assertion Redを準備中。新IPAは未配布。
 
-## 配布版
+回収ZIPは完成7PNGの途中checkpointで、直接停止の画像はあるが全11枚の回収は未了。追加回収の再実行は依頼せず、次の開発へ進む。
+
+## 直前配布（受領済み）
 
 | 項目 | 同一性 |
 | --- | --- |
@@ -17,7 +19,7 @@ TEST057は明るい床band内のB下限だけに155の色幅を加え、他の�
 
 native22sourceのうち変更はPerceptionだけ、他21は同一。seal `cee2d62641fdbb29fc235158568afdcafe6a5aba30e7ae0eb0f70a022583c4e5`。client v13 / API1.98.14-ngg2 / cap12、R12/G1原bytesを維持。
 
-**[TEST057の実機テスト](device-tests/README.md#test-057実行手順)をお願いします。** 認識がnative側なのでIPA更新が必要。LoopCtrl完全終了/SideStore更新/Start Server後、新sourceの `sh test_057.sh` を新1-1ポーズから実行し、終了後 `runtime/test-057` 全ZIPを返す。歩行中はゲーム画面、自動ポーズ後はiSHへ戻って終了表示を待てる。回収済みTEST056は再実行しない。
+TEST057は受領済みで、旧版を再実行しない。TEST058のIPA/完全sourceを検証してから、具体的な実機依頼を行う。
 
 ## 検証範囲
 

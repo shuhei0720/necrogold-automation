@@ -11,6 +11,13 @@ on:
       - 'tools/evaluate_device_recording.py'
       - '.github/workflows/loopctrl-geometry.yml'
   workflow_dispatch:
+    inputs:
+      native_lane:
+        description: Full validation or TEST058 fixed-source assertion Red
+        type: choice
+        required: true
+        default: full
+        options: [full, test058-red]
 
 permissions:
   contents: read
@@ -44,6 +51,37 @@ jobs:
           path: ${{ runner.temp }}/ngg2-baseline/
           if-no-files-found: error
           retention-days: 30
+  test058-dispatch-red:
+    if: inputs.native_lane == 'test058-red'
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Apply guarded source and observe fixed TEST057 dispatch assertion Red
+        run: |
+          python3 driver/patches/loopctrl/apply_patch.py upstream
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream
+          python3 driver/patches/loopctrl/check_ngg2.py --test058-red-only upstream "$RUNNER_TEMP/test058-baseline"
+      - name: Save original TEST058 assertion Red evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-test058-dispatch-red
+          path: |
+            ${{ runner.temp }}/test058-baseline/*.json
+            ${{ runner.temp }}/test058-baseline/*.txt
+          if-no-files-found: error
+          retention-days: 30
   native-source-ready:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -64,7 +102,7 @@ jobs:
           fi
   native-host-contracts:
     needs: native-source-ready
-    if: needs.native-source-ready.outputs.ready == 'true'
+    if: needs.native-source-ready.outputs.ready == 'true' && inputs.native_lane != 'test058-red'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -142,7 +180,7 @@ jobs:
           retention-days: 30
   build:
     needs: [native-source-ready, native-host-contracts]
-    if: needs.native-source-ready.outputs.ready == 'true'
+    if: needs.native-source-ready.outputs.ready == 'true' && inputs.native_lane != 'test058-red'
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -173,6 +211,10 @@ jobs:
           brew install xcodegen
           (cd upstream && xcodegen generate --spec project.yml)
           python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
+      - name: Observe fixed TEST057 dispatch preparation assertion Red
+        run: python3 driver/patches/loopctrl/check_ngg2.py --test058-red-only upstream "$RUNNER_TEMP/test058-baseline"
+      - name: Run qualified TEST058 preparation deadline contract
+        run: python3 driver/patches/loopctrl/check_ngg2.py --test058-public-only upstream "$RUNNER_TEMP/test058-preparation"
       - name: Observe fixed TEST055 stop-evidence retention assertion Red
         run: python3 driver/patches/loopctrl/check_ngg2.py --test056-red-only upstream "$RUNNER_TEMP/test056-baseline"
       - name: Run production Swift native contracts using the declared per-source profile
@@ -285,6 +327,10 @@ jobs:
             ${{ runner.temp }}/geometry-baseline/*.txt
             ${{ runner.temp }}/geometry-ngg1/*.json
             ${{ runner.temp }}/geometry-ngg1/*.txt
+            ${{ runner.temp }}/test058-baseline/*.json
+            ${{ runner.temp }}/test058-baseline/*.txt
+            ${{ runner.temp }}/test058-preparation/*.json
+            ${{ runner.temp }}/test058-preparation/*.txt
             ${{ runner.temp }}/test056-baseline/*.json
             ${{ runner.temp }}/test056-baseline/*.txt
             ${{ runner.temp }}/ngg2/*.json

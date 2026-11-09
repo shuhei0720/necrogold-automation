@@ -94,6 +94,8 @@ class NativeControllerTests(unittest.TestCase):
         l.ng2_controller_complete.argtypes=[C.c_void_p,C.c_uint64,C.c_uint64,C.c_int32]
         l.ng2_controller_cancel.argtypes=[C.c_void_p,C.c_uint64,C.c_int32]
         l.ng2_controller_status.argtypes=[C.c_void_p,C.POINTER(Status)]
+        l.ng2_controller_preparation_epoch.argtypes=[C.c_void_p,C.c_uint64,C.c_uint64]
+        l.ng2_controller_preparation_epoch.restype=C.c_uint64
         l.ng2_controller_events.argtypes=[C.c_void_p,C.POINTER(Event),C.c_size_t]
         l.ng2_controller_events.restype=C.c_size_t
         l.ng2_controller_motion_wait.argtypes=[C.c_void_p,C.POINTER(MotionWait)]
@@ -130,6 +132,127 @@ class NativeControllerTests(unittest.TestCase):
         out=(Event*64)();n=self.lib.ng2_controller_events(self.engine,out,64);return list(out)[:n]
     def motion_wait(self):
         out=MotionWait();self.lib.ng2_controller_motion_wait(self.engine,C.byref(out));return out
+    def preparation_epoch(self,command,now=None):
+        query=self.lib.ng2_controller_preparation_epoch
+        query.argtypes=[C.c_void_p,C.c_uint64,C.c_uint64];query.restype=C.c_uint64
+        return query(self.engine,command.id,self.now if now is None else now)
+    def test_preparation_epoch_same_chain_is_read_only_and_new_logical_move_changes_identity(self):
+        terrain,old=self.continuous_walk(moves=1,direction=3)
+        epoch=self.preparation_epoch(old)
+        self.assertNotEqual(0,epoch,'lead-confirmed unsent logical MOVE needs preparation identity')
+        before=bytes(self.status());events=b''.join(bytes(row) for row in self.events())
+        self.assertEqual(epoch,self.preparation_epoch(old));self.assertEqual(before,bytes(self.status()))
+        self.assertEqual(events,b''.join(bytes(row) for row in self.events()))
+        wait=self.motion_wait();current=old
+        for cell in ((-10,4),(-9,4)):
+            terrain=deepcopy(terrain);terrain.tiles[cell]='stone';self.now+=2
+            self.observe(self.scene(2,2,terrain,beat=True));replacement=self.next_move()
+            self.assertEqual(2,self.scene_details()[-1].validation)
+            self.assertEqual(epoch,self.preparation_epoch(replacement))
+            self.assertEqual(0,self.preparation_epoch(current))
+            self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns,old.ordinal,wait.deadline_ns),
+                             (replacement.target_ns,replacement.not_before_ns,replacement.deadline_ns,
+                              replacement.ordinal,self.motion_wait().deadline_ns))
+            self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,current.id,replacement.not_before_ns,1,0,1))
+            self.assertEqual(epoch,self.preparation_epoch(replacement));current=replacement
+        self.ack(current);self.assertEqual(0,self.preparation_epoch(current))
+        self.observed_result(current,translated(terrain,3));next_command=self.next_move()
+        self.assertNotEqual(0,self.preparation_epoch(next_command))
+        self.assertNotEqual(epoch,self.preparation_epoch(next_command))
+        self.assertEqual(0,self.preparation_epoch(current))
+    def test_preparation_epoch_fresh_then_same_preserves_identity_despite_direction_and_reference_change(self):
+        before,after,_=self.fresh_synthetic_scenes('floor')
+        _,_,old,wait=self.fresh_private_case(before,after,admit=False)
+        epoch=self.preparation_epoch(old);self.assertNotEqual(0,epoch)
+        self.observe(after,number=70,start=30617198203458,end=30617216601291)
+        self.assertEqual(0,self.preparation_epoch(old));new=self.next_move()
+        self.assertEqual((12,3,1),(self.scene_details()[-1].validation,old.direction,new.direction))
+        self.assertEqual(0,self.lib.test055_value(self.engine,1))
+        self.assertEqual(epoch,self.preparation_epoch(new))
+        changed=Scene.from_buffer_copy(bytes(after));changed.tiles[9]=3;self.now+=2
+        self.observe(changed);same=self.next_move()
+        self.assertEqual((2,2,2),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count,
+                                  self.scene_details()[-1].chain_count))
+        self.assertEqual((1,207,49),(same.direction,same.x,same.y))
+        self.assertEqual(epoch,self.preparation_epoch(same));self.assertEqual(0,self.preparation_epoch(new))
+        self.assertEqual(wait.deadline_ns,self.motion_wait().deadline_ns)
+    def test_preparation_epoch_initial_retune_and_non_move_never_issue_identity(self):
+        self.assertEqual(0,self.lib.ng2_controller_preparation_epoch(None,1,self.now))
+        self.observe(self.scene());ready,resume=self.tick();self.assertEqual((1,1),(ready,resume.kind))
+        self.assertEqual(0,self.preparation_epoch(resume));self.fresh_engine()
+        terrain=self.fit();first=self.next_move();self.assertEqual(0,self.preparation_epoch(first))
+        self.ack(first);self.observed_result(first,terrain);retune=self.next_move()
+        self.assertEqual(0,self.preparation_epoch(retune));self.ack(retune)
+        terrain=translated(terrain,retune.direction);self.observed_result(retune,terrain)
+        following=self.next_move();self.assertNotEqual(0,self.preparation_epoch(following))
+    def test_preparation_epoch_latest_id_clock_and_original_deadline_boundaries(self):
+        _,command=self.continuous_walk(moves=1,direction=3)
+        epoch=self.preparation_epoch(command);self.assertNotEqual(0,epoch)
+        other=Command.from_buffer_copy(bytes(command));other.id+=1
+        self.assertEqual(0,self.preparation_epoch(other));other.id=0
+        self.assertEqual(0,self.preparation_epoch(other))
+        self.assertEqual(0,self.preparation_epoch(command,self.now-1))
+        self.assertEqual(0,self.preparation_epoch(command,1<<63))
+        self.assertEqual(epoch,self.preparation_epoch(command,command.deadline_ns))
+        self.assertEqual(0,self.preparation_epoch(command,command.deadline_ns+1))
+        self.assertEqual(epoch,self.preparation_epoch(command),'invalid read-only query must not mutate eligibility')
+    def test_preparation_epoch_begin_ack_unknown_cancel_and_rejected_revalidation_invalidate(self):
+        for outcome in ('begun','ack','unknown','cancel','unsent','goods','partial','revalidation'):
+            with self.subTest(outcome=outcome):
+                self.fresh_engine();terrain,command=self.continuous_walk(moves=1,direction=3)
+                self.assertNotEqual(0,self.preparation_epoch(command))
+                if outcome in ('begun','ack','unknown'):
+                    self.now=command.not_before_ns
+                    self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,command.id,self.now,1,0,1))
+                    self.assertEqual(0,self.preparation_epoch(command))
+                    if outcome!='begun':
+                        self.now+=1;self.lib.ng2_controller_complete(self.engine,command.id,self.now,1 if outcome=='ack' else -1)
+                elif outcome=='cancel':self.lib.ng2_controller_cancel(self.engine,self.now,2)
+                elif outcome=='unsent':self.lib.ng2_controller_complete(self.engine,command.id,self.now,0)
+                else:
+                    changed=deepcopy(terrain)
+                    if outcome in ('goods','partial'):changed.goods='visible' if outcome=='goods' else 'partial'
+                    else:changed.protected.add((0,0))
+                    self.now+=2;self.observe(self.scene(2,2,changed,beat=True))
+                self.assertEqual(0,self.preparation_epoch(command))
+    def test_preparation_epoch_fresh_dirt_and_door_keep_identity_without_safe_floor_or_reference(self):
+        for obstacle in ('dirt','door'):
+            with self.subTest(obstacle=obstacle):
+                before,after,_=self.fresh_synthetic_scenes(obstacle)
+                _,_,old,_=self.fresh_private_case(before,after,admit=False)
+                epoch=self.preparation_epoch(old);self.assertNotEqual(0,epoch)
+                self.observe(after,number=70,start=30617198203458,end=30617216601291)
+                new=self.next_move();self.assertEqual((12,1),(self.scene_details()[-1].validation,new.direction))
+                self.assertEqual(epoch,self.preparation_epoch(new))
+                self.assertEqual(0,self.lib.test055_value(self.engine,1))
+    def test_preparation_epoch_original_horizons_equal_and_one_ns_shorter(self):
+        for field,span in ((0,3*SECOND),(1,3*SECOND),(2,45*SECOND),(3,180*SECOND)):
+            with self.subTest(field=field):
+                _,_,command,_=self.fresh_private_case(admit=False)
+                epoch=self.preparation_epoch(command);self.assertNotEqual(0,epoch)
+                tail=self.status().lead_ns+50_000_000
+                self.lib.test055_mutate(self.engine,field,self.now-span+tail)
+                self.assertEqual(epoch,self.preparation_epoch(command),'original horizon permits exact lead+50ms tail')
+                self.assertEqual(0,self.preparation_epoch(command,self.now+1))
+        for field in (0,1,2,3,5):
+            with self.subTest(future=field):
+                _,_,command,_=self.fresh_private_case(admit=False)
+                self.lib.test055_mutate(self.engine,field,self.now+1)
+                self.assertEqual(0,self.preparation_epoch(command))
+        _,_,command,_=self.fresh_private_case(admit=False)
+        self.lib.test055_mutate(self.engine,7,command.target_ns+PERIOD//3)
+        self.assertEqual(0,self.preparation_epoch(command),'a different physical beat cannot reuse preparation')
+    def test_preparation_epoch_third_same_update_budget_rejection_cannot_resurrect_identity(self):
+        terrain,current=self.continuous_walk(moves=1,direction=3)
+        epoch=self.preparation_epoch(current);self.assertNotEqual(0,epoch)
+        for index in range(3):
+            terrain=deepcopy(terrain);terrain.tiles[(-10+index,4)]='stone';self.now+=2
+            self.observe(self.scene(2,2,terrain,beat=True));ready,new=self.tick()
+            if index<2:
+                self.assertEqual((1,4),(ready,new.kind));self.assertEqual(epoch,self.preparation_epoch(new));current=new
+            else:
+                self.assertNotEqual(4,new.kind);self.assertEqual(5,self.scene_details()[-1].validation)
+                self.assertEqual(0,self.preparation_epoch(current))
     def motion_references(self):
         query=self.lib.ng2_controller_motion_references
         query.argtypes=[C.c_void_p,C.POINTER(MotionReference),C.c_size_t];query.restype=C.c_size_t

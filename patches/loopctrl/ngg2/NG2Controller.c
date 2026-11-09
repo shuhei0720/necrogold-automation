@@ -40,7 +40,7 @@ struct NG2Controller {
     uint8_t restart_fingerprint[48];
     uint64_t seen_id,seen_start,seen_end,last_now,transition_ns,sync_ns;
     uint64_t ack_ns,command_period,next_nominal,next_deadline,next_period,last_observed_prefix;
-    uint64_t finish_ns;
+    uint64_t finish_ns,preparation_epoch;
     size_t sample_count,event_count;
     size_t scene_change_count;
     size_t motion_reference_count;
@@ -72,6 +72,7 @@ static int valid_scene(const NG2Scene *s){
 }
 static NG2ControllerEvent *event(NG2Controller *p){return p->event_count?&p->events[p->event_count-1]:NULL;}
 static void terminal(NG2Controller *p,uint64_t now,int reason){
+    p->preparation_epoch=0;
     if(!p->s.terminal){p->motion_wait.active=0;p->s.reason=reason;p->s.terminal=1;p->s.phase=NG2_PHASE_DONE;p->s.ended_ns=now;}
 }
 static void not_sent(NG2Controller *p,uint64_t now,int reason){
@@ -85,6 +86,7 @@ static void end_visual_wait(NG2Controller *p){
     p->motion_wait.active=0;p->s.input_state=0;p->s.current_command_id=0;
 }
 static void finish(NG2Controller *p,uint64_t now,int reason){
+    p->preparation_epoch=0;
     if(p->s.terminal)return;
     if(!p->finish_requested){p->finish_requested=1;p->finish_ns=now;p->s.reason=reason;}
     if(reason==NG2_REASON_GOODS){p->s.reason=reason;p->s.goods=1;}
@@ -129,7 +131,7 @@ static uint64_t closest(const NG2BeatModel *m,uint64_t target){
         :(m->period_ns-(target-m->epoch_ns)%m->period_ns)%m->period_ns;
     return forward<=m->period_ns/2?target+forward:target-(m->period_ns-forward);
 }
-static int corrected(NG2Controller *p,uint64_t nominal,uint64_t period,uint64_t *out){
+static int corrected(const NG2Controller *p,uint64_t nominal,uint64_t period,uint64_t *out){
     uint64_t target=closest(&p->model,nominal),delta=target>=nominal?target-nominal:nominal-target;
     if((double)delta>.08*(double)period)return 0;
     *out=target;return 1;
@@ -628,6 +630,11 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
             p->continuous_motion_deadline=p->motion_wait.deadline_ns;p->continuous_ticket_valid=1;p->continuous_chain_count=0;}
         if(!reissuing)create_motion_reference(p);
     }
+    /* A command ID is unique within this controller. Only a qualified
+     * continuous reissue keeps the opaque identity of its logical MOVE. */
+    if(kind==NG2_ACTION_MOVE&&p->s.lead_confirmed&&p->s.moves>0){
+        if(!reissuing)p->preparation_epoch=p->command.id;
+    }else p->preparation_epoch=0;
     p->s.input_state=1;p->s.current_command_id=p->command.id;
     e=&p->events[p->event_count++];memset(e,0,sizeof(*e));e->command=p->command;
     *out=p->command;return 1;
@@ -795,6 +802,7 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
         return 0;}
     if(p->command.kind==NG2_ACTION_MOVE&&p->motion_reference_valid&&!reference_time_valid(p,now,0))
         p->motion_reference_valid=0;
+    p->preparation_epoch=0;
     p->last_now=maximum(p->last_now,now);p->s.input_state=2;e=event(p);e->begin_ns=now;e->outcome=1;
     return 1;
 }
@@ -840,6 +848,36 @@ void ng2_controller_cancel(NG2Controller *p,uint64_t now,int32_t reason){
     not_sent(p,now,reason);terminal(p,now,reason);
 }
 void ng2_controller_status(const NG2Controller *p,NG2ControllerStatus *out){if(out){if(p)*out=p->s;else memset(out,0,sizeof(*out));}}
+uint64_t ng2_controller_preparation_epoch(const NG2Controller *p,uint64_t id,uint64_t now){
+    uint64_t horizon,tail,aligned;
+    if(!p||!id||!valid_time(now)||!p->preparation_epoch||p->s.terminal||p->finish_requested
+        ||p->s.input_state!=1||p->s.current_command_id!=id||p->command.id!=id
+        ||p->command.kind!=NG2_ACTION_MOVE||p->s.phase!=NG2_PHASE_WALK
+        ||!p->s.lead_confirmed||p->s.moves<=0||p->s.goods||!p->have_scene
+        ||p->scene.state!=NG2_FLOOR||p->replan_pending||p->continuous_pending
+        ||!p->continuous_ticket_valid||p->s.inputs>=16
+        ||p->last_observed_prefix!=p->s.last_completed_id)return 0;
+    /* Direction/coordinates may change under FRESH. These frozen fields
+     * identify the logical beat; optional motion-reference eligibility does
+     * not supply or revoke preparation ownership. */
+    if(p->command.ordinal!=p->continuous_ticket.ordinal
+        ||p->command.target_ns!=p->continuous_ticket.target_ns
+        ||p->command.not_before_ns!=p->continuous_ticket.not_before_ns
+        ||p->command.deadline_ns!=p->continuous_ticket.deadline_ns
+        ||p->command_period!=p->continuous_period)return 0;
+    if(now<p->last_now||now<p->s.started_ns||now<p->s.walk_started_ns
+        ||now<p->s.last_capture_end_ns||now<p->command.source_start_ns||now<p->command.phase_sample_ns
+        ||now<p->continuous_ticket.source_start_ns||now<p->continuous_ticket.phase_sample_ns
+        ||now<p->model.last_ns||now>p->command.deadline_ns||now>p->continuous_motion_deadline
+        ||p->command.not_before_ns>p->command.deadline_ns
+        ||!ng2_beat_model_valid(&p->model)||p->beat_failed
+        ||now-p->model.last_ns>FRESH
+        ||!corrected(p,p->continuous_ticket.target_ns,p->continuous_period,&aligned))return 0;
+    horizon=minimum(p->command.source_start_ns+FRESH,p->command.phase_sample_ns+FRESH);
+    horizon=minimum(horizon,continuous_horizon(p));tail=p->s.lead_ns+50000000;
+    if(horizon<tail||now>horizon-tail)return 0;
+    return p->preparation_epoch;
+}
 size_t ng2_controller_events(const NG2Controller *p,NG2ControllerEvent *out,size_t capacity){
     size_t n;if(!p||!out)return 0;n=p->event_count<capacity?p->event_count:capacity;memcpy(out,p->events,n*sizeof(*out));return n;
 }

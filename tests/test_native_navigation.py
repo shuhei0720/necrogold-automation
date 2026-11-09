@@ -656,7 +656,7 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
         self.assertGreaterEqual(pairs,25)
 
     def test_required_test049_navigation_strict_optimization_parity(self):
-        """170 known image paths and all 15 TEST049 FLOOR pairs; no speed extrapolation."""
+        """177 known image paths and all 15 TEST049 FLOOR pairs; no speed extrapolation."""
         from test_native_perception import NativePerceptionTests, NativeScene
         manifest = json.loads((ROOT / 'tests/test050-fixtures.json').read_text())
         self.assertEqual(('ngg2-test050-fixtures-v1', 11), (manifest['schema'], manifest['count']))
@@ -769,9 +769,9 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
                         reference = canonical(nav.scan(image)) if scene.state == 2 else None
                         raw = bytes(scene.signature)
                         views[raw] = view(scene)
-                        if filename in ('test050-fixtures.json', 'test052-fixtures.json', 'test053-fixtures.json', 'test054-fixtures.json', 'test055-fixtures.json', 'test057-fixtures.json'):
+                        if filename in ('test050-fixtures.json', 'test052-fixtures.json', 'test053-fixtures.json', 'test054-fixtures.json', 'test055-fixtures.json', 'test057-fixtures.json', 'test058-fixtures.json'):
                             expected_keys = {'path', 'sha256', 'bytes', 'capture_id', 'state', 'goods', 'stable'}
-                            if filename in ('test054-fixtures.json', 'test055-fixtures.json', 'test057-fixtures.json'):
+                            if filename in ('test054-fixtures.json', 'test055-fixtures.json', 'test057-fixtures.json', 'test058-fixtures.json'):
                                 expected_keys.add('completed_prefix')
                                 self.assertIs(type(entry['completed_prefix']), int)
                                 self.assertGreaterEqual(entry['completed_prefix'], 0)
@@ -815,8 +815,8 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
                         pair(a, b, before, after)
         finally:
             NativePerceptionTests.tearDownClass()
-        self.assertEqual({'images': 170, 'new_perception': 83, 'views': 170, 'scores': 185,
-                          'ng2_choose': 680, 'ng2_motion': 740, 'ng2_entered_gate': 5920}, dict(counts))
+        self.assertEqual({'images': 177, 'new_perception': 90, 'views': 177, 'scores': 192,
+                          'ng2_choose': 708, 'ng2_motion': 768, 'ng2_entered_gate': 6144}, dict(counts))
 
 
     def test_required_test051_target_drift_and_strict_parity(self):
@@ -1247,6 +1247,122 @@ int ng2_test_strong(const unsigned char *texture,const unsigned char *positive,i
                         self.assertIsNone(nav.entered_gate(references[a], references[b], direction,
                                                          (0, 0), 1, motion_name))
                 self.assertEqual(inputs, (bytes(before), bytes(after)))
+        finally:
+            NativePerceptionTests.tearDownClass()
+
+    def test_required_test057_recorded_right_and_pending_up(self):
+        """Actual RIGHT prefix only; top-HUD door and unexecuted UP stay unknown."""
+        from test_native_perception import NativePerceptionTests
+        manifest = json.loads((ROOT / 'tests/test058-fixtures.json').read_text())
+        self.assertEqual(('ngg2-test058-fixtures-v1', 7, [896, 414]),
+                         (manifest['schema'], manifest['count'], manifest['dimensions']))
+        self.assertEqual('f49e35e4ae1a3491c1af7e0fe4e0e0acbbc990b60ff0e3cc262cd904f3f197c1',
+                         manifest['source_zip_sha256'])
+        self.assertEqual([37, 38, 44, 45, 46], manifest['floor_capture_ids'])
+        self.assertEqual(list(nav.DIRECTIONS), manifest['directions'])
+        contexts = [
+            {'capture_ids': [37, 38], 'completed_prefix': 1, 'position': [0, 0],
+             'visits': [[0, 0, 1]], 'entrance': {'valid': 0, 'x': 0, 'y': 0, 'direction': 0},
+             'decision': [2, 8, 1, -4, 1],
+             'reviewed_floor_route': [[1, 0], [1, -1], [1, -2], [1, -3], [1, -4]]},
+            {'capture_ids': [44, 45, 46], 'completed_prefix': 3, 'position': [1, 0],
+             'visits': [[0, 0, 1], [1, 0, 1]], 'entrance': {'valid': 0, 'x': 0, 'y': 0, 'direction': 0},
+             'decision': [3, 8, 0, -4, 1],
+             'reviewed_floor_route': [[0, -1], [0, -2], [0, -3], [0, -4]]}]
+        self.assertEqual(contexts, manifest['recorded_planner_contexts'])
+        self.assertEqual({'command_id': 5, 'direction': 'up', 'begin_ns': 0, 'observed_capture_id': 0,
+                          'following_gameplay_capture_ids': [], 'terminal_pause_capture_id': 53},
+                         manifest['pending_up_continuation'])
+        comparisons = [[37, 38], [44, 45], [45, 46]]
+        self.assertEqual(comparisons, manifest['same_prefix_comparisons'])
+        changes = {'37,38': [[-2, 4, 1, 0]], '44,45': [[2, 0, 1, 4]], '45,46': [[2, 0, 4, 1]]}
+        self.assertEqual(changes, manifest['expected_tile_changes_by_pair'])
+        pairs = [[37, 38], [38, 44], [38, 45], [38, 46], [44, 45], [45, 46]]
+        self.assertEqual(pairs, manifest['motion_pairs'])
+        expected_motion = {
+            '37,38': dict.fromkeys(nav.DIRECTIONS, 'blocked'),
+            '38,44': dict.fromkeys(nav.DIRECTIONS, 'unknown'),
+            '38,45': {d: 'moved' if d == 'right' else 'unexpected' for d in nav.DIRECTIONS},
+            '38,46': {d: 'moved' if d == 'right' else 'unexpected' for d in nav.DIRECTIONS},
+            '44,45': dict.fromkeys(nav.DIRECTIONS, 'blocked'),
+            '45,46': dict.fromkeys(nav.DIRECTIONS, 'blocked')}
+        self.assertEqual(expected_motion, manifest['expected_motion_by_pair'])
+        displacements = {key: [1, 0] if key in ('38,45', '38,46') else [0, 0] for key in expected_motion}
+        self.assertEqual(displacements, manifest['expected_displacement_by_pair'])
+        scenes, references, entries = {}, {}, {}
+        NativePerceptionTests.setUpClass()
+        try:
+            perception = NativePerceptionTests()
+            for filename, entry, path in required_profile_fixtures():
+                if filename != 'test058-fixtures.json':
+                    continue
+                self.assertEqual((entry['bytes'], entry['sha256']),
+                                 (path.stat().st_size, hashlib.sha256(path.read_bytes()).hexdigest()))
+                with Image.open(path) as source:
+                    self.assertEqual((896, 414), source.size)
+                    image = source.convert('RGB')
+                analyzed = perception.assert_reference(image)
+                self.assertEqual((entry['state'], entry['goods']), (analyzed.state, analyzed.goods))
+                cid = entry['capture_id']; scenes[cid] = Scene.from_buffer_copy(bytes(analyzed)); entries[cid] = entry
+                if analyzed.state == 2:
+                    references[cid] = canonical(nav.scan(image))
+            self.assertEqual({1, 37, 38, 44, 45, 46, 53}, set(scenes))
+            self.assertEqual({37, 38, 44, 45, 46}, set(references))
+            for context in contexts:
+                position = tuple(context['position'])
+                visits = {(x, y): count for x, y, count in context['visits']}
+                for cid in context['capture_ids']:
+                    with self.subTest(capture=cid):
+                        self.assertTrue(entries[cid]['stable'])
+                        self.assertEqual(context['completed_prefix'], entries[cid]['completed_prefix'])
+                        self.assertEqual((2, 0, 0),
+                                         (scenes[cid].state, scenes[cid].goods, sum(scenes[cid].protected_cells)))
+                        self.assertEqual({}, nav._gates(references[cid].tiles), 'door is still hidden by HUD')
+                        self.assertNotIn(5, scenes[cid].tiles)
+                        choice = self.assert_choose(references[cid], position, visits)
+                        self.assertEqual(tuple(context['decision']),
+                                         tuple(getattr(choice, key) for key, _ in Decision._fields_))
+                        self.assertEqual((1, -4), (position[0]+choice.target_x, position[1]+choice.target_y))
+                        for point in context['reviewed_floor_route']:
+                            self.assertEqual('floor', references[cid].tiles.get(tuple(point)))
+            for a, b in comparisons:
+                self.assertEqual(entries[a]['completed_prefix'], entries[b]['completed_prefix'])
+                difference = [[i%23-11, i//23-5, old, new]
+                              for i, (old, new) in enumerate(zip(scenes[a].tiles, scenes[b].tiles)) if old != new]
+                self.assertEqual(changes[f'{a},{b}'], difference)
+                self.assertEqual(bytes(scenes[a].protected_cells), bytes(scenes[b].protected_cells))
+                context = contexts[0 if a == 37 else 1]
+                route = {tuple(point) for point in context['reviewed_floor_route']}
+                self.assertTrue(all((x, y) not in route for x, y, _, _ in difference),
+                                'recorded changes are outside the selected floor route')
+            for a, b in pairs:
+                with self.subTest(before=a, after=b):
+                    before, after = scenes[a], scenes[b]
+                    inputs = bytes(before), bytes(after)
+                    expected_scores = nav._pillow_motion_scores(nav._motion_view(bytes(before.signature))[0],
+                                                                nav._motion_view(bytes(after.signature))[0])
+                    self.assertEqual(73, len(expected_scores))
+                    score_outputs = []
+                    for library in self.libraries.values():
+                        scores = (C.c_double * 73)()
+                        library.ng2_test_scores(bytes(before.signature), bytes(after.signature), scores)
+                        score_outputs.append(bytes(scores))
+                        for actual, (expected, _, _) in zip(scores, expected_scores):
+                            self.assertAlmostEqual(expected, actual, places=12)
+                    self.assertEqual(score_outputs[0], score_outputs[1], 'all73 score bytes O0/strictO2')
+                    for direction in nav.DIRECTIONS:
+                        expected = expected_motion[f'{a},{b}'][direction]
+                        with patch.object(motion_stats, 'scores', side_effect=lambda *_: list(expected_scores)):
+                            result = self.assert_motion(references[a], references[b], direction, expected)
+                        self.assertEqual(tuple(displacements[f'{a},{b}']), (result.dx, result.dy))
+                        entrance = Entrance()
+                        C.memset(C.byref(entrance), 0xa5, C.sizeof(entrance))
+                        entered = self.lib.ng2_entered_gate(C.byref(before), C.byref(after), DIRS[direction],
+                                                           0, 0, result.kind, C.byref(entrance))
+                        self.assertEqual((0, bytes(Entrance())), (entered, bytes(entrance)))
+                    self.assertEqual(inputs, (bytes(before), bytes(after)))
+            # The final PAUSE is terminal evidence, never an UP motion response.
+            self.assertEqual((0, 1), (scenes[1].state, scenes[53].state))
         finally:
             NativePerceptionTests.tearDownClass()
 

@@ -99,6 +99,11 @@ int ng2_controller_begin(NG2Controller *, uint64_t command_id, uint64_t now,
 int ng2_controller_complete(NG2Controller *, uint64_t command_id, uint64_t now, int32_t outcome);
 void ng2_controller_cancel(NG2Controller *, uint64_t now, int32_t reason);
 void ng2_controller_status(const NG2Controller *, NG2ControllerStatus *out);
+/* Opaque preparation identity for the current eligible unsent logical MOVE.
+ * Read-only, run-local, and usable before not_before for early preparation.
+ * Zero means no reusable preparation. This query grants no input authority;
+ * the latest command still requires begin() and all adapter guards. */
+uint64_t ng2_controller_preparation_epoch(const NG2Controller *, uint64_t command_id, uint64_t now);
 size_t ng2_controller_events(const NG2Controller *, NG2ControllerEvent *out, size_t capacity);
 size_t ng2_controller_scene_changes(const NG2Controller *, NG2ControllerSceneChange *out, size_t capacity);
 size_t ng2_controller_scene_details(const NG2Controller *, NG2ControllerSceneDetail *out, size_t capacity);

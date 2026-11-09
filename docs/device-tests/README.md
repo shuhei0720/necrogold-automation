@@ -2495,3 +2495,11 @@ cd /mnt/necro_test057 && sh test_057.sh
 ```
 
 歩行中はゲーム画面を保ち、**自動ポーズ後5秒ほど待ったらiSHへ戻って構いません。** 「TEST-057: 終了」まで待ち、`runtime/test-057` 全体をZIPで返してください。往復せず進むか、扉を開けたか、商品が見えたか、歩行間隔を確認します。終了前の再実行・別テストの同時実行はしません。回収済みTEST056は再実行せず、終了した未回収runだけ同じprocess/source/runtimeで回復します。
+
+## TEST057受領結果（2026-11-09 日本時間）
+
+ユーザー報告「右に一歩歩いてポーズ。商店に入り商品を確認できるように」。元ZIP1,822,470bytes/SHA `f49e35e4ae1a3491c1af7e0fe4e0e0acbbc990b60ff0e3cc262cd904f3f197c1`、report SHA `300fbffdde636669f72470b623f140146dad2bbd097449531a6fe5bcb81c0966`。RIGHT1入力/1MOVED、world(1,0)、開通0/商品0。38→45の原画で実変位を確認、44はUNKNOWNなので移動確定に使わない。次UPと上4床は認識可能。上端の扉はHUDでUNKNOWN、商品は未観測。
+
+source45→46の経路外(2,0)DIRT→FLOORでSAME再予約。UP/ordinal2/元targetと期限は不変。凍結窓5.250148ms、observe記録終了時残余5.017107ms、そこからAX開始まで5.176042ms、AX11.311875ms。query開始で0.158935ms超過、最終gateは11.613976ms超過しbegin0で停止。reason6/captureは未送信complete(0)の写像で、capture_failure=null/timeoutなし。前回bright-band校正は今回のdark-band変動を対象にせず、旧式でもNavは同じなので到達改善とは数えない。
+
+ZIPは未完了checkpoint。完成7PNG＋capture6.part262,144bytesで、manifest11枚の全回収ではない。report/activeはsaveの途中状態と整合し、resolved=false。RPC失敗・timeout・取消・正常終了の最終記録がなく、取得途中/中断等の原因は特定不能。strict評価器はactive_report_mismatchでintegrity invalid/exit2、到達評価unknown。直接停止の証拠は揃うため回収再実行を依頼せず開発を継続する。原ZIP/report/画像・実C/Pillow解析はGit外。
