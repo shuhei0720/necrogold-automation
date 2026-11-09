@@ -21,6 +21,8 @@ enum NG2RuntimeTestHooks {
     static var beforeCaptureFailureCommit: ((String) -> Void)?
     static var analysisRGBA: ((Data) -> Data)?
     static var afterWatchdogCheck: ((String, UInt64) -> Void)?
+    static var beforeReportEncode: ((String, UInt64) -> Void)?
+    static var beforeDueDispatch: ((UInt64) -> Void)?
 }
 #endif
 
@@ -84,6 +86,15 @@ private struct NG2PreparationKey: Equatable {
         self.epoch = epoch; ordinal = command.ordinal; target = command.target_ns
         notBefore = command.not_before_ns; deadline = command.deadline_ns
     }
+    #if NG2_RUNTIME_HOST_TEST
+    init(testRun: ObjectIdentifier, clock: String, owner: String, generation: UInt64,
+         expectedPID: pid_t, prefix: UInt64, epoch: UInt64, ordinal: UInt64,
+         target: UInt64, notBefore: UInt64, deadline: UInt64) {
+        run = testRun; self.clock = clock; self.owner = owner; self.generation = generation
+        self.expectedPID = expectedPID; self.prefix = prefix; self.epoch = epoch
+        self.ordinal = ordinal; self.target = target; self.notBefore = notBefore; self.deadline = deadline
+    }
+    #endif
 }
 
 private final class NG2PreparationLease {
@@ -92,6 +103,12 @@ private final class NG2PreparationLease {
     let authority: AuthoritySample
     init(key: NG2PreparationKey, commandID: UInt64, authority: AuthoritySample) {
         self.key = key; preparedCommandID = commandID; self.authority = authority
+    }
+    func matchesIdentity(key candidate: NG2PreparationKey, commandID: UInt64,
+                         currentEpoch: UInt64) -> Bool {
+        guard key == candidate else { return false }
+        if key.epoch == 0 { return preparedCommandID == commandID }
+        return currentEpoch == key.epoch
     }
 }
 
@@ -766,6 +783,50 @@ final class NG2Runtime {
             return [lease.authority.start, lease.authority.end, lease.preparedCommandID, lease.key.epoch]
         }
     }
+    func testPreparationIdentityCoverage() -> [String: Bool] {
+        let first = NG2Run(owner: "fixture-key-owner", id: "fixture-key-run", now: 1_000)
+        let other = NG2Run(owner: "fixture-key-owner", id: "fixture-key-other", now: 1_000)
+        let base = NG2PreparationKey(testRun: ObjectIdentifier(first), clock: "fixture-clock",
+            owner: "fixture-key-owner", generation: 2, expectedPID: 42, prefix: 7,
+            epoch: 10, ordinal: 2, target: 300, notBefore: 150, deadline: 160)
+        let lease = NG2PreparationLease(key: base, commandID: 10,
+            authority: AuthoritySample(start: 100, end: 101, foreground: true))
+        let names = ["run", "clock", "owner", "generation", "pid", "prefix", "epoch",
+                     "ordinal", "target", "not_before", "deadline"]
+        var results: [String: Bool] = [:]
+        results["same_identity_shared_new_id"] = lease.matchesIdentity(
+            key: base, commandID: 11, currentEpoch: 10)
+        for name in names {
+            let changed = NG2PreparationKey(
+                testRun: name == "run" ? ObjectIdentifier(other) : base.run,
+                clock: name == "clock" ? "fixture-other-clock" : base.clock,
+                owner: name == "owner" ? "fixture-other-owner" : base.owner,
+                generation: name == "generation" ? base.generation+1 : base.generation,
+                expectedPID: name == "pid" ? base.expectedPID+1 : base.expectedPID,
+                prefix: name == "prefix" ? base.prefix+1 : base.prefix,
+                epoch: name == "epoch" ? base.epoch+1 : base.epoch,
+                ordinal: name == "ordinal" ? base.ordinal+1 : base.ordinal,
+                target: name == "target" ? base.target+1 : base.target,
+                notBefore: name == "not_before" ? base.notBefore+1 : base.notBefore,
+                deadline: name == "deadline" ? base.deadline+1 : base.deadline)
+            results["reject_"+name] = !lease.matchesIdentity(
+                key: changed, commandID: 11, currentEpoch: 10)
+        }
+        results["reject_ACK_epoch_zero"] = !lease.matchesIdentity(
+            key: base, commandID: 11, currentEpoch: 0)
+        results["reject_changed_C_epoch"] = !lease.matchesIdentity(
+            key: base, commandID: 11, currentEpoch: 12)
+        let zero = NG2PreparationKey(testRun: base.run, clock: base.clock, owner: base.owner,
+            generation: base.generation, expectedPID: base.expectedPID, prefix: base.prefix,
+            epoch: 0, ordinal: base.ordinal, target: base.target,
+            notBefore: base.notBefore, deadline: base.deadline)
+        let single = NG2PreparationLease(key: zero, commandID: 10, authority: lease.authority)
+        results["epoch_zero_fresh_single_id"] = single.matchesIdentity(
+            key: zero, commandID: 10, currentEpoch: 0)
+        results["epoch_zero_reject_other_id"] = !single.matchesIdentity(
+            key: zero, commandID: 11, currentEpoch: 0)
+        return results
+    }
     @discardableResult
     func testPreparationContext(_ id: String, expectedPID: pid_t? = nil, prefix: UInt64? = nil) -> [UInt64]? {
         guard let run = lock.ng2Locked({ current }), run.id == id else { return nil }
@@ -774,6 +835,46 @@ final class NG2Runtime {
             if let expectedPID { run.expectedPID = expectedPID }
             if let prefix { run.prefix = prefix }
             return previous
+        }
+    }
+    func testCachedControllerCapture(_ id: String) -> UInt64? {
+        guard let run = lock.ng2Locked({ current }), run.id == id else { return nil }
+        return run.lock.ng2Locked { run.reportSnapshot?.status.last_capture_id }
+    }
+    func testOriginalFrameEvidence(_ id: String, captureIDs: [UInt64]) -> [UInt64: (Data, [String: JSONValue])]? {
+        guard let run = lock.ng2Locked({ current }), run.id == id else { return nil }
+        let frames = run.lock.ng2Locked {
+            captureIDs.compactMap { captureID in run.pinned[captureID] ?? run.images.first(where: { $0.id == captureID }) }
+        }
+        guard frames.count == captureIDs.count else { return nil }
+        var evidence: [UInt64: (Data, [String: JSONValue])] = [:]
+        for frame in frames {
+            guard let png = NG2Raster.png(frame.rgba) else { return nil }
+            let hash = SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined()
+            var metadata = imageMetadata(frame, hash: hash, length: png.count)
+            metadata.removeValue(forKey: "byte_length")
+            evidence[frame.id] = (png, metadata)
+        }
+        return evidence
+    }
+    func testSaturateLiveDiagnosticPins(_ id: String) -> Bool {
+        guard let run = lock.ng2Locked({ current }), run.id == id else { return false }
+        return run.lock.ng2Locked {
+            guard !run.terminal, let original = run.images.last else { return false }
+            var captureID: UInt64 = 1_000_000
+            while run.pinned.count < 20 {
+                if run.pinned[captureID] == nil {
+                    run.pinned[captureID] = NG2Frame(id: captureID, start: original.start, end: original.end,
+                        decodeEnd: original.decodeEnd, generation: original.generation,
+                        analysisStart: original.analysisStart, analysisEnd: original.analysisEnd,
+                        analysis: original.analysis, startPrefix: original.startPrefix, prefix: original.prefix,
+                        startInFlight: original.startInFlight, endInFlight: original.endInFlight,
+                        stable: original.stable, rgba: original.rgba, rasterTrace: original.rasterTrace,
+                        encodedBytes: original.encodedBytes, diagnosticOrientation: original.diagnosticOrientation)
+                }
+                captureID += 1
+            }
+            return true
         }
     }
     @discardableResult
@@ -1163,7 +1264,12 @@ final class NG2Runtime {
                 #endif
                 // A due prepared ticket must reach main before diagnostic work
                 // or another queued capture cycle spends its frozen window.
-                if delay == 0 { callback(); return }
+                if delay == 0 {
+                    #if NG2_RUNTIME_HOST_TEST
+                    NG2RuntimeTestHooks.beforeDueDispatch?(command.id)
+                    #endif
+                    callback(); return
+                }
                 controlQueue.asyncAfter(deadline: .now() + delay, execute: callback)
             }
         }
@@ -1181,7 +1287,8 @@ final class NG2Runtime {
                   run.cancelReason == 0, !run.stopped, !run.inFlight, self.ownerActive(run),
                   run.expectedPID > 0, !LockStateMonitor.shared().isLocked,
                   epoch != 0, let lease = run.preparation,
-                  lease.key == NG2PreparationKey(run, command, generation: generation, epoch: epoch),
+                  lease.matchesIdentity(key: NG2PreparationKey(run, command, generation: generation, epoch: epoch),
+                      commandID: command.id, currentEpoch: epoch),
                   lease.authority.foreground,
                   NG2TicketGuard.authoritySampleIsFresh(start: lease.authority.start,
                       end: lease.authority.end, now: Self.now()) else {
@@ -1213,10 +1320,14 @@ final class NG2Runtime {
     // still supports the initial step, retune, and non-MOVE commands.
     private func preparationMatches(_ lease: NG2PreparationLease, run: NG2Run,
                                     command: NG2Command, generation: UInt64, now: UInt64) -> Bool {
-        guard lease.key == NG2PreparationKey(run, command, generation: generation, epoch: lease.key.epoch) else { return false }
-        if lease.key.epoch == 0 { return lease.preparedCommandID == command.id }
-        guard let core = run.core else { return false }
-        return ng2_controller_preparation_epoch(core, command.id, now) == lease.key.epoch
+        let candidate = NG2PreparationKey(run, command, generation: generation, epoch: lease.key.epoch)
+        let currentEpoch: UInt64
+        if lease.key.epoch == 0 { currentEpoch = 0 }
+        else {
+            guard let core = run.core else { return false }
+            currentEpoch = ng2_controller_preparation_epoch(core, command.id, now)
+        }
+        return lease.matchesIdentity(key: candidate, commandID: command.id, currentEpoch: currentEpoch)
     }
     private func prepare(_ run: NG2Run, _ command: NG2Command, generation: UInt64) -> AuthoritySample {
         var sample = AuthoritySample()
@@ -1406,12 +1517,12 @@ final class NG2Runtime {
         run.lastCache = Self.now()
     }
 
-    private func controllerReport(_ run: NG2Run, projection: NG2ResponseProjection) -> [String: JSONValue] {
+    private func controllerReport(_ run: NG2Run, projection: NG2ResponseProjection, origin: String = "response") -> [String: JSONValue] {
         guard let snapshot = projection.snapshot else { return projection.cachedReport }
         if snapshot === projection.reportSnapshot && projection.generation == projection.reportGeneration {
             return projection.cachedReport
         }
-        let report = encodeSnapshot(snapshot)
+        let report = encodeSnapshot(snapshot, origin: origin)
         // A slow status encoder cannot replace a later C snapshot or a new
         // generation's report. Its own coherent response may still be returned.
         run.lock.ng2Locked {
@@ -1424,10 +1535,13 @@ final class NG2Runtime {
 
     private func flushReport(_ run: NG2Run) {
         let projection = run.lock.ng2Locked { NG2ResponseProjection(run) }
-        _ = controllerReport(run, projection: projection)
+        _ = controllerReport(run, projection: projection, origin: "flush")
     }
 
-    private func encodeSnapshot(_ snapshot: NG2ControllerSnapshot) -> [String: JSONValue] {
+    private func encodeSnapshot(_ snapshot: NG2ControllerSnapshot, origin: String) -> [String: JSONValue] {
+        #if NG2_RUNTIME_HOST_TEST
+        NG2RuntimeTestHooks.beforeReportEncode?(origin, snapshot.status.last_capture_id)
+        #endif
         let s = snapshot.status
         let events = snapshot.events, changes = snapshot.changes, details = snapshot.details
         let motionWait = snapshot.motionWait, motionReferences = snapshot.motionReferences
