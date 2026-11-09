@@ -48,6 +48,7 @@ func test058PreparedContinuousCase(_ fault: String) {
     var injectedQueries = 0
     var returned = Set<UInt64>()
     #if NG2_PREPARATION_TEST058_GREEN
+    let ownerWatchdog = fault == "owner" ? TestOwnerWatchdogFence(id) : nil
     var originalAuthority: [UInt64]?
     var finalEntered = false
     var directDispatches: [UInt64] = []
@@ -173,7 +174,10 @@ func test058PreparedContinuousCase(_ fault: String) {
         stateLock.lock(); finalEntered = true; stateLock.unlock()
         // The control caller is synchronously stopped at this hook. Test final
         // admission separately from a timer that may legitimately revoke first.
-        if fault == "owner" { NG2Fake.lock.lock(); NG2Fake.authenticatedOwnerActive = false; NG2Fake.lock.unlock() }
+        if fault == "owner" {
+            ownerWatchdog!.park()
+            NG2Fake.lock.lock(); NG2Fake.authenticatedOwnerActive = false; NG2Fake.lock.unlock()
+        }
         if fault == "lock" { LockStateMonitor.monitor.isLocked = true }
         if fault == "controller" { runtime.testInvalidateControllerTicket(id) }
         if fault == "deadline_equal" { NG2Fake.advance(observedRemainder) }
@@ -229,6 +233,7 @@ func test058PreparedContinuousCase(_ fault: String) {
     if let previousContext { _ = runtime.testPreparationContext(id, expectedPID: pid_t(previousContext[0]), prefix: previousContext[1]) }
     NG2Fake.lock.lock(); NG2Fake.authenticatedOwnerActive = true; NG2Fake.lock.unlock()
     LockStateMonitor.monitor.isLocked = false
+    ownerWatchdog?.finish()
     #endif
     let failureBeforeOld = report(id)["dispatch_failure"]
     let touches = NG2Fake.countTouches()

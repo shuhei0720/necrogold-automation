@@ -100,6 +100,39 @@ func scheduleFirstFixtureMove(_ run: String, holdingPause: Bool = false) {
     }
 }
 
+// Owner-only guard proofs must reach that guard before the independent
+// watchdog cancels. Other watchdog tests and production behavior stay active.
+final class TestOwnerWatchdogFence {
+    private let id: String
+    private let entered = DispatchSemaphore(value: 0)
+    private let release = DispatchSemaphore(value: 0)
+    private let returned = DispatchSemaphore(value: 0)
+    private let lock = NSLock()
+    private var claimed = false
+    init(_ id: String) { self.id = id }
+    func park() {
+        NG2RuntimeTestHooks.afterWatchdogCheck = { [self] checkedID, _ in
+            guard checkedID == id else { return }
+            lock.lock(); let first = !claimed; claimed = true; lock.unlock()
+            guard first else { return }
+            entered.signal()
+            require(release.wait(timeout: .now()+20) == .success,
+                "owner_guard_watchdog_release_after_exact_test_gate")
+            returned.signal()
+        }
+        // No run, fake, or fixture lock is held across this wait. The signal
+        // follows one real healthy owner/session/heartbeat check for this ID.
+        require(entered.wait(timeout: .now()+2) == .success,
+            "owner_guard_exact_run_healthy_watchdog_check_is_parked")
+    }
+    func finish() {
+        release.signal()
+        require(returned.wait(timeout: .now()+2) == .success,
+            "owner_guard_watchdog_callback_actually_returns")
+        NG2RuntimeTestHooks.afterWatchdogCheck = nil
+    }
+}
+
 // This public request is intentionally runnable against the fixed TEST050
 // Runtime, with no dependence on new C diagnostic symbols or producer hooks.
 func testPagedResultsManifestPublicBaseline() {
@@ -586,12 +619,13 @@ cancelDrain(staleMainClock)
 for revoked in ["cancel", "owner"] {
     NG2Fake.reset(.pause)
     let analysisRace = identity()
+    let ownerWatchdog = revoked == "owner" ? TestOwnerWatchdogFence(analysisRace) : nil
     NG2RuntimeObserveTestHooks.beforeObserve = { NG2Fake.enterObserveBoundary() }
     NG2RuntimeObserveTestHooks.afterObserve = { NG2Fake.leaveObserveBoundary() }
     NG2RuntimeTestHooks.beforeAnalysisCommit = {
         if revoked == "cancel" { _ = call("necro_native_cancel", analysisRace) }
         // Pause is visible before its off-lock notification is delivered.
-        else { RemoteSession.shared.paused = true }
+        else { ownerWatchdog!.park(); RemoteSession.shared.paused = true }
         NG2RuntimeTestHooks.beforeAnalysisCommit = nil
     }
     require(call("necro_native_start", analysisRace).1 == nil, "analysis_race_start_"+revoked)
@@ -606,6 +640,7 @@ for revoked in ["cancel", "owner"] {
     require(snapshot["captures"]?.arrayValue?.isEmpty == true && boundaries.0.isEmpty && boundaries.1.isEmpty,
         "revoked_analysis_never_publishes_capture_or_observe_start_"+revoked)
     RemoteSession.shared.paused = false
+    ownerWatchdog?.finish()
     require(call("necro_native_results", analysisRace).0?["report"]?.objectValue?["captures"]?.arrayValue?.isEmpty == true,
         "revoked_analysis_public_results_have_no_observe_start_"+revoked)
 }
@@ -1334,6 +1369,16 @@ for failureCode in ["foreground", "locked", "owner", "authority_stale", "too_ear
     var finalGateVisited = false
     var externalQueryEntry: UInt64 = 0, externalQueryExit: UInt64 = 0
     var externalFinalEntry: UInt64 = 0, externalFinalExit: UInt64 = 0
+    let ownerWatchdog = failureCode == "owner" ? TestOwnerWatchdogFence(failedMove) : nil
+    let ownerCallbackReturned = DispatchSemaphore(value: 0)
+    let ownerCallbackLock = NSLock()
+    var ownerCallbackID: UInt64 = 0
+    if failureCode == "owner" {
+        NG2RuntimeTestHooks.afterTicketReturned = { commandID in
+            ownerCallbackLock.lock(); let expectedID = ownerCallbackID; ownerCallbackLock.unlock()
+            if commandID == expectedID && expectedID != 0 { ownerCallbackReturned.signal() }
+        }
+    }
     NG2Fake.lock.lock()
     NG2Fake.beforeForegroundQuery = {
         let entered = NG2Fake.virtualClock()
@@ -1356,6 +1401,9 @@ for failureCode in ["foreground", "locked", "owner", "authority_stale", "too_ear
         guard let command = commands.first(where: { $0["id"]?.intValue == Int(id) && $0["kind"]?.intValue == 4 }) else { return false }
         require(diagnosticIsNull(report(failedMove)["dispatch_failure"]), "dispatch_failure_null_before_first_rejection_"+failureCode)
         failedCommand = command
+        if failureCode == "owner" {
+            ownerCallbackLock.lock(); ownerCallbackID = id; ownerCallbackLock.unlock()
+        }
         callback(); return true
     }
     NG2RuntimeTestHooks.beforeMainAuthority = {
@@ -1373,7 +1421,7 @@ for failureCode in ["foreground", "locked", "owner", "authority_stale", "too_ear
         } else {
             admitFirstFixtureMove(failedMove)
             if failureCode == "locked" { LockStateMonitor.monitor.isLocked = true }
-            if failureCode == "owner" { RemoteSession.shared.paused = true }
+            if failureCode == "owner" { ownerWatchdog!.park(); RemoteSession.shared.paused = true }
             if failureCode == "too_late" {
                 let deadline = UInt64(command["deadline_ns"]!.intValue!)
                 require(NG2Fake.changeClockAtCaptureBoundary {
@@ -1409,9 +1457,15 @@ for failureCode in ["foreground", "locked", "owner", "authority_stale", "too_ear
         "dispatch_failure_actual_producer_exact_schema_and_reason_"+failureCode)
     require(NG2Fake.paths().isEmpty && report(failedMove)["inputs"]?.intValue == 0,
         "dispatch_failure_actual_producer_sends_no_direction_"+failureCode)
+    if failureCode == "owner" {
+        require(ownerCallbackReturned.wait(timeout: .now()+2) == .success,
+            "dispatch_owner_final_callback_actually_returned_before_watchdog_release")
+        NG2RuntimeTestHooks.afterTicketReturned = nil
+    }
     // Restore public authority solely to let an explicit cancellation drain.
     NG2Fake.lock.lock(); NG2Fake.frontPID = 42; NG2Fake.beforeForegroundQuery = nil; NG2Fake.lock.unlock()
     RemoteSession.shared.paused = false; LockStateMonitor.monitor.isLocked = false
+    ownerWatchdog?.finish()
     NG2RuntimeTestHooks.beforeMainAuthority = nil
     cancelDrain(failedMove)
     let saved = call("necro_native_results", failedMove)
