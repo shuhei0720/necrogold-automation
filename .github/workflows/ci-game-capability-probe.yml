@@ -1,0 +1,52 @@
+name: CI game GUI capability probe
+
+on:
+  push:
+    branches: [work/ci-game-probe-056]
+    paths:
+      - '.github/workflows/ci-game-capability-probe.yml'
+      - 'tools/ci_game_capability_probe.py'
+      - 'tools/ci_game_capability_probe.swift'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: macos-26
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Prepare isolated image analysis
+        timeout-minutes: 2
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ci-game-probe-venv"
+          "$RUNNER_TEMP/ci-game-probe-venv/bin/pip" --disable-pip-version-check install --retries 1 --timeout 20 Pillow==11.3.0
+      - name: Measure self-owned GUI only
+        if: always()
+        timeout-minutes: 6
+        shell: bash
+        env:
+          PROBE_SOURCE_COMMIT: ${{ github.sha }}
+          PROBE_RUN_ID: ${{ github.run_id }}
+          PROBE_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          probe_python="$RUNNER_TEMP/ci-game-probe-venv/bin/python"
+          if ! test -x "$probe_python"; then probe_python=python3; fi
+          "$probe_python" tools/ci_game_capability_probe.py --self-test
+          "$probe_python" tools/ci_game_capability_probe.py \
+            --output-dir "$RUNNER_TEMP/ci-game-capability-evidence" \
+            --source-commit "$PROBE_SOURCE_COMMIT" \
+            --run-id "$PROBE_RUN_ID" --run-attempt "$PROBE_RUN_ATTEMPT"
+      - name: Save scoped measurement evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ci-game-capability-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-game-capability-evidence/
+          if-no-files-found: error
+          retention-days: 7
