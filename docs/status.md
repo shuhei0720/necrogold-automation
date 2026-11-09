@@ -4,7 +4,7 @@
 
 ## 今回の修正と受領結果
 
-TEST058はLEFT2/MOVED2後にlate停止。12PNGとjournalsは完全回収・整合pass、商品到達fail。次DOWNは認識できるが、未予約の次notBeforeが親由来deadlineより3.280ms後となり、第3MOVEを作る前に停止した。TEST059は親motion期限を維持し、未予約candidateのtarget/窓だけ対更新して初回reserveで凍結する。旧Cのassertion Red→最小Greenとrollback Redを確認し、回帰中。[受領事実](device-tests/README.md#test058受領結果2026-11-09-日本時間)。
+TEST058はLEFT2/MOVED2後にlate停止。12PNGとjournalsは完全回収・整合pass、商品到達fail。次DOWNは認識できるが、未予約の次notBeforeが親由来deadlineより3.280ms後となり、第3MOVEを作る前に停止した。TEST059は親motion期限を維持し、未予約candidateのtarget/窓だけ対更新して初回reserveで凍結する。旧Cのassertion Red→最小Greenとrollback Red、local264/189paths・package228・client197が成功。Mac86重点回帰は旧Runtime/商店16も成功し、[Mac87](https://github.com/shuhei0720/necrogold-automation/actions/runs/42603972916)で全故障検出と新IPAを検証中。[受領事実](device-tests/README.md#test058受領結果2026-11-09-日本時間)。
 
 TEST057はRIGHT1/MOVED1後、次UPの送信が期限に間に合わず停止。経路外のDIRT→FLOORでSAME再予約し、observe後の残余5.017msに対しAX照会11.312ms。capture失敗ではない。次UPへの床は認識できるが、入店/商品確認は未達。[受領事実](device-tests/README.md#test057受領結果2026-11-09-日本時間)。
 

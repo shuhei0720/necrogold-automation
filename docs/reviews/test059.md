@@ -14,10 +14,21 @@ fresh計画第1周は安全clear、設計/網羅は未予約中の追加HUDでta
 
 app C profile（Controller/Beat O0・Nav/Perception strict O2）の7variationもGreen。公開CI用 `check_next_slot.py` は同じpublic C testを固定旧C/current/旧式rollbackへ適用し、Red/Green/Redを確認する。compile/setup/error/skipはRedとして受理しない。新rollback1件は旧Runtime59＋TEST058の2件と別集計。
 
-他native/evaluator99件・189必須paths/skip0、package226件成功。合計native/evaluator264件。原058の12PNGは全Scene O0/strictO2/Pillow、Nav/Motion/全73scoreを照合。40→47・47→54 LEFT MOVED、46/53 UNKNOWN、cap54の未実行DOWN/FLOORを分けた。完全ZIPのstrict評価は整合pass・商品到達fail/exit1。既知runを未知評価へ数えない。CI private除外は28methodの厳密集合、公開対象は236件。
+他native/evaluator99件・189必須paths/skip0、package228件成功（同期helper追加後）。合計native/evaluator264件。原058の12PNGは全Scene O0/strictO2/Pillow、Nav/Motion/全73scoreを照合。40→47・47→54 LEFT MOVED、46/53 UNKNOWN、cap54の未実行DOWN/FLOORを分けた。完全ZIPのstrict評価は整合pass・商品到達fail/exit1。既知runを未知評価へ数えない。CI private除外は28methodの厳密集合、公開対象は236件。
 
 ## 独立実装レビューと配布前
 
 設計/網羅/安全のfresh実装第1周は静的追加P0/P1/P2なし。source C SHA `b3fe3644eb5d3041f18bafa1771186e5a1e091c99e55468f7ccf73d28d2e0a08`、manifest SHA `fd95ed27d135c58ebd8872c6c9611a2c41913db3b4e4808bc4b7c9e197543190`。22seal中Controller.cのみ変更、他21・R12原40/G1は維持する。
 
-Macの全旧59/058新2・world16/Raster3/C parity-field/実RPC・実compiler・新IPA・完全source照合は未実施。client v13/API1.98.14/cap12は不変で、client197件は新CIで確認する。native変更のため新IPAをビルドしてからTEST059実機を依頼する。iPhoneの商品到達・毎拍・人より速い性能は未受入。
+client v13/API1.98.14/cap12は不変で、client CI19の197件が成功。Macの全旧59/Raster3/C parity-field/実RPC・実compiler・新IPAの最終検証は実行中。native変更のため新IPAをビルドしてからTEST059実機を依頼する。iPhoneの商品到達・毎拍・人より速い性能は未受入。
+
+
+## Macの同期補足と最終run
+
+Mac85は公開native236件/private28除外と、新Cの固定旧Red/current Green/rollback Redが成功した後、既存TEST058 direct_due fixtureの時刻assertで失敗。実第3入力は元D内だったが、境界前に取得済みの旧capture40が意図した新41より先にC observeへ入り、armedな時刻をD−7.017107msで記録した。これは5.017107ms予算の試験設定と不一致で、成功扱いしない。
+
+同期修正はHOST fixtureのみ。境界で1captureだけ許可し、expectedObserveEndに達したhookだけを記録、実replacement source rowのobserve_endと一致するassertも追加した。既存全assert・残余5,017,107ns・AX11,311,875nsは保持。固定旧d936 fixtureは元hash `1d17bcf7a5c4c3b0eca981de7cb6f161827fcfbbcbb71be180cfdf952f5f2c10` 検査後に同じ同期を挿入し、実行hash `cbcca005f3a8a3d1ce8c93a0f95b3e2b1e358a4ee37a43e23e80f7a2ae9b539a` を別記録。逆除去すると元bytesへ完全復元できる。production/Runtime/sealは不変、3担当が同059第1周の補足でclear。
+
+[Mac86重点回帰](https://github.com/shuhei0720/necrogold-automation/actions/runs/42602660535)は固定旧Red・current15/identity/chain/pressure・058新2故障・world16・旧Runtime全Greenが成功。3担当が原artifact（203,262bytes/SHA `f23a448e485967372dbd7217ad4bc0f9f79370bb30cc885603122c2b4464b247`）とsource/fixtureの同一性を照合した。
+
+[最終Mac87](https://github.com/shuhei0720/necrogold-automation/actions/runs/42603972916)はcode `96c0596a4b7fcad401eb41ceae928af13752ead8` を対象に実行中。build-source ZIP455全tracked bytes/CRC/path一致、SHA `0149ce97e5f8a0bd432a41d80556eb4d9d321c9344ad730a82147010ded78874`。実compiler/IPA・配布用最終sourceの同一性は完了後に追記する。合成GreenはiPhone到達の受入ではない。
