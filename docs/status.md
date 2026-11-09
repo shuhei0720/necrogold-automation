@@ -1,57 +1,57 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。TEST059受領: UP3後に第4入力前の画像比較で停止、商品未達。**TEST060はMac再検証待ち、新IPAは未配布**。Mac88/90はHOST capture-clock同期、Mac89はHOST診断出力の形式で失敗。90はnative258/長経路160＋停止2/C故障が成功したが、newID保持前に次captureが82ms進む残競合を再現した。元D/assertを維持して同期を修正中。59故障/IPAは未完了、production Cは固定、client20は成功。[今回の計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。回収済みTEST059は再実行しない。
+更新: 2026-11-09（日本時間）。TEST059は上3歩後に第4入力前の画像比較で停止し、商品未達。TEST060では連続歩行の初回予約を新しい画像から作るよう修正。Mac91全体成功・新IPA/ソース/実compilerを照合済み。TEST060の実機試験待ち。実機の商品到達・全経路毎拍・人より速い実効処理は未受入。回収済みTEST059は再実行しない。
 
-## 今回の修正と受領結果
+## 今回の変更
 
-TEST059はUP3/MOVED3・商品0。第4MOVEをsource54で予約後、55との比較がUNKNOWNとなりSCREEN停止。2遠方FLOOR→DIRT、次UP/床/金壁/保護は同じ。原画は背景1pxの位相差を示し、motion閾値を緩めて静止と扱わない。残期限67msでlateではない。TEST060は未予約の連続次slotだけ、notBefore100ms前以降・source取得開始200ms前以降から初回予約する。元拍/予約後期限/再予約/UNKNOWN無再送を維持する。200msはL85/cadence90/prep20+5余裕の合成成功域で検証し、実性能保証とはしない。14完成画像と別0入力run/未完了exportを区別。[受領事実](device-tests/README.md#test059受領結果2026-11-09-日本時間)。
+TEST059の4th MOVEはsource54→55のmotion UNKNOWNで停止。原画は共通1rawpxの地形ずれがあり、motion閾値を緩めて静止とは扱わない。notBeforeへ57ms/Dへ67ms残り、lateではない。14完成PNGと別0入力run・未完了exportを区別する。[受領事実](device-tests/README.md#test059受領結果2026-11-09-日本時間)。
 
-TEST058はLEFT2/MOVED2後にlate停止。12PNG/journalsは完全回収・整合pass、商品到達fail。cap54で次DOWN/FLOORを認識できたが、未予約の次notBeforeが親由来deadlineより3.280ms後となり、第3MOVEを作る前に停止した。停止tickは元期限より約113.7ms早く、capture/dispatch failureはない。[受領事実](device-tests/README.md#test058受領結果2026-11-09-日本時間)。
+TEST060は未予約の連続新ordinalだけ、同じ元拍のnotBefore100ms前以降、画像取得開始200ms前以降から初回予約する。移動直後の古い確認画像へ早期に固定せず、最新Sceneと通常plannerを使う。更新前の元Dをactualtickまで保ち、HUD補正による期限後の復活を拒否。予約後期限/再予約/UNKNOWN無再送/商品優先・親motion期限は維持する。[計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。
 
-TEST059は親motionの元期限内で移動を確認し、未予約candidateのtarget/10ms窓を同じ補正拍から対更新する。追加observeも元nominal/periodをアンカーとし、初回reserveで一体凍結する。予約済み/SAME/FRESHの期限、8%補正境界、source/model/phase/session/walk予算、取消・UNKNOWN無再送・商品保護を維持する。原058の未収録DOWN応答は作らず、既知12画像と合成Cの証明範囲を分ける。
+200msは画像処理85ms/取得間隔90ms/準備20ms＋余裕5msの合成成功域から導出した値であり、実機性能の保証ではない。原1pxの揺れを再現したworldや、原059の未収録第4入力を再生したと主張しない。
 
-localはController184/他native102/world3の計289method、203既知paths、315位相、160到達＋停止2、client197/package228が成功。公開CI258/private31を厳密照合し、新C1変更/他21維持、実装第2周3担当clear。build-source ZIP462全tracked bytes/CRC/path一致。Mac全故障・実compiler/新IPAは未完了。[検証](reviews/test060.md)。
+## 配布物
 
-## 直前TEST059の配布物（受領済み）
-
-| 項目 | 同一性 |
+| 項目 | 保存先・同一性 |
 | --- | --- |
-| code / Mac CI | `96c0596a4b7fcad401eb41ceae928af13752ead8` / [Mac87](https://github.com/shuhei0720/necrogold-automation/actions/runs/42603972916) |
-| 新IPA ZIP | [build87](https://github.com/shuhei0720/necrogold-automation/actions/runs/42603972916/artifacts/13669198824) / SHA `ebab41e26d65059eda35030180d78a9e04c041f0ee90c68a7fa0ac5e57c26103` |
-| IPA内部 | `upstream/release/LoopCtrl.ipa` / build87 / SHA `32554737f90cb60ce2f5d6f0e3cbc1232253d7e13550ae9c0df4a153f1460463` |
-| 検証ZIP | [Mac87診断](https://github.com/shuhei0720/necrogold-automation/actions/runs/42603972916/artifacts/13668698927) / SHA `d1adf66cbabc95cff53c45a711f939911aa6e8807c14e2cd71cbdad18deb9eaa` |
-| 公開C検証 | [Mac87 native-host](https://github.com/shuhei0720/necrogold-automation/actions/runs/42603972916/artifacts/13666713002) / SHA `4f219c3a1c5751b86a2c4d1d0e3bf9968b2e24d7cdbd5b1c713a6ae05104c0c0` |
-| 完全source | [資料込み保存branch ZIP](https://github.com/shuhei0720/necrogold-automation/archive/refs/heads/work/p1-capture-probe.zip)。返却時は最終commitへ固定し、全455 tracked bytes/CRC/pathとcodeとの差分が文書だけであることを照合する |
+| code / Mac CI | `04b213f27364bc9e5cf3c68f9caf031f842fba97` / [Mac91](https://github.com/shuhei0720/necrogold-automation/actions/runs/42632308407) 全体成功 |
+| IPA ZIP | [CI配布ページ](https://github.com/shuhei0720/necrogold-automation/actions/runs/42632308407) → Artifacts → `loopctrl-ngg2-unsigned`（13683333087）。17,823,847bytes / SHA `d131787aa5a823a2e9a8fc42da52e73e7cd6ab3c96e7f4a08cda52288d275a11` |
+| 内部IPA | `upstream/release/LoopCtrl.ipa` / build91 / SHA `6587ef9794a2efc93295eef66ea558d2e528fdbda27497e66b3eea222dd6dacc` |
+| 診断ZIP | artifact13683973589 / 650,690bytes / SHA `6cff2ed87ffa51c868da6285ee9ba40ca368c33132df450e1f869620d4407fb3` |
+| native-host | artifact13682046081 / 778,200bytes / SHA `cb49d2b92056a41fbe29c49e29ed8b2db62d3e22dd7bdcec8da710d89816b659` |
+| 完全source | [資料込みbranch ZIP](https://github.com/shuhei0720/necrogold-automation/archive/refs/heads/work/p1-capture-probe.zip)。最終返却は文書保存commitへ固定し、全462tracked bytes/CRC/pathとcodeとの差分が文書だけであることを照合する |
 
-22seal中Controller.cのみ変更、他21はTEST058と同一。seal `fd95ed27d135c58ebd8872c6c9611a2c41913db3b4e4808bc4b7c9e197543190`、R12原40/G1維持。client v13 / API1.98.14-ngg2 / cap12は不変。**native修正のため新IPA更新が必要**。リンクはSafariで開き、IPAはGitHubログイン後に取得する。
+codeのbuild-source ZIPは7,204,755bytes / SHA `53d7cb93165ded23883443fc5975a42c35fefdb183af0b6af8a458b3676df19e`、全462ファイル一致。
 
-## 検証範囲
+22seal中Controller.cだけ変更、他21はTEST059baseline5ef0ec3と同一。C `3a16d0b675061dd60b632f419437094e9fea82e90e9027efe01c61910f73f7cb` / seal `3b768e55930227ee0345447d24022717382d776125fcc652a905c232ac8b93e5`、API1.98.14-ngg2/cap12/client v13維持。R12原40/G1不変。native修正のため新IPA更新が必要。IPAの保存先はMac CIページ。SafariでGitHubログイン後、Artifactsの loopctrl-ngg2-unsigned を選ぶ。公開releaseは作らない。最終返却では実取得を確認した期限付き直接リンクも渡す。
 
-旧Cの指定assertion Red→最小Green→旧式rollback Redを確認。Controller165、他native/evaluator99、計264件・189既知paths/skip0、package228、client197が成功。公開native CI236/private28除外と、固定旧/current/rollback各1件の実ログ・hashを照合した。
+## 検証
 
-Mac87は既存Runtime59故障＋TEST058の2故障を全検出し、新C rollback1は別集計。準備callback15・pure16・chain4・pressure3、独立shop world16、Raster3、C全Scene/Decision parity-field・旧色式Red、暗号RPC・LoopCtrlKitが成功。Mac85のHOST時刻assert失敗は成功扱いせず、fixture同期後のMac86重点回帰とMac87全体成功を区別する。
+local Controller184/他native102/world3の計289method、203既知paths、315独立位相、world160到達＋停止2、client197/package228が成功。旧165method/956assert callを保持し、setupのみ新予約時刻へ合わせた。公開258/private31を厳密照合。新C3故障は既存Runtime59/058別2/旧059 C別1から分ける。
 
-rawPBX/実compilerログ・4C/5Swift/6RSP、22seal、IPA9Mach-Oの81 HOST marker非混入、455file build-source ZIPを実物照合。実producer5件→暗号client/journalと、world16→strict v13の診断3配列も一致。これらは合成world/fixture通信であり、Mac実ゲームE2EやiPhone商品到達の合格ではない。
+Mac91は公開native258/31厳密除外、Runtime既存59＋058別2故障、新060 C3＋旧059 C1故障、独立Swift world16・追加C world160＋停止2、Raster3・C全Scene/Decision parity-field/旧色式Red・暗号RPC・LoopCtrlKitが成功。client197は同一client/launcher/workflowのclient20成功へbindingした。
 
-## 直前の実機手順（TEST059・受領済み）
+実PBX/実compilerログ/4C/5Swift/6RSP、22seal、IPA全9Mach-O/82HOST marker非混入を実物照合。実Runtime producer5件→暗号client/両journal、およびworld16→strict v13の診断3配列も一致。合成world・fixture通信の結果であり、Mac実ゲームやiPhone受入ではない。
 
-LoopCtrlをStop Server→完全終了→SideStoreで新IPAへ更新→再起動/Start Server。いつものVPN/ディスクイメージ接続を確認し、完全sourceを展開する。新しい通常オールゾーン1-1で開幕の金壁が見える回を、左側が下・画面端0でポーズする。iSHのフォルダ選択では `test_059.sh` があるフォルダを選ぶ。
+Mac88/90のHOST時計同期失敗とMac89の診断出力形式失敗は、全体成功には数えない。第3周の補足でHOSTだけを修正し、375require/checker・元D/10msを維持。既存legacy047の未使用helperも古い固定fakeへ型互換を維持するが、旧modeの新しい実Swift試験は未実施。[検証の詳細](reviews/test060.md#test060-final-mac)。
+
+## 実機手順（TEST060）
+
+LoopCtrlをStop Server→完全終了→SideStoreで新IPAへ更新→再起動/Start Server。通常のVPN/ディスクイメージ接続を確認。完全sourceを展開し、新しい通常オールゾーン1-1で開幕の金壁が見える回を、左側が下・画面端0でポーズする。フォルダ選択では test_060.sh があるフォルダを選ぶ。
 
 ```sh
-mkdir -p /mnt/necro_test059
-mount -t ios . /mnt/necro_test059
-cd /mnt/necro_test059 && sh test_059.sh
+mkdir -p /mnt/necro_test060
+mount -t ios . /mnt/necro_test060
+cd /mnt/necro_test060 && sh test_060.sh
 ```
 
-歩行中はゲーム前面を保つ。自動ポーズ後5秒ほど待てばiSHへ戻ってよい。**「TEST-059: 終了」表示後に `runtime/test-059` 全体をZIPで返す。** 壁付近から曲がって進めるか、扉を開けて通れるか、商品が見えたか、連続歩行を確認する。[詳細手順](device-tests/README.md#test-059実行手順)。回収済みTEST058は再実行しない。
+歩行中はゲーム前面。自動ポーズ後5秒ほど待ったらiSHへ戻ってよい。「TEST-060: 終了」後に runtime/test-060 全体をZIPで返す。連続歩行、開扉、入店、商品が見えるかを確認する。[詳細手順](device-tests/README.md#test-060実行手順)。
 
 ## コンテキストと未受入
 
-初読は16KiB以内へ整理し、旧資料・要件・履歴を保持。[索引](context.md)。生ZIP/PNG/reportはGit外。原058の12画像は既知回帰であり、未知評価の合格へ数えない。
+初読3文書は16KiB以内。旧資料・要件・履歴を維持した[索引](context.md)。生ZIP/PNG/report/解析はGit外。原059の14画像を未知評価へ数えない。
 
-ユーザーはMacを持たずCIでの実ゲームを想定。[自己窓CI](https://github.com/shuhei0720/necrogold-automation/actions/runs/42545599822)は画面取得/キー/原PNGの赤→青を実測したが、正規ゲーム導入/認証/起動は未成立。Mac実ゲームは未実施で、iPhone単体要件を維持する。
-
-TEST059のiPhone受入、全経路毎拍・人より速い性能・商品/指輪の未知評価と通知・自動周回・耐久は未受入。
+ユーザーはMacを持たずCIでの実ゲームを想定。自己窓CIは画面取得/キー/原PNGの変化だけを実測し、正規ゲーム導入/認証/起動は未成立。Mac実ゲームは未実施で、通常利用をiPhoneだけで完結する要件を維持する。TEST060の実機商品到達、毎拍/人より速い処理、対象指輪の未知評価・通知・自動周回・耐久は未受入。
 
 <a id="test-011結果と今回の変更"></a>
 

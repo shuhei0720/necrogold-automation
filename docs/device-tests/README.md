@@ -2571,3 +2571,24 @@ cd /mnt/necro_test059 && sh test_059.sh
 14完成PNGは全bytes/SHA/PNG CRCを確認、O0/strictO2/Pillowの全Scene、15pairs/all73score/4方向が一致。export16枚のうち59未回収、60.partは全PNG bytesまで到達しているが未finalizeで、resolved=false/host_deadline。原ZIPは2runとpartを含むためstrict評価はunsupported_or_multiple_run_layout/invalid、milestone unknown/exit2。native報告と原画像から商品未達は明らかだが、評価器の整合passや完全Controller再生とは呼ばない。追加回収目的の059再実行は依頼しない。
 
 [TEST060計画](../plans/test060-continuous-admission.md)は同じ次拍の未予約candidateから、新しい画像で初回予約する時間方針を追加する。原画像にない第4入力以降を再生できたと主張せず、独立長経路worldの開扉/進入/商品/PAUSEと毎拍を別検証する。原ZIP/PNG/report/解析はGit外。
+
+
+## TEST060 最終Mac・配布物（2026-11-09 日本時間）
+
+TEST059のUP3後の画像比較停止を受け、連続新ordinalの初回予約を同じ元拍のnotBefore100ms前以降・source取得開始200ms前以降へ限定した。元Dをactualtickまで保持し、期限後の復活を拒否する。code `04b213f27364bc9e5cf3c68f9caf031f842fba97` / [Mac91](https://github.com/shuhei0720/necrogold-automation/actions/runs/42632308407) 全体成功。Runtime59＋058別2、新C3＋旧C1、world16＋追加160/停止2・実compiler・新IPAを実物照合。[詳細とhash](../reviews/test060.md#test060-final-mac)。22seal中Controllerのみ変更/他21、R12原40/G1、全9Mach-O/82HOST marker非混入を保持。合成試験は実機到達の合格ではない。
+
+## TEST-060実行手順
+
+**TEST060の実機テストをお願いします。** [Mac91配布ページ](https://github.com/shuhei0720/necrogold-automation/actions/runs/42632308407) をSafariで開き、GitHubログイン後にArtifactsの `loopctrl-ngg2-unsigned`（build91）を取得・展開します。完全sourceも最新版へ更新します。native修正のため新IPA更新が必要です。
+
+1. LoopCtrlをStop Server→完全終了。SideStoreでZIP内の `upstream/release/LoopCtrl.ipa` へ更新し、再起動→Start Server、いつものVPN/ディスクイメージ接続を確認します。
+2. 完全sourceを展開し、フォルダ選択では `test_060.sh` があるフォルダを選びます。
+3. 新しい通常オールゾーン1-1で開幕の金壁が見える回を、左側が下・画面端0でポーズし、iSHで実行します。
+
+```sh
+mkdir -p /mnt/necro_test060
+mount -t ios . /mnt/necro_test060
+cd /mnt/necro_test060 && sh test_060.sh
+```
+
+歩行中はゲーム前面を保ち、**自動ポーズ後5秒ほど待ったらiSHへ戻って構いません。** 「TEST-060: 終了」まで待って、`runtime/test-060` 全体をZIPで返してください。連続歩行、扉を開けて通過するか、商品が見えるかを確認します。終了前の再実行や別テストの同時実行はしません。回収済みTEST059の追加回収のための再実行は不要です。

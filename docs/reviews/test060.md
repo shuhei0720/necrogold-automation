@@ -14,12 +14,9 @@
 
 長経路はworld入口5歩・4床→開扉→進入の6入力。単純距離5のDOWNは金壁がHUDに隠れ不成立だったため、新caseの±2金壁列を手前2セルへ延長する地形へ固定。既存world16は無変更。実装前studyで四方向×木鉄/Q7の初期候補、全6操作Nav/Motion/商品をO0/strictO2で確認。左右の最終goods Sceneは商品保護がoriginへ及びentered_gate.valid=0だが、world位置gateとgoodsの期待を満たす。入口validを全ケースへ強要しない。
 
-## TDD・実装（進行中）
+## TDD着手時の記録
 
-旧Controller165件は33.596秒/skip0でGreen。新公開C2methodは旧Cのまま指定assertion Red（2failure/errors0）を確認。publication100ms、source_start200msを未予約の連続新ordinalだけに適用する最小変更と、既存helperのpositive合成時刻setupを実装中。元PNG/reportの時刻を新captureとして偽装せず、guard/期限/再予約/fallbackの旧assertを保持する。全回帰・新C故障2・新world160/停止2・実装fresh3レビュー・Mac/実compiler/IPA・全sourceの検証は未完了。
-
-新IPAを実ビルド・照合した後、TEST060の実機試験を必ず依頼する。iPhone入店/商品到達・毎拍・人より速い性能・指輪/周回/耐久は未受入。回収済059は再実行しない。
-
+旧Controller165件を33.596秒/skip0でGreenと確認し、新公開C2methodは旧Cで指定assertion Red（2failure/errors0）を記録した。publication100ms/source_start200msの最小変更後にGreen、追加expiryのRed/Greenも後節へ記録。元PNG/report時刻の偽装や旧assert削除は行わない。local・Mac・配布物の最終結果は末尾を参照する。
 
 ## 実装第1周の追加指摘
 
@@ -41,9 +38,9 @@ Controller旧165＋新19＝184件、51.566秒/skip0で成功。旧956assert call
 合計native/evaluator/worldは289method、公開CI対象258/private厳密31除外。旧C fixed b3は長い合成goal自体に到達するため「旧goal不合格」と捏造せず、ordinal2〜6のpublication/sourceの各5違反を独立集計する。新policy2＋expiry1、旧059 C rollback1、Runtime59＋058別2は別集計。Mac全体・実compiler/IPA・配布source照合はこれから実施する。
 
 
-## 最終Mac開始
+## Mac88開始（失敗は後節）
 
-正式code `f4162d91eb28fd016340b877746436ea61b301e9` をpush。[Mac88](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620754044)でnative258/新C3故障/旧C1故障・全Swift/Runtime/実compiler/新IPAを実行中。[client20](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620758236)は同codeで成功。標準公開runnerを維持する。
+正式code `f4162d91eb28fd016340b877746436ea61b301e9` をpush。[Mac88](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620754044)でnative258/新C3故障/旧C1故障・全Swift/Runtime/実compiler/新IPAを開始した。[client20](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620758236)は同codeで成功。標準公開runnerを維持する。
 
 build-source ZIPは7,198,806bytes、SHA `620e243e4e895527350414aa8b0898774967870776719f9d38775a255dcfa319`、462全tracked bytes/CRC/path一致。設計が原ZIPを独立再照合し、Controllerのみ変更/他21/R12原40/G1も保持。最終delivery/contracts検証器は059の条件を維持。安全が実compiler検証器とMach-O旧81 marker＋test060_（82）を点検し、通常/-Oの合成selfcheckで88拒否/8magicを確認した。actual IPAはまだ検証していない。
 
@@ -86,3 +83,28 @@ old3/source44→new4/source45、cap45 observe終了 `417241568398`、元D `41727
 strict Cで4markerの旧不一致/新一致と1→3/1→4/1→3/4→2分類を実測。375require全bytes/順序、4scope/旧047prefix互換、package228/1.814秒を確認。2順序を強制したモデルでは、旧同期がD+45.652797ms、新同期がcap45終了時のclock/requests45のまま待つことを確認した。これはSwift実行のassertion Red/Greenや、実Runtimeで強制したinterleaving試験ではない。次Mac CIで元の公開fixture・59指定故障・18診断行を実照合する。Mach-O自己検査は新classを含む48HOST宣言/82marker/88拒否/8magicを通常/-Oで確認した。
 
 第3周の上記1fa26版補足を設計・網羅・安全が独立確認し、追加P0/P1/P2なし。実行上の解消は次のMac全体で判定し、88/89/90の失敗は保持する。
+
+<a id="test060-final-mac"></a>
+
+## 最終Mac91・配布物照合（2026-11-09 日本時間）
+
+| 項目 | 保存先・同一性 |
+| --- | --- |
+| code / Mac CI | `04b213f27364bc9e5cf3c68f9caf031f842fba97` / [Mac91](https://github.com/shuhei0720/necrogold-automation/actions/runs/42632308407) 全体成功 |
+| IPA ZIP | [CI配布ページ](https://github.com/shuhei0720/necrogold-automation/actions/runs/42632308407) → Artifacts → `loopctrl-ngg2-unsigned`（13683333087）。17,823,847bytes / SHA `d131787aa5a823a2e9a8fc42da52e73e7cd6ab3c96e7f4a08cda52288d275a11` |
+| 内部IPA | `upstream/release/LoopCtrl.ipa` / build91 / SHA `6587ef9794a2efc93295eef66ea558d2e528fdbda27497e66b3eea222dd6dacc` |
+| 診断ZIP | artifact13683973589 / 650,690bytes / SHA `6cff2ed87ffa51c868da6285ee9ba40ca368c33132df450e1f869620d4407fb3` |
+| native-host | artifact13682046081 / 778,200bytes / SHA `cb49d2b92056a41fbe29c49e29ed8b2db62d3e22dd7bdcec8da710d89816b659` |
+| 完全source | [資料込みbranch ZIP](https://github.com/shuhei0720/necrogold-automation/archive/refs/heads/work/p1-capture-probe.zip)。最終返却は文書保存commitへ固定し、全462tracked bytes/CRC/pathとcodeとの差分が文書だけであることを照合する |
+
+codeのbuild-source ZIPは7,204,755bytes / SHA `53d7cb93165ded23883443fc5975a42c35fefdb183af0b6af8a458b3676df19e`、全462ファイル一致。
+
+Mac91は公開native258/31厳密除外、Runtime既存59＋058別2故障、新060 C3＋旧059 C1故障、独立Swift world16・追加C world160＋停止2、Raster3・C全Scene/Decision parity-field/旧色式Red・暗号RPC・LoopCtrlKitが成功。client197は同一client/launcher/workflowのclient20成功へbindingした。
+
+実PBX/実compilerログ/4C/5Swift/6RSP、22seal、IPA全9Mach-O/82HOST marker非混入を実物照合。実Runtime producer5件→暗号client/両journal、およびworld16→strict v13の診断3配列も一致。合成world・fixture通信の結果であり、Mac実ゲームやiPhone受入ではない。
+
+HOST最終1fa26版の公開fixtureは、元375requireと18診断行を保持して通過。59故障は指定assertion Redを個別に照合し、fixture停止を故障検出と取り違えない。frame公開前に次取得を停止する順序は静的/モデル証拠で補い、今回のCIをSwift強制interleaving TDDと主張しない。旧047modeの新実compileも未実施。Mac88/89/90を成功に上書きせず、診断と来歴をGit外に保持する。
+
+source・IPAのCRC/path/全bytes、22source中Cだけ変更/他21、R12原40/G1を照合。API1.98.14-ngg2/cap12/client v13不変。全native/evaluator289（公開258/必須private31）・203既知paths・315位相・新world160到達＋停止2・client197/package228のlocal結果と、CIの証明範囲を分ける。iPhone商品到達・全経路毎拍・人より速い性能・指輪/周回/耐久は未受入。具体的TEST060の実機テストを依頼する。
+
+最終Mac91の実配布物と文書5件を設計・網羅・安全が独立照合し、残P0/P1/P2なし。59件すべて指定FAIL/別FAIL代替0、18診断行の9組すべてbeginが元10ms窓内、132内容fileとGitHub成功metadataの結合を確認した。文書保存commitとcode04bの差分を文書だけに限定し、返却用の固定source ZIPも全462bytes/CRC/pathで照合する。
