@@ -1,12 +1,12 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。現在はTEST055を配布し実機結果を待つ段階。履歴の「現在」「次」は各記録時点を示す。
+更新: 2026-11-09（日本時間）。TEST055結果を受領。現在は[TEST056の診断保存修正](plans/test056-stop-evidence.md)を計画レビュー中。履歴の「現在」「次」は各記録時点を示す。
 
 ## 今回の修正
 
-TEST054は1方向/1MOVED後、画像69→70でgold/doorの分類が増え、最新DecisionがUP/FLOORからLEFT/DIRTへ変わった。次UP予約は未送信、元期限は残っていた。[受領事実](device-tests/README.md#test054受領結果2026-11-09-日本時間)。
+TEST055は5入力/5MOVED後、扉前で停止。入力間隔は約0.52秒、歩行開始→初入力は2.212秒。新FRESHと旧reference fallbackは実作動した。最後は再予約run8の上限（validation5）で未送信取消→ポーズ。開通0/商品0で未到達。
 
-TEST055は旧予約を取り消し、最新Sceneの通常plannerが選ぶ別ID/方向で同じ元拍へ予約する。既知GOLD/STONE/DOORの消失・protected変更は拒否し、全期限/共有予算/UNKNOWN無再送/商品優先を維持する。旧SAME経路と元画像fallbackの限定条件も維持する。[正本計画](plans/test055-latest-plan.md)。
+停止直前125/126/127のPNGはpin飽和・選択枠の問題で欠落。静止壁のDIRT/STONEの色境界変動は他の保存画像で確認したが、最後の完全Decisionは再評価できない。TEST056は最新比較をpin/exportで優先する診断修正であり、歩行の予算・認識・安全条件は変えない。[受領事実](device-tests/README.md#test055受領結果2026-11-09-日本時間)。
 
 ## 配布版
 
@@ -17,7 +17,7 @@ TEST055は旧予約を取り消し、最新Sceneの通常plannerが選ぶ別ID/�
 | client / API / capability | v13 / 1.98.14-ngg2 / necrogold_native_v12 |
 | native seal | `3812b22751076748cf7ce868fc774efe6ce95c5846c84e8406900c2b21cc2be5` / 全22source一致 |
 
-**[TEST055の実機テスト](device-tests/README.md#test-055実行手順)をお願いします。** 新IPAへSideStore更新→LoopCtrl完全終了/起動→Start Server、新sourceの `sh test_055.sh` を新1-1ポーズから実行し、終了後 `runtime/test-055` 全ZIPを返してください。旧v12互換は新v13による旧journal回復であり、旧実行ファイルの新規起動を保証しません。
+上表は受領TEST055に対応する配布版。TEST056は未ビルド・未配布。受領runは回収済みなので再回収目的の再実行はしない。TEST056の検証済みIPA/source完成後に、新1-1からの具体的実機依頼を提示する。
 
 ## 検証した範囲
 

@@ -2430,3 +2430,15 @@ cd /mnt/necro_test055 && sh test_055.sh
 ```
 
 **「TEST-055: 終了」後に `runtime/test-055` 全体をZIPで返してください。** 最初の歩行、前回の停止地点を越えるか、毎拍・茶壁/扉・商品・最終ポーズ・回収待ちを確認します。同時に別テストを動かしません。回収済みなら再実行せず返却し、終了した回収未完了だけ同じprocess/source/runtimeで回復します。
+
+## TEST055受領結果（2026-11-09 日本時間）
+
+ユーザー報告「扉前まで移動して終わった」。元ZIP 4,196,623bytes/SHA `b495fd5a09b4700d65eb54a31ed0d86383993e03cd36912be1310a41cac92506`、report SHA `c084d080793321fd2bf3848dafba635217d1ed84672068505f934ba66dd30010`。client v13、cap12対応、build時刻2026-11-08 17:42。実端末のIPA hash/数値buildまではreportにない。
+
+5入力/5MOVED（LEFT4・UP1）、最終(-4,-1)、開通/商品0。5歩目はprimary UNKNOWNに旧reference MOVEDが働いたが115/125画像欠損で再評価不可。原寸17枚のうち4変位を実C/背景36pxで確認。113は木扉2セル手前、最終136は明瞭なPAUSE。入力間隔522.931/515.793/516.647/517.386ms、model周期521.148ms。歩行開始→初入力2,212.384msは改善余地が残る。
+
+125→126のDIRT→STONE2セルでFRESH12が許可され、id15を未送信取消→id16/source126・同LEFT/元拍/元期限へ更新。126→127のSTONE→DIRT1セルでvalidation5/run8上限に達して停止し、期限まで56.486ms残っていた。chain1、6歩目begin0、PAUSE/worker drain/回収は完了。予算増加だけで進めるとは断定しない。
+
+17原PNG/4,191,696bytesは全SHA/CRC/lineage一致。95capture行の78枚は未収録。125/126はpin20飽和で保持されず、127はrecentに残ったが選択20に入らなかった。63/64/74は選択後のbytes制限で省略され、個別サイズ超過と総量超過は切分け不能。静止した111/112/113の石壁はB/RがSTONE閾値.53を跨ぐが、最終3枚の原因までは断定しない。
+
+記録評価はintegrity pass、`goods_visible_and_paused=fail`/exit1、完全Controller再生=false。単体/模擬Mac試験・ZIP部分評価・実ゲーム試験を区別する。次は[TEST056診断保存](../plans/test056-stop-evidence.md)で最新比較を保持/選択とも優先する。動作guard/予算/閾値は維持し、生資料・解析はGit外。
