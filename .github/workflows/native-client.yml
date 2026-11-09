@@ -22,6 +22,7 @@ on:
       - 'test_057.sh'
       - 'test_058.sh'
       - 'test_059.sh'
+      - 'test_060.sh'
       - 'tests/test_http_diagnostics.py'
       - 'tests/test_native_connect.py'
       - 'tests/test_native_walk.py'
@@ -53,6 +54,7 @@ jobs:
           sh -n test_057.sh
           sh -n test_058.sh
           sh -n test_059.sh
+          sh -n test_060.sh
       - name: Prepare the existing legacy image-test dependency
         run: |
           python3 -m venv "$RUNNER_TEMP/test055-venv"

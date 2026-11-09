@@ -22,6 +22,8 @@ TEST059の次target/窓対更新は機能し、第3/第4の窓は成立してい
 
 待機中はTEST059の同nominal/元periodアンカー・8%以内target/窓の対更新を維持する。元次拍deadline超過を先に検査し、失効後の再選択/別拍への送り直しはしない。条件が成立した時点の最新通常plannerとSceneで最初のcommandを作り、初回reserve以後は既存の完全凍結とSAME/FRESH全検査を維持する。予算、取消/前面/owner、商品latch、ACK/MOVED、親motion期限、UNKNOWN入力無再送、元画像fallbackの資格を変えない。初歩/retuneは現行どおり、既存再予約はこの新待機で遅らせない。
 
+実装第1周の安全P1で、capture endが元D前でもactual commit/tickがD後の時、HUD更新だけで候補Dを未来へ動かせることを確認。Cはcommit clockを直接受けないため、更新前Dをprivate guardへ最小保持し、次の実時計tickが元D内だと確認するまでauthorityを作らない。複数observeでは最小Dを保持する。新ordinalの移動確認時も親motion元Dを最初のactualtickまで保持する。capture end/既知lastnowがD後ならobserveで拒否し、goods/取消等の優先を維持する。予約済みには拡張しない。早期/遅着/複数observe/親motionのRedと等号/+1ns、旧D内tickでのguardクリアを追加する。
+
 ## 4. 影響範囲
 
 productionはNG2Controller.cの連続新ordinal初回reserveの時間/画像条件だけ。Runtime/Beat/Nav/Perception/header/ABI/API/cap/client v13と他native21、R12原40/G1は不変。新TEST060 launcher・14既知画像manifest/再生・CI/故障検出・seal・契約と資料を更新する。原ZIP/PNG/report/解析はGit外。既存mandatory189pathsは保持し、新14で203pathsとする。14完成とpart/未回収を分ける。
@@ -39,7 +41,7 @@ productionはNG2Controller.cの連続新ordinal初回reserveの時間/画像条�
 
 商品到達は既存Swift独立shop world16を無変更で回帰する。追加の[TEST060 world期待表](../tests/test060-world-cases.md)は入口5歩、上下左右×木鉄8地形、6方向入力/5変位/開扉1/商品/PAUSE1を固定する。±2列の金壁を入口からプレイヤー側へ2セル延長し、DOWNの初期可視/移動証明も実Cで確認済み。L60/70/80/85ms・5critical capture位相・P20ms・synthACK280msの160終端実行は、world拍b,b+1,…,b+5の連続性まで検査する。全1ms位相は同じ公開Cの時間契約試験で追加走査し、値だけの理想算術で代用しない。遅過ぎる取得/準備は固定された3歩後停止条件で別検査する。地形/時刻/受付と商品遮蔽はworld自身の状態で定義しreport/Decisionをoracleにしない。原059の未収録未来画像ではなく合成worldであり、実ゲーム到達は主張しない。
 
-新publicationの早期発行とsource freshnessの欠落を別mutationで検出する。既存Runtime59＋058別2、新059のC別1・Raster3/C parity-field/暗号RPC/実compilerを維持する。
+新publicationの早期発行/source freshness欠落と、未予約deadline後HUD復活の3故障を別mutationで検出する。既存Runtime59＋058別2、新059のC別1・Raster3/C parity-field/暗号RPC/実compilerを維持する。
 
 ## 6. 順序
 

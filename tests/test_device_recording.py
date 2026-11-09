@@ -530,5 +530,113 @@ class DeviceRecordingTests(unittest.TestCase):
         self.assertEqual(1, scenes[61]['state'])
 
 
+    def test_required_test059_incomplete_two_run_recording_is_unknown(self):
+        """Original two-run/part archive is invalid, never repaired into a pass."""
+        manifest = json.loads((audit.ROOT / 'tests/test060-fixtures.json').read_text())
+        path = Path(os.environ.get('NECRO_TEST060_RECORDING_ZIP',
+            '/tmp/codex-remote-attachments/01a1b13e-8e5b-732b-955c-6407d4e00082/'
+            '99E1F628-13C9-45E6-9023-1567BACCC5E1/1-test-059.zip'))
+        digest = '900b06ffcaecb973a3c97a9b794702ac031cdc5f40437558ee19844e434dce0b'
+        self.assertTrue(path.is_file(), 'required private TEST059 recording missing')
+        self.assertEqual((3723124, digest), (path.stat().st_size, hashlib.sha256(path.read_bytes()).hexdigest()))
+        self.assertEqual((digest, 3723124, 25), tuple(manifest[key] for key in
+                         ('source_zip_sha256', 'source_zip_bytes', 'source_zip_entry_count')))
+        expected = {'integrity': {'status': 'invalid', 'reason': 'unsupported_or_multiple_run_layout'},
+                    'milestone_status': 'unknown', 'exit_code': 2,
+                    'full_controller_replay': False, 'live_game_e2e': False}
+        self.assertEqual(expected, manifest['strict_recording_expectation'])
+        result = audit.evaluate_recording(path, core=self.core)
+        self.assertEqual(expected['integrity'], result['integrity'])
+        self.assertEqual('unknown', result['recorded_milestone']['status'])
+        self.assertEqual('not_evaluated', result['c_partial_evaluation']['status'])
+        self.assertFalse(result['coverage']['full_controller_replay'])
+        self.assertFalse(result['coverage']['live_game_e2e'])
+        self.assertEqual(2, audit.exit_code(result))
+        cli = subprocess.run([sys.executable, str(audit.ROOT / 'tools/evaluate_device_recording.py'), str(path)],
+                             text=True, capture_output=True, check=False)
+        self.assertEqual(2, cli.returncode, cli.stderr)
+        self.assertEqual(result, json.loads(cli.stdout))
+        run_id = 'd411b59e938c40719be2c40ab4c77939'
+        folder = f'test-059/native-{run_id}'
+        scope = manifest['collection_scope']
+        with zipfile.ZipFile(path) as archive:
+            self.assertEqual(25, len(archive.infolist()))
+            self.assertIsNone(archive.testzip())
+            reports = {name: archive.read(name) for name in archive.namelist() if name.endswith('/report.json')}
+            self.assertEqual({f'test-059/native-{row["run_id"]}/report.json': row['sha256']
+                              for row in manifest['source_reports']},
+                             {name: hashlib.sha256(raw).hexdigest() for name, raw in reports.items()})
+            current_raw = reports[folder + '/report.json']
+            self.assertEqual(current_raw, archive.read('test-059/active.json'))
+            self.assertEqual(manifest['active_report_sha256'], hashlib.sha256(current_raw).hexdigest())
+            record = json.loads(current_raw)
+            other = json.loads(reports['test-059/native-897534256fce4a81942f3f8b46a6a9f3/report.json'])
+            self.assertEqual((20, 0, 0), tuple(other['native_report'][key] for key in ('reason', 'inputs', 'moves')))
+            native = record['native_report']
+            self.assertFalse(record['resolved'])
+            self.assertEqual('host_deadline', record['stop_reason'])
+            self.assertEqual((3, 3, 0, -3, 0, 1, 17, 'screen', 0, 0, 1, 0), tuple(native[key] for key in
+                ('inputs', 'moves', 'x', 'y', 'goods', 'paused', 'reason', 'reason_name',
+                 'door_changes', 'terrain_changes', 'terminal', 'input_state')))
+            self.assertIsNone(native['dispatch_failure'])
+            metadata = {row['capture_id']: row for row in record['images']}
+            checkpoint = record['image_export']
+            self.assertEqual((14, 16, 16), (len(metadata), len(checkpoint['images']),
+                                           record['result_metadata']['exported_images']))
+            self.assertEqual(scope['reported_exported_capture_ids'], record['result_metadata']['exported_capture_ids'])
+            complete_files = [name for name in archive.namelist()
+                              if name.startswith(folder+'/images/') and name.endswith('.png')]
+            ids = sorted(int(Path(name).stem.split('-')[-1]) for name in complete_files)
+            self.assertEqual(scope['complete_png_capture_ids'], ids)
+            self.assertEqual(sorted(metadata), ids)
+            self.assertEqual(scope['referenced_capture_ids'], native['referenced_capture_ids'])
+            self.assertEqual([], native['missing_capture_ids'])
+            self.assertEqual(scope['unavailable_original_capture_ids_for_full_replay'],
+                             sorted({row['id'] for row in native['captures']}-set(ids)))
+            captures = {row['id']: row for row in native['captures']}
+            for entry in manifest['images']:
+                cid = entry['capture_id']; row = metadata[cid]
+                raw = archive.read(folder+'/images/'+row['name'])
+                self.assertEqual((entry['bytes'], entry['sha256']),
+                                 (len(raw), hashlib.sha256(raw).hexdigest()))
+                self.assertEqual((entry['stable'], entry['completed_prefix']),
+                                 (row['stable_prefix'], row['completed_prefix']))
+                # Source times/prefixes are checked directly in the immutable
+                # raw journal, never moved to make a partial recording valid.
+                for image_key, capture_key in audit.IMAGE_JOIN:
+                    self.assertEqual(row[image_key], captures[cid][capture_key])
+            by_export = {row['capture_id']: (row, offset, prefix) for row, offset, prefix in
+                         zip(checkpoint['images'], checkpoint['offsets'], checkpoint['prefix_sha256'])}
+            self.assertEqual((0, hashlib.sha256(b'').hexdigest()), by_export[59][1:])
+            self.assertNotIn(folder+'/images/capture-000059.png', archive.namelist())
+            self.assertNotIn(folder+'/images/capture-000060.png', archive.namelist())
+            part = scope['part_files'][0]
+            part_raw = archive.read(folder+'/images/.parts/capture-000060.png.part')
+            self.assertEqual((60, 67986, 'c85303904d94e2226782cac5a8fbd75c80774714e5f67d369f154048bd87529b', True),
+                             (part['capture_id'], part['bytes'], part['sha256'], part['fully_downloaded_but_unfinalized']))
+            self.assertEqual((part['bytes'], part['sha256']), (len(part_raw), hashlib.sha256(part_raw).hexdigest()))
+            self.assertEqual((part['bytes'], part['sha256']), by_export[60][1:])
+            acknowledged = [event for event in native['events'] if event['kind'] == 4 and event['outcome'] == 2]
+            self.assertEqual([(3, 32, 40), (4, 40, 47), (6, 48, 54)],
+                             [(row['id'], row['source_capture_id'], row['observed_capture_id']) for row in acknowledged])
+            self.assertTrue(all((row['direction'], row['motion'], row['dx'], row['dy']) == (3, 1, 0, -1)
+                                for row in acknowledged))
+            reference = next(row for row in native['motion_references'] if row['command_id'] == 6)
+            self.assertEqual((48, 47, 54, True, 0, True, 1, 47, 1), tuple(reference[key] for key in
+                ('authority_capture_id', 'reference_capture_id', 'observed_capture_id',
+                 'reference_eligible', 'primary_motion', 'fallback_attempted', 'fallback_motion',
+                 'selected_capture_id', 'selected_motion')))
+            unsent = next(row for row in native['events'] if row['id'] == 7)
+            self.assertEqual((54, 3, 0, 17), tuple(unsent[key] for key in
+                             ('source_capture_id', 'direction', 'begin_ns', 'reason')))
+            change = next(row for row in native['scene_change_details'] if row['command_id'] == 7)
+            self.assertEqual((54, 55, 11), tuple(change[key] for key in
+                             ('source_capture_id', 'observed_capture_id', 'validation')))
+            self.assertEqual(manifest['latest_scene_change']['changed_tiles'],
+                             [[cell[key] for key in ('x', 'y', 'tile_before', 'tile_after')]
+                              for cell in change['cells']])
+        self.assertEqual(digest, hashlib.sha256(path.read_bytes()).hexdigest(), 'raw ZIP must remain unchanged')
+
+
 if __name__ == '__main__':
     unittest.main()

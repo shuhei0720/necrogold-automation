@@ -37,7 +37,7 @@ worldの3歩目入力ACK後、nativeの3歩目MOVED確認から第4予約前に�
 
 | case | 入力条件 | 期待 |
 | --- | --- | --- |
-| SLOW-CAPTURE | 最後の古い取得開始はB−200ms−1ns、L160msでB−40ms−1nsに判断。5ms後の次取得はB−35ms−1ns開始、判断はB+125ms−1ns | 第4方向入力0、world/native移動3・開扉0・商品0。元D=B+10msでlate停止、保持PAUSE1。GOODS/BEAT未達で正例に数えない |
-| SLOW-PREPARE | 適格SceneがB−20msで判断、AX/queue60msでmain開始B+40ms | 第4方向入力0、world/native移動3・開扉0・商品0、元Dを越えて送信しない。late停止/保持PAUSE1。正例に数えない |
+| SLOW-CAPTURE | world時計の最後の古い取得開始はB−210ms、L160msでB−50msに判断。5ms後の次取得はB−45ms開始、判断はB+115ms | 第4方向入力0、world/native移動3・開扉0・商品0。元D=B+10msでlate停止、保持PAUSE1。GOODS/BEAT未達で正例に数えない |
+| SLOW-PREPARE | 通常L85ms/C90ms/phase0を保ち、適格Sceneの判断はB−35.5ms、AX/queue60msでmain開始B+24.5ms | 第4方向入力0、world/native移動3・開扉0・商品0、元Dを越えて送信しない。late停止/保持PAUSE1。正例に数えない |
 
-停止後の回収は新しい実captureでPAUSEを確認する。取消/UNKNOWN/隣接PARTIAL・木鉄/各方向/迂回掘削は既存world16でも全回帰する。この新worldがcameraの1rawpx揺れや実ゲームの受付を再現したとは扱わない。原54→55 UNKNOWNは別の原画像回帰で不変を検査する。
+Bは独立worldのnotBeforeで、Cのphase fitには約2msの差がある。world負例は10msのsource余裕と実capture格子を保持し、C targetへ画像時刻を合わせない。200ms±1ns/理想B−20msの境界は公開C契約試験へ分ける。停止後の回収は新しい実captureでPAUSEを確認する。取消/UNKNOWN/隣接PARTIAL・木鉄/各方向/迂回掘削は既存world16でも全回帰する。この新worldがcameraの1rawpx揺れや実ゲームの受付を再現したとは扱わない。原54→55 UNKNOWNは別の原画像回帰で不変を検査する。

@@ -163,7 +163,7 @@ jobs:
         run: |
           set -euo pipefail
           test ! -e "$RUNNER_TEMP/ngg2-no-private-fixtures"
-          NECRO_TEST043_FIXTURE_ROOT="$RUNNER_TEMP/ngg2-no-private-fixtures" "$RUNNER_TEMP/ngg2-host-venv/bin/python" - <<'PY' 2>&1 | tee "$RUNNER_TEMP/ngg2-native-host.txt"
+          NECRO_TEST043_FIXTURE_ROOT="$RUNNER_TEMP/ngg2-no-private-fixtures" NECRO_TEST060_WORLD_EVIDENCE="$RUNNER_TEMP/test060-world" "$RUNNER_TEMP/ngg2-host-venv/bin/python" - <<'PY' 2>&1 | tee "$RUNNER_TEMP/ngg2-native-host.txt"
           import sys
           import unittest
           from pathlib import Path
@@ -194,12 +194,15 @@ jobs:
               'test_required_test058_original_complete_capture_and_strict_parity',
               'test_required_test058_recorded_two_left_and_unexecuted_down',
               'test_required_test058_complete_recording_is_not_goods_acceptance',
+              'test_required_test059_original_partial_capture_and_strict_parity',
+              'test_required_test059_recorded_three_up_and_unexecuted_fourth',
+              'test_required_test059_incomplete_two_run_recording_is_unknown',
               'test_required_test054_recorded_failure_is_not_game_success',
           }
           suite = unittest.defaultTestLoader.loadTestsFromNames([
               'test_native_perception', 'test_native_navigation',
               'test_native_beat', 'test_native_controller',
-              'test_native_raster', 'test_device_recording',
+              'test_native_raster', 'test_device_recording', 'test_native_goal_world',
           ])
           def flatten(node):
               for item in node:
@@ -224,6 +227,9 @@ jobs:
       - name: Verify TEST059 fixed old Red, current Green and rollback Red
         run: |
           "$RUNNER_TEMP/ngg2-host-venv/bin/python" patches/loopctrl/check_next_slot.py "$RUNNER_TEMP/test059-next-slot"
+      - name: Verify TEST060 fixed old Red, current Green and three rollback faults
+        run: |
+          "$RUNNER_TEMP/ngg2-host-venv/bin/python" patches/loopctrl/check_continuous_admission.py "$RUNNER_TEMP/test060-continuous-admission"
       - name: Save native host diagnostics
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
@@ -233,6 +239,10 @@ jobs:
             ${{ runner.temp }}/ngg2-native-host.txt
             ${{ runner.temp }}/test059-next-slot/*.json
             ${{ runner.temp }}/test059-next-slot/*.txt
+            ${{ runner.temp }}/test060-continuous-admission/*.json
+            ${{ runner.temp }}/test060-continuous-admission/*.txt
+            ${{ runner.temp }}/test060-world/*.json
+            ${{ runner.temp }}/test060-world/*.txt
           if-no-files-found: error
           retention-days: 30
   build:

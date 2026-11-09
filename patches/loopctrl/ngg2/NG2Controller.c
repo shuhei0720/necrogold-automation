@@ -13,6 +13,8 @@
 #define MOTION_REFERENCE_CAP 16
 #define INITIAL_PREPARATION UINT64_C(50000000)
 #define INITIAL_PUBLICATION UINT64_C(100000000)
+#define CONTINUOUS_PUBLICATION UINT64_C(100000000)
+#define CONTINUOUS_SOURCE UINT64_C(200000000)
 static const uint64_t leads[7]={150000000,75000000,225000000,300000000,375000000,450000000,25000000};
 static const int dx[5]={0,-1,1,0,0},dy[5]={0,0,0,-1,1};
 enum { NG2_CONTINUOUS_NONE=0, NG2_CONTINUOUS_SAME=1, NG2_CONTINUOUS_FRESH=2 };
@@ -40,6 +42,7 @@ struct NG2Controller {
     uint8_t restart_fingerprint[48];
     uint64_t seen_id,seen_start,seen_end,last_now,transition_ns,sync_ns;
     uint64_t ack_ns,command_period,next_nominal,next_deadline,next_period,last_observed_prefix;
+    uint64_t next_update_deadline;
     uint64_t finish_ns,preparation_epoch;
     size_t sample_count,event_count;
     size_t scene_change_count;
@@ -157,11 +160,26 @@ static int update_next_slot_candidate(NG2Controller *p){
     p->next_deadline=not_before+10000000;
     return 1;
 }
+static int unreserved_next_slot(const NG2Controller *p){
+    return !p->finish_requested&&p->s.lead_confirmed&&p->s.moves>0&&p->s.input_state==0
+        &&!p->replan_pending&&!p->continuous_pending&&p->next_nominal&&p->next_period;
+}
+static int next_slot_expired(const NG2Controller *p,uint64_t now){
+    uint64_t deadline=p->next_deadline;
+    if(!unreserved_next_slot(p))return 0;
+    if(p->next_update_deadline)deadline=minimum(deadline,p->next_update_deadline);
+    return now>deadline;
+}
 static void add_sample(NG2Controller *p,const NG2Scene *scene,uint64_t start,uint64_t end){
     NG2BeatSample sample;NG2BeatModel updated;size_t i,drop;
     uint64_t previous=p->model.last_ns;
+    if(next_slot_expired(p,maximum(end,p->last_now))){finish(p,maximum(end,p->last_now),NG2_REASON_LATE);return;}
     if(!scene->beat_valid||!ng2_make_sample(scene->beat_remaining,scene->beat_spacing,scene->beat_center,start,end,&sample))return;
     if(p->sample_count&&sample.midpoint_ns<=p->samples[p->sample_count-1].midpoint_ns)return;
+    /* Observe has no analysis/commit clock. Keep every pre-update deadline
+     * until tick supplies that clock, so delayed commits cannot revive a slot. */
+    if(unreserved_next_slot(p)&&(!p->next_update_deadline||p->next_deadline<p->next_update_deadline))
+        p->next_update_deadline=p->next_deadline;
     while(p->sample_count&&sample.midpoint_ns-p->samples[0].midpoint_ns>20*SECOND){
         memmove(p->samples,p->samples+1,(--p->sample_count)*sizeof(sample));}
     p->samples[p->sample_count++]=sample;
@@ -476,6 +494,9 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
     if(p->command_period>=NS_LIMIT||p->command.target_ns>=NS_LIMIT-p->command_period){
         p->s.next_target_ns=0;p->next_nominal=0;finish(p,end,NG2_REASON_SESSION);return;
     }
+    /* Captures can finish before the parent bound and commit after it. The
+     * first actual tick must confirm that horizon before issuing a child. */
+    p->next_update_deadline=p->motion_wait.deadline_ns;
     p->next_nominal=p->command.target_ns+p->command_period;p->next_period=p->command_period;
     if(!update_next_slot_candidate(p))p->beat_failed=1;
     p->s.phase=NG2_PHASE_WALK;
@@ -754,7 +775,17 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         }
         p->s.next_target_ns=p->continuous_ticket.target_ns;
     }else if(p->s.lead_confirmed){
-        if(!p->s.next_target_ns||now>p->next_deadline){finish(p,now,NG2_REASON_LATE);return 0;}
+        if(!p->s.next_target_ns||now>p->next_deadline||next_slot_expired(p,now)){finish(p,now,NG2_REASON_LATE);return 0;}
+        p->next_update_deadline=0;
+        if(p->s.moves>0&&p->next_nominal&&p->next_period){
+            uint64_t not_before;
+            if(p->s.next_target_ns<p->s.lead_ns){finish(p,now,NG2_REASON_LATE);return 0;}
+            not_before=p->s.next_target_ns-p->s.lead_ns;
+            /* Only this unreserved ordinal waits for a recent acquisition.
+             * Issued SAME/FRESH tickets above retain their original bounds. */
+            if(now<not_before&&not_before-now>CONTINUOUS_PUBLICATION)return 0;
+            if(p->s.last_capture_start_ns<not_before&&not_before-p->s.last_capture_start_ns>CONTINUOUS_SOURCE)return 0;
+        }
     }else if(!p->s.inputs&&!p->s.moves&&!p->initial_ticket_valid){
         uint64_t horizon,tail=p->s.lead_ns+50000000;
         if(!p->initial_slot_target){

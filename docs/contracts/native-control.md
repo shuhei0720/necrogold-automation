@@ -41,7 +41,7 @@ FRESH（validation12）はlead確認済み連続MOVEで、SAME不成立時に最
 
 model/source/phase/walk/session/dispatch/motionの元境界は短縮のみ。refit/source更新で延長せず、待機/保存後も期限・取消を検査する。主処理/停止/回収は各専用期限を守る。
 
-親motionと未予約の次ordinalは別。candidateは同nominal/元periodからtarget/窓を対更新し、初回reserveで凍結。連続新ordinalだけ初回発行はnotBefore100ms前以降、source取得開始は200ms前以降まで待つ。元D超過を先に拒否し、親/既存ticket/再予約/retuneは変更しない。[059](../plans/test059-next-slot.md)・[060](../plans/test060-continuous-admission.md)。
+親motionと次ordinalは別。同nominal/元periodでcandidateのtarget/窓を対更新し、初回reserveで凍結。連続の初回発行はnotBefore100ms前/取得開始200ms前以降。更新前/親motionのDは次の実時計tickまでmin保持し、超過なら発行拒否。既存ticket/再予約/retuneは変更しない。[059](../plans/test059-next-slot.md)・[060](../plans/test060-continuous-admission.md)。
 
 ## 7. 拍とleadの有限試行
 
