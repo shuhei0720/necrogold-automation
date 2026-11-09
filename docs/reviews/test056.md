@@ -31,4 +31,6 @@ IPA ZIP17,797,077bytes/SHA `9a23435129031f1af25c8e86905abbb01db78c78f38c7e09bcdb
 
 旧3producer SHA `3812a98723dcbe47963ea2f9791980d5b626ec1c34001294d7feb615fd4ef884` はstdout全値/型、新2 SHA `6700c1a0d52c17ff3bfcc636e4e1bd7fcc91038cfe4491e86841fcd95d32cabf` は元JSON object bytesも一致。実暗号HTTP→v13→3診断配列/active・report両journal一致。外側RPC状態/画像はfixtureであり、診断接続の証明に限定する。
 
-同じsource reviewの設計第1周・網羅第2周・安全第1周の実物補足は現時点P0/P1/P2なし。最終handover docsと全439file公開ZIPの補足を次に記録する。TEST056 iPhoneと実ゲームは未実施。
+設計第1周・網羅第2周・安全第1周の実物/最終handover補足まで残P0/P1/P2なしでclose。`fbe8f261ec9b6c98b3de501fb1d51365177f1751` の公開ZIP7,066,751bytes/SHA `53a9d7c02b5a7df72a3df0835d12d75346ce8690ed387237a91da4c46b72cfce` を全439tracked filesのbytes/CRC/path/重複まで3担当が独立照合し、codeから既存5資料だけの変更と更新/iSH/終了後全runtime ZIP返却手順を確認した。closureと下記CI事実の追記後も、最終公開ZIPを同じ全file照合で返却する。
+
+ユーザーのCIで実ゲームを動かせるならという意図に合わせ、別branchの[自己窓測定CI42545599822](https://github.com/shuhei0720/necrogold-automation/actions/runs/42545599822)で実Swift/AppKit・外部画面取得とCGEvent押下/解放→原PNG赤/青変化を確認した。これはgame_e2e=falseであり、正規ゲーム導入/認証/起動とiPhone受入は未実施。[測定範囲とsourceレビュー留保](https://github.com/shuhei0720/necrogold-automation/blob/8d368278cdf783c43aaec9699b0d5fd628fdd638/docs/reviews/ci-game-capability-probe.md)。phone native/harnessへこのprobeを混ぜていない。

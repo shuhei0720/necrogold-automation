@@ -68,7 +68,7 @@ controllerの入力prefixが収録と異なったら、未収録のafter frame�
 
 ## Macで実ゲームを動かす追加方針
 
-日本版の [App Store](https://apps.apple.com/jp/app/id1085123767) にはmacOS 11/M1以降の互換欄と「macOSでは検証されていません」の表示がある。[標準macos-26 CI](https://docs.github.com/en/actions/reference/runners/github-hosted-runners) はM1/arm64 VMだが、正規本体・実行認証・当該VMでのゲーム起動・GUI adapterは未成立。ユーザーはMacを持たずCIだけでの試験を想定している。自己窓のGUI診断を別に行い、成功しても実ゲーム試験とは呼ばない。技術的不可能とも断定しない。
+日本版の [App Store](https://apps.apple.com/jp/app/id1085123767) はM1互換欄とmacOS未検証を表示する。[標準macos-26 CI](https://docs.github.com/en/actions/reference/runners/github-hosted-runners) はM1 VM。[自己窓CI42545599822](https://github.com/shuhei0720/necrogold-automation/actions/runs/42545599822) で外部取得PNGの赤→青とキー押下/解放を実測した。Metalはdevice列挙だけ。正規ゲーム導入/認証/起動とgame adapterは未成立で実ゲーム試験未実施。GUI成功をゲームやiPhone受入にしない。
 
 導入後は、正規に導入した同じ日本版、固定viewport/操作設定、production C判断につながるGUI capture/input、独立した移動/開通/商品oracleを用意する。配置・animationの異なるケースで実入力時刻、画像、拍、全実行の成否を保存する。現行のfakeが返した成功値をそのoracleに使わない。
 

@@ -29,7 +29,7 @@ local native/評価器229件・全152必須画像/skip0、package221、client公
 
 AIの初読を約177KBから約11KBへ整理し、旧4資料・要件・履歴を保持。[作業索引](context.md)。
 
-ユーザーはMacを持たずCIでの実ゲーム試験を想定。標準CIはM1 VMだが、正規ゲーム導入/認証/起動は未成立。App StoreもmacOS未検証を表示。別branchの自己窓GUI診断と実ゲームを区別し、iPhone単体運用を維持する。
+ユーザーはMacを持たずCIでの実ゲーム試験を想定。[自己窓CI](https://github.com/shuhei0720/necrogold-automation/actions/runs/42545599822)で画面取得・キー押下/解放・原PNGの赤→青を実測した。正規ゲーム導入/認証/起動は未成立で、実ゲーム試験は未実施。App StoreもmacOS未検証を表示。Metalは列挙だけ、iPhone単体要件を維持する。
 
 TEST056 iPhone受入、全経路毎拍・人より速い性能・商品/指輪の未知評価と通知・自動周回・耐久、Mac実ゲームは未受入。
 
