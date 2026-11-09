@@ -1,6 +1,6 @@
 # Native制御の不変条件
 
-実装の入口は [context索引](../context.md)、現行版・結果・次工程は [status](../status.md)。本書は既存契約の移送であり、要件・閾値・期限の変更ではない。数値境界と相互関係を変更するときは、要件と変更単位の計画・Redから検証する。
+入口は [context索引](../context.md)、現行版・結果・次工程は [status](../status.md)。数値境界や相互関係の変更は、要件・変更単位の計画・Redから検証する。
 
 ## 1. 要件と作業権限
 
@@ -16,7 +16,7 @@
 
 時計は端末のmonotonic ns。取得開始/終了の両境界で同じcompleted prefix、inflightなしを確認した安定画像だけを入力権限にする。交差・古い世代・取消済み画像は使わない。C呼出しはcontrolQueueで直列化し、mainでのbegin中はそのcallerを同期停止する。純粋な画像解析はcapture worker、公開Sceneはimmutableなheap所有とし、observeと証跡をowner/generation/cancelの同じgateでcommitする。capture・解析・main callbackの実終了までdrainする。画像の最新優先・上限、EXIF1〜8、px/pt変換、alpha/sRGB/比率/stride/範囲/overlapの検査を維持する。
 
-先行main.sync照会から最終callbackの実returnまで同じpipeline tokenを保持する。最終callbackではAX IPCを行わず、準備済み値とguardを検査する。前面AX照会はrun lock外で実行し、query-start≤end≤now、開始から1秒以内をIPCとgate待ち込みで検査する。synth直前に実時刻、前面/ロック、owner、世代、取消、元ticketを再検査して1回だけ送る。未確認inputは同時に1件までとし、入力不明は再送・自動cleanupしない。古いcommand IDのcallbackは新しい状態を変更しない。停止後や別アプリに、以前のゲーム画像を理由として入力しない。
+main.syncでrun lock外のAX前面照会を行い、最終callbackの実returnまで同じleaseを保持する。最終callbackにAX IPCを置かず、query-start≤end≤now・開始から1秒以内をIPC/待機込みで検査。C epochが証明する同logical MOVEのSAME/FRESHだけ、同run/clock/owner/世代/PID/prefix・元拍/期限のfresh sampleを共有可。初歩/retune/ACK後は共有不可。最新ID/方向/座標・実時刻・前面/ロック・owner/世代/取消・元C ticketをsynth直前に検査して1回だけ送る。旧IDは新状態を変更しない。未確認inputは1件、UNKNOWN再送/自動cleanupは禁止。停止後/別アプリへ旧画像で入力しない。
 
 ## 4. 初期slot
 

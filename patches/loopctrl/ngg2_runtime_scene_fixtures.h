@@ -20,4 +20,12 @@ int ng2_fixture_remote_cell(uint8_t *out,size_t length,int32_t variant);
  * is the unchanged floor generator. No original/device pixels are included. */
 int ng2_fixture_motion_reference_rgba(uint8_t *out,size_t length,int32_t world_y,
                                        double q,int32_t goods,int32_t variant);
+/* TEST058 finite synthetic world. The33x33 immutable tile map uses world
+ * index(y+16)*33+x+16 and materials0unknown/1floor/2gold/3stone/4dirt/7wood.
+ * The gate direction points toward the shop interior. Goods variants are
+ * 0normal,1partial after opening,2initial adjacent partial. */
+int ng2_fixture_shop_rgba(uint8_t *out,size_t length,int32_t player_x,
+                          int32_t player_y,double q,const uint8_t *tiles,
+                          size_t tile_count,int32_t gate_x,int32_t gate_y,
+                          int32_t direction,int32_t goods_variant);
 #endif

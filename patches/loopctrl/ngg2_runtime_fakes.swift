@@ -23,8 +23,175 @@ enum NG2RuntimeExportTestHooks {
 enum NG2RuntimeEvidenceTestHooks {
     static var snapshot: (events: [NG2ControllerEvent], changes: [NG2ControllerSceneChange])?
 }
+// TEST058's finite synthetic game. It consumes only the actual touch path and
+// its own map/520ms clock; no planner decision, Runtime report or expected path
+// is available here. This is host coverage, not a model of game acceptance.
+struct ShopWorldPoint: Equatable {
+    let x: Int32
+    let y: Int32
+    static func + (a: ShopWorldPoint, b: ShopWorldPoint) -> ShopWorldPoint {
+        ShopWorldPoint(x: a.x+b.x, y: a.y+b.y)
+    }
+}
+struct ShopWorldOperation {
+    let at: UInt64
+    let direction: Int32
+    let before: ShopWorldPoint
+    let after: ShopWorldPoint
+    let result: String
+    let accepted: Bool
+}
+struct ShopWorldSnapshot {
+    let player: ShopWorldPoint
+    let paused: Bool
+    let resumes: Int
+    let pauses: Int
+    let moves: Int
+    let doors: Int
+    let digs: Int
+    let operations: [ShopWorldOperation]
+}
+final class SmallShopWorld {
+    static let period: UInt64 = 520_000_000
+    static let lead: UInt64 = 150_000_000
+    static let tolerance: UInt64 = 10_000_000
+    let epoch: UInt64
+    let direction: Int32
+    let gate: ShopWorldPoint
+    let goodsVariant: Int32
+    private let lock = NSLock()
+    private var tiles = [UInt8](repeating: 3, count: 33*33)
+    private var player = ShopWorldPoint(x: 0, y: 0)
+    private var paused = true
+    private var resumes = 0, pauses = 0, moves = 0, doors = 0, digs = 0
+    private var lastBeat: UInt64?
+    private var operations: [ShopWorldOperation] = []
+    static func vector(_ direction: Int32) -> ShopWorldPoint {
+        switch direction {
+        case 1: return ShopWorldPoint(x: -1, y: 0)
+        case 2: return ShopWorldPoint(x: 1, y: 0)
+        case 3: return ShopWorldPoint(x: 0, y: -1)
+        case 4: return ShopWorldPoint(x: 0, y: 1)
+        default: return ShopWorldPoint(x: 0, y: 0)
+        }
+    }
+    static func rotate(_ x: Int32, _ y: Int32, direction: Int32) -> ShopWorldPoint {
+        switch direction {
+        case 2: return ShopWorldPoint(x: -y, y: x)
+        case 4: return ShopWorldPoint(x: -x, y: -y)
+        case 1: return ShopWorldPoint(x: y, y: -x)
+        default: return ShopWorldPoint(x: x, y: y)
+        }
+    }
+    init(direction: Int32, iron: Bool, detour: Bool = false, goodsVariant: Int32 = 0, epoch: UInt64) {
+        precondition((1...4).contains(direction) && (0...2).contains(goodsVariant))
+        self.epoch = epoch; self.direction = direction; self.goodsVariant = goodsVariant
+        gate = Self.rotate(0, -3, direction: direction)
+        let normal = Self.vector(direction), center = gate + ShopWorldPoint(x: 2*normal.x, y: 2*normal.y)
+        for y in center.y-2...center.y+2 { for x in center.x-2...center.x+2 {
+            if (x-gate.x)*normal.x+(y-gate.y)*normal.y >= 1 { set(ShopWorldPoint(x: x, y: y), 1) }
+        } }
+        set(ShopWorldPoint(x: 0, y: 0), 1)
+        if detour {
+            let corridor: [(Int32, Int32, UInt8)] = [(-1,0,1),(-1,-1,1),(-1,-2,4),(0,-2,1)]
+            for (x, y, material) in corridor {
+                set(Self.rotate(x, y, direction: direction), material)
+            }
+        } else {
+            set(Self.rotate(0, -1, direction: direction), 1)
+            set(Self.rotate(0, -2, direction: direction), 1)
+        }
+        // The facade is five cells wide. Its outer gold cells remain visible
+        // when the south entrance's central bracket overlaps the fixed HUD.
+        for x in [Int32(-2),-1,1,2] { set(Self.rotate(x, -3, direction: direction), 2) }
+        set(gate, iron ? 3 : 7)
+    }
+    private func index(_ point: ShopWorldPoint) -> Int? {
+        guard (-16...16).contains(point.x), (-16...16).contains(point.y) else { return nil }
+        return Int((point.y+16)*33+point.x+16)
+    }
+    private func set(_ point: ShopWorldPoint, _ tile: UInt8) { if let i = index(point) { tiles[i] = tile } }
+    func snapshot() -> ShopWorldSnapshot {
+        lock.fixtureLocked { ShopWorldSnapshot(player: player, paused: paused, resumes: resumes, pauses: pauses,
+            moves: moves, doors: doors, digs: digs, operations: operations) }
+    }
+    func tap(x: Double, y: Double) {
+        lock.fixtureLocked {
+            if x == 297 && y == 448 && paused { paused = false; resumes += 1 }
+            else if x == 390 && y == 448 && !paused { paused = true; pauses += 1 }
+        }
+    }
+    @discardableResult
+    func gesture(_ fingers: [[(point: CGPoint, t: Double)]], at: UInt64) -> Bool {
+        lock.fixtureLocked {
+            let before = player
+            var d: Int32 = 0
+            if fingers.count == 1, let path = fingers.first, path.count == 2,
+                path[0].point == path[1].point, path[0].t == 0, path[1].t == 0.05 {
+                switch path[0].point {
+                case CGPoint(x: 207, y: 49): d = 1
+                case CGPoint(x: 207, y: 838): d = 2
+                case CGPoint(x: 290, y: 838): d = 3
+                case CGPoint(x: 124, y: 838): d = 4
+                default: break
+                }
+            }
+            var result = "shape", accepted = false
+            if d != 0 {
+                result = "paused"
+                if !paused && at >= epoch {
+                    let elapsed = at-epoch
+                    let beat = (elapsed+Self.lead+Self.period/2)/Self.period
+                    let nominal = beat*Self.period
+                    let led = elapsed+Self.lead
+                    let error = led > nominal ? led-nominal : nominal-led
+                    result = "off_beat"
+                    if error <= Self.tolerance {
+                        result = "duplicate_beat"
+                        if lastBeat != beat {
+                            lastBeat = beat; accepted = true
+                            let next = player + Self.vector(d)
+                            let material = index(next).map { tiles[$0] } ?? 0
+                            if next == gate && material != 1 {
+                                set(next, 1); doors += 1; result = "door_opened"
+                            } else if material == 4 {
+                                set(next, 1); digs += 1; result = "terrain_opened"
+                            } else if material == 1 {
+                                player = next; moves += 1; result = "moved"
+                            } else { result = "blocked" }
+                        }
+                    }
+                }
+            }
+            operations.append(ShopWorldOperation(at: at, direction: d, before: before,
+                after: player, result: result, accepted: accepted))
+            return accepted
+        }
+    }
+    func rgba(at: UInt64) -> Data {
+        lock.fixtureLocked {
+            let elapsed = at >= epoch ? at-epoch : 0
+            let remaining = Double(Self.period-1-(elapsed % Self.period))/Double(Self.period)
+            var bytes = Data(count: 896*414*4)
+            let count = bytes.count
+            let valid = tiles.withUnsafeBufferPointer { map in
+                bytes.withUnsafeMutableBytes { raw in
+                    ng2_fixture_shop_rgba(raw.bindMemory(to: UInt8.self).baseAddress, count,
+                        player.x, player.y, remaining, map.baseAddress, map.count,
+                        gate.x, gate.y, direction, goodsVariant)
+                }
+            }
+            precondition(valid == 1)
+            return bytes
+        }
+    }
+    func png(at: UInt64) -> Data {
+        if snapshot().paused { return NG2Fake.pausePNG }
+        return NG2Raster.png(rgba(at: at))!
+    }
+}
 enum NG2Fake {
-    enum Mode { case empty, pause, hold, walk, reply }
+    enum Mode { case empty, pause, hold, walk, reply, shop }
     static let lock = NSLock()
     static var mode = Mode.empty
     static var requests = 0
@@ -44,6 +211,8 @@ enum NG2Fake {
     static var walkGoodsEnabled = true
     static var walkPixelInset: Int32 = 0
     static var walkPaused = false
+    static var shopWorld: SmallShopWorld?
+    static var shopFailNextDirection = false
     static var phaseBase: UInt64 = 0
     static var remoteVariant: Int32 = 0
     static var remoteVariantDuringWalk = false
@@ -84,6 +253,8 @@ enum NG2Fake {
             beforeForegroundQuery = nil
             gesturePaths = []; tapPoints = []; walkX = 0; walkY = 0
             walkMoves = 0; walkCapturesAfterMove = 0; walkObservationAfter = 0; walkPaused = false
+            shopWorld = nil
+            shopFailNextDirection = false
             walkGoodsEnabled = true; walkPixelInset = 0; captureLimit = nil; firstUnknownID = 0; subtileResolvedWait = false
             remoteVariant = 0; heldTickets = [:]; returnedTickets = []; unknownFrames = 0
             remoteVariantDuringWalk = false
@@ -403,11 +574,13 @@ final class XCUIApplication { init(bundleIdentifier: String) {} }
 enum ObjCException { static func catching(_ body: () -> Void) -> String? { body(); return nil } }
 final class FastActionHandler {
     init(app: XCUIApplication) {}
-    private func touch() -> ([String: JSONValue]?, JSONRPCError?) {
-        let failed = NG2Fake.lock.fixtureLocked { () -> Bool in NG2Fake.touches += 1; return NG2Fake.failTouch }
+    private func touch(forceFailure: Bool = false) -> ([String: JSONValue]?, JSONRPCError?) {
+        let failed = NG2Fake.lock.fixtureLocked { () -> Bool in NG2Fake.touches += 1; return forceFailure || NG2Fake.failTouch }
         return failed ? (nil, .serverError("fixture started synth failure")) : (["message": .string("fixture ACK")], nil)
     }
     func fastTap(x: Double, y: Double) -> ([String: JSONValue]?, JSONRPCError?) {
+        let world = NG2Fake.lock.fixtureLocked { NG2Fake.mode == .shop ? NG2Fake.shopWorld : nil }
+        world?.tap(x: x, y: y)
         NG2Fake.lock.fixtureLocked {
             NG2Fake.tapPoints.append(CGPoint(x: x, y: y))
             if NG2Fake.mode == .walk && x == 390 && y == 448 { NG2Fake.walkPaused = true }
@@ -415,6 +588,14 @@ final class FastActionHandler {
         return touch()
     }
     func fastGesture(_ fingers: [[(point: CGPoint, t: Double)]]) -> ([String: JSONValue]?, JSONRPCError?) {
+        let now = NG2Fake.virtualClock()
+        let shop = NG2Fake.lock.fixtureLocked { () -> (SmallShopWorld?, Bool) in
+            guard NG2Fake.mode == .shop else { return (nil, false) }
+            let failure = NG2Fake.shopFailNextDirection
+            NG2Fake.shopFailNextDirection = false
+            return (NG2Fake.shopWorld, failure)
+        }
+        shop.0?.gesture(fingers, at: now)
         NG2Fake.lock.fixtureLocked {
             NG2Fake.gesturePaths.append(fingers)
             if NG2Fake.mode == .walk, let point = fingers.first?.first?.point {
@@ -430,7 +611,7 @@ final class FastActionHandler {
                 NG2Fake.walkMoves += 1
             }
         }
-        return touch()
+        return touch(forceFailure: shop.1)
     }
 }
 enum NG2CaptureBridge {
@@ -459,7 +640,12 @@ enum NG2CaptureBridge {
                 let value = NG2Fake.lock.fixtureLocked { (NG2Fake.replyData, NG2Fake.replyError) }
                 reply(value.0, value.1); return
             }
-            let data: Data? = mode == .walk ? NG2Fake.walkedPNG(capturedAt: capturedAt + (fixedCapture ? 1_000_000 : 0)) : (mode == .pause ? NG2Fake.pausePNG : nil)
+            let data: Data?
+            if mode == .walk { data = NG2Fake.walkedPNG(capturedAt: capturedAt + (fixedCapture ? 1_000_000 : 0)) }
+            else if mode == .shop {
+                let world = NG2Fake.lock.fixtureLocked { NG2Fake.shopWorld }
+                data = world?.png(at: capturedAt + (fixedCapture ? 1_000_000 : 0))
+            } else { data = mode == .pause ? NG2Fake.pausePNG : nil }
             if fixedCapture { NG2Fake.advance(2_000_000) }
             reply(data, "fixture capture")
         }

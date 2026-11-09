@@ -2719,10 +2719,11 @@ func testFreshRevalidationCallbacksPublic() {
             cells[1]["tile_before"]?.intValue == 4 && cells[1]["tile_after"]?.intValue == 2 &&
             cells.allSatisfy { $0["protected_before"]?.intValue == 0 && $0["protected_after"]?.intValue == 0 },
             "fresh_revalidation_real_C_detail_exact_gold_door_reveal_cells")
-        require(queryIDs.filter { $0 == Int(oldID) }.count == 1 && queryIDs.filter { $0 == Int(newID) }.count == 1 &&
-            (queryTimes[Int(newID)] ?? 0) > (queryTimes[Int(oldID)] ?? UInt64.max) &&
+        require(queryIDs.filter { $0 == Int(oldID) }.count == 1 && queryIDs.filter { $0 == Int(newID) }.count == 0 &&
+            runtime.testPreparedAuthority(id, commandID: newID) ==
+                [queryTimes[Int(oldID)] ?? 0, queryTimes[Int(oldID)] ?? 0, oldID, oldID] &&
             runtime.hasLease && pagedCall(id).1 != nil,
-            "fresh_revalidation_new_command_has_separate_prepared_AX_and_live_lease")
+            "fresh_revalidation_new_command_shares_original_AX_start_end_and_live_lease")
         func releaseOld() {
             let before = report(id), touches = NG2Fake.countTouches()
             var finalEntries = 0, queries = 0
@@ -2752,9 +2753,9 @@ func testFreshRevalidationCallbacksPublic() {
         NG2RuntimeTestHooks.beforeMainAuthority = {
             require(queryIDs.count == preparedQueries, "fresh_revalidation_final_callback_has_no_AX_IPC")
             admitFirstFixtureMove(id, expectedID: newID)
-            let now = NG2Fake.virtualClock(), sampled = queryTimes[Int(newID)] ?? 0
+            let now = NG2Fake.virtualClock(), sampled = queryTimes[Int(oldID)] ?? 0
             require(sampled > 0 && now >= sampled && now-sampled <= 1_000_000_000,
-                "fresh_revalidation_separate_AX_sample_is_fresh_at_final_begin_gate")
+                "fresh_revalidation_shared_original_AX_sample_is_fresh_at_final_begin_gate")
         }
         NG2RuntimeTestHooks.afterTicketReturned = { returned in
             NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()

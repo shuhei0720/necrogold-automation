@@ -16,6 +16,8 @@ TEST050_RUNTIME_COMMIT = '53f722c6d925e0df5c84d377acc59b2e32cf8135'
 TEST050_RUNTIME_SHA256 = '1938af7edd09a6b6689363cd9ad03d93148425e56256a2dc18bcab3b973115ab'
 TEST055_RUNTIME_COMMIT = '2d77c02665c27d0e1e813c8d6bb65ec980d26b2b'
 TEST055_RUNTIME_SHA256 = 'b83c19d30294228abb6aeae9a339917d3c9afde8f5a57d01b1575a2e3b76d261'
+TEST058_RED_FIXTURE_COMMIT = 'd936ab92e63568f87fe37955325a1bc3bcf34493'
+TEST058_RED_FIXTURE_SHA256 = '1d17bcf7a5c4c3b0eca981de7cb6f161827fcfbbcbb71be180cfdf952f5f2c10'
 TEST057_RUNTIME_COMMIT = 'e72e4d1f3787ca3198d02092c87e4257cd2f2aa3'
 TEST057_RUNTIME_SHA256 = '35a23af11c4d1c4419d3f59b55a6f7498c434934e4a275584063060ee76cf667'
 TEST056_PERCEPTION_COMMIT = '5638dc2aa9744b73cfc5a204d17cdfe75bb9cb03'
@@ -224,14 +226,33 @@ def test056_public_fixture_source(tests):
         '\ntestStopEvidenceRetentionPublic()\n')
 
 
-def test058_public_fixture_source(tests):
+def test058_public_fixture_source(tests, *, baseline=False):
     marker = '// This public request is intentionally runnable'
     if tests.count(marker) != 1:
         raise ValueError('runtime_test058_public_fixture_boundary')
-    fixture = (HERE/'ngg2_dispatch_preparation_tests.swift').read_text()
+    if baseline:
+        tests = subprocess.check_output(['git','show',TEST058_RED_FIXTURE_COMMIT+
+            ':patches/loopctrl/ngg2_runtime_tests.swift'],cwd=HERE).decode()
+        fixture = subprocess.check_output(['git','show',TEST058_RED_FIXTURE_COMMIT+
+            ':patches/loopctrl/ngg2_dispatch_preparation_tests.swift'],cwd=HERE).decode()
+    else:
+        fixture = (HERE/'ngg2_dispatch_preparation_tests.swift').read_text()
     if not fixture.strip() or fixture.count('test058PreparedContinuousDeadlinePublic()') != 2:
         raise ValueError('runtime_test058_public_fixture_body')
-    return tests.split(marker)[0] + fixture
+    combined = tests.split(marker)[0] + fixture
+    if baseline and hashlib.sha256(combined.encode()).hexdigest() != TEST058_RED_FIXTURE_SHA256:
+        raise ValueError('runtime_test058_observed_red_fixture_hash')
+    return combined
+
+
+def test058_shop_fixture_source(tests):
+    marker = '// This public request is intentionally runnable'
+    if tests.count(marker) != 1:
+        raise ValueError('runtime_test058_shop_fixture_boundary')
+    fixture = (HERE/'ngg2_shop_world_tests.swift').read_text()
+    if fixture.count('func testShopWorld058Public()') != 1:
+        raise ValueError('runtime_test058_shop_fixture_body')
+    return tests.split(marker)[0] + fixture + '\ntestShopWorld058Public()\n'
 
 
 def test056_host_fixture_seam(source, fixture_runtime_source):
@@ -600,7 +621,7 @@ def navigation_profile_contract(upstream, output, *, compiler='clang'):
             'scope': 'actual production strict Navigation public API, unchanged O0, complete views/73-score bytes/Motion/Decision/Entrance/boundary and input parity'}
 
 
-def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False, selected_mutations=None, public052_only=False, new052_mutations_only=False, public053_only=False, new053_mutations_only=False, public054_only=False, new054_mutations_only=False, public055_only=False, new055_mutations_only=False, expect_evidence_red=False, public056_only=False, new056_mutations_only=False, expect_preparation_red=False, public058_only=False):
+def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False, selected_mutations=None, public052_only=False, new052_mutations_only=False, public053_only=False, new053_mutations_only=False, public054_only=False, new054_mutations_only=False, public055_only=False, new055_mutations_only=False, expect_evidence_red=False, public056_only=False, new056_mutations_only=False, expect_preparation_red=False, public058_only=False, public058_shop_only=False):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
     native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red or expect_manifest_red else upstream / 'LoopCtrlUITests'
     if baseline_native is not None:
@@ -634,7 +655,9 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     shutil.copyfile(HERE/'ngg2_runtime_tests.swift', stage/'main.swift')
     source = (native/'NG2Runtime.swift').read_text()
     if expect_preparation_red or public058_only:
-        (stage/'main.swift').write_text(test058_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
+        (stage/'main.swift').write_text(test058_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text(), baseline=expect_preparation_red))
+    if public058_shop_only:
+        (stage/'main.swift').write_text(test058_shop_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
     if public051_only or new051_mutations_only:
         (stage/'main.swift').write_text(test051_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
     if public052_only or new052_mutations_only:
@@ -713,13 +736,15 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                stage/'Fakes.swift', stage/'NG2Runtime.swift', stage/'main.swift']
     objects = sorted((output/'raster').glob('NG2*.o'))+[stage/'fixture.o', scene_object]
     extra = ['-D', 'NG2_RUNTIME_HOST_TEST', '-Xcc', '-I'+str(native), '-Xcc', '-I'+str(HERE), '-import-objc-header', stage/'NG2RuntimeFixture.h', *objects]
+    if public058_only:
+        extra += ['-D', 'NG2_PREPARATION_TEST058_GREEN']
     green = compile_run(sources, stage/'runtime-tests', output,
         'runtime-preparation-baseline-red' if expect_preparation_red else
         'runtime-stop-evidence-baseline-red' if expect_evidence_red else
         'runtime-manifest-baseline-red' if expect_manifest_red else
         'runtime-observe-baseline-red' if expect_observe_red else
         'runtime-dispatch-baseline-red' if expect_dispatch_red else
-        'runtime-failure-baseline-red' if expect_capture_red else 'runtime-production-green', extra, run_timeout=120)
+        'runtime-failure-baseline-red' if expect_capture_red else 'runtime-production-green', extra, run_timeout=300 if public058_shop_only else 120)
     if expect_preparation_red:
         require_red(green, 'FAIL MISSING_prepared_continuous_reissue_sends_within_original_frozen_deadline')
         return {'baseline_red': green.stdout.strip(), 'compiled': True, 'returncode': green.returncode,
@@ -727,6 +752,27 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                 'source_sha256': TEST057_RUNTIME_SHA256,
                 'fixture_sha256': hashlib.sha256((stage/'main.swift').read_bytes()).hexdigest(),
                 'scope': 'fixed unchanged TEST057 Runtime/native sources; public synthetic lead-in and received057 timing intervals; not complete device replay'}
+    if public058_shop_only:
+        checked(green)
+        if not green.stdout.strip().endswith('PASS production Runtime public API/TEST058 independent synthetic shop world16') or green.stderr:
+            raise RuntimeError('runtime_test058_shop_contract_missing')
+        tag='REPORT test058_shop '
+        rows=[line.removeprefix(tag) for line in green.stdout.splitlines() if line.startswith(tag)]
+        reports=[json.loads(line) for line in rows]
+        expected={'N-W':(4,3),'N-I':(4,3),'E-W':(4,3),'E-I':(4,3),'S-W':(4,3),'S-I':(4,3),
+                  'W-W':(4,3),'W-I':(4,3),'DN':(7,5),'DE':(7,5),'DS':(7,5),'DW':(7,5),
+                  'PF':(4,3),'PA':(0,0),'CA':(0,0),'UN':(1,1)}
+        if len(reports)!=16 or len({r['case_id'] for r in reports})!=16:
+            raise RuntimeError('runtime_test058_exact_sixteen_world_records_required')
+        actual={r['case_id']:(len(r['world']['operations']),r['world']['moves']) for r in reports}
+        if actual!=expected:
+            raise RuntimeError('runtime_test058_world_records_do_not_match_frozen_cases')
+        data=('[\n'+',\n'.join(rows)+'\n]\n').encode()
+        (output/'runtime-test058-shop-reports.json').write_bytes(data)
+        return {'production_green':green.stdout.strip(),'compiled':True,'device_test':'not_run',
+                'world_reports':16,'world_case_ids':list(expected),
+                'world_reports_sha256':hashlib.sha256(data).hexdigest(),
+                'scope':'independent synthetic world consumes gestures; actual C/Runtime; not real game E2E'}
     if public058_only:
         checked(green)
         if not green.stdout.strip().endswith('PASS TEST058 prepared continuous deadline public baseline') or green.stderr:
@@ -1450,10 +1496,11 @@ def main():
     parser.add_argument('--test056-new-mutations-only', action='store_true')
     parser.add_argument('--test058-red-only', action='store_true')
     parser.add_argument('--test058-public-only', action='store_true')
+    parser.add_argument('--test058-shop-only', action='store_true')
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
-    if args.test051_red_only or args.test051_public_only or args.test051_runtime_only or args.test051_new_mutations_only or args.test051_selected_mutations is not None or args.test052_public_only or args.test052_new_mutations_only or args.test053_public_only or args.test053_new_mutations_only or args.test054_public_only or args.test054_new_mutations_only or args.test055_public_only or args.test055_new_mutations_only or args.test056_red_only or args.test056_public_only or args.test056_new_mutations_only or args.test058_red_only or args.test058_public_only:
-        if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only, args.test051_new_mutations_only, args.test051_selected_mutations is not None, args.test052_public_only, args.test052_new_mutations_only, args.test053_public_only, args.test053_new_mutations_only, args.test054_public_only, args.test054_new_mutations_only, args.test055_public_only, args.test055_new_mutations_only, args.test056_red_only, args.test056_public_only, args.test056_new_mutations_only, args.test058_red_only, args.test058_public_only)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
+    if args.test051_red_only or args.test051_public_only or args.test051_runtime_only or args.test051_new_mutations_only or args.test051_selected_mutations is not None or args.test052_public_only or args.test052_new_mutations_only or args.test053_public_only or args.test053_new_mutations_only or args.test054_public_only or args.test054_new_mutations_only or args.test055_public_only or args.test055_new_mutations_only or args.test056_red_only or args.test056_public_only or args.test056_new_mutations_only or args.test058_red_only or args.test058_public_only or args.test058_shop_only:
+        if sum((args.test051_red_only, args.test051_public_only, args.test051_runtime_only, args.test051_new_mutations_only, args.test051_selected_mutations is not None, args.test052_public_only, args.test052_new_mutations_only, args.test053_public_only, args.test053_new_mutations_only, args.test054_public_only, args.test054_new_mutations_only, args.test055_public_only, args.test055_new_mutations_only, args.test056_red_only, args.test056_public_only, args.test056_new_mutations_only, args.test058_red_only, args.test058_public_only, args.test058_shop_only)) != 1 or args.red_only or args.raster_red_only or args.test047_red_only or args.test048_red_only or args.test050_red_only or len(args.paths) != 2:
             parser.error('TEST051 standalone mode requires fixed upstream and output directory')
         upstream, output = args.paths
         output.mkdir(parents=True, exist_ok=True)
@@ -1511,7 +1558,7 @@ def main():
                       public055_only=args.test055_public_only, new055_mutations_only=args.test055_new_mutations_only,
                       expect_evidence_red=args.test056_red_only, public056_only=args.test056_public_only,
                       new056_mutations_only=args.test056_new_mutations_only,
-                      expect_preparation_red=args.test058_red_only, public058_only=args.test058_public_only),
+                      expect_preparation_red=args.test058_red_only, public058_only=args.test058_public_only, public058_shop_only=args.test058_shop_only),
                   'native_object_flags': flags, 'device_test': 'not_run'}
         (output/'ngg2-swift-contract.json').write_text(json.dumps(report, indent=2)+'\n')
         print(report['runtime'].get('baseline_red', report['runtime'].get('production_green')))

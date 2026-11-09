@@ -6,6 +6,16 @@
 // ticket, SAME proof, frozen deadline, real raster/beat/motion, and synth gate
 // are all produced by the unchanged Runtime and Controller.
 func test058PreparedContinuousDeadlinePublic() {
+    test058PreparedContinuousCase("none")
+    #if NG2_PREPARATION_TEST058_GREEN
+    for fault in ["generation", "pid", "prefix", "cancel", "owner", "lock", "controller", "deadline_equal",
+                  "too_late", "too_early", "authority_equal", "authority_plus_one", "authority_reverse"] {
+        test058PreparedContinuousCase(fault)
+    }
+    #endif
+}
+
+func test058PreparedContinuousCase(_ fault: String) {
     NG2Fake.reset(.walk)
     NG2Fake.lock.lock()
     NG2Fake.walkY = 1; NG2Fake.walkGoodsEnabled = false
@@ -30,6 +40,9 @@ func test058PreparedContinuousDeadlinePublic() {
     var queryStarts: [Int: UInt64] = [:], queryEnds: [Int: UInt64] = [:]
     var injectedQueries = 0
     var returned = Set<UInt64>()
+    #if NG2_PREPARATION_TEST058_GREEN
+    var originalAuthority: [UInt64]?
+    #endif
     NG2RuntimeTestHooks.beforeMainAdmission = {
         let command = report(id)["current_command_id"]?.intValue ?? 0
         stateLock.lock(); queryingID = command; stateLock.unlock()
@@ -73,6 +86,9 @@ func test058PreparedContinuousDeadlinePublic() {
         stateLock.unlock()
         if first {
             NG2RuntimeTestHooks.beforeMainAuthority = nil
+            #if NG2_PREPARATION_TEST058_GREEN
+            originalAuthority = runtime.testPreparedAuthority(id, commandID: command)
+            #endif
             let deadline = UInt64(event["deadline_ns"]!.intValue!)
             require(NG2Fake.changeClockAtCaptureBoundary {
                 let captureStart = deadline-observedRemainder-2_000_000
@@ -117,30 +133,72 @@ func test058PreparedContinuousDeadlinePublic() {
         "test058_received_observe_remainder_and_independent_AX_cost_are_exact")
     print("EVIDENCE test058 observe_remaining_ns=\(deadline-observedEnd) replacement_AX_ns=\(injected == 0 ? 0 : replacementQueryCost) old_id=\(old) replacement_id=\(replacement)")
     NG2RuntimeTestHooks.beforeMainAuthority = nil
+    #if NG2_PREPARATION_TEST058_GREEN
+    require(originalAuthority != nil && originalAuthority == runtime.testPreparedAuthority(id, commandID: replacement),
+        "test058_qualified_reissue_preserves_original_sample_start_end_preparedID_and_epoch_"+fault)
+    var previousContext: [UInt64]?
+    if fault == "generation" { _ = runtime.testFailureGeneration(id, advance: true) }
+    if fault == "pid" { previousContext = runtime.testPreparationContext(id, expectedPID: 43) }
+    if fault == "prefix" { previousContext = runtime.testPreparationContext(id, prefix: 999_999) }
+    if fault == "cancel" { _ = call("necro_native_cancel", id) }
+    if fault == "owner" { NG2Fake.lock.lock(); NG2Fake.authenticatedOwnerActive = false; NG2Fake.lock.unlock() }
+    if fault == "lock" { LockStateMonitor.monitor.isLocked = true }
+    if fault == "controller" { NG2RuntimeTestHooks.beforeMainAuthority = { runtime.testInvalidateControllerTicket(id) } }
+    if fault == "deadline_equal" { NG2Fake.advance(observedRemainder) }
+    if fault == "too_late" { NG2Fake.advance(observedRemainder+1) }
+    if fault == "too_early" {
+        NG2Fake.lock.lock(); NG2Fake.fixedClock = UInt64(frozen["not_before_ns"]!.intValue!)-1; NG2Fake.lock.unlock()
+    }
+    if ["authority_equal", "authority_plus_one", "authority_reverse"].contains(fault), let authority = originalAuthority {
+        let now = fault == "authority_reverse" ? authority[1]-1
+            : authority[0]+1_000_000_000+(fault == "authority_plus_one" ? 1 : 0)
+        NG2Fake.lock.lock(); NG2Fake.fixedClock = now; NG2Fake.lock.unlock()
+    }
+    #endif
     NG2Fake.releaseTicket(replacement)
     pump("test058_replacement_callback_actually_returned") {
         stateLock.lock(); defer { stateLock.unlock() }; return returned.contains(replacement)
     }
     let after = report(id)
     let sent = (after["events"]?.arrayValue ?? []).compactMap { $0.objectValue }.first { $0["id"]?.intValue == Int(replacement) }
-    require(after["inputs"]?.intValue == 3 && NG2Fake.paths().count == 3 && sent?["outcome"]?.intValue == 2 &&
-        (sent?["begin_ns"]?.intValue ?? 0) >= frozen["not_before_ns"]!.intValue! &&
-        (sent?["begin_ns"]?.intValue ?? Int.max) <= Int(deadline),
-        "MISSING_prepared_continuous_reissue_sends_within_original_frozen_deadline")
-    require(injected == 0 && starts[Int(replacement)] == nil && runtime.hasLease,
-        "test058_same_logical_MOVE_reuses_original_fresh_AX_under_live_lease")
+    if fault == "none" || fault == "deadline_equal" {
+        require(after["inputs"]?.intValue == 3 && NG2Fake.paths().count == 3 && sent?["outcome"]?.intValue == 2 &&
+            (sent?["begin_ns"]?.intValue ?? 0) >= frozen["not_before_ns"]!.intValue! &&
+            (sent?["begin_ns"]?.intValue ?? Int.max) <= Int(deadline),
+            "MISSING_prepared_continuous_reissue_sends_within_original_frozen_deadline")
+        require(injected == 0 && starts[Int(replacement)] == nil && runtime.hasLease,
+            "test058_same_logical_MOVE_reuses_original_fresh_AX_under_live_lease")
+    } else {
+        require(after["inputs"]?.intValue == 2 && NG2Fake.paths().count == 2 && sent?["begin_ns"]?.intValue == 0,
+            "test058_final_qualified_preparation_rejects_changed_"+fault)
+        let expectedCodes = ["pid": "controller_rejected", "prefix": "controller_rejected", "owner": "owner",
+            "lock": "locked", "controller": "controller_rejected", "too_late": "too_late", "too_early": "too_early",
+            "authority_equal": "too_late", "authority_plus_one": "authority_stale", "authority_reverse": "authority_stale"]
+        if let expected = expectedCodes[fault] {
+            require(after["dispatch_failure"]?.objectValue?["code"]?.stringValue == expected,
+                "test058_changed_preparation_preserves_dispatch_failure_classification_"+fault)
+        } else {
+            require(after["dispatch_failure"] == .null, "test058_cancelled_or_old_generation_callback_is_silent_"+fault)
+        }
+    }
+    #if NG2_PREPARATION_TEST058_GREEN
+    if let previousContext { _ = runtime.testPreparationContext(id, expectedPID: pid_t(previousContext[0]), prefix: previousContext[1]) }
+    NG2Fake.lock.lock(); NG2Fake.authenticatedOwnerActive = true; NG2Fake.lock.unlock()
+    LockStateMonitor.monitor.isLocked = false
+    #endif
+    let failureBeforeOld = report(id)["dispatch_failure"]
     let touches = NG2Fake.countTouches()
     NG2Fake.releaseTicket(old)
     pump("test058_old_callback_actually_returned") {
         stateLock.lock(); defer { stateLock.unlock() }; return returned.contains(old)
     }
-    require(NG2Fake.countTouches() == touches && report(id)["dispatch_failure"] == .null,
+    require(NG2Fake.countTouches() == touches && report(id)["dispatch_failure"] == failureBeforeOld,
         "test058_retired_callback_has_no_synth_or_failure_effect")
     _ = call("necro_native_cancel", id)
     NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
     pump("test058_deadline_fixture_all_workers_drained") { drained(id) }
     fixtureFailureSnapshot = nil
-    print("PASS TEST058 prepared continuous deadline public baseline")
 }
 
 test058PreparedContinuousDeadlinePublic()
+print("PASS TEST058 prepared continuous deadline public baseline")

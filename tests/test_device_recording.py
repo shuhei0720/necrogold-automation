@@ -467,6 +467,22 @@ class DeviceRecordingTests(unittest.TestCase):
                           for capture,direction in ((60,4),(70,3))],partial['counterfactual_branches'])
         self.assertTrue(all(row['after'] not in (77,78,79) for row in partial['motions']))
 
+    def test_required_test057_partial_checkpoint_is_not_complete_export(self):
+        """Received partial journal snapshot cannot certify arrival or recovery."""
+        path=Path(os.environ.get('NECRO_TEST058_RECORDING_ZIP',
+            '/tmp/codex-remote-attachments/01a1b13e-8e5b-732b-955c-6407d4e00082/'
+            '719314C6-9D81-496A-ABA7-97F2CB2F31E3/1-test-057.zip'))
+        self.assertTrue(path.is_file(),'required private TEST057 recording missing')
+        self.assertEqual('f49e35e4ae1a3491c1af7e0fe4e0e0acbbc990b60ff0e3cc262cd904f3f197c1',
+                         hashlib.sha256(path.read_bytes()).hexdigest())
+        result=audit.evaluate_recording(path,core=self.core)
+        self.assertEqual({'status':'invalid','reason':'active_report_mismatch'},result['integrity'])
+        self.assertEqual('unknown',result['recorded_milestone']['status'])
+        self.assertEqual('not_evaluated',result['c_partial_evaluation']['status'])
+        self.assertFalse(result['coverage']['full_controller_replay'])
+        self.assertFalse(result['coverage']['live_game_e2e'])
+        self.assertEqual(2,audit.exit_code(result))
+
 
 if __name__ == '__main__':
     unittest.main()

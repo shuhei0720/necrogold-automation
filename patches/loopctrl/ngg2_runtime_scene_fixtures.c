@@ -95,3 +95,59 @@ int ng2_fixture_motion_reference_rgba(uint8_t *out,size_t length,int32_t world_y
     }
     return ng2_fixture_remote_cell(out,length,1);
 }
+
+int ng2_fixture_shop_rgba(uint8_t *out,size_t length,int32_t player_x,
+                          int32_t player_y,double q,const uint8_t *tiles,
+                          size_t tile_count,int32_t gate_x,int32_t gate_y,
+                          int32_t direction,int32_t goods_variant){
+    static const int dx[5]={0,-1,1,0,0},dy[5]={0,0,0,-1,1};
+    int x,y,k,open,inside,show,full,cx,cy,sign_y;
+    size_t i;
+    if(!out||length!=FS||!tiles||tile_count!=1089||player_x < -16||player_x>16
+       ||player_y < -16||player_y>16||gate_x < -16||gate_x>16||gate_y < -16||gate_y>16
+       ||!isfinite(q)||q<0||q>=1||direction<1||direction>4||goods_variant<0||goods_variant>2)return 0;
+    for(i=0;i<tile_count;++i)
+        if(tiles[i]!=0&&tiles[i]!=1&&tiles[i]!=2&&tiles[i]!=3&&tiles[i]!=4&&tiles[i]!=7)return 0;
+    /* Texture is anchored to absolute world pixels. Camera translation does
+     * not regenerate it, and unknown/out-of-map terrain remains unknown. */
+    for(y=0;y<FH;++y)for(x=0;x<FW;++x){
+        int wx=x+36*player_x,wy=y+36*player_y;
+        int tx=floor_div(wx-448+18,36),ty=floor_div(wy-207+18,36);
+        int material=tx>=-16&&tx<=16&&ty>=-16&&ty<=16?tiles[(ty+16)*33+tx+16]:0;
+        uint32_t hash=(uint32_t)wx*UINT32_C(0x9e3779b9)^(uint32_t)wy*UINT32_C(0x85ebca6b);
+        int noise,r=0,g=0,b=0;
+        hash^=hash>>16;hash*=UINT32_C(0x7feb352d);hash^=hash>>15;
+        noise=(int)(hash%9)-4;
+        if(material==1){r=26;g=16;b=16;}
+        else if(material==2){r=199;g=164;b=63;}
+        else if(material==3){r=80;g=80;b=80;}
+        else if(material==4){r=100;g=50;b=10;}
+        else if(material==7){r=63;g=19;b=0;}
+        if(!material)noise=0;
+        pixel(out,x,y,r+noise,g+noise,b+noise);
+    }
+    template_mask(out,&ng2_template_icon);template_mask(out,&ng2_template_footer);
+    template_mask(out,&ng2_template_zone_one);template_mask(out,&ng2_template_floor_one);
+    for(k=0;k<6;++k){int distance=(int)floor((q+k)*104+.5);
+        rectangle(out,446-distance,350,448-distance,387,20,180,160);
+        rectangle(out,446+distance,350,448+distance,387,20,180,160);
+    }
+    open=tiles[(gate_y+16)*33+gate_x+16]==1;
+    inside=(player_x-gate_x)*dx[direction]+(player_y-gate_y)*dy[direction]>=0;
+    show=goods_variant==2||(open&&(inside||goods_variant==1));
+    full=goods_variant!=2&&open&&inside;
+    if(show){
+        int product_x=goods_variant==2?0:gate_x+2*dx[direction];
+        int product_y=goods_variant==2?-2:gate_y+2*dy[direction];
+        cx=448+36*(product_x-player_x);cy=207+36*(product_y-player_y);
+        sign_y=cy-48;
+        /* The first density peak is at the left slot's x and sign_y. All
+         * three slots stay horizontal in world coordinates for every gate. */
+        rectangle(out,cx-42,sign_y-6,cx-21,sign_y+15,200,190,10);
+        if(full)for(k=-1;k<=1;++k){int slot_x=cx+36*k;
+            rectangle(out,slot_x-12,cy-8,slot_x+12,cy-7,56,56,56);
+            rectangle(out,slot_x-11,cy+21,slot_x+7,cy+22,141,141,141);
+        }
+    }
+    return 1;
+}

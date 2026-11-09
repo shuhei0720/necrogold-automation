@@ -58,6 +58,78 @@ private struct NG2Frame {
     let diagnosticOrientation: Int?
 }
 
+private struct AuthoritySample {
+    var start: UInt64 = 0
+    var end: UInt64 = 0
+    var foreground = false
+}
+
+// Foreground evidence belongs to one logical dispatch pipeline, not to an
+// image or direction. Only C can certify that a new ID is a qualified reissue.
+private struct NG2PreparationKey: Equatable {
+    let run: ObjectIdentifier
+    let clock: String
+    let owner: String
+    let generation: UInt64
+    let expectedPID: pid_t
+    let prefix: UInt64
+    let epoch: UInt64
+    let ordinal: UInt64
+    let target: UInt64
+    let notBefore: UInt64
+    let deadline: UInt64
+    init(_ run: NG2Run, _ command: NG2Command, generation: UInt64, epoch: UInt64) {
+        self.run = ObjectIdentifier(run); clock = run.clock; owner = run.owner
+        self.generation = generation; expectedPID = run.expectedPID; prefix = run.prefix
+        self.epoch = epoch; ordinal = command.ordinal; target = command.target_ns
+        notBefore = command.not_before_ns; deadline = command.deadline_ns
+    }
+}
+
+private final class NG2PreparationLease {
+    let key: NG2PreparationKey
+    let preparedCommandID: UInt64
+    let authority: AuthoritySample
+    init(key: NG2PreparationKey, commandID: UInt64, authority: AuthoritySample) {
+        self.key = key; preparedCommandID = commandID; self.authority = authority
+    }
+}
+
+// Scalar diagnostics are committed with their image. Dictionary construction
+// waits until a response or an untimed report flush, outside the admission lock.
+private struct NG2CaptureSample {
+    let id, start, end, decodeEnd, analysisStart, analysisEnd, observeStart, observeEnd: UInt64
+    let startPrefix, prefix: UInt64
+    let startInFlight, endInFlight, stable: Bool
+    init(_ frame: NG2Frame, observeStart: UInt64, observeEnd: UInt64) {
+        id = frame.id; start = frame.start; end = frame.end; decodeEnd = frame.decodeEnd
+        analysisStart = frame.analysisStart; analysisEnd = frame.analysisEnd
+        self.observeStart = observeStart; self.observeEnd = observeEnd
+        startPrefix = frame.startPrefix; prefix = frame.prefix
+        startInFlight = frame.startInFlight; endInFlight = frame.endInFlight; stable = frame.stable
+    }
+}
+
+private struct NG2RasterSample {
+    let id: UInt64
+    let trace: NG2Raster.Trace
+}
+
+private final class NG2ControllerSnapshot {
+    let status: NG2ControllerStatus
+    let events: [NG2ControllerEvent]
+    let changes: [NG2ControllerSceneChange]
+    let details: [NG2ControllerSceneDetail]
+    let motionWait: NG2ControllerMotionWait
+    let motionReferences: [NG2ControllerMotionReference]
+    init(status: NG2ControllerStatus, events: [NG2ControllerEvent], changes: [NG2ControllerSceneChange],
+         details: [NG2ControllerSceneDetail], motionWait: NG2ControllerMotionWait,
+         motionReferences: [NG2ControllerMotionReference]) {
+        self.status = status; self.events = events; self.changes = changes; self.details = details
+        self.motionWait = motionWait; self.motionReferences = motionReferences
+    }
+}
+
 private struct NG2ExportImage {
     let bytes: Data
     let hash: String
@@ -112,8 +184,12 @@ private final class NG2Run {
     var initial: NG2Frame?
     var found: NG2Frame?
     var report: [String: JSONValue] = [:]
-    var captures: [JSONValue] = []
-    var rasterSamples: [JSONValue] = []
+    var controllerSnapshot: NG2ControllerSnapshot?
+    var reportSnapshot: NG2ControllerSnapshot?
+    var reportGeneration: UInt64 = 0
+    var preparation: NG2PreparationLease?
+    var captures: [NG2CaptureSample] = []
+    var rasterSamples: [NG2RasterSample] = []
     var rasterSamplesDropped: UInt64 = 0
     var captureFailure: [String: JSONValue]?
     var dispatchFailure: [String: JSONValue]?
@@ -141,7 +217,43 @@ private final class NG2Run {
             stopped = true
             latest = nil
             exportCache = nil
+            preparation = nil
         }
+    }
+}
+
+// Copy C and Runtime projections at one short gate. Encoding never queries C
+// or synchronously re-enters controlQueue, including from a main-thread hook.
+private struct NG2ResponseProjection {
+    let snapshot, reportSnapshot: NG2ControllerSnapshot?
+    let cachedReport: [String: JSONValue]
+    let generation, reportGeneration: UInt64
+    let id, clock, state: String
+    let inFlight, terminal, cancelled, captureOutstanding, captureTimedOut, bootstrapUIStarted: Bool
+    let lease, uiFrozen, mainOutstanding: Bool
+    let acceptedStarted, prefix, captureID, replacedFrames, analyzedFrames, evictedFrames: UInt64
+    let captures: [NG2CaptureSample]
+    let rasterSamples: [NG2RasterSample]
+    let rasterSamplesDropped: UInt64
+    let captureFailure, dispatchFailure: [String: JSONValue]?
+    let retained, references: Set<UInt64>
+    let pinnedCount, recentCount: Int
+    init(_ run: NG2Run) {
+        snapshot = run.controllerSnapshot; reportSnapshot = run.reportSnapshot; cachedReport = run.report
+        generation = run.generation; reportGeneration = run.reportGeneration
+        id = run.id; clock = run.clock
+        state = run.terminal ? (run.lease ? "draining" : (run.successful ? "completed" : "stopped"))
+            : (run.controllerSnapshot == nil && run.report.isEmpty ? "accepted" : "running")
+        inFlight = run.inFlight; terminal = run.terminal; cancelled = run.cancelReason != 0
+        captureOutstanding = run.captureOutstanding; captureTimedOut = run.captureTimedOut
+        bootstrapUIStarted = run.bootstrapUIStarted; lease = run.lease; uiFrozen = run.uiFrozen
+        mainOutstanding = run.mainOutstanding; acceptedStarted = run.acceptedStarted; prefix = run.prefix
+        captureID = run.captureID; replacedFrames = run.replacedFrames
+        captures = run.captures; rasterSamples = run.rasterSamples; rasterSamplesDropped = run.rasterSamplesDropped
+        captureFailure = run.captureFailure; dispatchFailure = run.dispatchFailure
+        analyzedFrames = run.analyzedFrames; evictedFrames = run.evictedFrames
+        retained = Set(run.pinned.keys).union(run.images.map { $0.id }); references = run.references
+        pinnedCount = run.pinned.count; recentCount = run.images.count
     }
 }
 
@@ -548,6 +660,7 @@ final class NG2Runtime {
         run.lock.ng2Locked {
             guard run.generation == generation, run.cancelReason == 0, !run.stopped, self.ownerActive(run) else { return }
             run.cancelReason = 20; run.generation &+= 1; run.stopped = true; run.latest = nil
+            run.preparation = nil
         }
     }
     #if NG2_RUNTIME_HOST_TEST
@@ -646,6 +759,23 @@ final class NG2Runtime {
             return run.generation
         }
     }
+    func testPreparedAuthority(_ id: String, commandID: UInt64) -> [UInt64]? {
+        guard let run = lock.ng2Locked({ current }), run.id == id else { return nil }
+        return run.lock.ng2Locked {
+            guard run.mainCommandID == commandID, let lease = run.preparation else { return nil }
+            return [lease.authority.start, lease.authority.end, lease.preparedCommandID, lease.key.epoch]
+        }
+    }
+    @discardableResult
+    func testPreparationContext(_ id: String, expectedPID: pid_t? = nil, prefix: UInt64? = nil) -> [UInt64]? {
+        guard let run = lock.ng2Locked({ current }), run.id == id else { return nil }
+        return run.lock.ng2Locked {
+            let previous = [UInt64(max(0, run.expectedPID)), run.prefix]
+            if let expectedPID { run.expectedPID = expectedPID }
+            if let prefix { run.prefix = prefix }
+            return previous
+        }
+    }
     @discardableResult
     func testCommitFailure(_ id: String, generation: UInt64, captureID: UInt64,
                            start: UInt64, end: UInt64, failure: NG2Raster.Failure) -> Bool {
@@ -667,52 +797,62 @@ final class NG2Runtime {
     }
     #endif
     private func response(_ run: NG2Run) -> [String: JSONValue] {
-        run.lock.ng2Locked {
-            let state = run.terminal ? (run.lease ? "draining" : (run.successful ? "completed" : "stopped")) : (run.report.isEmpty ? "accepted" : "running")
-            var report = run.report
-            if report.isEmpty {
-                report["events"] = .array([])
-                report["motion_references"] = .array([])
-            }
-            report["schema"] = .string("ngg2-native-v1")
-            if report["input_state"] == nil { report["input_state"] = .int(0) }
-            if run.inFlight && report["input_state"]?.intValue != 4 { report["input_state"] = .int(2) }
-            if report["terminal"] == nil { report["terminal"] = .int(run.terminal ? 1 : 0) }
-            report["clock_id"] = .string(run.clock)
-            report["device_now_ns"] = number(Self.now())
-            report["cancel_requested"] = .bool(run.cancelReason != 0)
-            report["capture_outstanding"] = .bool(run.captureOutstanding)
-            report["capture_timed_out"] = .bool(run.captureTimedOut)
-            report["bootstrap_ui_started"] = .bool(run.bootstrapUIStarted)
-            report["accepted_started_ns"] = number(run.acceptedStarted)
-            report["workers_drained"] = .bool(!run.lease)
-            report["ui_frozen"] = .bool(run.uiFrozen)
-            report["main_ticket_outstanding"] = .bool(run.mainOutstanding)
-            report["live_completed_prefix"] = number(run.prefix)
-            report["native_inflight"] = .bool(run.inFlight)
-            report["capture_backend"] = .string("direct_daemon_jpeg_only")
-            report["analysis_engine"] = .string("native_C_v1")
-            report["capture_time_semantics"] = .string("request_call_interval_not_presentation_timestamp")
-            report["input_time_semantics"] = .string("synth_call_interval_not_game_receipt_timestamp")
-            report["native_capture_requests"] = number(run.captureID)
-            report["latest_frames_replaced"] = number(run.replacedFrames)
-            report["captures"] = .array(run.captures)
-            report["raster_samples"] = .array(run.rasterSamples)
-            report["raster_samples_dropped"] = number(run.rasterSamplesDropped)
-            report["capture_failure"] = run.captureFailure.map { JSONValue.object($0) } ?? .null
-            report["dispatch_failure"] = run.dispatchFailure.map { JSONValue.object($0) } ?? .null
-            report["daemon_requests_outstanding"] = .int(Int(NG2CaptureBridge.pendingRequests))
-            let retained = Set(run.pinned.keys).union(run.images.map { $0.id })
-            report["analyzed_capture_count"] = number(run.analyzedFrames)
-            report["evicted_capture_count"] = number(run.evictedFrames)
-            report["retained_image_count"] = .int(retained.count)
-            report["pinned_image_count"] = .int(run.pinned.count)
-            report["recent_image_count"] = .int(run.images.count)
-            report["referenced_capture_ids"] = .array(run.references.sorted().map { number($0) })
-            report["missing_capture_ids"] = .array(run.references.subtracting(retained).sorted().map { number($0) })
-            return ["run_id": .string(run.id), "profile": .string(Self.profile), "state": .string(state),
-                "api_version": .string("1.98.14-ngg2"), "report": .object(report)]
+        let projection = run.lock.ng2Locked { NG2ResponseProjection(run) }
+        var report = controllerReport(run, projection: projection)
+        if report.isEmpty {
+            report["events"] = .array([])
+            report["motion_references"] = .array([])
         }
+        report["schema"] = .string("ngg2-native-v1")
+        if report["input_state"] == nil { report["input_state"] = .int(0) }
+        if projection.inFlight && report["input_state"]?.intValue != 4 { report["input_state"] = .int(2) }
+        if report["terminal"] == nil { report["terminal"] = .int(projection.terminal ? 1 : 0) }
+        report["clock_id"] = .string(projection.clock)
+        report["device_now_ns"] = number(Self.now())
+        report["cancel_requested"] = .bool(projection.cancelled)
+        report["capture_outstanding"] = .bool(projection.captureOutstanding)
+        report["capture_timed_out"] = .bool(projection.captureTimedOut)
+        report["bootstrap_ui_started"] = .bool(projection.bootstrapUIStarted)
+        report["accepted_started_ns"] = number(projection.acceptedStarted)
+        report["workers_drained"] = .bool(!projection.lease)
+        report["ui_frozen"] = .bool(projection.uiFrozen)
+        report["main_ticket_outstanding"] = .bool(projection.mainOutstanding)
+        report["live_completed_prefix"] = number(projection.prefix)
+        report["native_inflight"] = .bool(projection.inFlight)
+        report["capture_backend"] = .string("direct_daemon_jpeg_only")
+        report["analysis_engine"] = .string("native_C_v1")
+        report["capture_time_semantics"] = .string("request_call_interval_not_presentation_timestamp")
+        report["input_time_semantics"] = .string("synth_call_interval_not_game_receipt_timestamp")
+        report["native_capture_requests"] = number(projection.captureID)
+        report["latest_frames_replaced"] = number(projection.replacedFrames)
+        report["captures"] = .array(projection.captures.map { sample in
+            .object(["id": number(sample.id), "start_ns": number(sample.start), "end_ns": number(sample.end),
+                "decode_end_ns": number(sample.decodeEnd), "analysis_start_ns": number(sample.analysisStart),
+                "analysis_end_ns": number(sample.analysisEnd), "observe_start_ns": number(sample.observeStart),
+                "observe_end_ns": number(sample.observeEnd), "completed_prefix_start": number(sample.startPrefix),
+                "completed_prefix_end": number(sample.prefix), "inflight_start": .bool(sample.startInFlight),
+                "inflight_end": .bool(sample.endInFlight), "stable": .bool(sample.stable)])
+        })
+        report["raster_samples"] = .array(projection.rasterSamples.map { sample in
+            let trace = sample.trace
+            return .object(["capture_id": number(sample.id), "source_width": .int(trace.sourceWidth),
+                "source_height": .int(trace.sourceHeight), "orientation": .int(trace.orientation),
+                "source_ns": number(trace.sourceNs), "draw_ns": number(trace.drawNs),
+                "orient_ns": number(trace.orientNs), "scale_ns": number(trace.scaleNs), "copy_pixels": number(trace.copyPixels)])
+        })
+        report["raster_samples_dropped"] = number(projection.rasterSamplesDropped)
+        report["capture_failure"] = projection.captureFailure.map { JSONValue.object($0) } ?? .null
+        report["dispatch_failure"] = projection.dispatchFailure.map { JSONValue.object($0) } ?? .null
+        report["daemon_requests_outstanding"] = .int(Int(NG2CaptureBridge.pendingRequests))
+        report["analyzed_capture_count"] = number(projection.analyzedFrames)
+        report["evicted_capture_count"] = number(projection.evictedFrames)
+        report["retained_image_count"] = .int(projection.retained.count)
+        report["pinned_image_count"] = .int(projection.pinnedCount)
+        report["recent_image_count"] = .int(projection.recentCount)
+        report["referenced_capture_ids"] = .array(projection.references.sorted().map { number($0) })
+        report["missing_capture_ids"] = .array(projection.references.subtracting(projection.retained).sorted().map { number($0) })
+        return ["run_id": .string(projection.id), "profile": .string(Self.profile), "state": .string(projection.state),
+            "api_version": .string("1.98.14-ngg2"), "report": .object(report)]
     }
 
     private func historical(_ snapshot: [String: JSONValue]) -> [String: JSONValue] {
@@ -925,20 +1065,9 @@ final class NG2Runtime {
                     #if NG2_RUNTIME_HOST_TEST
                     NG2RuntimeObserveTestHooks.afterObserve?()
                     #endif
-                    run.captures.append(.object(["id": number(frame.id), "start_ns": number(frame.start),
-                        "end_ns": number(frame.end), "decode_end_ns": number(frame.decodeEnd),
-                        "analysis_start_ns": number(frame.analysisStart), "analysis_end_ns": number(frame.analysisEnd),
-                        "observe_start_ns": number(observeStart), "observe_end_ns": number(Self.now()),
-                        "completed_prefix_start": number(frame.startPrefix), "completed_prefix_end": number(frame.prefix),
-                        "inflight_start": .bool(frame.startInFlight), "inflight_end": .bool(frame.endInFlight),
-                        "stable": .bool(frame.stable)]))
+                    run.captures.append(NG2CaptureSample(frame, observeStart: observeStart, observeEnd: Self.now()))
                     if run.captures.count > 256 { run.captures.removeFirst(run.captures.count - 256) }
-                    let trace = frame.rasterTrace
-                    run.rasterSamples.append(.object(["capture_id": number(frame.id),
-                        "source_width": .int(trace.sourceWidth), "source_height": .int(trace.sourceHeight),
-                        "orientation": .int(trace.orientation), "source_ns": number(trace.sourceNs),
-                        "draw_ns": number(trace.drawNs), "orient_ns": number(trace.orientNs),
-                        "scale_ns": number(trace.scaleNs), "copy_pixels": number(trace.copyPixels)]))
+                    run.rasterSamples.append(NG2RasterSample(id: frame.id, trace: frame.rasterTrace))
                     if run.rasterSamples.count > 32 {
                         run.rasterSamples.remove(at: 1)
                         run.rasterSamplesDropped += 1
@@ -968,8 +1097,9 @@ final class NG2Runtime {
         }
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
         if status.terminal != 0 {
-            run.lock.ng2Locked { run.terminal = true; run.successful = status.goods == 1 && status.paused == 1; run.stopped = true; run.mainCommandID = 0; run.latest = nil }
+            run.lock.ng2Locked { run.terminal = true; run.successful = status.goods == 1 && status.paused == 1; run.stopped = true; run.mainCommandID = 0; run.latest = nil; run.preparation = nil }
             cache(run, status)
+            flushReport(run)
             let legacy = lock.ng2Locked { streamCaptures } + Int(NG2CaptureBridge.pendingRequests)
             let drained = run.lock.ng2Locked {
                 NG2TicketGuard.canReleaseLease(captureWorkerDone: run.captureWorkerDone,
@@ -1010,11 +1140,12 @@ final class NG2Runtime {
                     run.mainCommandID = command.id; run.mainCallbacks.insert(command.id); return run.generation
                 }
                 ng2_controller_status(core, &status); cache(run, status)
-                let authority = prepare(run, command, generation: generation)
+                let preparation = preparePipeline(run, command, generation: generation)
+                let authority = preparation.authority
                 let at = Self.now()
                 let delay = command.not_before_ns > at ? Double(command.not_before_ns - at) / 1e9 : 0
                 let callback = {
-                    self.execute(run, command, generation: generation, authority: authority)
+                    self.execute(run, command, generation: generation, authority: authority, preparation: preparation)
                     // This following queue item executes only after the exact
                     // callback has returned; its earlier AX preparation also returned.
                     self.controlQueue.async {
@@ -1030,19 +1161,62 @@ final class NG2Runtime {
                     return
                 }
                 #endif
+                // A due prepared ticket must reach main before diagnostic work
+                // or another queued capture cycle spends its frozen window.
+                if delay == 0 { callback(); return }
                 controlQueue.asyncAfter(deadline: .now() + delay, execute: callback)
             }
         }
         if now - min(now, run.lastCache) >= 50_000_000 { ng2_controller_status(core, &status); cache(run, status) }
+        if run.lock.ng2Locked({ run.mainCommandID == 0 }) { flushReport(run) }
     }
 
-    private struct AuthoritySample {
-        var start: UInt64 = 0
-        var end: UInt64 = 0
-        var foreground = false
-    }
     private func ownsTicket(_ run: NG2Run, _ command: NG2Command, generation: UInt64) -> Bool {
         run.lock.ng2Locked { run.mainCommandID == command.id && run.generation == generation }
+    }
+    private func preparePipeline(_ run: NG2Run, _ command: NG2Command, generation: UInt64) -> NG2PreparationLease {
+        let epoch = run.core.map { ng2_controller_preparation_epoch($0, command.id, Self.now()) } ?? 0
+        let reusable = run.lock.ng2Locked { () -> NG2PreparationLease? in
+            guard run.mainCommandID == command.id, run.generation == generation,
+                  run.cancelReason == 0, !run.stopped, !run.inFlight, self.ownerActive(run),
+                  run.expectedPID > 0, !LockStateMonitor.shared().isLocked,
+                  epoch != 0, let lease = run.preparation,
+                  lease.key == NG2PreparationKey(run, command, generation: generation, epoch: epoch),
+                  lease.authority.foreground,
+                  NG2TicketGuard.authoritySampleIsFresh(start: lease.authority.start,
+                      end: lease.authority.end, now: Self.now()) else {
+                run.preparation = nil; return nil
+            }
+            return lease
+        }
+        if let reusable { return reusable }
+        let queriedKey = run.lock.ng2Locked {
+            NG2PreparationKey(run, command, generation: generation, epoch: epoch)
+        }
+        let authority = prepare(run, command, generation: generation)
+        let at = Self.now()
+        let currentEpoch = run.core.map { ng2_controller_preparation_epoch($0, command.id, at) } ?? 0
+        return run.lock.ng2Locked {
+            let lease = NG2PreparationLease(key: queriedKey, commandID: command.id, authority: authority)
+            if currentEpoch != 0 && currentEpoch == epoch && run.mainCommandID == command.id
+                && run.generation == generation && run.cancelReason == 0 && !run.stopped
+                && !run.inFlight && self.ownerActive(run) && run.expectedPID > 0 && authority.foreground
+                && queriedKey == NG2PreparationKey(run, command, generation: generation, epoch: currentEpoch)
+                && NG2TicketGuard.authoritySampleIsFresh(start: authority.start, end: authority.end, now: at) {
+                run.preparation = lease
+            }
+            return lease
+        }
+    }
+    // Runs under the final gate while controlQueue is synchronously stopped.
+    // Epoch zero certifies no sharing, while the newly queried single-ID path
+    // still supports the initial step, retune, and non-MOVE commands.
+    private func preparationMatches(_ lease: NG2PreparationLease, run: NG2Run,
+                                    command: NG2Command, generation: UInt64, now: UInt64) -> Bool {
+        guard lease.key == NG2PreparationKey(run, command, generation: generation, epoch: lease.key.epoch) else { return false }
+        if lease.key.epoch == 0 { return lease.preparedCommandID == command.id }
+        guard let core = run.core else { return false }
+        return ng2_controller_preparation_epoch(core, command.id, now) == lease.key.epoch
     }
     private func prepare(_ run: NG2Run, _ command: NG2Command, generation: UInt64) -> AuthoritySample {
         var sample = AuthoritySample()
@@ -1080,7 +1254,8 @@ final class NG2Runtime {
             "main_entry_ns": entry == 0 ? .null : number(entry), "gate_ns": number(now), "code": .string(code)]
     }
 
-    private func execute(_ run: NG2Run, _ command: NG2Command, generation: UInt64, authority: AuthoritySample) {
+    private func execute(_ run: NG2Run, _ command: NG2Command, generation: UInt64, authority: AuthoritySample,
+                         preparation: NG2PreparationLease? = nil) {
         guard let core = run.core else { return }
         guard ownsTicket(run, command, generation: generation) else { return }
         var outcome: Int32 = 0
@@ -1106,10 +1281,13 @@ final class NG2Runtime {
                     recordDispatchFailure(run, command, generation: generation, authority: authority, entry: mainEntry, now: now, code: code)
                     run.cancelReason = lostReason; run.generation &+= 1
                     run.stopped = true; run.latest = nil
+                    run.preparation = nil
                 }
                 guard NG2TicketGuard.permits(expectedGeneration: generation, currentGeneration: run.generation,
                     cancelled: run.cancelReason != 0, ownerActive: ownerActive, foreground: foreground,
                     locked: locked, now: now, notBefore: command.not_before_ns, deadline: command.deadline_ns),
+                    preparation.map({ self.preparationMatches($0, run: run, command: command,
+                        generation: generation, now: now) }) ?? true,
                     ng2_controller_begin(core, command.id, now, foreground ? 1 : 0, locked ? 1 : 0, ownerActive ? 1 : 0) == 1 else {
                     let code = now < command.not_before_ns ? "too_early" : (now > command.deadline_ns ? "too_late" : "controller_rejected")
                     recordDispatchFailure(run, command, generation: generation, authority: authority, entry: mainEntry, now: now, code: code)
@@ -1140,8 +1318,11 @@ final class NG2Runtime {
         let cancelled = run.lock.ng2Locked { run.cancelReason }
         if outcome == 0 && cancelled != 0 { ng2_controller_cancel(core, Self.now(), cancelled) }
         ng2_controller_complete(core, command.id, Self.now(), outcome)
-        run.lock.ng2Locked { if run.mainCommandID == command.id { run.mainCommandID = 0 } }
+        run.lock.ng2Locked {
+            if run.mainCommandID == command.id { run.mainCommandID = 0; run.preparation = nil }
+        }
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status); cache(run, status)
+        flushReport(run)
         cycle(run)
     }
 
@@ -1173,6 +1354,11 @@ final class NG2Runtime {
         // TEST056 HOST SNAPSHOT END.
         run.lock.ng2Locked {
             var required = Set<UInt64>()
+            let snapshot = NG2ControllerSnapshot(status: s,
+                events: Array(events.prefix(min(count, events.count))),
+                changes: Array(changes.prefix(min(changeCount, changes.count))),
+                details: Array(details.prefix(min(detailCount, details.count))), motionWait: motionWait,
+                motionReferences: Array(motionReferences.prefix(min(motionReferenceCount, motionReferences.count))))
             var diagnosticIDs: [UInt64] = []
             // C retains first1/latest2 in chronological order. Only the latest
             // two comparisons precede cumulative evidence, newest first.
@@ -1215,7 +1401,38 @@ final class NG2Runtime {
             for id in required.sorted() where run.pinned[id] == nil {
                 if run.pinned.count < 20, let frame = available[id] { run.pinned[id] = frame }
             }
+            run.controllerSnapshot = snapshot
         }
+        run.lastCache = Self.now()
+    }
+
+    private func controllerReport(_ run: NG2Run, projection: NG2ResponseProjection) -> [String: JSONValue] {
+        guard let snapshot = projection.snapshot else { return projection.cachedReport }
+        if snapshot === projection.reportSnapshot && projection.generation == projection.reportGeneration {
+            return projection.cachedReport
+        }
+        let report = encodeSnapshot(snapshot)
+        // A slow status encoder cannot replace a later C snapshot or a new
+        // generation's report. Its own coherent response may still be returned.
+        run.lock.ng2Locked {
+            if run.controllerSnapshot === snapshot && run.generation == projection.generation {
+                run.report = report; run.reportSnapshot = snapshot; run.reportGeneration = projection.generation
+            }
+        }
+        return report
+    }
+
+    private func flushReport(_ run: NG2Run) {
+        let projection = run.lock.ng2Locked { NG2ResponseProjection(run) }
+        _ = controllerReport(run, projection: projection)
+    }
+
+    private func encodeSnapshot(_ snapshot: NG2ControllerSnapshot) -> [String: JSONValue] {
+        let s = snapshot.status
+        let events = snapshot.events, changes = snapshot.changes, details = snapshot.details
+        let motionWait = snapshot.motionWait, motionReferences = snapshot.motionReferences
+        let count = events.count, changeCount = changes.count, detailCount = details.count
+        let motionReferenceCount = motionReferences.count
         let encoded = events.prefix(min(count, events.count)).map { event -> JSONValue in
             let c = event.command
             return .object(["id": number(c.id), "ordinal": number(c.ordinal), "kind": integer(c.kind),
@@ -1280,7 +1497,6 @@ final class NG2Runtime {
                 "source_capture_id": number(motionWait.source_capture_id), "last_capture_id": number(motionWait.last_capture_id),
                 "deadline_ns": number(motionWait.deadline_ns), "attempts": integer(motionWait.attempts),
                 "last_motion": integer(motionWait.last_motion), "active": .bool(motionWait.active == 1)])]
-        run.lastCache = Self.now()
-        run.lock.ng2Locked { run.report = report }
+        return report
     }
 }
