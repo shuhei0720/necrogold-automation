@@ -20,7 +20,7 @@ app C profile（Controller/Beat O0・Nav/Perception strict O2）の7variationも
 
 設計/網羅/安全のfresh実装第1周は静的追加P0/P1/P2なし。source C SHA `b3fe3644eb5d3041f18bafa1771186e5a1e091c99e55468f7ccf73d28d2e0a08`、manifest SHA `fd95ed27d135c58ebd8872c6c9611a2c41913db3b4e4808bc4b7c9e197543190`。22seal中Controller.cのみ変更、他21・R12原40/G1は維持する。
 
-client v13/API1.98.14/cap12は不変で、client CI19の197件が成功。Macの全旧59/Raster3/C parity-field/実RPC・実compiler・新IPAの最終検証は実行中。native変更のため新IPAをビルドしてからTEST059実機を依頼する。iPhoneの商品到達・毎拍・人より速い性能は未受入。
+client v13/API1.98.14/cap12は不変で、client CI19の197件が成功。Mac87で全旧59/Raster3/C parity-field/実RPC・実compiler・新IPAの検証が成功。native変更のため新IPA build87へ更新してTEST059実機を依頼する。iPhoneの商品到達・毎拍・人より速い性能は未受入。
 
 
 ## Macの同期補足と最終run
@@ -31,4 +31,21 @@ Mac85は公開native236件/private28除外と、新Cの固定旧Red/current Gree
 
 [Mac86重点回帰](https://github.com/shuhei0720/necrogold-automation/actions/runs/42602660535)は固定旧Red・current15/identity/chain/pressure・058新2故障・world16・旧Runtime全Greenが成功。3担当が原artifact（203,262bytes/SHA `f23a448e485967372dbd7217ad4bc0f9f79370bb30cc885603122c2b4464b247`）とsource/fixtureの同一性を照合した。
 
-[最終Mac87](https://github.com/shuhei0720/necrogold-automation/actions/runs/42603972916)はcode `96c0596a4b7fcad401eb41ceae928af13752ead8` を対象に実行中。build-source ZIP455全tracked bytes/CRC/path一致、SHA `0149ce97e5f8a0bd432a41d80556eb4d9d321c9344ad730a82147010ded78874`。実compiler/IPA・配布用最終sourceの同一性は完了後に追記する。合成GreenはiPhone到達の受入ではない。
+[最終Mac87](https://github.com/shuhei0720/necrogold-automation/actions/runs/42603972916)はcode `96c0596a4b7fcad401eb41ceae928af13752ead8` を対象に全工程成功。build-source ZIP455全tracked bytes/CRC/path一致、SHA `0149ce97e5f8a0bd432a41d80556eb4d9d321c9344ad730a82147010ded78874`。合成GreenはiPhone到達の受入ではない。
+
+最終配布前の安全補足で、Git外Mach-O検証器が新HOST probe3名を拒否しないP1を検出。旧版への3注入が通ることを先に再現し、`test059_` prefix禁止と実probe宣言のselfcheckを追加した。3注入はすべて拒否、productionの`update_next_slot_candidate`は許可。従来80 markerを保持し、現81 marker・87拒否・44宣言・8 magicのselfcheckが成功、独立再検査で残P0/P1/P2なし。production/source/CIは変更していない。実IPAの検証とは区別する。
+
+
+## Mac87実物と最終配布の照合
+
+- IPA artifact13669198824: 17,821,531bytes、SHA `ebab41e26d65059eda35030180d78a9e04c041f0ee90c68a7fa0ac5e57c26103`。内部 `upstream/release/LoopCtrl.ipa` はbuild87、SHA `32554737f90cb60ce2f5d6f0e3cbc1232253d7e13550ae9c0df4a153f1460463`。
+- validation artifact13668698927: 618,373bytes、SHA `d1adf66cbabc95cff53c45a711f939911aa6e8807c14e2cd71cbdad18deb9eaa`。全旧59＋058別2故障、Raster3、C全Scene/Decision parity-field、旧色式Red、LoopCtrlKit/暗号RPCの指定assertionを実ログ・source hashへ結合した。
+- native-host artifact13666713002: 10,366bytes、SHA `4f219c3a1c5751b86a2c4d1d0e3bf9968b2e24d7cdbd5b1c713a6ae05104c0c0`。公開236件/private厳密28除外、固定旧C/current/rollback各1件のRed/Green/Redとfixture/source hashが一致。新C rollback1はRuntime59＋058別2とは別集計。
+
+IPA配布ZIP内の22sourceはseal `fd95ed27d135c58ebd8872c6c9611a2c41913db3b4e4808bc4b7c9e197543190` と全bytes一致。Controller.cのみf65から変更し他21維持、R12原40/G1も維持。rawPBX・実compilerログの4C/5Swift/6RSPを展開順・hash・実引数・source/object/targetへ結合し、Perception/Nav strictO2、Beat/Controller O0、Swift Onone、HOST4 macro非混入を確認。実IPA9 Mach-Oの81 marker hit0、新HOST probe3は不在、production helperは存在する。ZIP/IPA CRCは全件正常。
+
+準備15例はobserve残余5,017,107ns/追加AX0、fixed旧Redは同期fixture cbccaと元1d17の両hash・同期flagを保持。world16のproducer実reportをstrict v13で読み、独立world操作/移動/開扉/取消/UNKNOWN停止と診断3配列を照合。別の実producer3＋FRESH2を暗号HTTP/clientへ通し、reportと両journalの3配列が一致した。outer lifecycle/画像はfixtureで、実ゲーム・実機の入力受付や到達を証明しない。
+
+fresh実装第1周の最終実物補足は設計・網羅・安全の3担当ともclear。旧59の全inventory/指定assertion、新C別1、058別2、原/同期fixtureと15例/identity/chain/pressure、変更なしworld16、236/private28、実compiler/IPA/455 build-sourceを独立照合した。資料補足のP2「新IPA内22source」は、sourceが外側配布ZIPにあるため「IPA配布ZIP内の22source」へ修正した。最終資料差分はREADME/status/計画/レビュー/実機台帳の5文書だけで、初読3文書13,553bytes・testing8,181bytes・native契約12,288bytesの上限を維持する。
+
+最終資料commitではcodeとの差分を文書に限定し、配布source ZIP全455 tracked bytes/CRC/pathを照合する。実機は新IPA更新/完全再起動/Start Server、新1-1開幕金壁可視・左側が下/画面端0のポーズから `sh test_059.sh`。「TEST-059: 終了」後に `runtime/test-059` 全ZIPを依頼する。iPhone入店/商品到達・毎拍・人より速い性能・指輪/周回/耐久は未受入。

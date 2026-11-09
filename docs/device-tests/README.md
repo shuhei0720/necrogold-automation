@@ -2536,3 +2536,25 @@ LEFT2入力/2MOVED、最終(-2,0)、door/terrain/goods0。実C/Pillowで40→47�
 停止はreason9/late、capture/dispatch failureなし。親event4のmotion deadline `96955181537247` に対し、次の補正target `96955334816816`/lead150msでnotBefore=`96955184816816`となり、親由来の期限を3.279569ms超える。停止tick自体は期限の113.685497ms前、cap54 observe終了も114.020206ms前。処理が遅着したのではなく、未予約の次ordinalのtargetだけ+13.279569ms補正して古い期限を流用した空窓が原因。原058runにqualified continuous SAME/FRESHはなく、058 lease共有の実機改善効果は今回から主張しない。
 
 [TEST059計画](../plans/test059-next-slot.md)で、親motion期限と未予約の次slotを分離し、target/窓を対更新・初回reserveで凍結する。元12画像は既知回帰へ限定し、未収録DOWNの未来応答を作らない。回収済み058の再実行は依頼しない。生ZIP/画像/report/解析はGit外。
+
+
+## TEST059 最終Mac・配布物
+
+TEST058の2歩後停止は、未予約の次拍targetと古い入力期限の空窓が原因。親motionの元期限を維持し、次candidateのtarget/窓を対更新して初回reserveで凍結する。code `96c0596a4b7fcad401eb41ceae928af13752ead8` / [Mac87](https://github.com/shuhei0720/necrogold-automation/actions/runs/42603972916)成功。既存Runtime59＋058新2故障と新C rollback1を別集計し、world16/Raster3/C parity-field/旧色式Red/実RPC/実compiler/新IPAを照合。22seal中Controller.cのみ変更・他21同一、R12原40/G1・IPA9Mach-OのHOST非混入を確認した。[検証](../reviews/test059.md)。合成試験は実機到達の合格ではない。
+
+## TEST-059実行手順
+
+**TEST059の実機テストをお願いします。** [新IPA build87 ZIP](https://github.com/shuhei0720/necrogold-automation/actions/runs/42603972916/artifacts/13669198824)と新しい完全sourceを使います。native修正のためIPA更新が必要です。
+
+1. リンクをSafariで開き、IPAはGitHubログイン後にZIPを取得・展開します。
+2. LoopCtrlをStop Server→完全終了。SideStoreでZIP内の `upstream/release/LoopCtrl.ipa` に更新し、再起動→Start Server、いつものVPN/ディスクイメージ接続を確認します。
+3. 完全sourceを展開し、フォルダ選択では `test_059.sh` があるフォルダを選びます。
+4. 新しい通常オールゾーン1-1で開幕の金壁が見える回を、左側が下・画面端0でポーズして実行します。
+
+```sh
+mkdir -p /mnt/necro_test059
+mount -t ios . /mnt/necro_test059
+cd /mnt/necro_test059 && sh test_059.sh
+```
+
+歩行中はゲーム前面を保ち、**自動ポーズ後5秒ほど待ったらiSHへ戻って構いません。** 「TEST-059: 終了」まで待ち、`runtime/test-059` 全体をZIPで返してください。壁付近から曲がって進むか、扉を開けて通過するか、商品が見えたか、連続歩行を確認します。終了前の再実行や別テストの同時実行はしません。回収済みTEST058の追加回収のための再実行は不要です。
