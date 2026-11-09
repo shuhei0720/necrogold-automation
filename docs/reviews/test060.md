@@ -64,3 +64,13 @@ Mac88はqualified準備15/新2故障/独立world16を通過した後、主Runtim
 元require375ブロック（入れ子込み377式）の全bytes/順序を保持し、元D・10ms・2秒時計待機/fixture pump期限・owner/取消/lease/drainのpredicateを変更しない。EVIDENCEは欠損fieldでもtrapせず、旧mutantの指定assertをログが隠さない。package228/1.544秒とdiffcheck成功。limit設定前に既に進んだ取得は巻戻さず元assertでfail closedとする限定を残す。
 
 設計/網羅/安全の第3周は追加P0/P1/P2なし。C3a16/Runtime/他native21、seal3b768、Controller184/315位相/world160+2/clientのソースは不変。新helper2名はtest060_ prefix、Mach-O検査の82markerへ含め、自己検査は46HOST宣言/88拒否/8magicを確認。実Swift/59故障の各指定RedとIPAは次のMac全体で実確認する。
+
+## Mac89の出力形式失敗と第3周HOST補足
+
+[Mac89](https://github.com/shuhei0720/necrogold-automation/actions/runs/42625173334) / code `beb2160e5fd4fca5c1cbc348faa9f5e3c8fac6b6` はnative258/新world160＋停止2・旧059/新060 C故障を再び成功。native artifact13677398975は778,204bytes/SHA `8f94d0c732f0cda62e9969e956f408aa1a574b27ed2864f22f7e290b3c896c95`。qualified準備15/058別2/独立world16と主Runtime positiveの全assertを通過したが、追加したEVIDENCE18行が元PASSより前へ出て、厳格な `stdout.startswith('PASS production Runtime public API/')` に不適合となった。30行のstdoutは末尾に元PASS、FAIL0。`checked(green)` は成功しており、ゲーム処理の新たな失敗とは混同しない。
+
+診断artifact13679126732は283,641bytes/SHA `b8cae93e14ff297a951d3412c7c7c75fc5cc39643e8ab3ba4690b0db627028bd`。Runtime59 mutationは未開始、LoopCtrlKit/RPC/IPAも未実施で、Mac89全体は失敗として保持する。HOST診断の出力順だけを直し、checkerの先頭PASS/空stderr・375require・元期限とproductionは変えず、実装第3周の補足として独立照合して再実行する。
+
+補足後HOST source SHA `8661cdd1c35d2b49ca7016f667abc5de96207a37edcc196ccfc6c31e364cb8d6`。元時点で作った文字列だけ専用lock付きbufferへ保存し、full成功の既存最終PASS直前にflushする。先頭の元054PASS/末尾の元全体PASS、REPORT順序・375require全bytes/順序・checkerを保持。選択fixtureではmainのflushを含めず、旧故障の末尾指定FAILへ出力を足さない。package228/1.712秒成功。設計が旧047診断modeの型検査互換P1も発見し、旧hash固定fakeにないfixedClock/fixedCaptureAdvanceの新分岐だけを既存LEGACY_CAPTURE_BASELINEで除外した。旧fake/checker/current構成は不変、旧modeの実Swift再実行は未主張。外部Mach-O自己検査は新3helperを含む47HOST宣言/82marker/88拒否/8magicに更新し、通常/-Oとも成功。
+
+第3周HOST補足の最終8661版を設計・網羅・安全が独立照合し、上記legacy互換P1の解消を含め残P0/P1/P2なし。現行構成の元条件を維持し、実Swift全体/59指定Red/新IPAの再確認へ進む。

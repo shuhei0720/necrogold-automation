@@ -1,10 +1,10 @@
 # 最新状態
 
-更新: 2026-11-09（日本時間）。TEST059受領: UP3後に第4入力前の画像比較で停止、商品未達。**TEST060を開発中、新IPAは未配布**。code `f4162d91eb28fd016340b877746436ea61b301e9` / [Mac88](https://github.com/shuhei0720/necrogold-automation/actions/runs/42620754044)はnative258成功後に既存SwiftのHOST時刻同期で失敗。HOST修正の第3周3担当clear、Mac再実行待ち。client20は成功。[今回の計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。回収済みTEST059は再実行しない。
+更新: 2026-11-09（日本時間）。TEST059受領: UP3後に第4入力前の画像比較で停止、商品未達。**TEST060はMac再検証待ち、新IPAは未配布**。[Mac89](https://github.com/shuhei0720/necrogold-automation/actions/runs/42625173334)のnative258・長経路160＋停止2・新C3故障と主Runtime positiveは通過したが、追加HOST診断が先頭PASSの形式検査で失敗。Mac88の時計同期に続くHOST出力順の補足修正中で、59故障/IPAは未完了。production Cは固定、client20は成功。[今回の計画](plans/test060-continuous-admission.md)・[長経路期待](tests/test060-world-cases.md)。回収済みTEST059は再実行しない。
 
 ## 今回の修正と受領結果
 
-TEST059はUP3/MOVED3・商品0。第4MOVEをsource54で予約後、55との比較がUNKNOWNとなりSCREEN停止。2遠方FLOOR→DIRT、次UP/床/金壁/保護は同じ。原画は背景1pxの位相差を示し、motion閾値を緩めて静止と扱わない。残期限67msでlateではない。TEST060は未予約の連続次slotだけ、notBefore100ms前以降・source取得開始200ms前以降から初回予約する新方針を検討。元拍/予約後期限/再予約/UNKNOWN無再送を維持する。200msはL85/cadence90/prep20+5余裕の合成成功域で検証し、実性能保証とはしない。14完成画像と別0入力run/未完了exportを区別。[受領事実](device-tests/README.md#test059受領結果2026-11-09-日本時間)。
+TEST059はUP3/MOVED3・商品0。第4MOVEをsource54で予約後、55との比較がUNKNOWNとなりSCREEN停止。2遠方FLOOR→DIRT、次UP/床/金壁/保護は同じ。原画は背景1pxの位相差を示し、motion閾値を緩めて静止と扱わない。残期限67msでlateではない。TEST060は未予約の連続次slotだけ、notBefore100ms前以降・source取得開始200ms前以降から初回予約する。元拍/予約後期限/再予約/UNKNOWN無再送を維持する。200msはL85/cadence90/prep20+5余裕の合成成功域で検証し、実性能保証とはしない。14完成画像と別0入力run/未完了exportを区別。[受領事実](device-tests/README.md#test059受領結果2026-11-09-日本時間)。
 
 TEST058はLEFT2/MOVED2後にlate停止。12PNG/journalsは完全回収・整合pass、商品到達fail。cap54で次DOWN/FLOORを認識できたが、未予約の次notBeforeが親由来deadlineより3.280ms後となり、第3MOVEを作る前に停止した。停止tickは元期限より約113.7ms早く、capture/dispatch failureはない。[受領事実](device-tests/README.md#test058受領結果2026-11-09-日本時間)。
 

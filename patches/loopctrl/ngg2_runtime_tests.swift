@@ -79,9 +79,11 @@ func test060_revalidationCaptureBoundary() {
         NG2Fake.boundaryClockChange = nil
         // Permit and the ordinary clock step are one Fake-lock operation;
         // a limit installed after a permit read cannot be bypassed later.
+        #if !NG2_RUNTIME_LEGACY_CAPTURE_BASELINE
         if !blocked && change == nil && !explicitBoundaryHandled, let now = NG2Fake.fixedClock {
             NG2Fake.fixedClock = now + NG2Fake.fixedCaptureAdvance
         }
+        #endif
         NG2Fake.lock.unlock()
         if let change { change(); explicitBoundaryHandled = true }
         if !blocked { return }
@@ -90,9 +92,23 @@ func test060_revalidationCaptureBoundary() {
         Thread.sleep(forTimeInterval: 0.001)
     }
 }
+// Keep diagnostic creation at its original logical time without preceding
+// the Runtime contract's original first PASS line on stdout.
+let test060_revalidationEvidenceLock = NSLock()
+var test060_revalidationEvidenceLines = [String]()
 func test060_revalidationEvidence(_ label: String, staleFirst: Bool, oldID: UInt64,
                                   newID: UInt64, event: [String: JSONValue]) {
-    print("EVIDENCE test060_revalidation \(label) stale_first=\(staleFirst) old_id=\(oldID) new_id=\(newID) now_ns=\(NG2Fake.virtualClock()) not_before_ns=\(event["not_before_ns"]?.intValue ?? -1) deadline_ns=\(event["deadline_ns"]?.intValue ?? -1) begin_ns=\(event["begin_ns"]?.intValue ?? -1)")
+    let line = "EVIDENCE test060_revalidation \(label) stale_first=\(staleFirst) old_id=\(oldID) new_id=\(newID) now_ns=\(NG2Fake.virtualClock()) not_before_ns=\(event["not_before_ns"]?.intValue ?? -1) deadline_ns=\(event["deadline_ns"]?.intValue ?? -1) begin_ns=\(event["begin_ns"]?.intValue ?? -1)"
+    test060_revalidationEvidenceLock.lock()
+    test060_revalidationEvidenceLines.append(line)
+    test060_revalidationEvidenceLock.unlock()
+}
+func test060_flushRevalidationEvidence() {
+    test060_revalidationEvidenceLock.lock()
+    let lines = test060_revalidationEvidenceLines
+    test060_revalidationEvidenceLines.removeAll()
+    test060_revalidationEvidenceLock.unlock()
+    for line in lines { print(line) }
 }
 func alignInitialFixtureMove(_ id: String) {
     // Every caller uses the matching synthetic virtual clock (or its owned
@@ -3083,4 +3099,7 @@ for method in ["necro_native_status", "necro_native_cancel", "necro_native_resul
         "unknown_recovery_owner_bound_"+method)
 }
 require(NG2Fake.countTouches() == 1, "unknown_recovery_never_synthesizes")
+// Full-suite success only. Public-only selectors intentionally omit this
+// main area; they keep their own original PASS/FAIL output contract.
+test060_flushRevalidationEvidence()
 print("PASS production Runtime public API/capture/raster/real C/main-input/watchdog/drain integration; UIKit/XCTest/daemon faked")
