@@ -15,3 +15,12 @@ pending_choiceを両modeの再検証成功時に保存する。元source全5fiel
 C SHA `d97f217935274d7012db6e69663bfcf52f252cef94cb376a566637d1a8c4fee4`、manifest SHA `ec5ab1802c58bf38c82b292e8e01af94a176f370e875f16becba8dfd99c69524`。Controllerのみnative変更、他21source/公開ABI/API15/cap13/client v14/R12原40/G1は維持。Mac device/実IPA/実compiler/Mach-O/完全source照合の結果を配布前に追記する。実機TEST065は未実施。
 
 3回目の金集合変化による正当拒否と、看板が画面外で商品UNKNOWNという残課題は今回変更しない。原画の商品可視とプログラム完了を区別し、次の実機で到達率/拍の空きを評価する。
+
+
+## 最終Mac100・実配布物
+
+code `51f555d47b7d703935e8ae2c032ba1ff446a3f1a`、[Mac100](https://github.com/shuhei0720/necrogold-automation/actions/runs/42758476882) device成功。新IPA/build100 SHA `e33fee16d42cdaaa636ecc3ff9002100f46115078c722b67a482714e7cc8d6b7`、外ZIP SHA `a73af05f1908f8f03dd12c29410bcb6a600552eeb0d56543d28f058cc376df55`。
+
+host32の全実行ID/生ログ/0skip/error/選択省略理由/ABI実query/22seal前後が実IPA sourceと一致。実4C/5Swift/6RSP/PBX/raw compiler引数を照合し、Perception/Nav strictO2・Controller/BeatO0・SwiftOnone/HOST macroなし。全9Mach-Oで従来101+065の計102marker非混入。22source中Controllerだけ変更/他21・R12原40/G1は維持。build-sourceは全492tracked bytes/path/CRC一致、7,327,230bytes/SHA `3d5f6c46b1c6c86efbc7c234f76f784eb0f9b7bc476394eea2af80c7ecbaf605`。最終sourceとの差分は文書3件のみと確認する。
+
+[固定配布・実機手順](../status.md)からIPA/全sourceを返し、TEST065の商品到達とruntime/test-065全ZIPを依頼する。TEST065は実機未実施、064の成功経路と合成単体の成功を新実機成功へ読み替えない。

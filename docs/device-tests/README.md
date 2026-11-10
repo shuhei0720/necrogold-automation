@@ -2702,3 +2702,10 @@ ZIP10,126,160bytes/SHA `b725324aa8c9698784a55e3b6f524f21e7a8cbbe9578d87e8e34326e
 4回目070f4d…は2入力/2移動、3歩目MOVE5の91→92 SAME許可後、not_sentへ撤回済みstate0/pending中に元Dを超えLATE。capture end D−25.952ms/C開始D−3.816ms/終了D+3.152ms/次tickD+3.357ms。実原画のFLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE/origin床、金/保護同一、全5field UP reason8 target(-1,-2)/FLOOR、strict BLOCKEDを確認。旧063はstate1だけであり、このpending失効が[TEST065](../plans/test065-pending-unsent.md)の修正対象。未知入力/取得障害ではない。
 
 歩行間隔は2回目約.508〜.529秒、他には約1.04秒の空きがあり開始待ちも残る。毎拍/人超えの全体達成は未受入。回収済み064の追加回収再実行は依頼しない。
+
+
+## TEST065配布（2026-11-10 日本時間）
+
+[計画](../plans/test065-pending-unsent.md)・[検証](../reviews/test065.md)・[固定配布/実機手順](../status.md)。code51f555d47b7d703935e8ae2c032ba1ff446a3f1a/Mac100 device成功、新IPA/build100。C29+selector3の32実行と実IPA/実compiler/22seal/9Mach-O/全492source照合済み。
+
+state0/SAME・FRESH再検証待ちで純D超過した確実未送信だけを元proof12秒/45/180内の新将来拍へ戻す。両modeの保存最新full5/world/protected/gold/strict BLOCKEDを再検査、旧event全bytes/元D・旧ID送信拒否/旧callback無作用を維持。Controllerだけ変更、API15/cap13/ABI/client/認識閾値/成功した064初歩・入口は不変。SideStore更新/LoopCtrl完全終了・起動/Start Server後、新通常1-1の金壁可視ポーズでtest_065.sh、終了後runtime/test-065全ZIPを依頼する。到達率改善は次の実機で確認し、回収済み064は再実行しない。

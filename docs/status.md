@@ -19,15 +19,35 @@ state0のSAME/FRESH再検証済み・旧event not_sent/begin0/reasonSCREENに限
 
 2回目の歩行入力間隔は約0.508〜0.529秒。他の回には約1.04秒の空きがあり、開始待ちも残る。毎拍/人より速い全体要件、対象指輪の識別/通知/自動周回/耐久は未受入。
 
-## 065の確認・返却
+## TEST065配布・実物検証
 
-旧Cで新pending6methodの意味的Red（compile/errors0）を確認。新6+旧expiry1の7件Green、独立差分レビューP0/P1/P2なし。変更単体/関連回帰、device IPA/22seal/実compiler/Mach-O/完全sourceの照合後、固定Releaseで新TEST065実機を依頼する。全Runtime/world/不変clientを毎回の前提にしない。
+固定配布: [IPA build100](https://github.com/shuhei0720/necrogold-automation/releases/download/test065-build100/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test065-build100/source.zip)。code `51f555d47b7d703935e8ae2c032ba1ff446a3f1a`、[Mac100/device](https://github.com/shuhei0720/necrogold-automation/actions/runs/42758476882)成功。[検証](reviews/test065.md)。TEST065の実機は未実施。
+
+| 配布物 | 同一性 |
+| --- | --- |
+| 内部IPA | build100 / SHA `e33fee16d42cdaaa636ecc3ff9002100f46115078c722b67a482714e7cc8d6b7` |
+| IPA外ZIP | artifact13736797666 / 17,842,408bytes / SHA `a73af05f1908f8f03dd12c29410bcb6a600552eeb0d56543d28f058cc376df55` |
+| 診断ZIP | artifact13736558404 / 156,886bytes / SHA `3362a51ec4774ed59108637bb3551dd1b1d717b439ec045bfac51d5f3755996f` |
+| native-host | artifact13736137901 / 7,525bytes / SHA `3bfef14672baaa189e0d8f7af59b5593b620bd3ebfaa9acdb84b276754f9cfda` |
+| build-source | 全492tracked bytes/CRC/path一致、7,327,230bytes / SHA `3d5f6c46b1c6c86efbc7c234f76f784eb0f9b7bc476394eea2af80c7ecbaf605` |
+
+新pending6+関連23のC29、selector3の32実行ID/生ログ/0skip/error/ABI/22seal前後が実IPAと一致。実4C/5Swift/6RSP/PBX/raw compiler引数と全9Mach-O/102 HOST・旧API marker非混入を照合。Controllerだけ変更、他21/R12原40/G1/API15/cap13/client v14/ABI不変。独立差分レビューP0/P1/P2なし。最終source差分はstatus/review/台帳の3文書のみを確認して固定保存する。全Runtime/world/不変clientは今回の配布前提にしない。
+
+## 次の実機TEST065
+
+SideStoreでIPA build100更新→LoopCtrl完全終了/起動→Start Server→通常VPN/disk。新しい通常オールゾーン1-1、金壁可視・左側が下/端0の開幕ポーズから。
+
+```sh
+mkdir -p /mnt/necro_test065
+mount -t ios . /mnt/necro_test065
+cd /mnt/necro_test065 && sh test_065.sh
+```
+
+folder pickerはsource ZIPを展開しtest_065.shが入るフォルダ。歩行中はゲーム前面、自動PAUSE後約5秒でiSHへ戻り「TEST-065: 終了」を待つ。商品可視位置への到達・停止した様子とruntime/test-065全ZIPを依頼する。回収済み064は再実行しない。
 
 ## TEST064の配布記録
 
-[固定IPA build98](https://github.com/shuhei0720/necrogold-automation/releases/download/test064-build98/LoopCtrl.ipa)・[固定全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test064-build98/source.zip)、[検証](reviews/test064.md)。code3d8334249394ae81ed8d449d4925dc2eb85c35d3、source7824214960db9c5d523af64fdc545db75402f279、Mac98/device成功、Mac99固定公開成功。
-
-IPA SHA `34a588f1e53808f97e62681df83513b9d1b38456d66dfda8bc0e5a4992af0c53`、全source SHA `84ba53699e0687240df2f4775ac8c8a0bdc07b25fe2c6ece53f3603517fa56b8`。064のC27+selector3、実compiler/22seal/9Mach-O/488tracked source照合は過去の確認として保持。064の新規再ビルド/試験は依頼しない。
+[固定Release build98](https://github.com/shuhei0720/necrogold-automation/releases/tag/test064-build98)・[検証](reviews/test064.md)。Mac98/deviceとMac99固定公開成功、C27+selector3/実compiler/22seal/9Mach-O/全488source照合は過去結果として保持。現在の実機結果は上記3/4商品可視・2/4全商品可視判定、64の再ビルドは行わない。
 
 ## 運用
 
