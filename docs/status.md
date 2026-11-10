@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-10（日本時間）。TEST063受領: ユーザーの商品可視1/3、プログラム完全商品判定0/3。2回目は開扉後の次MOVE前、3回目は初歩前に停止。受領43PNGの全SHA/bytes/CRC/896×414、manifest一致、全3run terminal/drained、activeと最後のreport一致を確認した。回収済み063を再実行しない。
+更新: 2026-11-10（日本時間）。TEST064の実機4回をユーザー報告で受領。1〜3回目は商品可視位置へ到達、4回目は2歩で停止（商品可視3/4）。ZIPは添付カード表示後「Codexとの接続は無効になりました」。再試行も失敗、ZIP未着・実行環境は稼働中。Safariは未試行。自動商品判定・4回目の原因は未確認。再ビルド/再実行より元runtime/test-064の受領・解析を優先。[受領台帳](device-tests/README.md#test064-reported)。
 
 ## TEST064: 遠方の描画揺れで同じ予約を失わない
 
@@ -13,7 +13,7 @@ Controller.cだけを変更。Navigation/Perception/Runtime/公開ABI/API1.98.15
 
 ## TEST064配布と検証済み同一性
 
-固定配布: [IPA build98](https://github.com/shuhei0720/necrogold-automation/releases/download/test064-build98/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test064-build98/source.zip)。code `3d8334249394ae81ed8d449d4925dc2eb85c35d3`、[Mac98/device](https://github.com/shuhei0720/necrogold-automation/actions/runs/42747426496)成功。TEST064の実機は未実施。[検証](reviews/test064.md)。
+固定配布: [IPA build98](https://github.com/shuhei0720/necrogold-automation/releases/download/test064-build98/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test064-build98/source.zip)。code `3d8334249394ae81ed8d449d4925dc2eb85c35d3`、[Mac98/device](https://github.com/shuhei0720/necrogold-automation/actions/runs/42747426496)成功。TEST064の実機はユーザー報告3/4商品可視、ログ未受領。[検証](reviews/test064.md)。
 
 | 配布物 | 同一性 |
 | --- | --- |
@@ -27,7 +27,7 @@ Controller.cだけを変更。Navigation/Perception/Runtime/公開ABI/API1.98.15
 
 22seal中Controllerだけ変更/他21・R12原40/G1不変、実4C/5Swift/6RSP/PBXとraw compiler引数、全9Mach-O/101 HOST・旧API marker非混入を照合。API15/cap13/ABI不変。完全source最終版はこのcodeとの差分がstatus/review/台帳の3文書だけであることを確認し、固定Releaseへ保存する。全Runtime/world/不変client/不変workflow-publisherを今回再実行しない。
 
-## 次の実機TEST064
+## TEST064手順（配布時の記録）
 
 SideStoreで新IPA/build98更新→LoopCtrl完全終了/起動→Start Server→通常VPN/disk。新しい通常オールゾーン1-1の金壁可視・左側が下/端0の開幕ポーズから。
 
@@ -37,7 +37,7 @@ mount -t ios . /mnt/necro_test064
 cd /mnt/necro_test064 && sh test_064.sh
 ```
 
-folder pickerは完全source ZIPを展開しtest_064.shが入っているフォルダ。歩行中はゲーム前面、自動PAUSE後約5秒でiSHへ戻り「TEST-064: 終了」を待つ。新しいランで商品可視位置まで、特に下方商品への追加移動と0歩停止を実機確認し、runtime/test-064全ZIPを依頼する。到達率の改善は次の実機で確認する。
+folder pickerは完全source ZIPを展開しtest_064.shが入っているフォルダ。歩行中はゲーム前面、自動PAUSE後約5秒でiSHへ戻り「TEST-064: 終了」を待つ。新しいランで商品可視位置まで、特に下方商品への追加移動と0歩停止を実機確認し、runtime/test-064全ZIPを依頼する。受領待ちの4runを追加回収目的で再実行せず、元runtimeを保持する。
 
 ## TEST063の記録
 
