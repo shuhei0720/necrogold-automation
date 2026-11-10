@@ -84,6 +84,7 @@ struct NG2Controller {
     int stationary_gate_retry_waiting;
     int edge_sent;
     int gate_refresh_state,gate_refresh_used;
+    int terrain_refresh_active,terrain_refresh_used;
 };
 static int tile_index(int x,int y){return x>=-11&&x<=11&&y>=-5&&y<=4?(y+5)*23+x+11:-1;}
 static int tile(const NG2Scene *s,int x,int y){int k=tile_index(x,y);return k<0?0:s->tiles[k];}
@@ -119,6 +120,7 @@ static void finish(NG2Controller *p,uint64_t now,int reason){
     p->edge_validated_capture_id=0;
     p->stationary_gate_retry_waiting=NG2_GATE_RETRY_NONE;p->stationary_gate_retry_proof_id=0;
     p->gate_refresh_state=NG2_GATE_REFRESH_NONE;p->gate_refresh_proof_id=0;
+    p->terrain_refresh_active=0;
     if(p->s.terminal)return;
     if(!p->finish_requested){p->finish_requested=1;p->finish_ns=now;p->s.reason=reason;}
     if(reason==NG2_REASON_GOODS){p->s.reason=reason;p->s.goods=1;}
@@ -452,6 +454,17 @@ static uint64_t continuous_horizon(const NG2Controller *p){
     horizon=minimum(horizon,p->s.walk_started_ns+45*SECOND);
     return minimum(horizon,p->s.started_ns+180*SECOND);
 }
+static int last_ack_opened_gate(const NG2Controller *p,int direction){
+    size_t i;
+    if(p->entrance.valid||!p->s.door_changes)return 0;
+    for(i=p->event_count;i>0;--i){
+        const NG2ControllerEvent *e=&p->events[i-1];
+        if(e->command.id==p->s.last_completed_id)
+            return e->command.kind==NG2_ACTION_MOVE&&e->command.direction==direction
+                &&e->outcome==2&&e->motion==NG2_DOOR_OPENED&&!e->dx&&!e->dy;
+    }
+    return 0;
+}
 /* Keep an exact entrance action or PARTIAL-goods floor vantage after entering
  * through irrelevant remote flicker. Ticket/before and all bounds stay fixed;
  * do not grant safe-floor calibration, reissue or reference eligibility. */
@@ -462,6 +475,9 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
         &&(obstacle==NG2_TILE_FLOOR||obstacle==NG2_TILE_DOOR);
     int interior_step=p->entrance.valid==1&&p->before.goods==NG2_GOODS_PARTIAL
         &&scene->goods==NG2_GOODS_PARTIAL&&p->command_choice.reason==8&&obstacle==NG2_TILE_FLOOR;
+    int opened_entry=entrance_step&&obstacle==NG2_TILE_FLOOR
+        &&p->before.goods==NG2_GOODS_PARTIAL&&scene->goods==NG2_GOODS_PARTIAL
+        &&last_ack_opened_gate(p,d);
     if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||p->finish_requested||p->s.goods
         ||p->replan_pending||p->continuous_pending||!p->s.lead_confirmed||!p->s.moves
         ||p->s.phase!=NG2_PHASE_WALK||!p->continuous_ticket_valid||d<1||d>4
@@ -487,8 +503,13 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
         if(protected_at(scene,dx[i],dy[i])||protected_at(scene,dx[d]+dx[i],dy[d]+dy[i]))return 0;
     for(i=0;i<NG2_TILE_COUNT;++i){
         int a=p->before.tiles[i],b=scene->tiles[i],x=i%23-11,y=i/23-5;
+        int shielded=opened_entry&&x*dx[d]+y*dy[d]==2&&abs(x*dy[d]-y*dx[d])==1
+            &&((a==NG2_TILE_FLOOR&&b==NG2_TILE_DIRT)||(a==NG2_TILE_DIRT&&b==NG2_TILE_FLOOR))
+            &&tile(&p->before,x-dx[d],y-dy[d])==NG2_TILE_GOLD
+            &&tile(scene,x-dx[d],y-dy[d])==NG2_TILE_GOLD
+            &&!protected_at(&p->before,x,y)&&!protected_at(scene,x,y);
         if(a==b)continue;
-        if((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)
+        if((!shielded&&((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)))
             ||(a!=NG2_TILE_UNKNOWN&&a!=NG2_TILE_FLOOR&&a!=NG2_TILE_DIRT&&a!=NG2_TILE_STONE)
             ||(b!=NG2_TILE_UNKNOWN&&b!=NG2_TILE_FLOOR&&b!=NG2_TILE_DIRT&&b!=NG2_TILE_STONE))return 0;
     }
@@ -515,6 +536,31 @@ static int gate_refresh_scene(const NG2Controller *p,const NG2Scene *scene){
         ||tile(a,0,0)!=NG2_TILE_FLOOR||tile(scene,0,0)!=NG2_TILE_FLOOR
         ||tile(a,dx[d],dy[d])!=NG2_TILE_DOOR||tile(scene,dx[d],dy[d])!=NG2_TILE_DOOR
         ||!gate_at(a,dx[d],dy[d])||!gate_at(scene,dx[d],dy[d])
+        ||!same_gold(a,scene)||memcmp(a->protected_cells,scene->protected_cells,NG2_TILE_COUNT))return 0;
+    for(i=0;i<5;++i)
+        if(protected_at(scene,dx[i],dy[i])||protected_at(scene,dx[d]+dx[i],dy[d]+dy[i]))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int old=a->tiles[i],now=scene->tiles[i],x=i%23-11,y=i/23-5;
+        if(old==now)continue;
+        if((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)
+            ||(old!=NG2_TILE_UNKNOWN&&old!=NG2_TILE_FLOOR&&old!=NG2_TILE_DIRT&&old!=NG2_TILE_STONE)
+            ||(now!=NG2_TILE_UNKNOWN&&now!=NG2_TILE_FLOOR&&now!=NG2_TILE_DIRT&&now!=NG2_TILE_STONE))return 0;
+    }
+    return ng2_choose(a,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&before)
+        &&ng2_choose(scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&latest)
+        &&same_choice(&before,choice)&&same_choice(&before,&latest);
+}
+static int terrain_refresh_scene(const NG2Controller *p,const NG2Scene *scene){
+    const NG2Scene *a=&p->gate_refresh_anchor;
+    const NG2Decision *choice=&p->gate_refresh_choice;
+    NG2Decision before,latest;int i,d=choice->direction;
+    if(d<1||d>4||choice->reason!=7||choice->obstacle!=NG2_TILE_FLOOR
+        ||choice->target_x!=dx[d]||choice->target_y!=dy[d]
+        ||a->state!=NG2_FLOOR||scene->state!=NG2_FLOOR
+        ||a->goods!=NG2_GOODS_UNKNOWN||scene->goods!=NG2_GOODS_UNKNOWN
+        ||a->gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
+        ||tile(a,0,0)!=NG2_TILE_FLOOR||tile(scene,0,0)!=NG2_TILE_FLOOR
+        ||tile(a,dx[d],dy[d])!=NG2_TILE_FLOOR||tile(scene,dx[d],dy[d])!=NG2_TILE_FLOOR
         ||!same_gold(a,scene)||memcmp(a->protected_cells,scene->protected_cells,NG2_TILE_COUNT))return 0;
     for(i=0;i<5;++i)
         if(protected_at(scene,dx[i],dy[i])||protected_at(scene,dx[d]+dx[i],dy[d]+dy[i]))return 0;
@@ -567,12 +613,73 @@ static int start_gate_refresh(NG2Controller *p,const NG2Scene *scene,uint64_t id
     p->s.phase=NG2_PHASE_SYNC;
     return 1;
 }
+/* This apparent opening happened before begin, so it is not input success.
+ * Withdraw the dig ticket and observe the newly visible floor independently;
+ * the old model may remain useful, but neither the old ID nor credit survives. */
+static int start_terrain_refresh(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    uint64_t start,uint64_t end,uint64_t now){
+    NG2ControllerEvent *e=event(p);NG2Decision before,latest;NG2Motion opening,texture;
+    uint64_t budget,aligned;int i,d=p->command.direction;
+    if(p->terrain_refresh_used||p->gate_refresh_state||p->stationary_gate_retry_waiting
+        ||p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||d<1||d>4||!p->command.id
+        ||p->s.current_command_id!=p->command.id||!e||e->command.id!=p->command.id||e->begin_ns||e->outcome
+        ||p->finish_requested||p->s.terminal||p->s.goods||!p->s.lead_confirmed||!p->s.moves
+        ||p->s.inputs>=16||!p->latest_verified_ns||!p->continuous_ticket_valid
+        ||p->replan_pending||p->continuous_pending||p->proof_deadline||p->s.phase!=NG2_PHASE_WALK
+        ||p->beat_failed||!ng2_beat_model_valid(&p->model)
+        ||now>p->command.deadline_ns||now>p->continuous_ticket.deadline_ns
+        ||now<p->command.source_start_ns||now-p->command.source_start_ns>FRESH
+        ||now<p->command.phase_sample_ns||now-p->command.phase_sample_ns>FRESH
+        ||now<p->model.last_ns||now-p->model.last_ns>FRESH
+        ||!corrected(p,p->continuous_ticket.target_ns,p->continuous_period,&aligned)
+        ||p->before.state!=NG2_FLOOR||scene->state!=NG2_FLOOR
+        ||p->before.goods!=NG2_GOODS_UNKNOWN||scene->goods!=NG2_GOODS_UNKNOWN
+        ||p->before.gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
+        ||tile(&p->before,0,0)!=NG2_TILE_FLOOR||tile(scene,0,0)!=NG2_TILE_FLOOR
+        ||tile(&p->before,dx[d],dy[d])!=NG2_TILE_DIRT||tile(scene,dx[d],dy[d])!=NG2_TILE_FLOOR
+        ||!same_gold(&p->before,scene)
+        ||memcmp(p->before.protected_cells,scene->protected_cells,NG2_TILE_COUNT))return 0;
+    budget=minimum(p->latest_verified_ns+12*SECOND,p->s.walk_started_ns+45*SECOND);
+    budget=minimum(budget,p->s.started_ns+180*SECOND);
+    if(p->command_sync_deadline)budget=minimum(budget,p->command_sync_deadline);
+    if(now>=budget)return 0;
+    for(i=0;i<5;++i)
+        if(protected_at(scene,dx[i],dy[i])||protected_at(scene,dx[d]+dx[i],dy[d]+dy[i]))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int a=p->before.tiles[i],b=scene->tiles[i],x=i%23-11,y=i/23-5;
+        if(a==b||(x==dx[d]&&y==dy[d]))continue;
+        if((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)
+            ||(a!=NG2_TILE_UNKNOWN&&a!=NG2_TILE_FLOOR&&a!=NG2_TILE_DIRT&&a!=NG2_TILE_STONE)
+            ||(b!=NG2_TILE_UNKNOWN&&b!=NG2_TILE_FLOOR&&b!=NG2_TILE_DIRT&&b!=NG2_TILE_STONE))return 0;
+    }
+    if(!ng2_choose(&p->before,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&before)
+        ||!same_choice(&before,&p->command_choice)||before.direction!=d||before.reason!=6
+        ||before.target_x!=dx[d]||before.target_y!=dy[d]||before.obstacle!=NG2_TILE_DIRT
+        ||!ng2_choose(scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&latest)
+        ||latest.direction!=d||latest.reason!=7||latest.target_x!=dx[d]||latest.target_y!=dy[d]
+        ||latest.obstacle!=NG2_TILE_FLOOR
+        ||!ng2_motion(&p->before,scene,d,&opening)||opening.kind!=NG2_TERRAIN_OPENED||opening.dx||opening.dy
+        ||!ng2_motion(scene,scene,d,&texture)||texture.kind!=NG2_BLOCKED||texture.dx||texture.dy)return 0;
+    p->terrain_refresh_used=1;p->terrain_refresh_active=1;
+    p->gate_refresh_anchor=*scene;p->gate_refresh_choice=latest;
+    p->gate_refresh_state=NG2_GATE_REFRESH_OBSERVE;p->gate_refresh_proof_id=0;
+    p->gate_refresh_deadline=budget;p->gate_refresh_prefix=p->s.last_completed_id;
+    p->gate_refresh_previous=*scene;p->gate_refresh_previous_start=start;p->gate_refresh_previous_end=end;
+    p->sync_ns=p->latest_verified_ns;
+    ++p->recovery.episode_id;++p->recovery.post_move_reacquisitions;p->recovery.mode=NG2_RECOVERY_POST_MOVE;
+    recovery_record(p,NG2_RECOVERY_VISUAL_SCHEDULE,NG2_RECOVERY_ACTUAL_COMMIT,now,id);
+    not_sent(p,end,NG2_REASON_SCREEN);
+    clear_slots(p);p->motion_wait.active=0;p->visual_phase_failed=0;p->s.phase=NG2_PHASE_SYNC;
+    p->proof_capture_id=id;
+    return 1;
+}
 static int update_gate_refresh(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t now){
     NG2Motion still,texture;int d=p->gate_refresh_choice.direction;
     if(now>=p->gate_refresh_deadline){finish(p,now,NG2_REASON_BEAT);return 0;}
     p->gate_refresh_proof_id=0;
-    if(p->s.last_completed_id!=p->gate_refresh_prefix||!gate_refresh_scene(p,scene)
+    if(p->s.last_completed_id!=p->gate_refresh_prefix
+        ||!(p->terrain_refresh_active?terrain_refresh_scene(p,scene):gate_refresh_scene(p,scene))
         ||start<p->gate_refresh_previous_end||now<p->gate_refresh_previous_start
         ||now-p->gate_refresh_previous_start>FRESH
         ||!ng2_motion(p->gate_refresh_state==NG2_GATE_REFRESH_ISSUED?&p->before:
@@ -940,7 +1047,8 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
         record_change(p,scene,id,mask,changed_tiles,changed_protected,allowed,validation);
         /* Refresh retains the old UNKNOWN in an unsent event; only a later
          * independent pair may authorize a replacement action. */
-        if(allowed||!start_gate_refresh(p,scene,id,start,end,commit)){
+        if(allowed||(!start_gate_refresh(p,scene,id,start,end,commit)
+            &&!start_terrain_refresh(p,scene,id,start,end,commit))){
             not_sent(p,end,NG2_REASON_SCREEN);
             if(validation==NG2_REVALIDATE_INITIAL_ALLOWED){++p->replan_count;p->replan_pending=1;p->before=*scene;}
             else if(continuous_allowed(validation)){
@@ -1494,6 +1602,7 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
     p->edge_validated_capture_id=0;
     p->stationary_gate_retry_waiting=NG2_GATE_RETRY_NONE;p->stationary_gate_retry_proof_id=0;
     p->gate_refresh_state=NG2_GATE_REFRESH_NONE;p->gate_refresh_proof_id=0;
+    p->terrain_refresh_active=0;
     p->last_now=maximum(p->last_now,now);p->s.input_state=2;e=event(p);e->begin_ns=now;e->outcome=1;
     return 1;
 }

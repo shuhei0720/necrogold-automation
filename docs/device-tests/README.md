@@ -2817,3 +2817,12 @@ code `f9bcc3bc7ec97ac4fa692bf388ffd64d79148e03`、[Mac110](https://github.com/sh
 実IPA0.3.4/build110、17,588,671bytes/SHA `a5100f749b9f21b755292a8d5c2732743cc059fde1ac4a246c10ccca23ad1402`。[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test070-build110/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test070-build110/source.zip)。最終sourceとの差分は文書3件と旧schema試験1件の2行で、製品bytes同一。固定Releaseの匿名GET/全SHAまで確認する。
 
 [status手順](../status.md)でSideStore更新→LoopCtrl完全終了/起動/Start Server、新通常1-1の金壁可視ポーズからtest_070.shをまず2回依頼。既知通路の毎拍/新地形判断の待ち/商品全体/保存完了を確認し、自動`runtime/test-070-<run_id>.zip`を全回分返してもらう。旧069原本は保持し、回収済みrunの再実行は依頼しない。生ZIP/原画/report/log/派生証跡はGit外。
+
+
+## TEST070受領: 3商品可視1/3、開扉後と新床再判定で停止
+
+2026-11-10（日本時間）。[受領根拠と限定修正](../reviews/test071.md)。添付順と実行順が逆で、device started_ns/原画を照合し4ae60e18→c94d9812→3c1a844dが1〜3回目。3ZIP/全41PNGのSHA/bytes/896×414/全chunk CRC/manifest/cursor/時刻prefix/active-reportが一致、全数回収resolved=true。raw/派生資料はGit外。
+
+1回目は5MOVED+1開扉+商品優先UNKNOWN1、153に3商品が可視、GOODS/PAUSE成立。方向間隔約.514〜.530秒でほぼ毎拍。2回目は5MOVED+1開扉、125は2商品/PARTIALが正しく未入店。実next床/同full5/金/全保護/strict BLOCKED不変でも金bracket背後斜めDIRT→FLOORでquiet拒否、D−89.610msにFLOOR7/SCREEN停止。3回目は4MOVED/開扉0、未送信LEFT/reason6/DIRTが最新reason7/FLOORへ変化しTERRAIN_OPENED zero vector。遠方palette以外と金/保護不変だがstrict BLOCKEDではなくD−36.326msに停止。送信失敗や時間切れと誤記しない。
+
+商品全体可視1/3として改善する。2商品を完了にせず、[071計画](../plans/test071-observed-entry.md)で開扉直後のshielded palette揺れだけを許し、新床は旧未送信票を撤回→独立確認→新IDへ判断し直す。未観測credit/送信UNKNOWN再送/期限延長/認識閾値緩和なし。受領済み070を追加回収目的で再実行しない。

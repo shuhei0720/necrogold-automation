@@ -1,4 +1,4 @@
-"""Run only TEST070 cadence/compatibility/publication changes and related units before device feedback.
+"""Run only TEST071 observed shop entry and terrain refresh changes and related units before device feedback.
 
 All native fixtures compile the sealed patched upstream used by the IPA.
 Historical synthetic worlds and Runtime mutation suites remain explicit lanes.
@@ -15,99 +15,56 @@ import subprocess
 import unittest
 
 
-CADENCE070_METHODS = frozenset({
+SHOP071_METHODS = frozenset({
+    'test_verified_open_entry_keeps_original_ticket_for_shielded_floor_dirt_flicker',
+    'test_exception_does_not_allow_other_local_cells_materials_or_missing_open_ack',
+    'test_original_actual_deadline_and_matching_stable_prefix_remain_required',
+    'test_goods_cancel_and_control_guards_preempt_preserved_entry',
+    'test_unknown_entry_synth_never_reuses_the_quiet_permission',
+})
+TERRAIN071_METHODS = frozenset({
+    'test_independent_floor_proof_resumes_on_a_future_beat_without_opening_credit',
+    'test_trigger_requires_a_never_started_unit_action_and_original_commit_deadline',
+    'test_independent_proof_and_issued_ticket_reject_motion_geometry_and_invalid_prefix',
+    'test_hud_proof_original_budgets_and_fifty_ms_preparation_are_not_reset',
+    'test_goods_cancel_and_control_authority_preempt_observing_and_issued_states',
+    'test_a_second_observed_open_cannot_start_another_recovery',
+})
+RELATED_GATE_METHODS = frozenset({
+    'test_new_independent_stationary_pair_and_fresh_hud_open_then_enter',
+    'test_new_ticket_signature_failure_cannot_restart_another_refresh_episode',
+})
+RELATED_PARTIAL_METHODS = frozenset({
+    'test_partial_interior_remote_drift_keeps_original_ticket_in_four_directions',
+    'test_partial_interior_changed_authority_or_motion_is_not_coalesced',
+})
+RELATED_OPERATION_METHODS = frozenset({
+    'test_preparation_epoch_fresh_dirt_and_door_keep_identity_without_safe_floor_or_reference',
+    'test_door_and_dirt_opening_count_operation_without_step',
+})
+RELATED_CADENCE_METHODS = frozenset({
     'test_third_strict_move_uses_earlier_image_and_preserves_original_next_beat',
-    'test_each_recheck_uses_last_actual_capture_start_for_minimum_spacing',
-    'test_finite_cap_reserves_the_old_one_period_final_opportunity',
-    'test_eighth_late_strict_move_can_still_confirm_under_original_visual_deadline',
     'test_fourth_proof_checks_original_visual_deadline_at_actual_commit',
-    'test_goods_latch_on_unstable_or_too_early_recheck_without_motion_credit',
-    'test_unstable_prefix_and_owner_guards_preempt_additional_assessments',
-    'test_unknown_synth_never_uses_any_visual_recheck_or_another_input',
-})
-COMPAT070_METHODS = frozenset({
-    'test_version_map_and_feature_memberships_preserve_every_prior_revision',
-    'test_unbound_diagnostics_keep_three_while_trusted_new_status_keeps_eight_recursively',
-    'test_status_and_manifest_limits_are_bound_to_expected_api_and_reject_invalid_types',
-    'test_encrypted_current_run_roundtrips_eight_in_status_manifest_and_both_journals',
-    'test_all_historical_journals_keep_their_api_limit_and_required_evidence',
-    'test_started_v14_recovers_same_uuid_and_original_api_without_a_new_start',
-    'test_never_started_v14_upgrades_only_its_first_start_and_rejects_an_old_ipa',
-    'test_persisted_preflight_and_result_api_cannot_cross_revision_boundaries',
-})
-RELEASE070_METHODS = frozenset({
-    'test_new_number_isolates_archive_root_and_prevents_a_second_start',
-    'test_missing_publication_is_repaired_before_a_new_run_and_default_069_stays',
-    'test_invalid_numbers_do_not_read_journals_or_start',
-})
-RELATED_CADENCE067_METHODS = frozenset({
-    'test_second_unknown_allows_early_checks_and_keeps_late_final_without_input_retry',
-})
-RELATED_MOTION_CADENCE_METHODS = frozenset({
-    'test_third_comparison_uses_tenth_spacing_then_confirms',
-    'test_eight_scheduled_unknowns_stop_without_ninth_comparison_or_input',
-})
-RELATED_BLOCKED_METHODS = frozenset({
-    'test_matching_stable_ack_prefix_is_required_and_unknown_input_never_retries',
-})
-RELATED_EDGE_METHODS = frozenset({
-    'test_edge_blocked_unknown_motion_or_unknown_synth_never_gets_another_input',
-})
-RELATED_LIGHTING_METHODS = frozenset({
-    'test_fresh_pending_full_five_fields_cannot_drift',
-    'test_fresh_pending_change_goods_and_guard_failures_never_send',
-    'test_fresh_then_same_keeps_new_direction_and_sticky_reference_until_budget',
 })
 RECOVERY_METHODS = frozenset({
     'test_additive_queries_preserve_layout_and_initial_zeroes',
 })
-RELATED_PUBLICATION_METHODS = frozenset({
-    'test_missing_png_or_incomplete_cursor_cannot_be_published_or_start_fresh',
-    'test_interrupted_or_corrupted_provider_copy_is_never_published_and_can_retry',
-    'test_cancellation_and_old_runtime_leave_every_source_byte_intact',
-})
-RELATED_OLD_API_METHODS = frozenset({
-    'test_literal_v1_through_v13_recover_ready_old_api_journals_with_no_get_or_start',
-})
-RELATED_OLD_IMAGES_METHODS = frozenset({
-    'test_literal_legacy_recovery_keeps_its_api_uuid_clock_and_complete_image_evidence',
-})
-PACKAGE_SEAL_METHODS = frozenset({
-    'test_native_v14_package_requires_actual_api16_and_strict_profile_v2',
-})
-PACKAGE_PROFILE_METHODS = frozenset({
-    'test_native_v14_package_requires_both_current_strict_compiler_proofs',
-})
-WORKFLOW070_METHODS = frozenset({
-    'test_changed_dispatch_boundary_runs_focused_runtime_before_ipa_and_keeps_evidence',
-})
 NATIVE_CASES = (
-    ('tests.test_native_cadence070', 'NativeCadence070Tests', 'test070-cadence', CADENCE070_METHODS, True),
-    ('tests.test_native_cadence067', 'NativeCadence067Tests', 'test070-related-cadence067', RELATED_CADENCE067_METHODS, False),
-    ('tests.test_native_motion_cadence', 'NativeMotionCadenceTests', 'test070-related-motion-cadence', RELATED_MOTION_CADENCE_METHODS, False),
-    ('tests.test_native_blocked067', 'NativeBlocked067Tests', 'test070-related-blocked', RELATED_BLOCKED_METHODS, False),
-    ('tests.test_native_edge068', 'NativeEdge068Tests', 'test070-related-edge', RELATED_EDGE_METHODS, False),
-    ('tests.test_native_controller', 'NativeControllerTests', 'test070-related-lighting', RELATED_LIGHTING_METHODS, False),
-    ('tests.test_native_recovery', 'NativeRecoveryTests', 'test070-related-recovery', RECOVERY_METHODS, False),
+    ('tests.test_native_shop071', 'NativeShop071Tests', 'test071-shop', SHOP071_METHODS, True),
+    ('tests.test_native_terrain071', 'NativeTerrain071Tests', 'test071-terrain', TERRAIN071_METHODS, True),
+    ('tests.test_native_gate069', 'NativeGate069Tests', 'test071-related-gate', RELATED_GATE_METHODS, False),
+    ('tests.test_native_shop066', 'NativeShop066Tests', 'test071-related-partial', RELATED_PARTIAL_METHODS, False),
+    ('tests.test_native_controller', 'NativeControllerTests', 'test071-related-operation', RELATED_OPERATION_METHODS, False),
+    ('tests.test_native_cadence070', 'NativeCadence070Tests', 'test071-related-cadence', RELATED_CADENCE_METHODS, False),
+    ('tests.test_native_recovery', 'NativeRecoveryTests', 'test071-related-recovery', RECOVERY_METHODS, False),
 )
-CLIENT_CASES = (
-    ('tests.test_native_compat070', 'NativeCompatibility070Tests', 'test070-compat', COMPAT070_METHODS, True),
-    ('tests.test_native_release070', 'Release070Tests', 'test070-release', RELEASE070_METHODS, True),
-    ('tests.test_native_publication069', 'Publication069Tests', 'test070-related-publication', RELATED_PUBLICATION_METHODS, False),
-    ('tests.test_native_recovery_results', 'RecoveryResultsTests', 'test070-related-old-api', RELATED_OLD_API_METHODS, False),
-    ('tests.test_native_collection068', 'NativeCollection068Tests', 'test070-related-old-images', RELATED_OLD_IMAGES_METHODS, False),
-)
-PACKAGE_CASES = (
-    ('test_apply_ngg2', 'NGG2ApplyTests', 'test070-package-seal', PACKAGE_SEAL_METHODS, False),
-    ('test_package', 'NativePackageProfileTests', 'test070-package-profile', PACKAGE_PROFILE_METHODS, False),
-    ('test_device_ci', 'DeviceNativeWorkflowTests', 'test070-workflow-boundary', WORKFLOW070_METHODS, False),
-)
+CLIENT_CASES = ()
+PACKAGE_CASES = ()
 CORE_MODULES = ('tests.test_native_controller', 'tests.test_native_recovery',
                 'tests.test_native_beat', 'tests.test_native_perception', 'tests.test_native_navigation')
-NATIVE_BASELINE = '5782a4aac6ed3f2878bea0f5c97fb6cea8cb035a'
-EXPECTED_NATIVE_CHANGES = {'LoopCtrlUITests/NG2Controller.c', 'LoopCtrlUITests/NG2Runtime.swift',
-                           'Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift', 'LoopCtrlKit/RPCMethod.swift'}
-CLIENT_SOURCE_MODULES = ('necroprobe.native_walk', 'necroprobe.test069', 'necroprobe.test070')
+NATIVE_BASELINE = 'acfeb7a210d2a67a0ae509ec25417650dc3aa3c2'
+EXPECTED_NATIVE_CHANGES = {'LoopCtrlUITests/NG2Controller.c'}
+CLIENT_SOURCE_MODULES = ('necroprobe.native_walk', 'necroprobe.test069', 'necroprobe.test071')
 
 
 def selected_cases(cases):
@@ -166,11 +123,11 @@ def client_suites():
     modules = {name: importlib.import_module(name) for name in dict.fromkeys(row[0] for row in CLIENT_CASES)}
     native = importlib.import_module('necroprobe.native_walk')
     publication = importlib.import_module('necroprobe.test069')
-    entry = importlib.import_module('necroprobe.test070')
+    entry = importlib.import_module('necroprobe.test071')
     if publication.native is not native:
         raise ValueError('production publication wrapper is not bound to the actual driver client')
     if entry.device_main is not publication.main:
-        raise ValueError('TEST070 entry is not bound to the actual driver publication wrapper')
+        raise ValueError('TEST071 entry is not bound to the actual driver publication wrapper')
     for name, module in modules.items():
         alias = sys.modules.get(name.rsplit('.', 1)[-1])
         for fixture in (module, alias):
@@ -216,7 +173,7 @@ def main():
     before = verifier.inspect_native_sources(upstream, driver)
     if (before['api_version'] != '1.98.16-ngg2' or before['client_capability'] != 'necrogold_native_v14'
             or len(before['native_source_sha256']) != 22):
-        raise ValueError('TEST070 sealed source identity is not installed')
+        raise ValueError('TEST071 sealed source identity is not installed')
     baseline = json.loads(subprocess.check_output(
         ['git', 'show', NATIVE_BASELINE+':patches/loopctrl/ngg2-manifest.json'], cwd=driver, text=True))
     baseline_sources = {name: row['patched_sha256'] for name, row in baseline['files'].items()}
@@ -224,7 +181,7 @@ def main():
     current_sources = before['native_source_sha256']
     changed = {name for name in current_sources if current_sources[name] != baseline_sources.get(name)}
     if set(current_sources) != set(baseline_sources) or changed != EXPECTED_NATIVE_CHANGES:
-        raise ValueError('TEST070 native change scope differs')
+        raise ValueError('TEST071 native change scope differs')
     native_change_scope = {'baseline': NATIVE_BASELINE, 'changed_sources': sorted(changed),
                            'unchanged_sources': len(current_sources)-len(changed)}
     client_before = client_source_identity(driver)
@@ -235,30 +192,23 @@ def main():
            for name in ('Scene', 'Status', 'Event', 'MotionWait', 'RecoveryStatus')}
     if abi != {'Scene': 23864, 'Status': 192, 'Event': 128, 'MotionWait': 48, 'RecoveryStatus': 456}:
         raise ValueError('native ABI layout changed')
-    record = {'scope': 'TEST070 cadence/compatibility/publication units and named related regressions; device feedback first',
+    record = {'scope': 'TEST071 observed shop entry and terrain refresh units and named related regressions; device feedback first',
               'source_identity': before, 'native_change_scope': native_change_scope,
               'client_source_identity': client_before,
               'abi_bytes': abi, 'device_test': 'not_run',
               'not_run': ['full Controller/Recovery/Beat/Perception/Navigation suites',
                           'Runtime integration and mutations (separate Mac step)', 'synthetic shop/world suites',
-                          'unselected client and RPC suites', 'unrelated initial/icon/unsent suites',
+                          'unselected client and RPC suites', 'unchanged package/profile and client version unit suites',
+                          'unrelated initial/icon/unsent suites',
                           'unselected workflow/publisher unit suites', 'private recorded-image corpus (local only)'],
               'selection_reasons': {
-                  'test070-cadence': 'up to eight same-input assessments with minimum capture spacing, original late final opportunity and unchanged deadlines/authority',
-                  'test070-compat': 'new API16 revision15 alone accepts eight; all prior revision APIs, three-attempt bounds and same-run recovery stay pinned',
-                  'test070-release': 'separate TEST070 spool and ZIP namespace while preserving default TEST069 publication and no-new-start boundary',
-                  'test070-related-cadence067': 'migrate the changed UNKNOWN sequence while retaining final opportunity and no input retry',
-                  'test070-related-motion-cadence': 'retain early strict proof and stop at exactly eight assessments without a ninth or another input',
-                  'test070-related-blocked': 'UNKNOWN motion and unknown synth cannot gain stationary retry authority',
-                  'test070-related-edge': 'edge UNKNOWN/BLOCKED/synth outcomes cannot send a second edge input',
-                  'test070-related-lighting': 'retain FRESH/SAME direction, complete five-field proof and goods/protected/control rejection',
-                  'test070-related-recovery': 'unchanged public ABI confirmed through actual C queries',
-                  'test070-related-publication': 'incomplete images, interrupted copy and cancellation cannot certify a ZIP or start another game',
-                  'test070-related-old-api': 'literal revision1 through13 keep API14 and same UUID without schema/start RPCs',
-                  'test070-related-old-images': 'literal revision13/API14 and revision14/API15 retain PNG export cursor and evidence without republishing',
-                  'test070-package-seal': 'capability14 requires actual API16 response even if a stale resealed response has a matching comment',
-                  'test070-package-profile': 'capability14 requires both strict source compiler proofs before publishing provenance',
-                  'test070-workflow-boundary': 'actual focused Mac Runtime step and saved evidence must precede the unchanged IPA build'}}
+                  'test071-shop': 'only verified door ACK and the same observed entrance permit shielded FLOOR/DIRT flicker without extending ticket authority',
+                  'test071-terrain': 'retire a definitely unsent dig ticket, independently prove the observed floor and resume once under the original budgets',
+                  'test071-related-gate': 'retain original closed-gate independent proof and reject a second refresh episode',
+                  'test071-related-partial': 'retain PARTIAL interior entry and reject changed authority or nonstationary evidence',
+                  'test071-related-operation': 'retain preparation identity on dig/door actions and count an opening without fabricated movement credit',
+                  'test071-related-cadence': 'retain early strict next-beat progress and actual-commit checks against the original visual deadline',
+                  'test071-related-recovery': 'unchanged public ABI confirmed through actual C queries'}}
     for label, cases in suites:
         run_scope(label, cases, output, record)
     # Workflow and selection changes have their own small unit set, without
@@ -276,7 +226,7 @@ def main():
     record['client_source_unchanged_after_tests'] = True
     record['manifest_sha256'] = hashlib.sha256((driver/'patches/loopctrl/ngg2-manifest.json').read_bytes()).hexdigest()
     (output/'test062-host-scope.json').write_text(json.dumps(record, indent=2)+'\n')
-    print('PASS TEST070 changed units and related regressions against exact IPA sources')
+    print('PASS TEST071 changed units and related regressions against exact IPA sources')
 
 
 if __name__ == '__main__':

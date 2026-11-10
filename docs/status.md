@@ -1,39 +1,29 @@
 # 最新状態
 
-更新: 2026-11-10（日本時間）。TEST070/build110を検証。最新指示は「明かりで新地形が見えルートを読み直す必要がある場合は1〜2拍許容、それ以外は毎拍歩行」。[要件](requirements/necrogold.md#2026-11-10-明かりによる新可視地形と歩行間隔)・[計画](plans/test070-cadence-lighting.md)・[検証](reviews/test070.md)。新地形でも次拍までに判断できれば待ちを挿入せず、未観測/UNKNOWN/商品/保護/元期限の安全条件を保つ。
+更新: 2026-11-10（日本時間）。TEST070を3回受領しTEST071を開発中。[計画](plans/test071-observed-entry.md)。添付順と実行順が逆で、device started_ns/原画から4ae60e18→c94d9812→3c1a844dの順にユーザー説明と対応する。1回目は3商品可視/GOODS、2回目は開扉後2商品だけ、3回目は扉前停止。商品全体可視を1/3として扱い、2商品を成功や対象なしにしない。
 
-## 実機根拠と変更
+## TEST070受領と原因
 
-[069受領](reviews/test069-received.md)の3runで商品可視到達3/3・50PNG全回収、自動GOODS1/3。fc37 UP→UPでは新露出0でも約1.05秒待つ。1357 DOWN→LEFTは新露出5cell/方向変更があり約1.04秒。新照明による経路判断と、既知通路の確認/準備遅れを分ける。途中の欠落画像やゲーム受付時刻を補完しない。
+3run/全41PNG（14/14・14/14・13/13）のZIP/PNG CRC・SHA/bytes/896×414/manifest/cursor/時刻prefix/active-report一致を確認。全画像回収resolved=true。4aeは5MOVED+1開扉+商品優先UNKNOWN1、GOODS/PAUSE成立。方向入力間隔約.514〜.530秒でほぼ毎拍だがゲーム受信時刻なしで完全同期とは断定しない。
 
-Controllerは同一ACK-known MOVEの画像評価を最大8回へ。2〜7回は直前start+元period/10、8回は初回+元1周期も必須とし旧最終機会を維持。strict proofが早く得られれば元次拍へ進む。before/prefix/source/phase/visualD・元12/45/180秒/16入力・UNKNOWN synth無再送/商品優先を維持。
+c94の原画124→125は同UP/reason5/target(0,-1)/FLOOR・同gold/全protected・strict BLOCKED。2商品/PARTIAL判定は正しい。唯一の変化は金bracket背後斜め(-1,-2)DIRT→FLOOR。旧quietの局所拒否→PARTIALを許さないgeneric safe_floor→FLOOR7/SCREEN停止。元Dの89.610ms前であり、送信失敗や時間切れではない。
 
-Runtimeはcoherent C snapshot/現在source pinを先に保持し、重い画像整理をCepochによる準備済み前面証拠の再利用/期限内dispatch後へ移す。pin上限20・取消/世代/owner/前面/最新Scene final begin・poison/drainは保持。snapshot identityでACK後の新状態を古いretentionへ戻さない。未検証latest画像を飛ばさず、10ms送信窓を延長しない。
+3c1の原画120→121は未送信LEFT/reason6/DIRTの次セルが最新reason7/FLOORへ変化。actual CはTERRAIN_OPENED zero vector、strict BLOCKEDではない。gold/全protected不変・他は遠方FLOOR→DIRT。元Dの36.326ms前にFLOOR7で停止。商品はまだ不可視でUNKNOWNが正しい。Perception/Navの誤判定として閾値を緩めない。
 
-新v15/API1.98.16-ngg2/cap14でattempts≤8を識別。旧v14=API.15/≤3、v1〜13=API.14/≤3、同UUID/clock/export/cursor回復は不変。ABI/layout/Perception/Nav不変。商品可視でも自動GOODSにならない看板/HUD問題は別課題で残す。
+## TEST071の限定修正
 
-TEST069のlocal永続保存/全画像検証後の一括ZIP公開を再利用し、070のnamespace/root/filenameを分けた。旧原本保持・未公開runの次start/完了前の終了表示は禁止。独立read-only300秒・取消境界を維持。
+Controllerだけの変更を基本とする。開扉ACK直後の観測済入口FLOORへ1歩の同票では、full5/gold/全protected/origin/next床/strict BLOCKED/元IDと全期限を保持し、金壁の背後forward2/lateral±1セルだけのFLOOR↔DIRT揺れを許す。一般の3×3近傍を広げない。
 
-## 検証と配布
+未送信dig対象DIRT→FLOORは旧票を撤回し、新床full5をanchorに独立した後続strict BLOCKEDを確認してから新ID・将来拍prep50ms・model sample≥proofで判断する別回復へ。1run1回、元last_verified+12秒/旧sync/walk45/session180/16入力を保持し、未送信の開通/歩数creditは作らない。旧ID/epochの復活や送信UNKNOWNの再送は禁止。既存closed gate refreshは維持する。
 
-code `f9bcc3bc7ec97ac4fa692bf388ffd64d79148e03`、[Mac110](https://github.com/shuhei0720/necrogold-automation/actions/runs/42818545816)成功。変更/関連39件、固定旧Runtimeの対象assert Red→新Runtime/関連4境界/identityの6呼出Green。全host実行ID・3client HEAD blob・22seal・実4C/5Swift/6RSP/strictO2・全9Mach-O115禁止marker非混入・全526build-source bytes/path/CRCを照合。native4変更/他18・R12原40/G1不変。全Runtime/world/実ゲームCIは未実施。
+新071入口/launcherは既存のlocal永続保存と全画像検証済ZIP公開を再利用。旧070原本保持・未公開runの次start/未完了の終了表示禁止・read-only300秒を維持する。API1.98.16/cap14/clientv15/全wire・ABI不変。Runtime/Ticket/Nav/Perception/各閾値は変更しない。
 
-実IPA0.3.4/build110、17,588,671bytes/SHA `a5100f749b9f21b755292a8d5c2732743cc059fde1ac4a246c10ccca23ad1402`。独立レビューP0/P1なし。最終sourceとの差分は文書3件と旧schema試験1件の2行だけで、製品/driver/native/launcherは同一。実機での毎拍/到達/GOODS改善は未宣言。
+変更単体11件は固定070の意味的Red→Green、既存関連32件も成功。独立差分レビューP0/P1なし、22source seal/適用済み。[検証](reviews/test071.md)。新IPA/実compiler/全Mach-O/全source照合後に固定Releaseへ保存し、必ず具体的な実機試験を依頼する。未収録の入店後/新床後の画像を合成して実機成功にはしない。
 
-[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test070-build110/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test070-build110/source.zip)・[SHA256SUMS](https://github.com/shuhei0720/necrogold-automation/releases/download/test070-build110/SHA256SUMS.txt)。固定Releaseへ公開、匿名GET/全SHAまで確認する。
+## 現在の配布済み版
 
-## 実機依頼
-
-SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、いつものVPN/ディスク設定。source展開後、test_070.shのあるフォルダを選択。新通常All Zones 1-1の金壁可視ポーズから実行する。
-
-```sh
-mkdir -p /mnt/necro_test070
-mount -t ios . /mnt/necro_test070
-cd /mnt/necro_test070 && sh test_070.sh
-```
-
-歩行中ゲーム前面、自動ポーズ後約5秒でiSHへ戻り前面のまま`TEST-070: 終了。画像とZIPの保存・照合が完了しました。`を待つ。まず新しい1-1を2回、既知通路の毎拍・新地形での必要待ち・商品全体の可視/停止位置・保存完了を確認し、自動`runtime/test-070-<run_id>.zip`全回分をそのまま返してもらう。回収済み069の再実行は不要。
+[TEST070/build110固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test070-build110)。code `f9bcc3bc7ec97ac4fa692bf388ffd64d79148e03`、[Mac110](https://github.com/shuhei0720/necrogold-automation/actions/runs/42818545816)変更/関連39件と限定Runtime Red→Green/6呼出を確認。[検証](reviews/test070.md)。IPA SHA `a5100f749b9f21b755292a8d5c2732743cc059fde1ac4a246c10ccca23ad1402`。実機結果は上記の1/3到達として更新、全体速度/商品認識の受入合格は未宣言。TEST071実機/実ゲームCIは未実施。
 
 ## 運用
 
-[開発フロー](development-flow.md#最新の運用方針2026-11-10-日本時間): 実機ログ→局所修正→単体/関連回帰→必要なIPA/同一性確認→実機。固定時間なし/品質安全条件不変、通常差分レビュー1回。無変更Runtime/world全体を毎回累積しない。既承認branchへ保存、生ZIP/原画/report/log/秘密値はGit外。同じiPhoneだけ、ユーザーはMacを持たず実機担当。初読3文書≤16KiB、[索引](context.md)から必要資料だけ読む。
+[要件](requirements/necrogold.md#2026-11-10-明かりによる新可視地形と歩行間隔): 新照明でルート判断が必要な1〜2拍のみ許容、それ以外は毎拍。[開発フロー](development-flow.md#最新の運用方針2026-11-10-日本時間): 実機ログ→局所修正→単体/関係回帰→必要なIPA/同一性確認→実機。固定時間なし/品質安全条件不変、通常差分レビュー1回。無変更Runtime/world全体を毎回累積しない。既承認branchへ保存、生ZIP/原画/report/log/秘密値はGit外。同じiPhoneだけ、ユーザーはMacを持たず実機担当。初読3文書≤16KiB、[索引](context.md)から必要資料だけ読む。

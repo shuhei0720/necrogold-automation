@@ -1,4 +1,4 @@
-# Native制御の不変条件
+# Nativeの不変条件
 
 [要件](../requirements/necrogold.md)・計画/Redで境界変更を検証。
 
@@ -6,23 +6,23 @@
 
 `legacy/r12/`40ファイルは[元manifest](../r12-source-manifest.json)とbyte一致。scope外G1/保護資産不変。raw/端末設定/pairing/秘密値はGit外。
 
-## 3. 入力owner・prefix・取消
+## 3. owner/prefix/取消
 
 端末monotonic nsを使用。取得両境界の同completed prefix・inflightなしの安定画像だけが入力権限。交差/旧世代/取消済みは拒否。CはcontrolQueue直列、main begin中caller同期停止。解析はcapture worker、Sceneはimmutable heap所有。observe/証跡は同owner/generation/cancel gateでcommitし、capture/解析/main実終了までdrain。最新優先/queue上限・EXIF1〜8・px/pt・alpha/sRGB/比率/stride/範囲/overlap検査を保つ。
 
-main.sync/run lock外でAX前面照会し、callback実returnまでlease保持。最終callbackにAX IPCを置かず、query-start≤end≤now・1秒以内を待機/IPC込みで検査。sample共有はC epochで証明された同logical MOVEのSAME/FRESH、同run/clock/owner/世代/PID/prefix・元拍/期限だけ（初歩/retune/ACK後不可）。synth直前に最新ID/方向/座標/実時計/前面/lock/owner/世代/取消/元ticketを検査し1回送信。旧IDは新状態不変、未確認input≤1。UNKNOWN再送/自動cleanup、停止後/別アプリへの旧画像入力は禁止。
+main.sync/run lock外でAX照会、callback実returnまでlease保持。最終callbackにAX IPCを置かず、query-start≤end≤now・1秒以内を待機/IPC込みで検査。sample共有はC epochで証明された同logical MOVEのSAME/FRESH、同run/clock/owner/世代/PID/prefix・元拍/期限だけ（初歩/retune/ACK後不可）。synth直前に最新ID/方向/座標/実時計/前面/lock/owner/世代/取消/元ticketを検査し1回送信。旧IDは新状態不変、未確認input≤1。UNKNOWN再送/自動cleanup、停止後/別アプリへの旧画像入力は禁止。
 
-## 4. 初期slotと再取得
+## 4. 初期slot/再取得
 
-初歩はlead+50msの準備を持つ拍を選び、notBefore100〜50ms前に最新通常判断から公開。それ以前のticket/event/replan生成は禁止。元境界は§6。
+初歩はlead+50ms準備の拍を選び、notBefore100〜50ms前に最新判断から公開。それ以前のticket/event/replan生成は禁止。元境界は§6。
 
 再取得はinputs/moves/lead_confirmed=0・取消/商品/終了なしの未発行candidate/state1未送信初歩/pendingだけ。track/同拍8%補正/stale/準備窓/未送信D失効で旧IDをnot_sent、slot全field/initial_ticket/model/raw撤回。event/replan/入力予算不変、同observe refit禁止。後続HUDの2秒span/fitで別候補選択。旧ticket時刻/ordinal不変。
 
 sync12秒は公開/begin/completeの等号で終了。TicketGuard短絡→complete0はstate1の純D超過だけ撤回。確認済連続/pendingは[065](../plans/test065-pending-unsent.md)。期限内complete0/state2/3/4/retune/権限失効は対象外。旧ID/状態検査は時計/予算更新より先。確認後同期は§8。
 
-## 5. 未送信の再予約
+## 5. 未送信再予約
 
-[066](../plans/test066-shop-action.md)の限定quietは同IDを維持。それ以外は初歩≤2回、continuousはchain≤2/run≤8。確実未送信・両Scene safe_floor/同gold/strict BLOCKEDが必須。初歩は同direction/origin・next近傍保護、continuousは全protected/元・保存の完全5field Decision/最新actionを検査。元target/notBefore/deadline/period/ordinal/horizon保持。reason8/FLOORは許可済み遠方target座標だけ変更可（direction/reason/obstacle/最新判断を再検査）。未知inputの次拍置換は禁止、初歩失効は§4で撤回。
+[066](../plans/test066-shop-action.md)・[071](../plans/test071-observed-entry.md)の限定quietは同ID保持。それ以外は初歩≤2回、continuousはchain≤2/run≤8。確実未送信・両Scene safe_floor/同gold/strict BLOCKEDが必須。初歩は同direction/origin・next近傍保護、continuousは全protected/元・保存の完全5field Decision/最新actionを検査。元target/notBefore/deadline/period/ordinal/horizon保持。reason8/FLOORは許可済み遠方target座標だけ変更可（direction/reason/obstacle/最新判断を再検査）。未知inputの次拍置換は禁止、初歩失効は§4で撤回。
 
 FRESH（validation12）はlead確認済みcontinuousでSAME不成立時に最新判断へ替える。両FLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE・origin FLOOR・全protected不変・source5field単一証明・strict BLOCKEDを要求。全230セルでUNKNOWN→FLOOR/DIRT/STONE/GOLD/DOOR、FLOOR→DIRT/STONE/GOLD/DOOR、DIRT→STONE/GOLD/DOORだけ許可。GOLD/STONE/DOOR/ITEM不変、新DOORはgold bracket必須。
 
@@ -42,13 +42,13 @@ FRESH（validation12）はlead確認済みcontinuousでSAME不成立時に最新
 
 親motion/次ordinalを分離。同nominal/periodのcandidate target/窓を対更新し初reserveで凍結。continuous初回はnotBefore100ms前/取得開始200ms前以降。更新前Dを次actualtickまでmin保持、超過は発行拒否。[061設計](../plans/test061-verified-progress.md)。
 
-[068](../plans/test068-fringe-collection.md)は観測床1歩。[069](../plans/test069-collection-gate.md)は未送信開扉1run1回。独立静止/freshfit/別IDと元予算必須、UNKNOWN credit禁止。
+[068](../plans/test068-fringe-collection.md)は観測床1歩。[069](../plans/test069-collection-gate.md)開扉/[071](../plans/test071-observed-entry.md)新床回復は各1run1回、独立静止/別ID/元予算必須。069はfreshfit、071は有効HUD/sample≥proof。未送信の開通credit禁止。
 
 ## 7. 拍/lead
 
 通常1-1 profile（.515〜.530秒）はlive HUDで確認。動画.52秒/送信時刻を固定epoch・受付幅にしない。初期lead未確認、150/75/225/300/375/450/25msを各1回、安全床/ACK後strict BLOCKED/同gold・経路確認時だけ試す。UNKNOWN/partial/商品変化/gate/dirt/保護対象はretune禁止。同方向実1歩MOVEDでlead選択、全試行を元入力/walk予算へ算入。
 
-## 8. ACKと移動確認
+## 8. ACK/変位確認
 
 ACKだけで移動扱いしない。state3同MOVE/command/before・安定ACK prefix、取得開始≥max(ACK,target+80ms)、[070](../plans/test070-cadence-lighting.md)はUNKNOWN/TWEEN≤8評価。2〜7回は直前start+元period/10、8回は初回+元periodも必須、旧版≤3。全てvisualD内。before差替えで回数/期限を回復禁止。ACK中HUD失効は次入力の位相資格を撤回し同MOVE確認は継続。state4 UNKNOWN synthはUI凍結・再送/cleanup禁止。通常cleanupは最新ACK prefixの新鮮FLOOR必須。
 
@@ -70,7 +70,7 @@ FRESH後の旧referenceは再作成/SAME復活禁止。primary UNKNOWN時だけ�
 
 商品latchを追加入力より優先。適格な同一商品frameの移動確認は1回credit可、UNKNOWN/TWEENも商品保持して終了。earliest前/期限後は移動を捏造せず最終実評価診断を残す。不可視≠対象なし、候補保持/購入禁止/通知を維持。
 
-## 11. ABIと診断
+## 11. ABI/診断
 
 Status192B/Event128B/Scene23864Bは不変。MotionWait48B layoutも不変だがdeadline_nsはvisualDへ意味変更（cap13で識別）。SceneDetail.validation=2 SAME/12 FRESH_ALLOWED。別query MotionReference80B/ACK MOVE≤16行（[12key閉schema](../../necroprobe/native_walk.py)）。
 
@@ -90,12 +90,12 @@ RPC2秒/結果8秒。unsafe/非pagedは90秒を残session180秒内へ。[069](..
 
 ## 14. Compileと封印
 
-profilev2はPerception/Navigationのみstrict O2（-fno-fast-math/-ffp-contract=off）、Beat/Controller O0、Swift Onone。native_v6/profilev1互換を保つ。22封印source/実PBX/raw compiler引数・response/profile/manifest/IPAを同codeへ結び、app/runner API/cap・全Mach-O HOST/fixture/spy非混入を照合。source ZIP全tracked bytes/CRC/path、標準macos-26/ubuntu-latest。
+profilev2はPerception/Navigation strict O2（-fno-fast-math/-ffp-contract=off）、Beat/Controller O0、Swift Onone。native_v6/profilev1互換を保つ。22seal/PBX/raw args/RSP/profile/manifest/IPAは同code。app/runner API/cap・全Mach-O HOST/fixture/spy除外、全tracked sourceZIP bytes/CRC/path照合。標準macos-26/ubuntu-latest。
 
-## 15. 検証の範囲
+## 15. 検証
 
-[試験区分](../testing.md)・[工程](../development-flow.md)。画像不足/hash不一致はlocal失敗、CI除外と区別。模擬/録画/IPA・未測定は実機成功/速度達成にせず、評価はrun別。
+[試験区分](../testing.md)・[工程](../development-flow.md)。画像不足/hash不一致はlocal失敗、CI除外と区別。模擬/未測定は実機成功/速度達成にせず、run別評価。
 
 ## 17. 配布
 
-[配布/実機依頼](../../AGENTS.md#保存と返却)に従う。native/cap変更は新IPA、SideStore更新→LoopCtrl完全終了/起動→Start Server。新通常1-1ポーズ、同時テスト禁止。回収済再実行禁止、未回収だけ同process/source/runtimeで回復。
+[配布/実機](../../AGENTS.md#保存と返却)。native/cap変更は新IPA、SideStore更新→LoopCtrl完全終了/起動→Start Server。新通常1-1ポーズ、同時テスト禁止。回収済再実行禁止、未回収だけ同process/source/runtimeで回復。
