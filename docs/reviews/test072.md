@@ -67,4 +67,19 @@ procedural地形/後続画面は実機の欠落画像を補うものではない
 設計担当が最終hashで新4module+旧Shop071の50テストを独立実行しGreen20.001秒、diffcheck成功。安全担当も最終hashで限定修正/追加境界を照合し、未解決P0/P1/P2なし。網羅担当も最終hashのCLEAR+GOLDtile拒否/見送り票撤回/新9境界を照合し、3観点とも未解決P0/P1/P2なしで第3passを閉じた。実Mac/IPA配布物照合結果は確定後に追記する。これらの成功を実機の到達率や毎拍達成へ置き換えない。
 
 
-配布用host選択は新45＋関係10＋selector3の58メソッド。関係10は旧shop0712・Nav73候補parity1・Controller準備/unchanged restart/clock3・SAME/FRESH mixed cap1・cadence2・ABI1。重複済みの新機能群を再実行せず、未確認の関係6+selector3だけ最終sealed sourceでGreen8.165秒、22source前後不変。manifest SHA `0f3fea5511bf9a2f01e22e7cb60f887d40afc40da02bc949f0e616a0a789de9f`。CIでは全58とnative_walk/test069/test072のHEAD/blob/delegate同一性をbefore/afterに束縛する。標準MacのIPA作成と既存限定Runtime6呼出はこれから実行する。
+配布用host選択は新45＋関係10＋selector3の58メソッド。関係10は旧shop0712・Nav73候補parity1・Controller準備/unchanged restart/clock3・SAME/FRESH mixed cap1・cadence2・ABI1。重複済みの新機能群を再実行せず、未確認の関係6+selector3だけ最終sealed sourceでGreen8.165秒、22source前後不変。manifest SHA `0f3fea5511bf9a2f01e22e7cb60f887d40afc40da02bc949f0e616a0a789de9f`。CIでは全58とnative_walk/test069/test072のHEAD/blob/delegate同一性をbefore/afterに束縛する。標準MacのIPA作成と既存限定Runtime6呼出は下記Mac114で実行済み。
+
+
+## 2026-11-11 最終Mac114と配布物
+
+code `8a54beb6e5b046b7ec801afbe4e7339c2eb4e702`/[Mac114](https://github.com/shuhei0720/necrogold-automation/actions/runs/42849699171)成功。実IPA0.3.4/build114/top.ebato.loopctrl/iPhoneOS/min16.0、17,596,172bytes/SHA `1851faf6fa5ec694bfc756a3522c8b50cc37567e087ceef9e1a7a2908a70e0ea`。
+
+unsigned artifact13780617840は17,868,145bytes/SHA `7523e511e9f33f44071d73966aa63d9ad570144a5f2b24b39e30b2f97a9ea6bd`、validation13781161329は1,213,681bytes/SHA `bef41624a607e860d1c7185631692b1efd6b8379840014e41a5518913b564bd5`、host13780395710は11,957bytes/SHA `dc11ac4f6106342a71ac32f0a4f5553871aeeb1c62681f9695ea1f88d4a50117`。全run/head/branch/outer bytes・SHA/CRCを照合。
+
+実host58/10区分の全実行ID/生ログ・fail/error/skip/xfailなし、ABI、22seal前後、native_walk/test069/test072のHEAD Git blob/path/hash/delegate同一を実IPA sourceへ束縛。Controller/Nav/Core3変更・他19、R12原40/G1不変。実compiler4C/5Swift/6RSPのraw log/PBX/argsとstrictprofile一致、Perception/Nav strictO2・Controller/BeatO0・SwiftOnone、HOST macroなし。全9Mach-O/123禁止marker非混入、API16/cap14/arm64を確認。
+
+限定Runtimeは証跡のTEST070名称/pathsのまま、固定6180旧Runtimeの意味的Red1→production新070/旧prefix・cancel・controller・deadline_equal/identityの6呼出Greenを、今回のC/Nav objectsへ束縛。これは合成queue/dispatch境界であり実ゲームCIではない。
+
+build-source全541tracked bytes/path/CRC、7,517,300bytes/SHA `cd979b9e0af4c5b03c23c4e0b2e84398efbe4c464ff4db8bdf5dad122b363a82`。実物5検証は各初回成功、Git外test072-final-verification-summary.jsonと5receiptに保存。3観点レビューは未解決P0/P1/P2なし。
+
+最終sourceはstatus/本review/台帳3文書だけを閉じ、全製品bytesをビルド時と一致させる。固定Release `test072-build114`へ検証済みIPA/完全source/SHA256SUMSを配置し匿名GET/全SHAを確認する。[一連の実機手順](../status.md)で毎回新しい通常1-1ポーズからまず2回、候補までrestart→接近→入店→全商品を確認し、自動run別ZIP全回分を依頼する。途中の短いrestartポーズではゲーム前面を保ち、ポーズのまま5秒以上変わらなくなってからiSHへ戻る。新実機での到達率/パターン精度/毎拍は未確認、回収済み071の再実行は不要。

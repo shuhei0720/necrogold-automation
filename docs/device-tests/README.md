@@ -2844,3 +2844,14 @@ code `f9bcc3bc7ec97ac4fa692bf388ffd64d79148e03`、[Mac110](https://github.com/sh
 1は5MOVED+1開扉/PARTIAL。同full5/金/全保護/strictBLOCKEDでも、商品保護maskが隣の不通行GOLDへ重なり入店票を未送信拒否。元D−58.578ms。2は2MOVED後、同UP/reason8/次FLOOR/full5/金/保護/strictBLOCKEDの遠方palette2セル変化でSAMEchain2へ達し、D−8.307msに停止。3は5MOVED+1送信、実画像ではDOOR→FLOOR/新商品露出だが狭い地形の元texture支持不足で8評価UNKNOWN、MOVEMENT停止。開扉credit0のままでACK/目視をそのままcreditへ置き換えない。
 
 歩行送信間隔約.505〜.526秒でほぼ毎拍。速度より商品到達を阻む停止を[072計画](../plans/test072-approach.md)で先に修正する。その後ユーザー追加の金壁不可視/側方通路接近を実装し、金壁が現れれば通常の入店・商品確認へ移る。全画像回収済み071の追加回収・再実行は依頼しない。raw/派生証跡はGit外。
+
+
+## TEST072配布: 一連のリスタート探索から全商品確認
+
+2026-11-11（日本時間）。[計画](../plans/test072-approach.md)・[検証](../reviews/test072.md)・[限定契約](../contracts/passage-approach.md)。code `8a54beb6e5b046b7ec801afbe4e7339c2eb4e702`/[Mac114](https://github.com/shuhei0720/necrogold-automation/actions/runs/42849699171)成功。新45/関係10/selector3の実host58と限定Runtime Red1/Green6呼出、22seal/実compiler4C・5Swift・6RSP/全9Mach-O123marker非混入/541全source bytes・CRCを照合。Controller/Nav/Core3変更、他19/Runtime/Perception/取得/元閾値/API16cap14v15/ABI/R12原40/G1不変。3観点の最終レビューP0/P1/P2なし。
+
+既存停止は保護GOLDと歩行床の区別、経路不変reason8の元ID quiet、資格ある未送信票の独立再観測、狭い開扉のdetail2帯で修正。新上/左通路は観測FLOORだけで固定mouthへ接近し、新金で通常shopへ。外側実到達+独立CLEARだけ局所見送り、未観測/商品/不明金は保持。歩行後restartは終点fingerprintから新levelを証明し、総予算/最初walk期限を保持。初回未開始時計とCLEAR+金tile/GOLD_UNKNOWNの見送りP1も各Red→最小fixで解消した。
+
+IPA0.3.4/build114、17,596,172bytes/SHA `1851faf6fa5ec694bfc756a3522c8b50cc37567e087ceef9e1a7a2908a70e0ea`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test072-build114/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test072-build114/source.zip)。最終source差分は文書3件だけで全製品bytes同一、公開後に匿名GET/全SHAまで照合する。
+
+最新指定の実機試験は、毎回新しい通常1-1のポーズから「候補までリスタート→金壁/通路候補→商店→全商品確認」を一連としてまず2回。開始配置を金可視へ揃える必要はない。新IPA更新→LoopCtrl完全終了/起動/Start Server→通常VPN→[statusのtest_072.sh手順](../status.md)。短いrestartポーズ中はゲーム前面、ポーズが5秒以上続いたらiSHへ戻り保存・照合完了を待つ。`runtime/test-072-<run_id>.zip`全回分とリスタート/候補発見/入店/全商品/停止位置/拍間隔を依頼する。上限や不明停止を商品確認成功にせず、実機精度/到達率はこれから確認する。071追加回収は不要。
