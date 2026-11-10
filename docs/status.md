@@ -13,7 +13,7 @@
 | native-host | artifact13724880636 / 7,280bytes / SHA `a3d05f3f8823ebde782db60cf7b21cbfa39739021409f843feb1785cac640937` |
 | build-source | [固定全コードZIP](https://codeload.github.com/shuhei0720/necrogold-automation/zip/afcb339624a4007390bbb326edabd3962057e758)。全479tracked bytes/CRC/path一致、7,287,498bytes / SHA `16d42e72a688b1725bb0c8db825c835e7f871b5703c6bc22a5241170bf54d726` |
 
-配布時の最終sourceはこのcodeと文書だけの差分にする。短期IPAリンクが切れた場合はSafariでGitHubへログインしMac94のArtifactsから取得する。公開releaseは作らない。
+最新ユーザー指定により、一時URLと期限付きActions artifactに代わる[固定配布](https://github.com/shuhei0720/necrogold-automation/releases/tag/test062-build94)へ切り替えた。[IPA直接取得](https://github.com/shuhei0720/necrogold-automation/releases/download/test062-build94/LoopCtrl-TEST062.ipa)・[全コードZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test062-build94/necro_test062-source.zip)。検証済みbuild94とsource5401c7dの同じbytesのみを配布し、raw実機資料/秘密値は公開しない。公開Release禁止という旧運用は、この固定ダウンロード指定で変更。
 
 ## 修正・今回の検証範囲
 

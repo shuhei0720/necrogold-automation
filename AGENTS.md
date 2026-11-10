@@ -28,6 +28,8 @@
 
 ## 保存と返却
 
+最新ユーザー指定: 配布リンクを期限切れにしない。検証済み未署名IPA/完全sourceはGitHubの固定Release assetへ保存し、一時署名URLを既定にしない。過去の「公開releaseを作らない」はこの配布指定で変更。秘密値/個人設定/実機raw資料は公開しない。
+
 保存先は `shuhei0720/necrogold-automation`、既承認branch `work/p1-capture-probe`。コード・資料の保存はユーザー承認済みであり、保存だけを理由に再確認しない。完全なファイルを保存し、省略コードを配布しない。
 
 説明は日本語、日付は日本時間。変更内容・実施した検証・未確認を具体的に示す。native/cap変更時は新IPAを実ビルドし、seal/来歴/実compiler/配布物/全source ZIPを照合する。

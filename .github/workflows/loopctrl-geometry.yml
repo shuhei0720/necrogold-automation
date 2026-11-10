@@ -8,7 +8,7 @@ on:
         type: choice
         required: true
         default: device
-        options: [device, focused, full, test058-red, test058-quick]
+        options: [device, focused, full, publish-test062, test058-red, test058-quick]
 
 permissions:
   contents: read
@@ -597,3 +597,51 @@ jobs:
             ${{ runner.temp }}/ngg2/perception-build/
           if-no-files-found: error
           retention-days: 30
+  publish-test062-download:
+    if: inputs.native_lane == 'publish-test062'
+    permissions:
+      actions: read
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: shuhei0720/necrogold-automation
+    steps:
+      - name: Download only the already verified TEST062 artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          mkdir test062-download
+          cd test062-download
+          gh api repos/shuhei0720/necrogold-automation/actions/artifacts/13724083342/zip > build-artifact.zip
+          echo 'cfb84047de76feed4e3c19384d8fb6cdbe51ee9cfc5f7664f263653cb988f241  build-artifact.zip' | sha256sum -c -
+          unzip -p build-artifact.zip upstream/release/LoopCtrl.ipa > LoopCtrl-TEST062.ipa
+          curl --fail --location --silent --show-error https://codeload.github.com/shuhei0720/necrogold-automation/zip/5401c7d30dff5c7677896ce282c3f4b97210766f --output necro_test062-source.zip
+          cat > SHA256SUMS.txt <<'SUMS'
+          645848e0d5d59b97e9338af586440df6f3f814008c56bb229e103bfb6e2eddd1  LoopCtrl-TEST062.ipa
+          303cb940b18c37652c7f390226091f837e76edd21eb3767e2774b4457677b506  necro_test062-source.zip
+          SUMS
+          sha256sum -c SHA256SUMS.txt
+      - name: Verify the draft belongs to this exact package
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/shuhei0720/necrogold-automation/releases/439826932 > "$RUNNER_TEMP/test062-download/release.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          r = json.loads((Path(os.environ['RUNNER_TEMP'])/'test062-download/release.json').read_text())
+          assert r['draft'] is True and r['tag_name'] == 'test062-build94'
+          assert r['target_commitish'] == '5401c7d30dff5c7677896ce282c3f4b97210766f'
+          assert not r['assets'], 'do not replace an existing published package'
+          PY
+      - name: Publish exact verified files at fixed download URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/test062-download"
+          gh release upload test062-build94 LoopCtrl-TEST062.ipa necro_test062-source.zip SHA256SUMS.txt
+          gh release edit test062-build94 --draft=false --prerelease --latest=false
+          gh api repos/shuhei0720/necrogold-automation/releases/439826932 --jq '{url:.html_url,draft:.draft,assets:[.assets[]|{name:.name,size:.size,digest:.digest,url:.browser_download_url}]}'

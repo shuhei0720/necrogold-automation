@@ -44,7 +44,7 @@ python3 patches/loopctrl/check_geometry.py /path/to/LoopCtrl /tmp/ngg1-contracts
 
 Swift契約試験は本番関数を直接切り出して実行する。元のキャッシュ式へ戻した変異も失敗することを確認する。UIImageの実描画、ゲーム表示、速度はこの数値試験で証明しない。
 
-専用[workflow](../../.github/workflows/loopctrl-geometry.yml)は、上記試験、unsigned IPA build、既存LoopCtrlKit tests、.xctest/CLI同梱と個人プロビジョニング情報がないことを確認する。IPAとSHA-256、上流/driver commit、patch SHA、toolchain情報をprivate Actions artifactへ保存する。署名・端末への導入・端末受入は別工程。公開releaseは作らない。
+専用[workflow](../../.github/workflows/loopctrl-geometry.yml)は、上記試験、unsigned IPA build、既存LoopCtrlKit tests、.xctest/CLI同梱と個人プロビジョニング情報がないことを確認する。IPAとSHA-256、上流/driver commit、patch SHA、toolchain情報をprivate Actions artifactへ保存する。署名・端末への導入・端末受入は別工程。最新ユーザーの期限切れしない配布指定により、検証済み未署名IPAと完全sourceだけを固定Release assetでも配布する。raw実機資料/秘密値は含めない。
 
 取得元修正のCI・独立レビューは完了。Swift91契約、IPA build、既存LoopCtrlKit tests、構成検査が成功。新capabilityを確認するP1.5も用意し、次は[TEST-010](../../docs/device-tests/010-source-landscape.md)のSideStore更新と実機試験。R12は変更しない。
 

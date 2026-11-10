@@ -34,7 +34,7 @@ class DeviceNativeWorkflowTests(unittest.TestCase):
     def test_default_native_lane_is_device(self):
         trigger = self.source.split('\npermissions:',1)[0]
         self.assertIn('        default: device\n', trigger)
-        self.assertIn('options: [device, focused, full, test058-red, test058-quick]', trigger)
+        self.assertIn('options: [device, focused, full, publish-test062, test058-red, test058-quick]', trigger)
         self.assertNotRegex(trigger, r'(?m)^  push:')
 
     def test_device_uses_only_selected_host_contracts_before_the_existing_build(self):
