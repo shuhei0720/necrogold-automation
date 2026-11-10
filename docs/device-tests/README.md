@@ -2666,3 +2666,10 @@ ZIP6,632,109bytes/SHA `4d1a4849e947a84e69cfd21a4c0256838c6b5a0aa49b7a8c73a0785ef
 3回目7f9…は0入力/0移動。最初の2再予約を消費し期限切れでモデル再取得した後、83→84の遠方(-4,+1)DIRT→UNKNOWNで初歩MOVE5を撤回。全5field LEFT/reason8/target(-3,+1)/FLOOR、金/保護/strict BLOCKED不変。actual commitは元notBefore−90,059,648nsで旧quiet50ms窓外だった。
 
 ZIP10,126,160bytes/SHA `b725324aa8c9698784a55e3b6f524f21e7a8cbbe9578d87e8e34326ec9124803`。3run terminal/drained/resolved、active=最後のreport、43PNGの全SHA/bytes/896×414/全chunk CRC/manifest一致を確認。原画の実C条件評価と合成scene/clockの予約単体を区別し、未収録の先の成功を補わない。raw資料はGit外。回収済み063を追加回収のため再実行せず、[TEST064](../plans/test064-stationary-step.md)を実機で確認する。
+
+
+## TEST064配布（2026-11-10 日本時間）
+
+[計画](../plans/test064-stationary-step.md)・[検証](../reviews/test064.md)・[固定配布/実機手順](../status.md)。code3d8334249394ae81ed8d449d4925dc2eb85c35d3/Mac98 device成功、新IPA/build98。C27+selector3の30件、実compiler/22seal/9Mach-O/完全source照合済み。Controllerのみ変更、閾値/Nav/Runtime/API15/cap13/ABI不変。
+
+公開済み初歩のquietを100msへ揃え、実移動/lead確認済みの同じ入口床1歩を遠方palette揺れから保持する。全判断/金/保護/局所/strict BLOCKED/元期限で拘束し、同ID/source/拍を凍結する。商品・取消・owner/lock/prefix・未知/送信済みを維持。実機商品可視/下方商品の追加移動/0歩停止を次に確認し、SideStore更新・LoopCtrl完全終了/起動・Start Server後、新通常1-1ポーズでtest_064.sh、終了後runtime/test-064全ZIPを依頼する。受領063の再実行ではない。

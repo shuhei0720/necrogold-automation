@@ -9,11 +9,35 @@
 - 初歩: 初期2回の再予約後にモデルを再取得。83→84は遠方DIRT→UNKNOWN、同じ全5field/金/保護/strict BLOCKEDだが、actual commitがnotBefore−90.060msで旧quiet50ms窓外。既に公開した初歩ticketの100ms窓へquietを広げる。準備50ms、未発行時刻、replan≤2、元sync12秒は不変。
 - 開扉後: 120→121と139→140は同じ入口FLOOR1歩、商品PARTIAL、金/保護/全5field/strict BLOCKED不変。遠方DIRT↔STONEだけでも既存safe_floorがgate/PARTIALを拒否していた。実移動/lead確認済み・state1確実未送信・同じ入口1歩だけ、局所床/金/保護/判断/実motion/元期限を再検査して同IDを維持する。再予約・入力再送・source/期限延長はしない。
 
-Controller.cだけを変更予定。Navigation/Perception/Runtime/公開ABI/API1.98.15-ngg2/cap13/client v14は不変。商品VISIBLE/取消/owner/lock/prefix/未知入力優先を保持する。下方の商品は未観測であり陰性にせず、停止箇所の先は既存plannerで進める。実機到達は未確認。
+Controller.cだけを変更。Navigation/Perception/Runtime/公開ABI/API1.98.15-ngg2/cap13/client v14は不変。商品VISIBLE/取消/owner/lock/prefix/未知入力優先を保持する。下方の商品は未観測であり陰性にせず、停止箇所の先は既存plannerで進める。実機到達は未確認。
 
-## 検証と配布の進行
+## TEST064配布と検証済み同一性
 
-旧Cで新初歩5methodの意味的assertion Red（errors0）と新入口の正常系Redを確認。修正後は初歩5+旧quiet3、入口6がローカルGreen。独立差分レビューP0/P1/P2なし。device laneの変更単体/関連回帰、実IPA/22seal/実compiler/完全source照合を行い、固定ReleaseでTEST064を依頼する。全Runtime/world/未変更clientを配布前提にしない。
+固定配布: [IPA build98](https://github.com/shuhei0720/necrogold-automation/releases/download/test064-build98/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test064-build98/source.zip)。code `3d8334249394ae81ed8d449d4925dc2eb85c35d3`、[Mac98/device](https://github.com/shuhei0720/necrogold-automation/actions/runs/42747426496)成功。TEST064の実機は未実施。[検証](reviews/test064.md)。
+
+| 配布物 | 同一性 |
+| --- | --- |
+| 内部IPA | build98 / SHA `34a588f1e53808f97e62681df83513b9d1b38456d66dfda8bc0e5a4992af0c53` |
+| IPA外ZIP | artifact13731848321 / 17,842,056bytes / SHA `6ba6b4416d3b1420ca4114ca207eb8be0584a11f339dde79e9dd7e460b835e9e` |
+| 診断ZIP | artifact13732821205 / 156,926bytes / SHA `161470321ec1c114579781366408606fddfc4c5dcc4d00125c2a5080b6141e5f` |
+| native-host | artifact13732285934 / 7,239bytes / SHA `ed12ebdd8df5808232f29f3b927452a3db7b4108e175b701902564198e114720` |
+| build-source | 全488tracked bytes/CRC/path一致、7,314,954bytes / SHA `7a49b3b0684ba3b79572ac5df10c1fac3a8b61127574e70fbc97fa6de01446b8` |
+
+新11+関連16のC27、小selector3の30件を実IPAと同じpatched sourceで確認。独立差分レビューP0/P1/P2なし。元画像2組は新入口helper適合、初歩は実画像の5field/strict BLOCKEDと記録時刻を確認。未収録のmodel/timeを補った完全実機再生ではない。
+
+22seal中Controllerだけ変更/他21・R12原40/G1不変、実4C/5Swift/6RSP/PBXとraw compiler引数、全9Mach-O/101 HOST・旧API marker非混入を照合。API15/cap13/ABI不変。完全source最終版はこのcodeとの差分がstatus/review/台帳の3文書だけであることを確認し、固定Releaseへ保存する。全Runtime/world/不変client/不変workflow-publisherを今回再実行しない。
+
+## 次の実機TEST064
+
+SideStoreで新IPA/build98更新→LoopCtrl完全終了/起動→Start Server→通常VPN/disk。新しい通常オールゾーン1-1の金壁可視・左側が下/端0の開幕ポーズから。
+
+```sh
+mkdir -p /mnt/necro_test064
+mount -t ios . /mnt/necro_test064
+cd /mnt/necro_test064 && sh test_064.sh
+```
+
+folder pickerは完全source ZIPを展開しtest_064.shが入っているフォルダ。歩行中はゲーム前面、自動PAUSE後約5秒でiSHへ戻り「TEST-064: 終了」を待つ。新しいランで商品可視位置まで、特に下方商品への追加移動と0歩停止を実機確認し、runtime/test-064全ZIPを依頼する。到達率の改善は次の実機で確認する。
 
 ## TEST063の記録
 

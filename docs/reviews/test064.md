@@ -15,3 +15,14 @@
 新初歩5/入口6、旧quiet3、関連continuous/公開窓8、ABI1、063未送信回復4のC27＋試験選択器3で30methodを選ぶ。native source22の前後同一性/ABI/全実行ID/0skipを実IPAへ結ぶ。不変のcadence・残unsent・workflow/publisher・全Runtime/world/Kit/clientは再実行しない。関係のない試験やassertは削除せず、選択と省略理由をhost metadataへ保存する。YAML/publisherは不変。
 
 Controller C SHA `d1ce74e3b321cb5f777ba8315373569f01fd0f81e45bb18a10b79e3fd50777d6`、manifest SHA `e7e57d6b093ac70f660f3fbd9fe6a7194761fac54b86af06e2ef66d95118aa1f`。22source中Controllerだけ変更、その他21/API15/cap13/client v14/公開ABI/R12/G1は維持。独立差分レビュー1回でP0/P1/P2指摘なし。全4方向×UNKNOWN/PARTIALの8手続きで、3回の遠方揺れ後ACK→実C MOVEDまで確認した（実機商品到達とは別）。Mac/実配布物の結果は配布前に追記する。
+
+
+## 最終Mac98と実配布物
+
+code `3d8334249394ae81ed8d449d4925dc2eb85c35d3`、[Mac98](https://github.com/shuhei0720/necrogold-automation/actions/runs/42747426496) device成功。実IPA build98 SHA `34a588f1e53808f97e62681df83513b9d1b38456d66dfda8bc0e5a4992af0c53`、外ZIP SHA `6ba6b4416d3b1420ca4114ca207eb8be0584a11f339dde79e9dd7e460b835e9e`。
+
+hostの全30実行ID/生ログ/0skip/error/選択理由/22seal前後/ABIが実IPAと一致。実4C/5Swift/6RSP/PBX/raw引数はPerception/Nav strictO2、Controller/BeatO0、SwiftOnoneでHOST macroなし。全9Mach-Oで従来100marker+064の計101が非混入。22native source中Controllerだけ変更、他21/R12原40/G1維持。build-sourceは全488tracked bytes/path/CRC一致。配布最終source差分は文書3件のみと確認する。
+
+Git外host検証器はABI scope1件のunittestログ単数「Ran 1 test」を既存の複数regexが拒否したため、実件数に応じた単数/複数の厳密検査へ修正して実物照合を完了。製品/CI/test期待値を変更せず、実suiteの再実行は不要だった。
+
+[固定配布/実機手順](../status.md)でIPAと完全sourceを返し、商品可視位置への実機到達を依頼する。TEST064の受入は未実施。原画2組のhelper適合や合成ACK→MOVEDを、下方商品の将来画像や実機商品到達の証拠にはしない。
