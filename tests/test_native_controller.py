@@ -2586,7 +2586,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
         self.assertEqual(0,self.status().goods)
     def test_full_public_resume_clear_restart_changed_gold_walk_goods_hold(self):
         self.observe(self.scene());_,resume=self.tick();self.ack(resume)
-        self.now+=100_000_000;clear=self.scene(2,1);self.observe(clear)
+        self.now+=200_000_002;clear=self.scene(2,1);self.observe(clear)
         _,pause=self.tick();self.assertEqual((2,390,448),(pause.kind,pause.x,pause.y));self.ack(pause)
         self.now+=100_000_000;self.observe(self.scene());self.assertEqual(0,self.tick()[0])
         self.now+=100_000_000;_,restart=self.tick();self.assertEqual((3,144,448),(restart.kind,restart.x,restart.y));self.ack(restart)
@@ -3357,7 +3357,7 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
             ready,pause=self.tick();self.assertEqual((ready,pause.kind),(1,2));self.ack(pause)
             self.now+=200_000_000;self.observe(self.scene());ready,restart=self.tick()
             self.assertEqual((ready,restart.kind),(1,3));self.ack(restart)
-            self.now+=100_000_000;clear=self.scene(2,1);fingerprint=12-fingerprint
+            self.now+=200_000_002;clear=self.scene(2,1);fingerprint=12-fingerprint
             for k in (0,1,2,8,9,10):clear.fingerprint[k]=fingerprint
             self.observe(clear);self.assertEqual(count+1,self.status().restarts)
         self.assertEqual(0,self.tick()[0]);self.assertEqual(14,self.status().reason)

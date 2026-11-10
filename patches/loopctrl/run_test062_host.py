@@ -1,4 +1,4 @@
-"""Run only TEST072 observed shop fixes and passage approach changes and related units before device feedback.
+"""Run only TEST073 UI transition and pause readiness changes and related units before device feedback.
 
 All native fixtures compile the sealed patched upstream used by the IPA.
 Historical synthetic worlds and Runtime mutation suites remain explicit lanes.
@@ -15,98 +15,46 @@ import subprocess
 import unittest
 
 
-DOOR072_METHODS = frozenset({
-    'test_sparse_opening_uses_strong_independent_terrain_in_four_directions',
-    'test_protected_gold_walls_allow_the_observed_interior_floor',
-    'test_opening_requires_a_preserved_bracket_and_unprotected_endpoints',
-    'test_invalid_scenes_are_rejected_before_the_supplemental_proof',
-    'test_weak_repeating_one_band_and_ui_only_pixels_do_not_prove_an_opening',
-    'test_nonzero_and_existing_primary_motion_results_are_not_reclassified',
-    'test_gold_wall_exception_never_allows_protected_floor_or_other_cells',
+UI073_METHODS = frozenset({
+    'test_resume_ack_is_not_immediate_permission_for_a_skip_pause',
+    'test_new_passage_during_ui_wait_revokes_skip_before_any_restart',
+    'test_elapsed_time_and_crossing_capture_do_not_replace_post_cutoff_floor',
+    'test_unstable_and_wrong_prefix_post_cutoff_frames_never_authorize_pause',
+    'test_restart_ack_keeps_its_own_settle_boundary_after_level_reset',
+    'test_goods_latch_immediately_while_physical_pause_waits_for_its_fresh_floor',
+    'test_already_floor_or_elapsed_ui_ack_adds_no_new_pause_delay',
+    'test_final_begin_rechecks_latest_floor_and_live_control',
+    'test_ui_wait_preserves_source_session_and_unknown_input_limits',
+    'test_one_resumed_session_uses_fresh_ui_floor_and_reaches_all_goods',
 })
-OBSERVATION072_METHODS = frozenset({
-    'test_unknown_goods_observed_vantage_keeps_original_beat_for_irrelevant_drift',
-    'test_protected_gold_wall_does_not_block_the_same_observed_entry',
-    'test_exhausted_same_chain_reobserves_floor_before_a_new_future_ticket',
-    'test_current_floor_refresh_rejects_changed_action_protection_and_old_input_authority',
-    'test_independent_floor_proof_and_published_ticket_keep_full_current_permission',
-    'test_current_hud_fifty_ms_preparation_and_original_budgets_remain_required',
-    'test_goods_cancellation_phase_and_owner_guards_preempt_observing_or_issued_refresh',
-    'test_refresh_limit_is_once_per_verified_progress_and_eight_per_session',
-})
-PASSAGE_NAV072_METHODS = frozenset({
-    'test_candidate_bits_cover_annotated_families_and_multiple_mouths',
-    'test_fixed_world_mouth_reaches_one_outside_with_real_floor_steps',
-    'test_shadowed_mouth_requires_outside_floor_and_wall_line_support',
-    'test_unknown_outside_uses_a_monotone_observed_vantage_then_new_view',
-    'test_invalid_start_gold_goods_ordinary_exits_and_protection_do_not_explore',
-    'test_chooser_rejects_unsafe_steps_invalid_world_targets_and_unreachable_floor',
-    'test_fixed_second_mouth_remains_reachable_across_the_initial_room',
-    'test_shop_chooser_stays_separate_and_null_outputs_fail_closed',
-})
-PASSAGE072_METHODS = frozenset({
-    'test_gold_clear_passage_moves_on_observed_floor_instead_of_restarting',
-    'test_moved_gold_reveal_uses_normal_shop_without_restart',
-    'test_final_vantage_requires_independent_clear_before_restart',
-    'test_gold_reveal_retires_unsent_exploration_before_new_shop_ticket',
-    'test_walked_restart_uses_endpoint_fingerprint_and_level_local_calibration',
-    'test_restart_never_extends_original_walk_equality_deadline',
-    'test_goods_item_and_protection_hold_at_every_exploration_stage',
-    'test_cancel_foreground_and_owner_stop_every_exploration_stage',
-    'test_unknown_sent_exploration_and_restart_cannot_issue_or_reset',
-    'test_shadowed_outer_goal_waits_for_observed_floor_and_never_steps_unknown',
-    'test_multiple_fixed_mouths_are_retained_until_both_independent_inspections',
-    'test_restarted_level_retune_and_initial_recovery_use_local_zero',
-    'test_partial_or_protected_after_inspection_revokes_pause_and_restart_authority',
-    'test_new_gold_revokes_skip_and_started_pause_holds_candidate',
+RELATED_PASSAGE_METHODS = frozenset({
     'test_one_native_session_restarts_searches_enters_and_completes_only_on_goods',
-    'test_final_inspection_discards_old_prefix_unstable_and_overlapping_frames',
-    'test_acknowledged_unknown_visual_motion_never_becomes_another_exploration_step',
     'test_acknowledged_restart_proves_new_gold_level_before_normal_shop',
-    'test_new_shop_ticket_requires_hud_at_or_after_independent_geometry_proof',
-    'test_first_skip_pause_new_gold_starts_walk_once_at_real_device_uptime',
-    'test_uncertain_floor_gold_evidence_revokes_local_completion_and_skip',
-    'test_pause_ui_gold_unknown_is_not_uncertain_floor_and_can_restart',
 })
-RELATED_SHOP_METHODS = frozenset({
-    'test_verified_open_entry_keeps_original_ticket_for_shielded_floor_dirt_flicker',
-    'test_exception_does_not_allow_other_local_cells_materials_or_missing_open_ack',
-})
-RELATED_NAV_METHODS = frozenset({
-    'test_signature_normalization_and_all73_scores_exact_reference',
-})
-RELATED_LEVEL_METHODS = frozenset({
-    'test_preparation_epoch_fresh_dirt_and_door_keep_identity_without_safe_floor_or_reference',
+RELATED_CONTROLLER_METHODS = frozenset({
+    'test_full_public_resume_clear_restart_changed_gold_walk_goods_hold',
+    'test_twelve_changed_restarts_bound_and_no_thirteenth',
     'test_restart_unchanged_timeout_never_resends',
+    'test_goods_frame_preserves_evidenced_move_before_holding_pause',
+    'test_unknown_synth_and_started_cancel_freeze_even_pause',
     'test_initial_sync_twelve_second_limit_and_walk_forty_five',
-    'test_fresh_and_same_share_run_eight_and_chain_two_budgets',
-})
-RELATED_CADENCE_METHODS = frozenset({
-    'test_third_strict_move_uses_earlier_image_and_preserves_original_next_beat',
-    'test_goods_latch_on_unstable_or_too_early_recheck_without_motion_credit',
 })
 RECOVERY_METHODS = frozenset({
     'test_additive_queries_preserve_layout_and_initial_zeroes',
 })
 NATIVE_CASES = (
-    ('tests.test_native_door072', 'NativeDoor072Tests', 'test072-door', DOOR072_METHODS, True),
-    ('tests.test_native_observation072', 'NativeObservation072Tests', 'test072-observation', OBSERVATION072_METHODS, True),
-    ('tests.test_native_passage_navigation072', 'NativePassageNavigation072Tests', 'test072-passage-navigation', PASSAGE_NAV072_METHODS, True),
-    ('tests.test_native_passage072', 'NativePassage072Tests', 'test072-passage-control', PASSAGE072_METHODS, True),
-    ('tests.test_native_shop071', 'NativeShop071Tests', 'test072-related-shop', RELATED_SHOP_METHODS, False),
-    ('tests.test_native_navigation', 'NativeNavigationTests', 'test072-related-navigation', RELATED_NAV_METHODS, False),
-    ('tests.test_native_controller', 'NativeControllerTests', 'test072-related-level', RELATED_LEVEL_METHODS, False),
-    ('tests.test_native_cadence070', 'NativeCadence070Tests', 'test072-related-cadence', RELATED_CADENCE_METHODS, False),
-    ('tests.test_native_recovery', 'NativeRecoveryTests', 'test072-related-recovery', RECOVERY_METHODS, False),
+    ('tests.test_native_ui073', 'NativeUI073Tests', 'test073-ui', UI073_METHODS, True),
+    ('tests.test_native_passage072', 'NativePassage072Tests', 'test073-related-passage', RELATED_PASSAGE_METHODS, False),
+    ('tests.test_native_controller', 'NativeControllerTests', 'test073-related-controller', RELATED_CONTROLLER_METHODS, False),
+    ('tests.test_native_recovery', 'NativeRecoveryTests', 'test073-related-recovery', RECOVERY_METHODS, False),
 )
 CLIENT_CASES = ()
 PACKAGE_CASES = ()
 CORE_MODULES = ('tests.test_native_controller', 'tests.test_native_recovery',
                 'tests.test_native_beat', 'tests.test_native_perception', 'tests.test_native_navigation')
-NATIVE_BASELINE = '605f2e5c526cf2da515235550a471133750dd05d'
-EXPECTED_NATIVE_CHANGES = {'LoopCtrlUITests/NG2Controller.c', 'LoopCtrlUITests/NG2Navigation.c',
-                           'LoopCtrlUITests/NG2Core.h'}
-CLIENT_SOURCE_MODULES = ('necroprobe.native_walk', 'necroprobe.test069', 'necroprobe.test072')
+NATIVE_BASELINE = 'c99f3850b315c82ef2330d50460415b6527e34b3'
+EXPECTED_NATIVE_CHANGES = {'LoopCtrlUITests/NG2Controller.c'}
+CLIENT_SOURCE_MODULES = ('necroprobe.native_walk', 'necroprobe.test069', 'necroprobe.test073')
 
 
 def selected_cases(cases):
@@ -165,11 +113,11 @@ def client_suites():
     modules = {name: importlib.import_module(name) for name in dict.fromkeys(row[0] for row in CLIENT_CASES)}
     native = importlib.import_module('necroprobe.native_walk')
     publication = importlib.import_module('necroprobe.test069')
-    entry = importlib.import_module('necroprobe.test072')
+    entry = importlib.import_module('necroprobe.test073')
     if publication.native is not native:
         raise ValueError('production publication wrapper is not bound to the actual driver client')
     if entry.device_main is not publication.main:
-        raise ValueError('TEST072 entry is not bound to the actual driver publication wrapper')
+        raise ValueError('TEST073 entry is not bound to the actual driver publication wrapper')
     for name, module in modules.items():
         alias = sys.modules.get(name.rsplit('.', 1)[-1])
         for fixture in (module, alias):
@@ -215,7 +163,7 @@ def main():
     before = verifier.inspect_native_sources(upstream, driver)
     if (before['api_version'] != '1.98.16-ngg2' or before['client_capability'] != 'necrogold_native_v14'
             or len(before['native_source_sha256']) != 22):
-        raise ValueError('TEST072 sealed source identity is not installed')
+        raise ValueError('TEST073 sealed source identity is not installed')
     baseline = json.loads(subprocess.check_output(
         ['git', 'show', NATIVE_BASELINE+':patches/loopctrl/ngg2-manifest.json'], cwd=driver, text=True))
     baseline_sources = {name: row['patched_sha256'] for name, row in baseline['files'].items()}
@@ -223,7 +171,7 @@ def main():
     current_sources = before['native_source_sha256']
     changed = {name for name in current_sources if current_sources[name] != baseline_sources.get(name)}
     if set(current_sources) != set(baseline_sources) or changed != EXPECTED_NATIVE_CHANGES:
-        raise ValueError('TEST072 native change scope differs')
+        raise ValueError('TEST073 native change scope differs')
     native_change_scope = {'baseline': NATIVE_BASELINE, 'changed_sources': sorted(changed),
                            'unchanged_sources': len(current_sources)-len(changed)}
     client_before = client_source_identity(driver)
@@ -234,7 +182,7 @@ def main():
            for name in ('Scene', 'Status', 'Event', 'MotionWait', 'RecoveryStatus')}
     if abi != {'Scene': 23864, 'Status': 192, 'Event': 128, 'MotionWait': 48, 'RecoveryStatus': 456}:
         raise ValueError('native ABI layout changed')
-    record = {'scope': 'TEST072 observed shop fixes and passage approach units and named related regressions; device feedback first',
+    record = {'scope': 'TEST073 UI transition and pause readiness units and named related regressions; device feedback first',
               'source_identity': before, 'native_change_scope': native_change_scope,
               'client_source_identity': client_before,
               'abi_bytes': abi, 'device_test': 'not_run',
@@ -244,15 +192,10 @@ def main():
                           'unrelated initial/icon/unsent suites',
                           'unselected workflow/publisher unit suites', 'private recorded-image corpus (local only)'],
               'selection_reasons': {
-                  'test072-door': 'supplemental zero-vector door opening retains original scores and primary motions; protected GOLD differs from protected walkable floors',
-                  'test072-observation': 'exhausted same-action updates retire the unsent ticket and require independent current proof under original budgets and authority',
-                  'test072-passage-navigation': 'fixed top/left mouths and world targets use only observed safe floors; ambiguity, protected routes and ordinary exits fail closed',
-                  'test072-passage-control': 'bounded passage approach, interruption and gold handoff; independent clear before restart and level reset preserve global diagnostics and budgets',
-                  'test072-related-shop': 'retain verified gold entrance and old-ticket retirement without movement credit when new observation proof is required',
-                  'test072-related-navigation': 'retain independent normalization and all73 original intensity scores',
-                  'test072-related-level': 'retain dig/door preparation identity, SAME/FRESH caps, unchanged-restart timeout and original sync/walk clocks',
-                  'test072-related-cadence': 'retain early next-beat proof and goods priority before visual assessment',
-                  'test072-related-recovery': 'unchanged public ABI confirmed through actual C queries with the extended pure helper header'}}
+                  'test073-ui': 'latest known ACK UI transition requires elapsed200ms and a post-cutoff stable current-prefix floor; goods and new passage cues preempt skip without retries',
+                  'test073-related-passage': 'retain one native session from restart/search to full goods and ACK-restart fingerprint proof before new gold walking',
+                  'test073-related-controller': 'retain migrated fresh-floor UI success, twelve restart cap, unchanged timeout/no resend, goods movement credit, unknown cancellation and original clocks',
+                  'test073-related-recovery': 'unchanged public ABI confirmed through actual C queries'}}
     for label, cases in suites:
         run_scope(label, cases, output, record)
     # Workflow and selection changes have their own small unit set, without
@@ -270,7 +213,7 @@ def main():
     record['client_source_unchanged_after_tests'] = True
     record['manifest_sha256'] = hashlib.sha256((driver/'patches/loopctrl/ngg2-manifest.json').read_bytes()).hexdigest()
     (output/'test062-host-scope.json').write_text(json.dumps(record, indent=2)+'\n')
-    print('PASS TEST072 changed units and related regressions against exact IPA sources')
+    print('PASS TEST073 changed units and related regressions against exact IPA sources')
 
 
 if __name__ == '__main__':

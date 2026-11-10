@@ -2855,3 +2855,14 @@ code `f9bcc3bc7ec97ac4fa692bf388ffd64d79148e03`、[Mac110](https://github.com/sh
 IPA0.3.4/build114、17,596,172bytes/SHA `1851faf6fa5ec694bfc756a3522c8b50cc37567e087ceef9e1a7a2908a70e0ea`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test072-build114/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test072-build114/source.zip)。最終source差分は文書3件だけで全製品bytes同一、公開後に匿名GET/全SHAまで照合する。
 
 最新指定の実機試験は、毎回新しい通常1-1のポーズから「候補までリスタート→金壁/通路候補→商店→全商品確認」を一連としてまず2回。開始配置を金可視へ揃える必要はない。新IPA更新→LoopCtrl完全終了/起動/Start Server→通常VPN→[statusのtest_072.sh手順](../status.md)。短いrestartポーズ中はゲーム前面、ポーズが5秒以上続いたらiSHへ戻り保存・照合完了を待つ。`runtime/test-072-<run_id>.zip`全回分とリスタート/候補発見/入店/全商品/停止位置/拍間隔を依頼する。上限や不明停止を商品確認成功にせず、実機精度/到達率はこれから確認する。071追加回収は不要。
+
+
+## TEST072受領: 商品可視2/4、候補なし時は再開直後のPAUSE未成立
+
+2026-11-11（日本時間）。ユーザー速報の後、4ZIPを正式受領。[詳細・出典](../reviews/test073.md)。started_ns順2dd614cc→bd252a30→bd74dabe→f1bafe8d。全45PNG（16/7/7/15）のCRC/SHA/bytes/896×414/manifest/cursor/時刻prefix/active-reportを照合し、全回収resolved/terminal/drained。
+
+1・4回目は原画と実Cで3商品/GOODS/PAUSE成立。1は5MOVED+開扉1+商品優先UNKNOWN1、4は6MOVED+開扉1+商品優先UNKNOWN1。4の歴史too_lateと空拍は保持し、回復後成功と区別する。
+
+2・3回目は正常FLOOR/CLEAR/金0/保護0/通路候補0だが、RESUME ACK後71.289ms/90.355msでPAUSEを送ってACKを得ても、実ゲームは約4秒進行してメニュー無し。画像取得は正常に続き、PAUSE確認待ちが期限切れでCAPTURE6終了。RESTARTは未発行、全4runともrestarts0。取得障害・CLEAR guard・通路判別・fingerprintを原因にしない。
+
+[073計画](../plans/test073-restart-pause.md)で、再開/リスタート直後は200msとその後の新しいFLOORを確認してPAUSEを送る。待機中の候補発見は見送りより優先し、商品保持・成功した歩行/Nav/認識閾値・UNKNOWN無再送・全予算を維持する。200msの物理十分性は未確認として次の実機で評価。raw/派生資料はGit外、回収済み072の追加回収・再実行は依頼しない。

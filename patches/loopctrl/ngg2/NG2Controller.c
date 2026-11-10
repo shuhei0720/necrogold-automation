@@ -12,6 +12,7 @@
 #define EVENT_CAP 64
 #define MOTION_REFERENCE_CAP 16
 #define MOTION_ASSESSMENTS 8
+#define UI_SETTLE_NS UINT64_C(200000000)
 #define INITIAL_PREPARATION UINT64_C(50000000)
 #define INITIAL_PUBLICATION UINT64_C(100000000)
 #define CONTINUOUS_PUBLICATION UINT64_C(100000000)
@@ -151,6 +152,23 @@ static int guards(int front,int locked,int owner){
 static int fresh(NG2Controller *p,uint64_t now){
     return p->have_scene&&p->s.last_capture_start_ns<=now&&p->s.last_capture_end_ns<=now
         &&now-p->s.last_capture_start_ns<=FRESH;
+}
+/* A synth ACK is not proof that the game can accept its next UI action.
+ * Require a current floor captured after the proposed UI settling interval.
+ * Subtraction keeps both elapsed checks valid near the native clock limit. */
+static int pause_ui_ready(const NG2Controller *p,uint64_t now){
+    size_t i;
+    if(!p->have_scene||p->scene.state!=NG2_FLOOR
+        ||p->last_observed_prefix!=p->s.last_completed_id)return 0;
+    for(i=p->event_count;i>0;--i){
+        const NG2ControllerEvent *e=&p->events[i-1];
+        if(e->outcome==2&&(e->command.kind==NG2_ACTION_RESUME||e->command.kind==NG2_ACTION_RESTART)){
+            return now>=e->end_ns&&now-e->end_ns>=UI_SETTLE_NS
+                &&p->s.last_capture_start_ns>=e->end_ns
+                &&p->s.last_capture_start_ns-e->end_ns>=UI_SETTLE_NS;
+        }
+    }
+    return 1; /* Already on the floor, without a preceding UI transition. */
 }
 static void clear_model(NG2Controller *p){
     memset(&p->model,0,sizeof(p->model));p->sample_count=0;p->s.beat_period_ns=0;p->beat_failed=0;
@@ -1307,6 +1325,17 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
          * UNKNOWN gold is normal; an ACK-known RESTART keeps its own proof. */
         finish(p,end,NG2_REASON_SCREEN);mask=0;
     }
+    if(p->restart_intent&&!p->finish_requested&&clear_gold_floor(scene)
+        &&!level_inputs(p)&&!level_moves(p)&&!p->s.lead_confirmed&&!p->s.x&&!p->s.y
+        &&ng2_passage_candidates(scene)){
+        if(p->s.input_state==0||(p->s.input_state==1
+            &&(p->command.kind==NG2_ACTION_PAUSE||p->command.kind==NG2_ACTION_RESTART))){
+            not_sent(p,end,NG2_REASON_SCREEN);clear_slots(p);
+            p->restart_intent=p->restart_baseline_valid=p->restart_pending=0;
+            start_floor(p,scene,end);mask=0;
+        }else if(p->s.input_state==3&&p->command.kind==NG2_ACTION_PAUSE)
+            finish(p,end,NG2_REASON_NO_PATH);
+    }
     if(p->restart_intent&&!p->finish_requested&&scene->state==NG2_FLOOR&&actual_gold(scene)
         &&!(p->s.input_state==3&&p->command.kind==NG2_ACTION_RESTART)){
         p->restart_intent=0;p->restart_baseline_valid=0;p->restart_pending=0;
@@ -1749,7 +1778,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
     if(p->finish_requested){
         if(p->have_scene&&p->scene.state==NG2_PAUSE&&fresh(p,now)){p->s.paused=1;terminal(p,now,p->s.reason);return 0;}
         if(!p->final_pause_attempted&&!p->need_fresh_cleanup&&fresh(p,now)&&p->scene.state==NG2_FLOOR
-            &&p->last_observed_prefix==p->s.last_completed_id){
+            &&p->last_observed_prefix==p->s.last_completed_id&&pause_ui_ready(p,now)){
             p->final_pause_attempted=1;return reserve(p,now,NG2_ACTION_PAUSE,0,0,out);}
         if(now>=p->finish_ns&&now-p->finish_ns>=TRANSITION)terminal(p,now,p->s.reason);
         return 0;
@@ -1759,7 +1788,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
     if(p->scene.state==NG2_UNKNOWN){if(now-p->transition_ns>=TRANSITION)terminal(p,now,NG2_REASON_SCREEN);return 0;}
     if(p->s.phase==NG2_PHASE_SEARCH&&p->scene.state==NG2_PAUSE)return reserve(p,now,NG2_ACTION_RESUME,0,0,out);
     if(p->s.phase==NG2_PHASE_PAUSE){
-        if(p->scene.state==NG2_PAUSE&&p->scene.restart_label&&now>=p->ack_ns+200000000){
+        if(p->scene.state==NG2_PAUSE&&p->scene.restart_label&&now>=p->ack_ns&&now-p->ack_ns>=UI_SETTLE_NS){
             if(p->s.restarts>=12){finish(p,now,NG2_REASON_LIMIT);return 0;}
             p->restart_pending=1;return reserve(p,now,NG2_ACTION_RESTART,0,0,out);}
         if(now>=p->ack_ns&&now-p->ack_ns>=TRANSITION)terminal(p,now,NG2_REASON_RESTART);
@@ -1770,6 +1799,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         if(p->scene.goods!=NG2_GOODS_UNKNOWN){finish(p,now,NG2_REASON_PARTIAL_GOODS);return 0;}
         if(!clear_gold_floor(&p->scene)){finish(p,now,NG2_REASON_SCREEN);return 0;}
         if(p->s.restarts>=12){finish(p,now,NG2_REASON_LIMIT);return 0;}
+        if(!pause_ui_ready(p,now))return 0;
         memcpy(p->restart_fingerprint,p->scene.fingerprint,48);p->restart_baseline_valid=1;p->restart_intent=1;
         return reserve(p,now,NG2_ACTION_PAUSE,0,0,out);
     }
@@ -1897,6 +1927,7 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
     int reason;NG2ControllerEvent *e;uint64_t tail,horizon,aligned;
     if(!p||!valid_time(now)||p->s.terminal||p->s.input_state!=1||id!=p->command.id)return 0;
     reason=guards(front,locked,owner);
+    if(!reason&&p->command.kind==NG2_ACTION_PAUSE&&!pause_ui_ready(p,now))reason=NG2_REASON_SCREEN;
     if(!reason&&p->command.kind==NG2_ACTION_MOVE&&p->passage_release_proof_id
         &&p->model_capture_id<p->passage_release_proof_id)reason=NG2_REASON_BEAT;
     if(!reason&&p->command.kind==NG2_ACTION_MOVE&&p->passage_active){
