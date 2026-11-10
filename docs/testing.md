@@ -46,7 +46,7 @@ rootへ相対配置する。AI目視は暫定、商品未観測は陰性にし�
 
 ## TEST061の対象選択
 
-`loopctrl-geometry.yml` は手動focusedを既定、fullは明示手動。`run_test061_host.py` がpatched upstreamをC試験へ結ぶ。Controller全公開method＋新recovery/関連Beat/package、Macは新061公開結合/指定故障＋独立shop16、実IPA/compile/sealを選ぶ。client互換/暗号HTTPはclient workflow。private Controller5件はlocalで別実施し、除外名を厳密照合する。
+`loopctrl-geometry.yml`は手動device既定。実機ログに直結する変更部の単体/関連回帰だけを`run_test062_host.py`でpatched upstreamへ結び、actual IPA/compile/profile/sealを確認する。未変更Runtime故障/world/Kitを通常反復の前提にしない。focusedはController全公開/Recovery/Beat/package・Runtime061/故障/shop16、fullは旧全体も含む明示的な節目として保存する。私有画像の除外は名前を厳密照合しlocalと別集計。
 
 `test_native_recovery_world.py` は独立地形の四方向×木鉄扉8例、LEFT→UPの曲がり、画像処理遅延だけの例を検査する。取得24/復号60/解析16ms・周期105ms・ACK295msは合成。移動途中35pxではUNKNOWN、36pxの確認後に再同期し、開扉→進入→商品/PAUSEまで通す。拍の空きも記録し毎拍成功と呼ばない。
 
@@ -56,7 +56,6 @@ rootへ相対配置する。AI目視は暫定、商品未観測は陰性にし�
 
 Python/Pillow/C compilerとfixture rootsを準備し、[context](context.md)から対象を絞る。
 
-Nativeの対象methodは`PYTHONPATH=tests python3 -m unittest MODULE.CLASS.METHOD -v`。full集合はworkflowの明示modeを参照する。
 
 Client・実HTTP・回復:
 

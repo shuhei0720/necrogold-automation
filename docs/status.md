@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-10（日本時間）。TEST061の実装・Mac93/client22・配布物照合が完了。実機は未実施で、次に商品確認までの到達を受け入れる。[全体設計](plans/test061-verified-progress.md)・[検証記録](reviews/test061.md)。回収済みTEST060は再実行しない。
+更新: 2026-11-10（日本時間）。TEST061受領: 商品0/2（初歩前再予約枯渇/2入力後UNKNOWN3回）。実機を主軸に短く反復する最新指示を記録し、[TEST062](plans/test062-device-cycle.md)で二つの原因だけを修正。新規11＋関連12のC単体と小CI検査12が成功、独立差分レビューP0/P1なし。device CIで新IPAを作成する段階。[061配布時検証](reviews/test061.md)は実機成功に数えない。回収済み061/060を再実行しない。
 
 ## TEST061の配布物
 
@@ -25,7 +25,7 @@ API1.98.15-ngg2/cap13/client v14。失効前model/sampleのfirst/latest snapshot
 
 実compiler/PBX/4C/5Swift/6RSP、22seal、全9Mach-O/98HOST・旧API marker非混入、IPA/全source ZIPを実物照合。実Runtime producer5件→暗号client→両journalの診断完全一致、shop16のstrict v14検査も成功。合成時計/画像・fixture通信であり、実ゲームやiPhone到達/速度の合格ではない。
 
-## 次の実機TEST061
+## TEST061配布時手順（受領済み）
 
 新IPAをSideStore更新→LoopCtrl完全終了/起動→Start Server→通常VPN/disk。新しい通常オールゾーン1-1、金壁全部/一部可視、左側が下/端0のポーズから。展開先の`test_061.sh`をiSHで実行する。
 
@@ -43,6 +43,6 @@ folder pickerは`test_061.sh`が入るフォルダを選ぶ。歩行中はゲー
 
 TEST060 code `04b213f27364bc9e5cf3c68f9caf031f842fba97` / [Mac91](https://github.com/shuhei0720/necrogold-automation/actions/runs/42632308407)。旧配布物は[固定記録](https://github.com/shuhei0720/necrogold-automation/blob/42e625b0311c79c6d3e6acf19a150b9316fcc2a4/docs/status.md)・[review060](reviews/test060.md#test060-final-mac)。Mac92はfixture時計同期失敗、Runtime旧API残存も配布前に修正した。Mac92全体成功/IPA配布には数えない。
 
-[最新開発方針](development-flow.md#最新の運用方針2026-11-10-日本時間): 固定時間なし、品質を落とさず変更範囲で検証。focused手動既定、fullは節目。新実装返却では実機依頼・完全source/IPA・手順・全runtime回収を必須にする。
+[最新開発方針](development-flow.md#最新の運用方針2026-11-10-日本時間): 固定時間なし、品質を落とさず変更範囲で検証。device手動既定、focused/fullは影響範囲/節目。新実装返却では実機依頼・完全source/IPA・手順・全runtime回収を必須にする。
 
 ユーザーはMacを持たず実機試験を担当。CIの正規Macゲームは未導入。通常利用はiPhone単体、商品到達率・毎拍/人より速い処理・指輪未知評価・通知・自動周回・耐久は未受入。初読3文書≤16KiB、必要資料は[索引](context.md)から。rawZIP/画像/report/logはGit外。

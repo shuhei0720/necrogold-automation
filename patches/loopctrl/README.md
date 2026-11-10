@@ -19,7 +19,7 @@ python3 patches/loopctrl/check_ngg2.py /path/to/LoopCtrl /tmp/ngg2-contracts
 
 開発時にソースを更新した場合は、固定上流にNG-G1だけを適用した別checkoutで`python3 patches/loopctrl/apply_ngg2.py --seal /path/to/ngg1-checkout`を実行し、manifest差分もレビューする。既存NG-G1のパッチ・manifestとR12は変更しない。
 
-macOS workflowはmanifestのない先行段階ではコンパイル可能なSwift stubの挙動Redだけを実行する。現在は手動focusedを既定、fullを明示手動とする。関連NG-G2契約、unsigned IPA、LoopCtrlKit試験、構成・来歴検査を行い、IPA・SHA-256・manifest・改変取得元と追加ソース全文をpublic Actions artifactへ保存する。SideStore更新と実機確認が必要で、CI成功を実機合格にはしない。
+macOS workflowはmanifestのない先行段階ではコンパイル可能なSwift stubの挙動Redだけを実行する。現在は実機反復の手動deviceを既定、focused/fullは影響範囲や節目で明示選択する。関連NG-G2契約、unsigned IPA、LoopCtrlKit試験、構成・来歴検査を行い、IPA・SHA-256・manifest・改変取得元と追加ソース全文をpublic Actions artifactへ保存する。SideStore更新と実機確認が必要で、CI成功を実機合格にはしない。
 
 native Cのsynthetic契約はUbuntu CIでも実行する。private実画像のCI除外名を厳密に記録し、関連する実画像再生はlocal必須として別集計する。画像不足をskipして全件成功にはしない。Raster専用のC呼出spyは別objectだけをrenameしてリンクし、本番とRuntimeは元の4 C objectsを使う。
 

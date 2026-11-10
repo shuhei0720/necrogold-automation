@@ -44,6 +44,7 @@ struct NG2Controller {
     uint8_t restart_fingerprint[48];
     uint64_t seen_id,seen_start,seen_end,last_now,transition_ns,sync_ns;
     uint64_t ack_ns,command_period,next_nominal,next_deadline,next_period,last_observed_prefix;
+    uint64_t motion_retry_start_ns;
     uint64_t next_update_deadline;
     uint64_t schedule_deadline,continuous_schedule_deadline,initial_visual_deadline;
     uint64_t initial_slot_visual_deadline,proof_deadline,proof_capture_id,model_capture_id;
@@ -339,6 +340,34 @@ static int same_choice(const NG2Decision *a,const NG2Decision *b){
     return a->direction==b->direction&&a->reason==b->reason&&a->target_x==b->target_x
         &&a->target_y==b->target_y&&a->obstacle==b->obstacle;
 }
+/* Preserve the prepared initial ticket through irrelevant remote palette
+ * flicker in its final preparation window. Its source/before remain frozen;
+ * every accepted current image must independently prove the same safe step. */
+static int quiet_initial_observation(const NG2Controller *p,const NG2Scene *scene,uint64_t now){
+    NG2Decision before,latest;NG2Motion motion;uint64_t aligned;int i,d=p->command.direction;
+    if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||p->finish_requested
+        ||p->replan_pending||p->s.inputs||p->s.moves||p->s.lead_confirmed
+        ||!p->initial_ticket_valid||d<1||d>4||p->beat_failed
+        ||p->command.not_before_ns<INITIAL_PREPARATION
+        ||now<p->command.not_before_ns-INITIAL_PREPARATION||now>p->command.deadline_ns
+        ||!safe_floor(&p->before,d)||!safe_floor(scene,d)
+        ||p->before.gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
+        ||!same_gold(&p->before,scene)
+        ||memcmp(p->before.protected_cells,scene->protected_cells,NG2_TILE_COUNT)
+        ||!ng2_beat_model_valid(&p->model)
+        ||!corrected(p,p->initial_ticket.target_ns,p->initial_period,&aligned))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int a=p->before.tiles[i],b=scene->tiles[i],x=i%23-11,y=i/23-5;
+        if(a==b)continue;
+        if((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)
+            ||(a!=NG2_TILE_UNKNOWN&&a!=NG2_TILE_FLOOR&&a!=NG2_TILE_DIRT)
+            ||(b!=NG2_TILE_UNKNOWN&&b!=NG2_TILE_FLOOR&&b!=NG2_TILE_DIRT))return 0;
+    }
+    return ng2_choose(&p->before,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&before)
+        &&ng2_choose(scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&latest)
+        &&same_choice(&before,&p->command_choice)&&same_choice(&before,&latest)
+        &&ng2_motion(&p->before,scene,d,&motion)&&motion.kind==NG2_BLOCKED&&!motion.dx&&!motion.dy;
+}
 static int same_continuous_action(const NG2Decision *a,const NG2Decision *b){
     if(a->direction!=b->direction||a->reason!=b->reason||a->obstacle!=b->obstacle)return 0;
     /* Reason 8 is observed_floor_vantage. Its remote target may change while
@@ -534,6 +563,13 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
         end_visual_wait(p);
         finish(p,end,NG2_REASON_LATE);return;
     }
+    /* Adjacent 40ms images can all show the same unfinished camera scroll.
+     * Keep the first assessment immediate, then sample at a quarter and a
+     * full original period without extending its immutable visual deadline. */
+    if(p->motion_wait.attempts){
+        uint64_t spacing=p->motion_wait.attempts==1?p->command_period/4:p->command_period;
+        if(start<p->motion_retry_start_ns||start-p->motion_retry_start_ns<spacing)return;
+    }
     if(!ng2_motion(&p->before,scene,direction,&motion)){motion.kind=NG2_MOTION_UNKNOWN;motion.dx=motion.dy=0;}
     if(reference){
         NG2Motion fallback;int eligible=motion_reference_eligible(p,p->observe_now);
@@ -552,6 +588,7 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
             }
         }
     }
+    if(!p->motion_wait.attempts)p->motion_retry_start_ns=start;
     ++p->motion_wait.attempts;p->motion_wait.last_capture_id=id;p->motion_wait.last_motion=motion.kind;
     if(e){e->observed_capture_id=id;e->motion=motion.kind;e->dx=motion.dx;e->dy=motion.dy;}
     if((motion.kind==NG2_TWEEN||motion.kind==NG2_MOTION_UNKNOWN)&&p->motion_wait.attempts<3)return;
@@ -617,6 +654,7 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
      * immutable original directly against every accepted pre-send image. */
     if((p->s.input_state==1||p->continuous_pending)&&p->command.kind==NG2_ACTION_MOVE)
         validate_motion_reference(p,scene,start,end,prefix,end);
+    if(mask&&quiet_initial_observation(p,scene,commit))mask=0;
     if(mask){
         NG2Decision latest;
         int validation=p->s.lead_confirmed?continuous_validation(p,scene,end,&latest):
@@ -757,7 +795,7 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
         if(next<p->s.lead_ns||next-p->s.lead_ns>=NS_LIMIT-10000000){finish(p,now,NG2_REASON_SESSION);return 0;}
         wait_horizon=minimum(wait_horizon,p->s.walk_started_ns+45*SECOND);
         wait_horizon=minimum(wait_horizon,p->s.started_ns+180*SECOND);
-        memset(&p->motion_wait,0,sizeof(p->motion_wait));
+        memset(&p->motion_wait,0,sizeof(p->motion_wait));p->motion_retry_start_ns=0;
         p->motion_wait.command_id=p->command.id;p->motion_wait.source_capture_id=p->command.source_capture_id;
         p->schedule_deadline=minimum(next-p->s.lead_ns+10000000,wait_horizon);
         p->motion_wait.deadline_ns=wait_horizon;

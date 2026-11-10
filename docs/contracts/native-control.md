@@ -26,7 +26,7 @@ main.sync/run lock外でAX前面照会し、callback実returnまでlease保持�
 
 ## 5. 未送信の再予約
 
-初歩≤2回、確認済continuousはchain≤2/run≤8。確実未送信・両Scene safe_floor/同gold/strict BLOCKEDが必須。初歩は同direction/origin・next近傍保護、continuousは全protected/元・保存の完全5field Decision/最新actionを検査。元target/notBefore/deadline/period/ordinal/horizon保持。reason8/FLOORは許可済み遠方target座標だけ変更可（direction/reason/obstacle/最新判断を再検査）。未知inputの次拍置換は禁止、初歩失効は§4で撤回。
+[062](../plans/test062-device-cycle.md)の安全な初歩遠方揺れは同IDで検証継続。それ以外は初歩≤2回、continuousはchain≤2/run≤8。確実未送信・両Scene safe_floor/同gold/strict BLOCKEDが必須。初歩は同direction/origin・next近傍保護、continuousは全protected/元・保存の完全5field Decision/最新actionを検査。元target/notBefore/deadline/period/ordinal/horizon保持。reason8/FLOORは許可済み遠方target座標だけ変更可（direction/reason/obstacle/最新判断を再検査）。未知inputの次拍置換は禁止、初歩失効は§4で撤回。
 
 FRESH（validation12）はlead確認済みcontinuousでSAME不成立時に最新判断へ替える。両FLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE・origin FLOOR・全protected不変・source5field単一証明・strict BLOCKEDを要求。全230セルでUNKNOWN→FLOOR/DIRT/STONE/GOLD/DOOR、FLOOR→DIRT/STONE/GOLD/DOOR、DIRT→STONE/GOLD/DOORだけ許可。GOLD/STONE/DOOR/ITEM不変、新DOORはgold bracket必須。
 
@@ -52,7 +52,7 @@ FRESH（validation12）はlead確認済みcontinuousでSAME不成立時に最新
 
 ## 8. ACKと移動確認
 
-ACKだけで移動扱いしない。state3同MOVE/command/before・安定ACK prefix、取得開始≥max(ACK,target+80ms)、UNKNOWN/TWEEN≤3評価、visualD内。before差替えで回数/期限を回復禁止。ACK中HUD失効は次入力の位相資格を撤回し同MOVE確認は継続。state4 UNKNOWN synthはUI凍結・再送/cleanup禁止。通常cleanupは最新ACK prefixの新鮮FLOOR必須。
+ACKだけで移動扱いしない。state3同MOVE/command/before・安定ACK prefix、取得開始≥max(ACK,target+80ms)、UNKNOWN/TWEEN≤3評価、再試行startは初回+元周期¼/1以降、visualD内。before差替えで回数/期限を回復禁止。ACK中HUD失効は次入力の位相資格を撤回し同MOVE確認は継続。state4 UNKNOWN synthはUI凍結・再送/cleanup禁止。通常cleanupは最新ACK prefixの新鮮FLOOR必須。
 
 RuntimeはC直前observeStartをobserve_atへ渡す。MOVED/DOOR_OPENED/TERRAIN_OPENED/BLOCKED-retuneはcapture終了≤actualcommit≤visualD、次actualtickまでvisualD保持。C中/直後の超過も新入力禁止。旧observeはmax(capture終了,last_now)。期限後GOODSは保持し移動creditを拒否。
 
@@ -96,12 +96,12 @@ profilev2はPerception/Navigationのみstrict O2（-fno-fast-math/-ffp-contract=
 
 ## 15. 検証の範囲
 
-区分/入口は[testing](../testing.md)。必須実画像不足/hash不一致はlocal失敗、CI明示除外と区別。合成/録画/通信/IPA検証を実ゲーム到達/iPhone性能の合格にせず、未測定/欠落/失敗を0費用/成功にしない。未知評価はrun単位。
+[試験区分](../testing.md)。必須画像不足/hash不一致はlocal失敗、CI除外と区別。模擬/録画/通信/IPAを実機成功/速度達成としない。未測定/欠落/失敗を成功にせず、未知評価はrun別。
 
-## 16. 開発工程
+## 16. 工程
 
-工程/TDD/レビューは[開発フロー](../development-flow.md)に従う。
+[TDD/レビュー](../development-flow.md)。
 
 ## 17. 配布と実機依頼
 
-配布は[AGENTS](../../AGENTS.md#保存と返却)の日本語/JST・完全source/具体的手順/runtime全ZIP返却。native/cap変更は新IPA、SideStore更新→LoopCtrl完全終了/起動→Start Server。新通常1-1ポーズ、同時テスト禁止。回収済runは再実行せず、終了未回収だけ同process/source/runtimeで回復。
+[配布/実機依頼](../../AGENTS.md#保存と返却)に従う。native/cap変更は新IPA、SideStore更新→LoopCtrl完全終了/起動→Start Server。新通常1-1ポーズ、同時テスト禁止。回収済runは再実行せず、終了未回収だけ同process/source/runtimeで回復。

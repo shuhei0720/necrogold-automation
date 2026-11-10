@@ -28,11 +28,11 @@ class FocusedNativeWorkflowTests(unittest.TestCase):
         self.source = WORKFLOW.read_text()
         self.jobs = job_blocks(self.source)
 
-    def test_native_build_requires_explicit_dispatch_and_defaults_to_focused(self):
+    def test_native_build_requires_explicit_dispatch_and_defaults_to_device(self):
         trigger = self.source.split('\npermissions:', 1)[0]
         self.assertNotRegex(trigger, r'(?m)^  push:', 'native_build_is_explicit_dispatch')
         self.assertIn('  workflow_dispatch:\n', trigger)
-        self.assertIn('        default: focused\n', trigger)
+        self.assertIn('        default: device\n', trigger)
         self.assertRegex(trigger, r'options: \[[^\]]*focused[^\]]*full[^\]]*\]')
 
     def test_focused_requires_selected_host_contracts_without_world160(self):
@@ -43,7 +43,8 @@ class FocusedNativeWorkflowTests(unittest.TestCase):
         self.assertIn('runs-on: macos-26', focused)
         host = self.jobs['test061-host-contracts']
         self.assertIn('runs-on: ubuntu-latest', host)
-        self.assertIn('run_test061_host.py driver upstream', host)
+        self.assertIn('NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test061_host.py', host)
+        self.assertIn('"$NATIVE_HOST_RUNNER" driver upstream', host)
         self.assertNotIn('test_native_goal_world', host)
 
     def test_focused_runs_new_public_boundary_faults_and_independent_goods_path(self):

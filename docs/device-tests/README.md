@@ -2618,3 +2618,15 @@ cd /mnt/necro_test060 && sh test_060.sh
 原060の初歩前BEATとACK後UNKNOWN/次拍期限停止を、元12秒の未送信再取得・入力/画像期限分離・真の確認後の新位相選択で修正。閾値/UNKNOWN無再送/商品優先・購入禁止を維持。合成商店10例とRuntime shop16の契約は成功したが実機到達の合格にしない。
 
 新通常1-1の金壁可視ポーズ、左側が下/端0から`test_061.sh`。歩行中はゲーム前面、自動PAUSE後約5秒でiSHへ戻り終了表示を待ち、`runtime/test-061`全ZIPを返却依頼する。商品が見えるまでの到達・扉開放/入店・拍の空きを確認。回収済み060の再実行は依頼しない。
+
+
+<a id="test061-received"></a>
+## TEST061受領（2026-11-10 日本時間）
+
+ユーザー報告: 1回目0歩、2回目2歩で停止。商品確認0/2。ZIP5,973,654bytes/SHA `ec6f284ca112485437a006396cac6affb0df256ea7c4d3b8e92237ae1a6273d7`、2run完了/resolved/drained、active=2回目。26PNGのSHA/bytes/896×414/全chunk CRCを照合。raw ZIP/画像/reportはGit外。
+
+1回目540802…はinputs/moves0、SCREEN17。初歩LEFTの未送信ID2→3→4で再予約2回を消費、frame77実commitはnotBefore4.924ms前。75→76の遠方DIRT/UNKNOWN揺れはstrict BLOCKED/full5判断/gold/保護/近傍不変、75→77はセル分類が元へ戻る。
+
+2回目9d8908…はinputs2/moves1、MOVEMENT10。2入力目UPのACK後28/74/118ms開始の83/84/85が実CでUNKNOWN、ACK+156msで3回消費し停止。visualDは約2.4秒残る。原参照73でもUNKNOWN、最終score.487>.45等により閾値は維持。未収録の次画像がMOVEDになるとは断定しない。
+
+新方針は[開発フロー](../development-flow.md#最新の運用方針2026-11-10-日本時間)。次は[TEST062](../plans/test062-device-cycle.md)の局所修正と必要なIPAを返し、実機商品到達を主指標に反復する。061の追加回収目的の再実行は依頼しない。

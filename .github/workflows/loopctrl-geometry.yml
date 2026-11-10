@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       native_lane:
-        description: Focused TEST061 validation and IPA, or explicit full milestone validation
+        description: Rapid device units and IPA; focused/full synthetic validation remains explicit
         type: choice
         required: true
-        default: focused
-        options: [focused, full, test058-red, test058-quick]
+        default: device
+        options: [device, focused, full, test058-red, test058-quick]
 
 permissions:
   contents: read
@@ -238,7 +238,7 @@ jobs:
           retention-days: 30
   test061-host-contracts:
     needs: native-source-ready
-    if: inputs.native_lane == 'focused' || (inputs.native_lane == 'full' && needs.native-source-ready.outputs.ready == 'true')
+    if: inputs.native_lane == 'device' || inputs.native_lane == 'focused' || (inputs.native_lane == 'full' && needs.native-source-ready.outputs.ready == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -265,7 +265,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/test061-host"
           python3 driver/patches/loopctrl/apply_patch.py upstream
           python3 driver/patches/loopctrl/apply_ngg2.py upstream
-          "$RUNNER_TEMP/test061-host-venv/bin/python" driver/patches/loopctrl/run_test061_host.py driver upstream "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/host-command.txt"
+          NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test061_host.py
+          if [ "${{ inputs.native_lane }}" = device ]; then
+            NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test062_host.py
+          fi
+          "$RUNNER_TEMP/test061-host-venv/bin/python" "$NATIVE_HOST_RUNNER" driver upstream "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/host-command.txt"
       - name: Save selected host evidence and explicit test inventory
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -276,7 +280,7 @@ jobs:
           retention-days: 30
   focused-build:
     needs: [native-source-ready, test061-host-contracts]
-    if: inputs.native_lane == 'focused' && needs.native-source-ready.outputs.ready == 'true'
+    if: (inputs.native_lane == 'device' || inputs.native_lane == 'focused') && needs.native-source-ready.outputs.ready == 'true'
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -291,7 +295,7 @@ jobs:
           ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
           path: upstream
           persist-credentials: false
-      - name: Apply guarded source and seal used for TEST061 execution and IPA
+      - name: Apply guarded source and seal used for selected validation and IPA
         run: |
           python3 driver/patches/loopctrl/apply_patch.py upstream
           python3 driver/patches/loopctrl/apply_ngg2.py upstream
@@ -306,12 +310,16 @@ jobs:
           (cd upstream && xcodegen generate --spec project.yml)
           python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
       - name: Run actual Runtime TEST061 public integration fixtures
+        if: inputs.native_lane != 'device'
         run: python3 driver/patches/loopctrl/check_ngg2.py --test061-public-only upstream "$RUNNER_TEMP/test061-runtime"
       - name: Detect TEST061 boundary rollback faults
+        if: inputs.native_lane != 'device'
         run: python3 driver/patches/loopctrl/check_ngg2.py --test061-new-mutations-only upstream "$RUNNER_TEMP/test061-faults"
       - name: Run independent actual Runtime shop world16 endpoint
+        if: inputs.native_lane != 'device'
         run: python3 driver/patches/loopctrl/check_ngg2.py --test058-shop-only upstream "$RUNNER_TEMP/test058-shop"
       - name: Run actual LoopCtrlKit API and capability contracts
+        if: inputs.native_lane != 'device'
         working-directory: upstream
         run: |
           set -euo pipefail
