@@ -1,7 +1,10 @@
-"""TEST062: pace uncertain camera comparisons without adding input or retries.
+"""TEST062/067: pace uncertain comparisons without adding input or retries.
 
 Synthetic signatures test C scheduling boundaries. TEST061's original images
 stay UNKNOWN; no unseen completion frame or device success is asserted here.
+TEST066's ~60ms capture cadence rounds a quarter-beat second check past the
+next input slot. TEST067 permits that second check after one tenth of the
+original period; the third check still waits a full original period.
 """
 import ctypes as C
 from copy import deepcopy
@@ -97,36 +100,42 @@ class NativeMotionCadenceTests(unittest.TestCase):
         self.assertEqual(1, self.motion_wait().attempts)
         self.assertEqual(0, self.recovery().post_move_reacquisitions)
 
-    def test_adjacent_unknown_frames_do_not_exhaust_attempts_before_quarter_move(self):
+    def test_adjacent_unknown_frames_do_not_exhaust_attempts_before_full_period_move(self):
         before, command = self.armed()
         uncertain = self.uncertain(before, command)
-        for elapsed in (40_000_000, 80_000_000):
-            self.frame(uncertain, self.first_start + elapsed)
-            self.assertEqual((1, 0, 3), (self.motion_wait().attempts,
-                             self.status().reason, self.status().input_state),
-                             'adjacent camera frames must not consume the settling retries')
+        self.frame(uncertain, self.first_start + 40_000_000)
+        self.assertEqual((1, 0, 3), (self.motion_wait().attempts,
+                         self.status().reason, self.status().input_state),
+                         'a 40ms adjacent frame must not consume the settling retry')
+        self.frame(uncertain, self.first_start + 80_000_000)
+        self.assertEqual((2, 0, 3), (self.motion_wait().attempts,
+                         self.status().reason, self.status().input_state),
+                         'an 80ms frame may use the second check, never a third early check')
         self.frame(fixture_recovery.translated(before, command.direction), self.first_start + PERIOD // 4)
-        self.assertEqual((2, 1, 0), (self.motion_wait().attempts, self.status().moves, self.status().reason))
+        self.assertEqual((2, 0, 3), (self.motion_wait().attempts, self.status().moves,
+                         self.status().input_state))
+        self.frame(fixture_recovery.translated(before, command.direction), self.first_start + PERIOD)
+        self.assertEqual((3, 1, 0), (self.motion_wait().attempts, self.status().moves, self.status().reason))
         self.assert_frozen(command)
 
-    def test_quarter_boundary_uses_capture_start_and_skips_even_a_complete_frame(self):
+    def test_tenth_boundary_uses_capture_start_and_skips_even_a_complete_frame(self):
         before, command = self.armed()
         self.uncertain(before, command)
         after = fixture_recovery.translated(before, command.direction)
         # Its end is beyond the checkpoint; capture start still misses by 1ns.
-        self.frame(after, self.first_start + PERIOD // 4 - 1)
+        self.frame(after, self.first_start + PERIOD // 10 - 1)
         self.assertEqual((1, 0, 3), (self.motion_wait().attempts,
                          self.status().moves, self.status().input_state),
                          'capture end cannot backdate the scheduled comparison start')
         self.assert_frozen(command)
-        self.frame(after, self.first_start + PERIOD // 4)
+        self.frame(after, self.first_start + PERIOD // 10)
         self.assertEqual((2, 1, 0), (self.motion_wait().attempts, self.status().moves, self.status().reason))
         self.assert_frozen(command)
 
     def test_third_comparison_waits_a_full_frozen_period_then_confirms(self):
         before, command = self.armed()
         uncertain = self.uncertain(before, command)
-        self.frame(uncertain, self.first_start + PERIOD // 4)
+        self.frame(uncertain, self.first_start + PERIOD // 10)
         self.assertEqual((2, 0, 3), (self.motion_wait().attempts,
                          self.status().reason, self.status().input_state))
         after = fixture_recovery.translated(before, command.direction)
@@ -140,7 +149,7 @@ class NativeMotionCadenceTests(unittest.TestCase):
     def test_three_scheduled_unknowns_stop_without_fourth_comparison_or_input(self):
         before, command = self.armed()
         uncertain = self.uncertain(before, command)
-        self.frame(uncertain, self.first_start + PERIOD // 4)
+        self.frame(uncertain, self.first_start + PERIOD // 10)
         self.frame(uncertain, self.first_start + PERIOD)
         self.assertEqual((3, 0, 10, 0), (self.motion_wait().attempts, self.status().moves,
                          self.status().reason, self.motion_wait().active))
@@ -176,10 +185,10 @@ class NativeMotionCadenceTests(unittest.TestCase):
         before, command = self.armed()
         self.uncertain(before, command, tween=True)
         after = fixture_recovery.translated(before, command.direction)
-        self.frame(after, self.first_start + PERIOD // 4 - 1)
+        self.frame(after, self.first_start + PERIOD // 10 - 1)
         self.assertEqual((1, 0, 3), (self.motion_wait().attempts,
                          self.status().moves, self.status().input_state))
-        self.frame(after, self.first_start + PERIOD // 4)
+        self.frame(after, self.first_start + PERIOD // 10)
         self.assertEqual((2, 1), (self.motion_wait().attempts, self.status().moves))
         self.assert_frozen(command)
 

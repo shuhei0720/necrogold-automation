@@ -2738,3 +2738,15 @@ SideStore更新→LoopCtrl完全終了/起動→Start Server→新しい通常1-
 SideStoreで`Archive appears to be corrupt: LoopCtrl.ipa`。ユーザー確認の選択ファイルは17.5MB表示、詳細も同文。公開IPAを匿名再取得し17,582,349bytes/元SHA `080acc55eb847baaf1ea3a9db53a6b89fe7d94ec00dff50acecaeb9052f550c5`一致・全CRC正常。全44entry名/権限/圧縮形式が正常065と一致し、4bundleの全plist差分はbuild100→102のみ。端末のファイル実bytes/ハッシュやSideStore内部展開の証明はなく、配布IPA正常から端末原因と断定しない。再ビルド/asset差替えは未実施。
 
 画像の1DAYはSideStore自身、LoopCtrlの7DAYSは別の署名有効期間で、新版導入成功を意味しない。[公式手順](https://docs.sidestore.io/docs/installation/install)に従いWi-Fi/通常のVPNでSideStoreの日数ボタンからrefreshし、期限内に更新する。Safariで固定IPAを新規にこのiPhone内へ保存→SideStoreの＋から選択して切り分ける。アプリ削除/設定初期化/証明書の手動失効を既定対処にしない。インストールとTEST066実機到達の成否は返答待ち。
+
+
+<a id="test066-received"></a>
+## TEST066受領（2026-11-10 日本時間）
+
+ZIP7,568,906bytes/SHA `64429a99d52a77f801c249f46100a1a9980c21fa2a2574cb1c5c1e71f7883298`、42entry/全CRC・安全path。全30収録PNGのSHA/bytes/896×414/全chunk CRC/manifest/取得時刻/prefix一致。raw/途中partはGit外、active=2回目report、report 3.jsonは同runの途中保存で3回目ではない。
+
+開始順07a85e30240f4d809f64a3e176ad8117は6方向入力/5MOVED+最後BLOCKED、開扉0/入口cross未確認/商品0、native movement10/terminal/drained/PAUSE。17選択PNG全受領、125等はexport省略。画像110/116に商品/価格は見えず、source116は実CでFLOOR/UNKNOWNgoods/LEFT reason5/nextFLOORの金bracket入口、110→116はstrictBLOCKED・全tile/金/保護同一。最後の判定125は原画不在で未移動の物理原因を特定しない。5歩とも初評価はUNKNOWN、後の評価がMOVED。入力間隔1.036〜1.046秒、初動2.499秒。
+
+f432162df3954509ab735eaa6c3552f2は4方向入力/3MOVED+最後UNKNOWN、開扉0/商品0、native movement10/terminal/drained/PAUSE。回収resolved=false、18選択中13PNGのみ、3/6/35/82/88が不在・35.part262144bytes。host_deadlineは回収側の期限でゲーム停止の原因ではない。停止評価69/75/77/83は原画あり。69→83は正方向9、intensity .52855/gap .3031、closed/unique幾何成立だがtexture823支持/63badで95%条件未達。高contrast6以上の別証拠は518支持/21bad/top226/right291で全73候補への15pp差/95%が成立する。未確定75/77をMOVEDへ変更しない。間隔1.562/1.048/.515秒、初動2.510秒。
+
+送信10は8MOVED/1BLOCKED/1UNKNOWN、全begin元10ms窓内NB+.445〜7.245ms、確認済み逆移動0。残存recovery snapshot4件は全VISUAL_SCHEDULE、上書き済み5件の理由を補完しない。ゲーム受信時刻や動画がなく位相の完全一致は未証明。[067計画](../plans/test067-motion-confirmation.md)で移動確認/既知入口未移動を対象とする。066の実行により導入後の動作は確認したが、商品到達は未達。065の暫定速度許容を今回の合格にしない。

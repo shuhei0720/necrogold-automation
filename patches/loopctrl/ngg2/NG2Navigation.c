@@ -155,7 +155,7 @@ int ng2_choose(const NG2Scene *source,int32_t x,int32_t y,const uint16_t *visits
     return 0;
 }
 
-typedef struct { unsigned char normalized[N],texture[N],positive[N]; } View;
+typedef struct { unsigned char normalized[N],texture[N],positive[N],detail[N]; } View;
 typedef struct { double score;int sx,sy; } Candidate;
 static int clamp(int v,int high) { return v<0 ? 0 : (v>=high ? high-1 : v); }
 static void view(const unsigned char raw[N],View *out) {
@@ -172,6 +172,7 @@ static void view(const unsigned char raw[N],View *out) {
         out->normalized[at]=raw[at]<=6 ? 0 : (unsigned char)(detail<0 ? 0 : (detail>255 ? 255 : detail));
         out->texture[at]=(unsigned char)(raw[at]>6 && abs((int)raw[at]-median)>=3);
         out->positive[at]=(unsigned char)((int)raw[at]-median>=3);
+        out->detail[at]=(unsigned char)(raw[at]>6 && abs((int)raw[at]-median)>=6);
     }
 }
 static int mask(int x,int y,int expanded) {
@@ -332,6 +333,29 @@ static void evaluate_motion(const NG2Scene *before,const NG2Scene *after,int dir
             if (sx==-amount*ddx[direction] && sy==-amount*ddy[direction]) out->kind=NG2_TWEEN;
     }
 }
+static void gate_detail_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                               View views[2],const Candidate candidates[73],NG2Motion *out) {
+    int i,dx=ddx[direction],dy=ddy[direction];
+    if (out->kind!=NG2_MOTION_UNKNOWN || before->state!=NG2_FLOOR || after->state!=NG2_FLOOR ||
+        before->goods!=NG2_GOODS_UNKNOWN || after->goods!=NG2_GOODS_UNKNOWN ||
+        before->gold_state!=NG2_GOLD_CANDIDATE || after->gold_state!=NG2_GOLD_CANDIDATE ||
+        tile(before,0,0)!=NG2_TILE_FLOOR || tile(after,0,0)!=NG2_TILE_FLOOR ||
+        tile(before,dx,dy)!=NG2_TILE_FLOOR || tile(after,dx,dy)!=NG2_TILE_FLOOR ||
+        !isfinite(candidates[0].score) || candidates[0].score<=.45 ||
+        candidates[1].score-candidates[0].score<.08 ||
+        candidates[0].sx!=-9*dx || candidates[0].sy!=-9*dy ||
+        !closed_translation(before,after,candidates[0].sx,candidates[0].sy) ||
+        !unique_gate_translation(before,after,candidates[0].sx,candidates[0].sy)) return;
+    for (i=0;i<CELLS;++i) if (before->protected_cells[i] || after->protected_cells[i]) return;
+    /* The original classifier and its three evidence planes are unchanged.
+     * Only an unresolved, exact closed-gate translation may additionally use
+     * stronger terrain detail. Reuse every original support/95%/15pp/region
+     * requirement and all 73 original intensity candidates. */
+    memcpy(views[0].texture,views[0].detail,N);
+    memcpy(views[1].texture,views[1].detail,N);
+    if (!strong_texture(&views[0],&views[1],candidates,0,1)) return;
+    out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+}
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -348,6 +372,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
         candidates[n].score=intensity(&views[0],&views[1],candidates[n].sx,candidates[n].sy);++n;
     }
     evaluate_motion(before,after,direction,views,candidates,out);
+    gate_detail_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,
