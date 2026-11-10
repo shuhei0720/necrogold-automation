@@ -12,11 +12,21 @@
 
 送信10操作は8MOVED/1BLOCKED/1UNKNOWN。全beginは元10ms窓内（NB+.445〜7.245ms）、確認済み逆移動0。残存回復snapshotはVISUAL_SCHEDULEであり、拍推定失敗と断定しない。ゲーム受信時刻/動画はなく位相ずれゼロは未証明。065の速度暫定許容を066の合格へ流用しない。
 
-## 検証と次の実機
+## TEST067の配布と実機確認
 
-新cadence6＋既存cadence8は066固定Cで13semantic failures/errors0→修正後14Green。新blocked6は066固定Cで18semantic failures/errors0→修正後6Green。新motion6も旧Navで意味的Red→Green。97原画/114比較の元3plane/全73score bytes一致、066第二69→83だけ追加MOVED。独立レビューP1の消去前model/raw snapshotを直し、新assertのRed→Greenを確認。新ticket発行後も同入口限定をactualbeginまで保持し、追加P1の負例Red→修正を独立6Greenで確認。レビュー最終P0/P1/P2なし、device39件とIPAへ進む。変更部/関連回帰と必要なIPA同一性確認を選び、未変更Runtime/world/クライアント全体をCIへ累積しない。実ゲームCIは未導入。
+code `9335d0040290d592355df0860e32e45c6fea6f42`、[Mac104](https://github.com/shuhei0720/necrogold-automation/actions/runs/42785580107) device39件成功。新cadence/blocked/motion計18は旧Cで意味的Red→Green。独立レビューのsnapshot欠損・新ticket後の同入口限定不足を修正し、最終P0/P1/P2なし。実IPA/build104 SHA `db02df8fb6f900a755442478a8c0557401bcc7ae53f5ae5ac2f9f2c15048aeac`。host全ID/生ログ/ABI/22seal前後、実4C/5Swift/6RSP、strictO2 profile、全9Mach-Oの104禁止marker非混入、全504build-source bytes/path/CRCを照合。他20/R12原40/G1不変。実ゲームCIと067実機は未実施。
 
-native変更のため新IPAを標準Macでビルドし、22seal/実compiler/全Mach-O/全sourceを照合して固定Releaseから返す。TEST067は未配布・実機未実施。SideStore更新/LoopCtrl完全終了・起動/Start Server、新通常All Zones1-1金壁可視ポーズからtest_067.sh、終了後runtime/test-067全ZIPと3商品可視/拍の安定性を必ず依頼する。
+[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test067-build104/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test067-build104/source.zip)・[SHA256SUMS](https://github.com/shuhei0720/necrogold-automation/releases/download/test067-build104/SHA256SUMS.txt)。固定Releaseへ配置。最終sourceはビルド対象から文書3件だけ異なり、code/launcher/testsは同じ。[検証](reviews/test067.md)。無変更Runtime/world/クライアントやprivate原画をCIへ累積しない。
+
+SideStoreで新IPA更新→LoopCtrl完全終了・起動→Start Server、通常のVPN/ディスク設定。展開した`test_067.sh`のあるフォルダを選び、新しい通常All Zones 1-1の金壁可視ポーズからiSHで実行。
+
+```sh
+mkdir -p /mnt/necro_test067
+mount -t ios . /mnt/necro_test067
+cd /mnt/necro_test067 && sh test_067.sh
+```
+
+歩行中はゲームを前面に保つ。自動ポーズ後約5秒でiSHへ戻り、前面のまま`TEST-067: 終了`を待つ。終了後`runtime/test-067`全ZIPと3商品可視/停止位置/歩行間隔を返してもらう。複数回は新しい1-1で行い、既収録066を再実行しない。
 
 ## 受領と回収の限界
 

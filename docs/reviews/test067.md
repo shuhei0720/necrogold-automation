@@ -23,3 +23,12 @@
 ## 封印・配布待ち
 
 Controller SHA `da6f3a2ddda72ccbd78430146a5eb3127db744a6ad43b9021366ce39dfa3da5d`、Navigation SHA `9f54c4dafe402c1176286b55283cfe5e63c7838db4ea42b4f6d02d487de82984`、manifest SHA `1864e63ca4346ad14f0cf9f138b7eda5c2241740a5d3f4df3b2ed9a146da278b`。baseline0aからこの2assetだけ変更し、他20/API15/cap13/ABI/client/R12原40/G1を維持する。固定upstream6e25へG1+G2を適用済み。Mac/実compiler/実IPA/全Mach-O/全sourceは完了後追記する。TEST067の実機成功は未確認。[配布と実機依頼](../status.md)に従う。
+
+
+## 最終Mac104・実配布物
+
+code `9335d0040290d592355df0860e32e45c6fea6f42`、[Mac104](https://github.com/shuhei0720/necrogold-automation/actions/runs/42785580107) device成功。新IPA/build104（0.3.4/top.ebato.loopctrl）SHA `db02df8fb6f900a755442478a8c0557401bcc7ae53f5ae5ac2f9f2c15048aeac`、外ZIP SHA `eece1e457a64fea8bcc1a72749adcbedc133b55a00484a27235f83e84655ff51`。
+
+host39の全実行ID/生ログ/command/0fail/error/skip/xfailと選択/省略理由、ABI実query、22seal前後が実IPA sourceと一致。baseline0aからController/Navigationだけ変更、他20/R12原40/G1不変。実4C/5Swift/6RSP/PBX/raw compiler引数を照合、Perception/Nav strictO2・Controller/BeatO0・SwiftOnone/HOST macroなし。全9Mach-Oで従来103+067の計104marker非混入。通常device laneの単体/関連回帰のみで無変更のRuntime/world全体は実施していない。
+
+build-source全504tracked bytes/path/CRC一致、7,366,797bytes/SHA `d756d45fd14f95f03fda056f62ffae31cf9661c3c67ef22d0a5c92a49091e2a6`。最終sourceとの差分を文書3件に限定して検査し、固定Releaseのsource.zip/SHA256SUMSへ保存。固定公開後は匿名GETとSHAで両assetを確認する。raw/画像/ログ/receiptはGit外。商品到達・歩行間隔は新しいTEST067の実機で評価し、未収録応答や合成試験から成功を断定しない。[実機依頼](../status.md)の新IPA更新/再起動/Start Serverから開始し、終了後runtime/test-067全ZIPを依頼する。

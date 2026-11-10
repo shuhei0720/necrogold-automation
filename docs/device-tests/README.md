@@ -2750,3 +2750,12 @@ ZIP7,568,906bytes/SHA `64429a99d52a77f801c249f46100a1a9980c21fa2a2574cb1c5c1e71f
 f432162df3954509ab735eaa6c3552f2は4方向入力/3MOVED+最後UNKNOWN、開扉0/商品0、native movement10/terminal/drained/PAUSE。回収resolved=false、18選択中13PNGのみ、3/6/35/82/88が不在・35.part262144bytes。host_deadlineは回収側の期限でゲーム停止の原因ではない。停止評価69/75/77/83は原画あり。69→83は正方向9、intensity .52855/gap .3031、closed/unique幾何成立だがtexture823支持/63badで95%条件未達。高contrast6以上の別証拠は518支持/21bad/top226/right291で全73候補への15pp差/95%が成立する。未確定75/77をMOVEDへ変更しない。間隔1.562/1.048/.515秒、初動2.510秒。
 
 送信10は8MOVED/1BLOCKED/1UNKNOWN、全begin元10ms窓内NB+.445〜7.245ms、確認済み逆移動0。残存recovery snapshot4件は全VISUAL_SCHEDULE、上書き済み5件の理由を補完しない。ゲーム受信時刻や動画がなく位相の完全一致は未証明。[067計画](../plans/test067-motion-confirmation.md)で移動確認/既知入口未移動を対象とする。066の実行により導入後の動作は確認したが、商品到達は未達。065の暫定速度許容を今回の合格にしない。
+
+
+## TEST067配布（2026-11-10 日本時間）
+
+[計画](../plans/test067-motion-confirmation.md)・[検証](../reviews/test067.md)・[固定配布/実機手順](../status.md)。code `9335d0040290d592355df0860e32e45c6fea6f42`/[Mac104](https://github.com/shuhei0720/necrogold-automation/actions/runs/42785580107) device39成功、新IPA/build104 SHA `db02df8fb6f900a755442478a8c0557401bcc7ae53f5ae5ac2f9f2c15048aeac`。実host/実compiler/22seal/全9Mach-O/全504build-sourceを照合。他20/API15/cap13/ABI/client/R12原40/G1不変。最終sourceは文書3件だけの差分を検査して固定Releaseへ配置。
+
+第2移動確認を元周期1/10、第3は元1周期・3評価/visualD/UNKNOWN無再送維持。原判定UNKNOWNの閉入口一意1tileだけ強い地形detailで追加証明、原73score/gap/300支持/95%/15pp/2領域条件を保持。確定BLOCKEDの同床入口は1run1回freshfit・将来拍/新ID、元event/歩数等と前verified12秒/45/180を維持。消去前model/rawをACTUAL_COMMIT snapshot、同入口限定は新ticket後もactualbeginまで全accepted Sceneで再証明、signature-only/DIRT FRESHも拒否し終了/PAUSEを確認。
+
+新IPAをSideStore更新→LoopCtrl完全終了/起動→Start Server→新しい通常1-1金壁可視ポーズでtest_067.sh。自動ポーズ後約5秒でiSH前面へ戻り終了を待ち、runtime/test-067全ZIPと3商品可視/停止位置/歩行間隔を返してもらう。067実機は未実施、066の既知商品未達をCI成功で置き換えない。
