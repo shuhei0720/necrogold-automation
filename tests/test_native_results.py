@@ -461,6 +461,8 @@ class NativeResultsTests(TimerTestCase):
                             {'raster_samples':[raster_sample(capture_id=0)]},
                             {'raster_samples_dropped':True}):
                 legacy = deepcopy(record)
+                legacy['revision'] = 'native-walk-v14'
+                bind_legacy_api(legacy)
                 legacy.pop('image_export', None)
                 legacy['native_report'].update(invalid)
                 native._save(Path(folder), legacy)
