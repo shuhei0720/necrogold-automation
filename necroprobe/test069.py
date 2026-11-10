@@ -21,6 +21,12 @@ def _require(condition, reason):
         raise PublicationError(reason)
 
 
+def _test_label(number):
+    _require(type(number) is str and len(number) == 3
+        and all('0' <= digit <= '9' for digit in number), 'publication_test_invalid')
+    return 'test-'+number
+
+
 def _check(cancelled):
     _require(not cancelled(), 'cancel_requested')
 
@@ -88,7 +94,8 @@ def _certificate(base, record, cancelled):
     return hashlib.sha256(active).hexdigest()
 
 
-def _inventory(base, record, cancelled, report_sha):
+def _inventory(base, record, cancelled, report_sha, test_number='069'):
+    prefix = _test_label(test_number) + '/'
     folder = base/('native-'+record['run_id'])
     _require(folder.is_dir() and not folder.is_symlink(), 'publication_run_missing')
     paths = [base/'active.json']
@@ -98,11 +105,11 @@ def _inventory(base, record, cancelled, report_sha):
             paths.append(path)
         else:
             _require(path.is_dir(), 'publication_special_file')
-    inventory = [('test-069/'+path.relative_to(base).as_posix(), path, *_digest(path, cancelled))
+    inventory = [(prefix+path.relative_to(base).as_posix(), path, *_digest(path, cancelled))
                  for path in paths]
-    expected = {'test-069/active.json': report_sha,
-        'test-069/'+folder.name+'/report.json': report_sha}
-    expected.update({'test-069/'+folder.name+'/images/'+item['name']: item['sha256']
+    expected = {prefix+'active.json': report_sha,
+        prefix+folder.name+'/report.json': report_sha}
+    expected.update({prefix+folder.name+'/images/'+item['name']: item['sha256']
                      for item in record['image_export']['images']})
     actual = {name: digest for name, _path, _size, digest in inventory}
     _require(all(actual.get(name) == digest for name, digest in expected.items()),
@@ -132,8 +139,8 @@ def _verify_archive(path, inventory, cancelled):
             _require((count, actual.hexdigest()) == (size, digest), 'publication_archive_changed')
 
 
-def _archive(base, record, storage, cancelled, report_sha):
-    inventory = _inventory(base, record, cancelled, report_sha)
+def _archive(base, record, storage, cancelled, report_sha, test_number='069'):
+    inventory = _inventory(base, record, cancelled, report_sha, test_number)
     path = storage/(record['run_id']+'.zip')
     if path.exists():
         _verify_archive(path, inventory, cancelled)
@@ -177,16 +184,16 @@ def _receipt(storage, record):
     return value
 
 
-def _published(base, destination, record, storage, cancelled):
+def _published(base, destination, record, storage, cancelled, test_number='069'):
     receipt = _receipt(storage, record)
-    final = destination/'runtime'/('test-069-'+record['run_id']+'.zip')
+    final = destination/'runtime'/(_test_label(test_number)+'-'+record['run_id']+'.zip')
     if receipt is None or not final.exists():
         return False
     report_sha = _certificate(base, record, cancelled)
     _require(receipt['report_sha256'] == report_sha, 'publication_receipt_changed')
     _require(_digest(final, cancelled) == (receipt['archive_bytes'], receipt['archive_sha256']),
         'publication_destination_changed')
-    archive = _archive(base, record, storage, cancelled, report_sha)
+    archive = _archive(base, record, storage, cancelled, report_sha, test_number)
     _require(_digest(archive, cancelled) == (receipt['archive_bytes'], receipt['archive_sha256']),
         'publication_receipt_changed')
     return True
@@ -205,14 +212,14 @@ def _copy(source, target, cancelled):
         os.fsync(copied.fileno())
 
 
-def _publish(base, destination, record, storage, cancelled, notice):
+def _publish(base, destination, record, storage, cancelled, notice, test_number='069'):
     report_sha = _certificate(base, record, cancelled)
     notice('全画像を確認済みです。返却用ZIPを保存・照合しています。')
-    archive = _archive(base, record, storage, cancelled, report_sha)
+    archive = _archive(base, record, storage, cancelled, report_sha, test_number)
     signature = _digest(archive, cancelled)
     output = destination/'runtime'
     output.mkdir(parents=True, exist_ok=True)
-    final = output/('test-069-'+record['run_id']+'.zip')
+    final = output/(_test_label(test_number)+'-'+record['run_id']+'.zip')
     if not final.exists():
         part = final.with_name(final.name+'.part')
         _copy(archive, part, cancelled)
@@ -232,7 +239,8 @@ def _publish(base, destination, record, storage, cancelled, notice):
     return final
 
 
-def run(destination, *, spool, session, cancelled=lambda: False, notice=print):
+def run(destination, *, spool, session, cancelled=lambda: False, notice=print, test_number='069'):
+    _test_label(test_number)
     base = Path(spool).resolve()
     destination = Path(destination).resolve()
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -243,9 +251,9 @@ def run(destination, *, spool, session, cancelled=lambda: False, notice=print):
         _check(cancelled)
         record = native._load(base)
         if record is not None and record['resolved'] and not _never_started(record):
-            if not _published(base, destination, record, storage, cancelled):
+            if not _published(base, destination, record, storage, cancelled, test_number):
                 notice('前回のZIP保存を再開します。今回はゲームを起動しません。')
-                return record, _publish(base, destination, record, storage, cancelled, notice)
+                return record, _publish(base, destination, record, storage, cancelled, notice, test_number)
         _check(cancelled)
         record = session(base)
         if not isinstance(record, dict):
@@ -254,11 +262,13 @@ def run(destination, *, spool, session, cancelled=lambda: False, notice=print):
         if not record['resolved'] or _never_started(record):
             return record, None
         _require(record == native._load(base), 'publication_journal_changed')
-        return record, _publish(base, destination, record, storage, cancelled, notice)
+        return record, _publish(base, destination, record, storage, cancelled, notice, test_number)
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description='TEST069: 全画像を永続保存して返却ZIPを作成')
+def main(argv=None, *, test_number='069'):
+    label = _test_label(test_number)
+    heading = 'TEST-'+test_number
+    parser = argparse.ArgumentParser(description=heading+': 全画像を永続保存して返却ZIPを作成')
     parser.add_argument('--python-crypto', action='store_true')
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args(argv)
@@ -279,24 +289,24 @@ def main(argv=None):
             return record
         return native.main(options, outcome=outcome, cancelled=lambda: stopped[0])
     try:
-        record, archive = run(Path.cwd(), spool=Path.home()/'.necroprobe'/'runtime'/'test-069',
-            session=session, cancelled=lambda: stopped[0], notice=notice)
+        record, archive = run(Path.cwd(), spool=Path.home()/'.necroprobe'/'runtime'/label,
+            session=session, cancelled=lambda: stopped[0], notice=notice, test_number=test_number)
         _check(lambda: stopped[0])
         report = record['native_report'] or {}
         reason = report.get('reason_name') if record['native_state'] in native.TERMINAL else None
         notice('ゲーム結果: '+record['state']+' / '+(reason or record['stop_reason'] or 'none'))
         if archive is not None:
-            notice('TEST-069: 終了。画像とZIPの保存・照合が完了しました。')
+            notice(heading+': 終了。画像とZIPの保存・照合が完了しました。')
             notice('このZIPを返してください: '+str(archive))
             return 0
-        notice('TEST-069: 結果保存は未完了です。端末内の記録を保持しています。')
+        notice(heading+': 結果保存は未完了です。端末内の記録を保持しています。')
         if _never_started(record):
             notice('ゲームの開始要求は送っていません。LoopCtrlのStart Serverと接続を確認して再実行してください。')
         else:
             notice('同じ実行IDを保持しています。ゲームの状態と接続を確認してください。')
         return 2
     except (PublicationError, native.ProbeError, OSError, zipfile.BadZipFile, json.JSONDecodeError):
-        notice('TEST-069: 保存は未完了です。端末内の記録を保持しました。')
+        notice(heading+': 保存は未完了です。端末内の記録を保持しました。')
         notice('同じフォルダから再実行すると、未完了の処理を先に確認します。')
         return 2
     finally:

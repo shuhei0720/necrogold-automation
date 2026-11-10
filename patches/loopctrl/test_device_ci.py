@@ -73,6 +73,16 @@ class DeviceNativeWorkflowTests(unittest.TestCase):
         self.assertIn('upstream/LoopCtrl.xcodeproj/project.pbxproj', build)
         self.assertIn('${{ runner.temp }}/ngg2/perception-build/', build)
 
+    def test_changed_dispatch_boundary_runs_focused_runtime_before_ipa_and_keeps_evidence(self):
+        build = self.jobs['focused-build']
+        name = '- name: Verify TEST070 Runtime dispatch Red and Green'
+        self.assertIn(name, build)
+        self.assertLess(build.index(name), build.index('- name: Build and package unsigned IPA'))
+        block = build.split(name+'\n', 1)[1].split('      - ', 1)[0]
+        self.assertIn('--test070-public-only upstream "$RUNNER_TEMP/test070-runtime"', block)
+        self.assertNotIn('        if:', block)
+        self.assertIn('${{ runner.temp }}/test070-runtime/', build)
+
 
 def case(name='test_one', result='green'):
     def test(self):

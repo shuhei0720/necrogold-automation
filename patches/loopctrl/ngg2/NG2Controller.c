@@ -11,6 +11,7 @@
 #define TRANSITION (4*SECOND)
 #define EVENT_CAP 64
 #define MOTION_REFERENCE_CAP 16
+#define MOTION_ASSESSMENTS 8
 #define INITIAL_PREPARATION UINT64_C(50000000)
 #define INITIAL_PUBLICATION UINT64_C(100000000)
 #define CONTINUOUS_PUBLICATION UINT64_C(100000000)
@@ -49,7 +50,7 @@ struct NG2Controller {
     uint8_t restart_fingerprint[48];
     uint64_t seen_id,seen_start,seen_end,last_now,transition_ns,sync_ns;
     uint64_t ack_ns,command_period,next_nominal,next_deadline,next_period,last_observed_prefix;
-    uint64_t motion_retry_start_ns;
+    uint64_t motion_retry_start_ns,motion_retry_last_ns;
     uint64_t stationary_gate_retry_proof_id;
     uint64_t edge_validated_capture_id;
     uint64_t latest_verified_ns;
@@ -791,12 +792,13 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
         end_visual_wait(p);
         finish(p,end,NG2_REASON_LATE);return;
     }
-    /* Keep the first assessment immediate. A tenth-period second sample can
-     * confirm a completed scroll before the next beat's dispatch window;
-     * unresolved motion still gets its final sample at one original period. */
+    /* Inspect fresh visual proof often enough to preserve the next beat.
+     * Reserve the last bounded comparison for the original full-period
+     * opportunity; early UNKNOWN/TWEEN can never consume that final chance. */
     if(p->motion_wait.attempts){
-        uint64_t spacing=p->motion_wait.attempts==1?p->command_period/10:p->command_period;
-        if(start<p->motion_retry_start_ns||start-p->motion_retry_start_ns<spacing)return;
+        if(start<p->motion_retry_last_ns||start-p->motion_retry_last_ns<p->command_period/10)return;
+        if(p->motion_wait.attempts==MOTION_ASSESSMENTS-1
+            &&(start<p->motion_retry_start_ns||start-p->motion_retry_start_ns<p->command_period))return;
     }
     if(!ng2_motion(&p->before,scene,direction,&motion)){motion.kind=NG2_MOTION_UNKNOWN;motion.dx=motion.dy=0;}
     if(reference){
@@ -817,9 +819,10 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
         }
     }
     if(!p->motion_wait.attempts)p->motion_retry_start_ns=start;
+    p->motion_retry_last_ns=start;
     ++p->motion_wait.attempts;p->motion_wait.last_capture_id=id;p->motion_wait.last_motion=motion.kind;
     if(e){e->observed_capture_id=id;e->motion=motion.kind;e->dx=motion.dx;e->dy=motion.dy;}
-    if((motion.kind==NG2_TWEEN||motion.kind==NG2_MOTION_UNKNOWN)&&p->motion_wait.attempts<3)return;
+    if((motion.kind==NG2_TWEEN||motion.kind==NG2_MOTION_UNKNOWN)&&p->motion_wait.attempts<MOTION_ASSESSMENTS)return;
     end_visual_wait(p);
     if(motion.kind==NG2_MOVED){
         if(motion.dx!=dx[direction]||motion.dy!=dy[direction]){finish(p,end,NG2_REASON_MOVEMENT);return;}
@@ -1074,7 +1077,7 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
         if(next<p->s.lead_ns||next-p->s.lead_ns>=NS_LIMIT-10000000){finish(p,now,NG2_REASON_SESSION);return 0;}
         wait_horizon=minimum(wait_horizon,p->s.walk_started_ns+45*SECOND);
         wait_horizon=minimum(wait_horizon,p->s.started_ns+180*SECOND);
-        memset(&p->motion_wait,0,sizeof(p->motion_wait));p->motion_retry_start_ns=0;
+        memset(&p->motion_wait,0,sizeof(p->motion_wait));p->motion_retry_start_ns=p->motion_retry_last_ns=0;
         p->motion_wait.command_id=p->command.id;p->motion_wait.source_capture_id=p->command.source_capture_id;
         p->schedule_deadline=minimum(next-p->s.lead_ns+10000000,wait_horizon);
         p->motion_wait.deadline_ns=wait_horizon;

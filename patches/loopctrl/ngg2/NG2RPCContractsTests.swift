@@ -132,7 +132,7 @@ final class NG2RPCContractsTests: XCTestCase {
         wait(for: [reply], timeout: 8)
         if let failure { throw failure }
         let schema = try XCTUnwrap(answer)
-        XCTAssertEqual(schema["server_version"] as? String, "1.98.15-ngg2")
+        XCTAssertEqual(schema["server_version"] as? String, "1.98.16-ngg2")
         XCTAssertEqual(schema["protocol_version"] as? Int, 1)
         let capabilities = try XCTUnwrap(schema["capability_tags"] as? [String])
         XCTAssertTrue(capabilities.contains("necrogold_native_v1"))
@@ -148,6 +148,7 @@ final class NG2RPCContractsTests: XCTestCase {
         XCTAssertTrue(capabilities.contains("necrogold_native_v11"))
         XCTAssertTrue(capabilities.contains("necrogold_native_v12"))
         XCTAssertTrue(capabilities.contains("necrogold_native_v13"))
+        XCTAssertTrue(capabilities.contains("necrogold_native_v14"))
         receivedLock.lock(); let dispatched = received.count; receivedLock.unlock()
         XCTAssertEqual(dispatched, 0)
     }

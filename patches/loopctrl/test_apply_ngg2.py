@@ -42,7 +42,7 @@ class NGG2ApplyTests(unittest.TestCase):
         (self.root / 'untouched.txt').write_text('preserve\n')
         self.extra = b'''// native fixture
     private func response(_ run: NG2Run) -> [String: JSONValue] {
-        return ["api_version": .string("1.98.15-ngg2"), "report": .object(report)]
+        return ["api_version": .string("1.98.16-ngg2"), "report": .object(report)]
     }
     private func historical(_ snapshot: [String: JSONValue]) -> [String: JSONValue] {
         return snapshot
@@ -223,7 +223,7 @@ class NGG2ApplyTests(unittest.TestCase):
         destination = driver / 'patches/loopctrl'
         destination.mkdir(parents=True)
         manifest = dict(self.manifest, upstream_commit=applier.UPSTREAM_COMMIT,
-                        api_version='1.98.15-ngg2', capability='necrogold_native_v1')
+                        api_version='1.98.16-ngg2', capability='necrogold_native_v1')
         import json
         (destination / 'ngg2-manifest.json').write_text(json.dumps(manifest))
         (destination / 'ngg2.patch').write_bytes(self.patch_path.read_bytes())
@@ -346,6 +346,26 @@ class NGG2ApplyTests(unittest.TestCase):
         self.assertEqual('necrogold_native_v13', accepted['client_capability'])
         self.assertEqual(2, verifier.required_native_profile(accepted['client_capability']))
 
+    def test_native_v14_package_requires_actual_api16_and_strict_profile_v2(self):
+        import json
+        driver = self.native_report_fixture()
+        path = driver / 'patches/loopctrl/ngg2-manifest.json'
+        manifest = json.loads(path.read_text())
+        manifest['client_capability'] = 'necrogold_native_v14'
+        path.write_text(json.dumps(manifest))
+        accepted = verifier.inspect_native_sources(self.root, driver)
+        self.assertEqual(('1.98.16-ngg2', 'necrogold_native_v14', 2),
+            (accepted['api_version'], accepted['client_capability'],
+             verifier.required_native_profile(accepted['client_capability'])))
+        runtime = self.root / self.added
+        stale = runtime.read_bytes().replace(b'1.98.16-ngg2', b'1.98.15-ngg2')
+        stale += b'// unrelated expected version: 1.98.16-ngg2\n'
+        runtime.write_bytes(stale)
+        manifest['additions'][self.added]['sha256'] = sha(stale)
+        path.write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, 'native_runtime_response_api'):
+            verifier.inspect_native_sources(self.root, driver)
+
     def test_package_provenance_preserves_native_v3_client_capability(self):
         import json
         driver = self.native_report_fixture()
@@ -394,8 +414,8 @@ class NGG2ApplyTests(unittest.TestCase):
         manifest = json.loads(path.read_text())
         manifest['client_capability'] = 'necrogold_native_v13'
         runtime = self.root / self.added
-        stale = runtime.read_bytes().replace(b'1.98.15-ngg2', b'1.98.14-ngg2')
-        stale += b'// unrelated expected version: 1.98.15-ngg2\n'
+        stale = runtime.read_bytes().replace(b'1.98.16-ngg2', b'1.98.15-ngg2')
+        stale += b'// unrelated expected version: 1.98.16-ngg2\n'
         runtime.write_bytes(stale)
         manifest['additions'][self.added]['sha256'] = sha(stale)
         path.write_text(json.dumps(manifest))

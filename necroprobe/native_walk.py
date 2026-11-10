@@ -21,9 +21,9 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v14'
-API_VERSION = '1.98.15-ngg2'
-CAPABILITY = 'necrogold_native_v13'
+REVISION = 'native-walk-v15'
+API_VERSION = '1.98.16-ngg2'
+CAPABILITY = 'necrogold_native_v14'
 PROFILE = 'normal-1-1-v1'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
@@ -39,11 +39,11 @@ MAX_CHUNK_WIRE = 256 * 1024
 CHUNK_BYTES = 64 * 1024
 EXPORT_BATCH_CHUNKS = 4
 EXPORT_BATCH_BYTES = 256 * 1024
-LEGACY_REVISIONS = frozenset('native-walk-v'+str(version) for version in range(1,14))
-PAGED_REVISIONS = frozenset(('native-walk-v9', 'native-walk-v10', 'native-walk-v11', 'native-walk-v12', 'native-walk-v13', REVISION))
-BATCHED_REVISIONS = frozenset(('native-walk-v10', 'native-walk-v11', 'native-walk-v12', 'native-walk-v13', REVISION))
-MOTION_REFERENCE_REVISIONS = frozenset(('native-walk-v12', 'native-walk-v13', REVISION))
-RECOVERY_REVISIONS = frozenset((REVISION,))
+LEGACY_REVISIONS = frozenset('native-walk-v'+str(version) for version in range(1,15))
+PAGED_REVISIONS = frozenset(('native-walk-v9', 'native-walk-v10', 'native-walk-v11', 'native-walk-v12', 'native-walk-v13', 'native-walk-v14', REVISION))
+BATCHED_REVISIONS = frozenset(('native-walk-v10', 'native-walk-v11', 'native-walk-v12', 'native-walk-v13', 'native-walk-v14', REVISION))
+MOTION_REFERENCE_REVISIONS = frozenset(('native-walk-v12', 'native-walk-v13', 'native-walk-v14', REVISION))
+RECOVERY_REVISIONS = frozenset(('native-walk-v14', REVISION))
 _HTTP_TRANSPORT_TYPE = HttpTransport
 MAX_SCHEMA_ATTEMPTS = 4
 SCHEMA_BUDGET_NS = 8_000_000_000
@@ -198,7 +198,9 @@ def _ns(value):
 
 def _revision_api(revision):
     # A started journal retains its original protocol, including ready preflight.
-    _require(revision in LEGACY_REVISIONS | {REVISION}, 'native_journal_invalid')
+    _require(type(revision) is str and revision in LEGACY_REVISIONS | {REVISION}, 'native_journal_invalid')
+    if revision == 'native-walk-v14':
+        return '1.98.15-ngg2'
     return '1.98.14-ngg2' if revision in LEGACY_REVISIONS else API_VERSION
 
 
@@ -390,7 +392,7 @@ def _load(base):
         if record['native_report'] is not None:
             record['native_report'] = _report(record['native_report'],
                 require_motion_references=record['revision'] in MOTION_REFERENCE_REVISIONS,
-                require_recovery=record['revision'] in RECOVERY_REVISIONS)
+                require_recovery=record['revision'] in RECOVERY_REVISIONS, api_version=api_version)
         _require(_result_metadata(record['result_metadata'], api_version=api_version)
                  == record['result_metadata'], 'native_journal_invalid')
         record['images'] = _stored_images(record['images'])
@@ -465,13 +467,14 @@ def _scene_change_details(value):
     return rows
 
 
-def _motion_wait(value):
+def _motion_wait(value, *, max_attempts=3):
     keys = ('command_id', 'source_capture_id', 'last_capture_id', 'deadline_ns',
             'attempts', 'last_motion', 'active')
     _require(type(value) is dict and set(keys) <= set(value), 'invalid_native_report')
     for key in keys[:-1]:
         _require(_ns(value[key]), 'invalid_native_report')
-    _require(value['attempts'] <= 3 and value['last_motion'] <= 7
+    _require(type(max_attempts) is int and max_attempts in (3, 8)
+             and value['attempts'] <= max_attempts and value['last_motion'] <= 7
              and type(value['active']) is bool, 'invalid_native_report')
     return {key:value[key] for key in keys}
 
@@ -670,8 +673,13 @@ def _recovery(value):
     return dict(value, records=records)
 
 
-def _report(value, depth=0, *, require_motion_references=False, require_recovery=False):
-    _require(type(value) is dict and depth <= 3 and len(value) <= 128, 'invalid_native_report')
+def _report(value, depth=0, *, require_motion_references=False, require_recovery=False,
+            api_version='1.98.14-ngg2'):
+    # Unbound saved diagnostics keep their historical three-assessment schema.
+    # Only an authenticated expected API or a pinned journal revision selects eight.
+    _require(type(value) is dict and depth <= 3 and len(value) <= 128
+             and api_version in ('1.98.14-ngg2', '1.98.15-ngg2', '1.98.16-ngg2'),
+             'invalid_native_report')
     result = {}
     for key, item in value.items():
         if key in NUMERIC_KEYS:
@@ -697,17 +705,17 @@ def _report(value, depth=0, *, require_motion_references=False, require_recovery
         elif key == 'backend':
             result[key] = item if item in ('daemon_direct', 'daemon', 'none') else 'none'
         elif key in ('capture', 'command'):
-            result[key] = _report(item, depth+1)
+            result[key] = _report(item, depth+1, api_version=api_version)
         elif key in ('events', 'captures'):
             limit = MAX_NATIVE_EVENTS if key == 'events' else MAX_CAPTURES
             _require(type(item) is list and len(item) <= limit, 'invalid_native_report')
-            result[key] = [_report(event, depth+1) for event in item]
+            result[key] = [_report(event, depth+1, api_version=api_version) for event in item]
         elif key == 'scene_changes':
             result[key] = _scene_changes(item)
         elif key == 'scene_change_details':
             result[key] = _scene_change_details(item)
         elif key == 'motion_wait':
-            result[key] = _motion_wait(item)
+            result[key] = _motion_wait(item, max_attempts=8 if api_version == '1.98.16-ngg2' else 3)
         elif key == 'motion_references':
             _require(depth == 0, 'invalid_native_report')
             result[key] = _motion_references(item)
@@ -758,7 +766,8 @@ def _status(value, run_id, *, require_motion_references=False, require_recovery=
              'invalid_native_status')
     _require('api_version' not in value or value['api_version'] == api_version, 'invalid_native_status')
     return value['state'], _report(value.get('report'),
-        require_motion_references=require_motion_references, require_recovery=require_recovery)
+        require_motion_references=require_motion_references, require_recovery=require_recovery,
+        api_version=api_version)
 
 
 def _result_metadata(value, *, api_version=API_VERSION):

@@ -1,39 +1,29 @@
 # 最新状態
 
-更新: 2026-11-10（日本時間）。新受領3run（test-068内fc37とtest-069の2本）で商品3品の可視到達を確認。全50PNG回収済み（20/20・16/16・14/14）。ただし自動GOODS完了は1/3、他2本は商品が見えていてもSCREEN終了。約.52秒周期に対して約1.04/1.57秒の入力間隔が残る。主因は画像による移動確認待ちと未送信10ms窓の取り逃し。[受領解析](reviews/test069-received.md)。解析のみ、実装/新IPA/追加実機依頼なし。
+更新: 2026-11-10（日本時間）。TEST070を開発中。最新指示は「移動で明かりの範囲が広がりルートを読み直す必要がある場合は1〜2拍許容。それ以外は毎拍歩行」。[要件](requirements/necrogold.md#2026-11-10-明かりによる新可視地形と歩行間隔)・[計画](plans/test070-cadence-lighting.md)。新地形でも判断が次拍までに終われば待ちを挿入せず、未観測/UNKNOWN/商品/保護/元期限の安全条件は維持する。
 
-## TEST069: 全画像保存と未送信開扉の再観測
+## 実機の根拠
 
-[計画](plans/test069-collection-gate.md)・[検証記録](reviews/test069.md)。回収の完了前に「終了」と表示しないことを優先する。
+[069受領解析](reviews/test069-received.md)。test-068内fc37とtest-069の1357/b404の3run/全50PNGをSHA/bytes/896×414/CRC/manifest/cursor/prefix/active-reportで照合。3本とも3商品が可視、画像20/20・16/16・14/14保存完了。自動GOODSは1/3で、他2本は商品が見えてもSCREEN。可視到達と自動判定完了を分ける。
 
-TEST068のゲームは6.706秒で停止・drained/入力確定。回収manifestから最終chunkまで87.728秒、RPC23.596秒に対し呼出間64.132秒。共有iOS mountへ109 atomic/14,443,914 bytesの細かい同期保存を行い、90秒制限に達した。前版の修正は再開時の重複writeだけで初回保存に効かなかった。
+周期約.52秒に対し1.04/1.57秒の入力間隔。fc37のUP→UPでは新露出0でも約1.05秒待つ。1357 DOWN→LEFTは新露出5cell/方向変更があり約1.04秒。新照明によるルート判断と、既知通路の単なる確認遅れを区別する。未収録途中画像は補わず、ゲーム受信時刻なしで入力取りこぼしゼロと断定しない。
 
-TEST069は `~/.necroprobe/runtime/test-069` のiSH内永続保存に変更し、全画像のmanifest/cursor/SHA/PNG/active-report一致を確認してから、現在runだけのZIPを共有側へ一括copy・whole SHA照合・rename・再照合する。端末内原本は保持し、公開途中の中断は次ゲームより先に処理する。返却物は自動作成される `runtime/test-069-<run_id>.zip`。旧TEST068は削除/移行しない。
+現Controllerは未確定時の3回目を元1周期後まで待つ。加えてC再検証12.556msで10ms送信窓を超過、別箇所は準備済み票のSAME再予約前後で診断作業が時間を使いCepoch再利用の期限を失った可能性がある。元10ms窓は延長しない。
 
-terminal/drained・input0/3・非inflight/非凍結・未取消を確認したpaged回収だけ独立300秒。ゲーム180/歩行45/再同期12秒・入力上限/UNKNOWN無再送は不変。回収中にstart/入力/keepalive/cancelを追加しない。unsafe/旧非paged/既取消のcleanupは従来どおり。未完了に終了表示や次startを許さない。接続前失敗などnative未開始は画像回収完了と区別し再接続可能にする。
+## TEST070の変更範囲
 
-扉前停止は入力id9の送信前判定。原画130→133は同LEFT/reason5/target(-1,0)/DOOR・gold/局所/保護不変だが遠方2セルが変わり、motion UNKNOWNで旧quietが拒否。score .50899で旧.45を超え、構造95%も未達なので閾値は緩めない。確実未送信の同closed doorだけ1run1回、旧IDを撤回し独立した新画像対のstrict BLOCKED、fresh HUD fit、新ID/将来拍prepを要求する再観測へ進む。元12/45/180秒を保持し、送信UNKNOWNを再送しない。
+同一ACK-known MOVEの画像評価を最大8回へ。2〜7回目は直前評価開始から元period/10以上、8回目は初回+元1周期以降も要求し、旧最終機会を残す。strict proofが早く得られれば元次拍へ進む。UNKNOWNを実移動扱いせず入力の再送は増やさない。元before/prefix/source/phase/visualD・12/45/180秒/16入力・GOODS/取消を保持する。
 
-## 検証と配布
+Runtimeはcoherent C snapshot/現在source pinを先に保持し、重い画像参照収集/整列/退避を前面証拠の再利用/入力後へ移す最小変更を実装中。新しい未検証画像を飛ばして旧ticketを送る処理はしない。正式なactual Runtime Red→Greenは同Macジョブで固定旧実装/新実装を順に検査する。local Swift環境がなく、模擬時計と実機成立を区別する。
 
-code `6180eacf3bec8c9ecb0e65c889339f9483ef383d`、[Mac108](https://github.com/shuhei0720/necrogold-automation/actions/runs/42804504968) device50件成功（native16/client31/selector3）。新34件は意味的Red→Green、独立設計/安全レビューの全P0/P1を修正。nativeはControllerだけ、他21/API15/cap13/ABI/clientv14・Runtime/Swift/wire layout不変。
+新native-walk-v15/API1.98.16-ngg2/cap14でattempts≤8を識別。旧v14はAPI.15/≤3、v1〜13はAPI.14/≤3、同UUID/clock/export/cursor回復を保持。ABI/layout不変。Perception/Navの商品/地形閾値は変更しない。商品認識の看板/HUD問題は別課題として保持。
 
-実IPA/build108 SHA `47ae26f5d512abd8bf0fefc8fa85707fc50d9e0713a754a07a55680694f77dda`、17,588,938bytes。22seal・host全ID/生ログ/両client実driver/Git blob/SHA・実4C/5Swift/6RSP/strictO2・全9Mach-Oの109禁止marker非混入・build-source全517tracked bytes/path/CRCを照合。他21/R12原40/G1不変。最終sourceはcodeから文書3件だけ異なり実装同一。実ゲームCIは未実施。実機の可視到達3/3・全画像回収を受領したが、自動GOODS完了/毎拍歩行の受入は未達。
+TEST069のiSH永続保存・全画像検証後のZIP一括公開を再利用し、TEST070のlocal namespace/ZIP名/launcherを分ける。旧069原本は保持。未公開runの次start/完了前の終了表示は禁止、独立read-only300秒と取消境界は維持する。今回の単体/関係回帰・独立レビューと必要な新IPA/同一性照合後に固定Releaseへ公開し、必ず具体的な実機試験を依頼する。
 
-[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/source.zip)・[SHA256SUMS](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/SHA256SUMS.txt)。固定Releaseへ保存、公開後の匿名GET/SHA確認まで行う。[詳細](reviews/test069.md)。
+## 現在の配布済み版
 
-SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常のVPN/ディスク設定。sourceを展開しtest_069.shのあるフォルダを選び、新しい通常All Zones 1-1・金壁可視ポーズから実行する。
-
-```sh
-mkdir -p /mnt/necro_test069
-mount -t ios . /mnt/necro_test069
-cd /mnt/necro_test069 && sh test_069.sh
-```
-
-歩行中ゲーム前面、自動ポーズ後約5秒でiSHへ戻り前面のまま`TEST-069: 終了。画像とZIPの保存・照合が完了しました。`まで待つ。自動作成された`runtime/test-069-<run_id>.zip`をそのまま返してもらう。まず新しい1-1で2回、商品全体の可視/停止位置/歩行間隔/全画像・ZIP保存完了を確認する。複数回なら全run分。TEST068の追加回収は不要。
-
-前版は [TEST068/build106固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test068-build106)。受領068の商品確認未達・回収未完了を前版CI46件の成功で埋めない。
+[TEST069/build108固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test069-build108)。code `6180eacf3bec8c9ecb0e65c889339f9483ef383d`、[Mac108](https://github.com/shuhei0720/necrogold-automation/actions/runs/42804504968) device50件成功。[検証](reviews/test069.md)。IPA SHA `47ae26f5d512abd8bf0fefc8fa85707fc50d9e0713a754a07a55680694f77dda`。最終sourceはcodeから文書3件だけ異なり実装同一。受領069の可視到達3/3・画像全回収と、自動GOODS/毎拍歩行の未達を両方記録する。TEST070の実機/実ゲームCIは未実施、速度合格は未宣言。
 
 ## 運用
 
-[開発フロー](development-flow.md#最新の運用方針2026-11-10-日本時間): 実機ログ→局所修正→単体/関連回帰→必要なIPA/同一性確認→実機。固定時間なし/品質安全条件不変、通常差分レビュー1回。無変更Runtime/world全体をCIへ累積しない。承認済branchへ保存、raw/画像/report/log/秘密値はGit外。同じiPhoneだけ、ユーザーはMacを持たず実機担当。初読3文書≤16KiB、[索引](context.md)から必要資料だけ読む。
+[開発フロー](development-flow.md#最新の運用方針2026-11-10-日本時間): 実機ログ→局所修正→単体/関係回帰→必要なIPA/同一性確認→実機。固定時間なし/品質安全条件不変、通常差分レビュー1回。無変更Runtime/world全体を毎回累積しない。既承認branchへ保存、生ZIP/原画/report/log/秘密値はGit外。同じiPhoneだけ、ユーザーはMacを持たず実機担当。初読3文書≤16KiB、[索引](context.md)から必要資料だけ読む。

@@ -21,6 +21,9 @@ TEST058_RED_FIXTURE_COMMIT = 'd936ab92e63568f87fe37955325a1bc3bcf34493'
 TEST058_RED_FIXTURE_SHA256 = '1d17bcf7a5c4c3b0eca981de7cb6f161827fcfbbcbb71be180cfdf952f5f2c10'
 TEST057_RUNTIME_COMMIT = 'e72e4d1f3787ca3198d02092c87e4257cd2f2aa3'
 TEST057_RUNTIME_SHA256 = '35a23af11c4d1c4419d3f59b55a6f7498c434934e4a275584063060ee76cf667'
+TEST070_RUNTIME_COMMIT = '6180eacf3bec8c9ecb0e65c889339f9483ef383d'
+TEST070_RUNTIME_SHA256 = 'f37ddcd1c2de303496fd7d19f8e399c512258dfac4b3075487aed6f00180ce9e'
+TEST070_BOUNDARY_CASES = ('prefix', 'cancel', 'controller', 'deadline_equal')
 TEST056_PERCEPTION_COMMIT = '5638dc2aa9744b73cfc5a204d17cdfe75bb9cb03'
 TEST056_PERCEPTION_SHA256 = 'eda7134a56f3bc43baed5de75933de0a4d72f92da7497ea972787c4b979648c3'
 EXPECTED_TEST056_MUTATIONS = frozenset(('stop-evidence-pin-priority', 'stop-evidence-selection-priority'))
@@ -239,11 +242,11 @@ def require_test061_runtime_api(source):
     begin = '    private func response(_ run: NG2Run) -> [String: JSONValue] {\n'
     end = '    private func historical('
     if source.count(begin) != 1 or source.count(end) != 1:
-        raise ValueError('runtime_test061_response_api15_required')
+        raise ValueError('runtime_test061_response_api16_required')
     response = source.split(begin, 1)[1].split(end, 1)[0]
     if (response.count('"api_version"') != 1
-        or response.count('"api_version": .string("1.98.15-ngg2")') != 1):
-        raise ValueError('runtime_test061_response_api15_required')
+        or response.count('"api_version": .string("1.98.16-ngg2")') != 1):
+        raise ValueError('runtime_test061_response_api16_required')
 
 
 def require_test061_green(result):
@@ -427,6 +430,61 @@ def test058_public_fixture_source(tests, *, baseline=False):
     return test058_baseline_release_barrier(test058_baseline_capture_clock_barrier(combined)) if baseline else combined
 
 
+def test070_public_fixture_source(tests, *, baseline=False):
+    marker = '// This public request is intentionally runnable'
+    fixture = (HERE/'ngg2_dispatch070_tests.swift').read_text()
+    if tests.count(marker) != 1 or fixture.count('func test070DeferredEvidenceDispatchPublic()') != 1:
+        raise ValueError('runtime_test070_public_fixture_boundary')
+    declarations = ''
+    calls = '\ntest070DeferredEvidenceDispatchPublic()\n'
+    if not baseline:
+        old_fixture = (HERE/'ngg2_dispatch_preparation_tests.swift').read_text()
+        old_runner = '\ntest058PreparedContinuousDeadlinePublic()\n'
+        if old_fixture.count(old_runner) != 1:
+            raise ValueError('runtime_test070_old_boundary_fixture_body')
+        declarations = old_fixture.split(old_runner)[0]
+        for case in TEST070_BOUNDARY_CASES:
+            calls += ('test058PreparedContinuousCase('+json.dumps(case)+')\n'
+                'print("PASS TEST070 selected old boundary '+case+'")\n')
+        calls += ('test058EveryPreparationIdentityField()\n'
+            'print("PASS TEST070 selected old preparation identity matrix")\n')
+    return (tests.split(marker)[0]+declarations+fixture+calls+
+        'print("PASS TEST070 deferred evidence public Runtime deadline boundary")\n')
+
+
+def test070_entrypoint_calls(*, baseline=False):
+    return (['test070DeferredEvidenceDispatchPublic()'] if baseline else
+        ['test070DeferredEvidenceDispatchPublic()',
+         *['test058PreparedContinuousCase('+json.dumps(case)+')' for case in TEST070_BOUNDARY_CASES],
+         'test058EveryPreparationIdentityField()'])
+
+
+def test070_baseline_retention_seam():
+    source = subprocess.check_output(['git','show',TEST070_RUNTIME_COMMIT+
+        ':patches/loopctrl/ngg2/NG2Runtime.swift'], cwd=HERE).decode()
+    if hashlib.sha256(source.encode()).hexdigest() != TEST070_RUNTIME_SHA256:
+        raise ValueError('runtime_test070_fixed_baseline_hash')
+    # The only baseline instrumentation exposes the actual image retention
+    # operation outside its lock. It changes no production work or authority.
+    changes = (
+        ('    static var beforeDueDispatch: ((UInt64) -> Void)?\n',
+         '    static var beforeDueDispatch: ((UInt64) -> Void)?\n'
+         '    static var beforeEvidenceRetention: ((UInt64) -> Void)?\n'),
+        ('        run.lock.ng2Locked {\n            var required = Set<UInt64>()\n',
+         '        #if NG2_RUNTIME_HOST_TEST\n'
+         '        NG2RuntimeTestHooks.beforeEvidenceRetention?(s.current_command_id)\n'
+         '        #endif\n'
+         '        run.lock.ng2Locked {\n            var required = Set<UInt64>()\n'))
+    for old, new in changes:
+        if source.count(old) != 1:
+            raise ValueError('runtime_test070_baseline_retention_seam')
+        source = source.replace(old, new)
+    # Version metadata is the only non-HOST change to this fixed baseline.
+    source = source.replace('"api_version": .string("1.98.15-ngg2")',
+        '"api_version": .string("1.98.16-ngg2")')
+    return source
+
+
 def test058_baseline_capture_clock_barrier(source):
     """Keep the fixed fixture's clock on its one intended changed capture.
 
@@ -505,15 +563,19 @@ def test056_host_fixture_seam(source, fixture_runtime_source):
     original = source
     selection_start = source.index('    private func selectedExportFrames(')
     selection_end = source.index('    private func imageMetadata(', selection_start)
-    pin_start = source.index('        run.lock.ng2Locked {\n            var required = Set<UInt64>()')
-    pin_end = source.index('        let encoded = events.', pin_start)
+    split_pin = '    private func retainEvidenceLocked('
+    legacy_pin = '        run.lock.ng2Locked {\n            var required = Set<UInt64>()'
+    pin_start = source.index(split_pin if split_pin in source else legacy_pin)
+    pin_end = source.index('    private func controllerReport(' if split_pin in source
+        else '        let encoded = events.', pin_start)
     old_selection, old_pin = source[selection_start:selection_end], source[pin_start:pin_end]
     for declaration in declarations:
         if source.count('let '+declaration) != 1:
             raise ValueError('runtime_test056_fixture_seam_count')
         source = source.replace('let '+declaration, 'var '+declaration)
-    for anchor, block in zip(('    static var testFrameStride:',
-                             '        run.lock.ng2Locked {\n            var required = Set<UInt64>()'), blocks):
+    snapshot_anchor = ('        let snapshot = NG2ControllerSnapshot(status: s,'
+                       if split_pin in source else legacy_pin)
+    for anchor, block in zip(('    static var testFrameStride:', snapshot_anchor), blocks):
         if source.count(anchor) != 1:
             raise ValueError('runtime_test056_fixture_seam_anchor')
         source = source.replace(anchor, block+anchor, 1)
@@ -844,7 +906,7 @@ def navigation_profile_contract(upstream, output, *, compiler='clang'):
             'scope': 'actual production strict Navigation public API, unchanged O0, complete views/73-score bytes/Motion/Decision/Entrance/boundary and input parity'}
 
 
-def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False, selected_mutations=None, public052_only=False, new052_mutations_only=False, public053_only=False, new053_mutations_only=False, public054_only=False, new054_mutations_only=False, public055_only=False, new055_mutations_only=False, expect_evidence_red=False, public056_only=False, new056_mutations_only=False, expect_preparation_red=False, public058_only=False, public058_shop_only=False, green_only=False, new058_mutations_only=False, public061_only=False, new061_mutations_only=False, native_objects=None):
+def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispatch_red=False, expect_observe_red=False, expect_manifest_red=False, baseline_native=None, public051_only=False, new051_mutations_only=False, selected_mutations=None, public052_only=False, new052_mutations_only=False, public053_only=False, new053_mutations_only=False, public054_only=False, new054_mutations_only=False, public055_only=False, new055_mutations_only=False, expect_evidence_red=False, public056_only=False, new056_mutations_only=False, expect_preparation_red=False, public058_only=False, public058_shop_only=False, green_only=False, new058_mutations_only=False, public061_only=False, new061_mutations_only=False, public070_only=False, expect_retention_red=False, native_objects=None):
     stage = output / 'runtime'; stage.mkdir(exist_ok=True)
     native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red or expect_manifest_red else upstream / 'LoopCtrlUITests'
     if baseline_native is not None:
@@ -877,6 +939,11 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     shutil.copyfile(HERE/'ngg2_runtime_fakes.swift', stage/'Fakes.swift')
     shutil.copyfile(HERE/'ngg2_runtime_tests.swift', stage/'main.swift')
     source = (native/'NG2Runtime.swift').read_text()
+    if public070_only or expect_retention_red:
+        (stage/'main.swift').write_text(test070_public_fixture_source(
+            (HERE/'ngg2_runtime_tests.swift').read_text(), baseline=expect_retention_red))
+        if expect_retention_red:
+            source = test070_baseline_retention_seam()
     if public061_only or new061_mutations_only:
         (stage/'main.swift').write_text(test061_public_fixture_source((HERE/'ngg2_runtime_tests.swift').read_text()))
     if expect_preparation_red or public058_only or new058_mutations_only:
@@ -965,7 +1032,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         # Fixed TEST047 predates afterWatchdogCheck. Its selected fixture does
         # not use the later owner fence; preserve its original Runtime bytes.
         extra += ['-D', 'NG2_RUNTIME_LEGACY_CAPTURE_BASELINE']
-    if public058_only or new058_mutations_only:
+    if public058_only or new058_mutations_only or public070_only:
         extra += ['-D', 'NG2_PREPARATION_TEST058_GREEN']
     if new061_mutations_only:
         return test061_mutation_reds(source, native, sources, stage, output, extra)
@@ -994,12 +1061,35 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                 'source_sha256':hashlib.sha256(source.encode()).hexdigest(),'compiled':True,
                 'device_test':'not_run','scope':'actual Runtime qualified preparation reuse and diagnostic priority faults; synthetic timing'}
     green = compile_run(sources, stage/'runtime-tests', output,
+        'runtime-test070-retention-baseline-red' if expect_retention_red else
         'runtime-preparation-baseline-red' if expect_preparation_red else
         'runtime-stop-evidence-baseline-red' if expect_evidence_red else
         'runtime-manifest-baseline-red' if expect_manifest_red else
         'runtime-observe-baseline-red' if expect_observe_red else
         'runtime-dispatch-baseline-red' if expect_dispatch_red else
         'runtime-failure-baseline-red' if expect_capture_red else 'runtime-production-green', extra, run_timeout=300 if public058_shop_only or public061_only else 120)
+    if expect_retention_red:
+        require_red(green, 'FAIL MISSING_test070_due_reissue_prepares_before_evidence_retention')
+        return {'baseline_red': green.stdout.strip(), 'compiled': True, 'device_test': 'not_run',
+                'source_commit': TEST070_RUNTIME_COMMIT, 'source_sha256': TEST070_RUNTIME_SHA256,
+                'host_instrumented_source_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                'fixture_sha256': hashlib.sha256((stage/'main.swift').read_bytes()).hexdigest(),
+                'entrypoint_calls': test070_entrypoint_calls(baseline=True), 'boundary_cases': [],
+                'scope': 'fixed Runtime with HOST-only retention cost seam; actual C and synthetic capture/clock'}
+    if public070_only:
+        checked(green)
+        old_passes = [line for line in green.stdout.splitlines() if line.startswith('PASS TEST070 selected old ')]
+        expected_passes = ['PASS TEST070 selected old boundary '+case for case in TEST070_BOUNDARY_CASES]
+        expected_passes.append('PASS TEST070 selected old preparation identity matrix')
+        if (not green.stdout.strip().endswith('PASS TEST070 deferred evidence public Runtime deadline boundary')
+            or old_passes != expected_passes or green.stderr):
+            raise RuntimeError('runtime_test070_retention_contract_missing')
+        return {'production_green': green.stdout.strip(), 'compiled': True, 'device_test': 'not_run',
+                'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                'fixture_sha256': hashlib.sha256((stage/'main.swift').read_bytes()).hexdigest(),
+                'entrypoint_calls': test070_entrypoint_calls(),
+                'boundary_cases': list(TEST070_BOUNDARY_CASES), 'preparation_identity_matrix': True,
+                'scope': 'focused public Runtime preparation, diagnostic retention and frozen dispatch boundary'}
     if public061_only:
         require_test061_green(green)
         return {'production_green': green.stdout.strip(), 'compiled': True, 'device_test': 'not_run',
@@ -1753,6 +1843,28 @@ def test061_contract(upstream, output, *, mutations_only=False):
     return report
 
 
+def test070_contract(upstream, output):
+    native = upstream/'LoopCtrlUITests'
+    require_test061_runtime_api((native/'NG2Runtime.swift').read_text())
+    output.mkdir(parents=True, exist_ok=True)
+    objects, provenance = test061_native_objects(native, output)
+    types = (upstream/'LoopCtrlKit/RPCTypes.swift').read_text().split('// MARK: - Auth Types\n', 1)
+    if len(types) != 2:
+        raise ValueError('rpc_types_boundary')
+    reports = {}
+    # Execute the fixed previous Runtime first. Its stage and artifacts stay
+    # separate from the sealed current app source and the following Green.
+    for label, baseline in (('baseline', True), ('production', False)):
+        stage = output/label; stage.mkdir(exist_ok=True)
+        (stage/'api').mkdir(exist_ok=True)
+        (stage/'api'/'RPCTypes.swift').write_text(types[0])
+        reports[label] = runtime_contract(upstream, stage, public070_only=not baseline,
+            expect_retention_red=baseline, native_objects=objects)
+    report = {'runtime': reports, 'native_sources': provenance, 'device_test': 'not_run'}
+    (output/'ngg2-test070-runtime-contract.json').write_text(json.dumps(report, indent=2)+'\n')
+    return report
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--red-only', action='store_true')
@@ -1783,8 +1895,17 @@ def main():
     parser.add_argument('--test058-new-mutations-only', action='store_true')
     parser.add_argument('--test061-public-only', action='store_true')
     parser.add_argument('--test061-new-mutations-only', action='store_true')
+    parser.add_argument('--test070-public-only', action='store_true')
     parser.add_argument('paths', nargs='+', type=Path)
     args = parser.parse_args()
+    if args.test070_public_only:
+        other_modes = [value for name, value in vars(args).items()
+                       if name not in ('paths', 'test070_public_only')]
+        if any(other_modes) or len(args.paths) != 2:
+            parser.error('TEST070 standalone mode requires patched upstream and output directory')
+        report = test070_contract(*args.paths)
+        print(report['runtime']['production']['production_green'])
+        return
     if args.test061_public_only or args.test061_new_mutations_only:
         other_modes = [value for name, value in vars(args).items()
                        if name not in ('paths', 'test061_public_only', 'test061_new_mutations_only')]

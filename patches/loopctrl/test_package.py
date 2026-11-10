@@ -86,7 +86,7 @@ class NativePackageProfileTests(unittest.TestCase):
         (self.patchdir / 'ngg2.patch').write_text('fixture patch\n')
         self.manifest = {
             'upstream_commit': self.checker.UPSTREAM,
-            'api_version': '1.98.15-ngg2',
+            'api_version': '1.98.16-ngg2',
             'capability': 'necrogold_native_v1',
             'client_capability': 'necrogold_native_v7',
             'patch_sha256': self.checker.digest((self.patchdir / 'ngg2.patch').read_bytes()),
@@ -104,7 +104,7 @@ class NativePackageProfileTests(unittest.TestCase):
 
     def enable_native_v13(self):
         raw = b'''    private func response(_ run: NG2Run) -> [String: JSONValue] {
-        return ["api_version": .string("1.98.15-ngg2"), "report": .object(report)]
+        return ["api_version": .string("1.98.16-ngg2"), "report": .object(report)]
     }
     private func historical(_ snapshot: [String: JSONValue]) -> [String: JSONValue] {
         return snapshot
@@ -233,6 +233,23 @@ class NativePackageProfileTests(unittest.TestCase):
         self.assertEqual(profile['format_version'], 2)
         self.assertEqual(profile['perception_compiles'][0]['optimization'], '-O2')
         self.assertEqual(profile['navigation_compiles'][0]['optimization'], '-O2')
+
+    def test_native_v14_package_requires_both_current_strict_compiler_proofs(self):
+        self.enable_native_v13()
+        self.manifest['client_capability'] = 'necrogold_native_v14'
+        self.write_manifest()
+        with self.assertRaisesRegex(self.checker.ProfileError, 'compile_profile_missing'):
+            self.run_package()
+        self.assertFalse(self.report_path.exists())
+        self.write_profile(1)
+        with self.assertRaises(self.checker.ProfileError):
+            self.run_package()
+        self.assertFalse(self.report_path.exists())
+        profile = self.write_profile(2)
+        result = self.run_package()
+        self.assertEqual(('1.98.16-ngg2', 'necrogold_native_v14'),
+            (result['api_version'], result['client_capability']))
+        self.assertEqual(profile, result['perception_build_profile'])
 
     def test_native_v6_package_rechecks_tampered_legacy_navigation_arguments(self):
         self.manifest['client_capability'] = 'necrogold_native_v6'

@@ -13,6 +13,7 @@ from timer_support import TimerTestCase
 
 
 OLD_API = '1.98.14-ngg2'
+PREVIOUS_API = '1.98.15-ngg2'
 
 
 def recovery(**updates):
@@ -66,10 +67,11 @@ def old_journal(value, version):
     """Build an actual old API journal, rather than relabel a new API preflight."""
     value = deepcopy(value)
     value['revision'] = 'native-walk-v'+str(version)
+    api = OLD_API if version < 14 else PREVIOUS_API if version == 14 else native.API_VERSION
     if value.get('preflight', {}).get('server') is not None:
-        value['preflight']['server']['server_version'] = OLD_API
+        value['preflight']['server']['server_version'] = api
     if 'api_version' in value.get('result_metadata', {}):
-        value['result_metadata']['api_version'] = OLD_API
+        value['result_metadata']['api_version'] = api
     if version < 9:
         value.pop('image_export', None)
     return value
@@ -86,14 +88,14 @@ class RecoveryResultsTests(TimerTestCase):
         self.assertEqual(expected, parsed['recovery'])
 
     def test_current_revision_requires_new_api_capability_and_test061_output(self):
-        self.assertEqual(('native-walk-v14', '1.98.15-ngg2', 'necrogold_native_v13'),
+        self.assertEqual(('native-walk-v15', '1.98.16-ngg2', 'necrogold_native_v14'),
             (native.REVISION, native.API_VERSION, native.CAPABILITY))
         path = Path(native.__file__).resolve().parents[1]/'test_061.sh'
         self.assertEqual(0, subprocess.run(['sh', '-n', str(path)], capture_output=True).returncode)
         self.assertIn('native-walk-v14 / 1.98.15-ngg2', path.read_text())
         self.assertIn('--output runtime/test-061', path.read_text())
 
-    def test_never_started_old_journal_uses_v14_contract_for_its_first_start(self):
+    def test_never_started_old_journal_uses_v15_contract_for_its_first_start(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True) as server:
             seed = self.execute(server, folder)
             seed = old_journal(seed, 13)
@@ -104,7 +106,7 @@ class RecoveryResultsTests(TimerTestCase):
             server.calls.clear()
             server.schema_calls.clear()
             value = self.execute(server, folder)
-            self.assertEqual('native-walk-v14', value['revision'],
+            self.assertEqual('native-walk-v15', value['revision'],
                 'a_first_start_requires_the_current_full_report_contract')
             self.assertEqual(seed['run_id'], value['run_id'])
             self.assertTrue(value['resolved'], value['stop_reason'])
@@ -309,10 +311,10 @@ class RecoveryResultsTests(TimerTestCase):
     def test_each_revision_binds_preflight_status_and_result_metadata_to_one_api(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True) as server:
             seed = self.execute(server, folder)
-            for version in range(1,15):
-                value = old_journal(seed, version) if version < 14 else deepcopy(seed)
-                expected = OLD_API if version < 14 else native.API_VERSION
-                wrong = native.API_VERSION if version < 14 else OLD_API
+            for version in range(1,16):
+                value = old_journal(seed, version)
+                expected = OLD_API if version < 14 else PREVIOUS_API if version == 14 else native.API_VERSION
+                wrong = native.API_VERSION if version < 15 else OLD_API
                 for key in ('preflight', 'result_metadata'):
                     bad = deepcopy(value)
                     if key == 'preflight':

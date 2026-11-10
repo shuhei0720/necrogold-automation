@@ -68,10 +68,10 @@ def inspect_native_sources(upstream, driver):
     manifest_raw = manifest_path.read_bytes()
     manifest = json.loads(manifest_raw)
     if (manifest.get('upstream_commit') != '6e25cf6a9f65bc86c372cdce94bdb151d0cf6767'
-            or manifest.get('api_version') != '1.98.15-ngg2'
+            or manifest.get('api_version') != '1.98.16-ngg2'
             or manifest.get('capability') != 'necrogold_native_v1'
             or manifest.get('client_capability', 'necrogold_native_v1')
-               not in ('necrogold_native_v1', 'necrogold_native_v2', 'necrogold_native_v3', 'necrogold_native_v4', 'necrogold_native_v5', 'necrogold_native_v6', 'necrogold_native_v7', 'necrogold_native_v8', 'necrogold_native_v9', 'necrogold_native_v10', 'necrogold_native_v11', 'necrogold_native_v12', 'necrogold_native_v13')):
+               not in ('necrogold_native_v1', 'necrogold_native_v2', 'necrogold_native_v3', 'necrogold_native_v4', 'necrogold_native_v5', 'necrogold_native_v6', 'necrogold_native_v7', 'necrogold_native_v8', 'necrogold_native_v9', 'necrogold_native_v10', 'necrogold_native_v11', 'necrogold_native_v12', 'necrogold_native_v13', 'necrogold_native_v14')):
         raise ValueError('native_manifest_identity')
     patch = driver / 'patches/loopctrl/ngg2.patch'
     if hashlib.sha256(patch.read_bytes()).hexdigest() != manifest['patch_sha256']:
@@ -85,7 +85,7 @@ def inspect_native_sources(upstream, driver):
         source = upstream / path
         if source.is_symlink() or hashlib.sha256(source.read_bytes()).hexdigest() != digest:
             raise ValueError('native_source_hash: ' + name)
-    if manifest.get('client_capability') == 'necrogold_native_v13':
+    if manifest.get('client_capability') in ('necrogold_native_v13', 'necrogold_native_v14'):
         runtime = 'LoopCtrlUITests/NG2Runtime.swift'
         if runtime not in expected:
             raise ValueError('native_runtime_response_api')
@@ -99,7 +99,7 @@ def inspect_native_sources(upstream, driver):
 def required_native_profile(capability):
     if capability == 'necrogold_native_v6':
         return 1
-    if capability in ('necrogold_native_v7', 'necrogold_native_v8', 'necrogold_native_v9', 'necrogold_native_v10', 'necrogold_native_v11', 'necrogold_native_v12', 'necrogold_native_v13'):
+    if capability in ('necrogold_native_v7', 'necrogold_native_v8', 'necrogold_native_v9', 'necrogold_native_v10', 'necrogold_native_v11', 'necrogold_native_v12', 'necrogold_native_v13', 'necrogold_native_v14'):
         return 2
     return None
 

@@ -289,9 +289,13 @@ class NativeBlocked067Tests(unittest.TestCase):
                     self.assertEqual((4,11),(self.status().input_state,self.status().reason))
                 elif fault=='unknown_motion':
                     self.ack(old);unknown=deepcopy(terrain);unknown.signature=bytes([40])*23296
-                    for offset in (80_000_002,210_000_004,730_000_006):
+                    offsets=[80_000_002+index*(PERIOD//10) for index in range(7)]+[80_000_002+PERIOD]
+                    for index,offset in enumerate(offsets):
                         self.now=old.target_ns+offset
                         self.observe_actual(self.scene(2,2,unknown,beat=True))
+                        if index<7:
+                            self.assertEqual((index+1,3,0),(self.motion_wait().attempts,
+                                self.status().input_state,self.status().reason))
                     self.assertEqual((10,0),(self.status().reason,self.status().input_state))
                 else:
                     self.ack(old);self.now=old.target_ns+80_000_002

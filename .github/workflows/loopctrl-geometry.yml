@@ -338,6 +338,8 @@ jobs:
         run: |
           (cd upstream && xcodegen generate --spec project.yml)
           python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
+      - name: Verify TEST070 Runtime dispatch Red and Green
+        run: python3 driver/patches/loopctrl/check_ngg2.py --test070-public-only upstream "$RUNNER_TEMP/test070-runtime"
       - name: Run actual Runtime TEST061 public integration fixtures
         if: inputs.native_lane != 'device'
         run: python3 driver/patches/loopctrl/check_ngg2.py --test061-public-only upstream "$RUNNER_TEMP/test061-runtime"
@@ -447,6 +449,7 @@ jobs:
             ${{ runner.temp }}/test061-runtime/
             ${{ runner.temp }}/test061-faults/
             ${{ runner.temp }}/test058-shop/
+            ${{ runner.temp }}/test070-runtime/
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt
             ${{ runner.temp }}/ngg2/perception-build/

@@ -214,8 +214,8 @@ def seal(root):
     if not additions:
         raise ValueError('no_native_sources')
     manifest = {'format_version': 1, 'upstream_commit': UPSTREAM_COMMIT,
-        'api_version': '1.98.15-ngg2', 'capability': 'necrogold_native_v1',
-        'client_capability': 'necrogold_native_v13',
+        'api_version': '1.98.16-ngg2', 'capability': 'necrogold_native_v1',
+        'client_capability': 'necrogold_native_v14',
         'patch_sha256': digest(raw_patch), 'files': files, 'additions': additions}
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2) + '\n')
     return manifest
@@ -229,7 +229,7 @@ def main():
     if args.seal:
         print(json.dumps(seal(args.upstream), indent=2))
     else:
-        print(json.dumps({'api_version': '1.98.15-ngg2', 'files': apply(args.upstream)}, indent=2))
+        print(json.dumps({'api_version': '1.98.16-ngg2', 'files': apply(args.upstream)}, indent=2))
 
 
 if __name__ == '__main__':

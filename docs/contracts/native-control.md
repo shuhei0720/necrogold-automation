@@ -50,7 +50,7 @@ FRESH（validation12）はlead確認済みcontinuousでSAME不成立時に最新
 
 ## 8. ACKと移動確認
 
-ACKだけで移動扱いしない。state3同MOVE/command/before・安定ACK prefix、取得開始≥max(ACK,target+80ms)、UNKNOWN/TWEEN≤3評価、再試行startは初回+元周期1/10・1以降、visualD内。before差替えで回数/期限を回復禁止。ACK中HUD失効は次入力の位相資格を撤回し同MOVE確認は継続。state4 UNKNOWN synthはUI凍結・再送/cleanup禁止。通常cleanupは最新ACK prefixの新鮮FLOOR必須。
+ACKだけで移動扱いしない。state3同MOVE/command/before・安定ACK prefix、取得開始≥max(ACK,target+80ms)、[070](../plans/test070-cadence-lighting.md)はUNKNOWN/TWEEN≤8評価。2〜7回は直前start+元period/10、8回は初回+元periodも必須、旧版≤3。全てvisualD内。before差替えで回数/期限を回復禁止。ACK中HUD失効は次入力の位相資格を撤回し同MOVE確認は継続。state4 UNKNOWN synthはUI凍結・再送/cleanup禁止。通常cleanupは最新ACK prefixの新鮮FLOOR必須。
 
 RuntimeはC直前observeStartをobserve_atへ渡す。MOVED/DOOR_OPENED/TERRAIN_OPENED/BLOCKED-retuneはcapture終了≤actualcommit≤visualD、次actualtickまでvisualD保持。C中/直後の超過も新入力禁止。旧observeはmax(capture終了,last_now)。期限後GOODSは保持し移動creditを拒否。
 
@@ -78,11 +78,11 @@ Status192B/Event128B/Scene23864Bは不変。MotionWait48B layoutも不変だがd
 
 RecoveryTrace192B/RecoveryStatus456Bの別getterで消去前model/raw samples≤13をsnapshotしrefit/最終PAUSE/export後も保持。最初/最新≤2件、sequence=1/record_count、dropped_records=record_count−保持件数。mode0通常/1初歩/2確認後、reason1〜8、clock1capture_end/2actual_tick/3actual_commit、episode0の失効記録も可。[061閉schema/enum](../plans/test061-verified-progress.md#診断と互換)の全named fieldを保存し、ns/countは非bool非負int<2^63、model/sample型/有限double/enum/件数/sequenceと余剰key拒否を検査。初期counter/ns=0・mode0・records=[]。accepted空診断の補完は応答copyだけで保存report/lifecycle不変。既存診断/初故障も保持。
 
-## 12. 新規起動と旧client回復
+## 12. 起動/旧client回復
 
-新規native-walk-v14/API1.98.15-ngg2/cap necrogold_native_v13、完全reportのrecovery必須。v12〜v14はmotion_references必須。旧版は新診断不在可、存在時は同閉schema。保存literal v1〜v13はAPI1.98.14へpreflight（ready含む）/status/result_metadataを固定し、global API更新で拒否も両API許可もしない。v10〜v14は4chunk batch、v9は1chunk、v1〜v8はlegacy。started回復は元UUID/clock/owner・GET0/start0、unknown start無再送。未開始旧journalの初startは同UUIDでv14へ移行。fresh preflightだけ許可済transientを最大4試行/計8秒/各2秒で再確認。
+新規v15/API1.98.16-ngg2/cap14、完全reportのrecovery必須。v12〜15はmotion_references、v14/15はrecovery必須。旧診断不在可/存在時同閉schema。preflight(ready含む)/status/result_metadataはv1〜13=API.14、v14=API.15、v15=API.16へ固定。motion_wait≤8は期待API.16/保存v15のみ、旧版≤3。v10〜15は4chunk batch、v9は1、v1〜8はlegacy。started回復は元UUID/clock/owner・GET0/start0、unknown start無再送。未開始旧journalは同UUIDでv15へ移行。fresh preflightだけ許可transientを最大4試行/計8秒/各2秒で再確認。
 
-## 13. Exportと保存
+## 13. Export
 
 PNG≤20枚/各512KiB/計4MiB、初期/商品/停止/最新比較優先。chunk64KiB、manifest wire512KiB/chunk wire256KiB。batch≤4chunk/256KiBも各chunk検証/取消/期限必須。検証済prefixだけhash/cursorへ反映、atomic fragmentをjournalsより先に保存。再中断も未検証suffix全体保持、active journalが回復権限。
 

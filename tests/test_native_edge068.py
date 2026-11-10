@@ -204,8 +204,13 @@ class NativeEdge068Tests(unittest.TestCase):
                     self.ack(command)
                     after=deepcopy(terrain)
                     if outcome=='unknown_motion':after.signature=bytes([40])*23296
-                    for offset in (80_000_002,150_000_004,730_000_006):
+                    offsets=([80_000_002+index*(PERIOD//10) for index in range(7)]+[80_000_002+PERIOD]
+                        if outcome=='unknown_motion' else (80_000_002,150_000_004,730_000_006))
+                    for index,offset in enumerate(offsets):
                         self.observed_result(command,after,offset=offset)
+                        if outcome=='unknown_motion' and index<7:
+                            self.assertEqual((index+1,3,0),(self.motion_wait().attempts,
+                                self.status().input_state,self.status().reason))
                 self.assertEqual((1,0,0,150_000_000),(self.status().inputs,self.status().moves,
                     self.status().lead_confirmed,self.status().lead_ns))
                 self.assertIn(self.status().reason,(10,11))

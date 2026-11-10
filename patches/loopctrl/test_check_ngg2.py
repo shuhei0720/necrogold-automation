@@ -60,6 +60,23 @@ class NGG2RuntimeVerifierTests(unittest.TestCase):
         cls.tests = (HERE / 'ngg2_runtime_tests.swift').read_text()
         cls.runtime = (HERE / 'ngg2/NG2Runtime.swift').read_text()
 
+    def test_test070_selects_only_new_dispatch_and_named_old_boundary_cases(self):
+        selected = checker.test070_public_fixture_source(self.tests)
+        calls = re.findall(r'^(test\w+)\(([^\n]*)\)$', selected, flags=re.MULTILINE)
+        self.assertEqual(calls, [
+            ('test070DeferredEvidenceDispatchPublic', ''),
+            ('test058PreparedContinuousCase', '"prefix"'),
+            ('test058PreparedContinuousCase', '"cancel"'),
+            ('test058PreparedContinuousCase', '"controller"'),
+            ('test058PreparedContinuousCase', '"deadline_equal"'),
+            ('test058EveryPreparationIdentityField', ''),
+        ])
+        self.assertNotIn('\ntest058PreparedContinuousDeadlinePublic()\n', selected)
+        baseline = checker.test070_public_fixture_source(self.tests, baseline=True)
+        self.assertEqual(re.findall(r'^(test\w+)\(([^\n]*)\)$', baseline, flags=re.MULTILINE),
+            [('test070DeferredEvidenceDispatchPublic', '')])
+        self.assertNotIn('func test058PreparedContinuousCase(', baseline)
+
     def test_fixed_test055_baseline_identity(self):
         self.assertEqual(checker.TEST055_RUNTIME_COMMIT,
                          '2d77c02665c27d0e1e813c8d6bb65ec980d26b2b')
@@ -167,8 +184,7 @@ class NGG2RuntimeVerifierTests(unittest.TestCase):
         # Pin and selection bodies must stay byte-for-byte those of the input.
         boundaries = (
             ('    private func selectedExportFrames(', '    private func imageMetadata('),
-            ('        run.lock.ng2Locked {\n            var required = Set<UInt64>()',
-             '        let encoded = events.'),
+            ('    private func retainEvidenceLocked(', '    private func controllerReport('),
         )
         for begin, end in boundaries:
             with self.subTest(block=begin):
@@ -194,7 +210,7 @@ class NGG2RuntimeVerifierTests(unittest.TestCase):
     def test_host_seam_rejects_missing_or_repeated_insertion_anchors(self):
         original = without_host_fixture_seams(self.runtime)
         anchors = ('    static var testFrameStride:',
-                   '        run.lock.ng2Locked {\n            var required = Set<UInt64>()')
+                   '        let snapshot = NG2ControllerSnapshot(status: s,')
         for anchor in anchors:
             for broken in (original.replace(anchor, '', 1), original + anchor):
                 with self.subTest(anchor=anchor), self.assertRaises(ValueError):
@@ -460,28 +476,28 @@ class Test061PublicSelectionTests(unittest.TestCase):
                     checker.test061_producer_reports('\n'.join(lines), output)
                 self.assertFalse((output / 'runtime-test061-recovery-reports.json').exists())
 
-    def test_actual_Runtime_response_requires_api15_and_rejects_same_source_api14(self):
+    def test_actual_Runtime_response_requires_api16_and_rejects_same_source_api15(self):
         source = (HERE / 'ngg2/NG2Runtime.swift').read_text()
         checker.require_test061_runtime_api(source)
-        actual = '"api_version": .string("1.98.15-ngg2")'
+        actual = '"api_version": .string("1.98.16-ngg2")'
         self.assertEqual(source.count(actual), 1)
-        old_api = source.replace(actual, '"api_version": .string("1.98.14-ngg2")')
-        with self.assertRaisesRegex(ValueError, 'runtime_test061_response_api15_required'):
+        old_api = source.replace(actual, '"api_version": .string("1.98.15-ngg2")')
+        with self.assertRaisesRegex(ValueError, 'runtime_test061_response_api16_required'):
             checker.require_test061_runtime_api(old_api)
-        # An API15 literal outside the actual response cannot repair the value.
-        with self.assertRaisesRegex(ValueError, 'runtime_test061_response_api15_required'):
+        # An API16 literal outside the actual response cannot repair the value.
+        with self.assertRaisesRegex(ValueError, 'runtime_test061_response_api16_required'):
             checker.require_test061_runtime_api(old_api + '\n// ' + actual + '\n')
 
     def test_old_response_API_is_rejected_before_any_TEST061_native_compile(self):
         source = (HERE / 'ngg2/NG2Runtime.swift').read_text().replace(
-            '"api_version": .string("1.98.15-ngg2")', '"api_version": .string("1.98.14-ngg2")')
+            '"api_version": .string("1.98.16-ngg2")', '"api_version": .string("1.98.15-ngg2")')
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             native = root / 'upstream' / 'LoopCtrlUITests'; native.mkdir(parents=True)
             (native / 'NG2Runtime.swift').write_text(source)
             with patch.object(checker, 'test061_native_objects') as compile_native, \
                     patch.object(checker.subprocess, 'run') as compile_other, \
-                    self.assertRaisesRegex(ValueError, 'runtime_test061_response_api15_required'):
+                    self.assertRaisesRegex(ValueError, 'runtime_test061_response_api16_required'):
                 checker.test061_contract(root / 'upstream', root / 'output')
             compile_native.assert_not_called()
             compile_other.assert_not_called()

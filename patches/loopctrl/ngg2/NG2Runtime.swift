@@ -24,6 +24,7 @@ enum NG2RuntimeTestHooks {
     static var afterWatchdogCheck: ((String, UInt64) -> Void)?
     static var beforeReportEncode: ((String, UInt64) -> Void)?
     static var beforeDueDispatch: ((UInt64) -> Void)?
+    static var beforeEvidenceRetention: ((UInt64) -> Void)?
 }
 #endif
 
@@ -967,7 +968,7 @@ final class NG2Runtime {
         report["referenced_capture_ids"] = .array(projection.references.sorted().map { number($0) })
         report["missing_capture_ids"] = .array(projection.references.subtracting(projection.retained).sorted().map { number($0) })
         return ["run_id": .string(projection.id), "profile": .string(Self.profile), "state": .string(projection.state),
-            "api_version": .string("1.98.15-ngg2"), "report": .object(report)]
+            "api_version": .string("1.98.16-ngg2"), "report": .object(report)]
     }
 
     private func historical(_ snapshot: [String: JSONValue]) -> [String: JSONValue] {
@@ -1255,7 +1256,8 @@ final class NG2Runtime {
                 let generation = run.lock.ng2Locked {
                     run.mainCommandID = command.id; run.mainCallbacks.insert(command.id); return run.generation
                 }
-                ng2_controller_status(core, &status); cache(run, status)
+                ng2_controller_status(core, &status)
+                let dispatchSnapshot = cache(run, status, retainEvidence: false)
                 let preparation = preparePipeline(run, command, generation: generation)
                 let authority = preparation.authority
                 let at = Self.now()
@@ -1274,6 +1276,7 @@ final class NG2Runtime {
                 }
                 #if NG2_RUNTIME_HOST_TEST
                 if NG2RuntimeTestHooks.scheduleTicket?(command.id, { self.controlQueue.async(execute: callback) }) == true {
+                    if let dispatchSnapshot { retainEvidence(run, dispatchSnapshot) }
                     return
                 }
                 #endif
@@ -1286,6 +1289,7 @@ final class NG2Runtime {
                     callback(); return
                 }
                 controlQueue.asyncAfter(deadline: .now() + delay, execute: callback)
+                if let dispatchSnapshot { retainEvidence(run, dispatchSnapshot) }
             }
         }
         if now - min(now, run.lastCache) >= 50_000_000 { ng2_controller_status(core, &status); cache(run, status) }
@@ -1452,8 +1456,10 @@ final class NG2Runtime {
         cycle(run)
     }
 
-    private func cache(_ run: NG2Run, _ s: NG2ControllerStatus) {
-        guard let core = run.core else { return }
+    @discardableResult
+    private func cache(_ run: NG2Run, _ s: NG2ControllerStatus,
+                       retainEvidence: Bool = true) -> NG2ControllerSnapshot? {
+        guard let core = run.core else { return nil }
         if s.input_state == 4 {
             lock.ng2Locked { poisoned = true }
             run.lock.ng2Locked { run.uiFrozen = true }
@@ -1489,34 +1495,84 @@ final class NG2Runtime {
         }
         #endif
         // TEST056 HOST SNAPSHOT END.
+        let snapshot = NG2ControllerSnapshot(status: s,
+            events: Array(events.prefix(min(count, events.count))),
+            changes: Array(changes.prefix(min(changeCount, changes.count))),
+            details: Array(details.prefix(min(detailCount, details.count))), motionWait: motionWait,
+            motionReferences: Array(motionReferences.prefix(min(motionReferenceCount, motionReferences.count))),
+            recovery: recovery, recoveryRecords: recoveryRecords)
+        if retainEvidence {
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeTestHooks.beforeEvidenceRetention?(s.current_command_id)
+            #endif
+        }
         run.lock.ng2Locked {
+            // A dispatch snapshot still publishes the full coherent C state.
+            // Reserve its raw authority before deferring diagnostic pin work.
+            if !retainEvidence, let source = snapshot.events.last(where: {
+                $0.command.id == s.current_command_id
+            })?.command.source_capture_id {
+                pinDispatchSourceLocked(run, source)
+            }
+            run.controllerSnapshot = snapshot
+            if retainEvidence { retainEvidenceLocked(run, snapshot) }
+        }
+        run.lastCache = Self.now()
+        return snapshot
+    }
+
+    // Call under run.lock. The source is already in recent/pinned immutable
+    // frames; this reserves its existing slot before AX preparation can wait.
+    private func pinDispatchSourceLocked(_ run: NG2Run, _ source: UInt64) {
+        guard source != 0 else { return }
+        run.references.insert(source)
+        guard run.pinned[source] == nil,
+              let frame = (run.images + [run.initial, run.found].compactMap({ $0 }))
+                .first(where: { $0.id == source }) else { return }
+        let protected = Set(priorityCaptureIDs(run) + [source])
+        if run.pinned.count == 20, let evicted = run.pinned.keys.sorted().first(where: { !protected.contains($0) }) {
+            run.pinned.removeValue(forKey: evicted); run.evictedFrames += 1
+        }
+        if run.pinned.count < 20 { run.pinned[source] = frame }
+    }
+
+    private func retainEvidence(_ run: NG2Run, _ snapshot: NG2ControllerSnapshot) {
+        #if NG2_RUNTIME_HOST_TEST
+        NG2RuntimeTestHooks.beforeEvidenceRetention?(snapshot.status.current_command_id)
+        #endif
+        run.lock.ng2Locked {
+            // execute() may already have published the ACK/newest state.
+            // Its retention is authoritative; an older snapshot cannot reset it.
+            guard run.controllerSnapshot === snapshot else { return }
+            retainEvidenceLocked(run, snapshot)
+        }
+    }
+
+    // Call under run.lock. Every value comes from the same immutable C snapshot.
+    private func retainEvidenceLocked(_ run: NG2Run, _ snapshot: NG2ControllerSnapshot) {
+            let s = snapshot.status, events = snapshot.events, changes = snapshot.changes
+            let motionReferences = snapshot.motionReferences
             var required = Set<UInt64>()
-            let snapshot = NG2ControllerSnapshot(status: s,
-                events: Array(events.prefix(min(count, events.count))),
-                changes: Array(changes.prefix(min(changeCount, changes.count))),
-                details: Array(details.prefix(min(detailCount, details.count))), motionWait: motionWait,
-                motionReferences: Array(motionReferences.prefix(min(motionReferenceCount, motionReferences.count))),
-                recovery: recovery, recoveryRecords: recoveryRecords)
             var diagnosticIDs: [UInt64] = []
             // C retains first1/latest2 in chronological order. Only the latest
             // two comparisons precede cumulative evidence, newest first.
-            for change in changes.prefix(min(changeCount, changes.count)).suffix(2).reversed() {
+            for change in changes.suffix(2).reversed() {
                 for id in [change.source_capture_id, change.observed_capture_id] where id != 0 {
                     if !diagnosticIDs.contains(id) { diagnosticIDs.append(id) }
                 }
             }
-            if let source = events.prefix(min(count, events.count)).last(where: { $0.command.kind == 4 })?.command.source_capture_id,
+            if let source = events.last(where: { $0.command.kind == 4 })?.command.source_capture_id,
                source != 0 && !diagnosticIDs.contains(source) { diagnosticIDs.append(source) }
             run.diagnosticCaptureIDs = diagnosticIDs
             run.terminalCaptureID = s.terminal != 0 && s.last_capture_id != 0 ? s.last_capture_id : nil
-            for event in events.prefix(min(count, events.count)) {
+            for event in events {
                 if event.command.source_capture_id != 0 { required.insert(event.command.source_capture_id) }
                 if event.observed_capture_id != 0 { required.insert(event.observed_capture_id) }
             }
-            for change in changes.prefix(min(changeCount, changes.count)) {
+            for change in changes {
                 required.insert(change.source_capture_id); required.insert(change.observed_capture_id)
             }
-            for reference in motionReferences.prefix(min(motionReferenceCount, motionReferences.count)) {
+            for reference in motionReferences {
                 for id in [reference.authority_capture_id, reference.reference_capture_id,
                            reference.observed_capture_id, reference.selected_capture_id] where id != 0 {
                     required.insert(id)
@@ -1539,9 +1595,6 @@ final class NG2Runtime {
             for id in required.sorted() where run.pinned[id] == nil {
                 if run.pinned.count < 20, let frame = available[id] { run.pinned[id] = frame }
             }
-            run.controllerSnapshot = snapshot
-        }
-        run.lastCache = Self.now()
     }
 
     private func controllerReport(_ run: NG2Run, projection: NG2ResponseProjection, origin: String = "response") -> [String: JSONValue] {

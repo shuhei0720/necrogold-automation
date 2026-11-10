@@ -203,11 +203,16 @@ class NativeCollection068Tests(TimerTestCase):
                 self.assert_read_only_recovery(server,before,original,recovered)
 
     def test_literal_legacy_recovery_keeps_its_api_uuid_clock_and_complete_image_evidence(self):
-        for revision in ('native-walk-v9','native-walk-v10','native-walk-v13',native.REVISION):
+        for revision in ('native-walk-v9','native-walk-v10','native-walk-v13','native-walk-v14',native.REVISION):
+            served_api=[native.API_VERSION];pages=paged.page_images(image_item())
+            def response(method,result):
+                result=pages(method,result);result['api_version']=served_api[0]
+                return result
             with self.subTest(revision=revision),tempfile.TemporaryDirectory() as folder, \
-                    NativeServer(finish=True,transform=paged.page_images(image_item())) as server:
+                    NativeServer(finish=True,transform=response) as server:
                 original=self.seed(server,folder);original['revision']=revision
                 bind_legacy_api(original);native._save(Path(folder),original)
+                served_api[0]=native._revision_api(revision)
                 before=len(server.calls);server.schema_calls.clear();writes=[];atomic=native._atomic
                 def trace(path,raw):
                     if path.suffix=='.png':writes.append(path.name)
@@ -215,6 +220,7 @@ class NativeCollection068Tests(TimerTestCase):
                 with patch.object(native,'_atomic',side_effect=trace):recovered=self.execute(server,folder)
                 self.assertTrue(recovered['resolved'],recovered['stop_reason'])
                 self.assertEqual(revision,recovered['revision'])
+                self.assertEqual(served_api[0],recovered['result_metadata']['api_version'])
                 self.assertEqual(original['preflight'],recovered['preflight'])
                 self.assertEqual([],writes)
                 self.assert_read_only_recovery(server,before,original,recovered)

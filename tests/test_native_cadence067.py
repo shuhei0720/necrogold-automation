@@ -140,8 +140,8 @@ class NativeCadence067Tests(unittest.TestCase):
                 self.assertEqual(0, self.motion_wait().active)
                 self.assert_frozen(command)
 
-    def test_second_unknown_keeps_full_period_third_and_never_retries_the_input(self):
-        for final in ('moved', 'unknown'):
+    def test_second_unknown_allows_early_checks_and_keeps_late_final_without_input_retry(self):
+        for final in ('early_moved', 'late_moved', 'unknown'):
             with self.subTest(final=final):
                 self.fresh_engine(); before, command = self.armed()
                 unknown = self.uncertain(before, command)
@@ -149,15 +149,28 @@ class NativeCadence067Tests(unittest.TestCase):
                 self.assertEqual((2, 0, 3), (self.motion_wait().attempts,
                     self.status().moves, self.status().input_state))
                 after = mechanics.translated(before, command.direction)
-                self.frame(after, self.first_start + PERIOD - 1)
+                self.frame(after, self.first_start + 2 * (PERIOD // 10) - 1)
                 self.assertEqual((2, 0, 3), (self.motion_wait().attempts,
                     self.status().moves, self.status().input_state))
-                self.frame(after if final == 'moved' else unknown, self.first_start + PERIOD)
-                self.assertEqual((3, int(final == 'moved'), 0 if final == 'moved' else 10, 1),
+                self.frame(after if final == 'early_moved' else unknown,
+                    self.first_start + 2 * (PERIOD // 10))
+                if final != 'early_moved':
+                    for index in range(3, 7):
+                        self.frame(unknown, self.first_start + index * (PERIOD // 10))
+                        self.assertEqual((index + 1, 0, 3, 1), (self.motion_wait().attempts,
+                            self.status().moves, self.status().input_state, self.status().inputs))
+                    self.frame(after if final == 'late_moved' else unknown,
+                        self.first_start + PERIOD - 1)
+                    self.assertEqual((7, 0, 3), (self.motion_wait().attempts,
+                        self.status().moves, self.status().input_state))
+                    self.frame(after if final == 'late_moved' else unknown, self.first_start + PERIOD)
+                attempts = 3 if final == 'early_moved' else 8
+                moved = int(final != 'unknown')
+                self.assertEqual((attempts, moved, 0 if moved else 10, 1),
                     (self.motion_wait().attempts, self.status().moves,
                      self.status().reason, self.status().inputs))
                 self.frame(after, self.first_start + PERIOD + 10_000_000)
-                self.assertEqual((3, int(final == 'moved'), 1), (self.motion_wait().attempts,
+                self.assertEqual((attempts, moved, 1), (self.motion_wait().attempts,
                     self.status().moves, self.status().inputs))
                 self.assert_frozen(command)
 

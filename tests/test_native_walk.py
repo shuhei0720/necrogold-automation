@@ -30,9 +30,9 @@ def bind_legacy_api(record):
     """Keep relabelled legacy fixtures faithful to their original ready preflight."""
     if record['revision'] != native.REVISION:
         if record.get('preflight', {}).get('server') is not None:
-            record['preflight']['server']['server_version'] = '1.98.14-ngg2'
+            record['preflight']['server']['server_version'] = native._revision_api(record['revision'])
         if 'api_version' in record.get('result_metadata', {}):
-            record['result_metadata']['api_version'] = '1.98.14-ngg2'
+            record['result_metadata']['api_version'] = native._revision_api(record['revision'])
 
 
 class NativeServer:

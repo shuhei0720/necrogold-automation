@@ -4,7 +4,7 @@ Synthetic signatures test C scheduling boundaries. TEST061's original images
 stay UNKNOWN; no unseen completion frame or device success is asserted here.
 TEST066's ~60ms capture cadence rounds a quarter-beat second check past the
 next input slot. TEST067 permits that second check after one tenth of the
-original period; the third check still waits a full original period.
+original period. TEST070 adds bounded checks and keeps the full-period final.
 """
 import ctypes as C
 from copy import deepcopy
@@ -132,29 +132,35 @@ class NativeMotionCadenceTests(unittest.TestCase):
         self.assertEqual((2, 1, 0), (self.motion_wait().attempts, self.status().moves, self.status().reason))
         self.assert_frozen(command)
 
-    def test_third_comparison_waits_a_full_frozen_period_then_confirms(self):
+    def test_third_comparison_uses_tenth_spacing_then_confirms(self):
         before, command = self.armed()
         uncertain = self.uncertain(before, command)
         self.frame(uncertain, self.first_start + PERIOD // 10)
         self.assertEqual((2, 0, 3), (self.motion_wait().attempts,
                          self.status().reason, self.status().input_state))
         after = fixture_recovery.translated(before, command.direction)
-        self.frame(after, self.first_start + PERIOD - 1)
+        self.frame(after, self.first_start + 2 * (PERIOD // 10) - 1)
         self.assertEqual((2, 0, 3), (self.motion_wait().attempts,
                          self.status().moves, self.status().input_state))
-        self.frame(after, self.first_start + PERIOD)
+        self.frame(after, self.first_start + 2 * (PERIOD // 10))
         self.assertEqual((3, 1, 0), (self.motion_wait().attempts, self.status().moves, self.status().reason))
         self.assert_frozen(command)
 
-    def test_three_scheduled_unknowns_stop_without_fourth_comparison_or_input(self):
+    def test_eight_scheduled_unknowns_stop_without_ninth_comparison_or_input(self):
         before, command = self.armed()
         uncertain = self.uncertain(before, command)
-        self.frame(uncertain, self.first_start + PERIOD // 10)
+        for index in range(1, 7):
+            self.frame(uncertain, self.first_start + index * (PERIOD // 10))
+            self.assertEqual((index + 1, 0, 3, 1), (self.motion_wait().attempts,
+                self.status().moves, self.status().input_state, self.status().inputs))
+        self.frame(uncertain, self.first_start + PERIOD - 1)
+        self.assertEqual((7, 0, 3), (self.motion_wait().attempts,
+            self.status().moves, self.status().input_state))
         self.frame(uncertain, self.first_start + PERIOD)
-        self.assertEqual((3, 0, 10, 0), (self.motion_wait().attempts, self.status().moves,
+        self.assertEqual((8, 0, 10, 0), (self.motion_wait().attempts, self.status().moves,
                          self.status().reason, self.motion_wait().active))
         self.frame(fixture_recovery.translated(before, command.direction), self.first_start + PERIOD + 10_000_000)
-        self.assertEqual((3, 0, 1), (self.motion_wait().attempts, self.status().moves, self.status().inputs))
+        self.assertEqual((8, 0, 1), (self.motion_wait().attempts, self.status().moves, self.status().inputs))
         self.assert_frozen(command)
 
     def test_visual_expiry_is_checked_before_a_retry_would_be_skipped(self):
