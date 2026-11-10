@@ -341,16 +341,16 @@ static int same_choice(const NG2Decision *a,const NG2Decision *b){
     return a->direction==b->direction&&a->reason==b->reason&&a->target_x==b->target_x
         &&a->target_y==b->target_y&&a->obstacle==b->obstacle;
 }
-/* Preserve the prepared initial ticket through irrelevant remote palette
- * flicker in its final preparation window. Its source/before remain frozen;
+/* Preserve the published initial ticket through irrelevant remote palette
+ * flicker throughout its publication window. Its source/before remain frozen;
  * every accepted current image must independently prove the same safe step. */
 static int quiet_initial_observation(const NG2Controller *p,const NG2Scene *scene,uint64_t now){
     NG2Decision before,latest;NG2Motion motion;uint64_t aligned;int i,d=p->command.direction;
     if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||p->finish_requested
         ||p->replan_pending||p->s.inputs||p->s.moves||p->s.lead_confirmed
         ||!p->initial_ticket_valid||d<1||d>4||p->beat_failed
-        ||p->command.not_before_ns<INITIAL_PREPARATION
-        ||now<p->command.not_before_ns-INITIAL_PREPARATION||now>p->command.deadline_ns
+        ||p->command.not_before_ns<INITIAL_PUBLICATION
+        ||now<p->command.not_before_ns-INITIAL_PUBLICATION||now>p->command.deadline_ns
         ||!safe_floor(&p->before,d)||!safe_floor(scene,d)
         ||p->before.gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
         ||!same_gold(&p->before,scene)
@@ -397,6 +397,47 @@ static uint64_t continuous_horizon(const NG2Controller *p){
     uint64_t horizon=minimum(p->continuous_ticket.source_start_ns+FRESH,p->continuous_ticket.phase_sample_ns+FRESH);
     horizon=minimum(horizon,p->s.walk_started_ns+45*SECOND);
     return minimum(horizon,p->s.started_ns+180*SECOND);
+}
+/* An already-open entrance is a single observed-floor step, including when
+ * distant merchandise is only PARTIAL. Remote palette flicker cannot alter
+ * that exact action. Keep its original ticket/before and all absolute bounds;
+ * do not grant safe-floor calibration, reissue or reference eligibility. */
+static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,uint64_t now){
+    NG2Decision before,latest;NG2Motion motion;uint64_t aligned;int i,d=p->command.direction;
+    if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||p->finish_requested||p->s.goods
+        ||p->replan_pending||p->continuous_pending||!p->s.lead_confirmed||!p->s.moves
+        ||p->s.phase!=NG2_PHASE_WALK||!p->continuous_ticket_valid||d<1||d>4
+        ||p->command_choice.reason!=5||p->command_choice.obstacle!=NG2_TILE_FLOOR
+        ||p->command_choice.target_x!=dx[d]||p->command_choice.target_y!=dy[d]
+        ||p->before.state!=NG2_FLOOR||scene->state!=NG2_FLOOR
+        ||p->before.goods!=scene->goods||scene->goods<NG2_GOODS_UNKNOWN||scene->goods>NG2_GOODS_PARTIAL
+        ||p->before.gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
+        ||!same_gold(&p->before,scene)
+        ||memcmp(p->before.protected_cells,scene->protected_cells,NG2_TILE_COUNT)
+        ||tile(&p->before,0,0)!=NG2_TILE_FLOOR||tile(scene,0,0)!=NG2_TILE_FLOOR
+        ||tile(&p->before,dx[d],dy[d])!=NG2_TILE_FLOOR||tile(scene,dx[d],dy[d])!=NG2_TILE_FLOOR
+        ||!gate_at(&p->before,dx[d],dy[d])||!gate_at(scene,dx[d],dy[d])
+        ||p->beat_failed||!ng2_beat_model_valid(&p->model)
+        ||now>p->command.deadline_ns||now>p->continuous_ticket.deadline_ns
+        ||now<p->command.source_start_ns||now-p->command.source_start_ns>FRESH
+        ||now<p->command.phase_sample_ns||now-p->command.phase_sample_ns>FRESH
+        ||now<p->model.last_ns||now-p->model.last_ns>FRESH||now>continuous_horizon(p)
+        ||(p->command_sync_deadline&&now>=p->command_sync_deadline)
+        ||now-p->s.walk_started_ns>=45*SECOND||now-p->s.started_ns>=180*SECOND
+        ||!corrected(p,p->continuous_ticket.target_ns,p->continuous_period,&aligned))return 0;
+    for(i=0;i<5;++i)
+        if(protected_at(scene,dx[i],dy[i])||protected_at(scene,dx[d]+dx[i],dy[d]+dy[i]))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int a=p->before.tiles[i],b=scene->tiles[i],x=i%23-11,y=i/23-5;
+        if(a==b)continue;
+        if((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)
+            ||(a!=NG2_TILE_UNKNOWN&&a!=NG2_TILE_FLOOR&&a!=NG2_TILE_DIRT&&a!=NG2_TILE_STONE)
+            ||(b!=NG2_TILE_UNKNOWN&&b!=NG2_TILE_FLOOR&&b!=NG2_TILE_DIRT&&b!=NG2_TILE_STONE))return 0;
+    }
+    return ng2_choose(&p->before,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&before)
+        &&ng2_choose(scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&latest)
+        &&same_choice(&before,&p->command_choice)&&same_choice(&before,&latest)
+        &&ng2_motion(&p->before,scene,d,&motion)&&motion.kind==NG2_BLOCKED&&!motion.dx&&!motion.dy;
 }
 static int continuous_allowed(int validation){
     return validation==NG2_REVALIDATE_CONTINUOUS_ALLOWED||validation==NG2_REVALIDATE_FRESH_ALLOWED;
@@ -657,7 +698,7 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
      * immutable original directly against every accepted pre-send image. */
     if((p->s.input_state==1||p->continuous_pending)&&p->command.kind==NG2_ACTION_MOVE)
         validate_motion_reference(p,scene,start,end,prefix,end);
-    if(mask&&quiet_initial_observation(p,scene,commit))mask=0;
+    if(mask&&(quiet_initial_observation(p,scene,commit)||quiet_gate_observation(p,scene,commit)))mask=0;
     if(mask){
         NG2Decision latest;
         int validation=p->s.lead_confirmed?continuous_validation(p,scene,end,&latest):

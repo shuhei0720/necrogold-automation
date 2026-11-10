@@ -26,7 +26,7 @@ main.sync/run lock外でAX前面照会し、callback実returnまでlease保持�
 
 ## 5. 未送信の再予約
 
-[062](../plans/test062-device-cycle.md)の安全な初歩遠方揺れは同IDで検証継続。それ以外は初歩≤2回、continuousはchain≤2/run≤8。確実未送信・両Scene safe_floor/同gold/strict BLOCKEDが必須。初歩は同direction/origin・next近傍保護、continuousは全protected/元・保存の完全5field Decision/最新actionを検査。元target/notBefore/deadline/period/ordinal/horizon保持。reason8/FLOORは許可済み遠方target座標だけ変更可（direction/reason/obstacle/最新判断を再検査）。未知inputの次拍置換は禁止、初歩失効は§4で撤回。
+[064](../plans/test064-stationary-step.md)の初歩/入口の遠方揺れは同IDで検証継続。それ以外は初歩≤2回、continuousはchain≤2/run≤8。確実未送信・両Scene safe_floor/同gold/strict BLOCKEDが必須。初歩は同direction/origin・next近傍保護、continuousは全protected/元・保存の完全5field Decision/最新actionを検査。元target/notBefore/deadline/period/ordinal/horizon保持。reason8/FLOORは許可済み遠方target座標だけ変更可（direction/reason/obstacle/最新判断を再検査）。未知inputの次拍置換は禁止、初歩失効は§4で撤回。
 
 FRESH（validation12）はlead確認済みcontinuousでSAME不成立時に最新判断へ替える。両FLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE・origin FLOOR・全protected不変・source5field単一証明・strict BLOCKEDを要求。全230セルでUNKNOWN→FLOOR/DIRT/STONE/GOLD/DOOR、FLOOR→DIRT/STONE/GOLD/DOOR、DIRT→STONE/GOLD/DOORだけ許可。GOLD/STONE/DOOR/ITEM不変、新DOORはgold bracket必須。
 
@@ -42,7 +42,7 @@ FRESH（validation12）はlead確認済みcontinuousでSAME不成立時に最新
 | MOVE入力窓 | 元notBeforeから10ms以内 |
 | 状態遷移 / heartbeat | 4秒 / 5秒、watchdog100ms周期 |
 
-初reserveでscheduleD=min(元次拍notBefore+10ms,元source/phase/walk/session期限)、visualD=min(元source開始+3秒,元phase sample+3秒,walk+45秒,session+180秒)を凍結。SAME/FRESH/初歩再予約の期限/原点延長は禁止。scheduleDは高速次拍/限定fallbackの親期限、visualDは同ACK画像確認期限。model/source/phase/dispatchも短縮のみ。待機/保存後も期限/取消/主処理・停止・回収の専用期限を検査。
+初reserveでscheduleD=min(元次拍notBefore+10ms,元source/phase/walk/session期限)、visualD=min(元source開始+3秒,元phase sample+3秒,walk+45秒,session+180秒)を凍結。SAME/FRESH/初歩再予約の期限/原点延長禁止。scheduleDは高速次拍/限定fallbackの親期限、visualDは同ACK画像確認期限。model/source/phase/dispatchも短縮のみ。待機/保存後も期限/取消/主処理・停止・回収の専用期限を検査。
 
 親motion/次ordinalを分離。同nominal/元periodでcandidate target/窓を対更新し初reserveで凍結。continuous初回はnotBefore100ms前/取得開始200ms前以降。更新前Dを次actualtickまでmin保持、超過は発行拒否。[061設計](../plans/test061-verified-progress.md)。
 

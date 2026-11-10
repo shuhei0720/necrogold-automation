@@ -2654,3 +2654,15 @@ ZIP6,632,109bytes/SHA `4d1a4849e947a84e69cfd21a4c0256838c6b5a0aa49b7a8c73a0785ef
 [計画](../plans/test063-unsent-deadline.md)・[検証](../reviews/test063.md)・[配布/手順](../status.md)。実機未実施。code d7b42b627caa0e1c28b1c4a4900f2e0bc1a22323/Mac96 device成功、新IPA/build96。C35+小CI15、実IPA/コンパイラ/22seal/全9Mach-O/全source照合。
 
 確実未送信state1の連続MOVE期限切れだけを、同一world/判断/strict BLOCKEDの確認後に新しい拍へ戻す。元Dを延長せず、実proofから12秒と45/180秒、取消/UNKNOWN/商品優先を維持。成功した062の経路/全認識閾値は不変。固定ReleaseからSideStore更新後、新通常1-1の開幕ポーズでtest_063.sh。終了後runtime/test-063全ZIPを依頼する。
+
+
+<a id="test063-received"></a>
+## TEST063受領（2026-11-10 日本時間）
+
+ユーザー報告: 1回目は商品確認まで成功、2回目は店の入口へ到達したが下の商品が見える位置まで進まず、3回目は0歩。商品可視1/3、プログラム完全商品判定0/3。全run SCREEN17だが最後の操作前の実PerceptionはFLOOR、pause/footer/zone/floor成立。画面分類不良を原因としない。
+
+1回目7b881…と2回目9c778…は各6入力/5実移動/開扉1、入口への次MOVEはbegin0/not_sent。120→121の遠方(4,4)DIRT→STONE、139→140の遠方(9,1)STONE→DIRTが契機。同goodsPARTIAL/全5field gate_single_probe/FLOOR/金/保護/局所近傍/strict BLOCKEDが不変でも既存continuousのsafe_floor gate/PARTIAL禁止が再検証を拒否した。2回目では063の未送信期限切れ回復1回が働き、その後も歩行した。ユーザーの見た商品の下方配置を未観測の陰性としない。
+
+3回目7f9…は0入力/0移動。最初の2再予約を消費し期限切れでモデル再取得した後、83→84の遠方(-4,+1)DIRT→UNKNOWNで初歩MOVE5を撤回。全5field LEFT/reason8/target(-3,+1)/FLOOR、金/保護/strict BLOCKED不変。actual commitは元notBefore−90,059,648nsで旧quiet50ms窓外だった。
+
+ZIP10,126,160bytes/SHA `b725324aa8c9698784a55e3b6f524f21e7a8cbbe9578d87e8e34326ec9124803`。3run terminal/drained/resolved、active=最後のreport、43PNGの全SHA/bytes/896×414/全chunk CRC/manifest一致を確認。原画の実C条件評価と合成scene/clockの予約単体を区別し、未収録の先の成功を補わない。raw資料はGit外。回収済み063を追加回収のため再実行せず、[TEST064](../plans/test064-stationary-step.md)を実機で確認する。

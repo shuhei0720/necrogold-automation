@@ -91,9 +91,11 @@ class NativeDevice061Tests(unittest.TestCase):
 
     def test_late_initial_irrelevant_flickers_preserve_ticket_and_reach_ack(self):
         terrain, original = self.initial()
-        # This early change follows the existing reissue policy, just as actual75.
+        # A new remote stone still uses the bounded reissue policy. TEST064
+        # coalesces only harmless UNKNOWN/FLOOR/DIRT palette changes throughout
+        # the published ticket window; it does not admit new blockers.
         terrain = deepcopy(terrain)
-        terrain.tiles[(9, 0)] = 'dirt'
+        terrain.tiles[(9, 0)] = 'stone'
         del terrain.tiles[(-2, 4)]
         self.observe_at(terrain, original.not_before_ns - 88 * MS)
         ready, command = self.fx.tick()
@@ -122,7 +124,11 @@ class NativeDevice061Tests(unittest.TestCase):
              self.fx.status().lead_confirmed))
 
     def test_late_initial_coalescing_window_and_actual_commit_boundaries(self):
-        cases = [(-50 * MS, None, True), (-50 * MS - 1, None, False),
+        # TEST064 aligns harmless coalescing with the full100ms publication
+        # window. Earlier times have no issued authority; publication-negative
+        # boundaries remain covered by the public initial-slot tests.
+        cases = [(-100 * MS, None, True), (-90 * MS, None, True),
+                 (-50 * MS, None, True), (-50 * MS - 1, None, True),
                  (-49 * MS, -60 * MS, True), (10 * MS, None, True)]
         for offset, capture_offset, retained in cases:
             with self.subTest(offset=offset, capture=capture_offset):
