@@ -2732,3 +2732,9 @@ ZIP16,403,525bytes/SHA `00f66f426efe50519785b1129cad7a5b23580b3ae69af17aa84c5376
 065の2回目は実入店後・両PARTIAL/reason8/床同判断、4回目はreason5/同DOOR不変に限り、遠方UNKNOWN/FLOOR/DIRT/STONE変化だけなら元ID/元期限の次1操作を保持する。校正/再予約/referenceのsafe_floorは拡げない。開扉と進入は別確認。3回目143の分断アイコンは既存13px優先・11px fallback、明度/IoU/全HUD/menu/deathの元条件を維持し、受領67中143だけ改善・他66全Scene bytes同一。Controller/Perception以外20source/API15/cap13/ABI/clientは不変。
 
 SideStore更新→LoopCtrl完全終了/起動→Start Server→新しい通常1-1の金壁可視ポーズで`test_066.sh`。ゲーム前面を保ち自動PAUSE約5秒後iSHへ、終了後`runtime/test-066`全ZIPと3商品の可視/停止位置を依頼する。066の実機は未実施、065は回収済みで再実行しない。現速度の暫定許容と完全毎拍要件を区別し、まず停止/商品確認を安定させる。
+
+### TEST066導入エラー確認（2026-11-10 日本時間）
+
+SideStoreで`Archive appears to be corrupt: LoopCtrl.ipa`。ユーザー確認の選択ファイルは17.5MB表示、詳細も同文。公開IPAを匿名再取得し17,582,349bytes/元SHA `080acc55eb847baaf1ea3a9db53a6b89fe7d94ec00dff50acecaeb9052f550c5`一致・全CRC正常。全44entry名/権限/圧縮形式が正常065と一致し、4bundleの全plist差分はbuild100→102のみ。端末のファイル実bytes/ハッシュやSideStore内部展開の証明はなく、配布IPA正常から端末原因と断定しない。再ビルド/asset差替えは未実施。
+
+画像の1DAYはSideStore自身、LoopCtrlの7DAYSは別の署名有効期間で、新版導入成功を意味しない。[公式手順](https://docs.sidestore.io/docs/installation/install)に従いWi-Fi/通常のVPNでSideStoreの日数ボタンからrefreshし、期限内に更新する。Safariで固定IPAを新規にこのiPhone内へ保存→SideStoreの＋から選択して切り分ける。アプリ削除/設定初期化/証明書の手動失効を既定対処にしない。インストールとTEST066実機到達の成否は返答待ち。

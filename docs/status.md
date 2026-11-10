@@ -20,6 +20,8 @@
 
 ## TEST066の配布と実機確認
 
+導入確認待ち: SideStoreが`Archive appears to be corrupt: LoopCtrl.ipa`と表示。端末表示サイズ17.5MBだけでは欠損判定不可。公開IPA再取得は17,582,349bytes/元SHA一致・全CRC正常、正常065とZIP構造/全4plistはbuild番号以外同じ。端末上の実bytesと展開処理は未確認。SideStore自身の1DAYを更新し、新規ローカル保存から導入を切り分ける。IPAの再ビルド/差替えは行っていない。
+
 code `d16367570d12456c668648584253d721880b9e41`、[Mac102](https://github.com/shuhei0720/necrogold-automation/actions/runs/42774588299) device34件成功。新door6/shop4/icon6は旧Cで意味的Red→Green、独立レビュー最終P0/P1/P2なし。実IPA/build102 SHA `080acc55eb847baaf1ea3a9db53a6b89fe7d94ec00dff50acecaeb9052f550c5`。host全ID/生ログ/ABI/22seal前後、実4C/5Swift/6RSP、strictO2 profile、全9Mach-Oの103禁止marker非混入を照合。Controller/Perception以外20source、R12原40/G1は不変。build-source全498tracked bytes/path/CRC一致。実ゲームCIと066実機は未実施。
 
 [新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test066-build102/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test066-build102/source.zip)・[SHA256SUMS](https://github.com/shuhei0720/necrogold-automation/releases/download/test066-build102/SHA256SUMS.txt)。固定Releaseへ配置する。最終sourceはビルド対象から文書3件だけ異なり、code/launcher/testsは同じ。詳細は[検証](reviews/test066.md)。全Runtime/world/不変client/private画像群をCIへ累積しない。
