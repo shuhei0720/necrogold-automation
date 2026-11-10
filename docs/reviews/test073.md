@@ -38,4 +38,23 @@ Controller `b359cca905ede11a6157d55e55b2f46a76ac3c8772fd5d78c5961c9cd663d3ca`、
 
 通常の独立差分レビュー1回でC/新試験/旧fixture/計画/契約/launcherを確認。暫定hostrunnerに旧072bulkが残る指摘は、完成runnerで新UI10/関係9/selector3へ差替え、CORE sealed source差替えと全source/HEAD bindingまで確認して閉じた。最終未解決P0/P1/P2なし、重複実行なし。
 
-選択CI22メソッドを確定。正規sealed sourceはController1変更・他21、22seal前後同一、manifest SHA `7c9c29946607c4dbeec02d24c3744fa8d8087defb209ce76dab7fa894fc9de62`。既確認Nativeを重複実行せずselector3だけGreen.005秒。IPAの実ビルド/実compiler/全Mach-O/全sourceは下記へ確定後追記する。新073の実機は未確認。
+選択CI22メソッドを確定。正規sealed sourceはController1変更・他21、22seal前後同一、manifest SHA `7c9c29946607c4dbeec02d24c3744fa8d8087defb209ce76dab7fa894fc9de62`。既確認Nativeを重複実行せずselector3だけGreen.005秒。IPAの実ビルド/実compiler/全Mach-O/全sourceの確定結果は下記。新073の実機は未確認。
+
+
+## 最終Mac・配布照合
+
+code `7da8f9ccbe35de9ae67bae94d583f39e50f47878` / [Mac116](https://github.com/shuhei0720/necrogold-automation/actions/runs/42920344110) device全体成功。新UI10＋関係9＋selector3の22メソッドを実行ID/全log/3client Git blobまで照合、failure/error/skip/expected-failure0。既存TEST070 Runtimeの意味的baseline Red1と限定Green6呼出を、今回のController/4C実objectへ結び付けた。模擬時計・画像を用いる境界試験であり、実ゲームをCIで起動した証明ではない。
+
+22source seal/manifest一致、Controller1変更・他21不変、R12原40/G1・API1.98.16-ngg2/cap14/clientv15/wire/ABIを維持。実compiler4C/5Swift/6RSPとraw log/PBXを照合し、Perception/Navはstrict-O2-v2、他C-O0/Swift-Onone。全9Mach-Oを検査し125種のhost/test marker非混入、主要2binaryはarm64/API/cap一致。ビルドsource全546ファイルのpath/全bytes/全CRCをGitへ照合した。
+
+| 成果物 | ID / bytes | SHA256 |
+| --- | --- | --- |
+| unsigned outer ZIP | 13811961965 / 17,868,335 | `d06bf7fa7988f76563c475c09599e6592fc730e7c294c54a3f3e0ee5a081ed48` |
+| validation outer ZIP | 13812715472 / 1,214,891 | `bcc5c70625d1aba46c92d112015961b01342136c169f0b4ee2cedf592cbf197d` |
+| host outer ZIP | 13810694109 / 6,536 | `be7d45eb6864f82ad18940c853c968efbca07b4f74f43fe53349b60bb436ad88` |
+| build-source ZIP | 546 files / 7,530,357 | `daf2ec8d47c9ee5ed58f55433dfad289a0bb2f1cee8c3defd3190c99e18308fc` |
+| 内IPA | 17,595,799 | `30e069f7dc60dc105ee896c6f5e11fe5985330c3faa32e062d15fd6b41ac95a0` |
+
+内IPA全CRC、top.ebato.loopctrl/0.3.4/build116/iPhoneOS/min16.0を確認。5つの実artifact検証は各初回PASS、raw/receiptはGit外。最終sourceはstatus/本検証/実機台帳の文書3件だけを閉じ、全製品bytes同一を確認して[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test073-build116)へ配置する。公開後にIPA/source/SHA256SUMSの匿名HTTP200・全bytes/SHA/CRCを照合する。公開後receiptをGitへ足すために配布sourceを再変更しない。
+
+200msの端末での十分性、候補なし開始からの実restartと全商品到達、全経路の毎拍/人超えは未受入。次の実機を一連フローでまず2回、候補なし開始を含めて依頼し、自動`runtime/test-073-<run_id>.zip`を全回分受領する。回収済み072の追加回収・再実行は依頼しない。

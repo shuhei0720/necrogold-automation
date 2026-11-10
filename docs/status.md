@@ -1,25 +1,37 @@
 # 最新状態
 
-更新: 2026-11-11（日本時間）。TEST072の4run/45原画を受領し、商品全体可視2/4を実画像・実Cで確認。第1・4回はGOODS/PAUSE成立、第2・3回は候補なし判定後のPAUSEが画面に反映されず停止。TEST073で再開直後のUI準備待ちを修正中。[計画](plans/test073-restart-pause.md)。新UI10/関連旧12Green、独立差分レビュー未解決なし。CI22/22sealを確定し、新IPAを作成する。073実機は未実施。
+更新: 2026-11-11（日本時間）。TEST072の4run/45原画で商品全体可視2/4。第1・4回の到達を確認し、第2・3回の再開直後PAUSE未成立をTEST073で修正。[計画](plans/test073-restart-pause.md)・[検証](reviews/test073.md)。200msの端末での十分性と一連の実restart→商品到達は次の実機で確認する。
 
-## TEST072受領
+## 受領と変更
 
-実行順2dd614cc→bd252a30→bd74dabe→f1bafe8d（添付順とは異なる）。全4ZIP/45PNG（16/7/7/15）のhash/CRC/bytes/896×414/manifest/prefix/cursor/report一致、全回収resolved/terminal/drained。raw/派生証跡はGit外received072/test073-scenes。
+実行順2dd614cc→bd252a30→bd74dabe→f1bafe8d。全4ZIP/45PNGのhash/CRC/manifest/prefix/cursor/report一致、全回収完了。1は5MOVED+開扉1+商品優先UNKNOWN1で3商品100/125/30、4は6MOVED+開扉1+商品優先UNKNOWN1で100/50/100、GOODS/PAUSEとも成立。4のtoo_late履歴と空拍は保持し、回復成功と区別する。
 
-1は5MOVED+開扉1+商品優先UNKNOWN1で3商品100/125/30、4は6MOVED+開扉1+商品優先UNKNOWN1で100/50/100。実GOODS/PAUSEとも成立。方向送信を全歩数にしない。4には未送信too_late履歴と1.57/1.035秒の空きがあるが、その後回復して到達。初故障履歴を成功で消さず、今回速度/認識の変更を混ぜない。
+2・3は正常FLOOR/CLEAR/金0/保護0/通路候補0。RESUME ACKから71.289ms/90.355msでPAUSEを送ったが、ACK後もメニュー無しでゲームが約4秒進み、PAUSE確認期限でCAPTURE6。画像取得は正常でRESTARTは未発行、全4runのrestarts0。Nav/Perception/不明金guardを原因にしない。raw/派生証跡はGit外。
 
-2・3は正常FLOOR/CLEAR/金tile0/商品0/保護0/通路候補0。RESUME ACKから71.289ms/90.355msでPAUSEを送りACKも得たが、メニューが出ずゲーム時刻が約4秒進行。画像は終端直前まで正常受理、PAUSE observed_capture_id0/paused0のまま約4秒後CAPTURE6で終了。RESTARTは未発行、全4runともrestarts0。取得/RPC/dispatchのfailureは2・3にない。通路判定・CLEAR整合guard・restart fingerprintより前のUI反映待ちの失敗。
+073は最新の既知ACK RESUME/RESTART後200msと、その後に取得を開始した最新stable/current-prefix FLOORを得てからPAUSEを予約し、beginでも再確認する。時間だけ経って古い画像から入力しない。商品latchは即時、既にUI遷移から時間が経った成功PAUSEへ追加待ちなし。待機中に通路候補が明瞭化したら未送信skipを撤回して候補へ進む。送信済PAUSE/ACK済RESTARTの新level確認、全予算、UNKNOWN無再送は維持。200msは対策値で最短受付時間の測定結果ではない。
 
-## TEST073の範囲
+## TEST073配布
 
-最後の既知ACK RESUME/RESTART後200ms以上、かつその時刻以降に開始した最新stable/current-prefix FLOORを得てからPAUSEを予約する。200msは既存PAUSE→RESTARTの待ちと揃えた対策値で、端末の受付最短時間を測定できたという意味ではない。時間だけ進めて古い画像から入力せず、beginでも再確認。商品latchは即時、既にUI遷移から時間が経った成功回のPAUSE/歩行は遅くしない。PAUSE失敗/UNKNOWNの再送は追加しない。
+code `7da8f9ccbe35de9ae67bae94d583f39e50f47878`/[Mac116](https://github.com/shuhei0720/necrogold-automation/actions/runs/42920344110)成功。新UI10の意味的Red→Green、関連旧12Green、独立差分レビュー未解決P0/P1/P2なし。実CI22/限定Runtime6呼出・22seal/実compiler4C・5Swift・6RSP/全9Mach-O/全546build-source照合済み。実ゲームCIは未実施。
 
-待機中に通路候補が現れた場合も未送信skipを撤回して最新候補へ移る。送信済PAUSE/ACK済RESTARTの境界と新level証明を混同しない。Controller1件だけ変更予定、他21/Runtime/Nav/Core/Perception/API16cap14v15/wireABI/各予算・元閾値は維持する。
+Controller1変更、他21/Runtime/Nav/Core/Perception/取得/元閾値/API16cap14v15/wire/ABI/R12原40/G1不変。IPA0.3.4/build116、17,595,799bytes/SHA `30e069f7dc60dc105ee896c6f5e11fe5985330c3faa32e062d15fd6b41ac95a0`。
 
-## 配布・運用
+[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test073-build116/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test073-build116/source.zip)・[SHA256SUMS](https://github.com/shuhei0720/necrogold-automation/releases/download/test073-build116/SHA256SUMS.txt)。最終sourceとの差分はstatus/検証/台帳3文書だけ、全製品bytes同一。固定assetの匿名GET/全SHAまで照合する。
 
-現行は[TEST072/build114](https://github.com/shuhei0720/necrogold-automation/releases/tag/test072-build114)、code8a54beb6e5b046b7ec801afbe4e7339c2eb4e702/[検証](reviews/test072.md)。新073は機能Red→Green/関係回帰/独立差分レビュー1回→必要な新IPA/22seal/実compiler/全Mach-O/全source照合後に固定Releaseで返す。無変更Runtime/world全体は累積しない。
+## 必ず依頼する一連の実機テスト
 
-次の実機も「候補までリスタート→金壁/通路候補→商店→全商品」を一連でまず2回。候補なしの開始を含めて実restart成立を確認し、短いrestartポーズ中はゲーム前面、ポーズが5秒以上続いてからiSHへ戻り保存完了を待つ。自動run別全ZIPを返してもらう。回収済み072の追加回収・再実行は不要。
+候補なし開始を含め、リスタート→金壁/通路候補発見→接近/入店→全商品確認を一回としてまず2回。途中の歩数/開扉を完了にしない。毎回新しい通常1-1のポーズから開始する。SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VPNを有効にする。
 
-同じiPhoneのみ、ユーザーはMacを持たず実機担当。品質/安全条件不変・固定時間なし、実機ログを主に局所修正。既知通路は毎拍、新地形で実route判断が必要な1〜2拍だけ許容。商品候補保持/UNKNOWN無再送/全画像照合前の終了・次start禁止、raw/秘密値はGit外、既承認branchへ保存。初読3文書≤16KiB、[索引](context.md)から必要資料だけ読む。
+source.zipを展開し、フォルダ選択ではtest_073.shがあるフォルダを選ぶ。
+
+```sh
+mkdir -p /mnt/necro_test073
+mount -t ios . /mnt/necro_test073
+cd /mnt/necro_test073 && sh test_073.sh
+```
+
+短いrestartポーズ中はゲーム前面を保ち、ポーズのまま5秒以上変わらなくなったらiSHへ戻る。`TEST-073: 終了。画像とZIPの保存・照合が完了しました。`を待ち、2回目は同じフォルダで最後の行を再実行。自動`runtime/test-073-<run_id>.zip`全回分と、実restart/候補発見/入店/全商品/停止位置/拍間隔を返してもらう。回収済み072の追加回収・再実行は不要。
+
+## 運用
+
+同じiPhoneのみ、ユーザーはMacを持たず実機担当。実機ログ→局所修正→単体/関係回帰→必要なIPA/同一性→実機。品質/安全条件不変・固定時間なし、無関係な全Runtime/worldを累積しない。既知通路は毎拍、新地形で実route判断が必要な1〜2拍だけ許容。候補保持/UNKNOWN無再送/全画像照合前の終了・次start禁止。raw/秘密値はGit外、既承認branchへ保存。初読3文書≤16KiB、[索引](context.md)から必要資料だけ読む。

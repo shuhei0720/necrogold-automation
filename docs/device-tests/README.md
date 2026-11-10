@@ -2866,3 +2866,14 @@ IPA0.3.4/build114、17,596,172bytes/SHA `1851faf6fa5ec694bfc756a3522c8b50cc37567
 2・3回目は正常FLOOR/CLEAR/金0/保護0/通路候補0だが、RESUME ACK後71.289ms/90.355msでPAUSEを送ってACKを得ても、実ゲームは約4秒進行してメニュー無し。画像取得は正常に続き、PAUSE確認待ちが期限切れでCAPTURE6終了。RESTARTは未発行、全4runともrestarts0。取得障害・CLEAR guard・通路判別・fingerprintを原因にしない。
 
 [073計画](../plans/test073-restart-pause.md)で、再開/リスタート直後は200msとその後の新しいFLOORを確認してPAUSEを送る。待機中の候補発見は見送りより優先し、商品保持・成功した歩行/Nav/認識閾値・UNKNOWN無再送・全予算を維持する。200msの物理十分性は未確認として次の実機で評価。raw/派生資料はGit外、回収済み072の追加回収・再実行は依頼しない。
+
+
+## TEST073配布: 再開直後のPAUSE準備待ちと新候補優先
+
+2026-11-11（日本時間）。[計画](../plans/test073-restart-pause.md)・[検証](../reviews/test073.md)・[配布/実機手順](../status.md)。code `7da8f9ccbe35de9ae67bae94d583f39e50f47878`/[Mac116](https://github.com/shuhei0720/necrogold-automation/actions/runs/42920344110) device成功。新UI10/関係9/selector3の22件と限定Runtime Red1/Green6呼出、独立差分レビュー未解決P0/P1/P2なし。22seal/実compiler4C・5Swift・6RSP/全9Mach-O125marker非混入/546build-source全bytes・CRCを照合。Controller1変更、他21/Runtime/Nav/Core/Perception/元閾値/API16cap14v15/ABI/R12原40/G1不変。
+
+RESUME/RESTARTの既知ACK後200msと、その後に取得開始した最新stable/current-prefix FLOORを確認してPAUSEを予約し、beginも再検査する。候補なしrunでPAUSEが実画面に反映されなかった71/90ms間隔を避ける対策だが、端末の最短受付時間・200msの十分性は未確認。商品保持は即時、経過済みの成功PAUSEへ追加待ちなし。待機中の新しい通路候補は未送信skipより優先し、送信済PAUSE/ACK済RESTARTの境界・UNKNOWN無再送を維持。
+
+IPA0.3.4/build116、17,595,799bytes/SHA `30e069f7dc60dc105ee896c6f5e11fe5985330c3faa32e062d15fd6b41ac95a0`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test073-build116/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test073-build116/source.zip)。最終source差分は文書3件だけ、全製品bytes同一を確認し、固定assetの匿名GET/全SHAまで照合する。
+
+SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VPN。新しい通常1-1のポーズから、候補なし開始を含め「リスタート→金壁/通路候補→接近/入店→全商品確認」を一回としてまず2回。展開source内test_073.shがあるフォルダをmountして実行。短いrestartポーズ中はゲーム前面、ポーズが5秒以上続いたらiSHへ戻り、全画像/ZIPの保存・照合完了表示を待つ。自動`runtime/test-073-<run_id>.zip`全回分と実restart/全商品/停止位置/拍間隔を必ず依頼する。実ゲームCI/新073の実機成功は未確認。回収済み072を再実行しない。
