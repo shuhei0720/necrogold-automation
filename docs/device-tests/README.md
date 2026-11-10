@@ -2780,3 +2780,13 @@ ed920615e2d9442482fa64557989fea2は7方向入力/5MOVED+1DOOR_OPENED+GOODS優先
 j5の一意raw下端金対はgrid座標を作らずEDGE_DOWN3、j3/4は実座標2goldだけ復元。観測Down床へ1run1送信、元clock/current-prefix/full5/局所/全保護/strictBLOCKEDと初期未送信失効回復を保持。UNKNOWN/BLOCKED edge再送や残hint2歩目なし。119原画中067第一5枚だけgold1→3、他114同一、未来画像は補完しない。完成画像の全検証後再writeを省き、ゲーム終了理由/回収状態・回収のみを分離表示、履歴/UUID/90/180秒は維持。
 
 新IPA更新→LoopCtrl完全終了/起動→Start Server、新通常1-1金壁可視ポーズでtest_068.sh。自動ポーズ約5秒後iSH前面へ戻り終了まで待つ。runtime/test-068全ZIPと下端/通常回の3商品可視/停止位置/歩行/回収表示を依頼。067は全回収済み・再実行不要。068実機は未実施。
+
+
+<a id="test068-received"></a>
+## TEST068受領: 扉前停止と12/16枚での回収打切り
+
+2026-11-10（日本時間）。ZIP3,263,584bytes/SHA `ac50e2c7c4ba25ec1848a096bbf3a30e8e8eb1563ea68deb687a983bf2e32ce5d`、1run `cf5147ae1c8d428a8ad9e84eee1fffdc`。active/report一致、全ZIP/12PNGのCRC/SHA/bytes/896×414/manifest/時刻prefixを照合。report SHA `ab0968c245d9c1ce3b5714a1f0aa7b17f99ff3fd1e8b3635d8887ce782228f58`。missing078/080/091/093、093part262144bytes、残877583bytes。生資料/receiptはGit外。
+
+4入力/4MOVED、開扉/商品0、native6.706秒でSCREEN17/paused1/drained。id9は未送信。source130→latest133は同LEFT/DOOR判断・局所/金/保護不変、遠方2セルの変化とmotionUNKNOWNでquiet拒否。期限14.751ms前であり開扉失敗/時間切れではない。
+
+回収manifest→最終chunk87.728秒、RPC23.596秒・呼出間64.132秒。共有mountへの109 atomic/14,443,914bytesが90秒枠を消費し、12/16のままhost_deadline/終了表示。前068の再開時write省略では初回負荷は直らなかった。追加回収は依頼せず、[069計画](../plans/test069-collection-gate.md)でlocal保存/全画像ZIP公開と未送信開扉の新観測を実装する。商品到達/回収完了は失敗として集計する。

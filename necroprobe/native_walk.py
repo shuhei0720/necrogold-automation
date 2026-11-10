@@ -954,8 +954,17 @@ def _chunk(value, run_id, export_id, item, offset):
     return raw
 
 
+def _read_only_terminal(state, report):
+    # Missing legacy diagnostics cannot establish a new, longer read-only lease.
+    return (state in TERMINAL and report.get('terminal') == 1
+            and report.get('input_state') in (0, 3)
+            and report.get('workers_drained') is True
+            and report.get('ui_frozen') is False
+            and report.get('native_inflight') is False)
+
+
 def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_timeout,
-                   cancelled=lambda: False, progress=None):
+                   cancelled=lambda: False, progress=None, read_only_clock=None):
     run_id = record['run_id']
     def check():
         _require(not cancelled(), 'cancel_requested')
@@ -978,6 +987,12 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
         require_motion_references=record['revision'] in MOTION_REFERENCE_REVISIONS,
         require_recovery=record['revision'] in RECOVERY_REVISIONS,
         api_version=_revision_api(record['revision']))
+    if read_only_clock is not None:
+        # A terminal status grants time only to the same drained native run.
+        # A contradictory manifest cannot spend that time transferring chunks.
+        _require(_read_only_terminal(state, report) and report.get('cancel_requested') is not True
+                 and report['clock_id'] == read_only_clock,
+                 'native_input_unresolved')
     # Manifest validation and storage consume the same bounded export attempt.
     check()
     current = record.get('image_export')
@@ -1086,13 +1101,14 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
 def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic_ns,
                 sleep=time.sleep, poll_seconds=.25, max_seconds=185, recovery_seconds=6,
                 results_seconds=8, export_seconds=90, lock_path=None, progress=None,
-                recovery_notice=None):
+                recovery_notice=None, collection_seconds=300):
     """Start once; recover known work with read-only status and bounded cancel."""
     number(poll_seconds, .001, 1)
     number(max_seconds, .01, 200)
     number(recovery_seconds, .01, 10)
     number(results_seconds, .001, 8)
     number(export_seconds, .001, 90)
+    number(collection_seconds, .001, 300)
     base = Path(output).resolve()
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
     with device_lock(lock_path):
@@ -1117,6 +1133,8 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
         readiness_deadline = min(deadline, began + SCHEMA_BUDGET_NS)
         cleanup_deadline = None
         export_guard = None
+        collection_deadline = None
+        read_only_clock = None
         cancel_required = record['cancel_attempted']
         status_before_retry = False
         cancel_calls = 0
@@ -1145,6 +1163,7 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                 raise
 
         def accept(value):
+            nonlocal collection_deadline, read_only_clock
             state, report = _status(value, run_id,
                 require_motion_references=record['revision'] in MOTION_REFERENCE_REVISIONS,
                 require_recovery=record['revision'] in RECOVERY_REVISIONS,
@@ -1152,6 +1171,14 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
             record.update(state=state, native_state=state, native_report=report)
             if state in TERMINAL or report.get('cancel_requested') is True:
                 record['cancel_confirmed'] = True
+            if (collection_deadline is None and record['revision'] in PAGED_REVISIONS
+                    and _read_only_terminal(state, report) and not cancel_required
+                    and not record['cancel_attempted'] and report.get('cancel_requested') is not True
+                    and not cancelled()):
+                # This freezes a separate collection deadline at the first
+                # authenticated stop/drain observation, before journal IO.
+                collection_deadline = clock() + int(collection_seconds*1e9)
+                read_only_clock = report['clock_id']
 
         def stop(reason):
             nonlocal cleanup_deadline, cancel_required
@@ -1289,29 +1316,32 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                     stop('cancel_requested')
 
             while True:
-                if cancelled():
-                    stop('cancel_requested')
-                if clock() >= deadline:
-                    stop('host_deadline')
+                if collection_deadline is None:
+                    if cancelled():
+                        stop('cancel_requested')
+                    if clock() >= deadline:
+                        stop('host_deadline')
                 if (cancel_required and record['state'] not in TERMINAL
                         and not status_before_retry):
                     cancel_attempt()
                 if record['state'] in TERMINAL:
                     try:
-                        # Read-only export gets its own whole-call budget only
-                        # after terminal status. It cannot extend this invocation.
+                        # Mutable/unknown and legacy paths retain their original
+                        # game/cleanup deadlines. Proven stop/drain cannot grant
+                        # any new input authority, only a finite read-only export.
                         invocation_deadline = cleanup_deadline if cleanup_deadline is not None else deadline
                         if record['revision'] in PAGED_REVISIONS:
-                            results_deadline = min(invocation_deadline, began+180_000_000_000,
-                                                   clock()+int(export_seconds*1e9))
+                            results_deadline = collection_deadline if collection_deadline is not None else min(
+                                invocation_deadline, began+180_000_000_000,
+                                clock()+int(export_seconds*1e9))
                             # Preserve the finite result cleanup for an already
                             # cancelled native run; a new cancel stops this export.
-                            cancelled_before_export = cancelled()
+                            cancelled_before_export = False if collection_deadline is not None else cancelled()
                             export_cancelled = lambda: not cancelled_before_export and cancelled()
                             export_guard = (results_deadline, export_cancelled)
                             state, report = _collect_paged(request, base, record, clock,
                                 results_deadline, results_seconds, client.timeout, export_cancelled,
-                                progress)
+                                progress, read_only_clock)
                         else:
                             # A started old journal keeps its original protocol.
                             results_deadline = min(invocation_deadline, clock()+int(results_seconds*1e9))
@@ -1390,12 +1420,14 @@ def parser():
     return ap
 
 
-def main(argv=None):
+def main(argv=None, *, outcome=None, cancelled=lambda: False):
     args = parser().parse_args(argv)
     if args.check:
         print(REVISION + ' / ' + API_VERSION)
         return 0
     stopped = [False]
+    def is_cancelled():
+        return stopped[0] or cancelled()
     def stop(_signum, _frame):
         stopped[0] = True
     previous = {sig: signal.signal(sig, stop) for sig in (signal.SIGINT, signal.SIGTERM)}
@@ -1411,8 +1443,12 @@ def main(argv=None):
             def recovery_notice():
                 recovering[0] = True
                 print('前回の結果の回収のみ行います。今回はゲームを起動しません。', flush=True)
-            record = run_session(client, args.output, cancelled=lambda: stopped[0], progress=progress,
+            record = run_session(client, args.output, cancelled=is_cancelled, progress=progress,
                                  recovery_notice=recovery_notice)
+        if outcome is not None:
+            # A storage wrapper owns its completion display after publishing the
+            # collected evidence. Preserve pairing, timers and signal handling.
+            return outcome(record, is_cancelled())
         report = record['native_report'] or {}
         native_reason = report.get('reason_name') if record['native_state'] in TERMINAL else None
         print('NG-G2終了: ' + record['state'] + ' / '
