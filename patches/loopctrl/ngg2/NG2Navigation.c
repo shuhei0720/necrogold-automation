@@ -92,6 +92,17 @@ int ng2_choose(const NG2Scene *source,int32_t x,int32_t y,const uint16_t *visits
     if (!valid_scene(s) || !visits || count!=NG2_VISIT_COUNT || x < -16 || x > 16 || y < -16 || y > 16) return 0;
     if (s->goods==NG2_GOODS_VISIBLE) { out->reason=1;return 0; }
     for (d=0;d<=4;++d) if (protected_at(s,ddx[d],ddy[d])) { out->reason=2;return 0; }
+    /* Below-grid evidence is not a GOLD cell or an unseen passage. It may
+     * select only the observed DOWN floor at the initial position. Actual
+     * displacement must reveal ordinary gold before another such choice. */
+    if (!gold_count(s) && s->gold_state==NG2_GOLD_EDGE_DOWN) {
+        if (s->goods!=NG2_GOODS_UNKNOWN || x || y || (entrance && entrance->valid)
+            ||tile(s,0,0)!=NG2_TILE_FLOOR || tile(s,0,1)!=NG2_TILE_FLOOR) {
+            out->reason=3;return 0;
+        }
+        for (i=0;i<CELLS;++i) if (s->protected_cells[i]) {out->reason=2;return 0;}
+        decision(out,NG2_DOWN,9,0,1,s);return 1;
+    }
     if (!gold_count(s) || tile(s,0,0)!=NG2_TILE_FLOOR) { out->reason=3;return 0; }
     if (entrance && entrance->valid) {
         int64_t rx=(int64_t)entrance->x-x,ry=(int64_t)entrance->y-y;

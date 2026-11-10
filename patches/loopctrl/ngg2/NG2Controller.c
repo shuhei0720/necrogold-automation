@@ -47,6 +47,7 @@ struct NG2Controller {
     uint64_t ack_ns,command_period,next_nominal,next_deadline,next_period,last_observed_prefix;
     uint64_t motion_retry_start_ns;
     uint64_t stationary_gate_retry_proof_id;
+    uint64_t edge_validated_capture_id;
     uint64_t latest_verified_ns;
     uint64_t next_update_deadline;
     uint64_t schedule_deadline,continuous_schedule_deadline,initial_visual_deadline;
@@ -74,6 +75,7 @@ struct NG2Controller {
     int stationary_gate_retry_used;
     int stationary_gate_recovery_pending;
     int stationary_gate_retry_waiting;
+    int edge_sent;
 };
 static int tile_index(int x,int y){return x>=-11&&x<=11&&y>=-5&&y<=4?(y+5)*23+x+11:-1;}
 static int tile(const NG2Scene *s,int x,int y){int k=tile_index(x,y);return k<0?0:s->tiles[k];}
@@ -84,7 +86,7 @@ static uint64_t maximum(uint64_t a,uint64_t b){return a>b?a:b;}
 static int valid_scene(const NG2Scene *s){
     int i;
     if(!s||s->abi_version!=NG2_ABI_VERSION||s->struct_size!=sizeof(*s)||s->state<0||s->state>2
-        ||s->restart_label<0||s->restart_label>1||s->gold_state<0||s->gold_state>2
+        ||s->restart_label<0||s->restart_label>1||s->gold_state<0||s->gold_state>NG2_GOLD_EDGE_DOWN
         ||s->gold_peak<0||s->gold_peak>255||s->goods<0||s->goods>2||s->beat_valid<0||s->beat_valid>1)return 0;
     for(i=0;i<NG2_TILE_COUNT;++i)if(s->tiles[i]>NG2_TILE_ITEM||s->protected_cells[i]>1)return 0;
     return 1;
@@ -106,6 +108,7 @@ static void end_visual_wait(NG2Controller *p){
 }
 static void finish(NG2Controller *p,uint64_t now,int reason){
     p->preparation_epoch=0;
+    p->edge_validated_capture_id=0;
     p->stationary_gate_retry_waiting=NG2_GATE_RETRY_NONE;p->stationary_gate_retry_proof_id=0;
     if(p->s.terminal)return;
     if(!p->finish_requested){p->finish_requested=1;p->finish_ns=now;p->s.reason=reason;}
@@ -312,7 +315,7 @@ static void add_sample(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint64
 }
 static void start_floor(NG2Controller *p,const NG2Scene *scene,uint64_t end){
     if(scene->state!=NG2_FLOOR)return;
-    if(scene->gold_state==NG2_GOLD_CANDIDATE){
+    if(scene->gold_state==NG2_GOLD_CANDIDATE||scene->gold_state==NG2_GOLD_EDGE_DOWN){
         if(!p->s.walk_started_ns){p->s.walk_started_ns=end;p->sync_ns=end;clear_model(p);}
         p->s.phase=NG2_PHASE_SYNC;
     }else if(scene->gold_state==NG2_GOLD_CLEAR){
@@ -346,6 +349,41 @@ static int can_replan(NG2Controller *p,const NG2Scene *scene){
 static int same_choice(const NG2Decision *a,const NG2Decision *b){
     return a->direction==b->direction&&a->reason==b->reason&&a->target_x==b->target_x
         &&a->target_y==b->target_y&&a->obstacle==b->obstacle;
+}
+/* A fringe is evidence of a shop below the lattice, not a hidden map cell.
+ * Only the already observed next FLOOR may supply this single first step. */
+static int edge_floor(const NG2Scene *s){
+    int i;
+    if(s->state!=NG2_FLOOR||s->goods!=NG2_GOODS_UNKNOWN||s->gold_state!=NG2_GOLD_EDGE_DOWN
+        ||tile(s,0,0)!=NG2_TILE_FLOOR||tile(s,0,1)!=NG2_TILE_FLOOR)return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i)
+        if(s->tiles[i]==NG2_TILE_GOLD||s->protected_cells[i])return 0;
+    return 1;
+}
+static int quiet_edge_observation(const NG2Controller *p,const NG2Scene *scene,uint64_t now){
+    NG2Decision before,latest;NG2Motion still;uint64_t aligned;int i;
+    if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||p->command.direction!=NG2_DOWN
+        ||p->finish_requested||p->s.goods||p->edge_sent||p->s.inputs||p->s.moves||p->s.lead_confirmed
+        ||p->s.x||p->s.y||p->entrance.valid||p->replan_pending||!p->initial_ticket_valid
+        ||p->command_choice.reason!=9||!edge_floor(&p->before)||!edge_floor(scene)
+        ||p->beat_failed||!ng2_beat_model_valid(&p->model)
+        ||now>p->command.deadline_ns||now>p->initial_ticket.deadline_ns||now>=sync_deadline(p)
+        ||now<p->command.source_start_ns||now-p->command.source_start_ns>FRESH
+        ||now<p->command.phase_sample_ns||now-p->command.phase_sample_ns>FRESH
+        ||now<p->model.last_ns||now-p->model.last_ns>FRESH
+        ||now-p->s.walk_started_ns>=45*SECOND||now-p->s.started_ns>=180*SECOND
+        ||!corrected(p,p->initial_ticket.target_ns,p->initial_period,&aligned))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int a=p->before.tiles[i],b=scene->tiles[i],x=i%23-11,y=i/23-5;
+        if(a==b)continue;
+        if((abs(x)<=1&&abs(y)<=1)||(abs(x)<=1&&abs(y-1)<=1)
+            ||(a!=NG2_TILE_UNKNOWN&&a!=NG2_TILE_FLOOR&&a!=NG2_TILE_DIRT&&a!=NG2_TILE_STONE)
+            ||(b!=NG2_TILE_UNKNOWN&&b!=NG2_TILE_FLOOR&&b!=NG2_TILE_DIRT&&b!=NG2_TILE_STONE))return 0;
+    }
+    return ng2_choose(&p->before,0,0,p->visits,NG2_VISIT_COUNT,&p->entrance,&before)
+        &&ng2_choose(scene,0,0,p->visits,NG2_VISIT_COUNT,&p->entrance,&latest)
+        &&same_choice(&before,&p->command_choice)&&same_choice(&before,&latest)
+        &&ng2_motion(&p->before,scene,NG2_DOWN,&still)&&still.kind==NG2_BLOCKED&&!still.dx&&!still.dy;
 }
 /* Preserve the published initial ticket through irrelevant remote palette
  * flicker throughout its publication window. Its source/before remain frozen;
@@ -756,6 +794,19 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
     if(scene->goods==NG2_GOODS_VISIBLE){finish(p,end,NG2_REASON_GOODS);p->need_fresh_cleanup=1;}
     if(!stable||prefix!=p->s.last_completed_id||p->s.input_state==2||p->s.input_state==4){
         ++p->s.discarded_frames;return 0;}
+    if(p->s.input_state==1&&p->command.kind==NG2_ACTION_MOVE&&p->command_choice.reason==9){
+        p->edge_validated_capture_id=0;
+        if(commit>p->command.deadline_ns
+            &&initial_recover(p,NG2_RECOVERY_UNSENT_DEADLINE,NG2_RECOVERY_ACTUAL_COMMIT,commit,id)){
+            /* A completed observation can beat tick to an expired unsent
+             * window. Retire that ID; only a new bounded fit may act again. */
+        }else if(quiet_edge_observation(p,scene,commit))p->edge_validated_capture_id=id;
+        else {
+            not_sent(p,end,NG2_REASON_SCREEN);
+            p->replan_pending=p->continuous_pending=0;finish(p,end,NG2_REASON_SCREEN);
+        }
+        mask=0;
+    }
     /* Every accepted pre-dispatch image re-proves this sole entrance. A
      * signature-only failure must retire it even when scene_change is zero. */
     if(p->stationary_gate_retry_waiting==NG2_GATE_RETRY_ISSUED){
@@ -952,6 +1003,7 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
     e=&p->events[p->event_count++];memset(e,0,sizeof(*e));e->command=p->command;
     if(kind==NG2_ACTION_MOVE){
         p->recovery.mode=NG2_RECOVERY_NORMAL;clear_recovery_slot(p);
+        p->edge_validated_capture_id=p->command_choice.reason==9?p->s.last_capture_id:0;
         if(p->stationary_gate_retry_waiting!=NG2_GATE_RETRY_NONE){
             p->stationary_gate_retry_waiting=NG2_GATE_RETRY_ISSUED;
             p->stationary_gate_retry_proof_id=p->s.last_capture_id;
@@ -1156,7 +1208,8 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         return reserve(p,now,NG2_ACTION_PAUSE,0,0,out);
     }
     if(!p->s.walk_started_ns){
-        if(p->scene.gold_state==NG2_GOLD_CANDIDATE)start_floor(p,&p->scene,now);
+        if(p->scene.gold_state==NG2_GOLD_CANDIDATE||p->scene.gold_state==NG2_GOLD_EDGE_DOWN)
+            start_floor(p,&p->scene,now);
         else if(now-p->transition_ns>=TRANSITION)finish(p,now,NG2_REASON_SCREEN);
         return 0;
     }
@@ -1183,6 +1236,10 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
     }
     if(!prepare_recovery_slot(p,now))return 0;
     if(p->s.inputs>=16){finish(p,now,NG2_REASON_LIMIT);return 0;}
+    if(p->scene.gold_state==NG2_GOLD_EDGE_DOWN
+        &&(p->edge_sent||p->s.inputs||p->s.moves||p->s.lead_confirmed||!edge_floor(&p->scene))){
+        finish(p,now,NG2_REASON_NO_PATH);return 0;
+    }
     /* Refit is not authority to choose another route. Re-prove the original
      * stationary entrance immediately before publishing its sole new ticket. */
     if((p->stationary_gate_retry_waiting==NG2_GATE_RETRY_REFIT&&!stationary_gate_proof(p,&p->scene,now))
@@ -1258,6 +1315,10 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
     int reason;NG2ControllerEvent *e;uint64_t tail,horizon,aligned;
     if(!p||!valid_time(now)||p->s.terminal||p->s.input_state!=1||id!=p->command.id)return 0;
     reason=guards(front,locked,owner);
+    if(!reason&&p->command.kind==NG2_ACTION_MOVE&&p->command_choice.reason==9
+        &&(p->edge_sent||p->s.inputs||p->s.moves||p->s.lead_confirmed
+           ||!p->edge_validated_capture_id||p->edge_validated_capture_id!=p->s.last_capture_id))
+        reason=NG2_REASON_SCREEN;
     if(!reason&&p->command.kind==NG2_ACTION_MOVE&&p->stationary_gate_retry_waiting==NG2_GATE_RETRY_ISSUED
         &&(!p->stationary_gate_retry_proof_id||p->stationary_gate_retry_proof_id!=p->s.last_capture_id))
         reason=NG2_REASON_SCREEN;
@@ -1306,6 +1367,8 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
     if(p->command.kind==NG2_ACTION_MOVE&&p->motion_reference_valid&&!reference_time_valid(p,now,0))
         p->motion_reference_valid=0;
     p->preparation_epoch=0;
+    if(p->command.kind==NG2_ACTION_MOVE&&p->command_choice.reason==9)p->edge_sent=1;
+    p->edge_validated_capture_id=0;
     p->stationary_gate_retry_waiting=NG2_GATE_RETRY_NONE;p->stationary_gate_retry_proof_id=0;
     p->last_now=maximum(p->last_now,now);p->s.input_state=2;e=event(p);e->begin_ns=now;e->outcome=1;
     return 1;

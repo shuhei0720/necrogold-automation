@@ -1001,6 +1001,7 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
         image_path = image_folder/item['name']
         fragment = fragments/(item['name']+'.part')
         offset = current['offsets'][index]
+        completed_before = offset == item['bytes'] and verified.get(item['name']) == item
         raw = _read_fragment(fragment, image_path, offset, current['prefix_sha256'][index], item['bytes'])
         prior_raw = raw
         check()
@@ -1050,6 +1051,24 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
                  and raw[:16] == b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR'
                  and struct.unpack('>II', raw[16:24]) == (896,414), 'invalid_native_images')
         check()
+        if completed_before:
+            # Metadata and an end cursor do not prove that the published file
+            # still exists. Compare its bounded bytes only after the complete
+            # source/prefix/hash/PNG checks above. A fragment-only or changed
+            # destination keeps the original atomic publication below.
+            try:
+                with image_path.open('rb') as handle:
+                    published = handle.read(MAX_IMAGE+1)
+            except FileNotFoundError:
+                published = None
+            check()
+            if published == raw:
+                try:
+                    fragment.unlink()
+                except FileNotFoundError:
+                    pass
+                check()
+                continue
         _atomic(image_path, raw)
         verified[item['name']] = item
         record['images'] = [verified[entry['name']] for entry in current['images'] if entry['name'] in verified]
@@ -1066,7 +1085,8 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
 
 def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic_ns,
                 sleep=time.sleep, poll_seconds=.25, max_seconds=185, recovery_seconds=6,
-                results_seconds=8, export_seconds=90, lock_path=None, progress=None):
+                results_seconds=8, export_seconds=90, lock_path=None, progress=None,
+                recovery_notice=None):
     """Start once; recover known work with read-only status and bounded cancel."""
     number(poll_seconds, .001, 1)
     number(max_seconds, .01, 200)
@@ -1230,6 +1250,13 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
 
         try:
             _save(base, record)
+            if recovering and recovery_notice is not None:
+                try:
+                    recovery_notice()
+                except Exception:
+                    # Optional display cannot discard the journal or change
+                    # which run owns this read-only recovery invocation.
+                    pass
             if not recovering:
                 schema_readiness()
                 readiness_check()
@@ -1380,8 +1407,23 @@ def main(argv=None):
             def progress(saved, total):
                 print('画像回収中: 保存済み' + str(saved) + '/' + str(total)
                       + '枚。終了表示までお待ちください。', flush=True)
-            record = run_session(client, args.output, cancelled=lambda: stopped[0], progress=progress)
-        print('NG-G2終了: ' + record['state'] + ' / ' + (record['stop_reason'] or 'none'))
+            recovering = [False]
+            def recovery_notice():
+                recovering[0] = True
+                print('前回の結果の回収のみ行います。今回はゲームを起動しません。', flush=True)
+            record = run_session(client, args.output, cancelled=lambda: stopped[0], progress=progress,
+                                 recovery_notice=recovery_notice)
+        report = record['native_report'] or {}
+        native_reason = report.get('reason_name') if record['native_state'] in TERMINAL else None
+        print('NG-G2終了: ' + record['state'] + ' / '
+              + (native_reason or record['stop_reason'] or 'none'))
+        if record['native_state'] in TERMINAL:
+            print('結果回収: ' + ('完了' if record['resolved'] else '未完了 / '
+                  + (record['stop_reason'] or 'native_input_unresolved')))
+        else:
+            print('結果回収: 未実施')
+        if recovering[0] and record['resolved']:
+            print('前回の結果の回収完了。次回の実行から新しい試験を開始します。')
         print('保存先: ' + str(Path(args.output).resolve()/('native-'+record['run_id'])))
         if not record['start_attempted'] and record['stop_reason'] != 'cancel_requested':
             attempts = record.get('preflight', {}).get('attempts', [])

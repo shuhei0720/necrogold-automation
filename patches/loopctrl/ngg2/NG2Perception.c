@@ -207,6 +207,41 @@ static int ng2_merchandise(const unsigned char *rgba,size_t stride,const unsigne
     }
     if(any){out->goods=NG2_GOODS_PARTIAL;ng2_protect(out,partial);}return 0;
 }
+/* Raw paired gold can extend below the map or behind its coarse HUD mask.
+ * An external row is a hint only; never shift its cells into the map. An
+ * in-map pair is restored only at its actual, previously masked coordinates.
+ * Gold color/count, global density and the original HUD masks stay intact. */
+static void ng2_lower_fringe(const unsigned char *rgba,size_t stride,NG2Scene *out){
+    unsigned counts[3][23];int i,j,x,y,k,pairs=0,chosen_x=0,chosen_y=0;
+    if(out->state!=NG2_FLOOR||out->goods!=NG2_GOODS_UNKNOWN)return;
+    for(k=0;k<NG2_TILE_COUNT;++k)
+        if(out->tiles[k]==NG2_TILE_GOLD||out->protected_cells[k])return;
+    for(j=3;j<=5;++j)for(i=-11;i<=11;++i){
+        int cx=448+36*i,cy=207+36*j;unsigned count=0;
+        for(y=cy-12;y<cy+13;++y)for(x=cx-12;x<cx+13;++x)
+            count+=(unsigned)ng2_gold_pixel(rgba+y*stride+4*x);
+        counts[j-3][i+11]=count;
+    }
+    for(j=3;j<=5;++j)for(i=-10;i<=10;++i){
+        if(counts[j-3][i+10]<280||counts[j-3][i+12]<280||counts[j-3][i+11]>=280)continue;
+        if(j<5){
+            int a=ng2_index(i-1,j),b=ng2_index(i+1,j);
+            int left=448+36*(i-1),right=448+36*(i+1),cy=207+36*j;
+            if(a<0||b<0||out->tiles[a]!=NG2_TILE_UNKNOWN||out->tiles[b]!=NG2_TILE_UNKNOWN
+                ||!ng2_hud_overlap(left-12,cy-12,left+13,cy+13)
+                ||!ng2_hud_overlap(right-12,cy-12,right+13,cy+13))continue;
+        }
+        ++pairs;chosen_x=i;chosen_y=j;
+    }
+    if(pairs!=1)return;
+    if(chosen_y==5)out->gold_state=NG2_GOLD_EDGE_DOWN;
+    else {
+        int a=ng2_index(chosen_x-1,chosen_y),b=ng2_index(chosen_x+1,chosen_y);
+        if(a<0||b<0)return;
+        out->tiles[a]=NG2_TILE_GOLD;out->tiles[b]=NG2_TILE_GOLD;
+        out->gold_state=NG2_GOLD_CANDIDATE;
+    }
+}
 static int ng2_double_compare(const void *a,const void *b){double x=*(const double*)a,y=*(const double*)b;return (x>y)-(x<y);}
 static double ng2_median(double *values,int count){qsort(values,(size_t)count,sizeof(*values),ng2_double_compare);return count%2?values[count/2]:(values[count/2-1]+values[count/2])/2;}
 static double ng2_mod1(double v){double r=fmod(v,1);return r<0?r+1:r;}
@@ -271,7 +306,8 @@ int ng2_analyze_rgba(const uint8_t *rgba,size_t length,size_t stride,NG2Scene *o
         out->state=NG2_FLOOR;
         if(ng2_gold(rgba,stride,gray,work,density,out))result=-1;
         else {ng2_tiles(rgba,stride,out);result=ng2_merchandise(rgba,stride,gray,work,density,out);}
-        if(!result){for(y=0;y<H;y+=4)for(x=0;x<W;x+=4)out->signature[(y/4)*224+x/4]=gray[y*W+x];
+        if(!result){ng2_lower_fringe(rgba,stride,out);
+            for(y=0;y<H;y+=4)for(x=0;x<W;x+=4)out->signature[(y/4)*224+x/4]=gray[y*W+x];
             ng2_beat_extract(rgba,stride,out);}
     }
     free(gray);

@@ -2759,3 +2759,15 @@ f432162df3954509ab735eaa6c3552f2は4方向入力/3MOVED+最後UNKNOWN、開扉0/
 第2移動確認を元周期1/10、第3は元1周期・3評価/visualD/UNKNOWN無再送維持。原判定UNKNOWNの閉入口一意1tileだけ強い地形detailで追加証明、原73score/gap/300支持/95%/15pp/2領域条件を保持。確定BLOCKEDの同床入口は1run1回freshfit・将来拍/新ID、元event/歩数等と前verified12秒/45/180を維持。消去前model/rawをACTUAL_COMMIT snapshot、同入口限定は新ticket後もactualbeginまで全accepted Sceneで再証明、signature-only/DIRT FRESHも拒否し終了/PAUSEを確認。
 
 新IPAをSideStore更新→LoopCtrl完全終了/起動→Start Server→新しい通常1-1金壁可視ポーズでtest_067.sh。自動ポーズ後約5秒でiSH前面へ戻り終了を待ち、runtime/test-067全ZIPと3商品可視/停止位置/歩行間隔を返してもらう。067実機は未実施、066の既知商品未達をCI成功で置き換えない。
+
+
+<a id="test067-received"></a>
+## TEST067受領（2026-11-10 日本時間）
+
+ZIP5,514,177bytes/SHA `e5d9f4875aeab4f3023ad4cdb9ada2439c140c2713eca4043736a8a2462df5a2`、32entry/安全path/全CRC。2run/22選択PNGの全SHA/bytes/896×414/全chunk CRC/manifest/時刻・prefix一致、active=第2report/最終resolved=true/partなし。3回目のnative runは存在せず、同UUIDの回収再開で新startなし。
+
+945467921923495da03c14d78f6ffbb1は0方向入力、walk未開始、native capture6/terminal/drained/input3/paused0。原画12/87〜90は実CでFLOOR/GOLD_CLEAR/peak60〜71/金tile0だが、実金(-1,5)/(1,5)はraw25×25金436/373、地図外かつHUD除外。origin/Down次/周囲は実FLOOR/保護0。Resume ACKからPAUSE begin93.639ms、未成立で約4秒後capture停止。物理原因未特定、相関だけでUI受付間隔と断定しない。CLI noneはhost理由nullを表示したもの。
+
+ed920615e2d9442482fa64557989fea2は7方向入力/5MOVED+1DOOR_OPENED+GOODS優先UNKNOWN1評価、GOODS1/PAUSE1/terminal/drained。165/166は2品、173に3品25/25/100と看板が見え実C VISIBLE、183は実PAUSE。173はinflight/stablefalse/prefix10、最後の安定175はexport省略なので補完しない。173以後の方向入力0。送信間隔.531/.509/1.044/.519/.521/.520秒、全begin元10ms窓内NB+.488〜7.066ms。初動4.618秒、初期候補period513.671170ms<515msでfit撤回/再取得、位相差9.825msは許容41.275ms内でphase差過大とはしない。
+
+回収は初回manifest/chunk約102.484秒でexport90秒切れ、次回status RPC期限でcancel cleanup6秒へ、最後約49.262秒で残4画像まで完了。最終RPC合計9.537秒に対しmanifestから残chunkまで26.091秒。完成11画像も同じbytesを再write/両journal保存しており[068](../plans/test068-fringe-collection.md)で省く。履歴host_deadlineは維持し、CLIのnative成功と回収完了を分ける。次回は新UUIDで開始できる条件、回収済067を再実行しない。

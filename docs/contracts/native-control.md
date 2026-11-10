@@ -1,6 +1,6 @@
 # Native制御の不変条件
 
-入口[context](../context.md)、現行版[status](../status.md)。境界変更は要件/計画/Redで検証。
+境界変更は要件/計画/Redで検証。
 
 ## 1. 要件/権限
 
@@ -45,6 +45,8 @@ FRESH（validation12）はlead確認済みcontinuousでSAME不成立時に最新
 初reserveでscheduleD=min(元次拍notBefore+10ms,元source/phase/walk/session期限)、visualD=min(元source開始+3秒,元phase sample+3秒,walk+45秒,session+180秒)を凍結。SAME/FRESH/初歩再予約の期限/原点延長禁止。scheduleDは高速次拍/限定fallbackの親期限、visualDは同ACK画像確認期限。model/source/phase/dispatchも短縮のみ。待機/保存後も期限/取消/主処理・停止・回収の専用期限を検査。
 
 親motion/次ordinalを分離。同nominal/元periodでcandidate target/窓を対更新し初reserveで凍結。continuous初回はnotBefore100ms前/取得開始200ms前以降。更新前Dを次actualtickまでmin保持、超過は発行拒否。[061設計](../plans/test061-verified-progress.md)。
+
+下端候補は[068](../plans/test068-fringe-collection.md)の観測床1歩のみ。
 
 ## 7. 拍とleadの有限試行
 
@@ -96,7 +98,7 @@ profilev2はPerception/Navigationのみstrict O2（-fno-fast-math/-ffp-contract=
 
 ## 15. 検証の範囲
 
-[試験区分](../testing.md)。必須画像不足/hash不一致はlocal失敗、CI除外と区別。模擬/録画/通信/IPAを実機成功/速度達成としない。未測定/欠落/失敗を成功にせず、未知評価はrun別。
+[試験区分](../testing.md)。必須画像不足/hash不一致はlocal失敗、CI除外と区別。模擬/録画/通信/IPA・欠落/未測定/失敗は実機成功/速度達成にせず、未知評価はrun別。
 
 ## 16. 工程
 
