@@ -2771,3 +2771,12 @@ ZIP5,514,177bytes/SHA `e5d9f4875aeab4f3023ad4cdb9ada2439c140c2713eca4043736a8a24
 ed920615e2d9442482fa64557989fea2は7方向入力/5MOVED+1DOOR_OPENED+GOODS優先UNKNOWN1評価、GOODS1/PAUSE1/terminal/drained。165/166は2品、173に3品25/25/100と看板が見え実C VISIBLE、183は実PAUSE。173はinflight/stablefalse/prefix10、最後の安定175はexport省略なので補完しない。173以後の方向入力0。送信間隔.531/.509/1.044/.519/.521/.520秒、全begin元10ms窓内NB+.488〜7.066ms。初動4.618秒、初期候補period513.671170ms<515msでfit撤回/再取得、位相差9.825msは許容41.275ms内でphase差過大とはしない。
 
 回収は初回manifest/chunk約102.484秒でexport90秒切れ、次回status RPC期限でcancel cleanup6秒へ、最後約49.262秒で残4画像まで完了。最終RPC合計9.537秒に対しmanifestから残chunkまで26.091秒。完成11画像も同じbytesを再write/両journal保存しており[068](../plans/test068-fringe-collection.md)で省く。履歴host_deadlineは維持し、CLIのnative成功と回収完了を分ける。次回は新UUIDで開始できる条件、回収済067を再実行しない。
+
+
+## TEST068配布（2026-11-10 日本時間）
+
+[計画](../plans/test068-fringe-collection.md)・[検証](../reviews/test068.md)・[固定配布/実機手順](../status.md)。code `fe395d7b0c202715b253541c1b5f468091a302d9`/[Mac106](https://github.com/shuhei0720/necrogold-automation/actions/runs/42794069145) device46成功、新IPA/build106 SHA `42448a2d8de1c8c61b13af8f5e48874b6f553a0d2980456700e5c110d27d671a`。host/native26・client17・selector3/実compiler/22seal/全9Mach-O/全510build-source照合。native4差分/他18、API15/cap13/ABI/clientv14/R12原40/G1保持。clientは実driverのGit blob/fixture moduleも束縛。最終source文書3件だけの差分を検査し固定Releaseへ配置。
+
+j5の一意raw下端金対はgrid座標を作らずEDGE_DOWN3、j3/4は実座標2goldだけ復元。観測Down床へ1run1送信、元clock/current-prefix/full5/局所/全保護/strictBLOCKEDと初期未送信失効回復を保持。UNKNOWN/BLOCKED edge再送や残hint2歩目なし。119原画中067第一5枚だけgold1→3、他114同一、未来画像は補完しない。完成画像の全検証後再writeを省き、ゲーム終了理由/回収状態・回収のみを分離表示、履歴/UUID/90/180秒は維持。
+
+新IPA更新→LoopCtrl完全終了/起動→Start Server、新通常1-1金壁可視ポーズでtest_068.sh。自動ポーズ約5秒後iSH前面へ戻り終了まで待つ。runtime/test-068全ZIPと下端/通常回の3商品可視/停止位置/歩行/回収表示を依頼。067は全回収済み・再実行不要。068実機は未実施。

@@ -34,3 +34,12 @@ LoopCtrlUITests/NG2Navigation.c: `71e00d050eaec6c9e3e60409fba649c30d371501c600f7
 LoopCtrlUITests/NG2Perception.c: `e3ba569f13026a3325df33628d6c71e22c107a6ce80492e497866e08f37105b0`。
 
 manifest SHA `fc8b5135675a8af009258b4db62d368a7e4e1dcd6f4e31a4e30e16930dc8c9a4`、client SHA `a953a4548cbf5d8582f64b79aa94e9c4af0c218f968e8eea7e2296a52cb783d9`。native4差分/他18・R12原40/G1保持、固定upstream6e25へG1+G2適用済み。Mac/実IPA/実compiler/全Mach-O/全sourceは完了後追記する。TEST068実機は未実施。[配布と実機依頼](../status.md)に従う。
+
+
+## 最終Mac106・実配布物
+
+code `fe395d7b0c202715b253541c1b5f468091a302d9`、[Mac106](https://github.com/shuhei0720/necrogold-automation/actions/runs/42794069145) device成功。新IPA/build106（0.3.4/top.ebato.loopctrl）SHA `42448a2d8de1c8c61b13af8f5e48874b6f553a0d2980456700e5c110d27d671a`、外ZIP SHA `a64c12b6240b65beb2b5bda292f4c93b307d4363e9bade7fc437b3d7a5d510e4`。
+
+host46の全実行ID/生ログ/command/0fail/error/skip/xfail・選択/省略理由、ABI実query、22seal前後が実IPA sourceと一致。clientの実driver path/HEAD blob・SHA `a953a4548cbf5d8582f64b79aa94e9c4af0c218f968e8eea7e2296a52cb783d9`/fixture module/API15cap13v14を前後照合。baseline0b8からnative4だけ変更、他18/R12原40/G1不変。実4C/5Swift/6RSP/PBX/raw compiler引数、Perception/Nav strictO2・Controller/BeatO0・SwiftOnone/HOST macroなしを照合。全9Mach-Oで従来104+068の計105marker非混入。Runtime/world全体は不変で未実施。
+
+build-source全510tracked bytes/path/CRC一致、7,391,824bytes/SHA `8f652fcdb292a26a8382f83803e57b78492bfadeb4d7608c0fcccd4a6d20f56a`。最終sourceとの差分を文書3件だけに限定し、固定Releaseのsource.zip/SHA256SUMSへ保存。公開後は匿名GET/SHAで両asset確認。raw/画像/log/receiptはGit外。新しい068で下端候補1歩→商品到達・通常成功経路・回収時間/表示を実機評価し、未収録の先を合成結果で成功へ置換しない。[手順](../status.md)の新IPA更新/再起動/Start Serverから開始し、runtime/test-068全ZIPを必ず依頼する。

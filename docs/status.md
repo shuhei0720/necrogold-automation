@@ -14,11 +14,21 @@ NavはEDGE_DOWN/gridgold0/原点/未通過/UNKNOWNgoods/保護0/観測DOWN床だ
 
 clientは完成cursor/全SHA/PNG/manifest/完成先samebytesを確認した画像だけ再write/両journal再保存を省く。partのみ/欠損/不一致は旧publish、cancel/90秒export/180秒・旧v/UUID/履歴を維持。回収のみを開始時に明示し、native終了理由と回収完了を分離。nonterminal時はhost原因を隠さない。API/cap等を形式的に上げない理由はScene gold_state/Nav reasonがwireに出ず、全Cは同じ22seal内でlayout不変なため。
 
-## 検証と次の実機
+## TEST068の配布と実機確認
 
-新fringe6は旧Cで8semantic failures/errors0→Green6。newedge6は固定067 Cで18semantic failures/errors0→Green6。client新9は8semantic failures/errors0→関連25含む34Green、完成cursor開始前の不正skipと非terminal原因非表示の追加Redも修正。独立レビューP1のobserve-before-tick純D失効を既存method内Red1→修正Greenで確認、最終製品P0/P1/P2なし。CI選択46件（native26/client17/selector3）を確定、既存native14とselector3も実封印sourceでGreen。runner最終差分を同じレビュー内で追随する。
+code `fe395d7b0c202715b253541c1b5f468091a302d9`、[Mac106](https://github.com/shuhei0720/necrogold-automation/actions/runs/42794069145) device46件成功（native26/client17/selector3）。新21は旧実装で意味的Red→Green。独立レビューP1のobserve先行失効・P2の非terminal理由表示を修正、最終P0/P1/P2なし。実IPA/build106 SHA `42448a2d8de1c8c61b13af8f5e48874b6f553a0d2980456700e5c110d27d671a`。host全ID/生ログ/ABI/22seal前後・clientの実driver/Git blob/SHA、実4C/5Swift/6RSP/strictO2、全9Mach-Oの105禁止marker非混入、全510build-source bytes/path/CRCを照合。他18/R12原40/G1不変。実ゲームCIと068実機は未実施。
 
-新21+関連/selectorをdevice CIへ選び、無変更Runtime/world全体は累積しない。新IPA/22seal/実compiler/全Mach-O/完全sourceを照合し固定Releaseから返す。TEST068は未配布・実機未実施。新IPA更新/LoopCtrl完全終了・起動/Start Server、新通常All Zones1-1金壁可視ポーズでtest_068.sh、終了後runtime/test-068全ZIPと下端/通常金壁の到達・歩行・回収を必ず依頼する。
+[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test068-build106/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test068-build106/source.zip)・[SHA256SUMS](https://github.com/shuhei0720/necrogold-automation/releases/download/test068-build106/SHA256SUMS.txt)。固定Releaseへ配置。最終sourceはビルド対象から文書3件だけ異なり、code/launcher/tests/clientは同じ。[検証](reviews/test068.md)。無変更Runtime/world全体をCIへ累積しない。
+
+SideStoreで新IPA更新→LoopCtrl完全終了・起動→Start Server、通常のVPN/ディスク設定。展開した`test_068.sh`のあるフォルダを選び、新しい通常All Zones 1-1の金壁可視ポーズからiSHで実行。
+
+```sh
+mkdir -p /mnt/necro_test068
+mount -t ios . /mnt/necro_test068
+cd /mnt/necro_test068 && sh test_068.sh
+```
+
+歩行中はゲーム前面、自動ポーズ後約5秒でiSHへ戻り、前面のまま`TEST-068: 終了`まで待つ。終了後runtime/test-068全ZIPと下端/通常金壁での3商品可視・停止位置・歩行間隔・回収表示を返してもらう。回収のみの表示なら同runを回収し、完了後の次回実行から新しい試験となる。回収済067の再実行は不要。
 
 ## TEST067の成功と限界
 
