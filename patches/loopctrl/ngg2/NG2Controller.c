@@ -398,25 +398,29 @@ static uint64_t continuous_horizon(const NG2Controller *p){
     horizon=minimum(horizon,p->s.walk_started_ns+45*SECOND);
     return minimum(horizon,p->s.started_ns+180*SECOND);
 }
-/* An already-open entrance is a single observed-floor step, including when
- * distant merchandise is only PARTIAL. Remote palette flicker cannot alter
- * that exact action. Keep its original ticket/before and all absolute bounds;
+/* Keep an exact entrance action or PARTIAL-goods floor vantage after entering
+ * through irrelevant remote flicker. Ticket/before and all bounds stay fixed;
  * do not grant safe-floor calibration, reissue or reference eligibility. */
 static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,uint64_t now){
     NG2Decision before,latest;NG2Motion motion;uint64_t aligned;int i,d=p->command.direction;
+    int obstacle=p->command_choice.obstacle;
+    int entrance_step=p->command_choice.reason==5
+        &&(obstacle==NG2_TILE_FLOOR||obstacle==NG2_TILE_DOOR);
+    int interior_step=p->entrance.valid==1&&p->before.goods==NG2_GOODS_PARTIAL
+        &&scene->goods==NG2_GOODS_PARTIAL&&p->command_choice.reason==8&&obstacle==NG2_TILE_FLOOR;
     if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||p->finish_requested||p->s.goods
         ||p->replan_pending||p->continuous_pending||!p->s.lead_confirmed||!p->s.moves
         ||p->s.phase!=NG2_PHASE_WALK||!p->continuous_ticket_valid||d<1||d>4
-        ||p->command_choice.reason!=5||p->command_choice.obstacle!=NG2_TILE_FLOOR
-        ||p->command_choice.target_x!=dx[d]||p->command_choice.target_y!=dy[d]
+        ||(!entrance_step&&!interior_step)
+        ||(entrance_step&&(p->command_choice.target_x!=dx[d]||p->command_choice.target_y!=dy[d]))
         ||p->before.state!=NG2_FLOOR||scene->state!=NG2_FLOOR
         ||p->before.goods!=scene->goods||scene->goods<NG2_GOODS_UNKNOWN||scene->goods>NG2_GOODS_PARTIAL
         ||p->before.gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
         ||!same_gold(&p->before,scene)
         ||memcmp(p->before.protected_cells,scene->protected_cells,NG2_TILE_COUNT)
         ||tile(&p->before,0,0)!=NG2_TILE_FLOOR||tile(scene,0,0)!=NG2_TILE_FLOOR
-        ||tile(&p->before,dx[d],dy[d])!=NG2_TILE_FLOOR||tile(scene,dx[d],dy[d])!=NG2_TILE_FLOOR
-        ||!gate_at(&p->before,dx[d],dy[d])||!gate_at(scene,dx[d],dy[d])
+        ||tile(&p->before,dx[d],dy[d])!=obstacle||tile(scene,dx[d],dy[d])!=obstacle
+        ||(entrance_step&&(!gate_at(&p->before,dx[d],dy[d])||!gate_at(scene,dx[d],dy[d])))
         ||p->beat_failed||!ng2_beat_model_valid(&p->model)
         ||now>p->command.deadline_ns||now>p->continuous_ticket.deadline_ns
         ||now<p->command.source_start_ns||now-p->command.source_start_ns>FRESH

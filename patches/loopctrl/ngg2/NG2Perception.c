@@ -50,21 +50,23 @@ static int ng2_icon_overlap(const unsigned char *mask){
     return inter>=t->minimum*ng2_max(1,uni);
 }
 static int ng2_pause_icon(const unsigned char *rgba,size_t stride,const unsigned char *gray){
-    unsigned char masks[2][1296],eroded[1296],opened[1296];int k,x,y,dy;
+    unsigned char masks[2][1296],eroded[1296],opened[1296];int k,x,y,dy,radius;
     for(k=0;k<2;++k){
         for(y=0;y<36;++y)for(x=0;x<36;++x)
             masks[k][y*36+x]=(unsigned char)(gray[(y+6)*W+x+429]>=(k?85:55)
                 &&ng2_neutral(rgba+(y+6)*stride+4*(x+429)));
         if(ng2_icon_overlap(masks[k]))return 1;
     }
-    /* Pillow crop padding is black; do not fill gaps or clip the reference. */
-    for(k=0;k<2;++k){
+    /* Keep the original 13px opening first. Compressed bars interrupted by
+     * item labels may retain only 11/12px runs. The 11px fallback still uses
+     * the full reference/0.8 IoU, without filling gaps or clipping padding. */
+    for(radius=6;radius>=5;--radius)for(k=0;k<2;++k){
         for(y=0;y<36;++y)for(x=0;x<36;++x){int value=1;
-            for(dy=-6;dy<=6;++dy)if(y+dy<0||y+dy>=36||!masks[k][(y+dy)*36+x])value=0;
+            for(dy=-radius;dy<=radius;++dy)if(y+dy<0||y+dy>=36||!masks[k][(y+dy)*36+x])value=0;
             eroded[y*36+x]=(unsigned char)value;
         }
         for(y=0;y<36;++y)for(x=0;x<36;++x){int value=0;
-            for(dy=-6;dy<=6;++dy)if(y+dy>=0&&y+dy<36&&eroded[(y+dy)*36+x])value=1;
+            for(dy=-radius;dy<=radius;++dy)if(y+dy>=0&&y+dy<36&&eroded[(y+dy)*36+x])value=1;
             opened[y*36+x]=(unsigned char)value;
         }
         if(ng2_icon_overlap(opened))return 1;

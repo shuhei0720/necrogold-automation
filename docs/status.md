@@ -1,56 +1,35 @@
 # 最新状態
 
-更新: 2026-11-10（日本時間）。TEST064 ZIPを正式受領し解析再開。ユーザーの商品可視3/4、自動の全商品可視判定完了2/4。1/2回目はGOODS保持とポーズ成立、3回目は商品可視だが自動未完了、4回目は2歩後にLATE。全59PNGのSHA/bytes/CRC/896×414とmanifest一致、4run terminal/drained/resolved、active=4回目を確認。回収済み064を再実行しない。[受領台帳](device-tests/README.md#test064-received)。
+更新: 2026-11-10（日本時間）。TEST065の4run/67PNGを受領し全SHA/bytes/896×414/CRC/manifest一致、全run terminal/drained/resolved、active=4回目を確認。1回目は自動全商品可視とPAUSE、2回目は入店したが2商品しか見えず、3回目は3商品が見えるが自動PARTIAL、4回目は店前で停止。回収済み065を再実行しない。[受領台帳](device-tests/README.md#test065-received)。
 
-## TEST065: 再予約待ちの未送信期限切れ回復
+## TEST066: 開扉・店内歩行とアイコンの断片
 
-[計画](plans/test065-pending-unsent.md)。4回目の3歩目MOVE5は原画91→92の遠方(2,2)DIRT→FLOORをSAME再検証で許可し、元eventをnot_sent/begin0へ撤回済み。capture endはD−25.952ms、C開始D−3.816ms、C終了D+3.152ms、次tickD+3.357ms。state0/currentID0/pendingのため旧063のstate1回復を通れずLATE終了。原画はFLOOR/商品UNKNOWN/金候補/全5field UP reason8 target(-1,-2)/床/strict BLOCKEDが成立していた。
+[計画](plans/test066-shop-action.md)。Controller/Perceptionだけ変更する。Runtime/Nav/Beat/API15/cap13/client v14/ABIと入力・同期・商品保護の基本条件は維持。
 
-state0のSAME/FRESH再検証済み・旧event not_sent/begin0/reasonSCREENに限定し、actualtickで元Dを超えた時だけ既存post_moveへ戻す。再検証時の最新判断全5fieldを両modeで保存し、回復時のbefore/最新判断、全tile/保護/金/strict BLOCKED/fresh prefixを再照合する。旧event全bytes/旧ID拒否を保ち、新将来拍を選ぶ。SAME reason8の許可済み遠方target driftも保存判断で検査する。
+- 4回目141→142: nextDOOR/LEFT/reason5の全5field・金/保護/局所・strict BLOCKED不変。遠方2cellのSTONE→DIRTだけでFLOOR限定quietから漏れた。既存同IDquietへ同DOOR不変の開扉1操作を追加し、開扉と進入を別に確認する。
+- 2回目166→167: 実入口通過済み、PARTIAL、reason8/FLOORの同判断。遠方1cellだけの変化でも停止した。entrance.valid=1/両PARTIAL/同full5・origin/next床・金/全保護/近傍・strict BLOCKED・元時刻/予算を満たす次1歩だけ同ID維持。入口未通過の同形PARTIALは拒否する。
+- 3回目143: 取得画像のラベル付近でアイコンのバー支持が11/12pxへ分断。既存opening13を優先し、失敗時のみ11を検査。明度55/85、IoU0.8、全HUD/continue・death条件は維持。67原画中143だけUNKNOWN→FLOOR/PARTIALへ改善、他66は全Scene bytes同一。修正後141/143は全tile/保護/金/判断/strict BLOCKEDが同じで、そのframeの別変化拒否はない。未収録の先の商品可視は実機で確認する。
 
-最後の実proof commitから元12秒/継承sync、45/180秒、再予約counterと将来50ms準備を維持。真の新proofなしにepisode/予算を増やさず、商品/取消/owner/lock/UNKNOWN/送信済みを除外。期限内失敗/model失効だけの回復を広げない。Controllerだけ変更、Runtime/Nav/Perception/API15/cap13/ABI/client v14と064成功経路は不変。
+既存safe_floor/lead校正/retune/再予約/referenceは拡げない。旧ID/元source/拍/全期限、元proof12秒/45・180秒、50ms準備、UNKNOWN無再送・商品/取消/owner/lock/prefixを維持する。
 
-## TEST064で実機確認したこと
+## 歩行の確認と優先順位
 
-- 1回目2eef…は6入力/4確認移動/開扉1、原画149で3商品・価格100/100/100が見え、goods保持→自動PAUSE成立。商品後の方向入力0。
-- 2回目4cb4…は7入力/5確認移動/開扉1、下方商品へ追加LEFT後に商品可視。原画205はVISIBLEだがprefix不安定、reportの安定206で保持・ポーズ成立。206原画はexport省略を区別する。商品後の方向入力0。
-- 3回目d8c5…は7入力/6移動/開扉1、原画で3商品・価格25/100/100が見える。看板等が画面外で自動はUNKNOWN。167→168遠方DOOR→GOLDで金集合が変わるため契約通り入口MOVEを未送信拒否。認識/金ガードは今回緩めない。
-- 4回目070f…は2入力/2移動、入力不明/画像取得障害なし。再予約待ちC処理の期限越えを065で対象にする。
+送信23操作は20MOVED/3開扉。送信済みのBLOCKED/UNKNOWN/逆移動0、全beginは元10ms窓内でNBから0.287〜9.440ms。通常間隔約0.514〜0.532秒、空き約1.04〜1.57秒、初回の再fit待ちは3.124秒。初動はfloor→begin約2.13〜2.25秒。
 
-2回目の歩行入力間隔は約0.508〜0.529秒。他の回には約1.04秒の空きがあり、開始待ちも残る。毎拍/人より速い全体要件、対象指輪の識別/通知/自動周回/耐久は未受入。
+初回のVISUAL_PHASEで候補周期532.068msがprofile上限530msを外れて同期資格を撤回。他にも未送信期限切れや遅い実変位確認で再取得していた。空拍と送信済み失敗を区別する。ゲーム受信時刻/動画がなく『拍ずれゼロ』は断定不可。ユーザーは現速度を暫定許容し得ると述べ、今回は停止と商品確認の安定化を優先。毎拍/人超えの恒久免除とはせず、識別/通知/自動周回/耐久も未受入。
 
-## TEST065配布・実物検証
+## 066の検証と返却
 
-固定配布: [IPA build100](https://github.com/shuhei0720/necrogold-automation/releases/download/test065-build100/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test065-build100/source.zip)。code `51f555d47b7d703935e8ae2c032ba1ff446a3f1a`、[Mac100/device](https://github.com/shuhei0720/necrogold-automation/actions/runs/42758476882)成功。[検証](reviews/test065.md)。TEST065の実機は未実施。
+新door6/shop4/icon6をそれぞれ旧Cで意味的Red→修正Green。shop/doorと旧gateは16件Green、icon6+既存syntheticguard1もGreen。独立レビューでP0/P1なし、P2の入口未通過PARTIAL負例をpublic ACK+MOVED系列で既存negativeへ追加、4method不変でGreen。device CIの34件と実IPA/22seal/実compiler/Mach-O/完全sourceを照合後、固定ReleaseのTEST066を依頼する。全Runtime/world/不変clientやprivate画像群をCI既定にしない。
 
-| 配布物 | 同一性 |
-| --- | --- |
-| 内部IPA | build100 / SHA `e33fee16d42cdaaa636ecc3ff9002100f46115078c722b67a482714e7cc8d6b7` |
-| IPA外ZIP | artifact13736797666 / 17,842,408bytes / SHA `a73af05f1908f8f03dd12c29410bcb6a600552eeb0d56543d28f058cc376df55` |
-| 診断ZIP | artifact13736558404 / 156,886bytes / SHA `3362a51ec4774ed59108637bb3551dd1b1d717b439ec045bfac51d5f3755996f` |
-| native-host | artifact13736137901 / 7,525bytes / SHA `3bfef14672baaa189e0d8f7af59b5593b620bd3ebfaa9acdb84b276754f9cfda` |
-| build-source | 全492tracked bytes/CRC/path一致、7,327,230bytes / SHA `3d5f6c46b1c6c86efbc7c234f76f784eb0f9b7bc476394eea2af80c7ecbaf605` |
+## 受領した065の要点
 
-新pending6+関連23のC29、selector3の32実行ID/生ログ/0skip/error/ABI/22seal前後が実IPAと一致。実4C/5Swift/6RSP/PBX/raw compiler引数と全9Mach-O/102 HOST・旧API marker非混入を照合。Controllerだけ変更、他21/R12原40/G1/API15/cap13/client v14/ABI不変。独立差分レビューP0/P1/P2なし。最終source差分はstatus/review/台帳の3文書のみを確認して固定保存する。全Runtime/world/不変clientは今回の配布前提にしない。
+自動可視完了1/4。1回目は63/200/100の3品、2回目は下端125/75の2品だけで第三枠が未表示。3回目は13/13/50の3品が人に可視だが、アイコンの誤拒否で停止。4回目は未開扉。画像に見えない商品を対象なしとせず、候補/購入禁止を維持する。
 
-## 次の実機TEST065
-
-SideStoreでIPA build100更新→LoopCtrl完全終了/起動→Start Server→通常VPN/disk。新しい通常オールゾーン1-1、金壁可視・左側が下/端0の開幕ポーズから。
-
-```sh
-mkdir -p /mnt/necro_test065
-mount -t ios . /mnt/necro_test065
-cd /mnt/necro_test065 && sh test_065.sh
-```
-
-folder pickerはsource ZIPを展開しtest_065.shが入るフォルダ。歩行中はゲーム前面、自動PAUSE後約5秒でiSHへ戻り「TEST-065: 終了」を待つ。商品可視位置への到達・停止した様子とruntime/test-065全ZIPを依頼する。回収済み064は再実行しない。
-
-## TEST064の配布記録
-
-[固定Release build98](https://github.com/shuhei0720/necrogold-automation/releases/tag/test064-build98)・[検証](reviews/test064.md)。Mac98/deviceとMac99固定公開成功、C27+selector3/実compiler/22seal/9Mach-O/全488source照合は過去結果として保持。現在の実機結果は上記3/4商品可視・2/4全商品可視判定、64の再ビルドは行わない。
+[065固定Release build100](https://github.com/shuhei0720/necrogold-automation/releases/tag/test065-build100)・[検証](reviews/test065.md)。Mac100/device32とMac101固定公開成功、2asset変更前の22seal/全9Mach-O/492source照合は過去結果として保持。065の新規再ビルドは行わない。
 
 ## 運用
 
-[最新方針](development-flow.md#最新の運用方針2026-11-10-日本時間): 実機ログ→局所修正→単体/関連回帰→必要なIPA/同一性確認→次の実機。固定時間なし/品質安全条件不変。通常レビュー1回。コード/資料は承認済みbranchへ保存、raw資料/秘密値はGit外。配布は期限付きでない固定Release asset。
+[最新方針](development-flow.md#最新の運用方針2026-11-10-日本時間): 実機ログ→局所修正→単体/関連回帰→必要なIPA/同一性確認→次の実機。固定時間なし/品質安全条件不変。通常差分レビュー1回。承認済みbranchへコード/資料を保存、raw ZIP/画像/report/log・秘密値はGit外。配布は固定Release asset。
 
-ユーザーはMacを持たず通常利用はiPhone単体。添付接続エラーは[履歴](device-tests/README.md#test064-reported)へ保存、今回はZIP受領に成功したが根本原因を断定しない。初読3文書≤16KiB、追加資料は[索引](context.md)。
+通常利用は同じiPhoneだけ、ユーザーはMacを持たず実機担当。初読3文書≤16KiB、追加資料は[索引](context.md)。

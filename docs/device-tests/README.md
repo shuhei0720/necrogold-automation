@@ -2709,3 +2709,17 @@ ZIP10,126,160bytes/SHA `b725324aa8c9698784a55e3b6f524f21e7a8cbbe9578d87e8e34326e
 [計画](../plans/test065-pending-unsent.md)・[検証](../reviews/test065.md)・[固定配布/実機手順](../status.md)。code51f555d47b7d703935e8ae2c032ba1ff446a3f1a/Mac100 device成功、新IPA/build100。C29+selector3の32実行と実IPA/実compiler/22seal/9Mach-O/全492source照合済み。
 
 state0/SAME・FRESH再検証待ちで純D超過した確実未送信だけを元proof12秒/45/180内の新将来拍へ戻す。両modeの保存最新full5/world/protected/gold/strict BLOCKEDを再検査、旧event全bytes/元D・旧ID送信拒否/旧callback無作用を維持。Controllerだけ変更、API15/cap13/ABI/client/認識閾値/成功した064初歩・入口は不変。SideStore更新/LoopCtrl完全終了・起動/Start Server後、新通常1-1の金壁可視ポーズでtest_065.sh、終了後runtime/test-065全ZIPを依頼する。到達率改善は次の実機で確認し、回収済み064は再実行しない。
+
+
+<a id="test065-received"></a>
+## TEST065受領（2026-11-10 日本時間）
+
+ZIP16,403,525bytes/SHA `00f66f426efe50519785b1129cad7a5b23580b3ae69af17aa84c5376fa0fad89`。4run resolved/terminal/drained、active=4回目、全67PNGのbytes/SHA/896×414/全chunk CRC/manifest一致。raw資料はGit外。
+
+開始順91dcd…は6入力/5移動/開扉1/GOODS1、原画162/164で3商品63/200/100が全可視、商品保持後の方向入力0でPAUSE。440883…は7入力/6移動/開扉1、実入口通過後PARTIAL。166/167は下端に125/75の2品、3品目は未表示。遠方(5,2)STONE→DIRTのみでreason8床の同full5/全金/全保護/近傍/strict BLOCKED不変だが、旧quietは入口reason5だけで再検証拒否した。
+
+28a4a…は5入力/4移動/開扉1、原画140/141では13/13/50の3商品が人に見えるがC PARTIAL。143でpause_iconのみ不成立（他HUDは一致）、UNKNOWN→SCREEN17。取得画像のラベル付近で縦棒の連続支持が11/12pxに分断。元opening13ではIoU.7764〜.7926<.8。既存13優先/11fallbackを追加する[066計画](../plans/test066-shop-action.md)の公開C比較では、全67中143のみFLOORへ改善、他66は全Scene bytes一致、141/143の全tile/金/保護/full5/strict BLOCKED同一。圧縮と描画の因果を個別には断定しない。
+
+36603…は5入力/5移動/開扉0。141→142はLEFT reason5 nextDOORの同full5、金/保護/局所不変、strict BLOCKED。遠方(3,2)/(3,4)STONE→DIRTのみで旧quietのnextFLOOR限定から漏れ、D−約35msに未送信停止。期限切れ/ビートずれをこの停止理由としない。
+
+送信23=20MOVED+3開扉、BLOCKED/UNKNOWN/逆移動0、全beginは元10ms窓内（NB+.287〜9.440ms）。通常約.514〜.532秒間隔、空き約1.04〜1.57秒、初回3.124秒はVISUAL_PHASE後の再fit待ち。候補period532.068ms>上限530msで同期資格を取り消していた。他の空拍は未送信期限切れ/遅い実変位確認の再取得。ゲーム受信時刻/動画がないため拍ずれゼロとは断定しない。ユーザーは現速度を暫定許容し得るとの評価で、まず商品確認と停止の安定化を優先する。065は回収済みで再実行しない。
