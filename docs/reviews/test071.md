@@ -26,4 +26,17 @@ native変更はController1件だけ。Runtime/Ticket/Nav/Perception/各閾値、
 
 独立差分レビュー1回の最終結果はP0/P1なし。Controller `a2ee91abe382d0d6a242385aead9d3f45382b341d5941afe23238bac96ad9634`、shop `7bb5cd3aa2ef33d248624dafb72b1c177f3ee43f74ed8f5ee1a84193ea9f2a66`、terrain `8f2275fcb536991ab32eef2c051dda47227675515482ea626c16f6909ae551bd`を凍結し、独立proof/一回上限/元budget/旧callback境界と文書/host選択まで確認した。模擬Cの継続を未収録の実機画面や商品到達成功として扱わない。今回の入力権限変更に関係する既存Mac dispatch/取消境界だけを新Cと結び付け、全Runtime/worldを累積しない。
 
-固定upstreamへG1を適用し、レビュー済み22sourceをseal/適用済み。新IPA/実compiler/全Mach-O/完全source照合後、固定Releaseへ保存し具体的なTEST071実機試験を依頼する。商品可視到達と既知通路の毎拍について新071の実機合格は未宣言。
+固定upstreamへG1を適用し、レビュー済み22sourceをseal/適用済み。新IPA/実compiler/全Mach-O/完全sourceは下記で照合済み。固定Releaseへ保存し具体的なTEST071実機試験を依頼する。商品可視到達と既知通路の毎拍について新071の実機合格は未宣言。
+
+
+## 最終Mac112と配布物
+
+code `6cab2f625b17bedb3cc8540ca4d8f717a3dc68d5`、[Mac112](https://github.com/shuhei0720/necrogold-automation/actions/runs/42832680834)成功。実IPA0.3.4/build112/top.ebato.loopctrl/min16.0、17,589,531bytes/SHA `88c2ed0987dddf6514dad10a2d953f0418b04876b9192feaf2c83507b64a8144`。unsigned artifact13773221174は17,856,970bytes/SHA `8ddc9a7f1c6e5baf9006ff90274f6f26dc76006b3ed5455d960a68ca7846af39`、validation13773490850は1,194,333bytes/SHA `283de21559d481f27889646a73d36b6a3340eab8aad502f5e69a545233f886e2`、host13772052519は7,698bytes/SHA `f581ccba9a0b7fc6d01085ee502ad8ad08384b55319d8bb73c207dc06a2423e6`。run/head/branch・全outer bytes/SHA/CRCを照合。
+
+新11+関係9+selector3の実host23/8区分、全実行ID・生ログ・fail/error/skip/xfailなし、ABI/22source前後/3production client moduleのHEAD Git blob/path/SHA/delegate同一を確認。追加の正規sealed Cでdig/open2+ABI1もGreen4.176秒、selector3Green.013秒。nativeはController1変更・他21/R12原40/G1不変、API16/cap14/v15/ABI維持。manifest SHA `6cb240a5f77925c402cf6b452039aee66ad9277f7131f483274598dbf80a0ffc`。
+
+既存の限定Mac Runtime境界を新Controller objectsへ結び付け、実証跡のTEST070名称/pathsを維持した。固定6180旧Runtimeの意味的Red1→production新070/旧prefix・cancel・controller・deadline_equal4境界/identityの6呼出Green。新床の実機後続画像を合成して到達成功へ置き換えない。
+
+実compiler4C/5Swift/6RSPのraw log/PBX/引数とstrict-O2-v2 profile一致、Perception/Nav strictO2・Controller/BeatO0・SwiftOnone、HOST macroなし。全9Mach-O/118禁止marker非混入、app/runner API16/cap14/arm64を確認。build-source全532tracked bytes/path/CRC、7,469,542bytes/SHA `59cacbec72185a53c8cb046491d88a436e8439da28ade0b49bdd642a880e228d`。5種の実照合は各1回で成功、Git外receiptへ保存。
+
+最終sourceはstatus/本review/台帳3文書だけを閉じ、全製品bytesをビルド時と一致させる。固定Release `test071-build112`へ検証済みIPA/完全source/SHA256SUMSを置き、匿名GET/全SHAを確認する。新通常1-1の金壁可視ポーズからまず2回、全商品の可視/停止位置/既知通路の毎拍と新地形の待ちを実機で確認し、自動`runtime/test-071-<run_id>.zip`全回分を必ず依頼する。[手順](../status.md)。実ゲームCI/新071実機の成功は未宣言。

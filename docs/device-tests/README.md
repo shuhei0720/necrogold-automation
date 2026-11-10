@@ -2826,3 +2826,12 @@ code `f9bcc3bc7ec97ac4fa692bf388ffd64d79148e03`、[Mac110](https://github.com/sh
 1回目は5MOVED+1開扉+商品優先UNKNOWN1、153に3商品が可視、GOODS/PAUSE成立。方向間隔約.514〜.530秒でほぼ毎拍。2回目は5MOVED+1開扉、125は2商品/PARTIALが正しく未入店。実next床/同full5/金/全保護/strict BLOCKED不変でも金bracket背後斜めDIRT→FLOORでquiet拒否、D−89.610msにFLOOR7/SCREEN停止。3回目は4MOVED/開扉0、未送信LEFT/reason6/DIRTが最新reason7/FLOORへ変化しTERRAIN_OPENED zero vector。遠方palette以外と金/保護不変だがstrict BLOCKEDではなくD−36.326msに停止。送信失敗や時間切れと誤記しない。
 
 商品全体可視1/3として改善する。2商品を完了にせず、[071計画](../plans/test071-observed-entry.md)で開扉直後のshielded palette揺れだけを許し、新床は旧未送信票を撤回→独立確認→新IDへ判断し直す。未観測credit/送信UNKNOWN再送/期限延長/認識閾値緩和なし。受領済み070を追加回収目的で再実行しない。
+
+
+## TEST071配布: 開扉後の入店を継続し、新しく見えた床を再確認
+
+2026-11-10（日本時間）。[計画](../plans/test071-observed-entry.md)・[検証](../reviews/test071.md)。code `6cab2f625b17bedb3cc8540ca4d8f717a3dc68d5`/[Mac112](https://github.com/shuhei0720/necrogold-automation/actions/runs/42832680834) device23成功（新11/関係9/selector3）、限定Mac Runtimeの実Red1/Green6呼出を新Cへ結び付けた。独立差分レビューP0/P1なし。新IPA0.3.4/build112、17,589,531bytes/SHA `88c2ed0987dddf6514dad10a2d953f0418b04876b9192feaf2c83507b64a8144`。22seal/実compiler4C・5Swift・6RSP/全9Mach-O118marker非混入/532build-source全bytes・CRCを照合。Controller1だけ変更、他21/Runtime/Perception/Nav/各閾値/API16cap14v15/ABI/R12原40/G1不変。
+
+開扉ACK後・未入店・両PARTIALの同入口床票だけ、金壁背後の斜め2セルに限ったFLOOR↔DIRT揺れを許す。2商品を完了扱いせず、同full5/金/全保護/next床/strict BLOCKED/元IDと全期限を維持。未送信掘削対象が床に見え直した場合は旧票を永久撤回し、独立静止pair・full5から別ID/将来拍へ判断し直す。1run1回/元12・旧sync・45・180秒/16入力/UNKNOWN無再送/無creditを保持、有効HUDの形式的再fitは省く。
+
+[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test071-build112/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test071-build112/source.zip)。最終source差分は文書3件だけ、全製品bytes同一。公開後の匿名GET/全SHAまで照合する。[status手順](../status.md)で新IPA更新→完全終了/起動/Start Server、新通常1-1金壁可視ポーズからtest_071.shをまず2回。自動ポーズ約5秒後iSHへ戻り、画像/ZIP保存・照合完了表示を待ち、自動`runtime/test-071-<run_id>.zip`全回分と全商品可視/停止位置/拍間隔を必ず依頼する。回収済み070の再実行は不要。実ゲームCI/新071の実機改善は未確認。
