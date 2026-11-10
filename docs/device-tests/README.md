@@ -2630,3 +2630,10 @@ cd /mnt/necro_test060 && sh test_060.sh
 2回目9d8908…はinputs2/moves1、MOVEMENT10。2入力目UPのACK後28/74/118ms開始の83/84/85が実CでUNKNOWN、ACK+156msで3回消費し停止。visualDは約2.4秒残る。原参照73でもUNKNOWN、最終score.487>.45等により閾値は維持。未収録の次画像がMOVEDになるとは断定しない。
 
 新方針は[開発フロー](../development-flow.md#最新の運用方針2026-11-10-日本時間)。次は[TEST062](../plans/test062-device-cycle.md)の局所修正と必要なIPAを返し、実機商品到達を主指標に反復する。061の追加回収目的の再実行は依頼しない。
+
+
+## TEST062配布（2026-11-10 日本時間）
+
+[計画](../plans/test062-device-cycle.md)・[検証](../reviews/test062.md)・[配布/実機手順](../status.md)。実機未実施。code afcb339624a4007390bbb326edabd3962057e758、Mac94 device成功、新IPA/build94。Controller.cのみ変更し、初歩直前の無害遠方揺れを同IDで保持、UNKNOWN確認を¼/1周期に分散。閾値/入力権限/元期限/無再送/商品優先は維持する。
+
+実機主軸の短い反復へ切替、C単体23+小検査12とactual IPA/profile/seal/全source照合を実施。未変更Runtime故障/world/Kit/client全体は今回の前提にしない。SideStore更新/LoopCtrl完全終了・起動/Start Server後、新しい通常1-1の金壁可視ポーズからtest_062.sh。終了後runtime/test-062全ZIPを依頼する。
