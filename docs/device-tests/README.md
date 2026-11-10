@@ -2806,3 +2806,14 @@ iSH内local原本に全PNG/journal/checkpointを保存し、安全terminalの未
 2026-11-10（日本時間）。受領はtest-068内の新run fc37d87aとtest-069の13573e31/b4045896。全20/16/14PNGのSHA/bytes/896×414/CRC・manifest/cursor/時刻prefix/active-report一致、全数回収resolved=true。3runとも原画に3商品/価格を視認、PAUSE成立。ただしGOODS終了は1357だけ、他2本はSCREEN/goods0。可視到達と自動判定完了を分ける。[出典・詳細](../reviews/test069-received.md)。
 
 周期約.52秒に対し、入力間隔約1.04秒/1.57秒。主因は移動確認の2回未確定→3回目を1周期待つことと、再検証/前面確認の未送信10ms窓超過。期限超過.49/13.64/13.10msを確認。地図の全再ロードが必要なための定期停止ではない。現modelを保持した次安全拍の再予約を含み、毎回同期をゼロから取り直すと断定しない。開扉1入力と余分な空拍を区別し、ACKを実変位にせず、ゲーム受信時刻の欠如も明示。今回は解析と保存だけで新IPA/追加試験なし。生資料はGit外。
+
+
+## TEST070配布: 新地形の判断と既知通路の毎拍化
+
+2026-11-10（日本時間）。[計画](../plans/test070-cadence-lighting.md)・[検証](../reviews/test070.md)。ユーザーの最新指示として、新照明でルート判断が必要な場合の1〜2拍だけ許容し、それ以外は毎拍と記録。画像確認を最大8回/短間隔へ変更し、元最終機会・visualD・UNKNOWN無再送を保持。Runtimeの整合snapshot/現在source pinを先に保持し、重い画像整理を期限内の前面証拠再利用/入力後へ移す。新v15/API16/cap14、旧v14=.15/≤3・v1〜13=.14/≤3の固定回復、ABI不変。Perception/Nav閾値・商品認識の既知問題は変更しない。
+
+code `f9bcc3bc7ec97ac4fa692bf388ffd64d79148e03`、[Mac110](https://github.com/shuhei0720/necrogold-automation/actions/runs/42818545816) device39件成功。対象Runtimeは固定旧実装の意味的Red→修正版/関連4境界/identityの6呼出Green。native4変更/他18/R12原40/G1、全host実行ID/3client HEAD blob、実4C/5Swift/6RSP、全9Mach-O115marker非混入、526build-source全bytes/CRCを照合。実ゲームCI/実機毎拍の合格は未宣言。
+
+実IPA0.3.4/build110、17,588,671bytes/SHA `a5100f749b9f21b755292a8d5c2732743cc059fde1ac4a246c10ccca23ad1402`。[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test070-build110/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test070-build110/source.zip)。最終sourceとの差分は文書3件と旧schema試験1件の2行で、製品bytes同一。固定Releaseの匿名GET/全SHAまで確認する。
+
+[status手順](../status.md)でSideStore更新→LoopCtrl完全終了/起動/Start Server、新通常1-1の金壁可視ポーズからtest_070.shをまず2回依頼。既知通路の毎拍/新地形判断の待ち/商品全体/保存完了を確認し、自動`runtime/test-070-<run_id>.zip`を全回分返してもらう。旧069原本は保持し、回収済みrunの再実行は依頼しない。生ZIP/原画/report/log/派生証跡はGit外。
