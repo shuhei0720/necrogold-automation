@@ -1,52 +1,56 @@
 # 最新状態
 
-更新: 2026-11-10（日本時間）。TEST062受領: ユーザーの商品可視1/2、プログラム完全商品判定0/2。1回目は開扉して商品/価格が見え、2回目は3歩目が確実未送信のままD+8msで停止。[TEST063](plans/test063-unsent-deadline.md)で後者だけを修正し、単体/関連回帰と新IPAを準備する。成功経路/認識閾値は不変。回収済み062/061は再実行しない。
+更新: 2026-11-10（日本時間）。TEST062はユーザーの商品可視1/2、プログラム完全商品判定0/2。3歩目の確実未送信期限切れだけを修正したTEST063を配布する。Mac96 device・実IPA照合完了、TEST063実機は未実施。[計画](plans/test063-unsent-deadline.md)・[検証](reviews/test063.md)。成功経路/全認識閾値は不変、回収済み062/061を再実行しない。
 
-## TEST062の配布物
+## TEST063の配布物
+
+固定配布: [IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test063-build96/LoopCtrl.ipa)・[全コードZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test063-build96/source.zip)。一時署名URLを返さず、検証済み未署名IPA/sourceだけをRelease assetへ保存する。実機raw資料/秘密値は公開しない。
 
 | 項目 | 保存先・同一性 |
 | --- | --- |
-| code / CI | `afcb339624a4007390bbb326edabd3962057e758` / [Mac94](https://github.com/shuhei0720/necrogold-automation/actions/runs/42729732582) device成功 |
-| IPA ZIP | Mac94→Artifacts→`loopctrl-ngg2-unsigned`（13724083342）。17,838,288bytes / SHA `cfb84047de76feed4e3c19384d8fb6cdbe51ee9cfc5f7664f263653cb988f241` |
-| 内部IPA | `upstream/release/LoopCtrl.ipa` / build94 / SHA `645848e0d5d59b97e9338af586440df6f3f814008c56bb229e103bfb6e2eddd1` |
-| 診断ZIP | artifact13724887405 / 158,348bytes / SHA `bc1b8d154b0662aae5eb362f6ecb176eeef3bf70466fa730dcfbcae26a023dde` |
-| native-host | artifact13724880636 / 7,280bytes / SHA `a3d05f3f8823ebde782db60cf7b21cbfa39739021409f843feb1785cac640937` |
-| build-source | [固定全コードZIP](https://codeload.github.com/shuhei0720/necrogold-automation/zip/afcb339624a4007390bbb326edabd3962057e758)。全479tracked bytes/CRC/path一致、7,287,498bytes / SHA `16d42e72a688b1725bb0c8db825c835e7f871b5703c6bc22a5241170bf54d726` |
+| code / CI | `d7b42b627caa0e1c28b1c4a4900f2e0bc1a22323` / [Mac96](https://github.com/shuhei0720/necrogold-automation/actions/runs/42742052789) device成功 |
+| IPA ZIP | artifact13729908405 / 17,840,993bytes / SHA `7c2eeb2517b651ccd40f262ab3c432d96ad4f440b8b7cac08df7f7543f7ac3de` |
+| 内部IPA | `upstream/release/LoopCtrl.ipa` / build96 / SHA `61e0e40c0f78e226d64aae97dfc053aaba3638ca52d12014be268c21dcb09b06` |
+| 診断ZIP | artifact13730535453 / 156,430bytes / SHA `b0af1d27e221fb65129f88c9eb1797a68051f40afa377acf20002673f314bca6` |
+| native-host | artifact13729133020 / 9,086bytes / SHA `a827209142da184108576fa895bed9cacd88b42bb2f24e2a81eb73bb1f157902` |
+| build-source | [固定全コードZIP](https://codeload.github.com/shuhei0720/necrogold-automation/zip/d7b42b627caa0e1c28b1c4a4900f2e0bc1a22323)。全483tracked bytes/CRC/path一致、7,302,154bytes / SHA `9cc4e37182d0d29e06a4f977426922fafe15e34ace32fc82a99ef40ff087242c` |
 
-最新ユーザー指定により、一時URLと期限付きActions artifactに代わる[固定配布](https://github.com/shuhei0720/necrogold-automation/releases/tag/test062-build94)へ切り替えた。[IPA直接取得](https://github.com/shuhei0720/necrogold-automation/releases/download/test062-build94/LoopCtrl-TEST062.ipa)・[全コードZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test062-build94/necro_test062-source.zip)。検証済みbuild94とsource5401c7dの同じbytesのみを配布し、raw実機資料/秘密値は公開しない。公開Release禁止という旧運用は、この固定ダウンロード指定で変更。
+配布の最終sourceはこのcodeと文書だけの差分と確認する。固定配布処理は7入力をnetwork前に検査し、全SHAと空draft所有先、upload後3digest一致を確認して公開する。
 
-## 修正・今回の検証範囲
+## 修正と今回の検証
 
-初歩の送信前50ms〜元Dで無害な遠方UNKNOWN/FLOOR/DIRT揺れをまとめる。両safe_floor、全gold/保護/近傍3×3不変、full5判断一致、同beforeへのstrict BLOCKEDを要求し、同ID/source/before/元期限を保持する。近傍・保護・経路等の変化は従来の再予約/拒否。上限2回を増やさない。
+確認済みの位置から予約した連続MOVEが、開始しないまま元Dを超えた場合だけLATE/not_sentで撤回し、新しい将来拍へ戻す。state1/初回未送信、最新の同prefix、同一FLOOR world/gold/保護/full5判断、strict BLOCKEDと鮮度を要求する。取消/権限/商品・state2/3/4・不明入力・期限内complete0は対象外。同じ入力の再送や元D延長はしない。
 
-移動確認は初回即時、UNKNOWN/TWEEN後の2回目startは初回+元周期¼、3回目は初回+1周期以降。上限3評価、元visualD/実commit/次tick・同before/ACK prefix・商品優先・UNKNOWN無再送は維持する。早期に3回使い切らず、checkpoint前の完全画像も評価待ちになる。毎拍/速度達成とは主張しない。
+実commitで確認したMOVED/開扉/茶壁開通から元12秒を数え、再失効でepisode/予算を増やさない。walk45/session180・未来拍の準備50msを保持。新しい実proofだけが新予算を作れる。モデルが有効なら新将来拍へ利用し、失効時だけ再取得する。
 
-API1.98.15-ngg2/cap13/client v14・公開ABI不変。native22seal中Controller.cだけ変更、他21・R12原40/G1不変。C SHA `8eab407b6baaa0f6c23ded1df9f1811323eba9fee52f2d179a40dcec035250f1`、manifest SHA `a87eb67fd11e14c5614ccd0284a2499da25cc420707ad9dcd5af24e71f178711`。
+API1.98.15-ngg2/cap13/client v14/公開ABIは不変。22seal中Controller.cだけ変更、他21・R12原40/G1は不変。C SHA `f0ffaf8e3d4985bdf1ac99d4b8b258019673e2a7e7a19ca3373c80d2ff0e3878`、manifest SHA `fb1a064c469ff65eba0b2aa9d77978bba666e0009f3afccbbe36994410b58b32`。
 
-新11+関連12のC単体23、小workflow/selector12の35件を実IPAと同じpatched sourceで確認。独立差分レビュー1回、P0/P1なし、P2文言は修正済。実4C/5Swift/6RSP/PBX/profile/22sealと全9Mach-O/99 HOST・旧API marker非混入、全sourceを実物照合した。
+新12＋関連23のC単体35、小CI検査15の50件を実IPAと同じpatched sourceで確認。独立差分レビューP0/P1なし、P2のsignature-only drift負例を追加。実4C/5Swift/6RSP/PBX/profile、22seal、全9Mach-O/100 HOST・旧API marker非混入、完全sourceを実物照合した。
 
-今回、全Controller184/全Runtime故障/shop16/未変更Kit/client212は再実行していない。旧Mac93/client22の成功は過去結果。認識/並行/RPCコードはbytes不変で、変更したC条件を今回の単体で検証し、実機の商品到達を主指標に反復する。合成成功やCI件数で実機成功にしない。
+全Controller184/全Runtime故障/shop16/未変更Kit/client212は今回再実行していない。過去のMac93/client22は過去結果であり新成功と書かない。原画98の自己比較は実CでBLOCKED、FLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE/full5判断/同prefixを確認した。欠落HUDモデル/未来画像を補った完全再生ではない。
 
-## TEST062配布時手順（受領済み）
+## 次の実機TEST063
 
-SideStoreで新IPA/build94更新→LoopCtrl完全終了/起動→Start Server→通常VPN/disk。新通常オールゾーン1-1、金壁全部/一部可視・左側が下/端0の開幕ポーズから。
+SideStoreで新IPA/build96更新→LoopCtrl完全終了/起動→Start Server→通常VPN/disk。新しい通常オールゾーン1-1の金壁可視・左側が下/端0の開幕ポーズから。
 
 ```sh
-mkdir -p /mnt/necro_test062
-mount -t ios . /mnt/necro_test062
-cd /mnt/necro_test062 && sh test_062.sh
+mkdir -p /mnt/necro_test063
+mount -t ios . /mnt/necro_test063
+cd /mnt/necro_test063 && sh test_063.sh
 ```
 
-folder pickerは展開先の`test_062.sh`が入るフォルダ。歩行中はゲーム前面、自動PAUSE後約5秒でiSHへ戻り`TEST-062: 終了`を待ち、`runtime/test-062`全ZIPを返却依頼する。商品が見えるまで進むか、扉開放/入店、拍の空きを確認する。
+folder pickerは展開した`test_063.sh`が入るフォルダ。歩行中はゲーム前面、自動PAUSE後約5秒でiSHへ戻り`TEST-063: 終了`を待ち、`runtime/test-063`全ZIPを依頼する。商品可視まで、扉開放/入店、拍の空きを確認する。
 
-## 直前TEST061の受領事実
+## TEST062受領事実と残課題
 
-[受領台帳](device-tests/README.md#test061-received)。商品0/2、26PNG全検証、両run完了/drained。1回目0入力は遠方分類揺れで再予約2回を消費し、notBeforeの実commit4.924ms前にSCREEN17。2回目はユーザー2歩/C moves1、2入力目UPのACK後28/74/118ms開始画像が全UNKNOWN。ACK+156msでMOVEMENT10、visualDは約2.4秒残った。原参照でもUNKNOWNで認識閾値を下げない。未収録の次画像がMOVEDとは断定できない。
+[受領台帳](device-tests/README.md#test062-received)。29PNG/全SHA/CRC/寸法/manifest一致、両run完了/drained。1回目は6入力=5移動+開扉1。149/151/152で商品と価格が見えるがCはPARTIAL1、その後pause-iconだけ不成立でUNKNOWN→SCREEN17。最後の入店MOVE11は未送信、開扉後の追加方向入力/購入0。ユーザーの商品可視1/2とプログラム完全商品判定0/2を区別する。
 
-TEST061/build93配布物は[固定status](https://github.com/shuhei0720/necrogold-automation/blob/670cf33dc5a2ea1077c1b854ce67d021cd326dad/docs/status.md)・[review061](reviews/test061.md)。TEST060は[受領記録](device-tests/README.md#test060-received)。回収済みrunを追加回収目的で再実行しない。
+2回目は2入力/2実移動。3歩目SAME再予約のAXquery開始D+1.315ms、gateD+7.996msで未送信拒否→CAPTURE6。画像取得故障ではない。この条件を063で回復対象とした。完全商品判定/画面判定の安定化は残課題とし今回は閾値を変えない。
 
-## 運用と未受入
+062の[固定配布](https://github.com/shuhei0720/necrogold-automation/releases/tag/test062-build94)と[旧status](https://github.com/shuhei0720/necrogold-automation/blob/8f21455fc1564279824175d848062775094a21d1/docs/status.md)は保持。回収済みrunを追加回収目的で再実行しない。
 
-[最新方針](development-flow.md#最新の運用方針2026-11-10-日本時間): 実機ログ→局所修正→変更部単体/関連回帰→必要なIPA/同一性確認→次の実機。device既定、focused/fullは影響範囲/節目。固定時間なし、品質/安全条件は落とさない。
+## 運用・未受入
 
-ユーザーはMacを持たず実機担当。CIの正規Macゲームは未導入、通常利用はiPhone単体。商品到達率・毎拍/人超え処理・指輪未知評価・通知・自動周回・耐久は未受入。初読3文書≤16KiB、必要資料は[索引](context.md)から。raw ZIP/画像/report/logはGit外。
+[最新方針](development-flow.md#最新の運用方針2026-11-10-日本時間): 実機ログ→局所修正→単体/関連回帰→必要なIPA/同一性確認→次の実機。device既定、focused/fullは影響範囲/節目。固定時間なし・品質/安全条件は落とさない。配布URLは固定Release asset。
+
+ユーザーはMacを持たず実機担当、正規Macゲームは未導入。通常利用はiPhone単体。商品到達率・完全商品判定・毎拍/人超え・指輪未知評価・通知・自動周回・耐久は未受入。初読3文書≤16KiB、必要資料は[索引](context.md)から。raw ZIP/画像/report/logはGit外。

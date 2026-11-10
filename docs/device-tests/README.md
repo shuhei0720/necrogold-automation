@@ -2647,3 +2647,10 @@ cd /mnt/necro_test060 && sh test_060.sh
 2回目59fd71…は2入力/2実移動、3歩目は未送信。frame98実処理とSAME再予約が10ms入力窓に及び、AXquery開始D+1.315ms、gateD+7.996msでTicketGuard拒否→complete0→CAPTURE6。画像取得障害/UNKNOWN synthではない。対象はこの純粋な未送信期限切れで、古いDを延長せず新しい拍へ戻す[TEST063](../plans/test063-unsent-deadline.md)。
 
 ZIP6,632,109bytes/SHA `4d1a4849e947a84e69cfd21a4c0256838c6b5a0aa49b7a8c73a0785efa2e2c91`、2runとも完了/drained、active=2回目。29PNGのbytes/SHA/896×414/全CRCとmanifest一致を確認。欠落画像を未来の実応答として補わない。raw資料はGit外、062の追加回収目的の再実行は依頼しない。
+
+
+## TEST063配布（2026-11-10 日本時間）
+
+[計画](../plans/test063-unsent-deadline.md)・[検証](../reviews/test063.md)・[配布/手順](../status.md)。実機未実施。code d7b42b627caa0e1c28b1c4a4900f2e0bc1a22323/Mac96 device成功、新IPA/build96。C35+小CI15、実IPA/コンパイラ/22seal/全9Mach-O/全source照合。
+
+確実未送信state1の連続MOVE期限切れだけを、同一world/判断/strict BLOCKEDの確認後に新しい拍へ戻す。元Dを延長せず、実proofから12秒と45/180秒、取消/UNKNOWN/商品優先を維持。成功した062の経路/全認識閾値は不変。固定ReleaseからSideStore更新後、新通常1-1の開幕ポーズでtest_063.sh。終了後runtime/test-063全ZIPを依頼する。
