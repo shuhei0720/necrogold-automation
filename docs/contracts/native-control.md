@@ -22,7 +22,7 @@ main.sync/run lock外でAX前面照会し、callback実returnまでlease保持�
 
 再取得はinputs/moves/lead_confirmed=0・取消/商品/終了なしの未発行candidate/state1確実未送信初歩・再予約pendingだけ。track/同拍8%補正/stale/準備窓/未送信D失効で旧IDをnot_sent、slot全field/initial_ticket/model/raw撤回。event/replan/入力予算不変、同observe refit禁止。後続HUDの既存2秒span/fitで別候補選択。旧ticket時刻/ordinal不変。
 
-元sync12秒、公開/begin/completeは等号終了。TicketGuard短絡→complete0はstate1の純D超過だけ撤回。確認済連続は[063](../plans/test063-unsent-deadline.md)。期限内complete0/state2/3/4/retune/権限失効は対象外。旧ID/状態検査を時計/予算更新より先に行う。確認後同期は§8。
+元sync12秒は公開/begin/completeの等号で終了。TicketGuard短絡→complete0はstate1の純D超過だけ撤回。確認済連続/pendingは[065](../plans/test065-pending-unsent.md)。期限内complete0/state2/3/4/retune/権限失効は対象外。旧ID/状態検査は時計/予算更新より先。確認後同期は§8。
 
 ## 5. 未送信の再予約
 

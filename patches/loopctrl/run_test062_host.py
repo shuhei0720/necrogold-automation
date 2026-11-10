@@ -1,4 +1,4 @@
-"""Run only TEST064 stationary-step changes and related unit regressions before device feedback.
+"""Run only TEST065 pending-expiry changes and related unit regressions before device feedback.
 
 All native fixtures compile the sealed patched upstream used by the IPA.
 Historical synthetic worlds and Runtime mutation suites remain explicit lanes.
@@ -14,20 +14,14 @@ import sys
 import unittest
 
 
-DEVICE_METHODS = frozenset({
-    'test_late_initial_irrelevant_flickers_preserve_ticket_and_reach_ack',
-    'test_late_initial_coalescing_window_and_actual_commit_boundaries',
-    'test_late_initial_coalescing_rejects_changed_authority',
-})
 CONTROLLER_METHODS = frozenset({
+    'test_continuous_expiry_after_revalidation_never_searches_later_beat',
+    'test_continuous_original_deadline_equality_and_expiry',
     'test_continuous_chain_limit_two_then_stops_without_next_beat',
     'test_continuous_run_limit_eight_and_first_latest_diagnostics',
-    'test_continuous_guards_reject_changed_world_and_strict_motion',
-    'test_continuous_requires_full_route_decision_even_when_direction_matches',
     'test_continuous_prefix_stability_and_started_ack_unknown_never_reissue',
-    'test_continuous_original_deadline_equality_and_expiry',
     'test_continuous_guard_or_cancel_after_revalidation_rejects_new_and_old_ids',
-    'test_initial_slot_publication_boundaries_and_no_reselection',
+    'test_continuous_pending_change_stops_instead_of_accumulating_refreshes',
 })
 RECOVERY_METHODS = frozenset({
     'test_additive_queries_preserve_layout_and_initial_zeroes',
@@ -53,12 +47,20 @@ GATE064_METHODS = frozenset({
     'test_gate_goods_latch_and_cancel_preempt_distant_drift',
     'test_gate_discarded_prefix_and_inflight_frames_supply_no_new_authority',
 })
+PENDING065_METHODS = frozenset({
+    'test_pending_same_and_fresh_expiry_reacquire_without_rewriting_retired_ticket',
+    'test_pending_original_deadline_equality_still_reissues_only_the_same_beat',
+    'test_repeated_pending_expiry_preserves_verified_progress_budget_and_episode',
+    'test_pending_expiry_cannot_reopen_sync_walk_or_session_budget',
+    'test_pending_expiry_retains_authority_goods_and_latest_visual_guards',
+    'test_pending_old_callbacks_and_backdated_clocks_cannot_trigger_recovery',
+})
 NATIVE_CASES = (
+    ('tests.test_native_device065', 'NativeDevice065Tests', 'test065-pending', PENDING065_METHODS, True),
     ('tests.test_native_device064', 'NativeDevice064Tests', 'test064-initial', INITIAL064_METHODS, True),
     ('tests.test_native_gate064', 'NativeGate064Tests', 'test064-gate', GATE064_METHODS, True),
-    ('tests.test_native_device061', 'NativeDevice061Tests', 'test062-initial', DEVICE_METHODS, True),
-    ('tests.test_native_controller', 'NativeControllerTests', 'test064-related-controller', CONTROLLER_METHODS, False),
-    ('tests.test_native_recovery', 'NativeRecoveryTests', 'test064-related-recovery', RECOVERY_METHODS, False),
+    ('tests.test_native_controller', 'NativeControllerTests', 'test065-related-controller', CONTROLLER_METHODS, False),
+    ('tests.test_native_recovery', 'NativeRecoveryTests', 'test065-related-recovery', RECOVERY_METHODS, False),
     ('tests.test_native_unsent_continuous', 'NativeUnsentContinuousTests', 'test063-related-unsent', UNSENT_CONTINUOUS_METHODS, False),
 )
 CORE_MODULES = ('tests.test_native_controller', 'tests.test_native_recovery', 'tests.test_native_beat')
@@ -123,26 +125,26 @@ def main():
     before = verifier.inspect_native_sources(upstream, driver)
     if (before['api_version'] != '1.98.15-ngg2' or before['client_capability'] != 'necrogold_native_v13'
             or len(before['native_source_sha256']) != 22):
-        raise ValueError('TEST064 sealed source identity is not installed')
+        raise ValueError('TEST065 sealed source identity is not installed')
     suites = native_suites(upstream)
     fixture = importlib.import_module('tests.test_native_controller')
     abi = {name: ctypes.sizeof(getattr(fixture, name))
            for name in ('Scene', 'Status', 'Event', 'MotionWait', 'RecoveryStatus')}
     if abi != {'Scene': 23864, 'Status': 192, 'Event': 128, 'MotionWait': 48, 'RecoveryStatus': 456}:
         raise ValueError('native ABI layout changed')
-    record = {'scope': 'TEST064 stationary-step C units and named related regressions; device feedback first',
+    record = {'scope': 'TEST065 pending-expiry C units and named related regressions; device feedback first',
               'source_identity': before, 'abi_bytes': abi, 'device_test': 'not_run',
               'not_run': ['full Controller/Recovery/Beat suites', 'Runtime synthetic public/mutation suites',
                           'synthetic shop/world suites', 'unchanged client and RPC suites',
-                          'unchanged TEST062 cadence suite', 'remaining unrelated TEST063 unsent cases',
+                          'unchanged TEST062 cadence suite', 'remaining unrelated TEST063 unsent cases', 'superseded TEST061 quiet-window cases',
                           'unchanged workflow/publisher unit suites'],
               'selection_reasons': {
-                  'test064-initial': 'TEST063 third-run early remote flicker and initial 100ms publication boundary',
-                  'test064-gate': 'TEST063 first/second-run stationary partial-goods gate entry and authority negatives',
-                  'test062-initial': 'prior quiet-ticket ID/source/limit guards across the revised initial window',
-                  'test064-related-controller': 'continuous rejection/full decision/counters/ownership/deadline and initial preparation margin',
-                  'test064-related-recovery': 'unchanged public ABI confirmed through actual C queries',
-                  'test063-related-unsent': 'retain late-unsent recovery, frozen reissues, state exclusions and original episode budget'}}
+                  'test065-pending': 'TEST064 fourth-run pending SAME/FRESH expiry; original ticket, current authority and bounded recovery',
+                  'test064-initial': 'retain the successful initial publication-window and authority path',
+                  'test064-gate': 'retain the successful UNKNOWN/PARTIAL stationary shop-entry path',
+                  'test065-related-controller': 'pending-state changes, original deadline equality, counters2/8 and prefix/input/ownership guards',
+                  'test065-related-recovery': 'unchanged public ABI confirmed through actual C queries',
+                  'test063-related-unsent': 'retain state1 late-unsent recovery, frozen reissues, state exclusions and original episode budget'}}
     for label, cases in suites:
         run_scope(label, cases, output, record)
     # Workflow and selection changes have their own small unit set, without
@@ -157,7 +159,7 @@ def main():
     record['sealed_sources_unchanged_after_tests'] = True
     record['manifest_sha256'] = hashlib.sha256((driver/'patches/loopctrl/ngg2-manifest.json').read_bytes()).hexdigest()
     (output/'test062-host-scope.json').write_text(json.dumps(record, indent=2)+'\n')
-    print('PASS TEST064 changed units and related regressions against exact IPA sources')
+    print('PASS TEST065 changed units and related regressions against exact IPA sources')
 
 
 if __name__ == '__main__':

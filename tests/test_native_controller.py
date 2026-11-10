@@ -2454,10 +2454,26 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                     self.assertEqual(1,self.lib.ng2_controller_begin(self.engine,new.id,self.now,1,0,1))
     def test_continuous_expiry_after_revalidation_never_searches_later_beat(self):
         terrain,old=self.continuous_walk();changed=deepcopy(terrain);changed.tiles[(-10,4)]='stone'
-        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));self.now=old.deadline_ns+1
-        self.assertEqual(0,self.tick()[0]);self.assertEqual(9,self.status().reason)
-        self.now+=PERIOD;self.assertNotEqual(4,self.tick()[1].kind)
+        self.now+=2;self.observe(self.scene(2,2,changed,beat=True));retired=bytes(self.events()[-1])
+        self.now=old.deadline_ns+1
+        # TEST065: the retired physical beat is never extended/reissued.
+        # A qualified, definitely-unsent pending decision may instead enter
+        # bounded resynchronization after actual verified movement.
+        self.assertEqual(0,self.tick()[0]);self.assertEqual((0,4),(self.status().reason,self.status().phase))
+        self.assertEqual(retired,bytes(self.events()[-1]))
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
         self.assertEqual(3,len([e for e in self.events() if e.command.kind==4]))
+        for _ in range(100):
+            self.now+=20_000_000;self.observe(self.scene(2,2,changed,beat=True));ready,new=self.tick()
+            if ready:break
+        self.assertEqual((1,4),(ready,new.kind))
+        self.assertNotEqual(old.id,new.id)
+        self.assertGreater(new.not_before_ns,old.deadline_ns)
+        self.assertGreaterEqual(new.not_before_ns-self.now,50_000_000)
+        self.assertEqual((old.target_ns,old.not_before_ns,old.deadline_ns),
+                         (self.events()[2].command.target_ns,self.events()[2].command.not_before_ns,
+                          self.events()[2].command.deadline_ns))
+        self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,old.id,self.now,1,0,1))
     def test_continuous_refresh_preserves_original_period_and_visual_horizon_after_hud_update(self):
         terrain,old=self.continuous_walk();wait=self.motion_wait();changed=deepcopy(terrain)
         changed.tiles[(-10,4)]='stone';self.now+=2

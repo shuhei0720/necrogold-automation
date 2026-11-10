@@ -2688,3 +2688,17 @@ ZIP10,126,160bytes/SHA `b725324aa8c9698784a55e3b6f524f21e7a8cbbe9578d87e8e34326e
 スクリーンショットでtest-064.zipカードと「添付ファイルを1件追加」の後に「Codexとの接続は無効になりました」「もう一度実行する」を確認。ボタン再試行も同じエラーとユーザーが回答。画像/文章は届くが、全受取フォルダに064ZIPはなく、Cloud環境はconnected/running/failure null。ファイル選択後の受渡し/会話再開接続のどちらが原因かは未確定。公式専用説明も未発見で、期限/容量/認証等を断定しない。
 
 ユーザー回答: Safariではまだ未試行。次はSafariで同じアカウント・元の会話へ同じZIPを添付し、アプリ固有かを切り分ける。開発・IPA/CI再実行は停止し接続問題を優先。「もう一度実行」は画面の失敗処理再試行であり、CI再実行と取り違えた説明は訂正済み。新CIは開始していない。元runtime/ZIPとこの会話を保持する。
+
+
+<a id="test064-received"></a>
+## TEST064正式受領（2026-11-10 日本時間）
+
+添付ZIP14,891,518bytes/SHA `94beee68597a547dd8f2d1b9fe1a3ff8c8d5ab2eaea87575ea2e0bf544abf2a0`を受領。4run resolved/terminal/drained、active=最後、全59PNGのbytes/SHA/896×414/全chunk CRCとmanifest一致。rawはGit外。添付接続の根本原因は未確定のまま、解析と開発を再開する。
+
+ユーザーの商品可視3/4、プログラム全商品可視2/4。1回目2eef407…は6入力/4確認移動/開扉1、原画149安定で3商品/価格100/100/100が可視、goods保持・ポーズ成立。2回目4cb4d99…は7入力/5確認移動/開扉1、下方商品への追加LEFT後に原画205がVISIBLE（prefix不安定）、report stable206で保持してポーズ成立。206原画はexport省略、未収録画像を補わない。両回とも商品後の方向入力0。
+
+3回目d8c5c5…は7入力/6移動/開扉1、原画167/168で3商品・価格25/100/100が見えるがSHOP看板等が画面外でCはGOODS_UNKNOWN。遠方(-7,0)DOOR→GOLDと遠方palette2cellが変化。全5field LEFT gate1歩/保護/strict BLOCKED不変だが金集合は変わり、現契約通り入口MOVE13を未送信拒否→SCREEN17。ユーザーの商品可視と自動判定完了を区別し、金ガード/閾値を今回緩めない。
+
+4回目070f4d…は2入力/2移動、3歩目MOVE5の91→92 SAME許可後、not_sentへ撤回済みstate0/pending中に元Dを超えLATE。capture end D−25.952ms/C開始D−3.816ms/終了D+3.152ms/次tickD+3.357ms。実原画のFLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE/origin床、金/保護同一、全5field UP reason8 target(-1,-2)/FLOOR、strict BLOCKEDを確認。旧063はstate1だけであり、このpending失効が[TEST065](../plans/test065-pending-unsent.md)の修正対象。未知入力/取得障害ではない。
+
+歩行間隔は2回目約.508〜.529秒、他には約1.04秒の空きがあり開始待ちも残る。毎拍/人超えの全体達成は未受入。回収済み064の追加回収再実行は依頼しない。

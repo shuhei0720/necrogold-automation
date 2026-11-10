@@ -481,7 +481,8 @@ static int continuous_validation(NG2Controller *p,const NG2Scene *scene,uint64_t
     if(strict&&!fresh_allowed)return strict;
     if(!ng2_motion(&p->before,scene,direction,&motion)||motion.kind!=NG2_BLOCKED
         ||motion.dx||motion.dy)return NG2_REVALIDATE_MOTION;
-    if(strict){*latest=after;return NG2_REVALIDATE_FRESH_ALLOWED;}
+    *latest=after;
+    if(strict)return NG2_REVALIDATE_FRESH_ALLOWED;
     return NG2_REVALIDATE_CONTINUOUS_ALLOWED;
 }
 /* Optional recognition evidence never supplies input authority. Its original
@@ -709,8 +710,9 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
         if(validation==NG2_REVALIDATE_INITIAL_ALLOWED){++p->replan_count;p->replan_pending=1;p->before=*scene;}
         else if(continuous_allowed(validation)){
             ++p->continuous_count;++p->continuous_chain_count;p->before=*scene;
+            p->continuous_pending_choice=latest;
             if(validation==NG2_REVALIDATE_FRESH_ALLOWED){
-                p->continuous_pending=NG2_CONTINUOUS_FRESH;p->continuous_pending_choice=latest;
+                p->continuous_pending=NG2_CONTINUOUS_FRESH;
                 p->motion_reference_valid=0;
             }else{
                 p->continuous_pending=NG2_CONTINUOUS_SAME;
@@ -891,17 +893,22 @@ static void post_move_recover(NG2Controller *p,uint64_t now,int reason){
     if(p->visual_phase_failed||p->beat_failed)clear_model(p);
     p->visual_phase_failed=0;
 }
-/* A missed callback window is not an unknown synth. Retire only a live,
- * definitely unstarted continuous MOVE, then use a new physical beat from
- * the last proved pose. Repeated retirement keeps the original episode. */
+/* A missed callback/reissue window is not an unknown synth. Recover a live
+ * unstarted MOVE or an already-not-sent SAME/FRESH pending action. Preserve
+ * retired event bytes and obtain a new bounded beat from the last proof. */
 static int recover_unsent_continuous(NG2Controller *p,uint64_t now){
     NG2ControllerEvent *e=event(p);NG2Motion still;NG2Decision before,latest;uint64_t budget;
+    int pending=p->s.input_state==0&&!p->s.current_command_id&&p->continuous_ticket_valid
+        &&(p->continuous_pending==NG2_CONTINUOUS_SAME||p->continuous_pending==NG2_CONTINUOUS_FRESH)
+        &&e&&e->outcome==3&&e->reason==NG2_REASON_SCREEN;
+    const NG2Decision *expected=pending?&p->continuous_pending_choice:&p->command_choice;
     now=maximum(now,p->last_now);
-    if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||!p->command.id
-        ||p->s.current_command_id!=p->command.id||p->finish_requested||p->s.terminal||p->s.goods
+    if((!pending&&(p->s.input_state!=1||p->s.current_command_id!=p->command.id))
+        ||p->command.kind!=NG2_ACTION_MOVE||!p->command.id||p->finish_requested||p->s.terminal||p->s.goods
         ||!p->s.lead_confirmed||p->s.moves<=0||!p->latest_verified_ns
         ||p->command.direction<1||p->command.direction>4
-        ||!e||e->begin_ns||e->outcome||now<=p->command.deadline_ns)return 0;
+        ||!e||e->command.id!=p->command.id||e->begin_ns||(!pending&&e->outcome)
+        ||now<=p->command.deadline_ns)return 0;
     p->last_now=now;
     if(now-p->s.started_ns>=180*SECOND){finish(p,now,NG2_REASON_SESSION);return 1;}
     if(p->s.walk_started_ns&&now-p->s.walk_started_ns>=45*SECOND){finish(p,now,NG2_REASON_LIMIT);return 1;}
@@ -921,10 +928,10 @@ static int recover_unsent_continuous(NG2Controller *p,uint64_t now){
         ||memcmp(p->before.protected_cells,p->scene.protected_cells,NG2_TILE_COUNT)
         ||!ng2_choose(&p->before,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&before)
         ||!ng2_choose(&p->scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&latest)
-        ||!same_choice(&before,&p->command_choice)||!same_choice(&before,&latest)
+        ||!same_choice(&before,expected)||!same_choice(&before,&latest)
         ||!ng2_motion(&p->before,&p->scene,p->command.direction,&still)
         ||still.kind!=NG2_BLOCKED||still.dx||still.dy)return 0;
-    not_sent(p,now,NG2_REASON_LATE);
+    if(!pending)not_sent(p,now,NG2_REASON_LATE);
     if(p->command_sync_deadline)p->recovery.mode=NG2_RECOVERY_POST_MOVE;
     post_move_recover(p,now,NG2_RECOVERY_UNSENT_DEADLINE);
     memset(&p->command,0,sizeof(p->command));p->s.current_command_id=0;
@@ -1006,6 +1013,8 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         }
         else return 0;
     }
+    if(p->s.input_state==0&&p->continuous_pending&&now>p->command.deadline_ns
+        &&recover_unsent_continuous(p,now))return 0;
     if(p->s.input_state==3){
         uint64_t timeout=p->command.kind==NG2_ACTION_PAUSE&&p->finish_requested?FRESH:TRANSITION;
         if(p->command.kind==NG2_ACTION_MOVE&&now>p->motion_wait.deadline_ns){
