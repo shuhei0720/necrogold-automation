@@ -4,7 +4,7 @@
 
 ## TEST066: 開扉・店内歩行とアイコンの断片
 
-[計画](plans/test066-shop-action.md)。Controller/Perceptionだけ変更する。Runtime/Nav/Beat/API15/cap13/client v14/ABIと入力・同期・商品保護の基本条件は維持。
+[計画](plans/test066-shop-action.md)。Controller/Perceptionだけ変更した。Runtime/Nav/Beat/API15/cap13/client v14/ABIと入力・同期・商品保護の基本条件は維持。
 
 - 4回目141→142: nextDOOR/LEFT/reason5の全5field・金/保護/局所・strict BLOCKED不変。遠方2cellのSTONE→DIRTだけでFLOOR限定quietから漏れた。既存同IDquietへ同DOOR不変の開扉1操作を追加し、開扉と進入を別に確認する。
 - 2回目166→167: 実入口通過済み、PARTIAL、reason8/FLOORの同判断。遠方1cellだけの変化でも停止した。entrance.valid=1/両PARTIAL/同full5・origin/next床・金/全保護/近傍・strict BLOCKED・元時刻/予算を満たす次1歩だけ同ID維持。入口未通過の同形PARTIALは拒否する。
@@ -18,15 +18,27 @@
 
 初回のVISUAL_PHASEで候補周期532.068msがprofile上限530msを外れて同期資格を撤回。他にも未送信期限切れや遅い実変位確認で再取得していた。空拍と送信済み失敗を区別する。ゲーム受信時刻/動画がなく『拍ずれゼロ』は断定不可。ユーザーは現速度を暫定許容し得ると述べ、今回は停止と商品確認の安定化を優先。毎拍/人超えの恒久免除とはせず、識別/通知/自動周回/耐久も未受入。
 
-## 066の検証と返却
+## TEST066の配布と実機確認
 
-新door6/shop4/icon6をそれぞれ旧Cで意味的Red→修正Green。shop/doorと旧gateは16件Green、icon6+既存syntheticguard1もGreen。独立レビューでP0/P1なし、P2の入口未通過PARTIAL負例をpublic ACK+MOVED系列で既存negativeへ追加、4method不変でGreen。device CIの34件と実IPA/22seal/実compiler/Mach-O/完全sourceを照合後、固定ReleaseのTEST066を依頼する。全Runtime/world/不変clientやprivate画像群をCI既定にしない。
+code `d16367570d12456c668648584253d721880b9e41`、[Mac102](https://github.com/shuhei0720/necrogold-automation/actions/runs/42774588299) device34件成功。新door6/shop4/icon6は旧Cで意味的Red→Green、独立レビュー最終P0/P1/P2なし。実IPA/build102 SHA `080acc55eb847baaf1ea3a9db53a6b89fe7d94ec00dff50acecaeb9052f550c5`。host全ID/生ログ/ABI/22seal前後、実4C/5Swift/6RSP、strictO2 profile、全9Mach-Oの103禁止marker非混入を照合。Controller/Perception以外20source、R12原40/G1は不変。build-source全498tracked bytes/path/CRC一致。実ゲームCIと066実機は未実施。
+
+[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test066-build102/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test066-build102/source.zip)・[SHA256SUMS](https://github.com/shuhei0720/necrogold-automation/releases/download/test066-build102/SHA256SUMS.txt)。固定Releaseへ配置する。最終sourceはビルド対象から文書3件だけ異なり、code/launcher/testsは同じ。詳細は[検証](reviews/test066.md)。全Runtime/world/不変client/private画像群をCIへ累積しない。
+
+SideStoreで新IPA更新→LoopCtrl完全終了・起動→Start Server、通常のVPN/ディスク設定。source ZIPを展開し、新通常All Zones 1-1の金壁可視ポーズからiSHで実行する。フォルダ選択は`test_066.sh`のある展開先。
+
+```sh
+mkdir -p /mnt/necro_test066
+mount -t ios . /mnt/necro_test066
+cd /mnt/necro_test066 && sh test_066.sh
+```
+
+歩行中はゲームを前面に保つ。自動ポーズ後約5秒でiSHへ戻り`TEST-066: 終了`を待つ。`runtime/test-066`全ZIPと商品3品が見えるか/停止位置を返してもらい、到達率を評価する。複数回は新しい通常1-1で行い、既収録065は再実行しない。
 
 ## 受領した065の要点
 
 自動可視完了1/4。1回目は63/200/100の3品、2回目は下端125/75の2品だけで第三枠が未表示。3回目は13/13/50の3品が人に可視だが、アイコンの誤拒否で停止。4回目は未開扉。画像に見えない商品を対象なしとせず、候補/購入禁止を維持する。
 
-[065固定Release build100](https://github.com/shuhei0720/necrogold-automation/releases/tag/test065-build100)・[検証](reviews/test065.md)。Mac100/device32とMac101固定公開成功、2asset変更前の22seal/全9Mach-O/492source照合は過去結果として保持。065の新規再ビルドは行わない。
+[065検証](reviews/test065.md)は過去結果として保持し、新規再ビルドしない。
 
 ## 運用
 

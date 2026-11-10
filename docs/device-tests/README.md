@@ -2723,3 +2723,12 @@ ZIP16,403,525bytes/SHA `00f66f426efe50519785b1129cad7a5b23580b3ae69af17aa84c5376
 36603…は5入力/5移動/開扉0。141→142はLEFT reason5 nextDOORの同full5、金/保護/局所不変、strict BLOCKED。遠方(3,2)/(3,4)STONE→DIRTのみで旧quietのnextFLOOR限定から漏れ、D−約35msに未送信停止。期限切れ/ビートずれをこの停止理由としない。
 
 送信23=20MOVED+3開扉、BLOCKED/UNKNOWN/逆移動0、全beginは元10ms窓内（NB+.287〜9.440ms）。通常約.514〜.532秒間隔、空き約1.04〜1.57秒、初回3.124秒はVISUAL_PHASE後の再fit待ち。候補period532.068ms>上限530msで同期資格を取り消していた。他の空拍は未送信期限切れ/遅い実変位確認の再取得。ゲーム受信時刻/動画がないため拍ずれゼロとは断定しない。ユーザーは現速度を暫定許容し得るとの評価で、まず商品確認と停止の安定化を優先する。065は回収済みで再実行しない。
+
+
+## TEST066配布（2026-11-10 日本時間）
+
+[計画](../plans/test066-shop-action.md)・[検証](../reviews/test066.md)・[固定配布/実機手順](../status.md)。code `d16367570d12456c668648584253d721880b9e41`/[Mac102](https://github.com/shuhei0720/necrogold-automation/actions/runs/42774588299) device34成功、新IPA/build102 SHA `080acc55eb847baaf1ea3a9db53a6b89fe7d94ec00dff50acecaeb9052f550c5`。実host/実compiler/22seal/全9Mach-O/全498build-source照合済み。最終sourceは文書3件だけの差分を検査し、IPA/全sourceを固定Releaseへ配置する。
+
+065の2回目は実入店後・両PARTIAL/reason8/床同判断、4回目はreason5/同DOOR不変に限り、遠方UNKNOWN/FLOOR/DIRT/STONE変化だけなら元ID/元期限の次1操作を保持する。校正/再予約/referenceのsafe_floorは拡げない。開扉と進入は別確認。3回目143の分断アイコンは既存13px優先・11px fallback、明度/IoU/全HUD/menu/deathの元条件を維持し、受領67中143だけ改善・他66全Scene bytes同一。Controller/Perception以外20source/API15/cap13/ABI/clientは不変。
+
+SideStore更新→LoopCtrl完全終了/起動→Start Server→新しい通常1-1の金壁可視ポーズで`test_066.sh`。ゲーム前面を保ち自動PAUSE約5秒後iSHへ、終了後`runtime/test-066`全ZIPと3商品の可視/停止位置を依頼する。066の実機は未実施、065は回収済みで再実行しない。現速度の暫定許容と完全毎拍要件を区別し、まず停止/商品確認を安定させる。

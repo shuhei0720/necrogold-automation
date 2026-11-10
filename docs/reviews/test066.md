@@ -25,3 +25,14 @@
 Controller SHA `c98427f2acd3c636bff080de0feae91d7096d9a59656934cbb69b913745aee2b`、Perception SHA `f0b3d6b4213820a6b82520a77628263e50677a5c5e59c9db4a4e4f9126a3457c`、manifest SHA `90013ef1425cae2a97b1bbfc1b366462d6e3bcfda65b984dfc80c35be55a97aa`。他20source/API15/cap13/ABI/client v14/R12原40/G1は不変。Mac/実IPA/実compiler/全Mach-O/完全sourceの結果を配布前に追記する。
 
 ユーザーの現速度の暫定許容を記録し、今回は停止と商品確認を優先。送信済み23操作は20MOVED+3開扉で失敗0だが、VISUAL_PHASE/未送信期限切れ/遅い確認による空拍はあり、ゲーム受信時刻なしで完全同期とは言わない。TEST066の実機成功は未確認。
+
+
+## 最終Mac102・実配布物
+
+code `d16367570d12456c668648584253d721880b9e41`、[Mac102](https://github.com/shuhei0720/necrogold-automation/actions/runs/42774588299) device成功。新IPA/build102（0.3.4/top.ebato.loopctrl）、17,582,349bytes/SHA `080acc55eb847baaf1ea3a9db53a6b89fe7d94ec00dff50acecaeb9052f550c5`。外ZIP17,841,613bytes/SHA `6d709ee956db989d402a22866d9da07bb5f04357d8a0ca1817947289e51ddec0`。標準macos-26で同じビルドの完了を待ち、追加全体試験や再ビルドはしていない。
+
+host34の全実行ID/生ログ/command/0fail/error/skip/xfailと選択/省略理由、ABI実query、22seal前後が実IPA sourceと一致。baseline20aからController/Perceptionだけ変更、他20source/R12原40/G1不変。実4C/5Swift/6RSP/PBX/raw compiler引数が一致、Perception/Nav strictO2・Controller/BeatO0・SwiftOnone/HOST macroなし。全9Mach-Oで従来102+066の計103marker非混入を確認。
+
+build-sourceは全498tracked bytes/path/CRC一致、7,343,564bytes/SHA `ec0a759b2ea72b07d662895cf0cf1e0ddbbd63f7ffdb01cc37b417c342fdbecc`。最終sourceとの差分を文書3件に限定して検査し、固定Releaseのsource.zip/SHA256SUMSへ保存する。生ZIP/画像/ログ/receiptはGit外。固定公開後は匿名GETとSHAで両assetを確認する。
+
+[配布/実機手順](../status.md)の新IPA更新・再起動・Start ServerからTEST066を依頼し、`runtime/test-066`全ZIPを返してもらう。未収録の先の商品可視やTEST066実機の成功を合成単体・CIの成功から断定しない。今回も商品確認までの到達率を主指標にする。
