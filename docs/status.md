@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-10（日本時間）。TEST068の1runを受領。4歩後に扉前で停止、開扉/商品確認なし。16選択PNG中12枚保存、残4枚のままhost_deadlineとなった。今回は追加回収を依頼せず、添付済みの証拠でTEST069を開発する。[受領台帳](device-tests/README.md#test068-received)。
+更新: 2026-11-10（日本時間）。新受領3run（test-068内fc37とtest-069の2本）で商品3品の可視到達を確認。全50PNG回収済み（20/20・16/16・14/14）。ただし自動GOODS完了は1/3、他2本は商品が見えていてもSCREEN終了。約.52秒周期に対して約1.04/1.57秒の入力間隔が残る。主因は画像による移動確認待ちと未送信10ms窓の取り逃し。[受領解析](reviews/test069-received.md)。解析のみ、実装/新IPA/追加実機依頼なし。
 
 ## TEST069: 全画像保存と未送信開扉の再観測
 
@@ -18,7 +18,7 @@ terminal/drained・input0/3・非inflight/非凍結・未取消を確認したpa
 
 code `6180eacf3bec8c9ecb0e65c889339f9483ef383d`、[Mac108](https://github.com/shuhei0720/necrogold-automation/actions/runs/42804504968) device50件成功（native16/client31/selector3）。新34件は意味的Red→Green、独立設計/安全レビューの全P0/P1を修正。nativeはControllerだけ、他21/API15/cap13/ABI/clientv14・Runtime/Swift/wire layout不変。
 
-実IPA/build108 SHA `47ae26f5d512abd8bf0fefc8fa85707fc50d9e0713a754a07a55680694f77dda`、17,588,938bytes。22seal・host全ID/生ログ/両client実driver/Git blob/SHA・実4C/5Swift/6RSP/strictO2・全9Mach-Oの109禁止marker非混入・build-source全517tracked bytes/path/CRCを照合。他21/R12原40/G1不変。最終sourceはcodeから文書3件だけ異なり実装同一。TEST069の実ゲーム/実機は未実施、商品到達/速度/保存完了の合格は未宣言。
+実IPA/build108 SHA `47ae26f5d512abd8bf0fefc8fa85707fc50d9e0713a754a07a55680694f77dda`、17,588,938bytes。22seal・host全ID/生ログ/両client実driver/Git blob/SHA・実4C/5Swift/6RSP/strictO2・全9Mach-Oの109禁止marker非混入・build-source全517tracked bytes/path/CRCを照合。他21/R12原40/G1不変。最終sourceはcodeから文書3件だけ異なり実装同一。実ゲームCIは未実施。実機の可視到達3/3・全画像回収を受領したが、自動GOODS完了/毎拍歩行の受入は未達。
 
 [新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/source.zip)・[SHA256SUMS](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/SHA256SUMS.txt)。固定Releaseへ保存、公開後の匿名GET/SHA確認まで行う。[詳細](reviews/test069.md)。
 

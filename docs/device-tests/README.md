@@ -2799,3 +2799,10 @@ j5の一意raw下端金対はgrid座標を作らずEDGE_DOWN3、j3/4は実座標
 iSH内local原本に全PNG/journal/checkpointを保存し、安全terminalの未取消paged回収だけ独立300秒。全画像照合後、current runだけのZIPを共有側へ一括保存・SHA/rename/再SHA確認。公開済みを証明するまで終了/次start禁止、旧run/旧068原本は保持。未送信closedDOOR候補は1run1回だけ旧IDを撤回し、独立静止pair・fresh HUD・元12/45/180秒・別IDで再観測。UNKNOWN credit/送信済再送・閾値緩和なし。
 
 [新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/source.zip)。最終sourceとの差分は文書3件だけ。匿名GET/SHAまで確認し、[statusの手順](../status.md)でSideStore更新/完全終了・起動/Start Server→test_069.sh→保存完了表示を待つ。新しい通常1-1の金壁可視ポーズからまず2回、商品全体の可視/停止位置/歩行間隔/全画像・ZIP保存完了と、自動`runtime/test-069-<run_id>.zip`全run分を必ず依頼する。TEST068追加回収は依頼しない。
+
+
+## TEST069受領: 商品可視3/3、自動GOODS1/3、余分な空拍
+
+2026-11-10（日本時間）。受領はtest-068内の新run fc37d87aとtest-069の13573e31/b4045896。全20/16/14PNGのSHA/bytes/896×414/CRC・manifest/cursor/時刻prefix/active-report一致、全数回収resolved=true。3runとも原画に3商品/価格を視認、PAUSE成立。ただしGOODS終了は1357だけ、他2本はSCREEN/goods0。可視到達と自動判定完了を分ける。[出典・詳細](../reviews/test069-received.md)。
+
+周期約.52秒に対し、入力間隔約1.04秒/1.57秒。主因は移動確認の2回未確定→3回目を1周期待つことと、再検証/前面確認の未送信10ms窓超過。期限超過.49/13.64/13.10msを確認。地図の全再ロードが必要なための定期停止ではない。現modelを保持した次安全拍の再予約を含み、毎回同期をゼロから取り直すと断定しない。開扉1入力と余分な空拍を区別し、ACKを実変位にせず、ゲーム受信時刻の欠如も明示。今回は解析と保存だけで新IPA/追加試験なし。生資料はGit外。
