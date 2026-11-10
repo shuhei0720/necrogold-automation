@@ -16,7 +16,21 @@ terminal/drained・input0/3・非inflight/非凍結・未取消を確認したpa
 
 ## 検証と配布
 
-意味的Red→Greenと変更部/関連回帰、独立レビューを進行中。nativeはControllerだけ、他21/API15/cap13/ABI/clientv14・Runtime/Swift/wire layoutは不変の予定。新IPA/sourceの固定Releaseは実ビルド/同一性照合後にここへ記録する。TEST069の実ゲーム/実機は未実施、商品到達/速度/保存完了の合格は未宣言。
+code `6180eacf3bec8c9ecb0e65c889339f9483ef383d`、[Mac108](https://github.com/shuhei0720/necrogold-automation/actions/runs/42804504968) device50件成功（native16/client31/selector3）。新34件は意味的Red→Green、独立設計/安全レビューの全P0/P1を修正。nativeはControllerだけ、他21/API15/cap13/ABI/clientv14・Runtime/Swift/wire layout不変。
+
+実IPA/build108 SHA `47ae26f5d512abd8bf0fefc8fa85707fc50d9e0713a754a07a55680694f77dda`、17,588,938bytes。22seal・host全ID/生ログ/両client実driver/Git blob/SHA・実4C/5Swift/6RSP/strictO2・全9Mach-Oの109禁止marker非混入・build-source全517tracked bytes/path/CRCを照合。他21/R12原40/G1不変。最終sourceはcodeから文書3件だけ異なり実装同一。TEST069の実ゲーム/実機は未実施、商品到達/速度/保存完了の合格は未宣言。
+
+[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/LoopCtrl.ipa)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/source.zip)・[SHA256SUMS](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/SHA256SUMS.txt)。固定Releaseへ保存、公開後の匿名GET/SHA確認まで行う。[詳細](reviews/test069.md)。
+
+SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常のVPN/ディスク設定。sourceを展開しtest_069.shのあるフォルダを選び、新しい通常All Zones 1-1・金壁可視ポーズから実行する。
+
+```sh
+mkdir -p /mnt/necro_test069
+mount -t ios . /mnt/necro_test069
+cd /mnt/necro_test069 && sh test_069.sh
+```
+
+歩行中ゲーム前面、自動ポーズ後約5秒でiSHへ戻り前面のまま`TEST-069: 終了。画像とZIPの保存・照合が完了しました。`まで待つ。自動作成された`runtime/test-069-<run_id>.zip`をそのまま返してもらう。まず新しい1-1で2回、商品全体の可視/停止位置/歩行間隔/全画像・ZIP保存完了を確認する。複数回なら全run分。TEST068の追加回収は不要。
 
 前版は [TEST068/build106固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test068-build106)。受領068の商品確認未達・回収未完了を前版CI46件の成功で埋めない。
 

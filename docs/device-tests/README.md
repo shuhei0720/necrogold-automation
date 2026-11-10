@@ -2790,3 +2790,12 @@ j5の一意raw下端金対はgrid座標を作らずEDGE_DOWN3、j3/4は実座標
 4入力/4MOVED、開扉/商品0、native6.706秒でSCREEN17/paused1/drained。id9は未送信。source130→latest133は同LEFT/DOOR判断・局所/金/保護不変、遠方2セルの変化とmotionUNKNOWNでquiet拒否。期限14.751ms前であり開扉失敗/時間切れではない。
 
 回収manifest→最終chunk87.728秒、RPC23.596秒・呼出間64.132秒。共有mountへの109 atomic/14,443,914bytesが90秒枠を消費し、12/16のままhost_deadline/終了表示。前068の再開時write省略では初回負荷は直らなかった。追加回収は依頼せず、[069計画](../plans/test069-collection-gate.md)でlocal保存/全画像ZIP公開と未送信開扉の新観測を実装する。商品到達/回収完了は失敗として集計する。
+
+
+## TEST069配布: 全画像のlocal保存・単一ZIP公開と未送信開扉再観測
+
+2026-11-10（日本時間）。[計画](../plans/test069-collection-gate.md)・[検証](../reviews/test069.md)。code `6180eacf3bec8c9ecb0e65c889339f9483ef383d`、[Mac108](https://github.com/shuhei0720/necrogold-automation/actions/runs/42804504968) device50件成功（native16/client31/selector3）。新IPA0.3.4/build108、17,588,938bytes/SHA `47ae26f5d512abd8bf0fefc8fa85707fc50d9e0713a754a07a55680694f77dda`。nativeはController1/他21不変、API15/cap13/v14/ABI不変。22seal/全host実行ID・両client HEAD blob・実compiler4C/5Swift/6RSP・全9Mach-O109marker非混入・517build-source全bytes/path/CRCを照合。独立設計/安全レビューP0/P1なし。実ゲームCI/実機成功は未確認。
+
+iSH内local原本に全PNG/journal/checkpointを保存し、安全terminalの未取消paged回収だけ独立300秒。全画像照合後、current runだけのZIPを共有側へ一括保存・SHA/rename/再SHA確認。公開済みを証明するまで終了/次start禁止、旧run/旧068原本は保持。未送信closedDOOR候補は1run1回だけ旧IDを撤回し、独立静止pair・fresh HUD・元12/45/180秒・別IDで再観測。UNKNOWN credit/送信済再送・閾値緩和なし。
+
+[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test069-build108/source.zip)。最終sourceとの差分は文書3件だけ。匿名GET/SHAまで確認し、[statusの手順](../status.md)でSideStore更新/完全終了・起動/Start Server→test_069.sh→保存完了表示を待つ。新しい通常1-1の金壁可視ポーズからまず2回、商品全体の可視/停止位置/歩行間隔/全画像・ZIP保存完了と、自動`runtime/test-069-<run_id>.zip`全run分を必ず依頼する。TEST068追加回収は依頼しない。

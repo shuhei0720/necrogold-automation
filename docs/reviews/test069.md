@@ -32,3 +32,14 @@ client新11件は旧90秒/残game期限・unsafe manifest・取消済予算・�
 nativeはControllerのみ変更、SHA `822af1b1e509cb72ef556223b3828e217d35eaac5564f8e7ed8b3c723f71c5af`、他21/R12原40/G1不変。manifest SHA `0b17836112d250fcae3b9dbca6e13494fefa3a78cc3b2b58edcd880bcf6188a2`。API1.98.15-ngg2/cap13/clientv14・ABI1/Scene23864/Status192/Event128/MotionWait48/RecoveryStatus456、Runtime/Swift/wire不変。
 
 device CIは50件を選択（native16/client31/selector3、新34+関連13+selector3）。全過去suiteを累積せず、今回の入力再観測と回収/出版境界だけ検査する。native_walk/test069の実driver import・HEAD Git blob/SHAを前後照合し、未変更Runtime/world/全RPCは実施しない。実IPA/実compiler/全Mach-O/完全sourceの証拠はビルド後に記録する。
+
+
+## 最終Mac108と実配布物
+
+code `6180eacf3bec8c9ecb0e65c889339f9483ef383d`、[Mac108](https://github.com/shuhei0720/necrogold-automation/actions/runs/42804504968)成功。実IPA/build108、version0.3.4/top.ebato.loopctrl、17,588,938bytes/SHA `47ae26f5d512abd8bf0fefc8fa85707fc50d9e0713a754a07a55680694f77dda`。unsigned artifact13758128059、17,852,780bytes/SHA `a02a0b4a32c8380bd23b2046d8b9652d2b3b0581fd37ac235de2171003de71c4`。validation13758611692、158,393bytes/SHA `17ddc400881c11b71fc03dbf5e5b90be9af3843e0ccb9bd3f57f6bdedc098b83`。host13757926283、11,552bytes/SHA `3e0bfdbb2ec1beb6d261bbe0c3b24746e5ac9e775dbc8b5b789deb35cd3b67f7`。GitHub run/head/branch・全outer SHA/bytes/ZIP CRCを確認。
+
+host50/12区分の全実行ID/生ログ/command/0fail/error/skip/xfail、ABI実query、22seal前後を実IPA sourceへ結びつけた。native_walk SHA `16479a856007a237d898f6d88ea5fba6bc3011c80c38302e56eb369a3611a0a7`、wrapper SHA `b1ebfb676c08aaada11f1cde9b52639b381c62fbe6ec486db0484c0954482e1d` は実driver import/HEAD Git blob/SHA前後一致。API15/cap13/v14、fixture module一致。独立設計・fresh安全の最終P0/P1なし。
+
+実4C/5Swift/6RSP、PBX/生compiler引数/log/profileを照合。Perception/NavはstrictO2、Controller/BeatO0、SwiftOnone、HOST macroなし。全9Mach-Oの109禁止marker非混入、app/runner API15/cap13/arm64一致。nativeController1変更/他21、R12原40/G1不変。無変更Runtime/worldの全体再実行は行わず、実ゲームCI/iPhone受入の成功を推定しない。
+
+build-source全517tracked bytes/path/CRC一致、7,421,202bytes/SHA `7080e29e181d7349801d1ab88dac4ed8291c2b662e607653473cf05bd35fd72f`。最終sourceはこのcodeからstatus/本review/台帳の文書3件だけ異なり、全実装/launcher/testsは同一。固定Release test069-build108のIPA/source.zip/SHA256SUMSへ公開し、匿名GET/SHAで確認する。生受領資料/証跡はGit外。069の扉突破/商品全体/保存完了は実機未確認で、[status手順](../status.md)の新IPA更新/再起動・Start Serverから新1-1をまず2回依頼し、自動ZIP全run分を返してもらう。
