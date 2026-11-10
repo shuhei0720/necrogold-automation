@@ -45,11 +45,26 @@ RECOVERY_METHODS = frozenset({
     'test_actual_tick_after_visual_deadline_cannot_issue_from_any_proof',
     'test_unknown_synth_never_enters_visual_or_recovery',
 })
+UNSENT_CONTINUOUS_METHODS = frozenset({
+    'test_complete_zero_late_retires_known_unsent_ticket_and_restarts_from_verified_pose',
+    'test_direct_begin_and_tick_late_share_definite_unsent_retirement',
+    'test_same_and_fresh_reissues_retire_without_mutating_old_fields',
+    'test_expired_old_callbacks_cannot_advance_recovery_state_or_clock',
+    'test_new_slot_is_future_and_prepared_without_extra_input',
+    'test_in_time_complete_zero_does_not_recover_and_deadline_equality_can_begin',
+    'test_started_ack_unknown_cancel_and_goods_never_use_unsent_recovery',
+    'test_live_authority_failures_prioritize_cancellation_over_recovery',
+    'test_proof_twelve_second_equality_and_late_stop_without_new_episode',
+    'test_repeated_unsent_recovery_keeps_original_episode_and_deadline',
+    'test_only_new_verified_motion_can_start_new_recovery_budget',
+    'test_proof_budget_uses_actual_commit_and_global_budgets_do_not_reopen',
+})
 NATIVE_CASES = (
     ('tests.test_native_device061', 'NativeDevice061Tests', 'test062-initial', DEVICE_METHODS, True),
     ('tests.test_native_motion_cadence', 'NativeMotionCadenceTests', 'test062-cadence', CADENCE_METHODS, True),
     ('tests.test_native_controller', 'NativeControllerTests', 'test062-related-controller', CONTROLLER_METHODS, False),
     ('tests.test_native_recovery', 'NativeRecoveryTests', 'test062-related-recovery', RECOVERY_METHODS, False),
+    ('tests.test_native_unsent_continuous', 'NativeUnsentContinuousTests', 'test063-unsent-continuous', UNSENT_CONTINUOUS_METHODS, True),
 )
 CORE_MODULES = ('tests.test_native_controller', 'tests.test_native_recovery', 'tests.test_native_beat')
 
@@ -128,7 +143,7 @@ def main():
         run_scope(label, cases, output, record)
     # Workflow and selection changes have their own small unit set, without
     # automatically discovering the historical package/Swift fixture suite.
-    for module_name, classes in (('test_device_ci', ('DeviceNativeWorkflowTests', 'DeviceHostSelectionTests')),
+    for module_name, classes in (('test_device_ci', ('DeviceNativeWorkflowTests', 'DeviceHostSelectionTests', 'DownloadPublisherTests')),
                                  ('test_focused_ci', ('FocusedNativeWorkflowTests',))):
         module = importlib.import_module(module_name)
         cases = [case for name in classes for case in

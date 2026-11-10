@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-10（日本時間）。TEST061は商品確認0/2。実機を主に短く反復する最新指示をルールへ記録し、二つの停止原因だけを修正したTEST062を配布する。Mac94のdevice CI・実IPA照合完了、TEST062実機は未実施。[計画](plans/test062-device-cycle.md)・[検証](reviews/test062.md)。061/060は再実行しない。
+更新: 2026-11-10（日本時間）。TEST062受領: ユーザーの商品可視1/2、プログラム完全商品判定0/2。1回目は開扉して商品/価格が見え、2回目は3歩目が確実未送信のままD+8msで停止。[TEST063](plans/test063-unsent-deadline.md)で後者だけを修正し、単体/関連回帰と新IPAを準備する。成功経路/認識閾値は不変。回収済み062/061は再実行しない。
 
 ## TEST062の配布物
 
@@ -27,7 +27,7 @@ API1.98.15-ngg2/cap13/client v14・公開ABI不変。native22seal中Controller.c
 
 今回、全Controller184/全Runtime故障/shop16/未変更Kit/client212は再実行していない。旧Mac93/client22の成功は過去結果。認識/並行/RPCコードはbytes不変で、変更したC条件を今回の単体で検証し、実機の商品到達を主指標に反復する。合成成功やCI件数で実機成功にしない。
 
-## 次の実機TEST062
+## TEST062配布時手順（受領済み）
 
 SideStoreで新IPA/build94更新→LoopCtrl完全終了/起動→Start Server→通常VPN/disk。新通常オールゾーン1-1、金壁全部/一部可視・左側が下/端0の開幕ポーズから。
 

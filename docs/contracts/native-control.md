@@ -22,7 +22,7 @@ main.sync/run lock外でAX前面照会し、callback実returnまでlease保持�
 
 再取得はinputs/moves/lead_confirmed=0・取消/商品/終了なしの未発行candidate/state1確実未送信初歩・再予約pendingだけ。track/同拍8%補正/stale/準備窓/未送信D失効で旧IDをnot_sent、slot全field/initial_ticket/model/raw撤回。event/replan/入力予算不変、同observe refit禁止。後続HUDの既存2秒span/fitで別候補選択。旧ticket時刻/ordinal不変。
 
-元sync+12秒不変、公開/begin/completeも等号終了。TicketGuardのbegin短絡→complete0も純粋なD超過の初歩state1だけ撤回。期限内complete0/state2/3/4/retune/confirmed continuous/権限失効は対象外。旧ID/状態検査を時計/予算更新より先に行う。確認後同期は§8。
+元sync12秒、公開/begin/completeは等号終了。TicketGuard短絡→complete0はstate1の純D超過だけ撤回。確認済連続は[063](../plans/test063-unsent-deadline.md)。期限内complete0/state2/3/4/retune/権限失効は対象外。旧ID/状態検査を時計/予算更新より先に行う。確認後同期は§8。
 
 ## 5. 未送信の再予約
 
@@ -82,7 +82,7 @@ RecoveryTrace192B/RecoveryStatus456Bの別getterで消去前model/raw samples≤
 
 ## 12. 新規起動と旧client回復
 
-新規はnative-walk-v14/API1.98.15-ngg2/cap necrogold_native_v13を要求し完全reportのrecovery必須。v12〜v14はmotion_references必須。旧版は新診断不在可、存在時は同じ閉schema検査。保存literal v1〜v13はAPI1.98.14へpreflight（ready含む）/status/result_metadataを固定し、global API更新で拒否も両API許可もしない。v10〜v14は4chunk batch、v9は1chunk、v1〜v8はlegacy。started回復は元UUID/clock/owner・GET0/start0、unknown start無再送。未開始旧journalの初startは同UUIDでv14へ移行。fresh preflightだけ許可済transientを最大4試行/計8秒/各2秒で再確認。
+新規native-walk-v14/API1.98.15-ngg2/cap necrogold_native_v13、完全reportのrecovery必須。v12〜v14はmotion_references必須。旧版は新診断不在可、存在時は同じ閉schema検査。保存literal v1〜v13はAPI1.98.14へpreflight（ready含む）/status/result_metadataを固定し、global API更新で拒否も両API許可もしない。v10〜v14は4chunk batch、v9は1chunk、v1〜v8はlegacy。started回復は元UUID/clock/owner・GET0/start0、unknown start無再送。未開始旧journalの初startは同UUIDでv14へ移行。fresh preflightだけ許可済transientを最大4試行/計8秒/各2秒で再確認。
 
 ## 13. Exportと保存
 

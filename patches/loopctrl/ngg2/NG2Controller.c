@@ -45,6 +45,7 @@ struct NG2Controller {
     uint64_t seen_id,seen_start,seen_end,last_now,transition_ns,sync_ns;
     uint64_t ack_ns,command_period,next_nominal,next_deadline,next_period,last_observed_prefix;
     uint64_t motion_retry_start_ns;
+    uint64_t latest_verified_ns;
     uint64_t next_update_deadline;
     uint64_t schedule_deadline,continuous_schedule_deadline,initial_visual_deadline;
     uint64_t initial_slot_visual_deadline,proof_deadline,proof_capture_id,model_capture_id;
@@ -600,9 +601,11 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
         if(p->s.x < -16||p->s.x>16||p->s.y < -16||p->s.y>16){finish(p,end,NG2_REASON_LIMIT);return;}
         if(p->visits[(p->s.y+16)*33+p->s.x+16]<UINT16_MAX)++p->visits[(p->s.y+16)*33+p->s.x+16];
         p->s.lead_confirmed=1;
+        p->latest_verified_ns=p->observe_now;
         if(!p->s.first_move_ns&&e)p->s.first_move_ns=e->begin_ns;
     }else if(motion.kind==NG2_DOOR_OPENED||motion.kind==NG2_TERRAIN_OPENED){
         if(motion.kind==NG2_DOOR_OPENED)++p->s.door_changes;else ++p->s.terrain_changes;
+        p->latest_verified_ns=p->observe_now;
         /* An opening is a verified terrain change, never the displacement
          * proof required to calibrate native lead or begin continuous beats. */
         if(!p->s.lead_confirmed){
@@ -838,12 +841,53 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
 static void post_move_recover(NG2Controller *p,uint64_t now,int reason){
     if(p->recovery.mode!=NG2_RECOVERY_POST_MOVE){
         ++p->recovery.episode_id;++p->recovery.post_move_reacquisitions;
-        p->recovery.mode=NG2_RECOVERY_POST_MOVE;p->sync_ns=now;
+        p->recovery.mode=NG2_RECOVERY_POST_MOVE;
+        p->sync_ns=p->latest_verified_ns?p->latest_verified_ns:now;
     }
-    recovery_record(p,reason,NG2_RECOVERY_ACTUAL_TICK,now,p->proof_capture_id);
+    recovery_record(p,reason,NG2_RECOVERY_ACTUAL_TICK,now,
+        reason==NG2_RECOVERY_UNSENT_DEADLINE?p->s.last_capture_id:p->proof_capture_id);
     clear_slots(p);p->s.phase=NG2_PHASE_SYNC;
     if(p->visual_phase_failed||p->beat_failed)clear_model(p);
     p->visual_phase_failed=0;
+}
+/* A missed callback window is not an unknown synth. Retire only a live,
+ * definitely unstarted continuous MOVE, then use a new physical beat from
+ * the last proved pose. Repeated retirement keeps the original episode. */
+static int recover_unsent_continuous(NG2Controller *p,uint64_t now){
+    NG2ControllerEvent *e=event(p);NG2Motion still;NG2Decision before,latest;uint64_t budget;
+    now=maximum(now,p->last_now);
+    if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||!p->command.id
+        ||p->s.current_command_id!=p->command.id||p->finish_requested||p->s.terminal||p->s.goods
+        ||!p->s.lead_confirmed||p->s.moves<=0||!p->latest_verified_ns
+        ||p->command.direction<1||p->command.direction>4
+        ||!e||e->begin_ns||e->outcome||now<=p->command.deadline_ns)return 0;
+    p->last_now=now;
+    if(now-p->s.started_ns>=180*SECOND){finish(p,now,NG2_REASON_SESSION);return 1;}
+    if(p->s.walk_started_ns&&now-p->s.walk_started_ns>=45*SECOND){finish(p,now,NG2_REASON_LIMIT);return 1;}
+    if(!p->command_sync_deadline)p->sync_ns=p->latest_verified_ns;
+    budget=sync_deadline(p);
+    if(p->command_sync_deadline)budget=minimum(budget,p->command_sync_deadline);
+    if(now>=budget){
+        recovery_record(p,NG2_RECOVERY_SYNC_BUDGET,NG2_RECOVERY_ACTUAL_TICK,now,p->s.last_capture_id);
+        finish(p,now,NG2_REASON_BEAT);return 1;
+    }
+    if(!fresh(p,now)||p->last_observed_prefix!=p->s.last_completed_id
+        ||p->before.state!=NG2_FLOOR||p->scene.state!=NG2_FLOOR
+        ||p->before.goods!=NG2_GOODS_UNKNOWN||p->scene.goods!=NG2_GOODS_UNKNOWN
+        ||p->before.gold_state!=NG2_GOLD_CANDIDATE||p->scene.gold_state!=NG2_GOLD_CANDIDATE
+        ||tile(&p->before,0,0)!=NG2_TILE_FLOOR||tile(&p->scene,0,0)!=NG2_TILE_FLOOR
+        ||memcmp(p->before.tiles,p->scene.tiles,NG2_TILE_COUNT)
+        ||memcmp(p->before.protected_cells,p->scene.protected_cells,NG2_TILE_COUNT)
+        ||!ng2_choose(&p->before,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&before)
+        ||!ng2_choose(&p->scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&latest)
+        ||!same_choice(&before,&p->command_choice)||!same_choice(&before,&latest)
+        ||!ng2_motion(&p->before,&p->scene,p->command.direction,&still)
+        ||still.kind!=NG2_BLOCKED||still.dx||still.dy)return 0;
+    not_sent(p,now,NG2_REASON_LATE);
+    if(p->command_sync_deadline)p->recovery.mode=NG2_RECOVERY_POST_MOVE;
+    post_move_recover(p,now,NG2_RECOVERY_UNSENT_DEADLINE);
+    memset(&p->command,0,sizeof(p->command));p->s.current_command_id=0;
+    return 1;
 }
 /* Select and publish one new physical beat after a verified action. This is
  * not a retry of its old issued ticket, and never bypasses preparation. */
@@ -905,6 +949,10 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         recovery_record(p,NG2_RECOVERY_SYNC_BUDGET,NG2_RECOVERY_ACTUAL_TICK,now,p->s.last_capture_id);
         finish(p,now,NG2_REASON_BEAT);
     }
+    if(!p->finish_requested&&p->recovery.mode==NG2_RECOVERY_POST_MOVE&&now>=sync_deadline(p)){
+        recovery_record(p,NG2_RECOVERY_SYNC_BUDGET,NG2_RECOVERY_ACTUAL_TICK,now,p->s.last_capture_id);
+        finish(p,now,NG2_REASON_BEAT);return 0;
+    }
     if(p->s.input_state==1){
         if(p->command_sync_deadline&&now>=p->command_sync_deadline){
             recovery_record(p,NG2_RECOVERY_SYNC_BUDGET,NG2_RECOVERY_ACTUAL_TICK,now,p->s.last_capture_id);
@@ -912,6 +960,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         }
         if(now>p->command.deadline_ns){
             if(initial_recover(p,NG2_RECOVERY_UNSENT_DEADLINE,NG2_RECOVERY_ACTUAL_TICK,now,p->s.last_capture_id))return 0;
+            if(recover_unsent_continuous(p,now))return 0;
             not_sent(p,now,NG2_REASON_LATE);finish(p,now,NG2_REASON_LATE);
         }
         else return 0;
@@ -1072,6 +1121,7 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
     int reason;NG2ControllerEvent *e;uint64_t tail,horizon,aligned;
     if(!p||!valid_time(now)||p->s.terminal||p->s.input_state!=1||id!=p->command.id)return 0;
     reason=guards(front,locked,owner);
+    if(!reason&&recover_unsent_continuous(p,now))return 0;
     if(!reason&&p->command_sync_deadline&&now>=p->command_sync_deadline){
         p->last_now=maximum(p->last_now,now);
         recovery_record(p,NG2_RECOVERY_SYNC_BUDGET,NG2_RECOVERY_ACTUAL_TICK,now,p->s.last_capture_id);
@@ -1128,6 +1178,7 @@ int ng2_controller_complete(NG2Controller *p,uint64_t id,uint64_t now,int32_t ou
     e=event(p);
     p->last_now=maximum(p->last_now,now);
     if(outcome==0&&(p->s.input_state==1||p->s.input_state==2)){
+        if(p->s.input_state==1&&recover_unsent_continuous(p,now))return 1;
         if(p->s.input_state==1&&initial_recoverable(p)&&now>p->command.deadline_ns){
             initial_recover(p,NG2_RECOVERY_UNSENT_DEADLINE,NG2_RECOVERY_ACTUAL_TICK,now,p->s.last_capture_id);return 1;
         }

@@ -3,6 +3,8 @@ from pathlib import Path
 import importlib.util
 import re
 import tempfile
+import textwrap
+import subprocess
 import types
 import unittest
 from unittest.mock import patch
@@ -34,7 +36,7 @@ class DeviceNativeWorkflowTests(unittest.TestCase):
     def test_default_native_lane_is_device(self):
         trigger = self.source.split('\npermissions:',1)[0]
         self.assertIn('        default: device\n', trigger)
-        self.assertIn('options: [device, focused, full, publish-test062, test058-red, test058-quick]', trigger)
+        self.assertIn('options: [device, focused, full, publish-download, test058-red, test058-quick]', trigger)
         self.assertNotRegex(trigger, r'(?m)^  push:')
 
     def test_device_uses_only_selected_host_contracts_before_the_existing_build(self):
@@ -125,6 +127,66 @@ class DeviceHostSelectionTests(unittest.TestCase):
                         runner.run_scope('unit',[case(result=result)],output,record)
                 self.assertEqual(record['unit']['tests_run'],1)
                 self.assertTrue((output/'test062-host-scope.json').is_file())
+
+
+class DownloadPublisherTests(unittest.TestCase):
+    def publisher(self):
+        source=WORKFLOW.read_text();jobs=job_blocks(source)
+        self.assertIn('publish-download',jobs,'reusable_publish_lane_required')
+        job=jobs['publish-download']
+        body=job.split("python3 - <<'PY'\n",1)[1].split('\n          PY',1)[0]
+        namespace={'__name__':'publisher_unit'}
+        exec(compile(textwrap.dedent(body),'publisher_workflow','exec'),namespace)
+        return namespace,job,body
+
+    def good(self):
+        return {'DOWNLOAD_ARTIFACT_ID':'13724083342','DOWNLOAD_ARCHIVE_SHA256':'a'*64,
+                'DOWNLOAD_IPA_SHA256':'b'*64,'DOWNLOAD_SOURCE_COMMIT':'c'*40,
+                'DOWNLOAD_SOURCE_SHA256':'d'*64,'DOWNLOAD_RELEASE_ID':'439826932',
+                'DOWNLOAD_RELEASE_TAG':'test063-build96'}
+
+    def test_publisher_validates_canonical_inputs_without_shell_interpolation(self):
+        namespace,job,body=self.publisher()
+        spec=namespace['validated_inputs'](self.good())
+        self.assertEqual(spec['release_tag'],'test063-build96')
+        self.assertEqual(namespace['FILES'],('LoopCtrl.ipa','source.zip','SHA256SUMS.txt'))
+        self.assertNotIn('${{ inputs.',body)
+        for key,env in namespace['ENV_FIELDS'].items():
+            self.assertIn(env+': ${{ inputs.'+key+' }}',job)
+        self.assertIn('actions: read',job);self.assertIn('contents: write',job)
+        self.assertEqual(WORKFLOW.read_text().count('contents: write'),1)
+
+    def test_missing_or_malformed_publish_input_is_rejected_before_network(self):
+        namespace,_,_=self.publisher()
+        invalid={'DOWNLOAD_ARTIFACT_ID':['','0','-1','1;id','1\n','01','9223372036854775808'],
+                 'DOWNLOAD_RELEASE_ID':['','0','x'],
+                 'DOWNLOAD_ARCHIVE_SHA256':['a'*63,'A'*64,'g'*64],
+                 'DOWNLOAD_IPA_SHA256':['b'*65],
+                 'DOWNLOAD_SOURCE_COMMIT':['c'*39,'refs/heads/main'],
+                 'DOWNLOAD_SOURCE_SHA256':['d'*63],
+                 'DOWNLOAD_RELEASE_TAG':['test63-build96','test063-build0','test063-build96/extra','test063-build96\n']}
+        for field,values in invalid.items():
+            for value in values:
+                with self.subTest(field=field,value=value),patch.object(subprocess,'run') as network:
+                    supplied=self.good();supplied[field]=value
+                    with self.assertRaises(ValueError):namespace['publish'](supplied)
+                    network.assert_not_called()
+        for field in self.good():
+            supplied=self.good();del supplied[field]
+            with self.subTest(missing=field),patch.object(subprocess,'run') as network:
+                with self.assertRaises(ValueError):namespace['publish'](supplied)
+                network.assert_not_called()
+
+    def test_only_the_owned_empty_draft_can_be_populated(self):
+        namespace,_,_=self.publisher();spec=namespace['validated_inputs'](self.good())
+        draft={'id':439826932,'draft':True,'tag_name':'test063-build96',
+               'target_commitish':'c'*40,'assets':[]}
+        namespace['verify_draft'](draft,spec)
+        for key,value in [('id',1),('draft',False),('tag_name','test062-build94'),
+                          ('target_commitish','main'),('assets',[{'name':'old'}])]:
+            changed=dict(draft);changed[key]=value
+            with self.subTest(key=key),self.assertRaises(ValueError):
+                namespace['verify_draft'](changed,spec)
 
 
 if __name__=='__main__': unittest.main()

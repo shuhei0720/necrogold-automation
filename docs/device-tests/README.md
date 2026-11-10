@@ -2637,3 +2637,13 @@ cd /mnt/necro_test060 && sh test_060.sh
 [計画](../plans/test062-device-cycle.md)・[検証](../reviews/test062.md)・[配布/実機手順](../status.md)。実機未実施。code afcb339624a4007390bbb326edabd3962057e758、Mac94 device成功、新IPA/build94。Controller.cのみ変更し、初歩直前の無害遠方揺れを同IDで保持、UNKNOWN確認を¼/1周期に分散。閾値/入力権限/元期限/無再送/商品優先は維持する。
 
 実機主軸の短い反復へ切替、C単体23+小検査12とactual IPA/profile/seal/全source照合を実施。未変更Runtime故障/world/Kit/client全体は今回の前提にしない。SideStore更新/LoopCtrl完全終了・起動/Start Server後、新しい通常1-1の金壁可視ポーズからtest_062.sh。終了後runtime/test-062全ZIPを依頼する。
+
+
+<a id="test062-received"></a>
+## TEST062受領（2026-11-10 日本時間）
+
+ユーザーの商品可視1/2。1回目494329…は6入力/5移動/開扉1回、149/151/152で商品・価格が見える。CはPARTIAL1の後pause-icon検出不成立でUNKNOWN、SCREEN17。最後の入店MOVE11は未送信で、開扉後の追加方向入力/購入0。プログラムの完全商品判定は0/2として区別する。
+
+2回目59fd71…は2入力/2実移動、3歩目は未送信。frame98実処理とSAME再予約が10ms入力窓に及び、AXquery開始D+1.315ms、gateD+7.996msでTicketGuard拒否→complete0→CAPTURE6。画像取得障害/UNKNOWN synthではない。対象はこの純粋な未送信期限切れで、古いDを延長せず新しい拍へ戻す[TEST063](../plans/test063-unsent-deadline.md)。
+
+ZIP6,632,109bytes/SHA `4d1a4849e947a84e69cfd21a4c0256838c6b5a0aa49b7a8c73a0785efa2e2c91`、2runとも完了/drained、active=2回目。29PNGのbytes/SHA/896×414/全CRCとmanifest一致を確認。欠落画像を未来の実応答として補わない。raw資料はGit外、062の追加回収目的の再実行は依頼しない。

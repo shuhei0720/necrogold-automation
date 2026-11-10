@@ -8,7 +8,35 @@ on:
         type: choice
         required: true
         default: device
-        options: [device, focused, full, publish-test062, test058-red, test058-quick]
+        options: [device, focused, full, publish-download, test058-red, test058-quick]
+      artifact_id:
+        type: string
+        required: false
+        default: ''
+      archive_sha256:
+        type: string
+        required: false
+        default: ''
+      ipa_sha256:
+        type: string
+        required: false
+        default: ''
+      source_commit:
+        type: string
+        required: false
+        default: ''
+      source_sha256:
+        type: string
+        required: false
+        default: ''
+      release_id:
+        type: string
+        required: false
+        default: ''
+      release_tag:
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -118,6 +146,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   native-source-ready:
+    if: inputs.native_lane != 'publish-download'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -597,8 +626,8 @@ jobs:
             ${{ runner.temp }}/ngg2/perception-build/
           if-no-files-found: error
           retention-days: 30
-  publish-test062-download:
-    if: inputs.native_lane == 'publish-test062'
+  publish-download:
+    if: inputs.native_lane == 'publish-download'
     permissions:
       actions: read
       contents: write
@@ -607,41 +636,118 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: shuhei0720/necrogold-automation
+      GH_HOST: github.com
+      DOWNLOAD_ARTIFACT_ID: ${{ inputs.artifact_id }}
+      DOWNLOAD_ARCHIVE_SHA256: ${{ inputs.archive_sha256 }}
+      DOWNLOAD_IPA_SHA256: ${{ inputs.ipa_sha256 }}
+      DOWNLOAD_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      DOWNLOAD_SOURCE_SHA256: ${{ inputs.source_sha256 }}
+      DOWNLOAD_RELEASE_ID: ${{ inputs.release_id }}
+      DOWNLOAD_RELEASE_TAG: ${{ inputs.release_tag }}
     steps:
-      - name: Download only the already verified TEST062 artifacts
+      - name: Validate inputs and publish only the verified package
         shell: bash
         run: |
           set -euo pipefail
-          cd "$RUNNER_TEMP"
-          mkdir test062-download
-          cd test062-download
-          gh api repos/shuhei0720/necrogold-automation/actions/artifacts/13724083342/zip > build-artifact.zip
-          echo 'cfb84047de76feed4e3c19384d8fb6cdbe51ee9cfc5f7664f263653cb988f241  build-artifact.zip' | sha256sum -c -
-          unzip -p build-artifact.zip upstream/release/LoopCtrl.ipa > LoopCtrl-TEST062.ipa
-          curl --fail --location --silent --show-error https://codeload.github.com/shuhei0720/necrogold-automation/zip/5401c7d30dff5c7677896ce282c3f4b97210766f --output necro_test062-source.zip
-          cat > SHA256SUMS.txt <<'SUMS'
-          645848e0d5d59b97e9338af586440df6f3f814008c56bb229e103bfb6e2eddd1  LoopCtrl-TEST062.ipa
-          303cb940b18c37652c7f390226091f837e76edd21eb3767e2774b4457677b506  necro_test062-source.zip
-          SUMS
-          sha256sum -c SHA256SUMS.txt
-      - name: Verify the draft belongs to this exact package
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh api repos/shuhei0720/necrogold-automation/releases/439826932 > "$RUNNER_TEMP/test062-download/release.json"
           python3 - <<'PY'
-          import json, os
+          import hashlib
+          import json
+          import os
           from pathlib import Path
-          r = json.loads((Path(os.environ['RUNNER_TEMP'])/'test062-download/release.json').read_text())
-          assert r['draft'] is True and r['tag_name'] == 'test062-build94'
-          assert r['target_commitish'] == '5401c7d30dff5c7677896ce282c3f4b97210766f'
-          assert not r['assets'], 'do not replace an existing published package'
+          import re
+          import subprocess
+          import zipfile
+
+          REPO = 'shuhei0720/necrogold-automation'
+          FILES = ('LoopCtrl.ipa', 'source.zip', 'SHA256SUMS.txt')
+          ENV_FIELDS = {key: 'DOWNLOAD_'+key.upper() for key in (
+              'artifact_id', 'archive_sha256', 'ipa_sha256', 'source_commit',
+              'source_sha256', 'release_id', 'release_tag')}
+
+
+          def require(value, message):
+              if not value:
+                  raise ValueError(message)
+
+
+          def validated_inputs(environ):
+              spec = {key: environ.get(name, '') for key, name in ENV_FIELDS.items()}
+              for key, value in spec.items():
+                  require(type(value) is str, 'invalid input: '+key)
+                  if key in ('artifact_id', 'release_id'):
+                      valid = bool(re.fullmatch(r'[1-9][0-9]{0,18}', value)) and int(value) < 2**63
+                  elif key.endswith('_sha256'):
+                      valid = bool(re.fullmatch(r'[0-9a-f]{64}', value))
+                  elif key == 'source_commit':
+                      valid = bool(re.fullmatch(r'[0-9a-f]{40}', value))
+                  else:
+                      valid = bool(re.fullmatch(r'test[0-9]{3}-build[1-9][0-9]{0,18}', value))
+                  require(valid, 'invalid input: '+key)
+              return spec
+
+
+          def digest(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+          def verify_draft(release, spec):
+              require(type(release) is dict and type(release.get('id')) is int
+                      and release['id'] == int(spec['release_id']) and release.get('draft') is True
+                      and release.get('tag_name') == spec['release_tag']
+                      and release.get('target_commitish') == spec['source_commit'], 'draft ownership mismatch')
+              require(type(release.get('assets')) is list and not release['assets'], 'draft must have no assets')
+
+
+          def api_release(spec):
+              result = subprocess.run(['gh', 'api', 'repos/'+REPO+'/releases/'+spec['release_id']],
+                                      check=True, capture_output=True, text=True)
+              return json.loads(result.stdout)
+
+
+          def publish(environ=None):
+              # Validate every caller-controlled value before filesystem work or network.
+              spec = validated_inputs(os.environ if environ is None else environ)
+              directory = Path(os.environ['RUNNER_TEMP'])/'verified-download'
+              directory.mkdir()
+              archive = directory/'build-artifact.zip'
+              with archive.open('wb') as output:
+                  subprocess.run(['gh', 'api', 'repos/'+REPO+'/actions/artifacts/'+spec['artifact_id']+'/zip'],
+                                 check=True, stdout=output)
+              require(digest(archive) == spec['archive_sha256'], 'artifact archive SHA mismatch')
+              with zipfile.ZipFile(archive) as package:
+                  require(len(package.namelist()) == len(set(package.namelist())) and package.testzip() is None,
+                          'artifact ZIP integrity failure')
+                  item = package.getinfo('upstream/release/LoopCtrl.ipa')
+                  require(0 < item.file_size <= 128*1024*1024 and not item.is_dir(), 'invalid IPA entry')
+                  (directory/FILES[0]).write_bytes(package.read(item))
+              require(digest(directory/FILES[0]) == spec['ipa_sha256'], 'IPA SHA mismatch')
+              subprocess.run(['curl', '--fail', '--location', '--silent', '--show-error',
+                              'https://codeload.github.com/'+REPO+'/zip/'+spec['source_commit'],
+                              '--output', str(directory/FILES[1])], check=True)
+              require(digest(directory/FILES[1]) == spec['source_sha256'], 'source ZIP SHA mismatch')
+              (directory/FILES[2]).write_text(spec['ipa_sha256']+'  '+FILES[0]+'\n'
+                                            +spec['source_sha256']+'  '+FILES[1]+'\n')
+              verify_draft(api_release(spec), spec)
+              subprocess.run(['gh', 'release', 'upload', spec['release_tag'], *FILES, '--repo', REPO],
+                             cwd=directory, check=True)
+              uploaded = api_release(spec)
+              identity = dict(uploaded); identity['assets'] = []
+              verify_draft(identity, spec)
+              expected = {name: 'sha256:'+digest(directory/name) for name in FILES}
+              assets = uploaded.get('assets')
+              require(type(assets) is list and len(assets) == len(FILES)
+                      and {row['name']: row.get('digest') for row in assets} == expected,
+                      'uploaded asset inventory/digest mismatch')
+              subprocess.run(['gh', 'release', 'edit', spec['release_tag'], '--draft=false', '--prerelease',
+                              '--latest=false', '--repo', REPO], check=True)
+              final = api_release(spec)
+              require(final.get('draft') is False and final.get('tag_name') == spec['release_tag']
+                      and final.get('target_commitish') == spec['source_commit'], 'published release identity mismatch')
+              print(json.dumps({'url': final['html_url'], 'draft': final['draft'],
+                                'assets': [{'name': a['name'], 'size': a['size'], 'digest': a.get('digest'),
+                                            'url': a['browser_download_url']} for a in final['assets']]}, indent=2))
+
+
+          if __name__ == '__main__':
+              publish()
           PY
-      - name: Publish exact verified files at fixed download URLs
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP/test062-download"
-          gh release upload test062-build94 LoopCtrl-TEST062.ipa necro_test062-source.zip SHA256SUMS.txt
-          gh release edit test062-build94 --draft=false --prerelease --latest=false
-          gh api repos/shuhei0720/necrogold-automation/releases/439826932 --jq '{url:.html_url,draft:.draft,assets:[.assets[]|{name:.name,size:.size,digest:.digest,url:.browser_download_url}]}'
