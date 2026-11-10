@@ -2835,3 +2835,12 @@ code `f9bcc3bc7ec97ac4fa692bf388ffd64d79148e03`、[Mac110](https://github.com/sh
 開扉ACK後・未入店・両PARTIALの同入口床票だけ、金壁背後の斜め2セルに限ったFLOOR↔DIRT揺れを許す。2商品を完了扱いせず、同full5/金/全保護/next床/strict BLOCKED/元IDと全期限を維持。未送信掘削対象が床に見え直した場合は旧票を永久撤回し、独立静止pair・full5から別ID/将来拍へ判断し直す。1run1回/元12・旧sync・45・180秒/16入力/UNKNOWN無再送/無creditを保持、有効HUDの形式的再fitは省く。
 
 [IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test071-build112/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test071-build112/source.zip)。最終source差分は文書3件だけ、全製品bytes同一。公開後の匿名GET/全SHAまで照合する。[status手順](../status.md)で新IPA更新→完全終了/起動/Start Server、新通常1-1金壁可視ポーズからtest_071.shをまず2回。自動ポーズ約5秒後iSHへ戻り、画像/ZIP保存・照合完了表示を待ち、自動`runtime/test-071-<run_id>.zip`全回分と全商品可視/停止位置/拍間隔を必ず依頼する。回収済み070の再実行は不要。実ゲームCI/新071の実機改善は未確認。
+
+
+## TEST071受領: 開扉後/2歩後の停止、狭い通路の開扉未証明
+
+2026-11-10（日本時間）。[根拠と次の修正](../reviews/test072.md)。started_ns/原画を照合し実行順88384bb8→2e398828→318e3f42（添付順とは異なる）。全3ZIP/48PNG（16/15/17）のCRC/SHA/bytes/896×414/manifest全offset/hash/cursor/時刻prefix/stable/inflight/active-report一致、全回収resolved/terminal/drained、dispatch_failureなし。原画の商品全体可視0/3として扱う。
+
+1は5MOVED+1開扉/PARTIAL。同full5/金/全保護/strictBLOCKEDでも、商品保護maskが隣の不通行GOLDへ重なり入店票を未送信拒否。元D−58.578ms。2は2MOVED後、同UP/reason8/次FLOOR/full5/金/保護/strictBLOCKEDの遠方palette2セル変化でSAMEchain2へ達し、D−8.307msに停止。3は5MOVED+1送信、実画像ではDOOR→FLOOR/新商品露出だが狭い地形の元texture支持不足で8評価UNKNOWN、MOVEMENT停止。開扉credit0のままでACK/目視をそのままcreditへ置き換えない。
+
+歩行送信間隔約.505〜.526秒でほぼ毎拍。速度より商品到達を阻む停止を[072計画](../plans/test072-approach.md)で先に修正する。その後ユーザー追加の金壁不可視/側方通路接近を実装し、金壁が現れれば通常の入店・商品確認へ移る。全画像回収済み071の追加回収・再実行は依頼しない。raw/派生証跡はGit外。

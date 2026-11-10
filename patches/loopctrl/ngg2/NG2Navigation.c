@@ -50,7 +50,13 @@ static int gold_count(const NG2Scene *s) {
     int i,n=0; for (i=0;i<CELLS;++i) n+=s->tiles[i]==NG2_TILE_GOLD; return n;
 }
 typedef struct { int cost,length,first,order,done; } Path;
-static void paths(const NG2Scene *s,int weighted,Path out[CELLS]) {
+static int passage_clear(const NG2Scene *s,int x,int y) {
+    int d;
+    for (d=0;d<=4;++d)
+        if (protected_at(s,x+ddx[d],y+ddy[d])) return 0;
+    return 1;
+}
+static void path_search(const NG2Scene *s,int weighted,int clear_neighbours,Path out[CELLS]) {
     int i,serial=0,origin=index_of(0,0);
     for (i=0;i<CELLS;++i) { out[i].cost=INF_COST;out[i].length=0;out[i].first=0;out[i].order=INT_MAX;out[i].done=0; }
     out[origin].cost=0;out[origin].order=serial++;
@@ -64,7 +70,8 @@ static void paths(const NG2Scene *s,int weighted,Path out[CELLS]) {
         out[best].done=1;
         for (d=1;d<=4;++d) {
             int x=px(best)+ddx[d],y=py(best)+ddy[d],next=index_of(x,y),k,total;
-            if (next<0 || protected_at(s,x,y)) continue;
+            if (next<0 || protected_at(s,x,y) ||
+                (clear_neighbours && !passage_clear(s,x,y))) continue;
             k=tile(s,x,y);
             if (k!=NG2_TILE_FLOOR && !(weighted && k==NG2_TILE_DIRT)) continue;
             total=out[best].cost+(k==NG2_TILE_DIRT ? 2 : 1);
@@ -75,6 +82,9 @@ static void paths(const NG2Scene *s,int weighted,Path out[CELLS]) {
             }
         }
     }
+}
+static void paths(const NG2Scene *s,int weighted,Path out[CELLS]) {
+    path_search(s,weighted,0,out);
 }
 static int lexpoint(int x,int y,int bx,int by) { return x<bx || (x==bx && y<by); }
 static void decision(NG2Decision *out,int direction,int reason,int x,int y,const NG2Scene *s) {
@@ -91,7 +101,10 @@ int ng2_choose(const NG2Scene *source,int32_t x,int32_t y,const uint16_t *visits
     memset(out,0,sizeof(*out));
     if (!valid_scene(s) || !visits || count!=NG2_VISIT_COUNT || x < -16 || x > 16 || y < -16 || y > 16) return 0;
     if (s->goods==NG2_GOODS_VISIBLE) { out->reason=1;return 0; }
-    for (d=0;d<=4;++d) if (protected_at(s,ddx[d],ddy[d])) { out->reason=2;return 0; }
+    for (d=0;d<=4;++d)
+        if (protected_at(s,ddx[d],ddy[d]) && (!d || tile(s,ddx[d],ddy[d])!=NG2_TILE_GOLD)) {
+            out->reason=2;return 0;
+        }
     /* Below-grid evidence is not a GOLD cell or an unseen passage. It may
      * select only the observed DOWN floor at the initial position. Actual
      * displacement must reveal ordinary gold before another such choice. */
@@ -164,6 +177,65 @@ int ng2_choose(const NG2Scene *source,int32_t x,int32_t y,const uint16_t *visits
     }
     if (best>=0) { decision(out,bestdir,8,px(best),py(best),s);return 1; }
     return 0;
+}
+
+static int passage_scene(const NG2Scene *s) {
+    return valid_scene(s) && s->gold_state==NG2_GOLD_CLEAR &&
+        s->goods==NG2_GOODS_UNKNOWN && !gold_count(s) &&
+        tile(s,0,0)==NG2_TILE_FLOOR && passage_clear(s,0,0);
+}
+static int passage_wall(const NG2Scene *s,int x,int y) {
+    int k=tile(s,x,y);
+    return k==NG2_TILE_DIRT || k==NG2_TILE_STONE;
+}
+uint32_t ng2_passage_candidates(const NG2Scene *s) {
+    Path route[CELLS];uint32_t result=0;int side,k;
+    if (!passage_scene(s)) return 0;
+    path_search(s,0,1,route);
+    for (side=0;side<2;++side) for (k=-2;k<=2;++k) {
+        int mx=side ? -3 : k,my=side ? k : -3,dx=side ? -1 : 0,dy=side ? 0 : -1;
+        int inboard=index_of(mx-dx,my-dy),mouth=tile(s,mx,my);
+        int first=passage_wall(s,mx+dy,my-dx),second=passage_wall(s,mx-dy,my+dx),walls=0,j;
+        if (inboard<0 || route[inboard].cost==INF_COST ||
+            !passage_clear(s,mx,my) || !passage_clear(s,mx+dx,my+dy)) continue;
+        if (mouth==NG2_TILE_FLOOR) {
+            if (!first || !second) continue;
+        } else if (mouth==NG2_TILE_UNKNOWN) {
+            if ((!first && !second) || tile(s,mx+dx,my+dy)!=NG2_TILE_FLOOR) continue;
+            for (j=-3;j<=3;++j) walls+=passage_wall(s,side ? -3 : j,side ? j : -3);
+            if (walls<3) continue;
+        } else continue;
+        result|=UINT32_C(1)<<(side*5+k+2);
+    }
+    return result;
+}
+int ng2_choose_passage(const NG2Scene *s,int32_t x,int32_t y,
+                       int32_t mouth_x,int32_t mouth_y,NG2Decision *out) {
+    Path route[CELLS];int dx,dy,gx,gy,origin_gap,i,best=-1,best_gap=INF_COST;
+    if (!out) return 0;
+    memset(out,0,sizeof(*out));
+    if (!passage_scene(s) || x < -16 || x > 16 || y < -16 || y > 16) return 0;
+    if (mouth_y==-3 && mouth_x>=-2 && mouth_x<=2) {dx=0;dy=-1;}
+    else if (mouth_x==-3 && mouth_y>=-2 && mouth_y<=2) {dx=-1;dy=0;}
+    else return 0;
+    /* The caller retains the initially detected world mouth. Re-running the
+     * initial-room detector at a moved camera would invent another origin. */
+    gx=mouth_x+dx-x;gy=mouth_y+dy-y;origin_gap=abs(gx)+abs(gy);
+    if (!origin_gap) return 0;
+    path_search(s,0,1,route);
+    for (i=0;i<CELLS;++i) {
+        int gap=abs(px(i)-gx)+abs(py(i)-gy),d=route[i].first;
+        if (!route[i].length || route[i].cost==INF_COST || gap>=origin_gap) continue;
+        if (best<0 || gap<best_gap || (gap==best_gap &&
+            (route[i].length<route[best].length || (route[i].length==route[best].length &&
+             (lexical[d]<lexical[route[best].first] ||
+              (d==route[best].first && lexpoint(px(i),py(i),px(best),py(best)))))))) {
+            best=i;best_gap=gap;
+        }
+    }
+    if (best<0) return 0;
+    decision(out,route[best].first,10,px(best),py(best),s);
+    return route[best].length;
 }
 
 typedef struct { unsigned char normalized[N],texture[N],positive[N],detail[N]; } View;
@@ -367,6 +439,51 @@ static void gate_detail_motion(const NG2Scene *before,const NG2Scene *after,int 
     if (!strong_texture(&views[0],&views[1],candidates,0,1)) return;
     out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
 }
+/* A just-opened narrow passage may expose merchandise while leaving too
+ * little terrain inside the ordinary mask. This separate zero-motion proof
+ * adds the observed lower terrain strip; it never changes the MOVE mask. */
+static int opening_mask(int x,int y) {
+    if (x<40 || x>=179 || y<20 || y>=85) return 0;
+    return !(x>=103 && x<122 && y>=43 && y<61) &&
+           !(x>=115 && x<154 && y>=38 && y<80);
+}
+static void opening_texture(const View *a,const View *b,int sx,int sy,
+                            int *support,int *bad,int regions[2]) {
+    int x,y;*support=0;*bad=0;
+    if (regions) regions[0]=regions[1]=0;
+    for (y=20;y<85;++y) for (x=40;x<179;++x) {
+        int old=y*W+x,other;
+        if (!opening_mask(x,y) || !opening_mask(x+sx,y+sy)) continue;
+        other=(y+sy)*W+x+sx;
+        if (!a->detail[old] || !b->detail[other]) continue;
+        ++*support;*bad+=a->positive[old]!=b->positive[other];
+        if (regions) ++regions[y<65 ? 0 : 1];
+    }
+}
+static void opening_detail_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                  const View views[2],const Candidate candidates[73],NG2Motion *out) {
+    int dx=ddx[direction],dy=ddy[direction],support,bad,regions[2],k;
+    if (out->kind!=NG2_MOTION_UNKNOWN || before->state!=NG2_FLOOR || after->state!=NG2_FLOOR ||
+        before->goods>NG2_GOODS_PARTIAL || after->goods>NG2_GOODS_PARTIAL ||
+        after->goods<before->goods || before->gold_state!=NG2_GOLD_CANDIDATE ||
+        after->gold_state!=NG2_GOLD_CANDIDATE ||
+        tile(before,0,0)!=NG2_TILE_FLOOR || tile(after,0,0)!=NG2_TILE_FLOOR ||
+        tile(before,dx,dy)!=NG2_TILE_DOOR || tile(after,dx,dy)!=NG2_TILE_FLOOR ||
+        protected_at(before,0,0) || protected_at(after,0,0) ||
+        protected_at(before,dx,dy) || protected_at(after,dx,dy) ||
+        !gate(before,dx,dy) || gate(before,dx,dy)!=gate(after,dx,dy) ||
+        !isfinite(candidates[0].score) || candidates[0].score>.45 ||
+        candidates[1].score-candidates[0].score<.08 ||
+        candidates[0].sx || candidates[0].sy || !unique_gate_translation(before,after,0,0)) return;
+    opening_texture(&views[0],&views[1],0,0,&support,&bad,regions);
+    if (!texture_strength(support,bad,95) || regions[0]<100 || regions[1]<100) return;
+    for (k=1;k<73;++k) {
+        int count,opposite;
+        opening_texture(&views[0],&views[1],candidates[k].sx,candidates[k].sy,&count,&opposite,NULL);
+        if (!texture_lead(support,bad,count,opposite)) return;
+    }
+    out->kind=NG2_DOOR_OPENED;
+}
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -384,6 +501,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     }
     evaluate_motion(before,after,direction,views,candidates,out);
     gate_detail_motion(before,after,direction,views,candidates,out);
+    opening_detail_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,

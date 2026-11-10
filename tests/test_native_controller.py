@@ -1484,12 +1484,14 @@ void test055_mutate(NG2Controller *p,int which,uint64_t value){
         for first_same in (False,True):
             with self.subTest(first_same=first_same):
                 before,latest,_=self.fresh_synthetic_scenes('floor')
-                first=Scene.from_buffer_copy(bytes(before if first_same else latest));first.tiles[8]=3
+                # (1,1) is inside quiet's excluded neighborhood but off the
+                # next step. Exercise SAME/FRESH budgets rather than quiet.
+                first=Scene.from_buffer_copy(bytes(before if first_same else latest));first.tiles[150]=3
                 _,_,old,wait=self.fresh_private_case(before,first);current=self.next_move()
                 self.assertEqual(2 if first_same else 12,self.scene_details()[-1].validation)
                 self.lib.test055_mutate(self.engine,8,7)
                 second=Scene.from_buffer_copy(bytes(latest))
-                second.tiles[8]=3
+                second.tiles[150]=3
                 if not first_same:second.tiles[5*23+10]=4
                 self.now+=2;self.observe(second);replacement=self.next_move()
                 self.assertEqual((12,8,2),(self.scene_details()[-1].validation,self.scene_details()[-1].continuous_count,

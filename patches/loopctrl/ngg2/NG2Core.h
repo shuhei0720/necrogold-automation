@@ -53,6 +53,15 @@ int ng2_fingerprint_changed(const uint8_t *before, const uint8_t *after);
 /* tiles index = (y+5)*23+x+11; visits world index = (y+16)*33+x+16. */
 int ng2_choose(const NG2Scene *scene, int32_t x, int32_t y,
                const uint16_t *visits, size_t visit_count, const NG2Entrance *entrance, NG2Decision *out);
+/* Initial no-gold room side passages: bits0..4=(k,-3), bits5..9=(-3,k),
+ * k=-2..2. No synthetic GOLD or permission to enter an unobserved cell. */
+uint32_t ng2_passage_candidates(const NG2Scene *scene);
+/* mouth is fixed in initial world coordinates. A positive return is the
+ * shortest observed-FLOOR path length to the chosen local vantage; the
+ * decision target is that actual vantage relative to the current player.
+ * The one-cell-outside goal and arrival are tracked by the caller. */
+int ng2_choose_passage(const NG2Scene *scene, int32_t x, int32_t y,
+                      int32_t mouth_x, int32_t mouth_y, NG2Decision *out);
 int ng2_motion(const NG2Scene *before, const NG2Scene *after, int32_t direction, NG2Motion *out);
 int ng2_entered_gate(const NG2Scene *before, const NG2Scene *after, int32_t direction,
                      int32_t x, int32_t y, int32_t motion, NG2Entrance *out);

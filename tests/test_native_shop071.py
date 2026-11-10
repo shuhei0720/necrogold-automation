@@ -121,7 +121,17 @@ class NativeShop071Tests(unittest.TestCase):
                 elif fault == 'target': changed.tiles[(0,-1)] = 'dirt'
                 elif fault == 'signature': changed.signature = bytes([40])*23296
                 self.now += 2; self.observe_actual(self.scene(2,2,changed,beat=True))
-                self.assertEqual(1 if fault == 'goods_change' else 17,self.status().reason)
+                if fault in ('not_opened','wrong_direction','unknown','forward_path','other_near'):
+                    # TEST072 may retire this failed quiet permission for a
+                    # separate independent observation. It cannot keep this
+                    # ticket or dispatch before that later proof exists.
+                    self.assertEqual((0,0,0,1),(self.status().reason,self.status().input_state,
+                        self.status().current_command_id,self.recovery().post_move_reacquisitions))
+                    self.assertEqual((3,17,0),(self.events()[-1].outcome,
+                        self.events()[-1].reason,self.events()[-1].begin_ns))
+                    self.assertNotEqual(4,self.tick()[1].kind)
+                else:
+                    self.assertEqual(1 if fault == 'goods_change' else 17,self.status().reason)
                 self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,command.id,command.not_before_ns,1,0,1))
                 self.assertEqual(1,self.status().moves)
 

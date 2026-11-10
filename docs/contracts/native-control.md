@@ -1,6 +1,6 @@
 # Nativeの不変条件
 
-[要件](../requirements/necrogold.md)・計画/Redで境界変更を検証。
+[要件](../requirements/necrogold.md)・計画/Redで境界変更を検証。 TEST072の§4/5/7/8/9への限定追加は[通路接近契約](passage-approach.md)。その他の値・条件は本書を維持。
 
 ## 2. 保存
 
@@ -96,6 +96,5 @@ profilev2はPerception/Navigation strict O2（-fno-fast-math/-ffp-contract=off�
 
 [試験区分](../testing.md)・[工程](../development-flow.md)。画像不足/hash不一致はlocal失敗、CI除外と区別。模擬/未測定は実機成功/速度達成にせず、run別評価。
 
-## 17. 配布
 
-[配布/実機](../../AGENTS.md#保存と返却)。native/cap変更は新IPA、SideStore更新→LoopCtrl完全終了/起動→Start Server。新通常1-1ポーズ、同時テスト禁止。回収済再実行禁止、未回収だけ同process/source/runtimeで回復。
+配布/実機は[AGENTS](../../AGENTS.md#保存と返却)。
