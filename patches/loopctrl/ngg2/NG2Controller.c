@@ -1349,6 +1349,24 @@ static int start_stationary_wait(NG2Controller *p,const NG2Scene *scene,uint64_t
     p->motion_wait.active=0;p->visual_phase_failed=0;p->s.phase=NG2_PHASE_SYNC;p->proof_capture_id=id;
     return 1;
 }
+static void record_change(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    int mask,int changed_tiles,int changed_protected,int allowed,int validation);
+/* The retired unsent source still equals this fixed anchor before issuance.
+ * Only a real Scene difference can use the existing nonzero-mask journal. */
+static void record_stationary_failure(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    uint64_t start,int validation){
+    const NG2ControllerEvent *e=event(p);int mask,tiles,protected_cells;
+    if(!p->stationary_wait_active||p->finish_requested||p->s.input_state
+        ||(p->gate_refresh_state!=NG2_GATE_REFRESH_OBSERVE&&p->gate_refresh_state!=NG2_GATE_REFRESH_READY)
+        ||p->command.kind!=NG2_ACTION_MOVE||!p->command.source_capture_id
+        ||!e||e->command.id!=p->command.id||e->begin_ns||e->outcome!=3
+        ||p->replan_pending||p->continuous_pending
+        ||memcmp(&p->before,&p->gate_refresh_anchor,sizeof(p->before))
+        ||id<=p->stationary_wait_trigger_id||start<p->gate_refresh_previous_end
+        ||p->s.last_completed_id!=p->gate_refresh_prefix||!stationary_wait_world(p))return;
+    mask=scene_change(&p->before,scene,&tiles,&protected_cells);
+    if(mask)record_change(p,scene,id,mask,tiles,protected_cells,0,validation);
+}
 static int update_stationary_wait(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t now){
     NG2Motion still;int d=p->gate_refresh_choice.direction;
@@ -1358,21 +1376,31 @@ static int update_stationary_wait(NG2Controller *p,const NG2Scene *scene,uint64_
     if(id==p->stationary_wait_trigger_id)return 1; /* Trigger is not independent proof. */
     p->gate_refresh_proof_id=0;
     if(id<p->stationary_wait_trigger_id||start<p->gate_refresh_previous_end
-        ||p->s.last_completed_id!=p->gate_refresh_prefix||!stationary_wait_world(p)
-        ||!ng2_motion(&p->gate_refresh_anchor,scene,d,&still)){
+        ||p->s.last_completed_id!=p->gate_refresh_prefix||!stationary_wait_world(p)){
+        finish(p,now,NG2_REASON_SCREEN);return 0;
+    }
+    if(!ng2_motion(&p->gate_refresh_anchor,scene,d,&still)){
+        record_stationary_failure(p,scene,id,start,NG2_REVALIDATE_MOTION);
         finish(p,now,NG2_REASON_SCREEN);return 0;
     }
     if(p->stationary_wait_passage&&actual_gold(scene)){
-        if(still.kind!=NG2_BLOCKED||still.dx||still.dy){finish(p,now,NG2_REASON_SCREEN);return 0;}
+        if(still.kind!=NG2_BLOCKED||still.dx||still.dy){
+            record_stationary_failure(p,scene,id,start,NG2_REVALIDATE_MOTION);
+            finish(p,now,NG2_REASON_SCREEN);return 0;
+        }
         /* Retain P through the existing independent gold handoff. */
         p->stationary_wait_active=0;p->gate_refresh_state=NG2_GATE_REFRESH_NONE;
         begin_passage_wait(p,scene,id,start,end,now,PASSAGE_WAIT_GOLD);return 1;
     }
-    if(!stationary_wait_scene(p,scene)){finish(p,now,NG2_REASON_SCREEN);return 0;}
+    if(!stationary_wait_scene(p,scene)){
+        record_stationary_failure(p,scene,id,start,NG2_REVALIDATE_ROUTE);
+        finish(p,now,NG2_REASON_SCREEN);return 0;
+    }
     if(still.kind==NG2_BLOCKED&&!still.dx&&!still.dy){
         p->gate_refresh_proof_id=id;p->proof_capture_id=id;
         if(p->gate_refresh_state!=NG2_GATE_REFRESH_ISSUED)p->gate_refresh_state=NG2_GATE_REFRESH_READY;
     }else if(p->gate_refresh_state!=NG2_GATE_REFRESH_OBSERVE||still.kind!=NG2_MOTION_UNKNOWN){
+        record_stationary_failure(p,scene,id,start,NG2_REVALIDATE_MOTION);
         finish(p,now,NG2_REASON_SCREEN);return 0;
     }
     return 1;

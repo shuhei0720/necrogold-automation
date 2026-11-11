@@ -125,6 +125,69 @@ static int ng2_gold(const unsigned char *rgba,size_t stride,const unsigned char 
     }
     return 0;
 }
+typedef struct { int r,g,b,spread,black,count; } NG2MaterialSample;
+static NG2MaterialSample ng2_material_sample(const unsigned char *rgba,size_t stride,
+    int left,int top,int width,int height){
+    unsigned hist[3][256]={{0}},sum[3]={0},squares[3]={0};
+    NG2MaterialSample out={0};int med[3],x,y,c,v,n=width*height;
+    out.count=n;
+    for(y=top;y<top+height;++y)for(x=left;x<left+width;++x){
+        const unsigned char *p=rgba+y*stride+4*x;
+        out.black+=p[0]<6||p[1]<3;
+        for(c=0;c<3;++c){v=p[c];++hist[c][v];sum[c]+=(unsigned)v;squares[c]+=(unsigned)(v*v);}
+    }
+    for(c=0;c<3;++c){unsigned count=0;
+        for(v=0;v<256;++v){count+=hist[c][v];if(count>(unsigned)n/2)break;}
+        med[c]=v;
+        if((uint64_t)n*squares[c]-(uint64_t)sum[c]*sum[c]>=(uint64_t)4*n*n)out.spread=1;
+    }
+    out.r=med[0];out.g=med[1];out.b=med[2];return out;
+}
+static int ng2_material_floor(NG2MaterialSample a){
+    int r=a.r,g=a.g,b=a.b;
+    return r>=6&&g>=3&&a.spread&&((r<=38&&44*r<=100*b&&100*b<=90*r&&40*r<=100*g&&100*g<=90*r
+        &&abs(g-b)<=fmax(2,.18*r))||(38<r&&r<=52&&55*r<=100*b+155&&100*b<=70*r
+        &&45*r<=100*g&&100*g<=68*r&&abs(g-b)<=fmax(2,.12*r)));
+}
+static int ng2_material_stone(NG2MaterialSample a){
+    return a.spread&&a.r>40&&100*a.b>53*a.r&&100*a.g>69*a.r;
+}
+static void ng2_material_proofs(const unsigned char *rgba,size_t stride,NG2Scene *out){
+    for(int j=-5;j<5;++j)for(int i=-11;i<12;++i){
+        int idx=ng2_index(i,j),cx=448+36*i,cy=207+36*j,gap;
+        NG2MaterialSample full,upper,lower,ur,ll;
+        if(out->tiles[idx]!=NG2_TILE_DIRT)continue;
+        full=ng2_material_sample(rgba,stride,cx-12,cy-12,25,25);
+        if(!full.spread)continue;
+        if(38<full.r&&full.r<=52){
+            gap=55*full.r-(100*full.b+155);
+            if(1<=gap&&gap<=77&&100*full.b<=70*full.r&&45*full.r<=100*full.g
+                &&100*full.g<=68*full.r&&abs(full.g-full.b)<=fmax(2,.12*full.r)){
+                upper=ng2_material_sample(rgba,stride,cx-12,cy-12,25,12);
+                lower=ng2_material_sample(rgba,stride,cx-12,cy,25,13);
+                ur=ng2_material_sample(rgba,stride,cx,cy-12,13,12);
+                ll=ng2_material_sample(rgba,stride,cx-12,cy,12,13);
+                if((ng2_material_floor(upper)&&ng2_material_floor(lower))
+                    ||(ng2_material_floor(ur)&&ng2_material_floor(ll))){out->tiles[idx]=NG2_TILE_FLOOR;continue;}
+            }
+        }
+        if(6<=full.r&&full.r<=12){
+            upper=ng2_material_sample(rgba,stride,cx-12,cy-12,25,12);
+            lower=ng2_material_sample(rgba,stride,cx-12,cy,25,13);
+            if(100*upper.black>=95*upper.count&&100*(lower.count-lower.black)>=90*lower.count
+                &&16<=lower.r&&lower.r<=52&&ng2_material_floor(lower)){
+                out->tiles[idx]=NG2_TILE_FLOOR;continue;
+            }
+        }
+        gap=53*full.r-100*full.b;
+        if(full.r>40&&100*full.g>69*full.r&&0<=gap&&gap<=76){
+            ur=ng2_material_sample(rgba,stride,cx,cy-12,13,12);
+            ll=ng2_material_sample(rgba,stride,cx-12,cy,12,13);
+            if(ng2_material_stone(ur)&&ng2_material_stone(ll))out->tiles[idx]=NG2_TILE_STONE;
+        }
+    }
+}
+
 static void ng2_tiles(const unsigned char *rgba,size_t stride,NG2Scene *out){
     int i,j,x,y,c,v,k;unsigned hist[3][256],sum[3],squares[3];
     for(j=-5;j<5;++j)for(i=-11;i<12;++i){
@@ -305,7 +368,7 @@ int ng2_analyze_rgba(const uint8_t *rgba,size_t length,size_t stride,NG2Scene *o
         &&!ng2_match(rgba,stride,gray,&ng2_template_death,0)){
         out->state=NG2_FLOOR;
         if(ng2_gold(rgba,stride,gray,work,density,out))result=-1;
-        else {ng2_tiles(rgba,stride,out);result=ng2_merchandise(rgba,stride,gray,work,density,out);}
+        else {ng2_tiles(rgba,stride,out);ng2_material_proofs(rgba,stride,out);result=ng2_merchandise(rgba,stride,gray,work,density,out);}
         if(!result){ng2_lower_fringe(rgba,stride,out);
             for(y=0;y<H;y+=4)for(x=0;x<W;x+=4)out->signature[(y/4)*224+x/4]=gray[y*W+x];
             ng2_beat_extract(rgba,stride,out);}

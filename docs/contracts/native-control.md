@@ -1,6 +1,6 @@
 # Nativeの不変条件
 
-[要件](../requirements/necrogold.md)・[通路と限定変更](passage-approach.md)。[081計画](../plans/test081-batch-stops-evidence.md)の限定差分以外は維持。
+[要件](../requirements/necrogold.md)・[通路と限定変更](passage-approach.md)。[082計画](../plans/test082-materials-motion.md)の限定差分以外は維持。
 
 ## 2. 保存
 
@@ -80,7 +80,7 @@ RecoveryTrace192B/RecoveryStatus456Bの別getterで消去前model/raw samples≤
 
 ## 12. 起動/旧client回復
 
-新規v16/API1.98.16-ngg2/cap15、cap14互換。計画§5のrevision対応。v1〜15=profile1、v16=profile2。全応答APIはv1〜13=.14、v14=.15、v15/16=.16。v12〜16はmotion_references、v14〜16はrecovery必須。旧診断不在可/存在時同閉schema。motion_wait≤8はAPI.16/v15・16のみ、旧版≤3。v10〜16は4chunk、v9は1、v1〜8はlegacy。started回復は元UUID/clock/owner・GET0/start0、新cap不要。未開始旧journalは同UUIDでv16へ移行。unknown start無再送。fresh preflight許可transientは最大4試行/計8秒/各2秒。
+新規v16/API1.98.16-ngg2/cap15、cap14互換。081計画§5のrevision対応。v1〜15=profile1、v16=profile2。全応答APIはv1〜13=.14、v14=.15、v15/16=.16。v12〜16はmotion_references、v14〜16はrecovery必須。旧診断不在可/存在時同閉schema。motion_wait≤8はAPI.16/v15・16のみ、旧版≤3。v10〜16は4chunk、v9は1、v1〜8はlegacy。started回復は元UUID/clock/owner・GET0/start0、新cap不要。未開始旧journalは同UUIDでv16へ移行。unknown start無再送。fresh preflight許可transientは最大4試行/計8秒/各2秒。
 
 ## 13. Export
 

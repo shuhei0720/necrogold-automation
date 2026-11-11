@@ -1184,6 +1184,95 @@ static void side_gate_motion(const NG2Scene *before,const NG2Scene *after,int di
     free(cache);
 }
 
+/* A clear-floor unit may retain the complete old terrain anchors without an
+ * L-shaped corner. Keep both independent raw phases and the original blurred
+ * world proof; this adds no gold, opening, entry or future-step authority. */
+static void terrain_blur_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                const View views[2],const Candidate candidates[73],NG2Motion *out) {
+    int dx,dy,i,band,support,bad,regions[2];
+    if (out->kind!=NG2_MOTION_UNKNOWN || direction<1 || direction>4) return;
+    dx=ddx[direction];dy=ddy[direction];
+    if (before->state!=NG2_FLOOR || after->state!=NG2_FLOOR ||
+        before->goods!=NG2_GOODS_UNKNOWN || after->goods!=NG2_GOODS_UNKNOWN ||
+        before->gold_state!=NG2_GOLD_CLEAR || after->gold_state!=NG2_GOLD_CLEAR ||
+        tile(before,0,0)!=NG2_TILE_FLOOR || tile(before,dx,dy)!=NG2_TILE_FLOOR ||
+        tile(after,0,0)!=NG2_TILE_FLOOR || !isfinite(candidates[0].score) ||
+        candidates[0].score<=.45 || !isfinite(candidates[1].score) ||
+        !(candidates[1].score-candidates[0].score>=.08) ||
+        candidates[0].sx!=-9*dx || candidates[0].sy!=-9*dy) return;
+    for (i=0;i<CELLS;++i)
+        if (before->protected_cells[i] || after->protected_cells[i] ||
+            before->tiles[i]==NG2_TILE_GOLD || after->tiles[i]==NG2_TILE_GOLD ||
+            before->tiles[i]==NG2_TILE_ITEM || after->tiles[i]==NG2_TILE_ITEM) return;
+    for (i=0;i<73;++i)
+        if (isnan(candidates[i].score) || candidates[i].score==-INFINITY) return;
+    if (!unique_terrain_translation(before,after,candidates[0].sx,candidates[0].sy)) return;
+    /* The runner-up must provide a finite competitor in each frozen band.
+     * An unavailable phase cannot supply an infinite winning margin. */
+    for (band=0;band<2;++band) {
+        double first=phase_band_intensity(&views[0],&views[1],candidates[0].sx,candidates[0].sy,band);
+        double second=phase_band_intensity(&views[0],&views[1],candidates[1].sx,candidates[1].sy,band);
+        if (!isfinite(first) || !isfinite(second) || !(second-first>=.08)) return;
+    }
+    if (!independent_phase(views,candidates)) return;
+    world_blur_texture(before,after,views,candidates[0].sx,candidates[0].sy,&support,&bad,regions);
+    if (!texture_strength(support,bad,95) || regions[0]<100 || regions[1]<100) return;
+    for (i=1;i<73;++i) {
+        int count,opposite;
+        world_blur_texture(before,after,views,candidates[i].sx,candidates[i].sy,&count,&opposite,NULL);
+        if (!texture_lead(support,bad,count,opposite)) return;
+    }
+    out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+}
+
+/* Correctly revealed floor can also support a nearby blurred-edge alias.
+ * A preserved unique old L anchors the unit, the original blur plane proves
+ * its 95% quality, and the sharper raw plane independently distinguishes all
+ * 73 shifts at 75% quality and the original 15-point lead. No votes are pooled. */
+static void corner_gradient_blur_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                        const View views[2],const Candidate candidates[73],NG2Motion *out) {
+    StaticGradientCache *cache;
+    int dx,dy,i,band,support,bad,regions[2];
+    if (out->kind!=NG2_MOTION_UNKNOWN || direction<1 || direction>4) return;
+    dx=ddx[direction];dy=ddy[direction];
+    if (before->state!=NG2_FLOOR || after->state!=NG2_FLOOR ||
+        before->goods!=NG2_GOODS_UNKNOWN || after->goods!=NG2_GOODS_UNKNOWN ||
+        before->gold_state!=NG2_GOLD_CLEAR || after->gold_state!=NG2_GOLD_CLEAR ||
+        tile(before,0,0)!=NG2_TILE_FLOOR || tile(before,dx,dy)!=NG2_TILE_FLOOR ||
+        tile(after,0,0)!=NG2_TILE_FLOOR || !isfinite(candidates[0].score) ||
+        candidates[0].score<=.45 || !isfinite(candidates[1].score) ||
+        !(candidates[1].score-candidates[0].score>=.08) ||
+        candidates[0].sx!=-9*dx || candidates[0].sy!=-9*dy) return;
+    for (i=0;i<CELLS;++i)
+        if (before->protected_cells[i] || after->protected_cells[i] ||
+            before->tiles[i]==NG2_TILE_GOLD || after->tiles[i]==NG2_TILE_GOLD ||
+            before->tiles[i]==NG2_TILE_ITEM || after->tiles[i]==NG2_TILE_ITEM) return;
+    for (i=0;i<73;++i)
+        if (isnan(candidates[i].score) || candidates[i].score==-INFINITY) return;
+    if (!unique_corner_translation(before,after,candidates[0].sx,candidates[0].sy)) return;
+    for (band=0;band<2;++band) {
+        double first=phase_band_intensity(&views[0],&views[1],candidates[0].sx,candidates[0].sy,band);
+        double second=phase_band_intensity(&views[0],&views[1],candidates[1].sx,candidates[1].sy,band);
+        if (!isfinite(first) || !isfinite(second) || !(second-first>=.08)) return;
+    }
+    if (!independent_phase(views,candidates)) return;
+    world_blur_texture(before,after,views,candidates[0].sx,candidates[0].sy,&support,&bad,regions);
+    if (!texture_strength(support,bad,95) || regions[0]<100 || regions[1]<100) return;
+    cache=(StaticGradientCache *)calloc(1,sizeof(*cache));
+    if (!cache) return;
+    static_gradient_features(before,cache->before,cache->indices,&cache->count);
+    static_gradient_features(after,cache->after,NULL,NULL);
+    static_gradient_texture(cache,candidates[0].sx,candidates[0].sy,&support,&bad,regions);
+    if (!texture_strength(support,bad,75) || regions[0]<100 || regions[1]<100) {free(cache);return;}
+    for (i=1;i<73;++i) {
+        int count,opposite;
+        static_gradient_texture(cache,candidates[i].sx,candidates[i].sy,&count,&opposite,NULL);
+        if (!texture_lead(support,bad,count,opposite)) {free(cache);return;}
+    }
+    free(cache);
+    out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+}
+
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -1210,6 +1299,8 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     revealed_gate_axis_motion(before,after,direction,candidates,out);
     sparse_gate_motion(before,after,direction,views,candidates,out);
     side_gate_motion(before,after,direction,views,candidates,out);
+    terrain_blur_motion(before,after,direction,views,candidates,out);
+    corner_gradient_blur_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,

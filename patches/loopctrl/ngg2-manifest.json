@@ -67,7 +67,7 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "393180c768d84a3f684a69748bc98651959fab2e2c2742bea425e6e9a18fc60f"
+      "sha256": "12d3a59a29ccd465c4e3983c637b2e8bf6cefa4c5ed166005be840b90d740250"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
@@ -79,11 +79,11 @@
     },
     "LoopCtrlUITests/NG2Navigation.c": {
       "source": "NG2Navigation.c",
-      "sha256": "ff3aa8ae932a39df75d6bc495b26ad9ab5ebcfbb11f2a1f0eb1747bf7d7fe3ef"
+      "sha256": "dce5f19e9efa38e390c1f71c4d82019ddcf339a395e6da58ed08388e1043c19e"
     },
     "LoopCtrlUITests/NG2Perception.c": {
       "source": "NG2Perception.c",
-      "sha256": "e3ba569f13026a3325df33628d6c71e22c107a6ce80492e497866e08f37105b0"
+      "sha256": "2818660c755078d24785b8ae7424de1b3c236a29a3eab5de21ce183075539dd2"
     },
     "Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift": {
       "source": "NG2RPCContractsTests.swift",
