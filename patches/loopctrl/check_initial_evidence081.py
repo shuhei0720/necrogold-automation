@@ -1,4 +1,4 @@
-"""Execute only TEST081 initial decision retention in the real Runtime cache/export.
+"""Execute TEST081 per-restart decision retention in the real Runtime cache/export.
 
 The fixed previous Runtime receives the same HOST-only raster/snapshot seeding
 methods as Green. Production pin/selection/export bytes are never stubbed.
@@ -16,14 +16,14 @@ HERE = Path(__file__).resolve().parent
 BASELINE_COMMIT = 'acf684bd0eb7b73ac5239e02f0879f9474470b35'
 BASELINE_RUNTIME_SHA256 = 'bfb0f271ca4504b7c428661a597c0fc070db29d993904f70c9020abb76b549f7'
 CASES = (
-    'test081InitialDecisionSurvivesPressure',
-    'test081InitialDecisionFirstOnlyAndMetadata',
-    'test081InitialDecisionInvalidEvidence',
-    'test081InitialDecisionBothCachePaths',
-    'test081InitialDecisionBudgetsAndPriority',
-    'test081InitialDecisionOwnershipAndMissing',
+    'test081AllRestartDecisionsSurvivePressure',
+    'test081LatestDecisionPerLevelAndMetadata',
+    'test081InvalidDecisionEvidence',
+    'test081BothDecisionCachePaths',
+    'test081ProfileBudgetsAndCompletePagedExport',
+    'test081DecisionOwnershipAndMissingEvidence',
 )
-RED_ASSERT = 'FAIL test081_initial_decision_source_survives_pressure'
+RED_ASSERT = 'FAIL test081_all_restart_decision_sources_survive_pressure'
 HOST_BEGIN = '// TEST081 RETENTION HOST METHOD BEGIN.\n'
 HOST_END = '// TEST081 RETENTION HOST METHOD END.\n'
 FIXTURE_BEGIN = '// TEST081 RETENTION FIXTURE BEGIN.\n'
@@ -54,9 +54,10 @@ def fixture_source(tests, fixture, *, baseline):
         raise ValueError('test081_export_fixture_boundary')
     export_helpers = tests.split(begin, 1)[1].split(end, 1)[0]
     calls = CASES[:1] if baseline else CASES
-    return (tests.split(marker, 1)[0] + export_helpers + fixture + '\n'
+    profile_input = 'let test081EvidenceProfile = '+('false' if baseline else 'true')+'\n'
+    return (tests.split(marker, 1)[0] + export_helpers + profile_input + fixture + '\n'
             + ''.join(name+'()\n' for name in calls)
-            + 'print("PASS production Runtime public API/TEST081 bounded initial decision evidence")\n')
+            + 'print("PASS production Runtime public API/TEST081 all restart decision evidence")\n')
 
 
 def main():
@@ -118,10 +119,10 @@ def main():
         existing.checked(result)
         passes = [line for line in result.stdout.splitlines() if line.startswith('PASS TEST081 ')]
         if len(passes) != 6 or result.stderr or not result.stdout.strip().endswith(
-                'PASS production Runtime public API/TEST081 bounded initial decision evidence'):
+                'PASS production Runtime public API/TEST081 all restart decision evidence'):
             raise RuntimeError('test081_exact_six_green_cases_required')
     report = {
-        'schema': 'test081-retention-contract-v1', 'status': 'pass',
+        'schema': 'test081-restart-retention-contract-v2', 'status': 'pass',
         'mode': 'baseline_red' if args.red_only else 'production_green',
         'compiled': True, 'returncode': result.returncode,
         'baseline_commit': BASELINE_COMMIT if args.red_only else None,
@@ -132,9 +133,11 @@ def main():
         'executed_fixture_sha256': DIGEST(generated.encode()),
         'entrypoints': list(CASES[:1] if args.red_only else CASES),
         'semantic_red_assertion': RED_ASSERT if args.red_only else None,
+        'primary_profile_input': 'normal-1-1-v1' if args.red_only else 'normal-1-1-evidence-v2',
+        'profile_input_scope': 'Red uses only the original supported v1 input; Green uses explicit v2 input plus a separate v1 compatibility case. No production profile shim is applied to the baseline.',
         'native_sources': native_sources,
         'stdout': result.stdout, 'stderr': result.stderr, 'device_test': 'not_run',
-        'scope': 'HOST-only synthetic raster/metadata pressure through production cache, pin and PNG export; no C decision, input or game progress asserted',
+        'scope': 'HOST-only twelve restart-index raster/metadata sources and ordinary cache eviction through production pin/paged PNG export; no C decision, input or game progress asserted',
     }
     (output/'ngg2-test081-retention-contract.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps({key:report[key] for key in ('status','mode','compiled','returncode','runtime_source_sha256','fixture_file_sha256','entrypoints')}, indent=2))

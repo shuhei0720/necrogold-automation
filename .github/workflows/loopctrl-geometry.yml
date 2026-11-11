@@ -118,7 +118,7 @@ jobs:
           ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
           path: upstream
           persist-credentials: false
-      - name: Apply sealed source and observe TEST081 first-decision retention assertion Red
+      - name: Apply sealed source and observe TEST081 all-restart decision retention assertion Red
         run: |
           set -euo pipefail
           python3 driver/patches/loopctrl/apply_patch.py upstream
@@ -371,7 +371,7 @@ jobs:
           python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
       - name: Verify TEST070 Runtime dispatch Red and Green
         run: python3 driver/patches/loopctrl/check_ngg2.py --test070-public-only upstream "$RUNNER_TEMP/test070-runtime"
-      - name: Verify TEST081 first-decision retention through actual Runtime cache and export
+      - name: Verify TEST081 all-restart decision retention through actual Runtime cache and export
         run: python3 driver/patches/loopctrl/check_initial_evidence081.py --green-only upstream "$RUNNER_TEMP/test081-retention"
       - name: Run actual Runtime TEST061 public integration fixtures
         if: inputs.native_lane != 'device'
