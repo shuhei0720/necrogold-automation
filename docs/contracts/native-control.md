@@ -1,6 +1,6 @@
 # Nativeの不変条件
 
-[要件](../requirements/necrogold.md)・計画/Redで境界変更を検証。 TEST072の§4/5/7/8/9への限定追加は[通路接近契約](passage-approach.md)。その他の値・条件は本書を維持。 再開後PAUSEのUI準備は[073](../plans/test073-restart-pause.md)。
+[要件](../requirements/necrogold.md)・計画/Redで境界変更を検証。 TEST072の§4/5/7/8/9への限定追加は[通路接近契約](passage-approach.md)。その他の値・条件は本書を維持。 UI/初期観測は[074](../plans/test074-visible-evidence.md)。
 
 ## 2. 保存
 

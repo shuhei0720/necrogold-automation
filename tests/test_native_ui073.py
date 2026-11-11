@@ -62,13 +62,16 @@ class NativeUI073Tests(unittest.TestCase):
         ack_ns = self.now
         self.now = ack_ns+offset
         self.observe(terrain)
+        self._ui_first_floor_start_ns = self.now-2
         self.assertEqual((0, 0, 0),
             (self.status().inputs, self.status().moves, self.status().restarts))
         return terrain, resume, ack_ns
 
     def fresh_post_ui_floor(self, terrain, ack_ns, delta=0):
-        self.now = max(self.now+2, ack_ns+SETTLE+delta+2)
-        self.observe(terrain, start=ack_ns+SETTLE+delta, end=self.now)
+        # TEST074 also requires a later rendering proof after the first FLOOR.
+        cutoff = max(ack_ns, self._ui_first_floor_start_ns)+SETTLE+delta
+        self.now = max(self.now+2, cutoff+2)
+        self.observe(terrain, start=cutoff, end=self.now)
 
     def test_resume_ack_is_not_immediate_permission_for_a_skip_pause(self):
         for offset in (71_289_375, 90_355_417, SETTLE-1):
@@ -118,16 +121,17 @@ class NativeUI073Tests(unittest.TestCase):
 
     def test_elapsed_time_and_crossing_capture_do_not_replace_post_cutoff_floor(self):
         terrain, _, ack_ns = self.resumed()
-        self.now = ack_ns+SETTLE
+        cutoff = self._ui_first_floor_start_ns+SETTLE
+        self.now = cutoff
         self.assertEqual(0, self.tick()[0], 'a timer cannot make the old early FLOOR fresh enough')
         self.now += 2
-        self.observe(terrain, start=ack_ns+SETTLE-1, end=self.now)
+        self.observe(terrain, start=cutoff-1, end=self.now)
         self.assertEqual(0, self.tick()[0], 'the capture START must meet the inclusive cutoff')
         self.now += 2
-        self.observe(terrain, start=ack_ns+SETTLE, end=self.now)
+        self.observe(terrain, start=cutoff, end=self.now)
         ready, pause = self.tick()
         self.assertEqual((1, 2), (ready, pause.kind))
-        self.assertEqual(ack_ns+SETTLE, pause.source_start_ns)
+        self.assertEqual(cutoff, pause.source_start_ns)
         self.assertEqual(0, self.tick()[0], 'one prepared PAUSE is not another reservation')
 
     def test_unstable_and_wrong_prefix_post_cutoff_frames_never_authorize_pause(self):
@@ -160,6 +164,7 @@ class NativeUI073Tests(unittest.TestCase):
         ack_ns = self.now
         self.now += 71_289_375
         self.observe(self.scene(terrain, fingerprint=bytes([160])*48))
+        self._ui_first_floor_start_ns = self.now-2
         self.assertEqual((1, 0, 0),
             (self.status().restarts, self.status().moves, self.status().inputs))
         self.assertEqual(0, self.tick()[0])

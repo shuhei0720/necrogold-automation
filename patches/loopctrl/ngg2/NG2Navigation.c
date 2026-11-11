@@ -484,6 +484,118 @@ static void opening_detail_motion(const NG2Scene *before,const NG2Scene *after,i
     }
     out->kind=NG2_DOOR_OPENED;
 }
+/* An observed clear-floor passage has no gold bracket. Two fully preserved
+ * stone anchors plus a non-collinear dirt anchor identify one translation;
+ * they never manufacture an unobserved next cell or a motion credit. */
+static int observed_terrain_translation(const NG2Scene *a,const NG2Scene *b,int tx,int ty) {
+    int i,first=-1,second=-1,ac=0;
+    for (i=0;i<CELLS;++i) {
+        ac+=a->tiles[i]==NG2_TILE_STONE;
+        if (a->tiles[i]!=NG2_TILE_STONE) continue;
+        if (tile(b,px(i)+tx,py(i)+ty)!=NG2_TILE_STONE) return 0;
+        if (first<0) first=i;else if (second<0) second=i;
+    }
+    /* Only the old stone set supplies anchors. Newly illuminated stone is
+     * allowed, but cannot add evidence or make two translations unique. */
+    if (ac<2) return 0;
+    for (i=0;i<CELLS;++i) if (a->tiles[i]==NG2_TILE_DIRT &&
+        tile(b,px(i)+tx,py(i)+ty)==NG2_TILE_DIRT &&
+        (px(second)-px(first))*(py(i)-py(first))!=
+        (py(second)-py(first))*(px(i)-px(first))) return 1;
+    return 0;
+}
+static int unique_terrain_translation(const NG2Scene *a,const NG2Scene *b,int sx,int sy) {
+    int amount,d,matches=0,tx=0,ty=0;
+    for (amount=0;amount<=2;++amount) for (d=1;d<=(amount ? 4 : 1);++d) {
+        int x=amount*ddx[d],y=amount*ddy[d];
+        if (observed_terrain_translation(a,b,x,y)) {++matches;tx=x;ty=y;}
+    }
+    return matches==1 && sx==tx*9 && sy==ty*9;
+}
+static void passage_detail_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                 View views[2],const Candidate candidates[73],NG2Motion *out) {
+    int i,dx=ddx[direction],dy=ddy[direction];
+    if (out->kind!=NG2_MOTION_UNKNOWN || before->goods!=NG2_GOODS_UNKNOWN ||
+        after->goods!=NG2_GOODS_UNKNOWN || before->gold_state!=NG2_GOLD_CLEAR ||
+        after->gold_state!=NG2_GOLD_CLEAR || tile(before,0,0)!=NG2_TILE_FLOOR ||
+        tile(after,0,0)!=NG2_TILE_FLOOR || tile(before,dx,dy)!=NG2_TILE_FLOOR ||
+        !isfinite(candidates[0].score) ||
+        candidates[1].score-candidates[0].score<.08 ||
+        candidates[0].sx!=-9*dx || candidates[0].sy!=-9*dy ||
+        !unique_terrain_translation(before,after,candidates[0].sx,candidates[0].sy)) return;
+    for (i=0;i<CELLS;++i) if (before->protected_cells[i] || after->protected_cells[i] ||
+        before->tiles[i]==NG2_TILE_GOLD || after->tiles[i]==NG2_TILE_GOLD ||
+        before->tiles[i]==NG2_TILE_ITEM || after->tiles[i]==NG2_TILE_ITEM) return;
+    memcpy(views[0].texture,views[0].detail,N);
+    memcpy(views[1].texture,views[1].detail,N);
+    if (!strong_texture(&views[0],&views[1],candidates,1,1)) return;
+    out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+}
+/* This additional opening-only plane uses a central half-gradient with the
+ * original six-gray contrast unit. Both frames must select the same stronger
+ * axis; compare that axis's sign. It is independent of the median-detail
+ * plane, whose score, mask and thresholds remain unchanged. */
+static int gradient_pixel_known(const NG2Scene *a,const NG2Scene *b,int x,int y,int sx,int sy) {
+    static const int ox[5]={0,-1,1,0,0},oy[5]={0,0,0,-1,1};
+    int i;
+    if (!opening_mask(x,y) || !opening_mask(x+sx,y+sy) ||
+        (x>=101 && x<123 && y>=80) ||
+        (x+sx>=101 && x+sx<123 && y+sy>=80)) return 0;
+    for (i=0;i<5;++i) {
+        /* Nonnegative numerators over this bounded mask implement floor
+         * at the original 36px lattice, centered at (448,207) raw pixels. */
+        int ax=(4*(x+ox[i])-34)/36-11,ay=(4*(y+oy[i])-9)/36-5;
+        int bx=(4*(x+sx+ox[i])-34)/36-11,by=(4*(y+sy+oy[i])-9)/36-5;
+        int old=tile(a,ax,ay),latest=tile(b,bx,by);
+        if (!old || old!=latest || old==NG2_TILE_DOOR || old==NG2_TILE_ITEM ||
+            protected_at(a,ax,ay) || protected_at(b,bx,by)) return 0;
+    }
+    return 1;
+}
+static void gradient_texture(const NG2Scene *a,const NG2Scene *b,int sx,int sy,
+                             int *support,int *bad,int regions[2]) {
+    int x,y;*support=0;*bad=0;
+    if (regions) regions[0]=regions[1]=0;
+    for (y=20;y<85;++y) for (x=40;x<179;++x) {
+        int old=y*W+x,other=(y+sy)*W+x+sx,ah,av,bh,bv,axis,first,second;
+        /* A centered derivative must not count the same boundary edge as
+         * independent evidence in both terrain bands. */
+        if (y==64 || y==65 || y+sy==64 || y+sy==65) continue;
+        if (!gradient_pixel_known(a,b,x,y,sx,sy)) continue;
+        ah=(int)a->signature[old+1]-a->signature[old-1];
+        av=(int)a->signature[old+W]-a->signature[old-W];
+        bh=(int)b->signature[other+1]-b->signature[other-1];
+        bv=(int)b->signature[other+W]-b->signature[other-W];
+        axis=abs(ah)>=abs(av);
+        if (axis!=(abs(bh)>=abs(bv))) continue;
+        first=axis ? ah : av;second=axis ? bh : bv;
+        if (abs(first)<2*6 || abs(second)<2*6) continue;
+        ++*support;*bad+=(first>0)!=(second>0);
+        if (regions) ++regions[y<65 ? 0 : 1];
+    }
+}
+static void opening_gradient_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                    const Candidate candidates[73],NG2Motion *out) {
+    int dx=ddx[direction],dy=ddy[direction],support,bad,regions[2],k;
+    if (out->kind!=NG2_MOTION_UNKNOWN || before->goods>NG2_GOODS_PARTIAL ||
+        after->goods>NG2_GOODS_PARTIAL || after->goods<before->goods ||
+        before->gold_state!=NG2_GOLD_CANDIDATE || after->gold_state!=NG2_GOLD_CANDIDATE ||
+        tile(before,0,0)!=NG2_TILE_FLOOR || tile(after,0,0)!=NG2_TILE_FLOOR ||
+        tile(before,dx,dy)!=NG2_TILE_DOOR || tile(after,dx,dy)!=NG2_TILE_FLOOR ||
+        protected_at(before,0,0) || protected_at(after,0,0) ||
+        protected_at(before,dx,dy) || protected_at(after,dx,dy) ||
+        !gate(before,dx,dy) || gate(before,dx,dy)!=gate(after,dx,dy) ||
+        !isfinite(candidates[0].score) || candidates[1].score-candidates[0].score<.08 ||
+        candidates[0].sx || candidates[0].sy || !unique_gate_translation(before,after,0,0)) return;
+    gradient_texture(before,after,0,0,&support,&bad,regions);
+    if (!texture_strength(support,bad,95) || regions[0]<100 || regions[1]<100) return;
+    for (k=1;k<73;++k) {
+        int count,opposite;
+        gradient_texture(before,after,candidates[k].sx,candidates[k].sy,&count,&opposite,NULL);
+        if (!texture_lead(support,bad,count,opposite)) return;
+    }
+    out->kind=NG2_DOOR_OPENED;
+}
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -502,6 +614,8 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     evaluate_motion(before,after,direction,views,candidates,out);
     gate_detail_motion(before,after,direction,views,candidates,out);
     opening_detail_motion(before,after,direction,views,candidates,out);
+    passage_detail_motion(before,after,direction,views,candidates,out);
+    opening_gradient_motion(before,after,direction,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,

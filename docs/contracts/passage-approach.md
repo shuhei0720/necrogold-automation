@@ -35,3 +35,10 @@ Controller private modeとmode-aware chooser/safe_stepで初歩校正と通常�
 PAUSE直前の最新安定current-prefix FLOORをrestart fingerprint基準に凍結する。探索開始画像を基準にしない。実RESTART ACK後・取得開始≥ACK・独立stable current-prefix FLOORがこの基準から変わったと確認して初めてlevelを切り替える。旧終点world/UNKNOWN/状態4/取消/owner失効から切り替えない。
 
 level切替時に座標/visits/入口、lead/初歩slot/visual期限、model、replan/continuous、gate/terrain/観測refreshのactive/pending/proof、motion reference/epoch、探索候補を撤回する。新levelの総inputs/movesのbaseを保存し、初歩・retune・replan・edge・initial visual等のlevel内0を総数から区別する。総physical inputs/moves/events/ID/session/取消、最初のfirst_move_ns/last_ordinalは不変。gate/terrain/stationary各used、観測refresh8回、continuous8回、初歩replan2回等のsession上限と既存edge単一権限をresetしない。総16入力・12restart上限は巻き戻さない。walk_started_nsと最初のwalk+45秒の凍結期限はrestart後も保持する。level初期同期用の起点は別に持ち、12秒syncも旧walk/sessionのminで制限する。旧ID/callbackは新levelを変更できない。
+
+
+## 6. TEST074の描画確認と限定動作証拠
+
+[074計画](../plans/test074-visible-evidence.md)は暗い最初のFLOORを確定した陰性/探索権限にしないための追加。RESUME/RESTARTのACK・newlevel fingerprint証明を消費した後、最初のFLOOR取得起点から200ms以上に開始した独立stable current-prefix新観測で初期分類を確認する。単なる時計経過は権限でなく、起点/同期/元総予算を再延期しない。初期待機中の同原点level0・未送信・商品/保護なしだけ、正常FLOORのGOLD_UNKNOWN/不整合CANDIDATEから旧票/slot/初期proofを撤回し元4秒/同期12秒内の新観測待ちへ。移動後/送信後の旧停止を広げない。新金/商品は見送りより優先する。初歩前・同原点・level入力/移動0で候補が後続2独立画像の同mask/口/脇で確かなSTONE/DIRTへ消失した場合、旧未送信票/slotを撤回して最新候補へ更新する。単独UNKNOWNで候補を廃棄せず、移動後camera原点で口を検出し直さない。
+
+動作のprimary判定と元閾値を保持し、primary UNKNOWNだけへ2つの独立補助を追加する。開扉は唯一gold bracket/旧GOLD・DOOR→FLOOR・raw最良zero/差≥.08・非保護origin/next・商品UNKNOWN→PARTIALまでで、既知同材質（新露出/DOOR/ITEM/保護/player除外）の中心半差contrast6符号を使う。支持300/95%/全73への15pp差/独立上下帯各100を要し、zero-onlyで移動creditにしない。金なしMOVEDはCLEAR/金0/商品0/全保護0・旧origin/入力先と最新originの観測床・同方向raw厳密unit/差≥.08・全旧STONE2+と非共線DIRTによる一意translation、既存expanded-detailの同強証明を要する。最新の新STONEは証拠に使わず追加可とし、旧集合の複数translation成立は拒否する。最新画像でさらに先がUNKNOWN/壁/扉でも過去のMOVED証拠とは分離し、次の入力権限は既存Nav/safe_stepが確認する。詳しい証拠面と拒否境界は074計画/試験を正本とする。UNKNOWN無再送・元visualD/最大8評価・ACKと実変位の区別は維持。

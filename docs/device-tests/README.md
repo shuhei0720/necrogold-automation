@@ -2877,3 +2877,10 @@ RESUME/RESTARTの既知ACK後200msと、その後に取得開始した最新stab
 IPA0.3.4/build116、17,595,799bytes/SHA `30e069f7dc60dc105ee896c6f5e11fe5985330c3faa32e062d15fd6b41ac95a0`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test073-build116/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test073-build116/source.zip)。最終source差分は文書3件だけ、全製品bytes同一を確認し、固定assetの匿名GET/全SHAまで照合する。
 
 SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VPN。新しい通常1-1のポーズから、候補なし開始を含め「リスタート→金壁/通路候補→接近/入店→全商品確認」を一回としてまず2回。展開source内test_073.shがあるフォルダをmountして実行。短いrestartポーズ中はゲーム前面、ポーズが5秒以上続いたらiSHへ戻り、全画像/ZIPの保存・照合完了表示を待つ。自動`runtime/test-073-<run_id>.zip`全回分と実restart/全商品/停止位置/拍間隔を必ず依頼する。実ゲームCI/新073の実機成功は未確認。回収済み072を再実行しない。
+
+
+## TEST073受領: 暗い初期候補の固定・開扉/移動確認の停止
+
+2026-11-11（日本時間）。[根拠と限定修正](../reviews/test074.md)。started_ns実順4bc9e087→7414d4ee→0c7d26c2→2e5edcd9→c73a3854→5772e818。6ZIP/114選択PNGのhash/CRC/bytes/896×414/manifest/cursor/時刻prefix/active-report一致、全回収resolved/terminal/drained。全商品可視0/6、全最終PAUSE成立、1〜5で計13回のrestart成立。保持上限による非収録画像を補完しない。
+
+1/2/4/5は暗い初期画像の通路候補が歩行前に消失し壁と判別されたが、旧口へ進む。1/5は到達不能の2拍待機後NO_PATH、2は未送信UPの静止UNKNOWNによるSCREEN、4はDOWN ACK後UNKNOWN。1の原画31の金壁は暗くpeak58/CLEARで見送り。3は開扉後に2商品だけ、6は最後LEFTの実1tile後、UNKNOWN8評価でMOVEMENT停止。capture/dispatch failureは全件nullで前回UI未成立とは異なる。生資料/実C解析/各motion proofはGit外。回収済み073の追加回収目的の再実行は依頼しない。
