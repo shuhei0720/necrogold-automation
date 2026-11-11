@@ -8,7 +8,7 @@ on:
         type: choice
         required: true
         default: device
-        options: [device, focused, full, publish-download, test058-red, test058-quick]
+        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red]
       artifact_id:
         type: string
         required: false
@@ -99,6 +99,37 @@ jobs:
           path: |
             ${{ runner.temp }}/test058-baseline/*.json
             ${{ runner.temp }}/test058-baseline/*.txt
+          if-no-files-found: error
+          retention-days: 30
+  test081-retention-red:
+    needs: native-source-ready
+    if: inputs.native_lane == 'test081-retention-red' && needs.native-source-ready.outputs.ready == 'true'
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Apply sealed source and observe TEST081 first-decision retention assertion Red
+        run: |
+          set -euo pipefail
+          python3 driver/patches/loopctrl/apply_patch.py upstream
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream
+          python3 driver/patches/loopctrl/check_initial_evidence081.py --red-only upstream "$RUNNER_TEMP/test081-retention-red"
+      - name: Save TEST081 original Runtime retention assertion Red evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-test081-retention-red
+          path: ${{ runner.temp }}/test081-retention-red/
           if-no-files-found: error
           retention-days: 30
   test058-quick:
@@ -340,6 +371,8 @@ jobs:
           python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
       - name: Verify TEST070 Runtime dispatch Red and Green
         run: python3 driver/patches/loopctrl/check_ngg2.py --test070-public-only upstream "$RUNNER_TEMP/test070-runtime"
+      - name: Verify TEST081 first-decision retention through actual Runtime cache and export
+        run: python3 driver/patches/loopctrl/check_initial_evidence081.py --green-only upstream "$RUNNER_TEMP/test081-retention"
       - name: Run actual Runtime TEST061 public integration fixtures
         if: inputs.native_lane != 'device'
         run: python3 driver/patches/loopctrl/check_ngg2.py --test061-public-only upstream "$RUNNER_TEMP/test061-runtime"
@@ -450,6 +483,7 @@ jobs:
             ${{ runner.temp }}/test061-faults/
             ${{ runner.temp }}/test058-shop/
             ${{ runner.temp }}/test070-runtime/
+            ${{ runner.temp }}/test081-retention/
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt
             ${{ runner.temp }}/ngg2/perception-build/
