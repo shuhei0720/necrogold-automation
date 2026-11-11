@@ -897,6 +897,40 @@ static int partial_shop_floor_step(const NG2Controller *p){
             ||(p->command_choice.reason==5&&p->command_choice.target_x==dx[d]
                 &&p->command_choice.target_y==dy[d]&&last_ack_opened_gate(p,d)));
 }
+/* A clipped top row may relabel already protected products before the first
+ * UP entrance. The frozen source remains the protection superset; neither a
+ * new protected point nor a changed cell outside that envelope is quiet. */
+static int clipped_entry_top(const NG2Controller *p,const NG2Scene *scene){
+    const NG2Scene *a=&p->before;
+    const NG2ControllerEvent *e=p->event_count?&p->events[p->event_count-1]:NULL;
+    int i,envelope=0;
+    if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||p->command.direction!=3
+        ||p->s.current_command_id!=p->command.id||!e||e->command.id!=p->command.id
+        ||e->begin_ns||e->outcome||p->entrance.valid||!p->s.lead_confirmed||!level_moves(p)
+        ||!p->continuous_ticket_valid||p->command_choice.reason!=5
+        ||p->command_choice.obstacle!=NG2_TILE_FLOOR
+        ||p->command_choice.target_x||p->command_choice.target_y!=-1
+        ||a->state!=NG2_FLOOR||scene->state!=NG2_FLOOR
+        ||a->goods!=NG2_GOODS_PARTIAL||scene->goods!=NG2_GOODS_PARTIAL
+        ||a->gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
+        ||!last_ack_opened_gate(p,3))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int old=a->tiles[i],latest=scene->tiles[i],edge=i/23==0&&a->protected_cells[i];
+        if(scene->protected_cells[i]&&!a->protected_cells[i])return 0;
+        if(!edge){
+            if(old!=latest||a->protected_cells[i]!=scene->protected_cells[i]
+                ||(p->scene.tiles[i]==NG2_TILE_GOLD&&latest!=NG2_TILE_GOLD))return 0;
+            continue;
+        }
+        envelope=1;
+        if(old==latest&&a->protected_cells[i]==scene->protected_cells[i])continue;
+        if((old!=NG2_TILE_UNKNOWN&&old!=NG2_TILE_FLOOR&&old!=NG2_TILE_DIRT
+                &&old!=NG2_TILE_GOLD&&old!=NG2_TILE_ITEM)
+            ||(latest!=NG2_TILE_UNKNOWN&&latest!=NG2_TILE_FLOOR&&latest!=NG2_TILE_DIRT
+                &&latest!=NG2_TILE_GOLD&&latest!=NG2_TILE_ITEM))return 0;
+    }
+    return envelope;
+}
 /* The closed door is beyond the unchanged dig cell. Its observed GOLD pair
  * must be perpendicular to the input axis, in both source and latest frame. */
 static int closed_door_two_ahead(const NG2Scene *s,int d){
@@ -929,6 +963,7 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
     int gold_changed=!same_gold(&p->before,scene);
     int growth=gold_changed&&(opened_entry||interior_step)
         &&distant_gold_growth(&p->before,scene,d)&&distant_gold_growth(&p->scene,scene,d);
+    int clipped_entry=clipped_entry_top(p,scene);
     if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||p->finish_requested||p->s.goods
         ||p->replan_pending||p->continuous_pending||!p->s.lead_confirmed||!p->s.moves
         ||p->s.phase!=NG2_PHASE_WALK||!p->continuous_ticket_valid||d<1||d>4
@@ -937,8 +972,8 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
         ||p->before.state!=NG2_FLOOR||scene->state!=NG2_FLOOR
         ||p->before.goods!=scene->goods||scene->goods<NG2_GOODS_UNKNOWN||scene->goods>NG2_GOODS_PARTIAL
         ||p->before.gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
-        ||(gold_changed&&!growth)
-        ||memcmp(p->before.protected_cells,scene->protected_cells,NG2_TILE_COUNT)
+        ||(gold_changed&&!growth&&!clipped_entry)
+        ||(!clipped_entry&&memcmp(p->before.protected_cells,scene->protected_cells,NG2_TILE_COUNT))
         ||tile(&p->before,0,0)!=NG2_TILE_FLOOR||tile(scene,0,0)!=NG2_TILE_FLOOR
         ||tile(&p->before,dx[d],dy[d])!=obstacle||tile(scene,dx[d],dy[d])!=obstacle
         ||(entrance_step&&(!gate_at(&p->before,dx[d],dy[d])||!gate_at(scene,dx[d],dy[d])))
@@ -961,6 +996,7 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
             &&tile(scene,x-dx[d],y-dy[d])==NG2_TILE_GOLD
             &&!protected_at(&p->before,x,y)&&!protected_at(scene,x,y);
         if(a==b)continue;
+        if(clipped_entry&&i/23==0&&p->before.protected_cells[i])continue;
         if(dirt_step&&(p->before.protected_cells[i]||scene->protected_cells[i]))return 0;
         if(growth&&b==NG2_TILE_GOLD)continue;
         if((!shielded&&((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)))
@@ -1127,10 +1163,35 @@ static int start_terrain_refresh(NG2Controller *p,const NG2Scene *scene,uint64_t
     p->proof_capture_id=id;
     return 1;
 }
+/* Only this closed, two-cell floor approach extends observation refresh to
+ * remote STONE palette changes. All nearby material and the gold bracket
+ * remain the fixed formal permission, not a transitive motion reference. */
+static int closed_approach_refresh(const NG2Controller *p,const NG2Scene *scene){
+    const NG2Scene *a=&p->gate_refresh_anchor;
+    const NG2Decision *choice=&p->gate_refresh_choice;
+    int i,gold=0,d=choice->direction,x,y;
+    if(d<1||d>4||p->entrance.valid||!p->s.lead_confirmed||!level_moves(p)
+        ||choice->reason!=7||choice->obstacle!=NG2_TILE_FLOOR
+        ||choice->target_x!=2*dx[d]||choice->target_y!=2*dy[d]
+        ||a->goods!=NG2_GOODS_UNKNOWN||scene->goods!=NG2_GOODS_UNKNOWN)return 0;
+    x=3*dx[d];y=3*dy[d];
+    if(tile(a,x,y)!=NG2_TILE_DOOR||tile(scene,x,y)!=NG2_TILE_DOOR
+        ||tile(a,x+dy[d],y-dx[d])!=NG2_TILE_GOLD
+        ||tile(a,x-dy[d],y+dx[d])!=NG2_TILE_GOLD
+        ||tile(scene,x+dy[d],y-dx[d])!=NG2_TILE_GOLD
+        ||tile(scene,x-dy[d],y+dx[d])!=NG2_TILE_GOLD)return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        x=i%23-11;y=i/23-5;
+        gold+=a->tiles[i]==NG2_TILE_GOLD;
+        if(((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1))
+            &&(a->tiles[i]!=scene->tiles[i]||a->protected_cells[i]!=scene->protected_cells[i]))return 0;
+    }
+    return gold==2;
+}
 static int observation_refresh_scene(const NG2Controller *p,const NG2Scene *scene){
     const NG2Scene *a=&p->gate_refresh_anchor;
     const NG2Decision *choice=&p->gate_refresh_choice;
-    NG2Decision before,latest;int i,d=choice->direction;
+    NG2Decision before,latest;NG2Motion still;int i,stone_change=0,d=choice->direction;
     if(d<1||d>4||choice->obstacle!=NG2_TILE_FLOOR
         ||a->state!=NG2_FLOOR||scene->state!=NG2_FLOOR||a->goods!=scene->goods
         ||scene->goods<NG2_GOODS_UNKNOWN||scene->goods>NG2_GOODS_PARTIAL
@@ -1144,13 +1205,19 @@ static int observation_refresh_scene(const NG2Controller *p,const NG2Scene *scen
     for(i=0;i<NG2_TILE_COUNT;++i){
         int old=a->tiles[i],now=scene->tiles[i];
         if(old==now)continue;
-        if(a->protected_cells[i]||scene->protected_cells[i]
-            ||(old!=NG2_TILE_UNKNOWN&&old!=NG2_TILE_FLOOR&&old!=NG2_TILE_DIRT)
-            ||(now!=NG2_TILE_UNKNOWN&&now!=NG2_TILE_FLOOR&&now!=NG2_TILE_DIRT))return 0;
+        if(a->protected_cells[i]||scene->protected_cells[i])return 0;
+        if((old!=NG2_TILE_UNKNOWN&&old!=NG2_TILE_FLOOR&&old!=NG2_TILE_DIRT)
+            ||(now!=NG2_TILE_UNKNOWN&&now!=NG2_TILE_FLOOR&&now!=NG2_TILE_DIRT)){
+            if((old!=NG2_TILE_UNKNOWN&&old!=NG2_TILE_FLOOR&&old!=NG2_TILE_DIRT&&old!=NG2_TILE_STONE)
+                ||(now!=NG2_TILE_UNKNOWN&&now!=NG2_TILE_FLOOR&&now!=NG2_TILE_DIRT&&now!=NG2_TILE_STONE))return 0;
+            stone_change=1;
+        }
     }
     return choose_step(p,a,&before)
         &&choose_step(p,scene,&latest)
-        &&same_choice(&before,choice)&&same_choice(&before,&latest);
+        &&same_choice(&before,choice)&&same_choice(&before,&latest)
+        &&(!stone_change||(closed_approach_refresh(p,scene)
+            &&ng2_motion(a,scene,d,&still)&&still.kind==NG2_BLOCKED&&!still.dx&&!still.dy));
 }
 /* An exhausted logical ticket need not end a stationary, known-floor walk.
  * Withdraw it first. A later independent pair and future preparation window
@@ -1626,6 +1693,7 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
 int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t prefix,int32_t stable,uint64_t commit){
     int pending_kind,initial_wait=0,mask=0,changed_tiles=0,changed_protected=0;
+    int clipped_entry=0,quiet_gate=0;
     if(!p)return -1;
     if(p->s.terminal)return 0;
     if(!valid_time(commit)||commit<end||commit<p->last_now)return -1;
@@ -1730,15 +1798,23 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
      * immutable original directly against every accepted pre-send image. */
     if((p->s.input_state==1||p->continuous_pending)&&p->command.kind==NG2_ACTION_MOVE)
         validate_motion_reference(p,scene,start,end,prefix,end);
+    clipped_entry=clipped_entry_top(p,scene);
+    if(!p->finish_requested&&p->s.input_state==1&&p->command.kind==NG2_ACTION_MOVE
+        &&(mask||clipped_entry))quiet_gate=quiet_gate_observation(p,scene,commit);
+    /* A return to source tiles/protection still needs the cached clock and
+     * direct strict-zero proof, even when no quarantined GOLD disappeared. */
+    if(!p->finish_requested&&clipped_entry&&!mask&&!quiet_gate){
+        not_sent(p,end,NG2_REASON_SCREEN);finish(p,end,NG2_REASON_SCREEN);
+    }
     /* Returning exactly to the source can have mask zero after an accepted
      * remote GOLD reveal. It still cannot erase that observed wall evidence. */
     if(!p->finish_requested&&p->s.input_state==1&&p->command.kind==NG2_ACTION_MOVE
         &&scene->goods==NG2_GOODS_PARTIAL&&partial_shop_floor_step(p)
-        &&!gold_retained(&p->scene,scene)){
+        &&!gold_retained(&p->scene,scene)&&!(clipped_entry&&quiet_gate)){
         if(mask)record_change(p,scene,id,mask,changed_tiles,changed_protected,0,NG2_REVALIDATE_GOLD);
         not_sent(p,end,NG2_REASON_SCREEN);finish(p,end,NG2_REASON_SCREEN);mask=0;
     }
-    if(mask&&(quiet_initial_observation(p,scene,commit)||quiet_gate_observation(p,scene,commit)))mask=0;
+    if(mask&&(quiet_initial_observation(p,scene,commit)||quiet_gate))mask=0;
     if(mask){
         NG2Decision latest;
         int validation=p->s.lead_confirmed?continuous_validation(p,scene,end,&latest):

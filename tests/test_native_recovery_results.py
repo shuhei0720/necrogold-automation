@@ -67,6 +67,7 @@ def old_journal(value, version):
     """Build an actual old API journal, rather than relabel a new API preflight."""
     value = deepcopy(value)
     value['revision'] = 'native-walk-v'+str(version)
+    value['profile'] = 'normal-1-1-v1'
     api = OLD_API if version < 14 else PREVIOUS_API if version == 14 else native.API_VERSION
     if value.get('preflight', {}).get('server') is not None:
         value['preflight']['server']['server_version'] = api
@@ -88,7 +89,7 @@ class RecoveryResultsTests(TimerTestCase):
         self.assertEqual(expected, parsed['recovery'])
 
     def test_current_revision_requires_new_api_capability_and_test061_output(self):
-        self.assertEqual(('native-walk-v15', '1.98.16-ngg2', 'necrogold_native_v14'),
+        self.assertEqual(('native-walk-v16', '1.98.16-ngg2', 'necrogold_native_v15'),
             (native.REVISION, native.API_VERSION, native.CAPABILITY))
         path = Path(native.__file__).resolve().parents[1]/'test_061.sh'
         self.assertEqual(0, subprocess.run(['sh', '-n', str(path)], capture_output=True).returncode)
@@ -106,7 +107,7 @@ class RecoveryResultsTests(TimerTestCase):
             server.calls.clear()
             server.schema_calls.clear()
             value = self.execute(server, folder)
-            self.assertEqual('native-walk-v15', value['revision'],
+            self.assertEqual('native-walk-v16', value['revision'],
                 'a_first_start_requires_the_current_full_report_contract')
             self.assertEqual(seed['run_id'], value['run_id'])
             self.assertTrue(value['resolved'], value['stop_reason'])
@@ -280,6 +281,7 @@ class RecoveryResultsTests(TimerTestCase):
             for version in range(1,14):
                 value = old_journal(seed, version)
                 value.update(resolved=False, state='unknown')
+                server.profiles[value['run_id']] = value['profile']
                 value['native_report'].pop('recovery')
                 if version < 12:
                     value['native_report'].pop('motion_references')
@@ -324,12 +326,12 @@ class RecoveryResultsTests(TimerTestCase):
                     native._save(Path(folder), bad)
                     with self.subTest(version=version, key=key), self.assertRaisesRegex(ProbeError, 'native_journal_invalid'):
                         native._load(Path(folder))
-                reply = dict(run_id=seed['run_id'], profile=native.PROFILE,
+                reply = dict(run_id=seed['run_id'], profile='normal-1-1-v1',
                     state='stopped', api_version=expected, report=seed['native_report'])
-                self.assertEqual('stopped', native._status(reply, seed['run_id'], api_version=expected)[0])
+                self.assertEqual('stopped', native._status(reply, seed['run_id'], profile='normal-1-1-v1', api_version=expected)[0])
                 reply['api_version'] = wrong
                 with self.subTest(version=version, key='status'), self.assertRaisesRegex(ProbeError, 'invalid_native_status'):
-                    native._status(reply, seed['run_id'], api_version=expected)
+                    native._status(reply, seed['run_id'], profile='normal-1-1-v1', api_version=expected)
 
     def test_old_revisions_allow_absent_recovery_but_validate_every_present_snapshot(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True) as server:

@@ -352,6 +352,7 @@ class PagedResultsTests(TimerTestCase):
                 seed = self.execute(server,folder)
                 seed.update(revision=revision,resolved=False)
                 bind_legacy_api(seed)
+                server.profiles[seed['run_id']] = seed['profile']
                 if revision not in native.PAGED_REVISIONS:
                     seed.pop('image_export')
                 native._save(Path(folder),seed)

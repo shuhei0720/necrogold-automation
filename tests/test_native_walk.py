@@ -29,6 +29,7 @@ from timer_support import TimerTestCase
 def bind_legacy_api(record):
     """Keep relabelled legacy fixtures faithful to their original ready preflight."""
     if record['revision'] != native.REVISION:
+        record['profile'] = 'normal-1-1-v1'
         if record.get('preflight', {}).get('server') is not None:
             record['preflight']['server']['server_version'] = native._revision_api(record['revision'])
         if 'api_version' in record.get('result_metadata', {}):
@@ -44,6 +45,7 @@ class NativeServer:
         self.input_state = input_state
         self.calls = []
         self.runs = {}
+        self.profiles = {}
         self.capabilities = [native.CAPABILITY] if capabilities is None else capabilities
         self.version = native.API_VERSION if version is None else version
         self.finish = finish
@@ -115,12 +117,13 @@ class NativeServer:
                     run_id = params['run_id']
                     if method == 'necro_native_start':
                         fake.runs.setdefault(run_id, 'running')
+                        fake.profiles.setdefault(run_id, params['profile'])
                     elif method == 'necro_native_cancel':
                         fake.runs[run_id] = 'stopped'
                     elif method == 'necro_native_status' and fake.finish:
                         fake.runs[run_id] = 'completed'
                     state = fake.runs.get(run_id, 'stopped')
-                    result = {'run_id': run_id, 'profile': native.PROFILE, 'state': state,
+                    result = {'run_id': run_id, 'profile': fake.profiles.get(run_id, native.PROFILE), 'state': state,
                               'report': {'schema': 'ngg2-native-v1', 'clock_id': run_id,
                                          'device_now_ns': 10, 'input_state': fake.input_state,
                                          'paused': 0, 'terminal': int(state == 'stopped'),
@@ -574,6 +577,7 @@ class NativeImageTests(TimerTestCase):
                 lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.5)
             metadata, _raw = native._images([image_item()])[0]
             result['revision'] = 'native-walk-v1'
+            bind_legacy_api(result)
             result.pop('image_export', None)
             result.pop('preflight')
             result['images'] = [dict(metadata, token='PRIVATE_IMAGE_TOKEN', raw_exception='PRIVATE')]
@@ -601,6 +605,8 @@ class NativeImageTests(TimerTestCase):
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True) as server:
             result = native.run_session(server.client(self.timer), folder,
                 lock_path=Path(folder)/'lock', poll_seconds=.001, max_seconds=.5)
+            result['revision'] = 'native-walk-v15'
+            bind_legacy_api(result)
             for images in invalid:
                 with self.subTest(images=images):
                     result['images'] = images

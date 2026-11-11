@@ -78,7 +78,7 @@
 +        RPCMethodDef(name: "necro_native_start",
 +            description: "Start one bounded native normal-zone1-1 run. UI and capture are exclusively leased until all workers drain. Same owner/run_id is idempotent. No purchase. Native status heartbeat must arrive within 5 seconds.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Fresh 32 lowercase hex UUID; retain before submitting."),
-+                     RPCParamDef(name: "profile", type: "string", required: true, description: "normal-1-1-v1 only")],
++                     RPCParamDef(name: "profile", type: "string", required: true, description: "normal-1-1-v1: legacy/paged PNGs up to 4 MiB; normal-1-1-evidence-v2: manifest/chunk only, up to 20 PNGs / 512 KiB each / 10 MiB total")],
 +            returns: "{run_id,profile,state,api_version,report:{schema,clock_id,device_now_ns,input_state,...}}"),
 +        RPCMethodDef(name: "necro_native_status", description: "Image-free cached native status; default is read-only. Only explicit keepalive:true renews an active uncancelled owner heartbeat. Input state 4 means started unknown; never resend.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID"), RPCParamDef(name: "keepalive", type: "boolean", required: false, description: "Default false: read-only; true renews the active uncancelled owner heartbeat")],
@@ -105,7 +105,7 @@
 
      /// When this binary was built, as "YYYY-MM-DD HH:MM".
      ///
-@@ -569,6 +588,20 @@
+@@ -569,6 +588,21 @@
      /// call (no separate /schema fetch needed). Keep in sync with what the server
      /// actually implements.
      static let capabilityTags: [String] = [
@@ -123,6 +123,7 @@
 +        "necrogold_native_v12", // latest-scene replanning of definitely unsent continuous inputs
 +        "necrogold_native_v13", // bounded reacquisition and independently timed visual confirmation
 +        "necrogold_native_v14", // up to eight same-input visual assessments within the original deadline
++        "necrogold_native_v15", // opt-in paged evidence profile retains every bounded restart decision
          "envelope_v1",         // /pair + encrypted /rpc envelopes (HMAC-SHA256)
          "stream_ticket",       // stream_ticket RPC → single-use ?ticket= for /stream + /logs
          "video_stream",        // GET /stream (framed H.264, docs/remote-control.md)

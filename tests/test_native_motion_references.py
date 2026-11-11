@@ -66,7 +66,7 @@ class MotionReferenceTests(TimerTestCase):
     execute = paged.PagedResultsTests.execute
 
     def test_current_revision_and_required_capability(self):
-        self.assertEqual(('native-walk-v15', 'necrogold_native_v14'),
+        self.assertEqual(('native-walk-v16', 'necrogold_native_v15'),
             (native.REVISION, native.CAPABILITY))
 
     def test_fresh_client_refuses_old_v12_client_capabilities_before_start(self):
@@ -80,8 +80,8 @@ class MotionReferenceTests(TimerTestCase):
             self.assertEqual([], server.calls)
 
     def test_client_055_revision_capability_and_output(self):
-        self.assertEqual('native-walk-v15', native.REVISION)
-        self.assertEqual('necrogold_native_v14', native.CAPABILITY)
+        self.assertEqual('native-walk-v16', native.REVISION)
+        self.assertEqual('necrogold_native_v15', native.CAPABILITY)
         self.assertEqual('runtime/test-061', native.parser().parse_args([]).output)
         path = Path(native.__file__).resolve().parents[1]/'test_055.sh'
         self.assertEqual(0, subprocess.run(['sh','-n',str(path)], capture_output=True).returncode)
@@ -328,6 +328,7 @@ class MotionReferenceTests(TimerTestCase):
             seed = self.execute(server, folder)
             seed.update(revision='native-walk-v11', resolved=False)
             bind_legacy_api(seed)
+            server.profiles[seed['run_id']] = seed['profile']
             seed['native_report'].pop('motion_references')
             native._save(Path(folder), seed)
             def legacy(method, result):
@@ -352,6 +353,7 @@ class MotionReferenceTests(TimerTestCase):
             self.assertTrue(seed['resolved'], seed['stop_reason'])
             seed.update(revision='native-walk-v12', resolved=False)
             bind_legacy_api(seed)
+            server.profiles[seed['run_id']] = seed['profile']
             native._save(Path(folder), seed)
             server.capabilities = ['necrogold_native_v11']
             server.schema_calls.clear()
@@ -379,6 +381,7 @@ class MotionReferenceTests(TimerTestCase):
             self.assertTrue(seed['resolved'], seed['stop_reason'])
             seed.update(revision='native-walk-v12', resolved=False)
             bind_legacy_api(seed)
+            server.profiles[seed['run_id']] = seed['profile']
             native._save(Path(folder), seed)
             def missing(method, result):
                 add_reference_report(method, result)

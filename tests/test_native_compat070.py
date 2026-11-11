@@ -26,7 +26,7 @@ def api_for(version):
 
 
 def envelope(api, attempts=3):
-    return dict(run_id='a'*32, profile=native.PROFILE, state='completed',
+    return dict(run_id='a'*32, profile='normal-1-1-v1', state='completed',
         api_version=api, report=report(motion_wait=motion_wait(attempts=attempts)),
         result_mode='manifest', export_id='b'*32, chunk_bytes=native.CHUNK_BYTES,
         total_bytes=0, images=[])
@@ -35,6 +35,7 @@ def envelope(api, attempts=3):
 def historical(record, version):
     record = deepcopy(record)
     record['revision'] = 'native-walk-v'+str(version)
+    record['profile'] = 'normal-1-1-v1'
     if record.get('preflight', {}).get('server') is not None:
         record['preflight']['server']['server_version'] = api_for(version)
     if 'api_version' in record.get('result_metadata', {}):
@@ -61,9 +62,9 @@ class NativeCompatibility070Tests(TimerTestCase):
         return transform
 
     def test_version_map_and_feature_memberships_preserve_every_prior_revision(self):
-        self.assertEqual(('native-walk-v15', NEW_API, 'necrogold_native_v14'),
+        self.assertEqual(('native-walk-v16', NEW_API, 'necrogold_native_v15'),
             (native.REVISION, native.API_VERSION, native.CAPABILITY))
-        for version in range(1, 16):
+        for version in range(1, 17):
             with self.subTest(version=version):
                 revision = 'native-walk-v'+str(version)
                 self.assertEqual(api_for(version), native._revision_api(revision))
@@ -71,7 +72,7 @@ class NativeCompatibility070Tests(TimerTestCase):
                         (10, native.BATCHED_REVISIONS), (12, native.MOTION_REFERENCE_REVISIONS),
                         (14, native.RECOVERY_REVISIONS)):
                     self.assertEqual(version >= threshold, revision in members)
-        for revision in ('native-walk-v0', 'native-walk-v16', '', None):
+        for revision in ('native-walk-v0', 'native-walk-v17', '', None):
             with self.subTest(revision=revision), self.assertRaises(ProbeError):
                 native._revision_api(revision)
 
@@ -82,11 +83,11 @@ class NativeCompatibility070Tests(TimerTestCase):
                 native._report(report(motion_wait=motion_wait(attempts=attempts)))
         value = envelope(NEW_API, 8)
         value['report']['command'] = dict(motion_wait=motion_wait(attempts=8))
-        parsed = native._status(value, 'a'*32, api_version=NEW_API)[1]
+        parsed = native._status(value, 'a'*32, profile='normal-1-1-v1', api_version=NEW_API)[1]
         self.assertEqual((8, 8), (parsed['motion_wait']['attempts'], parsed['command']['motion_wait']['attempts']))
         value['api_version'] = PREVIOUS_API
         with self.assertRaises(ProbeError):
-            native._status(value, 'a'*32, api_version=NEW_API)
+            native._status(value, 'a'*32, profile='normal-1-1-v1', api_version=NEW_API)
 
     def test_status_and_manifest_limits_are_bound_to_expected_api_and_reject_invalid_types(self):
         for api, limit in ((OLD_API, 3), (PREVIOUS_API, 3), (NEW_API, 8)):
@@ -97,20 +98,20 @@ class NativeCompatibility070Tests(TimerTestCase):
                     with self.subTest(api=api, attempts=attempts, parser=parser.__name__):
                         if valid:
                             self.assertEqual(attempts, parser(value, 'a'*32,
-                                api_version=api)[1]['motion_wait']['attempts'])
+                                profile='normal-1-1-v1', api_version=api)[1]['motion_wait']['attempts'])
                         else:
                             with self.assertRaises(ProbeError):
-                                parser(value, 'a'*32, api_version=api)
+                                parser(value, 'a'*32, profile='normal-1-1-v1', api_version=api)
             for wrong in ({OLD_API, PREVIOUS_API, NEW_API} - {api}):
                 with self.subTest(api=api, wrong=wrong), self.assertRaises(ProbeError):
-                    native._manifest(envelope(wrong), 'a'*32, api_version=api)
+                    native._manifest(envelope(wrong), 'a'*32, profile='normal-1-1-v1', api_version=api)
 
     def test_encrypted_current_run_roundtrips_eight_in_status_manifest_and_both_journals(self):
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True,
                 transform=self.evidence(8)) as server:
             record = self.execute(server, folder)
             self.assertTrue(record['resolved'], record['stop_reason'])
-            self.assertEqual('native-walk-v15', record['revision'])
+            self.assertEqual('native-walk-v16', record['revision'])
             self.assertEqual(8, record['native_report']['motion_wait']['attempts'])
             self.assertEqual(NEW_API, record['result_metadata']['api_version'])
             self.assertEqual(record, native._load(Path(folder)))
@@ -151,6 +152,7 @@ class NativeCompatibility070Tests(TimerTestCase):
             seed = self.execute(server, folder)
             old = historical(seed, 14)
             old['resolved'] = False
+            server.profiles[seed['run_id']] = old['profile']
             native._save(Path(folder), old)
             server.version = PREVIOUS_API
             server.transform = self.evidence(api=PREVIOUS_API)
@@ -179,7 +181,7 @@ class NativeCompatibility070Tests(TimerTestCase):
             server.calls.clear(); server.schema_calls.clear()
             fresh = self.execute(server, folder)
             self.assertTrue(fresh['resolved'], fresh['stop_reason'])
-            self.assertEqual(('native-walk-v15', seed['run_id']), (fresh['revision'], fresh['run_id']))
+            self.assertEqual(('native-walk-v16', seed['run_id']), (fresh['revision'], fresh['run_id']))
             self.assertEqual(['/schema'], server.schema_calls)
             self.assertEqual(1, sum(method == 'necro_native_start' for method, _ in server.calls))
         with tempfile.TemporaryDirectory() as folder, NativeServer(finish=True,

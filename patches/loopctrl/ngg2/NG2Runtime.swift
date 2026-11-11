@@ -186,6 +186,8 @@ private final class NG2Run {
     let lock = NSLock()
     let owner: String
     let id: String
+    let profile: String
+    let maximumExportBytes: Int
     let clock = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     var generation: UInt64 = 1
     var cancelReason: Int32 = 0
@@ -212,6 +214,9 @@ private final class NG2Run {
     var analyzedFrames: UInt64 = 0
     var evictedFrames: UInt64 = 0
     var initial: NG2Frame?
+    // At most one current negative PAUSE source per restart index, 0...11.
+    // Only IDs are added; raw frames stay within the existing pinned store.
+    var restartDecisionCaptureIDs: [Int32: UInt64] = [:]
     var found: NG2Frame?
     var report: [String: JSONValue] = [:]
     var controllerSnapshot: NG2ControllerSnapshot?
@@ -236,11 +241,15 @@ private final class NG2Run {
     var controlTimer: DispatchSourceTimer?
     var watchdog: DispatchSourceTimer?
     var lastCache: UInt64 = 0
-    // At most one immutable 4 MiB PNG export belongs to the current run.
+    // At most one immutable profile-bounded PNG export belongs to the current run.
     // A builder retains its token until it actually returns, even if revoked.
     var exportCache: NG2ExportCache?
     var exportBuildID: String?
-    init(owner: String, id: String, now: UInt64) { self.owner = owner; self.id = id; heartbeat = now; acceptedStarted = now }
+    init(owner: String, id: String, now: UInt64, profile: String = "normal-1-1-v1") {
+        self.owner = owner; self.id = id; self.profile = profile
+        maximumExportBytes = profile == NG2Runtime.evidenceProfile ? 10 * 1024 * 1024 : 4 * 1024 * 1024
+        heartbeat = now; acceptedStarted = now
+    }
     func cancel(_ reason: Int32) {
         lock.ng2Locked {
             if cancelReason == 0 { cancelReason = reason; generation &+= 1 }
@@ -258,7 +267,7 @@ private struct NG2ResponseProjection {
     let snapshot, reportSnapshot: NG2ControllerSnapshot?
     let cachedReport: [String: JSONValue]
     let generation, reportGeneration: UInt64
-    let id, clock, state: String
+    let id, clock, state, profile: String
     let inFlight, terminal, cancelled, captureOutstanding, captureTimedOut, bootstrapUIStarted: Bool
     let lease, uiFrozen, mainOutstanding: Bool
     let acceptedStarted, prefix, captureID, replacedFrames, analyzedFrames, evictedFrames: UInt64
@@ -271,7 +280,7 @@ private struct NG2ResponseProjection {
     init(_ run: NG2Run) {
         snapshot = run.controllerSnapshot; reportSnapshot = run.reportSnapshot; cachedReport = run.report
         generation = run.generation; reportGeneration = run.reportGeneration
-        id = run.id; clock = run.clock
+        id = run.id; clock = run.clock; profile = run.profile
         state = run.terminal ? (run.lease ? "draining" : (run.successful ? "completed" : "stopped"))
             : (run.controllerSnapshot == nil && run.report.isEmpty ? "accepted" : "running")
         inFlight = run.inFlight; terminal = run.terminal; cancelled = run.cancelReason != 0
@@ -295,6 +304,7 @@ final class NG2Runtime {
     static let methods: Set<String> = ["necro_native_start", "necro_native_status", "necro_native_cancel", "necro_native_results"]
     static let ownerParam = "_necro_owner"
     static let profile = "normal-1-1-v1"
+    static let evidenceProfile = "normal-1-1-evidence-v2"
     private static let game = "jp.co.spike-chunsoft.necrodancerjp"
     private let lock = NSLock()
     private let controlQueue = DispatchQueue(label: "necro.native.control", qos: .userInteractive)
@@ -368,18 +378,29 @@ final class NG2Runtime {
                   : (exportMode == "manifest" ? ["run_id", "mode", Self.ownerParam] : ["run_id", Self.ownerParam])))
         guard Set((params ?? [:]).keys).isSubset(of: allowed) else { return failure("Unknown native request parameter.", -32602) }
         if method == "necro_native_start" {
-            guard params?["profile"]?.stringValue == Self.profile else { return failure("Unsupported native profile.", -32602) }
+            guard let profile = params?["profile"]?.stringValue,
+                  profile == Self.profile || profile == Self.evidenceProfile else {
+                return failure("Unsupported native profile.", -32602)
+            }
             guard !RemoteSession.shared.paused else { return failure("Owner paused native control.") }
             var created: NG2Run?
             let answer: ([String: JSONValue]?, JSONRPCError?) = lock.ng2Locked {
-                if let old = current, old.owner == owner, old.id == id { return (response(old), nil) }
-                if let archived = history[id], archived.owner == owner { return (historical(archived.response), nil) }
+                if let old = current, old.owner == owner, old.id == id {
+                    guard old.profile == profile else { return failure("Native run profile is immutable.", -32602) }
+                    return (response(old), nil)
+                }
+                if let archived = history[id], archived.owner == owner {
+                    guard archived.response["profile"]?.stringValue == profile else {
+                        return failure("Native run profile is immutable.", -32602)
+                    }
+                    return (historical(archived.response), nil)
+                }
                 if poisoned { return failure("Unknown native input freezes new runs until the runner process restarts.") }
                 if current?.lock.ng2Locked({ current?.lease ?? false }) == true { return failure("Previous native run is still draining.") }
                 if current?.lock.ng2Locked({ current?.exportBuildID != nil }) == true { return failure("Previous native image export is still being prepared.") }
                 if NG2CaptureBridge.pendingRequests != 0 { return failure("Previous daemon capture is still outstanding.") }
                 if seen.contains(id) || seen.count >= 128 { return failure("Run identity was already consumed or process run limit reached.") }
-                let run = NG2Run(owner: owner, id: id, now: Self.now())
+                let run = NG2Run(owner: owner, id: id, now: Self.now(), profile: profile)
                 if let old = current {
                     old.lock.ng2Locked {
                         old.exportCache = nil
@@ -401,6 +422,9 @@ final class NG2Runtime {
             }
             var result = historical(archived.response)
             if method == "necro_native_results" {
+                guard archived.response["profile"]?.stringValue != Self.evidenceProfile else {
+                    return failure("Evidence profile requires paged image export.")
+                }
                 guard !RemoteSession.shared.paused else { return failure("Owner paused native export.") }
                 result["images"] = .array([])
                 result["exported_images"] = .int(0)
@@ -419,6 +443,7 @@ final class NG2Runtime {
         if method == "necro_native_cancel" { run.cancel(2); return (response(run), nil) }
         if exportMode == "manifest" { return exportManifest(run) }
         if exportMode == "chunk" { return exportChunk(run, params ?? [:]) }
+        guard run.profile != Self.evidenceProfile else { return failure("Evidence profile requires paged image export.") }
         guard ownerActive(run),
               run.lock.ng2Locked({ run.terminal && !run.lease && !run.captureOutstanding && run.captureWorkerDone }) else {
             return failure("Native images require a terminal, drained run and active owner.")
@@ -494,7 +519,12 @@ final class NG2Runtime {
 
     private func priorityCaptureIDs(_ run: NG2Run) -> [UInt64] {
         var ids: [UInt64] = []
-        for id in [run.terminalCaptureID, run.found?.id, run.initial?.id].compactMap({ $0 }) + run.diagnosticCaptureIDs {
+        let decisions = run.restartDecisionCaptureIDs.keys.sorted().compactMap { run.restartDecisionCaptureIDs[$0] }
+        let initial = decisions.isEmpty ? [run.initial?.id].compactMap({ $0 }) : []
+        // Existing stop/goods/comparison evidence stays ahead of the bounded
+        // per-restart set. Its initial strong frame is already in that set.
+        for id in [run.terminalCaptureID, run.found?.id].compactMap({ $0 }) + initial
+            + run.diagnosticCaptureIDs + decisions {
             if id != 0 && !ids.contains(id) { ids.append(id) }
         }
         return ids
@@ -564,11 +594,11 @@ final class NG2Runtime {
             var images: [UInt64: NG2ExportImage] = [:]
             var metadata: [JSONValue] = []
             var total = 0
-            // PNG and SHA work happens outside both locks. The selected-image
-            // order and omission budgets are the same as the legacy export.
+            // PNG and SHA work happens outside both locks. The immutable run
+            // profile bounds this export; v1 shares its order/budget with legacy.
             for frame in frames {
                 guard let bytes = exportPNG(frame) else { return failure("Native image encoding failed.") }
-                if bytes.count > 512 * 1024 || total + bytes.count > 4 * 1024 * 1024 { continue }
+                if bytes.count > 512 * 1024 || total + bytes.count > run.maximumExportBytes { continue }
                 total += bytes.count
                 let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
                 let row = imageMetadata(frame, hash: hash, length: bytes.count)
@@ -967,7 +997,7 @@ final class NG2Runtime {
         report["recent_image_count"] = .int(projection.recentCount)
         report["referenced_capture_ids"] = .array(projection.references.sorted().map { number($0) })
         report["missing_capture_ids"] = .array(projection.references.subtracting(projection.retained).sorted().map { number($0) })
-        return ["run_id": .string(projection.id), "profile": .string(Self.profile), "state": .string(projection.state),
+        return ["run_id": .string(projection.id), "profile": .string(projection.profile), "state": .string(projection.state),
             "api_version": .string("1.98.16-ngg2"), "report": .object(report)]
     }
 
@@ -1507,6 +1537,7 @@ final class NG2Runtime {
             #endif
         }
         run.lock.ng2Locked {
+            retainRestartDecisionLocked(run, snapshot)
             // A dispatch snapshot still publishes the full coherent C state.
             // Reserve its raw authority before deferring diagnostic pin work.
             if !retainEvidence, let source = snapshot.events.last(where: {
@@ -1519,6 +1550,31 @@ final class NG2Runtime {
         }
         run.lastCache = Self.now()
         return snapshot
+    }
+
+    // Call under run.lock, before a dispatch snapshot can defer pin work.
+    // A replacement within one level cannot add an unbounded evidence slot.
+    private func retainRestartDecisionLocked(_ run: NG2Run, _ snapshot: NG2ControllerSnapshot) {
+        let status = snapshot.status
+        guard run.profile == Self.evidenceProfile, run.cancelReason == 0, !run.stopped,
+              !run.terminal, !run.inFlight, ownerActive(run),
+              status.restarts >= 0, status.restarts < 12, status.input_state == 1,
+              status.reason == 0, status.goods == 0, status.terminal == 0,
+              status.current_command_id != 0, run.prefix == status.last_completed_id,
+              let event = snapshot.events.last(where: { $0.command.id == status.current_command_id }),
+              event.command.kind == 2, event.begin_ns == 0, event.outcome == 0,
+              event.command.source_capture_id != 0 else { return }
+        let source = event.command.source_capture_id
+        guard let frame = run.pinned[source] ?? (run.images + [run.initial, run.found].compactMap({ $0 }))
+                .first(where: { $0.id == source }),
+              frame.generation == run.generation, frame.stable,
+              !frame.startInFlight, !frame.endInFlight,
+              frame.startPrefix == run.prefix, frame.prefix == run.prefix else { return }
+        let scene = frame.analysis.scene
+        guard scene.pointee.state == 2, scene.pointee.gold_state == 1, scene.pointee.goods == 0 else { return }
+        run.restartDecisionCaptureIDs[status.restarts] = source
+        run.initial = frame
+        run.references.insert(source)
     }
 
     // Call under run.lock. The source is already in recent/pinned immutable

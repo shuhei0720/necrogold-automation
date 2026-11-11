@@ -21,13 +21,15 @@ from .protocol import Client, RPC_STAGES
 from .protocol import HttpTransport, load_pairing
 from .validation import ProbeError, b64, json_object, number
 
-REVISION = 'native-walk-v15'
+REVISION = 'native-walk-v16'
 API_VERSION = '1.98.16-ngg2'
-CAPABILITY = 'necrogold_native_v14'
-PROFILE = 'normal-1-1-v1'
+CAPABILITY = 'necrogold_native_v15'
+LEGACY_PROFILE = 'normal-1-1-v1'
+PROFILE = 'normal-1-1-evidence-v2'
 MAX_IMAGE = 512 * 1024
 MAX_IMAGES = 20
 MAX_TOTAL_IMAGES = 4 * 1024 * 1024
+MAX_EVIDENCE_IMAGES = MAX_IMAGES * MAX_IMAGE
 MAX_HTTP_EVENTS = 128
 MAX_CAPTURES = 256
 MAX_NATIVE_EVENTS = 64
@@ -39,11 +41,11 @@ MAX_CHUNK_WIRE = 256 * 1024
 CHUNK_BYTES = 64 * 1024
 EXPORT_BATCH_CHUNKS = 4
 EXPORT_BATCH_BYTES = 256 * 1024
-LEGACY_REVISIONS = frozenset('native-walk-v'+str(version) for version in range(1,15))
-PAGED_REVISIONS = frozenset(('native-walk-v9', 'native-walk-v10', 'native-walk-v11', 'native-walk-v12', 'native-walk-v13', 'native-walk-v14', REVISION))
-BATCHED_REVISIONS = frozenset(('native-walk-v10', 'native-walk-v11', 'native-walk-v12', 'native-walk-v13', 'native-walk-v14', REVISION))
-MOTION_REFERENCE_REVISIONS = frozenset(('native-walk-v12', 'native-walk-v13', 'native-walk-v14', REVISION))
-RECOVERY_REVISIONS = frozenset(('native-walk-v14', REVISION))
+LEGACY_REVISIONS = frozenset('native-walk-v'+str(version) for version in range(1,16))
+PAGED_REVISIONS = frozenset('native-walk-v'+str(version) for version in range(9,17))
+BATCHED_REVISIONS = frozenset('native-walk-v'+str(version) for version in range(10,17))
+MOTION_REFERENCE_REVISIONS = frozenset('native-walk-v'+str(version) for version in range(12,17))
+RECOVERY_REVISIONS = frozenset('native-walk-v'+str(version) for version in range(14,17))
 _HTTP_TRANSPORT_TYPE = HttpTransport
 MAX_SCHEMA_ATTEMPTS = 4
 SCHEMA_BUDGET_NS = 8_000_000_000
@@ -168,7 +170,7 @@ class NativeClient(Client):
                 or type(params.get('run_id')) is not str
                 or not re.fullmatch('[0-9a-f]{32}', params['run_id'])
                 or ('keepalive' in params and type(params['keepalive']) is not bool)
-                or ('profile' in params and params['profile'] != PROFILE)):
+                or ('profile' in params and params['profile'] not in (LEGACY_PROFILE, PROFILE))):
             raise ProbeError('method_not_allowed')
 
     def read_server_schema(self, timeout):
@@ -201,7 +203,18 @@ def _revision_api(revision):
     _require(type(revision) is str and revision in LEGACY_REVISIONS | {REVISION}, 'native_journal_invalid')
     if revision == 'native-walk-v14':
         return '1.98.15-ngg2'
-    return '1.98.14-ngg2' if revision in LEGACY_REVISIONS else API_VERSION
+    return API_VERSION if revision in ('native-walk-v15', REVISION) else '1.98.14-ngg2'
+
+
+def _revision_profile(revision):
+    # The durable revision, never a reply's profile string, grants the budget.
+    _revision_api(revision)
+    return PROFILE if revision == REVISION else LEGACY_PROFILE
+
+
+def _profile_image_budget(profile):
+    _require(type(profile) is str and profile in (LEGACY_PROFILE, PROFILE), 'invalid_native_images')
+    return MAX_EVIDENCE_IMAGES if profile == PROFILE else MAX_TOTAL_IMAGES
 
 
 def _build_stamp(value):
@@ -358,8 +371,10 @@ def _load(base):
         with path.open('rb') as handle:
             raw = handle.read(2 * 1024 * 1024 + 1)
         record = json_object(raw, 2 * 1024 * 1024)
+        api_version = _revision_api(record.get('revision'))
+        profile = _revision_profile(record['revision'])
         _require(record.get('schema') == 'ngg2-host-v1' and _uuid(record.get('run_id'))
-                 and record.get('profile') == PROFILE and type(record.get('resolved')) is bool
+                 and record.get('profile') == profile and type(record.get('resolved')) is bool
                  and type(record.get('start_attempted')) is bool
                  and type(record.get('cancel_attempted')) is bool
                  and type(record.get('events')) is list and len(record['events']) <= 1024,
@@ -381,7 +396,6 @@ def _load(base):
         excess = max(0, len(record['events']) - MAX_HTTP_EVENTS)
         record['events_dropped'] += excess
         record['events'] = _events(record['events'][excess:])
-        api_version = _revision_api(record.get('revision'))
         _require(record.get('host_clock_domain') == 'python.monotonic_ns'
                  and record.get('native_clock_domain') == 'device.monotonic_ns', 'native_journal_invalid')
         if 'preflight' in record:
@@ -395,10 +409,10 @@ def _load(base):
                 require_recovery=record['revision'] in RECOVERY_REVISIONS, api_version=api_version)
         _require(_result_metadata(record['result_metadata'], api_version=api_version)
                  == record['result_metadata'], 'native_journal_invalid')
-        record['images'] = _stored_images(record['images'])
+        record['images'] = _stored_images(record['images'], profile=profile)
         if 'image_export' in record:
             _require(record['revision'] in PAGED_REVISIONS, 'native_journal_invalid')
-            record['image_export'] = _export_checkpoint(record['image_export'])
+            record['image_export'] = _export_checkpoint(record['image_export'], profile=profile)
             selected = {item['name']:item for item in record['image_export']['images']}
             _require(all(selected.get(item['name']) == item for item in record['images']),
                      'native_journal_invalid')
@@ -759,9 +773,11 @@ def _report(value, depth=0, *, require_motion_references=False, require_recovery
 
 
 def _status(value, run_id, *, require_motion_references=False, require_recovery=False,
-            api_version=API_VERSION):
+            api_version=API_VERSION, profile=PROFILE):
     _require(type(value) is dict and value.get('run_id') == run_id
-             and value.get('profile') == PROFILE and type(value.get('state')) is str
+             and type(profile) is str and profile in (LEGACY_PROFILE, PROFILE)
+             and (profile != PROFILE or api_version == API_VERSION)
+             and value.get('profile') == profile and type(value.get('state')) is str
              and value['state'] in STATES,
              'invalid_native_status')
     _require('api_version' not in value or value['api_version'] == api_version, 'invalid_native_status')
@@ -783,12 +799,13 @@ def _result_metadata(value, *, api_version=API_VERSION):
     return result
 
 
-def _stored_images(value):
+def _stored_images(value, *, profile=LEGACY_PROFILE):
     """Keep only bounded image evidence metadata from older local journals."""
     _require(type(value) is list and len(value) <= MAX_IMAGES, 'native_journal_invalid')
     selected = []
     seen = set()
     total = 0
+    max_total = _profile_image_budget(profile)
     for item in value:
         _require(type(item) is dict and type(item.get('name')) is str
                  and re.fullmatch(r'[a-z][a-z0-9_-]{0,63}\.png', item['name'])
@@ -800,7 +817,7 @@ def _stored_images(value):
                  'native_journal_invalid')
         seen.add(item['name'])
         total += item['bytes']
-        _require(total <= MAX_TOTAL_IMAGES, 'native_journal_invalid')
+        _require(total <= max_total, 'native_journal_invalid')
         clean = {key:item[key] for key in ('name','format','pixel_width','pixel_height','sha256','bytes')}
         for key in ('capture_id','capture_start_ns','capture_end_ns'):
             _require(_ns(item.get(key)), 'native_journal_invalid')
@@ -820,11 +837,13 @@ def _stored_images(value):
     return selected
 
 
-def _images(value):
+def _images(value, *, profile=LEGACY_PROFILE):
+    _require(profile == LEGACY_PROFILE, 'invalid_native_images')
     _require(type(value) is list and len(value) <= MAX_IMAGES, 'invalid_native_images')
     total = 0
     seen = set()
     images = []
+    max_total = _profile_image_budget(profile)
     for item in value:
         _require(type(item) is dict, 'invalid_native_images')
         name = item.get('name')
@@ -839,7 +858,7 @@ def _images(value):
         except ProbeError:
             raise ProbeError('invalid_native_images') from None
         total += len(raw)
-        _require(total <= MAX_TOTAL_IMAGES and len(raw) >= 24
+        _require(total <= max_total and len(raw) >= 24
                  and raw[:16] == b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR'
                  and struct.unpack('>II', raw[16:24]) == (896, 414), 'invalid_native_images')
         digest = hashlib.sha256(raw).hexdigest()
@@ -872,7 +891,7 @@ def _images(value):
     return images
 
 
-def _manifest_images(value):
+def _manifest_images(value, *, profile=LEGACY_PROFILE):
     _require(type(value) is list and len(value) <= MAX_IMAGES, 'invalid_native_images')
     selected = []
     for item in value:
@@ -880,21 +899,21 @@ def _manifest_images(value):
                  and type(item.get('byte_length')) is int, 'invalid_native_images')
         selected.append(dict(item, bytes=item['byte_length']))
     try:
-        images = _stored_images(selected)
+        images = _stored_images(selected, profile=profile)
     except ProbeError:
         raise ProbeError('invalid_native_images') from None
     _require(len({item['capture_id'] for item in images}) == len(images), 'invalid_native_images')
     return images
 
 
-def _export_checkpoint(value):
+def _export_checkpoint(value, *, profile=LEGACY_PROFILE):
     keys = {'export_id', 'images', 'total_bytes', 'chunk_bytes', 'offsets', 'prefix_sha256'}
     _require(type(value) is dict and set(value) == keys and _uuid(value.get('export_id'))
              and type(value.get('chunk_bytes')) is int and value['chunk_bytes'] == CHUNK_BYTES
              and type(value.get('total_bytes')) is int
-             and 0 <= value['total_bytes'] <= MAX_TOTAL_IMAGES,
+             and 0 <= value['total_bytes'] <= _profile_image_budget(profile),
              'native_journal_invalid')
-    images = _stored_images(value['images'])
+    images = _stored_images(value['images'], profile=profile)
     _require(len({item['capture_id'] for item in images}) == len(images)
              and value['total_bytes'] == sum(item['bytes'] for item in images)
              and type(value.get('offsets')) is list and len(value['offsets']) == len(images)
@@ -911,13 +930,13 @@ def _export_checkpoint(value):
 
 
 def _manifest(value, run_id, *, require_motion_references=False, require_recovery=False,
-              api_version=API_VERSION):
+              api_version=API_VERSION, profile=PROFILE):
     state, report = _status(value, run_id, require_motion_references=require_motion_references,
-        require_recovery=require_recovery, api_version=api_version)
+        require_recovery=require_recovery, api_version=api_version, profile=profile)
     _require(state in TERMINAL and value.get('result_mode') == 'manifest'
              and _uuid(value.get('export_id')) and type(value.get('chunk_bytes')) is int
              and value['chunk_bytes'] == CHUNK_BYTES, 'invalid_native_images')
-    images = _manifest_images(value.get('images'))
+    images = _manifest_images(value.get('images'), profile=profile)
     total = sum(item['bytes'] for item in images)
     _require(type(value.get('total_bytes')) is int and value['total_bytes'] == total,
              'invalid_native_images')
@@ -995,7 +1014,7 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
     state, report, metadata, incoming = _manifest(call({'run_id':run_id, 'mode':'manifest'}), run_id,
         require_motion_references=record['revision'] in MOTION_REFERENCE_REVISIONS,
         require_recovery=record['revision'] in RECOVERY_REVISIONS,
-        api_version=_revision_api(record['revision']))
+        api_version=_revision_api(record['revision']), profile=_revision_profile(record['revision']))
     if read_only_clock is not None:
         # A terminal status grants time only to the same drained native run.
         # A contradictory manifest cannot spend that time transferring chunks.
@@ -1133,6 +1152,7 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
         elif not record['start_attempted'] and record['revision'] != REVISION:
             # No native run exists yet. Its first start uses the current contract.
             record['revision'] = REVISION
+            record['profile'] = PROFILE
             record.pop('preflight', None)
         recovering = record['start_attempted']
         run_id = record['run_id']
@@ -1176,7 +1196,7 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
             state, report = _status(value, run_id,
                 require_motion_references=record['revision'] in MOTION_REFERENCE_REVISIONS,
                 require_recovery=record['revision'] in RECOVERY_REVISIONS,
-                api_version=_revision_api(record['revision']))
+                api_version=_revision_api(record['revision']), profile=_revision_profile(record['revision']))
             record.update(state=state, native_state=state, native_report=report)
             if state in TERMINAL or report.get('cancel_requested') is True:
                 record['cancel_confirmed'] = True
@@ -1304,7 +1324,7 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                 try:
                     start_admission()
                     client._before_start_post = start_admission
-                    accept(request('necro_native_start', {'run_id': run_id, 'profile': PROFILE}))
+                    accept(request('necro_native_start', {'run_id': run_id, 'profile': record['profile']}))
                 except _StartNotSent:
                     raise
                 except ProbeError as exc:
@@ -1359,9 +1379,10 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                             value = request('necro_native_results', {'run_id': run_id},
                                             timeout=min(client.timeout, 8, remaining))
                             state, report = _status(value, run_id,
-                                api_version=_revision_api(record['revision']))
+                                api_version=_revision_api(record['revision']),
+                                profile=_revision_profile(record['revision']))
                             _require(state in TERMINAL, 'invalid_native_status')
-                            images = _images(value.get('images'))
+                            images = _images(value.get('images'), profile=_revision_profile(record['revision']))
                             image_folder = base/('native-'+run_id)/'images'
                             image_folder.mkdir(mode=0o700, exist_ok=True)
                             for image_metadata, raw in images:

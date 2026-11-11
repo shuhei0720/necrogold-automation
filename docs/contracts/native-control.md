@@ -1,6 +1,6 @@
 # Nativeの不変条件
 
-[要件](../requirements/necrogold.md)・[通路と限定変更](passage-approach.md)。[080計画](../plans/test080-sparse-gate-closed-mouth.md)の2箇所以外は維持。
+[要件](../requirements/necrogold.md)・[通路と限定変更](passage-approach.md)。[081計画](../plans/test081-batch-stops-evidence.md)の限定差分以外は維持。
 
 ## 2. 保存
 
@@ -8,7 +8,7 @@
 
 ## 3. owner/prefix/取消
 
-端末monotonic nsを使用。取得両境界の同completed prefix・inflightなしの安定画像だけが入力権限。交差/旧世代/取消済みは拒否。CはcontrolQueue直列、main begin中caller同期停止。解析はcapture worker、Sceneはimmutable heap所有。observe/証跡は同owner/generation/cancel gateでcommitし、capture/解析/main実終了までdrain。最新優先/queue上限・EXIF1〜8・px/pt・alpha/sRGB/比率/stride/範囲/overlap検査を保つ。
+端末monotonic ns。入力権限は取得両端のcompleted prefix一致/非inflight安定画像のみ。交差/旧世代/取消拒否。CはcontrolQueue直列、main begin中caller同期停止。解析はcapture worker、Sceneはimmutable heap所有。observe/証跡は同owner/generation/cancel gateでcommitし、capture/解析/main実終了までdrain。最新優先/queue上限・EXIF1〜8・px/pt・alpha/sRGB/比率/stride/範囲/overlap検査を保つ。
 
 main.sync/run lock外でAX照会、callback実returnまでlease保持。最終callbackにAX IPCを置かず、query-start≤end≤now・1秒以内を待機/IPC込みで検査。sample共有はC epochで証明された同logical MOVEのSAME/FRESH、同run/clock/owner/世代/PID/prefix・元拍/期限だけ（初歩/retune/ACK後不可）。synth直前に最新ID/方向/座標/実時計/前面/lock/owner/世代/取消/元ticketを検査し1回送信。旧IDは新状態不変、未確認input≤1。UNKNOWN再送/自動cleanup、停止後/別アプリへの旧画像入力は禁止。
 
@@ -26,7 +26,7 @@ sync12秒は公開/begin/completeの等号で終了。TicketGuard短絡→comple
 
 FRESH（validation12）はlead確認済みcontinuousでSAME不成立時に最新判断へ替える。両FLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE・origin FLOOR・全protected不変・source5field単一証明・strict BLOCKEDを要求。全230セルでUNKNOWN→FLOOR/DIRT/STONE/GOLD/DOOR、FLOOR→DIRT/STONE/GOLD/DOOR、DIRT→STONE/GOLD/DOORだけ許可。GOLD/STONE/DOOR/ITEM不変、新DOORはgold bracket必須。
 
-通常plannerの1MOVEを別ID/latest sourceへ予約。pending全5field/最新direction・x・yを検査。FRESH→SAMEで元方向へ戻さず、SAMEとchain2/run8・同拍/ordinal/全凍結期限を共有。未予約FRESHの重複/元source・phase horizon延長は禁止。
+通常1MOVEを別ID/latest sourceへ予約。pending全5field/最新direction・x・yを検査。FRESH→SAMEで元方向へ戻さず、SAMEとchain2/run8・同拍/ordinal/全凍結期限を共有。未予約FRESHの重複/元source・phase horizon延長は禁止。
 
 ## 6. 全期限・予算
 
@@ -72,7 +72,7 @@ FRESH後の旧referenceは再作成/SAME復活禁止。primary UNKNOWN時だけ�
 
 ## 11. ABI/診断
 
-Status192B/Event128B/Scene23864Bは不変。MotionWait48B layoutも不変だがdeadline_nsはvisualDへ意味変更（cap13で識別）。SceneDetail.validation=2 SAME/12 FRESH_ALLOWED。別query MotionReference80B/ACK MOVE≤16行（[12key閉schema](../../necroprobe/native_walk.py)）。
+Status192B/Event128B/Scene23864Bは不変。MotionWait48B layoutも不変だがdeadline_nsはvisualDへ意味変更（cap13で識別）。SceneDetail.validation=2 SAME/12 FRESH_ALLOWED。MotionReference80B別query/ACK MOVE≤16行（[12key閉schema](../../necroprobe/native_walk.py)）。
 
 観測前observed=全motion=0・attempted=false・selected=authority。reference_prefixは同MOVE前の最終ACK（未送信event除外）。未適格fallbackの評価済表示禁止。通常event/trace observed一致、goods=1最終ACK MOVEだけ未評価/最後のUNKNOWN・TWEEN traceと後の商品event observedとの差を許す。
 
@@ -80,11 +80,11 @@ RecoveryTrace192B/RecoveryStatus456Bの別getterで消去前model/raw samples≤
 
 ## 12. 起動/旧client回復
 
-新規v15/API1.98.16-ngg2/cap14、完全reportのrecovery必須。v12〜15はmotion_references、v14/15はrecovery必須。旧診断不在可/存在時同閉schema。preflight(ready含む)/status/result_metadataはv1〜13=API.14、v14=API.15、v15=API.16へ固定。motion_wait≤8は期待API.16/保存v15のみ、旧版≤3。v10〜15は4chunk batch、v9は1、v1〜8はlegacy。started回復は元UUID/clock/owner・GET0/start0、unknown start無再送。未開始旧journalは同UUIDでv15へ移行。fresh preflightだけ許可transientを最大4試行/計8秒/各2秒で再確認。
+新規v16/API1.98.16-ngg2/cap15、cap14互換。計画§5のrevision対応。v1〜15=profile1、v16=profile2。全応答APIはv1〜13=.14、v14=.15、v15/16=.16。v12〜16はmotion_references、v14〜16はrecovery必須。旧診断不在可/存在時同閉schema。motion_wait≤8はAPI.16/v15・16のみ、旧版≤3。v10〜16は4chunk、v9は1、v1〜8はlegacy。started回復は元UUID/clock/owner・GET0/start0、新cap不要。未開始旧journalは同UUIDでv16へ移行。unknown start無再送。fresh preflight許可transientは最大4試行/計8秒/各2秒。
 
 ## 13. Export
 
-PNG≤20枚/各512KiB/計4MiB、初期/商品/停止/最新比較優先。chunk64KiB、manifest wire512KiB/chunk wire256KiB。batch≤4chunk/256KiBも各chunk検証/取消/期限必須。検証済prefixだけhash/cursorへ反映、atomic fragmentをjournalsより先に保存。再中断も未検証suffix全体保持、active journalが回復権限。
+profile1 `normal-1-1-v1` は旧initial/優先・PNG≤20/各512KiB/計4MiB・legacy/paged同一。profile2 `normal-1-1-evidence-v2` だけ各map最終正常見送りsource≤12＋既critical≤7を20pin内保持、PNG≤20/各512KiB/計10MiB、paged-only/bulk拒否。profile/予算はrun固定、wireから拡張禁止。欠落/oversizeを記録。chunk64KiB、manifest wire512KiB/chunk wire256KiB、batch≤4chunk/256KiB。各chunk検証/取消/期限、検証済prefixだけhash/cursorへ反映。atomic fragment→journal順保存、再中断も未検証suffix保持、active journalが回復権限。暗号/HTTP上限不変。
 
 RPC2秒/結果8秒。unsafe/非pagedは90秒を残session180秒内へ。[069](../plans/test069-collection-gate.md)のterminal/drained・input0/3・非inflight/非凍結pagedは独立300秒。同UUID/cursorのread-only、start/入力/keepalive/cancelなし。旧返信cache消去・未知input解決の誤認禁止。local原本保持、全画像検証/ZIP公開前の終了/次start禁止。§3排他。
 
@@ -95,6 +95,3 @@ profilev2はPerception/Navigation strict O2（-fno-fast-math/-ffp-contract=off�
 ## 15. 検証
 
 [試験区分](../testing.md)。画像不足/hash不一致はlocal失敗、CI除外と区別。模擬/未測定は実機成功/速度達成にせず、run別評価。
-
-
-配布/実機は[AGENTS](../../AGENTS.md#保存と返却)。

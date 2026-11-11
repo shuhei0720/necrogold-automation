@@ -366,6 +366,26 @@ class NGG2ApplyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'native_runtime_response_api'):
             verifier.inspect_native_sources(self.root, driver)
 
+    def test_native_v15_evidence_package_keeps_api16_and_strict_profile_v2(self):
+        import json
+        self.assertEqual(2, verifier.required_native_profile('necrogold_native_v15'),
+            'evidence_profile_requires_both_actual_strict_source_compiler_proofs')
+        driver = self.native_report_fixture()
+        path = driver / 'patches/loopctrl/ngg2-manifest.json'
+        manifest = json.loads(path.read_text())
+        manifest['client_capability'] = 'necrogold_native_v15'
+        path.write_text(json.dumps(manifest))
+        accepted = verifier.inspect_native_sources(self.root, driver)
+        self.assertEqual(('1.98.16-ngg2', 'necrogold_native_v15'),
+            (accepted['api_version'], accepted['client_capability']))
+        runtime = self.root / self.added
+        stale = runtime.read_bytes().replace(b'1.98.16-ngg2', b'1.98.15-ngg2')
+        runtime.write_bytes(stale)
+        manifest['additions'][self.added]['sha256'] = sha(stale)
+        path.write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, 'native_runtime_response_api'):
+            verifier.inspect_native_sources(self.root, driver)
+
     def test_package_provenance_preserves_native_v3_client_capability(self):
         import json
         driver = self.native_report_fixture()
