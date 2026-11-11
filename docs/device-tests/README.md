@@ -2995,3 +2995,16 @@ v2はpaged-only/10MiB、旧v1は固定4MiB。cap15/client16、API16・旧回収�
 code `367601819ffdb0522323762b3e6cce36a588407b`、build135/run43034347751。IPA0.3.4/build135/min16、17,623,369B/SHA `1c60ad0d6c61b51a920f1f6166bdbe054a3d2e26d20912d26118e292063096fd`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test081-build135/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test081-build135/source.zip)。
 
 SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。iSHで `mkdir -p /mnt/necro_test081`、`mount -t ios . /mnt/necro_test081`、`cd /mnt/necro_test081 && sh test_081.sh`。展開したtest_081.shのフォルダを選ぶ。毎回fresh通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を6回。5秒以上ポーズならiSHへ戻り保存完了を待ち、runtime/test-081-<run_id>.zip全回分と商品可視/停止位置/拍間隔を返してもらう。080再実行不要、新実機到達/見逃し率/毎拍・人超えは未受入。
+
+
+## TEST081受領とTEST082: 材質境界・通路の実移動・待機拒否の診断
+
+2026-11-12（日本時間）。[計画](../plans/test082-materials-motion.md)・[受領/検証](../reviews/test082.md)・[独立レビュー](../reviews/test082-independent.md)。5ZIP/97原PNGを全SHA/CRC/schema/manifest/prefix/cursor/実publicationへ照合し、全PAUSE/完収。原275で3商品100/50/100が全可視、到達1/5。正常見送り判断18/18枚と最終criticalを保持。全画像保存ではなく、実2の拒否128/129原画不足は未確定として残す。
+
+既DIRTだけの固定pixel証拠で床/半可視床/石の境界誤認識を補い、実4の逆方向と実5初回候補見逃しの原因へ対応。無金通路の実UP1に既074/075証明の追加ANDを設ける。正しい床追加で見つかった旧LEFT1回帰も独立計画追記・意味Red後に修正し、97画像/36ACKで旧known27全部維持・回帰0、旧UNKNOWNは実1だけ改善。実5最後の金case移動確認は未解決。未発行stationaryの独立地形変化拒否は限定して既診断へ記録する。旧閾値本文/入力期限/予算/UNKNOWN無再送とRuntime/core4は維持。
+
+新18単体は意味Red→Green。同code host43/18scope全Green、実Mac070旧Red1/現Green6・081保存Green6、旧Red133は別run証拠再利用。5実物verifier各1回PASS/失敗再実行0、実C4/Swift5/RSP6・全9MachO208marker不在・全612source/IPA同一性を照合。同じ独立担当が静的/実物とも残P0/P1/P2なしでGO。全配置到達・見逃し率・毎拍/人超えは未受入。
+
+code `c28c087b36742543c134ac1d8384160c1ca3b522`、build137/run43055416759。IPA0.3.4/build137/min16、17624649B/SHA `fcc148ce172dde647d541876ba0533f27935b7e3fcd7e147e1cf110de85178da`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test082-build137/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test082-build137/source.zip)。closingは文書3件だけで製品不変。固定3assetの匿名全GET/SHA/CRC照合後に返す。
+
+SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開したtest_082.shのフォルダをiSHへ選び、`mkdir -p /mnt/necro_test082`、`mount -t ios . /mnt/necro_test082`、`cd /mnt/necro_test082 && sh test_082.sh`。fresh通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を5回。5秒以上ポーズならiSHへ戻り保存完了を待ち、runtime/test-082-<run_id>.zip全回分と商品全体可視/停止位置/逆方向/候補見逃し/拍間隔を依頼。081再実行/追加回収不要。

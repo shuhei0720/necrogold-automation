@@ -72,6 +72,12 @@ freshG1→seal/applyも生成済み、22中Perception/Nav/Controller3変更・�
 
 ## 単体・最終検証・配布
 
-この時点では新公開単体/固定sourceまで確認済みで、同codeのhost CI/実compiler/IPA/固定公開GETは未完了。独立した同じ1名がP1回帰の修正・作者ログ・最終保持比較と固定3source/selectorを確認し、残P0/P1/P2なしで静的最終GO。作者の実ログと最終ビルドに結び付いた結果だけを後で追記する。Perception/Nav/Controller3source変更・他19、Runtime048a…/API16/cap15/client16/4core client同一bytes。新Runtime Mac Redは不要。旧070/081保存fixtureの今回実行と過去Red133の再利用を区別する。
+同code `c28c087b36742543c134ac1d8384160c1ca3b522`、GitHub run43055416759/build137でhost43methods/18scope全Green（native36/client4/selector3）、fail/error/skip0。Macでは旧070の期待Red1/現Runtime6entrypoints Greenと081保存6entrypoints Greenを今回実行した。Runtime048a…/fixture302c…/seame98b…は同一bytesで新Runtime Redは不要、保存の意味Red133/run43030728793は別run証拠の再利用として明確に分ける。新しい全Runtime故障/worldや実ゲームCIは追加していない。
 
-新IPA/完全sourceを固定Releaseへ保存し、全source/IPA/匿名全GETを照合してから、通常1-1ポーズからrestart→候補→商店→全商品確認の5〜6回を依頼する。元081の追加回収/再実行は不要。今回の改善で全配置の到達/見逃し率・恒久毎拍/人超え・対象認識/通知/対象なし周回を受入済みにしない。
+5実物verifierを各1回実行し、全PASS/失敗・再実行0。package/source612全bytes/CRC、22seal中3変更19不変・R12原40/G1/core4/Runtime維持、host43/18、実C4/Swift5/RSP6とraw compiler/RSP/pbx・Perception/Nav strictO2/他C O0/Swift Onone・HOST macro不在を照合。全9MachOに208marker（旧188完全保持/重複0・新C10=export9/static1）のテスト入口不在を確認した。意味試験のローカル重複実行0。crossbinding receiptはGit外 `test082-actual-five-crossbinding-receipt.json`、7616B/SHA `33ad93c79e4cff72da406e068c508281c2b0fd0e9191822648184dbf25a78f5a`。rootの独立in-memory IPA照合と5結果すべてが同code/IPA/sealへ一致する。
+
+同じ独立担当が静的GO後に実物host・Mac・compiler・5結果を読取確認し、残P0/P1/P2なしで最終GO。追加テスト/文書編集は0。最終IPAは0.3.4/build137/min16、17624649B/SHA `fcc148ce172dde647d541876ba0533f27935b7e3fcd7e147e1cf110de85178da`。今回確認できた範囲は単体・保存・収録同一性であり、新実機の到達率を先取りしない。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test082-build137)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test082-build137/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test082-build137/source.zip)。code後のclosingはstatus/本レビュー/device台帳の文書3件だけで製品不変。完全sourceはclosing全612blobを照合し、公開後は固定3assetを匿名全GET/SHA/API digest/CRC照合して返す。
+
+SideStoreで更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開sourceのtest_082.shで通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を5回依頼する。5秒以上ポーズならiSHへ戻り全画像/ZIP照合完了を待ち、runtime/test-082-<run_id>.zip全回分と全商品可視/停止位置/逆方向/候補見逃し/拍間隔を返してもらう。元081の追加回収/再実行は不要。実5最後の金case移動確認は未解決、実2初回拒否は原画不足で未確定。全配置到達/見逃し率・恒久毎拍/人超え・対象認識/通知/対象なし周回は未受入。
