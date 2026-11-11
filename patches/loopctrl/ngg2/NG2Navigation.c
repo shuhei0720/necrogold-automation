@@ -988,6 +988,122 @@ static void revealed_gate_axis_motion(const NG2Scene *before,const NG2Scene *aft
     free(cache);
 }
 
+/* A narrow closed-gate approach can leave no ordinary phase samples. This
+ * additional proof keeps all old planes and limits unchanged: its phase uses
+ * complete known 3x3 dependencies and independent fixed y65 bands; the existing
+ * fixed-axis camera52 features independently require the full signed strength. */
+static int sparse_gate_pixel(const NG2Scene *a,const NG2Scene *b,int x,int y,int sx,int sy) {
+    int ox,oy;
+    if (y==64 || y==65 || y+sy==64 || y+sy==65) return 0;
+    for (oy=-1;oy<=1;++oy) for (ox=-1;ox<=1;++ox) {
+        int ax=x+ox,ay=y+oy,bx=ax+sx,by=ay+sy;
+        int gx=(4*ax-34)/36-11,gy=(4*ay-9)/36-5;
+        int hx=(4*bx-34)/36-11,hy=(4*by-9)/36-5;
+        int old=tile(a,gx,gy),latest=tile(b,hx,hy);
+        if (!closed_gate_axis_mask(ax,ay) || !closed_gate_axis_mask(bx,by) ||
+            !old || old!=latest || old==NG2_TILE_DOOR || old==NG2_TILE_ITEM ||
+            protected_at(a,gx,gy) || protected_at(b,hx,hy)) return 0;
+    }
+    return 1;
+}
+static double sparse_gate_intensity(const NG2Scene *a,const NG2Scene *b,
+                                   const View *av,const View *bv,int sx,int sy,
+                                   int *support,int regions[2]) {
+    uint32_t count=0,sa=0,sb=0,qa=0,qb=0,total=0;
+    int x,y;double contrast,ma,mb,gain;unsigned char lut[256];
+    if (support) *support=0;
+    if (regions) regions[0]=regions[1]=0;
+    for (y=20;y<85;++y) for (x=40;x<179;++x) {
+        unsigned int first,second;
+        if (!sparse_gate_pixel(a,b,x,y,sx,sy)) continue;
+        first=av->normalized[y*W+x];second=bv->normalized[(y+sy)*W+x+sx];
+        if (first<=6 || second<=6) continue;
+        ++count;sa+=first;sb+=second;qa+=first*first;qb+=second*second;
+        if (regions) ++regions[y<65 ? 0 : 1];
+    }
+    if (support) *support=(int)count;
+    if (count<300) return INFINITY;
+    contrast=(sqrt(((double)qa-(double)sa*sa/count)/count)+sqrt(((double)qb-(double)sb*sb/count)/count))/2;
+    ma=(double)sa/count;mb=(double)sb/count;
+    if (!isfinite(contrast) || contrast<2.5 || ma<6 || mb<6) return INFINITY;
+    gain=ma/mb;if (gain<.65) gain=.65;else if (gain>1.55) gain=1.55;
+    for (x=0;x<256;++x) { volatile double product=(double)x*gain;lut[x]=even_round(product); }
+    for (y=20;y<85;++y) for (x=40;x<179;++x) {
+        int first,second;
+        if (!sparse_gate_pixel(a,b,x,y,sx,sy)) continue;
+        first=av->normalized[y*W+x];second=bv->normalized[(y+sy)*W+x+sx];
+        if (first>6 && second>6) total+=(uint32_t)abs(first-(int)lut[second]);
+    }
+    return (double)total/count/contrast;
+}
+static int sparse_gate_anchors(const NG2Scene *a,const NG2Scene *b,int dx,int dy) {
+    int i,j,gx=2*dx,gy=2*dy;
+    for (i=0;i<CELLS;++i) {
+        if (a->tiles[i]!=NG2_TILE_STONE || tile(b,px(i)-dx,py(i)-dy)!=NG2_TILE_STONE) continue;
+        for (j=i+1;j<CELLS;++j) {
+            if (a->tiles[j]!=NG2_TILE_STONE || tile(b,px(j)-dx,py(j)-dy)!=NG2_TILE_STONE) continue;
+            if ((px(i)-gx)*(py(j)-gy)!=(py(i)-gy)*(px(j)-gx)) return 1;
+        }
+    }
+    return 0;
+}
+static int sparse_gate_phase_valid(const Candidate c[73],int direction,int support,const int regions[2]) {
+    int i;
+    if (direction<1 || direction>4 || support<300 || regions[0]<100 || regions[1]<100 ||
+        !isfinite(c[0].score) || c[0].score>.45 || !(c[1].score-c[0].score>=.08) ||
+        c[0].sx!=-9*ddx[direction] || c[0].sy!=-9*ddy[direction]) return 0;
+    for (i=0;i<73;++i) if (isnan(c[i].score) || c[i].score==-INFINITY) return 0;
+    return 1;
+}
+static int sparse_gate_axis_strong(const ClosedGateAxisCache *cache,const Candidate c[73]) {
+    int support,bad,k;
+    closed_gate_axis_texture(cache,c[0].sx,c[0].sy,&support,&bad,NULL);
+    if (!texture_strength(support,bad,95)) return 0;
+    for (k=1;k<73;++k) {
+        int count,opposite;
+        closed_gate_axis_texture(cache,c[k].sx,c[k].sy,&count,&opposite,NULL);
+        if (!texture_lead(support,bad,count,opposite)) return 0;
+    }
+    return 1;
+}
+static void sparse_gate_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                               const View views[2],const Candidate legacy[73],NG2Motion *out) {
+    Candidate c[73];ClosedGateAxisCache *cache;
+    int dx=ddx[direction],dy=ddy[direction],normal=dx ? NG2_RIGHT : NG2_DOWN;
+    int i,n=1,amount,d,support,regions[2];
+    if (out->kind!=NG2_MOTION_UNKNOWN || before->state!=NG2_FLOOR || after->state!=NG2_FLOOR ||
+        before->gold_state!=NG2_GOLD_CANDIDATE || after->gold_state!=NG2_GOLD_CANDIDATE ||
+        before->goods!=NG2_GOODS_UNKNOWN || after->goods!=NG2_GOODS_UNKNOWN ||
+        tile(before,0,0)!=NG2_TILE_FLOOR || tile(before,dx,dy)!=NG2_TILE_FLOOR ||
+        tile(after,0,0)!=NG2_TILE_FLOOR || gold_count(before)!=2 || gold_count(after)!=2 ||
+        tile(before,2*dx,2*dy)!=NG2_TILE_DOOR || tile(after,dx,dy)!=NG2_TILE_DOOR ||
+        gate(before,2*dx,2*dy)!=normal || gate(after,dx,dy)!=normal ||
+        !closed_translation(before,after,-9*dx,-9*dy) ||
+        !unique_gate_translation(before,after,-9*dx,-9*dy) ||
+        !sparse_gate_anchors(before,after,dx,dy)) return;
+    for (i=0;i<73;++i) if (legacy[i].score!=INFINITY) return;
+    for (i=0;i<CELLS;++i)
+        if (before->protected_cells[i] || after->protected_cells[i] ||
+            before->tiles[i]==NG2_TILE_ITEM || after->tiles[i]==NG2_TILE_ITEM) return;
+    c[0].sx=c[0].sy=0;
+    c[0].score=sparse_gate_intensity(before,after,&views[0],&views[1],0,0,NULL,NULL);
+    for (amount=1;amount<=18;++amount) for (d=1;d<=4;++d) {
+        c[n].sx=amount*ddx[d];c[n].sy=amount*ddy[d];
+        c[n].score=sparse_gate_intensity(before,after,&views[0],&views[1],c[n].sx,c[n].sy,NULL,NULL);++n;
+    }
+    qsort(c,73,sizeof(*c),ranked);
+    sparse_gate_intensity(before,after,&views[0],&views[1],c[0].sx,c[0].sy,&support,regions);
+    if (!sparse_gate_phase_valid(c,direction,support,regions)) return;
+    cache=(ClosedGateAxisCache *)calloc(1,sizeof(*cache));
+    if (!cache) return;
+    closed_gate_axis_features(before,cache->before,cache->indices,&cache->count);
+    closed_gate_axis_features(after,cache->after,NULL,NULL);
+    if (sparse_gate_axis_strong(cache,c)) {
+        out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+    }
+    free(cache);
+}
+
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -1012,6 +1128,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     corner_blur_motion(before,after,direction,views,candidates,out);
     closed_gate_axis_motion(before,after,direction,candidates,out);
     revealed_gate_axis_motion(before,after,direction,candidates,out);
+    sparse_gate_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,

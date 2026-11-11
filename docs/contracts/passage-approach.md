@@ -30,6 +30,8 @@ Controller private modeとmode-aware chooser/safe_stepで初歩校正と通常�
 
 外側目標へ実到達し、その後の独立stable current-prefix GOLD_CLEAR/GOODS_UNKNOWNを確認して初めてその候補を局所見送りとする。世界全体の店なしではない。UNKNOWNで到達不能なら既知内側vantageから最大2拍、元予算内で新露出を待つ。なお不能なら未判定、他候補を確認しても未判定が残ればNO_PATH保持停止。全候補到達後の独立CLEARの場合だけ既存PAUSE/RESTARTへ進む。PAUSE/RESTART予約とACK待ちでも商品/保護/新金候補を再検査し、候補が分かった後の見送りを禁止する。未送信の見送り票は撤回できるが、送信UNKNOWNを既知へ変換したりRESTARTを再送したりしない。GOLD_UNKNOWN/商品/保護/期限切れを不在にせず、予算を伸ばさない。
 
+TEST080の[閉口局所見送り](../plans/test080-sparse-gate-closed-mouth.md)は、外側への到達確認とは別の限定追加。最後のACK実MOVEDで固定mouth内側隣接へ到達し、BLOCKED待機中input0・旧anchorと後続独立stable/current-prefixのstrict BLOCKED・origin床・口同DIRT/STONE・両脇壁・全GOLD/商品/ITEM/保護なし・両観測に床経路なしを元2拍/旧horizon内で確認した候補だけをprivate closedへ退役する。外側UNKNOWNや変化を陰性にせず、inspected(実到達)・unresolved(未判定)と混ぜない。他候補へ進み、未判定が残れば従来NO_PATH、全候補が到達確認済み又は閉口確認済みで初めて既PAUSE/RESTARTへ戻る。新金/商品/保護/取消/owner/prefix/期限/UNKNOWN送信は従来優先、閉口を世界全体の店なしや掘削権限にしない。closedもstart/level切替/初期候補更新で撤回し、stationary snapshot/recheckは対称に保持する。
+
 ## 5. levelの切替
 
 PAUSE直前の最新安定current-prefix FLOORをrestart fingerprint基準に凍結する。探索開始画像を基準にしない。実RESTART ACK後・取得開始≥ACK・独立stable current-prefix FLOORがこの基準から変わったと確認して初めてlevelを切り替える。旧終点world/UNKNOWN/状態4/取消/owner失効から切り替えない。
@@ -54,3 +56,6 @@ TEST078の[限定計画](../plans/test078-closed-gate-motion.md)はUNKNOWNにだ
 TEST079の[限定計画](../plans/test079-gold-reveal-dirt.md)は旧判定後UNKNOWNだけへ、単一金から新閉扉/金bracketが露出したunitの別証明を追加する。両CANDIDATE/GOODS_UNKNOWN・全保護/ITEM0・旧origin/実nextと最新origin床、全73 rawの同方向厳密unit/score≤.45/gap≥.08、旧金1→最新金2/閉扉1・旧金対応・新門/反対金の旧projectionがUNKNOWN、旧金と保持旧STONE2点の非共線・全9translationで異なるanchor組も含め唯一を要求。078固定3依存面の300/95%/帯100/元15ppをそのまま併用し、旧partial全STONE条件/既knownを変えない。MOVEDだけを返し開通/入口creditは作らない。
 
 079のquiet追加はlead確認済みcontinuous・未入店・確実未送信state1のreason6/DIRT/target=実nextだけ。両Sceneの2*direction閉DOOR/入力軸に垂直な両GOLD、全GOLD/保護集合と材質/ITEM・両3×3・full5不変、strict BLOCKEDを要し、保護外かつ両近傍外のUNKNOWN/FLOOR/DIRT/STONE差だけ許す。同ID/全ticket bytes/元before・clock/epoch/prefix/owner/取消/全凍結期限を保持し、新予約/移動/開通creditは増やさない。旧quiet他scopeは不変、started/UNKNOWN送信/期限超過/商品優先を広げない。
+
+
+TEST080の[狭い閉金扉unit証明](../plans/test080-sparse-gate-closed-mouth.md)は、全旧Nav後UNKNOWNかつ元73phaseがすべて正INFの場合だけ追加。有限/NaN/負INFは対象外。両FLOOR/CANDIDATE/GOODS_UNKNOWN・全ITEM/保護0・旧origin/実nextと最新origin床、閉DOOR2ahead→adjacent/同法線・GOLDexact2/unique9・保持旧STONE2点と旧門中心の非共線を要する。新phaseは固定openingmaskの全実3×3依存が両frame既知同材質・非DOOR/ITEM/保護である点だけを元normalized intensity算術/支持300/mean6/contrast2.5/gain.65..1.55で全73採点し、元unit/score≤.45/gap≥.08を要求。固定65帯各100（両frame64/65中心除外）で独立2領域をphase側に課し、さらに078固定H→V3feature/camera52の総300/95%/全73元15ppを併用する。旧strong52帯100と全旧関数は変更せず、この新結合だけへ限定。unit以外や開通/入口credit、元期限/予算/未知入力再送は追加しない。

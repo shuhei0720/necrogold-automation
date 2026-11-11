@@ -1,6 +1,6 @@
 # Nativeの不変条件
 
-[要件](../requirements/necrogold.md)・[通路と限定変更](passage-approach.md)。[079計画](../plans/test079-gold-reveal-dirt.md)の2箇所以外は維持。
+[要件](../requirements/necrogold.md)・[通路と限定変更](passage-approach.md)。[080計画](../plans/test080-sparse-gate-closed-mouth.md)の2箇所以外は維持。
 
 ## 2. 保存
 

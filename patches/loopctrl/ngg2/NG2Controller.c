@@ -91,7 +91,7 @@ struct NG2Controller {
     int gate_refresh_state,gate_refresh_used;
     int terrain_refresh_active,terrain_refresh_used;
     int level_input_base,level_move_base;
-    uint32_t passage_pending,passage_inspected,passage_unresolved;
+    uint32_t passage_pending,passage_inspected,passage_unresolved,passage_closed;
     int passage_active,passage_bit,passage_wait_kind,restart_baseline_valid,restart_intent;
     uint64_t passage_wait_deadline,passage_wait_horizon,passage_release_proof_id,passage_anchor_id,passage_anchor_start,passage_anchor_end;
     NG2Scene passage_anchor;
@@ -103,7 +103,7 @@ struct NG2Controller {
     int observation_refresh_active,observation_refresh_count;
     int stationary_wait_active,stationary_wait_x,stationary_wait_y;
     int stationary_wait_inputs,stationary_wait_moves,stationary_wait_passage,stationary_wait_bit;
-    uint32_t stationary_wait_pending,stationary_wait_inspected,stationary_wait_unresolved;
+    uint32_t stationary_wait_pending,stationary_wait_inspected,stationary_wait_unresolved,stationary_wait_closed;
 };
 static int tile_index(int x,int y){return x>=-11&&x<=11&&y>=-5&&y<=4?(y+5)*23+x+11:-1;}
 static int tile(const NG2Scene *s,int x,int y){int k=tile_index(x,y);return k<0?0:s->tiles[k];}
@@ -483,7 +483,7 @@ static void reset_level(NG2Controller *p,uint64_t end){
     p->recovery.mode=NG2_RECOVERY_NORMAL;
     p->recovery.schedule_deadline_ns=p->recovery.visual_deadline_ns=p->recovery.ack_ns=0;
     p->passage_active=0;p->passage_bit=-1;p->passage_wait_kind=0;
-    p->passage_pending=p->passage_inspected=p->passage_unresolved=0;
+    p->passage_pending=p->passage_inspected=p->passage_unresolved=p->passage_closed=0;
     p->passage_wait_deadline=p->passage_wait_horizon=p->passage_release_proof_id=p->passage_anchor_id=p->passage_anchor_start=p->passage_anchor_end=0;
     p->initial_view_id=p->initial_view_start=p->initial_view_end=0;
     p->initial_candidate_id=p->initial_candidate_end=p->initial_candidate_prefix=0;
@@ -507,7 +507,7 @@ static void start_floor(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint6
         if(!p->initial_candidate_id)remember_initial_candidate(p,scene,id,end,p->s.last_completed_id);
         p->passage_pending=ng2_passage_candidates(scene);
         if(p->passage_pending){
-            p->passage_active=1;p->passage_inspected=p->passage_unresolved=0;
+            p->passage_active=1;p->passage_inspected=p->passage_unresolved=p->passage_closed=0;
             select_passage(p,scene);
             if(!p->s.walk_started_ns)p->s.walk_started_ns=epoch;
             p->sync_ns=epoch;clear_model(p);p->s.phase=NG2_PHASE_SYNC;
@@ -565,7 +565,7 @@ static int recheck_initial_view(NG2Controller *p,const NG2Scene *scene,uint64_t 
     p->initial_view_pending=0;
     if(p->initial_candidate_waiting){
         p->initial_candidate_waiting=0;p->restart_baseline_valid=p->restart_pending=0;
-        p->passage_pending=mask;p->passage_inspected=p->passage_unresolved=0;
+        p->passage_pending=mask;p->passage_inspected=p->passage_unresolved=p->passage_closed=0;
         p->passage_wait_kind=0;p->passage_wait_deadline=p->passage_release_proof_id=0;
         p->restart_intent=!mask;p->passage_active=mask!=0;
         if(mask){
@@ -647,15 +647,55 @@ static void begin_passage_wait(NG2Controller *p,const NG2Scene *scene,uint64_t i
     p->passage_anchor_start=start;p->passage_anchor_end=end;
     p->proof_deadline=0;p->proof_reacquire=0;p->proof_capture_id=id;p->motion_wait.active=0;
 }
-static void passage_next_candidate(NG2Controller *p,const NG2Scene *scene,uint64_t now,int inspected){
+/* A closed mouth is a local route rejection, not an inspection beyond it.
+ * Only a verified arrival at the fixed world's inboard neighbour may use two
+ * independent, strictly stationary views of the same observed wall. */
+static int closed_passage_mouth(const NG2Controller *p,const NG2Scene *scene){
+    const NG2Scene *a=&p->passage_anchor;NG2Decision choice;
+    int mx,my,d,x,y,wall,i,arrival=0;
+    size_t j;
+    if(!p->passage_active||p->passage_bit<0||p->passage_bit>=10
+        ||p->passage_wait_kind!=PASSAGE_WAIT_BLOCKED||p->s.input_state
+        ||p->finish_requested||p->s.goods||!p->s.lead_confirmed||!level_moves(p)
+        ||!clear_gold_floor(a)||!clear_gold_floor(scene)
+        ||tile(a,0,0)!=NG2_TILE_FLOOR||tile(scene,0,0)!=NG2_TILE_FLOOR)return 0;
+    passage_mouth(p->passage_bit,&mx,&my);d=p->passage_bit<5?NG2_UP:NG2_LEFT;
+    if(p->s.x!=mx-dx[d]||p->s.y!=my-dy[d])return 0;
+    for(j=p->event_count;j>0;--j){
+        const NG2ControllerEvent *e=&p->events[j-1];
+        if(e->command.id==p->s.last_completed_id){
+            arrival=e->command.kind==NG2_ACTION_MOVE&&e->outcome==2&&e->begin_ns
+                &&e->motion==NG2_MOVED&&e->command.direction>=1&&e->command.direction<=4
+                &&e->dx==dx[e->command.direction]&&e->dy==dy[e->command.direction]
+                &&e->observed_capture_id
+                &&e->observed_capture_id<=p->passage_anchor_id
+                &&p->passage_anchor_start>=e->end_ns;
+            break;
+        }
+    }
+    if(!arrival)return 0;
+    x=mx-p->s.x;y=my-p->s.y;wall=tile(a,x,y);
+    if((wall!=NG2_TILE_DIRT&&wall!=NG2_TILE_STONE)||tile(scene,x,y)!=wall)return 0;
+    for(i=-1;i<=1;i+=2){
+        int sx=x+i*dy[d],sy=y-i*dx[d],old=tile(a,sx,sy);
+        if((old!=NG2_TILE_DIRT&&old!=NG2_TILE_STONE)||tile(scene,sx,sy)!=old)return 0;
+    }
+    for(i=0;i<NG2_TILE_COUNT;++i)
+        if(a->protected_cells[i]||scene->protected_cells[i]
+            ||a->tiles[i]==NG2_TILE_ITEM||scene->tiles[i]==NG2_TILE_ITEM)return 0;
+    return !choose_step(p,a,&choice)&&!choose_step(p,scene,&choice);
+}
+static void passage_next_candidate(NG2Controller *p,const NG2Scene *scene,uint64_t now,int inspection){
     uint32_t bit=1u<<p->passage_bit;
     p->passage_pending&=~bit;
-    if(inspected)p->passage_inspected|=bit;else p->passage_unresolved|=bit;
+    if(inspection==1)p->passage_inspected|=bit;
+    else if(inspection==2)p->passage_closed|=bit;
+    else p->passage_unresolved|=bit;
     p->passage_wait_kind=0;p->passage_wait_deadline=0;
     if(select_passage(p,scene))return;
     p->passage_active=0;
     if(p->passage_unresolved){finish(p,now,NG2_REASON_NO_PATH);return;}
-    /* All fixed local goals were reached and independently inspected. */
+    /* Every fixed candidate was independently inspected or locally closed. */
     clear_slots(p);p->proof_deadline=0;p->recovery.mode=NG2_RECOVERY_NORMAL;
     p->restart_intent=1;p->s.phase=NG2_PHASE_FLOOR;
 }
@@ -690,6 +730,9 @@ static void update_passage_wait(NG2Controller *p,const NG2Scene *scene,uint64_t 
         clear_recovery_slot(p);p->s.phase=NG2_PHASE_SYNC;return;
     }
     if(!clear_gold_floor(scene))return;
+    if(kind==PASSAGE_WAIT_BLOCKED&&closed_passage_mouth(p,scene)){
+        passage_next_candidate(p,scene,now,2);p->proof_capture_id=id;return;
+    }
     passage_goal(p,&x,&y);
     if(kind==PASSAGE_WAIT_GOAL&&p->s.x==x&&p->s.y==y){
         passage_next_candidate(p,scene,now,1);p->proof_capture_id=id;return;
@@ -1160,7 +1203,8 @@ static int stationary_wait_world(const NG2Controller *p){
         &&p->passage_active==p->stationary_wait_passage&&p->passage_bit==p->stationary_wait_bit
         &&!p->passage_wait_kind&&p->passage_pending==p->stationary_wait_pending
         &&p->passage_inspected==p->stationary_wait_inspected
-        &&p->passage_unresolved==p->stationary_wait_unresolved;
+        &&p->passage_unresolved==p->stationary_wait_unresolved
+        &&p->passage_closed==p->stationary_wait_closed;
 }
 static int stationary_wait_scene(const NG2Controller *p,const NG2Scene *scene){
     const NG2Scene *a=&p->gate_refresh_anchor;const NG2Decision *choice=&p->gate_refresh_choice;
@@ -1221,7 +1265,7 @@ static int start_stationary_wait(NG2Controller *p,const NG2Scene *scene,uint64_t
     memcpy(p->stationary_wait_visits,p->visits,sizeof(p->visits));
     p->stationary_wait_passage=p->passage_active;p->stationary_wait_bit=p->passage_bit;
     p->stationary_wait_pending=p->passage_pending;p->stationary_wait_inspected=p->passage_inspected;
-    p->stationary_wait_unresolved=p->passage_unresolved;
+    p->stationary_wait_unresolved=p->passage_unresolved;p->stationary_wait_closed=p->passage_closed;
     if(!stationary_wait_scene(p,scene)||!ng2_motion(&p->before,scene,d,&unresolved)
         ||unresolved.kind!=NG2_MOTION_UNKNOWN||!ng2_motion(scene,scene,d,&texture)
         ||texture.kind!=NG2_BLOCKED||texture.dx||texture.dy)return 0;
