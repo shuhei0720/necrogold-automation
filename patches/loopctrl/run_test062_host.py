@@ -1,4 +1,4 @@
-"""Run only TEST074 rendered-view confirmation and motion evidence changes and related units before device feedback.
+"""Run TEST075 stationary/motion evidence and JSON parser units with named related regressions.
 
 All native fixtures compile the sealed patched upstream used by the IPA.
 Historical synthetic worlds and Runtime mutation suites remain explicit lanes.
@@ -16,17 +16,31 @@ import subprocess
 import unittest
 
 
-VIEW074_METHODS = frozenset({
-    'test_skip_uses_first_floor_start_and_a_later_independent_capture',
-    'test_faded_candidate_closes_before_first_move_only_after_two_wall_frames',
-    'test_reserved_false_candidate_retires_and_switches_to_confirmed_new_mouth',
-    'test_unknown_or_inconsistent_support_cannot_discard_a_candidate',
-    'test_prefix_unstable_overlap_and_old_frames_cannot_confirm_drawing_or_wall',
-    'test_new_gold_and_goods_take_priority_over_initial_negative_or_wall_wait',
-    'test_genuine_post_ui_passage_reaches_first_move_and_moved_origin_is_not_reclassified',
-    'test_initial_wait_retains_original_sync_session_and_unknown_input_limits',
-    'test_restart_exploration_and_goods_stay_one_bounded_native_session',
-    'test_uncertain_drawing_waits_for_gold_or_two_clear_observations_without_ending',
+STATIC075_METHODS = frozenset({
+    'test_same_floor_gradient_confirms_only_blocked_in_four_directions',
+    'test_static_proof_requires_safe_unchanged_local_scene_and_gold_set',
+    'test_weak_single_band_aliased_or_opposite_edges_remain_unknown',
+    'test_shift_partial_and_reverse_do_not_manufacture_a_static_proof',
+    'test_existing_primary_motion_results_remain_unchanged',
+})
+MOTION075_METHODS = frozenset({
+    'test_complete_corner_independent_phase_and_blurred_edges_prove_one_move',
+    'test_complete_old_corner_can_survive_other_old_corner_loss',
+    'test_corner_requires_all_nine_cells_materials_and_unique_translation',
+    'test_new_proof_requires_clear_unprotected_item_free_observed_floor',
+    'test_global_phase_unit_gap_boundary_and_known_results_are_preserved',
+    'test_full_kernel_rejects_hidden_changed_or_ui_dependencies',
+    'test_partial_eight_and_half_pixel_backgrounds_never_gain_unit_credit',
+    'test_world_letters_cannot_move_a_static_or_partial_background',
+    'test_independent_bands_weak_support_and_aliases_are_required',
+    'test_existing_primary_and_invalid_inputs_remain_unchanged',
+})
+JSON075_METHODS = frozenset({
+    'test_numeric_status_work_does_not_grow_with_ns_digit_count',
+    'test_short_long_unicode_and_escaped_keys_keep_the_same_values',
+    'test_overflow_duplicate_and_root_type_keep_error_precedence',
+    'test_depth_and_node_limits_reject_before_object_allocation',
+    'test_raw_size_utf8_and_invalid_strings_are_still_rejected',
 })
 MOTION074_METHODS = frozenset({
     'test_stationary_lighting_opening_has_gradient_evidence_in_four_directions',
@@ -41,15 +55,10 @@ MOTION074_METHODS = frozenset({
     'test_unit_move_detail_rejects_weak_one_region_and_repeated_fields',
     'test_original_primary_classification_and_invalid_abi_remain_unchanged',
 })
-RELATED_UI_METHODS = frozenset({
-    'test_final_begin_rechecks_latest_floor_and_live_control',
-})
 RELATED_CONTROLLER_METHODS = frozenset({
-    'test_twelve_changed_restarts_bound_and_no_thirteenth',
-    'test_restart_unchanged_timeout_never_resends',
+    'test_continuous_guards_reject_changed_world_and_strict_motion',
     'test_goods_frame_preserves_evidenced_move_before_holding_pause',
-    'test_unknown_synth_and_started_cancel_freeze_even_pause',
-    'test_initial_sync_twelve_second_limit_and_walk_forty_five',
+    'test_cancel_foreground_owner_and_unknown_synth_never_retry_waited_direction',
 })
 RELATED_NAVIGATION_METHODS = frozenset({
     'test_signature_normalization_and_all73_scores_exact_reference',
@@ -60,28 +69,44 @@ RELATED_MOTION_METHODS = frozenset({
 RECOVERY_METHODS = frozenset({
     'test_additive_queries_preserve_layout_and_initial_zeroes',
 })
+RELATED_PROTOCOL_METHODS = frozenset({
+    'test_authenticated_response_and_clock_boundaries',
+})
+RELATED_RESULT_METHODS = frozenset({
+    'test_http_completed_crypto_and_json_deadlines_keep_the_matching_stage',
+})
+RELATED_REFERENCE_METHODS = frozenset({
+    'test_duplicate_motion_reference_json_key_is_rejected_after_authentication',
+})
 NATIVE_CASES = (
-    ('tests.test_native_view074', 'NativeView074Tests', 'test074-view', VIEW074_METHODS, True),
-    ('tests.test_native_motion074', 'NativeMotion074Tests', 'test074-motion', MOTION074_METHODS, True),
-    ('tests.test_native_ui073', 'NativeUI073Tests', 'test074-related-ui', RELATED_UI_METHODS, False),
-    ('tests.test_native_controller', 'NativeControllerTests', 'test074-related-controller', RELATED_CONTROLLER_METHODS, False),
-    ('tests.test_native_navigation', 'NativeNavigationTests', 'test074-related-navigation', RELATED_NAVIGATION_METHODS, False),
-    ('tests.test_native_motion067', 'NativeMotion067Tests', 'test074-related-motion', RELATED_MOTION_METHODS, False),
-    ('tests.test_native_recovery', 'NativeRecoveryTests', 'test074-related-recovery', RECOVERY_METHODS, False),
+    ('tests.test_native_static075', 'NativeStatic075Tests', 'test075-static', STATIC075_METHODS, True),
+    ('tests.test_native_motion075', 'NativeMotion075Tests', 'test075-motion', MOTION075_METHODS, True),
+    ('tests.test_native_motion074', 'NativeMotion074Tests', 'test075-related-motion074', MOTION074_METHODS, True),
+    ('tests.test_native_controller', 'NativeControllerTests', 'test075-related-controller', RELATED_CONTROLLER_METHODS, False),
+    ('tests.test_native_navigation', 'NativeNavigationTests', 'test075-related-navigation', RELATED_NAVIGATION_METHODS, False),
+    ('tests.test_native_motion067', 'NativeMotion067Tests', 'test075-related-motion067', RELATED_MOTION_METHODS, False),
+    ('tests.test_native_recovery', 'NativeRecoveryTests', 'test075-related-recovery', RECOVERY_METHODS, False),
 )
-CLIENT_CASES = ()
+CLIENT_CASES = (
+    ('tests.test_json075', 'JSON075Tests', 'test075-json', JSON075_METHODS, True),
+    ('tests.test_protocol', 'ProtocolTests', 'test075-related-protocol', RELATED_PROTOCOL_METHODS, False),
+    ('tests.test_native_results', 'NativeResultsTests', 'test075-related-results', RELATED_RESULT_METHODS, False),
+    ('tests.test_native_motion_references', 'MotionReferenceTests', 'test075-related-references', RELATED_REFERENCE_METHODS, False),
+)
 PACKAGE_CASES = ()
 CORE_MODULES = ('tests.test_native_controller', 'tests.test_native_recovery',
                 'tests.test_native_beat', 'tests.test_native_perception', 'tests.test_native_navigation',
-                'tests.test_native_ui073', 'test_native_ui073', 'test_native_perception')
-NATIVE_BASELINE = '7901c5fd0f1f4d030923aaab1027b8cc38730e0c'
-EXPECTED_NATIVE_CHANGES = {'LoopCtrlUITests/NG2Controller.c', 'LoopCtrlUITests/NG2Navigation.c'}
-CLIENT_SOURCE_MODULES = ('necroprobe.native_walk', 'necroprobe.test069', 'necroprobe.test074')
-FIXTURE_OVERRIDE_PREFIX = 'NECRO_TEST074_BASELINE_'
+                'test_native_perception')
+NATIVE_BASELINE = '488155f871a777652f9942af67d03b56b92546db'
+EXPECTED_NATIVE_CHANGES = {'LoopCtrlUITests/NG2Navigation.c'}
+CLIENT_SOURCE_MODULES = ('necroprobe.native_walk', 'necroprobe.test069', 'necroprobe.test075',
+                         'necroprobe.validation', 'necroprobe.protocol')
+FIXTURE_OVERRIDE_PREFIXES = ('NECRO_TEST074_BASELINE_', 'NECRO_TEST075_BASELINE_')
 
 
 def reject_fixture_overrides():
-    present = sorted(name for name in os.environ if name.startswith(FIXTURE_OVERRIDE_PREFIX))
+    present = sorted(name for name in os.environ
+                     if name.startswith(FIXTURE_OVERRIDE_PREFIXES) or name == 'BASELINE_NAV')
     if present:
         raise ValueError('sealed fixture baseline overrides are forbidden: '+', '.join(present))
 
@@ -120,6 +145,8 @@ def native_suites(upstream):
 
 def client_source_identity(driver):
     native = importlib.import_module('necroprobe.native_walk')
+    validation = importlib.import_module('necroprobe.validation')
+    protocol = importlib.import_module('necroprobe.protocol')
     code = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=driver, text=True).strip()
     sources = {}
     for name in CLIENT_SOURCE_MODULES:
@@ -136,19 +163,28 @@ def client_source_identity(driver):
     if (native.REVISION != 'native-walk-v15' or native.API_VERSION != '1.98.16-ngg2'
             or native.CAPABILITY != 'necrogold_native_v14'):
         raise ValueError('collection client revision/API/capability changed')
+    if (protocol.json_object is not validation.json_object
+            or protocol.Client._call.__globals__.get('json_object') is not validation.json_object
+            or native.json_object is not validation.json_object
+            or native.Client is not protocol.Client):
+        raise ValueError('actual RPC client is not bound to the pinned JSON validator')
     return {'modules': sources, 'driver_commit': code, 'revision': native.REVISION, 'api_version': native.API_VERSION,
-            'capability': native.CAPABILITY}
+            'capability': native.CAPABILITY,
+            'json_binding': {'protocol_json_object_is_validation_json_object': True,
+                            'client_call_global_is_validation_json_object': True,
+                            'native_json_object_is_validation_json_object': True,
+                            'native_client_is_protocol_client': True}}
 
 
 def client_suites():
     modules = {name: importlib.import_module(name) for name in dict.fromkeys(row[0] for row in CLIENT_CASES)}
     native = importlib.import_module('necroprobe.native_walk')
     publication = importlib.import_module('necroprobe.test069')
-    entry = importlib.import_module('necroprobe.test074')
+    entry = importlib.import_module('necroprobe.test075')
     if publication.native is not native:
         raise ValueError('production publication wrapper is not bound to the actual driver client')
     if entry.device_main is not publication.main:
-        raise ValueError('TEST074 entry is not bound to the actual driver publication wrapper')
+        raise ValueError('TEST075 entry is not bound to the actual driver publication wrapper')
     for name, module in modules.items():
         alias = sys.modules.get(name.rsplit('.', 1)[-1])
         for fixture in (module, alias):
@@ -194,7 +230,7 @@ def main():
     before = verifier.inspect_native_sources(upstream, driver)
     if (before['api_version'] != '1.98.16-ngg2' or before['client_capability'] != 'necrogold_native_v14'
             or len(before['native_source_sha256']) != 22):
-        raise ValueError('TEST074 sealed source identity is not installed')
+        raise ValueError('TEST075 sealed source identity is not installed')
     baseline = json.loads(subprocess.check_output(
         ['git', 'show', NATIVE_BASELINE+':patches/loopctrl/ngg2-manifest.json'], cwd=driver, text=True))
     baseline_sources = {name: row['patched_sha256'] for name, row in baseline['files'].items()}
@@ -202,7 +238,7 @@ def main():
     current_sources = before['native_source_sha256']
     changed = {name for name in current_sources if current_sources[name] != baseline_sources.get(name)}
     if set(current_sources) != set(baseline_sources) or changed != EXPECTED_NATIVE_CHANGES:
-        raise ValueError('TEST074 native change scope differs')
+        raise ValueError('TEST075 native change scope differs')
     native_change_scope = {'baseline': NATIVE_BASELINE, 'changed_sources': sorted(changed),
                            'unchanged_sources': len(current_sources)-len(changed)}
     client_before = client_source_identity(driver)
@@ -213,10 +249,11 @@ def main():
            for name in ('Scene', 'Status', 'Event', 'MotionWait', 'RecoveryStatus')}
     if abi != {'Scene': 23864, 'Status': 192, 'Event': 128, 'MotionWait': 48, 'RecoveryStatus': 456}:
         raise ValueError('native ABI layout changed')
-    record = {'scope': 'TEST074 rendered-view confirmation and motion evidence units and named related regressions; device feedback first',
+    record = {'scope': 'TEST075 stationary/motion evidence and JSON parser units with named related regressions; device feedback first',
               'source_identity': before, 'native_change_scope': native_change_scope,
               'client_source_identity': client_before,
-              'fixture_source_policy': {'baseline_override_env_prefix': FIXTURE_OVERRIDE_PREFIX,
+              'fixture_source_policy': {'baseline_override_env_prefixes': list(FIXTURE_OVERRIDE_PREFIXES),
+                  'baseline_override_env_names': ['BASELINE_NAV'],
                   'baseline_overrides': 'forbidden even when empty',
                   'core_binding': 'all canonical and existing bare fixture CORE paths before selection'},
               'abi_bytes': abi, 'device_test': 'not_run',
@@ -226,13 +263,17 @@ def main():
                           'unrelated initial/icon/unsent suites',
                           'unselected workflow/publisher unit suites', 'private recorded-image corpus (local only)'],
               'selection_reasons': {
-                  'test074-view': 'independent post-drawing confirmation and origin-only unsent candidate refresh preserve uncertain views, goods, prefix and original budgets',
-                  'test074-motion': 'supplemental opening and unit-move evidence keeps primary decisions, original thresholds and explicit terrain/region/ambiguity guards',
-                  'test074-related-ui': 'final PAUSE begin still checks the latest floor and live control after drawing confirmation',
-                  'test074-related-controller': 'retain twelve restart cap, unchanged fingerprint timeout, goods credit, unknown/cancel no retry and original sync/walk clocks',
-                  'test074-related-navigation': 'retain exact normalization and all73 original intensity scores',
-                  'test074-related-motion': 'retain existing primary normal moves, blocks, openings and unexpected-motion classifications',
-                  'test074-related-recovery': 'unchanged public ABI confirmed through actual C queries'}}
+                  'test075-static': 'zero-only evidence requires unchanged safe local terrain and gold, strong unique edges and independent regions; no displacement or opening credit',
+                  'test075-motion': 'unit-only evidence requires complete unique observed corner geometry, independent exact phase and strong blurred edges; reject partial, reverse, ambiguous and unsafe frames',
+                  'test075-related-motion074': 'retain all prior supplemental opening and stone/dirt-anchored move guards and original primary decisions',
+                  'test075-related-controller': 'strict motion still gates unsent revalidation, goods retain evidenced move credit, and unknown/cancel never resend',
+                  'test075-related-navigation': 'retain exact normalization and all73 original intensity scores',
+                  'test075-related-motion067': 'retain existing primary normal moves, blocks, openings and unexpected-motion classifications',
+                  'test075-related-recovery': 'unchanged public ABI confirmed through actual C queries',
+                  'test075-json': 'bounded Python work preserves JSON values, failure priority and pre-allocation depth/node limits',
+                  'test075-related-protocol': 'actual authenticated RPC calls the pinned JSON validator and preserves timing order',
+                  'test075-related-results': 'the owned RPC deadline still interrupts response JSON/auth/crypto/result JSON with the exact stage',
+                  'test075-related-references': 'authenticated duplicate report keys remain rejected in result_json'}}
     for label, cases in suites:
         run_scope(label, cases, output, record)
     # Workflow and selection changes have their own small unit set, without
@@ -251,7 +292,7 @@ def main():
     record['client_source_unchanged_after_tests'] = True
     record['manifest_sha256'] = hashlib.sha256((driver/'patches/loopctrl/ngg2-manifest.json').read_bytes()).hexdigest()
     (output/'test062-host-scope.json').write_text(json.dumps(record, indent=2)+'\n')
-    print('PASS TEST074 changed units and related regressions against exact IPA sources')
+    print('PASS TEST075 changed units and related regressions against exact IPA sources')
 
 
 if __name__ == '__main__':

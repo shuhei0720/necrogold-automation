@@ -2895,3 +2895,10 @@ UI後first FLOOR+200ms以降の独立新観測と、初歩前同原点の2画像
 IPA0.3.4/build118、17,598,661bytes/SHA `24032b923fd1201e3b282ce815031791dfc9490f9fa1b3dc7b4526f6274cc5d3`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test074-build118/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test074-build118/source.zip)。最終source差分は文書3件だけで全製品bytes同一を確認し、固定assetの匿名GET/全SHAまで照合する。
 
 SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎回新しい通常1-1ポーズから候補までrestart→金壁/通路候補→接近/入店→全商品を一連としてまず2回。展開sourceのtest_074.shがあるフォルダをmountして実行。短いrestartポーズ中はゲーム前面、ポーズが5秒以上続いたらiSHへ戻り全画像/ZIP保存・照合完了表示を待つ。自動`runtime/test-074-<run_id>.zip`を全回分と実restart/候補/開扉/入店/全商品/停止位置/拍間隔を必ず依頼する。実機の到達/毎拍・人超えは未受入、回収済み073の追加回収は不要。
+
+
+## TEST074受領: 静止・実移動の確認とiSH status処理による取消
+
+2026-11-11（日本時間）。[詳細](../reviews/test075.md)。実順46efced0→0372e82b→1834cdeb。3ZIP/54選択PNG（15/19/20）のhash/CRC/bytes/896×414/manifest/prefix/cursor/active-report/strict schema一致、全回収完了。全商品可視0/3、capture/dispatch failureはnull、保持省略を補完しない。
+
+1は4UP後に金へ切替済み、通常次LEFTの未送信画像確認がtexture283不足でUNKNOWN、SCREEN停止。2は2MOVED+3方向入力、UPの実unit変位は原画像にあるが8評価全UNKNOWNでMOVEMENT停止、visualDに1.927秒残。3は6restart後の金可視回で初歩公開窓の123ms前にhostがcancel、status result_jsonのRPC2秒超過が原因でnative初歩失敗と区別。1/2はPAUSE成立、3はCANCELLED/paused0。停止根拠とrawはGit外received074/test075-*。回収済み074の追加回収は依頼しない。

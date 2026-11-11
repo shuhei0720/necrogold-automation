@@ -3,11 +3,19 @@ import base64
 import binascii
 import json
 import math
+import re
 
 MAX_HTTP = 12 * 1024 * 1024
 MAX_PLAIN = 8 * 1024 * 1024
 MAX_IMAGE = 4 * 1024 * 1024
 MAX_PIXELS = 8_000_000
+
+# Short ordinary keys can be skipped without allocating a second key string.
+# This is only a fast path: longer or escaped keys use scanstring below.
+_JSON_TOKEN = re.compile(
+    r'(?P<key>"[^"\\\x00-\x1f]{0,128}"[ \t\r\n]*:)|"|[{}\[\]]|'
+    r'[^ \t\r\n,:{}\[\]"][^ \t\r\n,{}\[\]"]*')
+_JSON_SPACE = re.compile(r'[ \t\r\n]*')
 
 
 class ProbeError(Exception):
@@ -52,54 +60,51 @@ def json_object(raw, limit=MAX_PLAIN):
         raise ProbeError("json_size")
     try:
         text = raw.decode("utf-8")
-        # C scanstring skips long base64 strings. Check depth before json.loads,
-        # so a tiny but deeply nested object never reaches the recursive parser.
+        # Native token seeking skips number bytes and whitespace. C scanstring
+        # still handles escaped or long strings. Reject depth/nodes before
+        # json.loads allocates the object, including at the exact boundaries.
         index = depth = nodes = 0
-        while index < len(text):
-            char = text[index]
+        nonfinite = False
+
+        def parse_float(text):
+            nonlocal nonfinite
+            value = float(text)
+            if not math.isfinite(value):
+                nonfinite = True
+            return value
+
+        while True:
+            marker = _JSON_TOKEN.search(text, index)
+            if marker is None:
+                break
+            index = marker.end()
+            if marker.lastgroup == 'key':
+                continue
+            char = marker.group()[0]
             if char == '"':
-                _, index = json.decoder.scanstring(text, index + 1, True)
-                look = index
-                while look < len(text) and text[look] in " \t\r\n":
-                    look += 1
+                _, index = json.decoder.scanstring(text, index, True)
+                look = _JSON_SPACE.match(text, index).end()
                 if look >= len(text) or text[look] != ":":
                     nodes += 1
-                if nodes > 10_000:
-                    raise ProbeError("json_nodes")
-                continue
-            if char in "[{":
+            elif char in "[{":
                 depth += 1
                 nodes += 1
                 if depth > 16:
                     raise ProbeError("json_depth")
             elif char in "]}":
                 depth -= 1
-            elif char not in " \t\r\n,:":
+            else:
                 nodes += 1
-                while index < len(text) and text[index] not in ' \t\r\n,{}[]"':
-                    index += 1
-                if nodes > 10_000:
-                    raise ProbeError("json_nodes")
-                continue
             if nodes > 10_000:
                 raise ProbeError("json_nodes")
-            index += 1
-        result = json.loads(text, object_pairs_hook=_pairs, parse_constant=_constant)
+        result = json.loads(text, object_pairs_hook=_pairs, parse_constant=_constant,
+                            parse_float=parse_float)
     except (UnicodeError, ValueError, RecursionError):
         raise ProbeError("invalid_json") from None
     if not isinstance(result, dict):
         raise ProbeError("json_object_required")
-    pending = [result]
-    nodes = 0
-    while pending:
-        item = pending.pop()
-        nodes += 1
-        if nodes > 10_000:
-            raise ProbeError("json_nodes")
-        if isinstance(item, dict):
-            pending.extend(item.values())
-        elif isinstance(item, list):
-            pending.extend(item)
-        elif isinstance(item, float) and not math.isfinite(item):
-            raise ProbeError("nonfinite_json")
+    # The preflight already counts each container/value once. Defer overflow
+    # rejection until after duplicate keys and root type to retain error order.
+    if nonfinite:
+        raise ProbeError("nonfinite_json")
     return result
