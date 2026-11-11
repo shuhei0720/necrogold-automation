@@ -48,3 +48,5 @@ TEST075は[計画](../plans/test075-motion-rpc.md)の追加証拠だけをUNKNOW
 TEST076の[限定計画](../plans/test076-stationary-recovery.md)は未送信のreason8/固定通路reason10だけに追加する。UNKNOWNで旧票を撤回して入力を止め、固定元anchorへの後続strict BLOCKEDを親期限P/短期待機W内で確認するまで新票を出さない。CLEAR通路の確実未送信lateも全材質/全5field/保護/静止が同じ場合に限り旧票を廃棄して元予算内の新拍へ。元D・不明送信・姿勢/入力creditを変更せず、送信済UNKNOWNには適用しない。
 
 TEST077の[限定計画](../plans/test077-shop-visibility.md)は、固定通路の無入力待機に限り、実origin/nextがFLOOR・全保護/フル5/world不変なら、他の近傍セルのUNKNOWN/FLOOR/DIRT/STONE間の見え方の差を許す。shop待機の近傍拒否やGOLD/DOOR/ITEM拒否、元anchor strict0/P/W/別ID条件は維持。開扉済み/実入口確認後のPARTIAL移動は、元と直前accepted GOLDを保持し、両3×3/保護外UNKNOWN/DIRTからの遠方GOLD増加だけを同票へ許す。strict0/全5field/保護/元票全期限を保持し、追加金の消失はmask0も含め一般refresh前に撤回する。
+
+TEST078の[限定計画](../plans/test078-closed-gate-motion.md)はUNKNOWNにだけ閉金扉への厳密unit到達証明を追加する。両CANDIDATE/GOODS_UNKNOWN・全保護/ITEM0・旧origin/nextと最新origin床、旧2セル先の閉扉/同法線金bracket→最新1セル先、旧全金exact保持/unique9/raw全73の最良unit/high-intensity/gapを必須にする。新面は各frameで固定H→Vの最初の有効軸の3実依存だけを読み、全点mask/UI/knownと同材質/符号を候補非依存featureへ保存する。camera52の両frame51/52を除外し1画素1支持、300/95%/帯100/全73元15pp条件を維持。旧5依存/65帯/既known分類を変えず、閉扉への到達と開通/進入を分け、次の入力は通常Navへ返す。元期限/予算/不明再送禁止は維持。

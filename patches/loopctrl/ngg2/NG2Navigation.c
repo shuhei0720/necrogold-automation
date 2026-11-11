@@ -830,6 +830,96 @@ static void corner_blur_motion(const NG2Scene *before,const NG2Scene *after,int 
     out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
 }
 
+/* A fixed per-frame axis uses only its actual center/endpoints. The old
+ * five-dependency maximum-axis and y65 planes remain unchanged. */
+typedef struct { uint16_t materials;unsigned char axis; signed char sign; } ClosedGateAxisFeature;
+typedef struct {
+    ClosedGateAxisFeature before[N],after[N];
+    uint16_t indices[N];int count;
+} ClosedGateAxisCache;
+static int closed_gate_axis_mask(int x,int y) {
+    return opening_mask(x,y) && !(x>=101 && x<123 && y>=80);
+}
+static void closed_gate_axis_features(const NG2Scene *s,ClosedGateAxisFeature features[N],
+                                      uint16_t *indices,int *count) {
+    int x,y;
+    for (y=20;y<85;++y) for (x=40;x<179;++x) {
+        int axis;
+        /* Freeze the first eligible axis in this frame, before comparing
+         * another frame or any displacement candidate. One pixel, one vote. */
+        for (axis=1;axis<=2;++axis) {
+            int i,materials=0,delta,ox=axis==1,oy=axis==2;
+            for (i=0;i<3;++i) {
+                int step=i==0 ? 0 : (i==1 ? -1 : 1),xx=x+step*ox,yy=y+step*oy;
+                int gx=(4*xx-34)/36-11,gy=(4*yy-9)/36-5,kind=tile(s,gx,gy);
+                if (!closed_gate_axis_mask(xx,yy) || !kind || kind==NG2_TILE_DOOR ||
+                    kind==NG2_TILE_ITEM || protected_at(s,gx,gy)) break;
+                materials|=kind<<(3*i);
+            }
+            if (i!=3) continue;
+            delta=(int)s->signature[(y+oy)*W+x+ox]-s->signature[(y-oy)*W+x-ox];
+            if (abs(delta)<2*6) continue;
+            features[y*W+x].materials=(uint16_t)materials;
+            features[y*W+x].axis=(unsigned char)axis;
+            features[y*W+x].sign=(signed char)(delta>0 ? 1 : -1);
+            if (indices) indices[(*count)++]=(uint16_t)(y*W+x);
+            break;
+        }
+    }
+}
+static void closed_gate_axis_texture(const ClosedGateAxisCache *cache,int sx,int sy,
+                                     int *support,int *bad,int regions[2]) {
+    int i;*support=0;*bad=0;
+    if (regions) regions[0]=regions[1]=0;
+    for (i=0;i<cache->count;++i) {
+        int at=cache->indices[i],y=at/W,other=at+sy*W+sx;
+        const ClosedGateAxisFeature *a=&cache->before[at],*b=&cache->after[other];
+        /* Radius-one dependencies cannot overlap across camera-center52. */
+        if (y==51 || y==52 || y+sy==51 || y+sy==52 ||
+            a->axis!=b->axis || a->materials!=b->materials) continue;
+        ++*support;*bad+=a->sign!=b->sign;
+        if (regions) ++regions[y<52 ? 0 : 1];
+    }
+}
+static int closed_gate_axis_strong(const ClosedGateAxisCache *cache,const Candidate candidates[73]) {
+    int support,bad,regions[2],k;
+    closed_gate_axis_texture(cache,candidates[0].sx,candidates[0].sy,&support,&bad,regions);
+    if (!texture_strength(support,bad,95) || regions[0]<100 || regions[1]<100) return 0;
+    for (k=1;k<73;++k) {
+        int count,opposite;
+        closed_gate_axis_texture(cache,candidates[k].sx,candidates[k].sy,&count,&opposite,NULL);
+        if (!texture_lead(support,bad,count,opposite)) return 0;
+    }
+    return 1;
+}
+static void closed_gate_axis_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                    const Candidate candidates[73],NG2Motion *out) {
+    int dx=ddx[direction],dy=ddy[direction],normal=dx ? NG2_RIGHT : NG2_DOWN,i;
+    ClosedGateAxisCache *cache;
+    if (out->kind!=NG2_MOTION_UNKNOWN || before->state!=NG2_FLOOR || after->state!=NG2_FLOOR ||
+        before->goods!=NG2_GOODS_UNKNOWN || after->goods!=NG2_GOODS_UNKNOWN ||
+        before->gold_state!=NG2_GOLD_CANDIDATE || after->gold_state!=NG2_GOLD_CANDIDATE ||
+        tile(before,0,0)!=NG2_TILE_FLOOR || tile(before,dx,dy)!=NG2_TILE_FLOOR ||
+        tile(after,0,0)!=NG2_TILE_FLOOR || tile(before,2*dx,2*dy)!=NG2_TILE_DOOR ||
+        tile(after,dx,dy)!=NG2_TILE_DOOR || gate(before,2*dx,2*dy)!=normal || gate(after,dx,dy)!=normal ||
+        !isfinite(candidates[0].score) || candidates[0].score<=.45 ||
+        !(candidates[1].score-candidates[0].score>=.08) ||
+        candidates[0].sx!=-9*dx || candidates[0].sy!=-9*dy ||
+        !closed_translation(before,after,candidates[0].sx,candidates[0].sy) ||
+        !unique_gate_translation(before,after,candidates[0].sx,candidates[0].sy)) return;
+    for (i=0;i<CELLS;++i)
+        if (before->protected_cells[i] || after->protected_cells[i] ||
+            before->tiles[i]==NG2_TILE_ITEM || after->tiles[i]==NG2_TILE_ITEM) return;
+    cache=(ClosedGateAxisCache *)calloc(1,sizeof(*cache));
+    if (!cache) return;
+    closed_gate_axis_features(before,cache->before,cache->indices,&cache->count);
+    closed_gate_axis_features(after,cache->after,NULL,NULL);
+    if (closed_gate_axis_strong(cache,candidates)) {
+        out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+    }
+    free(cache);
+}
+
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -852,6 +942,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     opening_gradient_motion(before,after,direction,candidates,out);
     static_floor_gradient_motion(before,after,direction,candidates,out);
     corner_blur_motion(before,after,direction,views,candidates,out);
+    closed_gate_axis_motion(before,after,direction,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,

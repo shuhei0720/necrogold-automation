@@ -1,6 +1,6 @@
 # Nativeの不変条件
 
-[要件](../requirements/necrogold.md)。§4/5/7/8/9の追加は[通路](passage-approach.md)。[074](../plans/test074-visible-evidence.md)・[075](../plans/test075-motion-rpc.md)・[076](../plans/test076-stationary-recovery.md)・[077](../plans/test077-shop-visibility.md)以外は維持。
+[要件](../requirements/necrogold.md)・[通路](passage-approach.md)。[074](../plans/test074-visible-evidence.md)・[075](../plans/test075-motion-rpc.md)・[076](../plans/test076-stationary-recovery.md)・[077](../plans/test077-shop-visibility.md)・[078](../plans/test078-closed-gate-motion.md)以外は維持。
 
 ## 2. 保存
 
@@ -94,7 +94,7 @@ profilev2はPerception/Navigation strict O2（-fno-fast-math/-ffp-contract=off�
 
 ## 15. 検証
 
-[試験区分](../testing.md)・[工程](../development-flow.md)。画像不足/hash不一致はlocal失敗、CI除外と区別。模擬/未測定は実機成功/速度達成にせず、run別評価。
+[試験区分](../testing.md)。画像不足/hash不一致はlocal失敗、CI除外と区別。模擬/未測定は実機成功/速度達成にせず、run別評価。
 
 
 配布/実機は[AGENTS](../../AGENTS.md#保存と返却)。
