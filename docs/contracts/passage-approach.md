@@ -44,3 +44,5 @@ level切替時に座標/visits/入口、lead/初歩slot/visual期限、model、r
 動作のprimary判定と元閾値を保持し、primary UNKNOWNだけへ2つの独立補助を追加する。開扉は唯一gold bracket/旧GOLD・DOOR→FLOOR・raw最良zero/差≥.08・非保護origin/next・商品UNKNOWN→PARTIALまでで、既知同材質（新露出/DOOR/ITEM/保護/player除外）の中心半差contrast6符号を使う。支持300/95%/全73への15pp差/独立上下帯各100を要し、zero-onlyで移動creditにしない。金なしMOVEDはCLEAR/金0/商品0/全保護0・旧origin/入力先と最新originの観測床・同方向raw厳密unit/差≥.08・全旧STONE2+と非共線DIRTによる一意translation、既存expanded-detailの同強証明を要する。最新の新STONEは証拠に使わず追加可とし、旧集合の複数translation成立は拒否する。最新画像でさらに先がUNKNOWN/壁/扉でも過去のMOVED証拠とは分離し、次の入力権限は既存Nav/safe_stepが確認する。詳しい証拠面と拒否境界は074計画/試験を正本とする。UNKNOWN無再送・元visualD/最大8評価・ACKと実変位の区別は維持。
 
 TEST075は[計画](../plans/test075-motion-rpc.md)の追加証拠だけをUNKNOWNへ適用する。金/局所不変の強zeroをBLOCKEDへ、金なしで完全旧Lの一意unit対応・左右raw位相・全21依存既知の強blur面（固定camera原点上下）をMOVEDへ使う。旧primary/旧補助/閾値/元予算は維持し、UNKNOWN再送や未観測商品を陰性にする権限を加えない。
+
+TEST076の[限定計画](../plans/test076-stationary-recovery.md)は未送信のreason8/固定通路reason10だけに追加する。UNKNOWNで旧票を撤回して入力を止め、固定元anchorへの後続strict BLOCKEDを親期限P/短期待機W内で確認するまで新票を出さない。CLEAR通路の確実未送信lateも全材質/全5field/保護/静止が同じ場合に限り旧票を廃棄して元予算内の新拍へ。元D・不明送信・姿勢/入力creditを変更せず、送信済UNKNOWNには適用しない。
