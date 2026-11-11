@@ -35,4 +35,14 @@
 
 原PNG由来Sceneの局所照合でも248→250はorigin/next/全保護/full5不変で新palette条件適合・motion UNKNOWN維持、220→221は実新Cのdistant_gold_growth=1・旧金保持・全保護材質/full5不変・strict BLOCKED0を確認。private world/model/clock/ownerは復元せず、未保持future proofやlive admissionを補わない。
 
-限定CI・actual compiler/IPA/全source・固定Releaseの匿名全GETは実物完成後に追記する。新実機は未実施。
+## 実CI・IPA照合（build124）
+
+code `f1ddc78642696ddae245a636ecacd0887eb8a79f`、[run42983528253](https://github.com/shuhei0720/necrogold-automation/actions/runs/42983528253)のpublic標準Ubuntu/Mac device lane成功。新12/関連18/selector3の実33件はfailure/error/skip0。actual4C/5Swift/6RSPのraw args/PBX/source/hashを結び、Nav/Perception strictO2・他C O0/Swift Onone・hostmacro不在を確認。未変更Runtimeは既存070意味的Red1/現6callに限定。
+
+Git外5verifierを各1回実行し、22seal/Controller1他21・G1/R12原40・全public header/ABI/API16cap14v15、実compiler、9MachO139marker不在、571sourceとIPAの対応を照合。統合receipt SHA `028179947d35599cc4f43cb5e8229c184eae9010bada103cea495873c0c61245`。rootもinnerIPA全bytes/SHA/CRC/安全path/重複0/plistを独立確認。新Nativeや全Runtime/worldの再実行はしない。
+
+IPA0.3.4/build124/min16.0/top.ebato.loopctrl、17,608,462B/SHA `2a4ad0b9c786f01b030b5c52a74f60dfccdac85c2680debcee1c8cdb9bc7c18c`。unsigned artifact13838364941は17,887,101B/`c145307e28ce4fb1299f0c16fd051e55f6cc52cfdbc0bfd892cedc4240ccb75c`、validation13838878059は1,249,110B/`f6a38a3bc6d7343e954ea638be56c732a931388f9dffbc07fedcd62720600857`、host13838511643は9,419B/`1de8c694173b09a03b347bd29b58d9fc9cd343e92afcabe94f8fdfadc9656484`。全API run/head/branch/digest/sizeと取得ZIPの全CRC/安全path/重複0一致。
+
+code完全sourceは571 tracked files/7,626,906B/`b6b7de6a5e3adb12dde208554ee082c4831d9c0dac389fed481882563b914c47`。切断中はstatusだけ4504422へ保存し、復旧後fast-forward。finalはstatus/本記録/device台帳の3文書だけを閉じ、製品全bytesを維持する。固定[Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test077-build124)へ検証済みIPA/完全source/SHA256SUMSを保存し、返却前の匿名全GET/SHA/CRC/タグ・asset来歴の一致をGit外に記録する。IPA再ビルドなし。
+
+新実機は未実施。通常1-1ポーズ→候補までrestart→金壁/通路接近→商店→全商品可視をまず2回、test_077.shとruntime/test-077-<run_id>.zip全回分を具体的に依頼する。3回目076ログの不足を進行条件にしない。

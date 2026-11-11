@@ -2920,3 +2920,14 @@ code `8bda0a7a4ffca107472117311c3ca0491182a5e4`、build122/run42958472307。Cont
 IPA0.3.4/build122、17,607,458B/SHA `4a4bec1ceaa0f33ad25ace737b6b24eeeb5c1ce048aa324a87e94d9c04572f18`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test076-build122/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test076-build122/source.zip)。最終sourceは閉じる文書3件だけで製品を維持し、固定URLの匿名全取得/SHA/CRCを照合して返す。
 
 SideStore新IPA→LoopCtrl完全終了/起動→Start Server、通常VPN。毎回新しい通常1-1ポーズから自動restart→金壁/通路候補→全商品確認をまず2回。test_076.shを含む展開フォルダをmountして実行。短いrestartポーズはゲーム前面、5秒以上続いたらiSHへ戻り全画像/ZIP保存照合完了を待ち、runtime/test-076-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。075再回収は不要、新実機・毎拍・人超えは未受入。
+
+
+## TEST076受領とTEST077: 通路の局所差と開扉後の金壁露出
+
+2026-11-11（日本時間）。[計画](../plans/test077-shop-visibility.md)・[検証](../reviews/test077.md)。076実順1f2371f7/013ca451、2ZIP/37原画全照合・全PAUSE/完収、全商品0/2。第三回は報告のみで未受領。1は2MOVED後の固定通路でoff-step近傍palette差、2は6MOVED+1開扉後の遠方DIRT→GOLD追加で未送信停止。取得failure/timeout0、iSH status28回エラー/取消0。2の先行lateは別ID/次拍MOVEDへ回復済み。開通を全商品成功に数えない。
+
+code `f1ddc78642696ddae245a636ecacd0887eb8a79f`、build124/run42983528253。Controllerだけで通路の無入力待機へ局所差を許し、開扉後/実進入後PARTIALの遠方新金を同票へ許可。元/直前accepted金保持・元anchor/full5/全保護/PW/元ticket期限/UNKNOWN無再送を維持。新12単体はRed40→Green、独立レビュー残P0/P1/P2なし、限定CI33Green。実5verifier各1回、actual4C/5Swift/6RSP/22seal/Runtime070 Red1・現6call/全9MachO139marker/全571source照合。全Runtime/world追加なし。
+
+IPA0.3.4/build124、17,608,462B/SHA `2a4ad0b9c786f01b030b5c52a74f60dfccdac85c2680debcee1c8cdb9bc7c18c`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test077-build124/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test077-build124/source.zip)。文書3件だけclosingで製品を維持し、固定assetの匿名全取得/SHA/CRCを照合して返す。一時的な開発環境切断は復旧、端末/添付/CIの問題ではない。
+
+SideStore更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎回新しい通常1-1ポーズから自動restart→金壁/通路候補→接近/入店→全商品確認をまず2回。test_077.shを含む展開sourceをmountして実行。短いrestartポーズはゲーム前面、5秒以上続いたらiSHへ戻り全画像/ZIP保存照合完了を待ち、runtime/test-077-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。076第三ログ/回収済み再実行は不要、新実機到達・毎拍・人超えは未受入。
