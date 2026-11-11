@@ -34,7 +34,7 @@
 
 描画確認・初歩前候補再検査と、実画像の動作確認を原因別に扱う。旧成功072の初期候補/初歩前画像は非収録で、今回のguardをその実画面で不変と証明したとは呼ばない。合成Scene/時計の制御単体、実画像の局所回帰、実ゲーム/実機受入は区別する。原画から先の未収録移動応答を合成して成功としない。
 
-計画の限定単体/関係回帰と独立差分レビュー1回、新IPA/22seal/実compiler/全Mach-O/全sourceの同一性を確認する。全Runtime/worldは追加しない。具体的なRed/Green・新証拠面・最終配布は確定後に追記する。実機の商品到達、毎拍/人超えは未確認。
+計画の限定単体/関係回帰と独立差分レビュー1回、新IPA/22seal/実compiler/全Mach-O/全sourceの同一性を確認する。全Runtime/worldは追加しない。具体的なRed/Green・新証拠面・最終配布は以下へ記録した。実機の商品到達、毎拍/人超えは未確認。
 
 
 ## 最終実装・局所検証
@@ -49,7 +49,7 @@ Controller SHA `daadf667ec9bf114bae82be4a87aecc5b6e38c7f83557733a7fbb68a79cc22cc
 
 19個の実送信に対する保持46原画像の送信方向比較を原C/新Cで行い、変化は3/6の上記2pairだけ、既存nonUNKNOWN21比較は同一。最終観測とsourceの両方が保持された18pair（既知MOVED15/UNKNOWN3）は全て含まれる。独立担当が元catalogue/原hash/新Nav hashを読取照合し、重複C実行なしで一致を確認した。46入力や完全Controller再生とは呼ばず、不正方向は手続的単体の証明範囲と区別する。未保持の未来画像/移動応答を補完せず、現在資料は調整・局所回帰であって未知評価や実機の次の歩行成功ではない。初期200msの端末での十分性、全経路/全商品到達、毎拍/人超えは未受入。
 
-正規pristine+G1からseal/applyし、Controller/Nav2変更・他20/全22source一致。manifest SHA `52a7b13dd6dfab59f3d6a460bc6e83e6595652bbee8daba84855d2371efce3fb`。API16/cap14/v15/Scene/ABI/wire/Runtime/取得/Perception/全元閾値・予算/R12原40/G1不変。独立差分レビューと最終CI/IPA照合結果は確定後に追記する。
+正規pristine+G1からseal/applyし、Controller/Nav2変更・他20/全22source一致。manifest SHA `52a7b13dd6dfab59f3d6a460bc6e83e6595652bbee8daba84855d2371efce3fb`。API16/cap14/v15/Scene/ABI/wire/Runtime/取得/Perception/全元閾値・予算/R12原40/G1不変。独立差分レビューと最終CI/IPA照合結果は下記。
 
 
 最終確認で、最初のCLEAR/候補から描画途中のGOLD_UNKNOWNまたはtile不整合CANDIDATEへ変わると旧guardが直ちに停止する境界も補った。修正前Controller34d4を固定し、新1メソッドの16条件で意味的Red16/errors0を確認。初期pending/候補待機・同原点level0・確実未送信・商品/保護なしの正常FLOORだけ、旧未送信票/slot/旧初期proofを撤回して元期限内で待つ。実goldは旧handoff、CLEARは新2独立観測へ進む。新state/延長/再送を追加せず、invalid画像・商品保護・送信後・移動後は旧guardを保つ。
@@ -57,4 +57,25 @@ Controller SHA `daadf667ec9bf114bae82be4a87aecc5b6e38c7f83557733a7fbb68a79cc22cc
 最終C daadf667の新view10メソッド（SHA `513db55a06f22717ad7baa30777e58095da1c64dda448909c054439b075fc8a9`）と旧不確実/directfloor・商品保護・unknownsent・cancel/owner4の14件はGreen4.336秒。初期待機の4秒/同期12秒・session/旧callbackを検査した。初版の関連15はその版の過去結果として区別し、最終差分へ関係する4件を選び直している。Nav/testの凍結SHAは上記と同じ。独立担当は正式freezeのC/Nav/新21試験と旧fixtureを静的に確認し、native差分の未解決P0/P1/P2なし、重複試験なし。runner/配布物の確認は次の確定結果へ記録する。
 
 
-選択runner SHA `1f6b752f89ff0c3645952516a905dd4de1e11039957ce99df778c672c3d24af4`を凍結。新view10/motion11の全21、関連9（UI begin1、Controller restart12/unchanged/goods/unknown-cancel/sync-walk5、Nav全73score1、motion067原分類1、ABI1）、selector3の33件。新21にnewlevel/fullflow/候補保持を含み、旧072bulkは追加しない。TDDのNECRO_TEST074_BASELINE_環境overrideは空値でもpresence拒否し、canonical/bare COREを正規sourceへ束縛、3clientのHEAD/path/blob/委譲・前後source同一性を検査する。独立担当は同hashの全scope/guard/thin入口まで確認し、追加P0/P1/P2なし。host33の実実行とMac/実物検証は後続のCIへ記録する。
+選択runner SHA `1f6b752f89ff0c3645952516a905dd4de1e11039957ce99df778c672c3d24af4`を凍結。新view10/motion11の全21、関連9（UI begin1、Controller restart12/unchanged/goods/unknown-cancel/sync-walk5、Nav全73score1、motion067原分類1、ABI1）、selector3の33件。新21にnewlevel/fullflow/候補保持を含み、旧072bulkは追加しない。TDDのNECRO_TEST074_BASELINE_環境overrideは空値でもpresence拒否し、canonical/bare COREを正規sourceへ束縛、3clientのHEAD/path/blob/委譲・前後source同一性を検査する。独立担当は同hashの全scope/guard/thin入口まで確認し、追加P0/P1/P2なし。host33の実実行とMac/実物検証は下記。
+
+
+## 最終Mac・配布照合
+
+code `5eff462fa0b53c01c3246c840b606ac8a8a9e02f` / [Mac118](https://github.com/shuhei0720/necrogold-automation/actions/runs/42934281012) device全体成功。新view10/motion11/関係9/selector3の33件・8scopeを実行ID/全log/3client Git blobまで照合し、failure/error/skip/expected-failure0。localではNativeを再実行せず33実import/CORE11参照・override5条件拒否/selector3 Green.013秒を確認し、HEAD後の3client実path/blob/delegateも一致。独立差分レビューは同commit/最終C/Nav/runner/manifest/新旧fixture/契約/入口/source束縛へ未解決P0/P1/P2なし。静的レビューの結論とCI/実機の成功は区別する。
+
+限定Mac Runtimeは既存実070のbaseline意味的Red1→Green6呼出を今回の実4C object/sourceへ結び付けた。元mask/score/ABI/全予算を維持し、無変更Runtime/world全体を追加していない。実compiler4C/5Swift/6RSPとraw log/PBXを照合し、Perception/Nav strict-O2-v2/他C-O0/Swift-Onone、HOST宏非混入。全9Mach-Oを検査し128種のHOST/test marker非混入、主要2binaryはarm64/API16cap14一致。build-source全552ファイルのpath/全bytes/全CRCがGitと一致する。
+
+| 成果物 | ID / bytes | SHA256 |
+| --- | --- | --- |
+| unsigned outer ZIP | 13817378683 / 17,873,306 | `bfb8f2a929b40360b58414f15e7b576b7bd69586f11b64cbfa99171a5d100135` |
+| validation outer ZIP | 13817044096 / 1,223,904 | `76a16cc3e00bcd38734cb4633fb4d388045c025e49903d687aaa209bb398ade4` |
+| host outer ZIP | 13816584491 / 8,732 | `77c352a9bde2a991536196178cfb596132668a68b3ab60f66d814646b7562c3f` |
+| build-source ZIP | 552 files / 7,556,212 | `aa223b4afe4bce6fb2bfc483bc3603ed328e77df80bedaae68c85be8826c12ac` |
+| 内IPA | 17,598,661 | `24032b923fd1201e3b282ce815031791dfc9490f9fa1b3dc7b4526f6274cc5d3` |
+
+内IPAの全CRC・top.ebato.loopctrl/0.3.4/build118/iPhoneOS/min16.0を確認した。delivery/compiler/host/runtime/MachOの実物検証5種は各初回PASS。source22seal/Controller/Nav2変更・他20/R12原40/G1/取得/API/wire/ABI不変を照合。raw/receiptはGit外。
+
+最終sourceはstatus/本検証/実機台帳の3文書だけ閉じ、全製品bytes同一を確認して[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test074-build118)へ配置する。公開後IPA/source/SHA256SUMSの匿名HTTP200・全bytes/SHA/CRCとAPI digestを照合する。公開後receiptをGitへ足すための配布source再変更はしない。実ゲームCI、074の実機全商品到達、毎拍/人超えは未受入。
+
+次の実機は新しい通常1-1ポーズから候補までrestart→金壁/通路候補へ接近→入店→全商品確認を一連としてまず2回。自動`runtime/test-074-<run_id>.zip`全回分と実restart/候補/開扉/入店/全商品/停止位置/拍間隔を依頼する。回収済み073の追加回収・再実行は不要。

@@ -2884,3 +2884,14 @@ SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VP
 2026-11-11（日本時間）。[根拠と限定修正](../reviews/test074.md)。started_ns実順4bc9e087→7414d4ee→0c7d26c2→2e5edcd9→c73a3854→5772e818。6ZIP/114選択PNGのhash/CRC/bytes/896×414/manifest/cursor/時刻prefix/active-report一致、全回収resolved/terminal/drained。全商品可視0/6、全最終PAUSE成立、1〜5で計13回のrestart成立。保持上限による非収録画像を補完しない。
 
 1/2/4/5は暗い初期画像の通路候補が歩行前に消失し壁と判別されたが、旧口へ進む。1/5は到達不能の2拍待機後NO_PATH、2は未送信UPの静止UNKNOWNによるSCREEN、4はDOWN ACK後UNKNOWN。1の原画31の金壁は暗くpeak58/CLEARで見送り。3は開扉後に2商品だけ、6は最後LEFTの実1tile後、UNKNOWN8評価でMOVEMENT停止。capture/dispatch failureは全件nullで前回UI未成立とは異なる。生資料/実C解析/各motion proofはGit外。回収済み073の追加回収目的の再実行は依頼しない。
+
+
+## TEST074配布: 描画後の候補確認・開扉と実移動の地形証拠
+
+2026-11-11（日本時間）。[計画](../plans/test074-visible-evidence.md)・[受領/検証](../reviews/test074.md)・[配布/実機手順](../status.md)。code `5eff462fa0b53c01c3246c840b606ac8a8a9e02f`/[Mac118](https://github.com/shuhei0720/necrogold-automation/actions/runs/42934281012) device成功。新view10/motion11/関係9/selector3の33件・8scope、限定Runtime Red1/Green6呼出、独立差分レビュー未解決P0/P1/P2なし。22seal/実compiler4C・5Swift・6RSP/全9Mach-O128marker非混入/552build-source全bytes・CRCを照合。Controller/Nav2変更、他20/Runtime/Perception/元閾値/API16cap14v15/ABI/wire/元予算/R12原40/G1不変。
+
+UI後first FLOOR+200ms以降の独立新観測と、初歩前同原点の2画像による候補再確認を追加。描画途中の正常な不確実FLOORは旧票/slot/proofを撤回し元期限内で待ち、新gold/商品を優先する。200msのfade十分性は未測定。primary UNKNOWN時だけzero開扉の強い既知地形勾配、金なし厳密unitの旧STONE一意translation/非共線DIRT/強いdetailを追加。未来nextの未知/壁と過去の到達creditを分離し、次入力は最新Navで判断する。実19入力の46画像比較で3開扉/6unitの2pairだけ変化、既存nonUNKNOWN21は同一、欠落未来応答は補わない。
+
+IPA0.3.4/build118、17,598,661bytes/SHA `24032b923fd1201e3b282ce815031791dfc9490f9fa1b3dc7b4526f6274cc5d3`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test074-build118/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test074-build118/source.zip)。最終source差分は文書3件だけで全製品bytes同一を確認し、固定assetの匿名GET/全SHAまで照合する。
+
+SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎回新しい通常1-1ポーズから候補までrestart→金壁/通路候補→接近/入店→全商品を一連としてまず2回。展開sourceのtest_074.shがあるフォルダをmountして実行。短いrestartポーズ中はゲーム前面、ポーズが5秒以上続いたらiSHへ戻り全画像/ZIP保存・照合完了表示を待つ。自動`runtime/test-074-<run_id>.zip`を全回分と実restart/候補/開扉/入店/全商品/停止位置/拍間隔を必ず依頼する。実機の到達/毎拍・人超えは未受入、回収済み073の追加回収は不要。
