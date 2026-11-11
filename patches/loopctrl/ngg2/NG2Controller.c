@@ -826,6 +826,34 @@ static int last_ack_opened_gate(const NG2Controller *p,int direction){
     }
     return 0;
 }
+static int gold_retained(const NG2Scene *a,const NG2Scene *b){
+    int i;for(i=0;i<NG2_TILE_COUNT;++i)
+        if(a->tiles[i]==NG2_TILE_GOLD&&b->tiles[i]!=NG2_TILE_GOLD)return 0;
+    return 1;
+}
+/* Newly lit wall evidence cannot change a walking surface, nearby bracket,
+ * protected material or an already observed GOLD cell. Check both the frozen
+ * source and the last accepted image without replacing the source ticket. */
+static int distant_gold_growth(const NG2Scene *a,const NG2Scene *b,int d){
+    int i;if(d<1||d>4||!gold_retained(a,b))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int old=a->tiles[i],latest=b->tiles[i],x=i%23-11,y=i/23-5;
+        if(old==latest)continue;
+        if(a->protected_cells[i]||b->protected_cells[i])return 0;
+        if(latest==NG2_TILE_GOLD
+            &&((old!=NG2_TILE_UNKNOWN&&old!=NG2_TILE_DIRT)
+                ||(abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)))return 0;
+    }
+    return 1;
+}
+static int partial_shop_floor_step(const NG2Controller *p){
+    int d=p->command.direction;
+    return d>=1&&d<=4&&p->before.goods==NG2_GOODS_PARTIAL
+        &&p->command_choice.obstacle==NG2_TILE_FLOOR
+        &&((p->entrance.valid==1&&p->command_choice.reason==8)
+            ||(p->command_choice.reason==5&&p->command_choice.target_x==dx[d]
+                &&p->command_choice.target_y==dy[d]&&last_ack_opened_gate(p,d)));
+}
 /* Keep an entrance or the same observed-floor vantage through irrelevant
  * remote flicker. Ticket/before and all bounds stay fixed;
  * do not grant safe-floor calibration, reissue or reference eligibility. */
@@ -841,6 +869,9 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
     int opened_entry=entrance_step&&obstacle==NG2_TILE_FLOOR
         &&p->before.goods==NG2_GOODS_PARTIAL&&scene->goods==NG2_GOODS_PARTIAL
         &&last_ack_opened_gate(p,d);
+    int gold_changed=!same_gold(&p->before,scene);
+    int growth=gold_changed&&(opened_entry||interior_step)
+        &&distant_gold_growth(&p->before,scene,d)&&distant_gold_growth(&p->scene,scene,d);
     if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||p->finish_requested||p->s.goods
         ||p->replan_pending||p->continuous_pending||!p->s.lead_confirmed||!p->s.moves
         ||p->s.phase!=NG2_PHASE_WALK||!p->continuous_ticket_valid||d<1||d>4
@@ -849,7 +880,7 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
         ||p->before.state!=NG2_FLOOR||scene->state!=NG2_FLOOR
         ||p->before.goods!=scene->goods||scene->goods<NG2_GOODS_UNKNOWN||scene->goods>NG2_GOODS_PARTIAL
         ||p->before.gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
-        ||!same_gold(&p->before,scene)
+        ||(gold_changed&&!growth)
         ||memcmp(p->before.protected_cells,scene->protected_cells,NG2_TILE_COUNT)
         ||tile(&p->before,0,0)!=NG2_TILE_FLOOR||tile(scene,0,0)!=NG2_TILE_FLOOR
         ||tile(&p->before,dx[d],dy[d])!=obstacle||tile(scene,dx[d],dy[d])!=obstacle
@@ -873,6 +904,7 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
             &&tile(scene,x-dx[d],y-dy[d])==NG2_TILE_GOLD
             &&!protected_at(&p->before,x,y)&&!protected_at(scene,x,y);
         if(a==b)continue;
+        if(growth&&b==NG2_TILE_GOLD)continue;
         if((!shielded&&((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)))
             ||(a!=NG2_TILE_UNKNOWN&&a!=NG2_TILE_FLOOR&&a!=NG2_TILE_DIRT&&a!=NG2_TILE_STONE)
             ||(b!=NG2_TILE_UNKNOWN&&b!=NG2_TILE_FLOOR&&b!=NG2_TILE_DIRT&&b!=NG2_TILE_STONE))return 0;
@@ -1130,8 +1162,8 @@ static int stationary_wait_scene(const NG2Controller *p,const NG2Scene *scene){
     for(i=0;i<NG2_TILE_COUNT;++i){
         int old=a->tiles[i],latest_tile=scene->tiles[i],x=i%23-11,y=i/23-5;
         if(old==latest_tile)continue;
-        if(a->protected_cells[i]||(abs(x)<=1&&abs(y)<=1)
-            ||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)
+        if(a->protected_cells[i]||(!p->stationary_wait_passage
+                &&((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)))
             ||(old!=NG2_TILE_UNKNOWN&&old!=NG2_TILE_FLOOR&&old!=NG2_TILE_DIRT&&old!=NG2_TILE_STONE)
             ||(latest_tile!=NG2_TILE_UNKNOWN&&latest_tile!=NG2_TILE_FLOOR
                 &&latest_tile!=NG2_TILE_DIRT&&latest_tile!=NG2_TILE_STONE))return 0;
@@ -1639,6 +1671,14 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
      * immutable original directly against every accepted pre-send image. */
     if((p->s.input_state==1||p->continuous_pending)&&p->command.kind==NG2_ACTION_MOVE)
         validate_motion_reference(p,scene,start,end,prefix,end);
+    /* Returning exactly to the source can have mask zero after an accepted
+     * remote GOLD reveal. It still cannot erase that observed wall evidence. */
+    if(!p->finish_requested&&p->s.input_state==1&&p->command.kind==NG2_ACTION_MOVE
+        &&scene->goods==NG2_GOODS_PARTIAL&&partial_shop_floor_step(p)
+        &&!gold_retained(&p->scene,scene)){
+        if(mask)record_change(p,scene,id,mask,changed_tiles,changed_protected,0,NG2_REVALIDATE_GOLD);
+        not_sent(p,end,NG2_REASON_SCREEN);finish(p,end,NG2_REASON_SCREEN);mask=0;
+    }
     if(mask&&(quiet_initial_observation(p,scene,commit)||quiet_gate_observation(p,scene,commit)))mask=0;
     if(mask){
         NG2Decision latest;

@@ -1,6 +1,6 @@
 # Nativeの不変条件
 
-[要件](../requirements/necrogold.md)。§4/5/7/8/9の追加は[通路](passage-approach.md)。初期観測[074](../plans/test074-visible-evidence.md)、画像/JSON[075](../plans/test075-motion-rpc.md)、未送信待機/回復[076](../plans/test076-stationary-recovery.md)。他条件は維持。
+[要件](../requirements/necrogold.md)。§4/5/7/8/9の追加は[通路](passage-approach.md)。[074](../plans/test074-visible-evidence.md)・[075](../plans/test075-motion-rpc.md)・[076](../plans/test076-stationary-recovery.md)・[077](../plans/test077-shop-visibility.md)以外は維持。
 
 ## 2. 保存
 

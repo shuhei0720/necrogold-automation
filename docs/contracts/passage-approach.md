@@ -46,3 +46,5 @@ level切替時に座標/visits/入口、lead/初歩slot/visual期限、model、r
 TEST075は[計画](../plans/test075-motion-rpc.md)の追加証拠だけをUNKNOWNへ適用する。金/局所不変の強zeroをBLOCKEDへ、金なしで完全旧Lの一意unit対応・左右raw位相・全21依存既知の強blur面（固定camera原点上下）をMOVEDへ使う。旧primary/旧補助/閾値/元予算は維持し、UNKNOWN再送や未観測商品を陰性にする権限を加えない。
 
 TEST076の[限定計画](../plans/test076-stationary-recovery.md)は未送信のreason8/固定通路reason10だけに追加する。UNKNOWNで旧票を撤回して入力を止め、固定元anchorへの後続strict BLOCKEDを親期限P/短期待機W内で確認するまで新票を出さない。CLEAR通路の確実未送信lateも全材質/全5field/保護/静止が同じ場合に限り旧票を廃棄して元予算内の新拍へ。元D・不明送信・姿勢/入力creditを変更せず、送信済UNKNOWNには適用しない。
+
+TEST077の[限定計画](../plans/test077-shop-visibility.md)は、固定通路の無入力待機に限り、実origin/nextがFLOOR・全保護/フル5/world不変なら、他の近傍セルのUNKNOWN/FLOOR/DIRT/STONE間の見え方の差を許す。shop待機の近傍拒否やGOLD/DOOR/ITEM拒否、元anchor strict0/P/W/別ID条件は維持。開扉済み/実入口確認後のPARTIAL移動は、元と直前accepted GOLDを保持し、両3×3/保護外UNKNOWN/DIRTからの遠方GOLD増加だけを同票へ許す。strict0/全5field/保護/元票全期限を保持し、追加金の消失はmask0も含め一般refresh前に撤回する。

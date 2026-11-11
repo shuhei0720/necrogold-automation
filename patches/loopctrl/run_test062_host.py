@@ -1,4 +1,4 @@
-"""Run TEST076 bounded unsent stationary reobservation and passage recovery units with named related regressions.
+"""Run TEST077 passage palette and opened shop visibility units with named related regressions.
 
 All native fixtures compile the sealed patched upstream used by the IPA.
 Historical synthetic worlds and Runtime mutation suites remain explicit lanes.
@@ -16,7 +16,25 @@ import subprocess
 import unittest
 
 
-STATIONARY076_METHODS = frozenset({
+PALETTE077_METHODS = frozenset({
+    'test_off_step_local_palette_retires_ticket_and_later_strict_proof_moves',
+    'test_adjacent_blocked_palette_frames_cannot_replace_original_anchor',
+    'test_local_change_is_still_rejected_for_shop_wait',
+    'test_origin_next_protected_route_goods_and_unsafe_materials_remain_guards',
+    'test_palette_wait_uses_fixed_wait_and_parent_deadlines',
+    'test_palette_proof_still_requires_stable_current_prefix_and_new_capture',
+})
+
+OPEN_ENTRY077_METHODS = frozenset({
+    'test_opened_entry_reveal_preserves_ticket_then_enters_on_original_beat',
+    'test_interior_partial_reveals_continue_after_verified_entry_and_next_step',
+    'test_geometry_old_gold_and_protected_material_changes_cannot_use_reveal',
+    'test_no_open_ack_or_partial_entrance_permission_is_created_by_new_gold',
+    'test_accepted_new_gold_cannot_disappear_or_shift_within_same_ticket',
+    'test_original_deadline_prefix_goods_and_control_priority_remain',
+})
+
+RELATED_STATIONARY_METHODS = frozenset({
     'test_unknown_shop_and_mask_zero_passage_retire_without_motion_credit',
     'test_adjacent_blocked_frames_cannot_replace_the_original_anchor',
     'test_proof_requires_independent_current_prefix_and_increasing_capture',
@@ -27,13 +45,12 @@ STATIONARY076_METHODS = frozenset({
     'test_goods_priority_and_unproven_new_gold_hold_without_moving',
 })
 
-PASSAGE076_METHODS = frozenset({
-    'test_late_live_passage_complete_begin_and_tick_preserve_verified_pose',
-    'test_future_passage_ticket_and_stale_callbacks_never_reuse_old_authority',
-    'test_repeated_passage_misses_keep_one_original_episode_and_deadline',
-    'test_deadline_equality_in_time_failure_and_unproven_first_step_do_not_recover',
-    'test_started_unknown_authority_and_changed_evidence_cannot_gain_passage_recovery',
-    'test_passage_recovery_never_extends_proof_walk_or_session_budgets',
+RELATED_SHOP_METHODS = frozenset({
+    'test_verified_open_entry_keeps_original_ticket_for_shielded_floor_dirt_flicker',
+    'test_exception_does_not_allow_other_local_cells_materials_or_missing_open_ack',
+    'test_original_actual_deadline_and_matching_stable_prefix_remain_required',
+    'test_goods_cancel_and_control_guards_preempt_preserved_entry',
+    'test_unknown_entry_synth_never_reuses_the_quiet_permission',
 })
 
 RELATED_GATE_METHODS = frozenset({
@@ -41,26 +58,12 @@ RELATED_GATE_METHODS = frozenset({
     'test_geometry_protection_goods_and_known_motion_drift_end_refresh',
 })
 
-RELATED_TERRAIN_METHODS = frozenset({
-    'test_independent_floor_proof_resumes_on_a_future_beat_without_opening_credit',
-    'test_hud_proof_original_budgets_and_fifty_ms_preparation_are_not_reset',
-})
-
-RELATED_OBSERVATION_METHODS = frozenset({
-    'test_exhausted_same_chain_reobserves_floor_before_a_new_future_ticket',
-    'test_refresh_limit_is_once_per_verified_progress_and_eight_per_session',
+RELATED_CONTROLLER_METHODS = frozenset({
+    'test_goods_frame_preserves_evidenced_move_before_holding_pause',
 })
 
 RELATED_PASSAGE_METHODS = frozenset({
-    'test_gold_reveal_retires_unsent_exploration_before_new_shop_ticket',
-    'test_goods_item_and_protection_hold_at_every_exploration_stage',
     'test_unknown_sent_exploration_and_restart_cannot_issue_or_reset',
-})
-
-RELATED_UNSENT_METHODS = frozenset({
-    'test_complete_zero_late_retires_known_unsent_ticket_and_restarts_from_verified_pose',
-    'test_direct_begin_and_tick_late_share_definite_unsent_retirement',
-    'test_started_ack_unknown_cancel_and_goods_never_use_unsent_recovery',
 })
 
 RECOVERY_METHODS = frozenset({
@@ -68,14 +71,14 @@ RECOVERY_METHODS = frozenset({
 })
 
 NATIVE_CASES = (
-    ('tests.test_native_stationary_wait076', 'NativeStationaryWait076Tests', 'test076-stationary-wait', STATIONARY076_METHODS, True),
-    ('tests.test_native_passage_unsent076', 'NativePassageUnsent076Tests', 'test076-passage-unsent', PASSAGE076_METHODS, True),
-    ('tests.test_native_gate069', 'NativeGate069Tests', 'test076-related-gate', RELATED_GATE_METHODS, False),
-    ('tests.test_native_terrain071', 'NativeTerrain071Tests', 'test076-related-terrain', RELATED_TERRAIN_METHODS, False),
-    ('tests.test_native_observation072', 'NativeObservation072Tests', 'test076-related-observation', RELATED_OBSERVATION_METHODS, False),
-    ('tests.test_native_passage072', 'NativePassage072Tests', 'test076-related-passage', RELATED_PASSAGE_METHODS, False),
-    ('tests.test_native_unsent_continuous', 'NativeUnsentContinuousTests', 'test076-related-unsent', RELATED_UNSENT_METHODS, False),
-    ('tests.test_native_recovery', 'NativeRecoveryTests', 'test076-related-recovery', RECOVERY_METHODS, False),
+    ('tests.test_native_passage_palette077', 'NativePassagePalette077Tests', 'test077-passage-palette', PALETTE077_METHODS, True),
+    ('tests.test_native_open_entry077', 'NativeOpenEntry077Tests', 'test077-open-entry', OPEN_ENTRY077_METHODS, True),
+    ('tests.test_native_stationary_wait076', 'NativeStationaryWait076Tests', 'test077-related-stationary', RELATED_STATIONARY_METHODS, True),
+    ('tests.test_native_shop071', 'NativeShop071Tests', 'test077-related-shop', RELATED_SHOP_METHODS, True),
+    ('tests.test_native_gate069', 'NativeGate069Tests', 'test077-related-gate', RELATED_GATE_METHODS, False),
+    ('tests.test_native_controller', 'NativeControllerTests', 'test077-related-controller', RELATED_CONTROLLER_METHODS, False),
+    ('tests.test_native_passage072', 'NativePassage072Tests', 'test077-related-passage', RELATED_PASSAGE_METHODS, False),
+    ('tests.test_native_recovery', 'NativeRecoveryTests', 'test077-related-recovery', RECOVERY_METHODS, False),
 )
 
 CLIENT_CASES = ()
@@ -83,14 +86,16 @@ PACKAGE_CASES = ()
 CORE_MODULES = ('tests.test_native_controller', 'tests.test_native_recovery',
                 'tests.test_native_beat', 'tests.test_native_perception',
                 'tests.test_native_device066', 'tests.test_native_blocked067',
+                'tests.test_native_observation072', 'tests.test_native_passage_unsent076',
                 'test_native_perception')
-NATIVE_BASELINE = '6408286ec380a29541e385836e1c209d445f1fe1'
+NATIVE_BASELINE = 'd3e9bbde44ceb41dac43beaf818043c588cc3aab'
 EXPECTED_NATIVE_CHANGES = {'LoopCtrlUITests/NG2Controller.c'}
-CLIENT_SOURCE_MODULES = ('necroprobe.native_walk', 'necroprobe.test069', 'necroprobe.test076',
+CLIENT_SOURCE_MODULES = ('necroprobe.native_walk', 'necroprobe.test069', 'necroprobe.test077',
                          'necroprobe.validation', 'necroprobe.protocol')
 FIXTURE_OVERRIDE_PREFIXES = ('NECRO_TEST063_BASELINE_', 'NECRO_TEST071_BASELINE_',
                              'NECRO_TEST072_BASELINE_', 'NECRO_TEST074_BASELINE_',
-                             'NECRO_TEST075_BASELINE_', 'NECRO_TEST076_BASELINE_')
+                             'NECRO_TEST075_BASELINE_', 'NECRO_TEST076_BASELINE_',
+                             'NECRO_TEST077_BASELINE_')
 
 
 def reject_fixture_overrides():
@@ -148,9 +153,9 @@ def client_source_identity(driver):
         raw = path.read_bytes()
         if raw != committed:
             raise ValueError('client module differs from the pinned driver commit: '+name)
-        if name != 'necroprobe.test076' and raw != subprocess.check_output(
+        if name != 'necroprobe.test077' and raw != subprocess.check_output(
                 ['git', 'show', NATIVE_BASELINE+':'+relative], cwd=driver):
-            raise ValueError('unchanged TEST076 client source differs from the baseline: '+name)
+            raise ValueError('unchanged TEST077 client source differs from the baseline: '+name)
         sources[name] = {'path': relative, 'sha256': hashlib.sha256(raw).hexdigest()}
     if (native.REVISION != 'native-walk-v15' or native.API_VERSION != '1.98.16-ngg2'
             or native.CAPABILITY != 'necrogold_native_v14'):
@@ -172,11 +177,11 @@ def client_suites():
     modules = {name: importlib.import_module(name) for name in dict.fromkeys(row[0] for row in CLIENT_CASES)}
     native = importlib.import_module('necroprobe.native_walk')
     publication = importlib.import_module('necroprobe.test069')
-    entry = importlib.import_module('necroprobe.test076')
+    entry = importlib.import_module('necroprobe.test077')
     if publication.native is not native:
         raise ValueError('production publication wrapper is not bound to the actual driver client')
     if entry.device_main is not publication.main:
-        raise ValueError('TEST076 entry is not bound to the actual driver publication wrapper')
+        raise ValueError('TEST077 entry is not bound to the actual driver publication wrapper')
     for name, module in modules.items():
         alias = sys.modules.get(name.rsplit('.', 1)[-1])
         for fixture in (module, alias):
@@ -222,7 +227,7 @@ def main():
     before = verifier.inspect_native_sources(upstream, driver)
     if (before['api_version'] != '1.98.16-ngg2' or before['client_capability'] != 'necrogold_native_v14'
             or len(before['native_source_sha256']) != 22):
-        raise ValueError('TEST076 sealed source identity is not installed')
+        raise ValueError('TEST077 sealed source identity is not installed')
     baseline = json.loads(subprocess.check_output(
         ['git', 'show', NATIVE_BASELINE+':patches/loopctrl/ngg2-manifest.json'], cwd=driver, text=True))
     baseline_sources = {name: row['patched_sha256'] for name, row in baseline['files'].items()}
@@ -230,7 +235,7 @@ def main():
     current_sources = before['native_source_sha256']
     changed = {name for name in current_sources if current_sources[name] != baseline_sources.get(name)}
     if set(current_sources) != set(baseline_sources) or changed != EXPECTED_NATIVE_CHANGES:
-        raise ValueError('TEST076 native change scope differs')
+        raise ValueError('TEST077 native change scope differs')
     native_change_scope = {'baseline': NATIVE_BASELINE, 'changed_sources': sorted(changed),
                            'unchanged_sources': len(current_sources)-len(changed)}
     client_before = client_source_identity(driver)
@@ -241,7 +246,7 @@ def main():
            for name in ('Scene', 'Status', 'Event', 'MotionWait', 'RecoveryStatus')}
     if abi != {'Scene': 23864, 'Status': 192, 'Event': 128, 'MotionWait': 48, 'RecoveryStatus': 456}:
         raise ValueError('native ABI layout changed')
-    record = {'scope': 'TEST076 bounded unsent stationary reobservation and passage recovery units with named related regressions; device feedback first',
+    record = {'scope': 'TEST077 passage palette and opened shop visibility units with named related regressions; device feedback first',
               'source_identity': before, 'native_change_scope': native_change_scope,
               'client_source_identity': client_before,
               'fixture_source_policy': {'baseline_override_env_prefixes': list(FIXTURE_OVERRIDE_PREFIXES),
@@ -251,19 +256,19 @@ def main():
               'abi_bytes': abi, 'device_test': 'not_run',
               'not_run': ['full Controller/Recovery/Beat/Perception/Navigation suites',
                           'Runtime integration and mutations (separate Mac step)', 'synthetic shop/world suites',
-                          'unchanged Nav and JSON suites (same TEST075 bytes; historical results are not current TEST076 executions)',
+                          'unchanged Nav and JSON suites (same TEST075/TEST076 bytes; historical results are not current TEST077 executions)',
                           'unchanged client and RPC suites', 'unchanged package/profile and client version unit suites',
                           'unrelated initial/icon/unsent suites',
                           'unselected workflow/publisher unit suites', 'private recorded-image corpus (local only)'],
               'selection_reasons': {
-                  'test076-stationary-wait': 'retire an unstarted uncertain ticket, retain its fixed anchor and parent/wait deadlines, and require independent strict anchor-to-current stationary proof before a future ID',
-                  'test076-passage-unsent': 'late complete0/begin/tick retire only a proven-unsent clear passage ticket while retaining pose, original episode, preparation and all authority guards',
-                  'test076-related-gate': 'the original closed-door refresh still needs independent proof and rejects geometry, protection, goods and known-motion drift',
-                  'test076-related-terrain': 'the original opened-terrain refresh keeps independent proof, original clocks and the fifty millisecond preparation margin',
-                  'test076-related-observation': 'ordinary clear-floor refresh remains independent and shares the once-per-progress and eight-per-session limits',
-                  'test076-related-passage': 'new gold retires unsent exploration and goods, protection and unknown sent input preserve priority',
-                  'test076-related-unsent': 'the prior gold-candidate unsent recovery keeps all three late entrypoints and never retries started, unknown or cancelled input',
-                  'test076-related-recovery': 'unchanged public ABI confirmed through actual C queries'}}
+                  'test077-passage-palette': 'off-step local palette changes may retire unsent passage authority, but only direct strict proof against the original anchor can authorize a future ticket',
+                  'test077-open-entry': 'opened-entry and verified-interior PARTIAL reveals preserve the original ticket only for distant additive GOLD while retaining accepted GOLD, route, protection, motion and clock guards',
+                  'test077-related-stationary': 'all prior shop-local, fixed-anchor, prefix, parent/wait deadline and UNKNOWN no-retry boundaries remain intact',
+                  'test077-related-shop': 'all prior opened-entry flicker, missing opening ACK, original deadline, goods, owner and unknown-input boundaries remain intact',
+                  'test077-related-gate': 'closed-door refresh remains independent and rejects geometry, protection, goods and known-motion drift',
+                  'test077-related-controller': 'visible goods preserve evidenced movement before pausing without authorizing another input',
+                  'test077-related-passage': 'unknown sent exploration and restart input cannot issue or reset another command',
+                  'test077-related-recovery': 'unchanged public ABI confirmed through actual C queries'}}
     for label, cases in suites:
         run_scope(label, cases, output, record)
     # Workflow and selection changes have their own small unit set, without
@@ -282,7 +287,7 @@ def main():
     record['client_source_unchanged_after_tests'] = True
     record['manifest_sha256'] = hashlib.sha256((driver/'patches/loopctrl/ngg2-manifest.json').read_bytes()).hexdigest()
     (output/'test062-host-scope.json').write_text(json.dumps(record, indent=2)+'\n')
-    print('PASS TEST076 changed units and related regressions against exact IPA sources')
+    print('PASS TEST077 changed units and related regressions against exact IPA sources')
 
 
 if __name__ == '__main__':
