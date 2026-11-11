@@ -48,3 +48,13 @@ Controller `b31d33d1e363055c6fbbe39fefaa5a500a6a12291c0e08fa0bc3115eca3544e0`、
 runner `b93a61746b052d6cb1a9e94a8b4a3b0dc3d93e98df45d8bef42459a8bc88eb71`。新14+関連13（gate2/terrain2/観測refresh2/passage3/旧gold unsent3/ABI1）+selector3=30を実methodへexact列挙。selector3はローカルGreen。CORE canonical/既存bareを実sealed upstreamへ結び、063/071/072/074/075/076 baseline env・BASELINE_NAVを空値でも拒否。5client HEAD blob/4実callable、無変更のnative_walk/test069/validation/protocolをbaseline同bytesに固定。075のNav/JSON試験は同bytesの過去結果として今回の実行数へ足さず、全Runtime/worldを積まない。
 
 fresh G1→seal/applyで22source中Controller1のみ変更・他21不変を確認。API16cap14v15/全public header/ABI/G1/R12原40・全数値閾値を維持し、限定CI30と実compiler/IPA/全sourceの照合へ進む。新実機は未実施。
+
+## 実CI・IPA照合（build122）
+
+code `8bda0a7a4ffca107472117311c3ca0491182a5e4`、[run42958472307](https://github.com/shuhei0720/necrogold-automation/actions/runs/42958472307)、標準public Ubuntu/Mac device lane成功。新14/関連13/selector3=30件はfailure/error/skip0、実sealed CORE・5client blob/4実callableとpublic ABIを照合。4C/5Swift/6RSPをactual compiler/PBX/raw args/hashへ結び、Nav/Perception strictO2・他C O0/Swift Onone・hostmacro無混入を確認。未変更Runtimeは既存TEST070意味的Red1と現6callだけを検査、全Runtime故障/worldは選ばない。
+
+22sealのController1変更/他21不変、全public header/ABI/API16cap14v15/G1/R12原40維持。全9MachOで旧133+076 namespace/module3=136 fixture marker不在。実5verifier各1回exit0で統合receipt SHA `94f9eb5f463b82f7e6c059007b57e4bf6a2530fb7eedca3dddd8f96c6503c7d0`、verifier5本/依存3本は前後hash不変。追加の製品試験やrepo編集は行っていない。rootもinner IPAの全bytes/SHA/CRC/paths/plistを独立照合。
+
+IPA0.3.4/build122/minOS16.0/top.ebato.loopctrl、17,607,458B/SHA `4a4bec1ceaa0f33ad25ace737b6b24eeeb5c1ce048aa324a87e94d9c04572f18`。unsigned artifact13828776317は17,884,747B/`1e91c42343ad8f2567082a966a9558a0d999573e581ca237ac6686433bcacc97`、validation13828731580は1,247,032B/`7d390a69a4c03a7ed8b1d5a282de04286cf63b115cb5abf66ce2ff5c5a10ccf9`、host13827358684は9,247B/`b953cf372fa48a72f9cbbb03455f6fded665b1c950a6f058de2fcbb3720c10be`。API run/head/branch/digest・取得全bytes/CRC/安全path/重複なしを一致。code全sourceは565 tracked files/7,606,882B/`a6e71f1960e2c7e3b7bb1c932ee51a5949bb211246ba9ffcc311fb0bdeff74b6`で全bytes一致。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test076-build122)へ検証済みIPAと最終全sourceを保存する。最終sourceはstatus/本記録/実機台帳の3文書だけを閉じ、全製品bytesはcodeと同一。公開後の匿名全GET/SHA/CRC/API digest一致を確認してから返却する。実機で固定anchorへのstrict再確認が戻るかと全商品到達/拍間隔は未受入、075の回収済みrunを再実行させず新しい通常1-1の一連試験をまず2回依頼する。

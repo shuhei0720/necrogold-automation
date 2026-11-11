@@ -2910,3 +2910,13 @@ SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VP
 限定CI43Green、実compiler4C/5Swift/6RSP、22seal/Nav1他21、R12/G1/ABI、実Runtime070 Red1/Green6call、9MachO/133marker無混入を実5verifierで照合。全Runtime/worldは選ばない。IPA0.3.4/build120、17,604,425B/SHA `8d1c8b6e6891948bb4739c097284ef8e3501fe0232ec4a1d7ac34e9f1eb3a064`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test075-build120/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test075-build120/source.zip)。code source559tracked bytes/CRC一致、最終sourceは閉じる文書3件だけ変更して製品を維持し、固定asset匿名全取得を照合して返す。
 
 SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VPN。新しい通常1-1ポーズから候補までrestart→金壁/通路候補→接近/入店→全商品確認をまず2回。test_075.shを含む展開フォルダをmountして実行。短いrestartポーズはゲーム前面、5秒以上ポーズが続いたらiSHへ戻り全画像/ZIP保存照合完了まで待つ。自動runtime/test-075-<run_id>.zip全回分と全商品可視/停止位置/拍間隔を必ず依頼。074の追加回収は不要、実機到達と毎拍・iSH2秒は未受入。
+
+## TEST075受領とTEST076: 未送信の再観測・通路late回復
+
+2026-11-11（日本時間）。[計画](../plans/test076-stationary-recovery.md)・[検証](../reviews/test076.md)。075実順1828c816/05379963/6b407804/c43fa118、4ZIP/69原画全検証・全PAUSE/完収。2回目の原198で3商品/価格を確認、到達1/4。1/4は未送信静止UNKNOWN、3は通路の未送信lateがCAPTUREへ分類。capture failure/timeout0、dispatchは3の別初歩too_late1件、iSH status46回エラー/取消0。省略captureを補完しない。
+
+code `8bda0a7a4ffca107472117311c3ca0491182a5e4`、build122/run42958472307。Controllerだけに元anchor/PW固定の無入力再観測と厳格CLEAR通路late回復を追加。Nav等21source/ABI/API/閾値/G1/R12は維持。新8+6の意味的Red→Green・補足境界、独立差分レビュー残0、限定CI30Green。実compiler4C/5Swift/6RSP/22seal/Runtime070 Red1・現6call/全9MachO136marker/全565sourceを実5verifier各1回で照合。全Runtime/world累積はなし。
+
+IPA0.3.4/build122、17,607,458B/SHA `4a4bec1ceaa0f33ad25ace737b6b24eeeb5c1ce048aa324a87e94d9c04572f18`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test076-build122/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test076-build122/source.zip)。最終sourceは閉じる文書3件だけで製品を維持し、固定URLの匿名全取得/SHA/CRCを照合して返す。
+
+SideStore新IPA→LoopCtrl完全終了/起動→Start Server、通常VPN。毎回新しい通常1-1ポーズから自動restart→金壁/通路候補→全商品確認をまず2回。test_076.shを含む展開フォルダをmountして実行。短いrestartポーズはゲーム前面、5秒以上続いたらiSHへ戻り全画像/ZIP保存照合完了を待ち、runtime/test-076-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。075再回収は不要、新実機・毎拍・人超えは未受入。
