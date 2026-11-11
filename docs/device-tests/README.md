@@ -2961,4 +2961,9 @@ capture/dispatch failure・timeout0、全host error/cancel0/status41回max1.236�
 
 Navは旧判定後UNKNOWNだけへsingleton金→新閉扉bracketの一意unit証明を追加し、元raw/全9translation/旧金・保持旧STONE非共線/新2セル旧UNKNOWNと078固定3面の全強条件を併用。既partial全STONE/既knownは不変。Controllerは閉金扉2ahead/垂直金pair・未入店/lead確認済み・確実未送信reason6/DIRTの全5field/両3×3/金/全保護集合・材質/strict0が同じ場合だけ、両近傍外の地形差で同ID全票bytesを保持する。新入力credit/再送/期限延長なし。
 
-新Nav8/DIRT6は公開semantic Red→Green、関連17＋selector3を限定CIへ選択。freshG1/22sealはNav/Controller2変更・他20不変。独立最終レビューは残P0/P1/P2なしでGO。実CI/新IPA/固定assetは確認後に追記する。未変更Runtime全故障/worldは追加しない。APIABI/全旧閾値・予算・UNKNOWN無再送は維持し、新版の実機全商品到達/毎拍/人超えは未受入。
+新Nav8/DIRT6は公開semantic Red→Green、関連17＋selector3を限定CIへ選択。freshG1/22sealはNav/Controller2変更・他20不変。独立最終レビューは残P0/P1/P2なしでGO。実CI34全Green、5実物verifier各1回全PASS。code `6b54170593bdbdf7ae42cdb4f2ee9f7a410f721a`、build128/run43005185350。actual4C/5Swift/6RSP・Runtime070 Red1/現6call・全9MachO144marker/新C7不在・全583sourceを照合した。未変更Runtime全故障/worldは追加しない。APIABI/全旧閾値・予算・UNKNOWN無再送は維持し、新版の実機全商品到達/毎拍/人超えは未受入。
+
+
+IPA0.3.4/build128、17,609,364B/SHA `d2b206f4c5f58ffeed8aa15af74ee2ce5282f42934796d4f9b9ceaac8aa0759b`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test079-build128/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test079-build128/source.zip)。closingは文書3件だけで製品不変、固定assetを匿名全取得/SHA/CRC照合後に返す。
+
+SideStore更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎回新しい通常1-1ポーズからrestart→金壁/通路候補→接近/入店→全商品確認をまず2回、展開sourceのtest_079.shで実行。短いrestartポーズはゲーム前面、5秒以上ならiSHへ戻り全画像/ZIP保存照合完了を待つ。runtime/test-079-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。078の再回収不要、新実機到達/毎拍/人超えは未受入。
