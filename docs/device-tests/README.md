@@ -2944,3 +2944,12 @@ code `954c6f39725a6b593566fa214e8cc5faa159fc6b`、build126/run42992892650。Nav�
 IPA0.3.4/build126、17,608,587B/SHA `8daf50aa751a8e09f8ebe079292557943fa5fc7de29f15fbe8ea391cbc6dde95`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test078-build126/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test078-build126/source.zip)。文書3件だけclosingで製品を維持し、固定assetの匿名全取得/SHA/CRCを照合して返す。
 
 SideStore更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎回新しい通常1-1ポーズからrestart→金壁/通路候補→接近/入店→全商品確認をまず2回、展開sourceのtest_078.shで実行。短いrestartポーズはゲーム前面、5秒以上ならiSHへ戻り全画像/ZIP保存照合完了を待つ。runtime/test-078-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。077再回収不要、新実機到達/毎拍/人超えは未受入。
+
+
+## TEST078受領: 全商品可視2回・候補未出現上限1回
+
+2026-11-11（日本時間）。[受領検証](../reviews/test078-received.md)。実順d578a956/05285d99/1c8f99e0、3ZIP/53原画全SHA/CRC/schema/manifest/prefix/cursor/実publication一致・全PAUSE/完収。1は原217で商品25/8/150、2も原230で13/25/8が全可視、候補発見2runで到達2/2。3はgold/candidate未出現の12restart上限、方向入力0。全3sessionは商品確認2・上限1と分け、2/2を全配置成功率にしない。
+
+2のcmd13ではprimary197→208 UNKNOWNに対し資格付きreference196が新078NavでunitMOVEDとなりfallback採用、次cmd14開扉/cmd15実進入と商品可視へ進んだ。旧Navの同referenceはUNKNOWNで新証明の実効を確認。1の候補見逃し疑いは、見送り3配置のゲーム原画が全省略で未確認。最初のcapture1はiSH画面、metadata上の200ms/独立stable/prefixは正常だが候補陰性の正解とはしない。
+
+capture/dispatch failure・timeout0、全host error/cancel0/status41回max1.236秒。入力間隔は1に約1.040秒の空き1区間、4歩目の実変位確認後にVISUAL_SCHEDULE回復を記録、後続SAME再予約は同拍を保持。非保持画像のため確認遅延の詳しい理由は未確認。2は全8区間.512〜.530秒。恒久毎拍/人超え合格とはしない。今回は文書/受領解析のみで製品/試験/APIABI/予算/配布物を維持、新CI/IPAや回収済みrunの再実行は不要。見送り判断の初期画像保存不足を追跡課題として残す。

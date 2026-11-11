@@ -1,28 +1,25 @@
 # 最新状態
 
-更新: 2026-11-11（日本時間）。TEST077の2run/38原画を受領、全商品可視1/2を原画像で確認。[TEST078計画](plans/test078-closed-gate-motion.md)は独立レビューGO、新8単体・独立レビュー残0・限定CI25件・新IPA build126の実物照合を完了。[検証](reviews/test078.md)。078実機未受入。
+更新: 2026-11-11（日本時間）。TEST078実機3run/53原画を受領。最初の2回は全3商品を原画で確認、3回目は候補未出現のまま元restart上限12で終了。[最新受領記録](reviews/test078-received.md)。全3sessionは商品確認2/候補未出現上限1、候補発見2runで到達2/2。標本2の部分受入であり全要件合格ではない。
 
-## 実機の根拠と修正対象
+## 最新の根拠と保留
 
-実順92742894→587d35cc。1は7restart/5MOVED/7入力/1開扉、原372に3商品75/125/65が可視。入力間隔.510〜.532秒、実ゲームの受付時刻・恒久毎拍達成とは区別。2は7restart/6MOVED/7入力/開扉0。最後のUP395→419で実1歩進んだがUNKNOWN8評価でMOVEMENT停止。閉金扉と両脇金が2セル先から1セル先へ厳密対応し、次NavはUP/DOOR。入力は元10ms窓内、最終画像確認もvisualD残約1.953秒で期限超過ではない。
+実順d578a956→05285d99→1c8f99e0（添付順とは異なる）。1は3restart/5MOVED7入力/1開扉、原217に3商品25/8/150。2は2restart/8MOVED9入力/1開扉、原230に3商品13/25/8。2のcmd13はprimary197→208 UNKNOWNから資格付きreference196の新unit証明でMOVEDを採用し、開扉→実進入→全商品確認へ進んだ。旧Navでは同referenceがUNKNOWNであり078修正の実効を確認。
 
-旧gate補助は最新さらに次がFLOORである条件と、画像の独立2領域の不足で不成立。旧条件を削らず、閉金扉2ahead→adjacentのUNKNOWN限定unit証明を追加する。旧全GOLD/閉扉/法線の一意対応・raw全73/元gap・実origin/元next床・商品/保護を維持し、新しい固定3依存feature（frameごとH→Vの最初の有効軸）とcamera中央52の独立2帯を使う。旧5依存案は全UI排除後250で不採用。新しい単一仕様は支持322/bad5/upper150/lower172、72競合は支持300未満。95%/300/2帯100/全73の元15pp規則は維持する。
+3は12restart/方向入力0/limit。保持されたlevel4〜12のFLOOR10原画は金/対象通路候補なし、利用者観察とも整合する。非保持画像や世界全体へ店なしを一般化しない。
 
-全2ZIP/38PNGのSHA/CRC/schema/manifest/prefix/cursor/実publicationは一致し両PAUSE/完収。2の初期PNG1に対応するcapture行だけ256行ringから欠落、画像自体は検証済みで行を補完しない。取得failure/timeout0、host status33回エラー/取消0/max1.407秒。別cmd21 too_lateと最終停止を混同しない。
+1回目の候補見逃し疑いは未確認。見送り3配置の判断用ゲームPNGがすべて省略され、最初のcapture1もiSH画面である。metadataの200ms/独立stable/current-prefix条件は成立するが、候補分類の正誤を原画像で確認できない。全53選択PNG/manifest/schema/実publicationの回収照合は完了、capture/dispatch failure/timeout0、host error/cancel0/status41回max1.236秒。保存されなかった過去画像は補完しない。
 
-## 配布と次の実機
+入力間隔は1に約1.040秒の空き1区間、他は約.500〜.525秒。4歩目の実変位確認後にVISUAL_SCHEDULE回復を記録し、後続SAME再予約は同拍を保持。未保持の途中画像から確認遅延の詳しい理由/不要待機かは判定できない。2は全8区間が約.512〜.530秒。入力間隔と実ゲーム受付・恒久毎拍/人超えは分ける。
 
-code `954c6f39725a6b593566fa214e8cc5faa159fc6b`、[CI build126](https://github.com/shuhei0720/necrogold-automation/actions/runs/42992892650)。新8/関連14/selector3=25件failure/error/skip0。freshG1/22seal Nav1他21・actual4C/5Swift/6RSP・Runtime070 Red1/現6call・全9MachO141marker/新C11不在・全576source bytes/CRCを実5verifier各1回で照合。全Runtime/world積み増しなし。
+## コード・配布
 
-[TEST078/build126](https://github.com/shuhei0720/necrogold-automation/releases/tag/test078-build126)の固定[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test078-build126/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test078-build126/source.zip)。IPA0.3.4/build126、17,608,587B/SHA `8daf50aa751a8e09f8ebe079292557943fa5fc7de29f15fbe8ea391cbc6dde95`。最終文書3件だけで製品を維持し、返却前に固定3assetの匿名全GET/SHA/CRCを照合する。
-新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VPN。展開した全sourceのtest_078.shを含むフォルダを選択し、iSHで実行する。
+現行[TEST078/build126](https://github.com/shuhei0720/necrogold-automation/releases/tag/test078-build126)、code `954c6f39725a6b593566fa214e8cc5faa159fc6b`、配布closing `52adb7af2f1c0117e083d10d664d263c1a1b592c`。[計画](plans/test078-closed-gate-motion.md)・[実装検証](reviews/test078.md)。今回は受領解析と文書のみ、製品/試験/APIABI/閾値/予算/IPAは無変更。
 
-```sh
-mkdir -p /mnt/necro_test078
-mount -t ios . /mnt/necro_test078
-cd /mnt/necro_test078 && sh test_078.sh
-```
+[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test078-build126/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test078-build126/source.zip)。IPA0.3.4/build126、17,608,587B/SHA `8daf50aa751a8e09f8ebe079292557943fa5fc7de29f15fbe8ea391cbc6dde95`。build126の限定CI25・5実物verifier/22seal Nav1他21/actualcompiler/全9MachO/全576source/固定3asset匿名全GET照合済みは同bytesの過去結果。今回の新CI/IPA/製品試験は実施しない。
 
-新しい通常1-1ポーズ→候補までrestart→金壁/通路候補→商店→全商品確認をまず2回依頼する。短いrestartポーズはゲーム前面、5秒以上ならiSHへ戻り全画像/ZIP保存照合完了を待つ。runtime/test-078-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。077の追加回収/再実行は不要。到達率・毎拍・人超えは新実機で評価する。
+## 次の課題
 
-同じiPhoneのみ、ユーザーはMacなしで実機担当。実機主軸/品質維持/時間上限なし。raw/Scene/秘密値はGit外、[索引](context.md)から必要範囲を読む。
+見逃し疑いの検証に必要な、見送り初期原画像の優先保持/出力を既予算内で改善する設計を追跡する。今回だけで候補条件を変更せず、回収済み078の追加回収/再実行は要求しない。新TEST079は未作成。
+
+全対応配置の安定到達/見逃し率、恒久毎拍・人超え、対象アイテム認識/通知/対象なしの自動周回は未受入。通常利用は同じiPhoneのみ、ユーザーはMacなしで実機担当。実機主軸/品質維持/時間上限なし、無関係な全Runtime/worldは追加しない。raw/Scene/秘密値はGit外。[索引](context.md)から必要範囲だけ読む。
