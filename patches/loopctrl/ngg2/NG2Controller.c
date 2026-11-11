@@ -854,11 +854,20 @@ static int partial_shop_floor_step(const NG2Controller *p){
             ||(p->command_choice.reason==5&&p->command_choice.target_x==dx[d]
                 &&p->command_choice.target_y==dy[d]&&last_ack_opened_gate(p,d)));
 }
+/* The closed door is beyond the unchanged dig cell. Its observed GOLD pair
+ * must be perpendicular to the input axis, in both source and latest frame. */
+static int closed_door_two_ahead(const NG2Scene *s,int d){
+    int x=2*dx[d],y=2*dy[d];
+    return tile(s,x,y)==NG2_TILE_DOOR
+        &&tile(s,x+dy[d],y-dx[d])==NG2_TILE_GOLD
+        &&tile(s,x-dy[d],y+dx[d])==NG2_TILE_GOLD;
+}
 /* Keep an entrance or the same observed-floor vantage through irrelevant
  * remote flicker. Ticket/before and all bounds stay fixed;
  * do not grant safe-floor calibration, reissue or reference eligibility. */
 static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,uint64_t now){
     NG2Decision before,latest;NG2Motion motion;uint64_t aligned;int i,d=p->command.direction;
+    const NG2ControllerEvent *e=p->event_count?&p->events[p->event_count-1]:NULL;
     int obstacle=p->command_choice.obstacle;
     int entrance_step=p->command_choice.reason==5
         &&(obstacle==NG2_TILE_FLOOR||obstacle==NG2_TILE_DOOR);
@@ -866,6 +875,11 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
         &&scene->goods==NG2_GOODS_PARTIAL&&p->command_choice.reason==8&&obstacle==NG2_TILE_FLOOR;
     int approach_step=p->entrance.valid==0&&p->before.goods==NG2_GOODS_UNKNOWN
         &&scene->goods==NG2_GOODS_UNKNOWN&&p->command_choice.reason==8&&obstacle==NG2_TILE_FLOOR;
+    int dirt_step=d>=1&&d<=4&&!p->entrance.valid&&p->before.goods==NG2_GOODS_UNKNOWN
+        &&scene->goods==NG2_GOODS_UNKNOWN&&p->command_choice.reason==6&&obstacle==NG2_TILE_DIRT
+        &&p->command_choice.target_x==dx[d]&&p->command_choice.target_y==dy[d]
+        &&p->s.current_command_id==p->command.id&&e&&e->command.id==p->command.id&&!e->begin_ns&&!e->outcome
+        &&closed_door_two_ahead(&p->before,d)&&closed_door_two_ahead(scene,d);
     int opened_entry=entrance_step&&obstacle==NG2_TILE_FLOOR
         &&p->before.goods==NG2_GOODS_PARTIAL&&scene->goods==NG2_GOODS_PARTIAL
         &&last_ack_opened_gate(p,d);
@@ -875,7 +889,7 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
     if(p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||p->finish_requested||p->s.goods
         ||p->replan_pending||p->continuous_pending||!p->s.lead_confirmed||!p->s.moves
         ||p->s.phase!=NG2_PHASE_WALK||!p->continuous_ticket_valid||d<1||d>4
-        ||(!entrance_step&&!interior_step&&!approach_step)
+        ||(!entrance_step&&!interior_step&&!approach_step&&!dirt_step)
         ||(entrance_step&&(p->command_choice.target_x!=dx[d]||p->command_choice.target_y!=dy[d]))
         ||p->before.state!=NG2_FLOOR||scene->state!=NG2_FLOOR
         ||p->before.goods!=scene->goods||scene->goods<NG2_GOODS_UNKNOWN||scene->goods>NG2_GOODS_PARTIAL
@@ -904,6 +918,7 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
             &&tile(scene,x-dx[d],y-dy[d])==NG2_TILE_GOLD
             &&!protected_at(&p->before,x,y)&&!protected_at(scene,x,y);
         if(a==b)continue;
+        if(dirt_step&&(p->before.protected_cells[i]||scene->protected_cells[i]))return 0;
         if(growth&&b==NG2_TILE_GOLD)continue;
         if((!shielded&&((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)))
             ||(a!=NG2_TILE_UNKNOWN&&a!=NG2_TILE_FLOOR&&a!=NG2_TILE_DIRT&&a!=NG2_TILE_STONE)

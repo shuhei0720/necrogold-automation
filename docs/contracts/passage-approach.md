@@ -50,3 +50,7 @@ TEST076の[限定計画](../plans/test076-stationary-recovery.md)は未送信の
 TEST077の[限定計画](../plans/test077-shop-visibility.md)は、固定通路の無入力待機に限り、実origin/nextがFLOOR・全保護/フル5/world不変なら、他の近傍セルのUNKNOWN/FLOOR/DIRT/STONE間の見え方の差を許す。shop待機の近傍拒否やGOLD/DOOR/ITEM拒否、元anchor strict0/P/W/別ID条件は維持。開扉済み/実入口確認後のPARTIAL移動は、元と直前accepted GOLDを保持し、両3×3/保護外UNKNOWN/DIRTからの遠方GOLD増加だけを同票へ許す。strict0/全5field/保護/元票全期限を保持し、追加金の消失はmask0も含め一般refresh前に撤回する。
 
 TEST078の[限定計画](../plans/test078-closed-gate-motion.md)はUNKNOWNにだけ閉金扉への厳密unit到達証明を追加する。両CANDIDATE/GOODS_UNKNOWN・全保護/ITEM0・旧origin/nextと最新origin床、旧2セル先の閉扉/同法線金bracket→最新1セル先、旧全金exact保持/unique9/raw全73の最良unit/high-intensity/gapを必須にする。新面は各frameで固定H→Vの最初の有効軸の3実依存だけを読み、全点mask/UI/knownと同材質/符号を候補非依存featureへ保存する。camera52の両frame51/52を除外し1画素1支持、300/95%/帯100/全73元15pp条件を維持。旧5依存/65帯/既known分類を変えず、閉扉への到達と開通/進入を分け、次の入力は通常Navへ返す。元期限/予算/不明再送禁止は維持。
+
+TEST079の[限定計画](../plans/test079-gold-reveal-dirt.md)は旧判定後UNKNOWNだけへ、単一金から新閉扉/金bracketが露出したunitの別証明を追加する。両CANDIDATE/GOODS_UNKNOWN・全保護/ITEM0・旧origin/実nextと最新origin床、全73 rawの同方向厳密unit/score≤.45/gap≥.08、旧金1→最新金2/閉扉1・旧金対応・新門/反対金の旧projectionがUNKNOWN、旧金と保持旧STONE2点の非共線・全9translationで異なるanchor組も含め唯一を要求。078固定3依存面の300/95%/帯100/元15ppをそのまま併用し、旧partial全STONE条件/既knownを変えない。MOVEDだけを返し開通/入口creditは作らない。
+
+079のquiet追加はlead確認済みcontinuous・未入店・確実未送信state1のreason6/DIRT/target=実nextだけ。両Sceneの2*direction閉DOOR/入力軸に垂直な両GOLD、全GOLD/保護集合と材質/ITEM・両3×3・full5不変、strict BLOCKEDを要し、保護外かつ両近傍外のUNKNOWN/FLOOR/DIRT/STONE差だけ許す。同ID/全ticket bytes/元before・clock/epoch/prefix/owner/取消/全凍結期限を保持し、新予約/移動/開通creditは増やさない。旧quiet他scopeは不変、started/UNKNOWN送信/期限超過/商品優先を広げない。

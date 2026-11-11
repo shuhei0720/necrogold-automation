@@ -2953,3 +2953,12 @@ SideStore更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎�
 2のcmd13ではprimary197→208 UNKNOWNに対し資格付きreference196が新078NavでunitMOVEDとなりfallback採用、次cmd14開扉/cmd15実進入と商品可視へ進んだ。旧Navの同referenceはUNKNOWNで新証明の実効を確認。1の候補見逃し疑いは、見送り3配置のゲーム原画が全省略で未確認。最初のcapture1はiSH画面、metadata上の200ms/独立stable/prefixは正常だが候補陰性の正解とはしない。
 
 capture/dispatch failure・timeout0、全host error/cancel0/status41回max1.236秒。入力間隔は1に約1.040秒の空き1区間、4歩目の実変位確認後にVISUAL_SCHEDULE回復を記録、後続SAME再予約は同拍を保持。非保持画像のため確認遅延の詳しい理由は未確認。2は全8区間.512〜.530秒。恒久毎拍/人超え合格とはしない。今回は文書/受領解析のみで製品/試験/APIABI/予算/配布物を維持、新CI/IPAや回収済みrunの再実行は不要。見送り判断の初期画像保存不足を追跡課題として残す。
+
+
+## TEST078追加受領とTEST079: 金壁露出と未送信掘削
+
+2026-11-11（日本時間）。[計画](../plans/test079-gold-reveal-dirt.md)・[受領/修正検証](../reviews/test079.md)。前batchと分け、実順17a58a71/b73d5d78/388f19c6の3ZIP/56原PNG・全hash/CRC/schema/manifest/prefix/cursor/実publicationを照合、全PAUSE/完収。2は原245で3商品8/13/50が全可視、到達1/3。1は実LEFT1歩後の新閉DOOR/金bracket露出で8UNKNOWN、3は遠方DIRT→FLOORで未送信reason6/DIRT票がSCREEN停止。取得failure/timeout0。2の別cmd10 too_lateと最終停止を混同しない。
+
+Navは旧判定後UNKNOWNだけへsingleton金→新閉扉bracketの一意unit証明を追加し、元raw/全9translation/旧金・保持旧STONE非共線/新2セル旧UNKNOWNと078固定3面の全強条件を併用。既partial全STONE/既knownは不変。Controllerは閉金扉2ahead/垂直金pair・未入店/lead確認済み・確実未送信reason6/DIRTの全5field/両3×3/金/全保護集合・材質/strict0が同じ場合だけ、両近傍外の地形差で同ID全票bytesを保持する。新入力credit/再送/期限延長なし。
+
+新Nav8/DIRT6は公開semantic Red→Green、関連17＋selector3を限定CIへ選択。freshG1/22sealはNav/Controller2変更・他20不変。独立最終レビューは残P0/P1/P2なしでGO。実CI/新IPA/固定assetは確認後に追記する。未変更Runtime全故障/worldは追加しない。APIABI/全旧閾値・予算・UNKNOWN無再送は維持し、新版の実機全商品到達/毎拍/人超えは未受入。
