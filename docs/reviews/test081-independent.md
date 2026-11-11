@@ -47,3 +47,11 @@ P2: [native-control.md](../contracts/native-control.md) §12/13と冒頭は現�
 P1（解消済）: Controller observeの旧 `32f751…` は、top ITEM→UNKNOWN/保護縮小を受理した後、元sourceへmask0復帰した場合に、直前GOLD消失がなければ計算済みquiet=falseを消費しなかった。UNKNOWN署名や元期限超過でも同じ未送信票が残り、計画のmask0 strict0/clock条件に反した。現在は対象clipped_entry・mask0・quiet=falseを必ずSCREEN退役するguardを追加。公開negative methodへ非GOLDのUNKNOWN署名/期限超過2subcasesを追加し、旧製品でcompile成功/assertionFAIL2→修正methodだけGreenを確認した。元票/source/時刻は変更しない。最終C試験SHAは `c7e526cad0a87ab912c0de1fa738a7797877f2d8d7b0c2c953be32849429ecb8`。
 
 P2（解消済）: native-control冒頭/§12/13に081限定差分とv1維持/v16-cap15-v2条件が追記され、旧4MiBだけと読める矛盾は解消した。静的/模擬保存の成立を実機の商品到達・候補見逃し解消へ読み替える記述もない。
+
+## Mac134後の専用checker形式修正
+
+同じレビュワーが `check_initial_evidence081.py` のみの追加差分（SHA256 `27be3b7c0be9c53e8df78f92f34c2fa9abb522efa9c17f99c51148eb813c9db7`）とMac134の保存stdout、作者のoffline境界記録を確認した。**形式修正の静的追確認GO、残P0/P1/P2なし。** 製品/fixtureの変更やレビュー側の試験再実行はない。
+
+Mac134は専用6case PASS＋footerを実出力したが、shared `runtime_contract` が先頭に従来headingを要求して `runtime_production_contract_missing` を投げた。全lane成功や最終保存Green報告の生成済みとは扱わない。専用checkerだけがgreen-only・実compiled execution1回・例外argsの完全一致の場合に限ってこのRTEを受け、改めてreturn0/stderr空/固定6case＋footerの全7行bytes（末尾LF含む）の完全一致を要求する。shared checkerは不変で、stdoutの書換や欠けたcaseの補完はない。compile/非zero/他RTEを成功に変えない。
+
+作者の `test081-wrapper-boundaries135.json` は保存済みMac134実stdoutを正例とし、case欠落/順序変更/余分な行/FAIL/stderr/非zero/footer欠落/重複/空行/従来heading追加/末尾LF欠落を拒否する12境界の記録。これはoffline parserの検証であり追加Runtime実行ではない。fixture SHA `302c4875593c2bf9c33ab2d9f6d6b1b17198ba791a1203a62075db876bb3d205`、generated Red `839559a7fa832ddde52f35ffd74a6751e58393a35c6abaf00b74af6b455dc701` / Green `69fb8b4f600c0fa865593739b1662d9937f11f7e007439e886ad72a2da150219`、seam/Runtimeは不変。新code commitに結合したdevice CIと実compiler/IPAの最終確認は引き続き待ちとする。

@@ -71,6 +71,12 @@ client製品SHA `d3dc2493b4ca34ceffbeedbb8d429f13734aa24f2eea53af70f95c53efc520f
 
 共通fixture SHA `302c4875593c2bf9c33ab2d9f6d6b1b17198ba791a1203a62075db876bb3d205`、Redで実行したfixture SHA `839559a7fa832ddde52f35ffd74a6751e58393a35c6abaf00b74af6b455dc701`。Redはv1、最終Greenは明示v2と別v1互換caseを用い、旧Runtimeへ架空のprofile shimを足して失敗させていない。旧first-only run132はsuperseded診断としてのみ保存し、改訂multi-map仕様の証明には使わない。Red-onlyはIPAを生成せず、Cの入力判断やゲーム進行・iPhone受入も証明しない。
 
+## 初回device CIの保存試験ラッパー訂正
+
+code `4f42d14a4a93f9c4de688d692e0730721cd5bafa` のrun134/43032602439では選択69件/18scopeが全Green、旧070 Red1/Green6も通過した。新081の実Mac実行stdoutは6caseのPASSと専用footerの全7行だったが、共通runtime_contractが旧suiteの先頭markerを要求し `runtime_production_contract_missing` でCIを止めた。compile失敗や製品の6case失敗とは区別する。IPAは作成されていない。
+
+専用checkerだけでgreen-only・同RTE・実行1回に限定してこの形式差を扱い、その後の検査をreturn0/stderr空/期待6case＋footerの全7行完全一致へ強める。134実stdoutを使う正常/欠落/順序/余剰/FAIL/stderr/nonzero等の12境界をoffline検査し全PASS。製品、共通checker、fixtureテンプレート/実行fixture bytesは変更せず、Red133との対応を維持する。新codeでdevice CIを再実行するのは、この訂正と同じcodeの実compiler/IPA/artifactを結ぶためで、無関係な全Runtime/worldは追加しない。
+
 ## 最終検証・配布は未実施
 
 現AST選択inventoryはnative36（新20/関連16）・client28（新8/関連20）・package2・selector3の計69件を予定する。これは実行結果ではない。最終hash/inventory確定後のdevice CI、実sealed Runtime保存Green6cases、既070意味的Red1/Green6、実compiler/PBX/RSP/全MachO/IPA/全tracked source/固定Release匿名全GETは未実施。freshG1→seal/applyは生成済みで、旧manifestとの実比較は22中Nav/Controller/Runtime/RPCMethodの4変更・他18不変。manifest SHA `fb1cff76cb57b2477a731ea48973ae05086299f0e6fe5c12aa874bd01572db19`、API16/cap15。実compiler/IPAへの結び付きは未確認。最終source件数・host実CI件数・ビルド番号を未実施のまま成功として記入しない。

@@ -24,6 +24,15 @@ CASES = (
     'test081DecisionOwnershipAndMissingEvidence',
 )
 RED_ASSERT = 'FAIL test081_all_restart_decision_sources_survive_pressure'
+GREEN_LINES = (
+    'PASS TEST081 all twelve restart decision sources survive pressure',
+    'PASS TEST081 latest per level and original source metadata',
+    'PASS TEST081 invalid source command owner and restart bounds',
+    'PASS TEST081 immediate and deferred cache paths',
+    'PASS TEST081 v2 complete paged 10MiB and v1 legacy 4MiB',
+    'PASS TEST081 immutable profile owner and honest missing evidence',
+    'PASS production Runtime public API/TEST081 all restart decision evidence',
+)
 HOST_BEGIN = '// TEST081 RETENTION HOST METHOD BEGIN.\n'
 HOST_END = '// TEST081 RETENTION HOST METHOD END.\n'
 FIXTURE_BEGIN = '// TEST081 RETENTION FIXTURE BEGIN.\n'
@@ -58,6 +67,12 @@ def fixture_source(tests, fixture, *, baseline):
     return (tests.split(marker, 1)[0] + export_helpers + profile_input + fixture + '\n'
             + ''.join(name+'()\n' for name in calls)
             + 'print("PASS production Runtime public API/TEST081 all restart decision evidence")\n')
+
+
+def require_green(result):
+    existing.checked(result)
+    if result.stderr or result.stdout != '\n'.join(GREEN_LINES)+'\n':
+        raise RuntimeError('test081_exact_six_green_cases_required')
 
 
 def main():
@@ -110,17 +125,20 @@ def main():
     except subprocess.CalledProcessError:
         if not args.red_only or len(actual) != 1:
             raise
+    except RuntimeError as exc:
+        # The shared runner expects its historical heading on the first line.
+        # This suite prints six named case results before that footer. Keep its
+        # exact seven-line contract below; no process result is rewritten.
+        if not (args.green_only and len(actual) == 1
+                and exc.args == ('runtime_production_contract_missing',)):
+            raise
     if len(actual) != 1:
         raise RuntimeError('test081_exactly_one_compiled_execution_required')
     result = actual[0]
     if args.red_only:
         existing.require_red(result, RED_ASSERT)
     else:
-        existing.checked(result)
-        passes = [line for line in result.stdout.splitlines() if line.startswith('PASS TEST081 ')]
-        if len(passes) != 6 or result.stderr or not result.stdout.strip().endswith(
-                'PASS production Runtime public API/TEST081 all restart decision evidence'):
-            raise RuntimeError('test081_exact_six_green_cases_required')
+        require_green(result)
     report = {
         'schema': 'test081-restart-retention-contract-v2', 'status': 'pass',
         'mode': 'baseline_red' if args.red_only else 'production_green',
