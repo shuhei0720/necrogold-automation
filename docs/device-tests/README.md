@@ -2902,3 +2902,11 @@ SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VP
 2026-11-11（日本時間）。[詳細](../reviews/test075.md)。実順46efced0→0372e82b→1834cdeb。3ZIP/54選択PNG（15/19/20）のhash/CRC/bytes/896×414/manifest/prefix/cursor/active-report/strict schema一致、全回収完了。全商品可視0/3、capture/dispatch failureはnull、保持省略を補完しない。
 
 1は4UP後に金へ切替済み、通常次LEFTの未送信画像確認がtexture283不足でUNKNOWN、SCREEN停止。2は2MOVED+3方向入力、UPの実unit変位は原画像にあるが8評価全UNKNOWNでMOVEMENT停止、visualDに1.927秒残。3は6restart後の金可視回で初歩公開窓の123ms前にhostがcancel、status result_jsonのRPC2秒超過が原因でnative初歩失敗と区別。1/2はPAUSE成立、3はCANCELLED/paused0。停止根拠とrawはGit外received074/test075-*。回収済み074の追加回収は依頼しない。
+
+## TEST075: 静止/実移動証拠とiSH JSON処理
+
+2026-11-11（日本時間）。[計画](../plans/test075-motion-rpc.md)・[検証](../reviews/test075.md)。code `445929566f34268eca6a70356667abce4844de02`、build120/run42949339514。074の3run/54原画の原因に絞り、UNKNOWN限定zero/unit証拠とJSON同値高速化を追加。zero全73 cacheの1,898比較不一致0、static5/motion10 Green、parser新5/関連5と10,222差分一致。元threshold/期限/無再送/商品優先を維持し、独立差分レビュー残P0/P1/P2なし。
+
+限定CI43Green、実compiler4C/5Swift/6RSP、22seal/Nav1他21、R12/G1/ABI、実Runtime070 Red1/Green6call、9MachO/133marker無混入を実5verifierで照合。全Runtime/worldは選ばない。IPA0.3.4/build120、17,604,425B/SHA `8d1c8b6e6891948bb4739c097284ef8e3501fe0232ec4a1d7ac34e9f1eb3a064`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test075-build120/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test075-build120/source.zip)。code source559tracked bytes/CRC一致、最終sourceは閉じる文書3件だけ変更して製品を維持し、固定asset匿名全取得を照合して返す。
+
+SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VPN。新しい通常1-1ポーズから候補までrestart→金壁/通路候補→接近/入店→全商品確認をまず2回。test_075.shを含む展開フォルダをmountして実行。短いrestartポーズはゲーム前面、5秒以上ポーズが続いたらiSHへ戻り全画像/ZIP保存照合完了まで待つ。自動runtime/test-075-<run_id>.zip全回分と全商品可視/停止位置/拍間隔を必ず依頼。074の追加回収は不要、実機到達と毎拍・iSH2秒は未受入。

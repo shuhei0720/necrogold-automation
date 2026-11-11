@@ -51,3 +51,13 @@ validation.py SHA `bffea44e8ba7bbf4d71a42a4c117e7d6cfe25ffa7db63d3cba034961fd1fc
 runner SHA `91087876d3be0f9041fdb308d85e9395ee5df68b25947028b1b8a5e315a4cf33`。限定CIはNative32（静止5/移動10/旧07411/Controller3/原all73・067primary・ABI各1）、client8（JSON5/authenticated clock・結果JSON期限段階・復号後重複各1）、selector3の計43をactual methodへAST照合。5clientモジュール/HEAD blob、実JSON呼出4参照、実CORE、両074/075baseline envを空値でも拒否。selector3と未重複ABI1はローカルGreen、旧既済試験を追加再実行しない。全Runtime/worldは選ばず、未変更のfault集合を既定に積まない。
 
 封印22sourceのうちNav1だけ変更、他21/API16cap14v15/ABI/G1/R12原40を維持して新IPAを作る。標準public Mac/Ubuntuの限定CI・実compiler/配布IPA/全sourceの照合結果は確定後に追記する。実機の商品到達/毎拍・人超えとiSH2秒は未受入。
+
+## 実CI・IPA照合（build120）
+
+code `445929566f34268eca6a70356667abce4844de02`、[run42949339514](https://github.com/shuhei0720/necrogold-automation/actions/runs/42949339514)。標準public Ubuntu/Macのdevice lane成功。Native32/client8/selector3=43件はfailure/error/skip0、実HEAD/blob・5client module・実JSON4参照と元ABIを束縛。実source-specific compilerは4C/5Swift/6RSP、raw log/pbx/args/hashを一致させ、Perception/Nav strictO2と他C O0/Swift Onone、hostmacro無混入を確認。未変更RuntimeはTEST070既存意味的Red1と現6callの境界だけを検査し、全Runtime故障/worldは未実施。
+
+22sealのNav1変更/他21不変、G1/R12原40不変、API16cap14v15をIPA来歴と照合。IPA0.3.4/build120/minOS16.0/top.ebato.loopctrl、17,604,425bytes/SHA `8d1c8b6e6891948bb4739c097284ef8e3501fe0232ec4a1d7ac34e9f1eb3a064`、全CRC/安全path/重複なし。全9MachOで旧128+075fixture5=133 marker混入なし。実5verifierを各1回のみ実行し、追加product試験やrepo編集なし。rootもinner IPA全bytes/SHA/CRC/plistを独立照合した。
+
+unsigned artifact13823804187は17,880,738B/SHA `f1257445e169ef5a48ac99765425bd0997e9e8d4fd8d948aed6c872d27110820`、validation13823789086は1,241,050B/`d5bef47f4350d9e5668a313c3b9adab376ef255975b1921bea341d36cc224429`、host13824795748は11,039B/`ba6ee627e121e055770dbfd39a589ad2cdf58c7f82bd030bfe1f8e5e68492b77`。APIのrun/head/branch/digestと取得全bytes/CRC/pathsを一致。code source ZIPは7,586,054B/`395637a42ad0c320f7d3c30ffd0e579c8609e37eb8ad94e476b8364cd283a8c4`、全559 tracked files一致。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test075-build120)へ検証済みIPAと最終全sourceを保存する。最終sourceはstatus/本記録/実機台帳3文書だけを閉じ、製品bytesをcodeと一致させる。公開後の匿名全GET/SHA/CRCと実API digestを照合してから返却し、実iPhoneの全商品到達・毎拍・iSH2秒は次の一連試験で確認する。
