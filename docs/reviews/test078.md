@@ -44,3 +44,15 @@ camera中央52の5依存案は、全依存UI/mask除外後に250/bad4・帯115/1
 限定CIは新8＋関連14（原Nav4/074補助3/075static2/075cache・known1/Controller3/ABI1）とselector3で25件。元primary/開扉・金なしunit・静止/全73cache parity・商品/不明入力無再送を変更範囲から選ぶ。実sealed COREのcanonical/bare依存/5client HEAD・4実callable、無変更旧4clientをbaseline同bytesへ固定。063/071/072/074/075/076/077/078 baseline envとBASELINE_NAVは空値も拒否。意味単体を重複ローカル実行せず、全Runtime/worldを積み増さない。
 
 独立1名が改訂計画/製品/新単体の最終差分と既実行ログ、runner/契約を確認し残P0/P1/P2なし。レビュワーによる試験再実行はなし。全sealed CI、新IPA/公開assetの実物確認、端末での次の開扉・全商品到達/速度は未実施として分離する。
+
+## 実CI・IPA照合（build126）
+
+code `954c6f39725a6b593566fa214e8cc5faa159fc6b`、[run42992892650](https://github.com/shuhei0720/necrogold-automation/actions/runs/42992892650)の標準public Ubuntu/Mac device lane成功。新8/関連14/selector3の実25件がfailure/error/skip0。実sealed COREのcanonical/bareと5client HEAD/4callable・旧4client同bytesを照合。実compiler4C/5Swift/6RSPをsource/PBX/raw args/hashへ結び、Nav/Perception strictO2・他C O0/Swift Onone・hostmacro混入なしを確認。未変更Runtimeは070意味的Red1/現6callに限定し、全故障/worldは実行しない。
+
+Git外5verifierを各1回実行し全exit0、統合receipt SHA `4c76069041ae126431474d1dbd77aa7e37ff1c26d26398a8b330d8b9cb49c4f3`。22seal Nav1/他21・R12原40/G1/header/ABI/API16cap14v15・全576source、全9MachOに旧139+新2=141 marker/新C宣言11（export8/static3）の混入なしを照合。全5reportのcode/manifest/IPA hash、host・compile・MachO全22source mapとRuntime4C mapが一致。rootもinnerIPA全bytes/SHA/CRC/安全path/重複0/plistを独立照合。追加の製品試験は行わない。
+
+IPA0.3.4/build126/min16.0/top.ebato.loopctrl、17,608,587B/SHA `8daf50aa751a8e09f8ebe079292557943fa5fc7de29f15fbe8ea391cbc6dde95`。unsigned artifact13842469128は17,888,566B/`d89e33cc5b764b332cd5b0a3e59d45714fb44cedb462535587204e0154a8bacc`、validation13843222329は1,253,440B/`df16ed12424f8b0a2c929b3d2852877aa3da27e01bc6a2e5a3422b3c527cf890`、host13843290421は8,432B/`89ba2e56993323e69382cb75f6b489a63134848960b93aa526f2b80055f1f4a3`。全API run/head/branch/digest/size・取得ZIP全CRC/安全path/重複0一致。
+
+code sourceは576 tracked files/7,646,751B/`d93f0f2d3ec7707057f25b64265c253fff5f3c738a5507f76ffae654d05fa755`の全bytes一致。最終sourceはstatus/本記録/device台帳の3文書だけclosingで全製品bytesを維持する。固定[Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test078-build126)へ検証済みIPA/完全source/SHA256SUMSを保存し、返却前の匿名全GET・SHA/CRC・タグ/asset来歴をGit外receiptへ記録する。IPA再ビルドなし。
+
+新実機は未実施。通常1-1ポーズ→候補までrestart→金壁/通路接近→商店→全商品確認をまず2回、test_078.shと全画像保存後runtime/test-078-<run_id>.zip全回分、全商品/停止位置/拍間隔を具体的に依頼する。077の追加回収・再実行は不要。

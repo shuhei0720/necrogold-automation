@@ -2931,3 +2931,16 @@ code `f1ddc78642696ddae245a636ecacd0887eb8a79f`、build124/run42983528253。Cont
 IPA0.3.4/build124、17,608,462B/SHA `2a4ad0b9c786f01b030b5c52a74f60dfccdac85c2680debcee1c8cdb9bc7c18c`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test077-build124/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test077-build124/source.zip)。文書3件だけclosingで製品を維持し、固定assetの匿名全取得/SHA/CRCを照合して返す。一時的な開発環境切断は復旧、端末/添付/CIの問題ではない。
 
 SideStore更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎回新しい通常1-1ポーズから自動restart→金壁/通路候補→接近/入店→全商品確認をまず2回。test_077.shを含む展開sourceをmountして実行。短いrestartポーズはゲーム前面、5秒以上続いたらiSHへ戻り全画像/ZIP保存照合完了を待ち、runtime/test-077-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。076第三ログ/回収済み再実行は不要、新実機到達・毎拍・人超えは未受入。
+
+
+## TEST077受領とTEST078: 閉金扉前へのunit移動確認
+
+2026-11-11（日本時間）。[計画](../plans/test078-closed-gate-motion.md)・[検証](../reviews/test078.md)。077実順92742894/587d35cc、2ZIP/38原画全照合・両PAUSE/完収。1は原372で3商品75/125/65を確認、到達1/2。2は6MOVED後に実UP1歩進んだがUNKNOWN8でMOVEMENT停止。closedDoor/goldの2ahead→adjacent対応は明瞭、入力元窓内・visualD残約1.953秒。別cmd21 too_lateを最終停止と混同しない。2の初期PNG1だけcapture行ring非保持、行を補完しない。
+
+code `954c6f39725a6b593566fa214e8cc5faa159fc6b`、build126/run42992892650。NavへUNKNOWN-only closedGate unit補助を追加。全旧金exact/unique9/raw全73/元gapと、固定H→Vの実3依存feature・camera52の独立2帯/全実UI排除/300/95%/帯100/元15ppを要求。旧5依存案はUI全排除後250で不採用、新面322/bad5・150/172。旧knownは不変、閉扉到達を開通/入口へ数えず次Navへ渡す。
+
+新8単体public Red8→Green、独立レビュー残P0/P1/P2なし、実限定CI25Green。5verifier各1回でfreshG1/22seal/Nav1他21・actual4C/5Swift/6RSP・Runtime070 Red1/現6call・全9MachO141marker/新C11不在・全576sourceを照合。全Runtime/world積み増しなし。Controller/JSON/API16cap14v15/ABI/閾値/元予算は維持。
+
+IPA0.3.4/build126、17,608,587B/SHA `8daf50aa751a8e09f8ebe079292557943fa5fc7de29f15fbe8ea391cbc6dde95`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test078-build126/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test078-build126/source.zip)。文書3件だけclosingで製品を維持し、固定assetの匿名全取得/SHA/CRCを照合して返す。
+
+SideStore更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎回新しい通常1-1ポーズからrestart→金壁/通路候補→接近/入店→全商品確認をまず2回、展開sourceのtest_078.shで実行。短いrestartポーズはゲーム前面、5秒以上ならiSHへ戻り全画像/ZIP保存照合完了を待つ。runtime/test-078-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。077再回収不要、新実機到達/毎拍/人超えは未受入。

@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-11（日本時間）。TEST077の2run/38原画を受領、全商品可視1/2を原画像で確認。[TEST078計画](plans/test078-closed-gate-motion.md)は独立レビューGO、新8単体とNav局所修正を凍結し、最終レビュー・限定CI25件/新IPAを準備中。[検証](reviews/test078.md)。078実機未受入。
+更新: 2026-11-11（日本時間）。TEST077の2run/38原画を受領、全商品可視1/2を原画像で確認。[TEST078計画](plans/test078-closed-gate-motion.md)は独立レビューGO、新8単体・独立レビュー残0・限定CI25件・新IPA build126の実物照合を完了。[検証](reviews/test078.md)。078実機未受入。
 
 ## 実機の根拠と修正対象
 
@@ -12,8 +12,17 @@
 
 ## 配布と次の実機
 
-現行[TEST077/build124](https://github.com/shuhei0720/necrogold-automation/releases/tag/test077-build124)、codef1ddc786/closing63ca426。077の33CI/5実物verifier/全571source/固定3asset匿名全GET照合済。078はbaseline63ca426、Nav1/他21・Controller/Runtime/JSON/API16cap14v15/ABI/G1/R12/閾値/元予算を維持する通常局所修正。新単体Red→Green/関連回帰・独立差分レビュー・IPA/固定配布の実物照合後に返す。全Runtime/worldは追加しない。
+code `954c6f39725a6b593566fa214e8cc5faa159fc6b`、[CI build126](https://github.com/shuhei0720/necrogold-automation/actions/runs/42992892650)。新8/関連14/selector3=25件failure/error/skip0。freshG1/22seal Nav1他21・actual4C/5Swift/6RSP・Runtime070 Red1/現6call・全9MachO141marker/新C11不在・全576source bytes/CRCを実5verifier各1回で照合。全Runtime/world積み増しなし。
 
-新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VPN。展開sourceのtest_078.shから新しい通常1-1ポーズ→候補までrestart→金壁/通路候補→商店→全商品確認をまず2回依頼する。短いrestartポーズはゲーム前面、5秒以上ならiSHへ戻り全画像/ZIP保存照合完了を待つ。runtime/test-078-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。077の追加回収/再実行は不要。到達率・毎拍・人超えは新実機で評価する。
+[TEST078/build126](https://github.com/shuhei0720/necrogold-automation/releases/tag/test078-build126)の固定[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test078-build126/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test078-build126/source.zip)。IPA0.3.4/build126、17,608,587B/SHA `8daf50aa751a8e09f8ebe079292557943fa5fc7de29f15fbe8ea391cbc6dde95`。最終文書3件だけで製品を維持し、返却前に固定3assetの匿名全GET/SHA/CRCを照合する。
+新IPA更新→LoopCtrl完全終了/起動→Start Server、通常VPN。展開した全sourceのtest_078.shを含むフォルダを選択し、iSHで実行する。
+
+```sh
+mkdir -p /mnt/necro_test078
+mount -t ios . /mnt/necro_test078
+cd /mnt/necro_test078 && sh test_078.sh
+```
+
+新しい通常1-1ポーズ→候補までrestart→金壁/通路候補→商店→全商品確認をまず2回依頼する。短いrestartポーズはゲーム前面、5秒以上ならiSHへ戻り全画像/ZIP保存照合完了を待つ。runtime/test-078-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。077の追加回収/再実行は不要。到達率・毎拍・人超えは新実機で評価する。
 
 同じiPhoneのみ、ユーザーはMacなしで実機担当。実機主軸/品質維持/時間上限なし。raw/Scene/秘密値はGit外、[索引](context.md)から必要範囲を読む。
