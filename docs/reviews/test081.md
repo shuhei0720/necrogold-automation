@@ -77,10 +77,26 @@ code `4f42d14a4a93f9c4de688d692e0730721cd5bafa` のrun134/43032602439では選�
 
 専用checkerだけでgreen-only・同RTE・実行1回に限定してこの形式差を扱い、その後の検査をreturn0/stderr空/期待6case＋footerの全7行完全一致へ強める。134実stdoutを使う正常/欠落/順序/余剰/FAIL/stderr/nonzero等の12境界をoffline検査し全PASS。製品、共通checker、fixtureテンプレート/実行fixture bytesは変更せず、Red133との対応を維持する。新codeでdevice CIを再実行するのは、この訂正と同じcodeの実compiler/IPA/artifactを結ぶためで、無関係な全Runtime/worldは追加しない。
 
-## 最終検証・配布は未実施
+## 最終検証と配布
 
-現AST選択inventoryはnative36（新20/関連16）・client28（新8/関連20）・package2・selector3の計69件を予定する。これは実行結果ではない。最終hash/inventory確定後のdevice CI、実sealed Runtime保存Green6cases、既070意味的Red1/Green6、実compiler/PBX/RSP/全MachO/IPA/全tracked source/固定Release匿名全GETは未実施。freshG1→seal/applyは生成済みで、旧manifestとの実比較は22中Nav/Controller/Runtime/RPCMethodの4変更・他18不変。manifest SHA `fb1cff76cb57b2477a731ea48973ae05086299f0e6fe5c12aa874bd01572db19`、API16/cap15。実compiler/IPAへの結び付きは未確認。最終source件数・host実CI件数・ビルド番号を未実施のまま成功として記入しない。
+最終code `367601819ffdb0522323762b3e6cce36a588407b`、[run43034347751/build135](https://github.com/shuhei0720/necrogold-automation/actions/runs/43034347751)は必要jobすべて成功。標準ubuntu-latest/macos-26のdevice laneを用い、全Runtime/worldの追加実行はしない。新codeに結合したhost69件/18scopeはfail/error/skip/expectedfail全0。内訳はnative36（新20＋関連16）・client28（新8＋関連20）・package2・selector3。
 
-最終差分の独立レビューは残P0/P1/P2なしでGO。上記の未実施検証を完了後、rootがこの欄へ実結果を追記する。新IPAと完全sourceを固定Releaseへ保存・照合し、SideStore更新/LoopCtrl完全終了・起動/Start Server/通常VPN/test_081.shを示して、通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を今回同様3〜6回依頼する。全run別ZIPと商品全体可視・停止位置・歩行間隔をまとめて比較する。080の追加回収/再実行は不要。
+Mac保存は新081の実Runtime6caseがcompiled=true/return0/stderr空/固定7行完全一致でGreen。Red133の旧Runtime/同fixture302c…/同HOST seamと生成helper・main bytesを照合した。旧070も固定旧sourceの意味Red1と現Runtimeの6entrypoints/4境界＋identity matrixを確認した。新checkerの形式修正は製品/fixtureを変えず、134の未完了laneを成功へ読み替えていない。
 
-全対応配置の到達率・候補見逃し率、恒久毎拍/人超え、対象アイテム認識/通知/対象なし自動周回は未受入。今回の候補見逃しは判断原画不足で未確定のまま。各マップの判断画像を残す変更を、見逃し判定の改善や全商品到達の実機成功と呼ばない。
+freshG1/22sealはNav/Controller/Runtime/RPCMethodの4変更・他18不変、R12原40・G1不変。実C4/Swift5/保存RSP6とraw log/PBX/展開argsを照合し、Perception/Navigation strict O2（fast-mathなし/FP contract off）、他C O0/Swift Onone、HOST macro不在を確認。全9MachOに188禁止marker（旧147を同bytes/順序で保持し新41追加、重複0）の混入なし。新test-only C宣言9（export8/static1）/Swift宣言19・6entrypointsも検査対象へ含めた。
+
+完全code sourceは602ファイル/7,710,516B/SHA `37547e805ddbfa79b7b7c1d9d04eaf3f5ac9754c463c99f2eab1de7dedc59c3d`。全tracked Git blob bytes/全CRC/安全path/欠落・余剰・重複0を照合した。公開sourceはclosing後の文書3件だけを含む完全archiveへ差し替え、改めて全602blobを照合する。
+
+5verifierは各1回で全PASS、再実行0・意味試験重複0・raw artifactの実行0。主plistの場所を誤ったreceipt組立は実主appパスへ直したメタデータ読取だけで、verifier失敗や再実行ではない。rootも独立したin-memory IPA読取で同じhash/CRC/plistを確認した。照合receipt SHA `f74dadc93c416a509fe16a3dac8067f4b0313f03993b4ca186143541f0b24fa9`。同じ独立レビュワーが実5結果/実ログの同一性を確認し、残P0/P1/P2なしで配布GO。iPhoneでの新到達/見逃し/速度は未受入。
+
+| artifact | ID | bytes | SHA256 |
+| --- | --- | --- | --- |
+| loopctrl-ngg2-native-host | 13862806689 | 16,561 | `e0817772144d0d2751a46a94cb0d50da5e680d33d2304fcdd9f62b6d110fac4e` |
+| loopctrl-ngg2-unsigned | 13861709759 | 17,904,288 | `391548e405e328736cb3b72c574e88af5890bedba15c863fd9b93a10bd655421` |
+| loopctrl-ngg2-validation | 13861649945 | 2,267,551 | `90d370d25cae585f034206f1982e48c1206c7d0dea339e4e82d8153503803371` |
+
+IPAは0.3.4/build135/min16.0、17,623,369B/SHA `1c60ad0d6c61b51a920f1f6166bdbe054a3d2e26d20912d26118e292063096fd`。API16/cap15と旧cap14、v2のpaged-only/10MiB・v1旧4MiBが同じ実物へ結合している。[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test081-build135)の[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test081-build135/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test081-build135/source.zip)へ保存する。closingはstatus/本レビュー/実機台帳の文書3件だけで製品不変。公開後、固定3assetの匿名全GET/HTTP200/API digest/サイズ/SHA/ZIP CRC・tag→closingを確認して返す。一時署名URLは配布先にしない。
+
+SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開sourceのtest_081.shで、毎回新しい通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を6回依頼する。短いポーズはゲーム前面、5秒以上ならiSHへ戻り全画像/ZIP保存照合の完了を待つ。runtime/test-081-<run_id>.zip全回分と商品全体可視/停止位置/歩行間隔、見逃しがあればその位置を返してもらう。080の再実行/追加回収は不要。
+
+歩行中の画像取得・入力前後/比較/停止画像の保存を止める変更ではない。既critical優先を維持した上で各mapの見送り判断sourceを追加した。全配置の到達率/候補見逃し率・恒久毎拍/人超え・対象認識/通知/対象なし自動周回は未受入。今回の見逃し自体は判断原画不足で未確定であり、保存改善を判定器の修正済みと呼ばない。

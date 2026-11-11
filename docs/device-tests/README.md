@@ -2983,3 +2983,15 @@ SideStore更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎�
 IPA0.3.4/build130、17,615,287B/SHA `cfdee552a92b02c8f4f992443438f651cbb6a57ac615efce5b8a1e9d71d4f885`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test080-build130/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test080-build130/source.zip)。closingは文書3件だけで製品不変、固定assetを匿名全取得/SHA/CRC照合後に返す。
 
 SideStore更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎回新しい通常1-1ポーズからrestart→金壁/通路候補→接近/入店→全商品確認をまず2回、展開sourceのtest_080.shで実行。短いrestartポーズはゲーム前面、5秒以上ならiSHへ戻り全画像/ZIP保存照合完了を待つ。runtime/test-080-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。079の再回収不要、新実機到達/毎拍/人超えは未受入。
+
+## TEST080受領とTEST081: 三つの停止と各map判断画像
+
+2026-11-11（日本時間）。[検証](../reviews/test081.md)。6run/106原PNG全照合・全PAUSE/完収。原216/212/140で3商品全可視、到達3/6。4/5の候補見逃しは初期判断原画不足で未確定。
+
+A実1歩/B遠方STONE refresh/C上端部分商品の進入を限定修正。Dは各map最新見送りsourceを保存し、最大12判断＋歩行比較/商品/停止critical7≤20を保持。入力期限/予算/商品優先/UNKNOWN無再送を維持、見逃し判定は修正済みとしない。
+
+v2はpaged-only/10MiB、旧v1は固定4MiB。cap15/client16、API16・旧回収は維持。host69全Green、新保存Runtime6case Green、旧070成功。multi-map意味Red133を採用、旧132はsuperseded。5verifier各1回で実C4/Swift5/RSP6、全9MachOの188marker不在、全602source/IPA同一性を照合済み。公開後、固定3assetを匿名全GET/SHA/CRC照合して返す。
+
+code `367601819ffdb0522323762b3e6cce36a588407b`、build135/run43034347751。IPA0.3.4/build135/min16、17,623,369B/SHA `1c60ad0d6c61b51a920f1f6166bdbe054a3d2e26d20912d26118e292063096fd`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test081-build135/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test081-build135/source.zip)。
+
+SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。iSHで `mkdir -p /mnt/necro_test081`、`mount -t ios . /mnt/necro_test081`、`cd /mnt/necro_test081 && sh test_081.sh`。展開したtest_081.shのフォルダを選ぶ。毎回fresh通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を6回。5秒以上ポーズならiSHへ戻り保存完了を待ち、runtime/test-081-<run_id>.zip全回分と商品可視/停止位置/拍間隔を返してもらう。080再実行不要、新実機到達/見逃し率/毎拍・人超えは未受入。
