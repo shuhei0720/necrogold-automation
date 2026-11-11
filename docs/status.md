@@ -1,21 +1,21 @@
 # 最新状態
 
-更新: 2026-11-11（日本時間）。TEST079実機3run/58原画を全照合、原画像の商品到達1/3。[受領/修正検証](reviews/test080.md)・[TEST080計画](plans/test080-sparse-gate-closed-mouth.md)。実順1f2b84fa→93a2ca80→d6cbad28、2の原368に3商品100/150/50が全可視。全PAUSE/完収、capture/dispatch failure/timeout0、host error/cancel0。
+更新: 2026-11-11（日本時間）。TEST080/build130を実ビルド・照合済み。[計画](plans/test080-sparse-gate-closed-mouth.md)・[受領/実装/配布検証](reviews/test080.md)。TEST079実機3run/58原画は全照合、実順1f2b84fa→93a2ca80→d6cbad28、原368に3商品100/150/50が全可視、到達1/3。全PAUSE/完収、capture/dispatch failure/timeout0、host error/cancel0。
 
-## 原因と今回の作業
+## 変更と根拠
 
-1は実UP1歩で閉金扉前へ到達したが、狭く暗い画面で元phaseが全73INF、旧強証明の独立帯も不足し8UNKNOWN停止。元入力窓内、visualD残約1.602秒。3は固定通路口の内側隣接まで実3歩、口がDIRT/両脇壁となり観測床経路なしでNO_PATH。応答160原画は省略済み、私的wait状態を補完しない。
+1は実UP1歩で閉金扉前へ到達したが、狭い画面で元phase全73INF/旧独立帯不足により8UNKNOWN停止。元入力窓内、visualD残約1.602秒。3は固定通路の内側隣接へ実3歩、口がDIRT/両脇壁で床経路なしのNO_PATH。原160は省略済みで私的wait状態を補完しない。
 
-080はNavへ元phase全正INFの場合だけの閉金扉unit別証明（全3×3依存が既知同材質の新phase/固定65独立2帯＋旧3feature総強証明）を追加する。旧raw/旧strongの条件は維持。Controllerは独立2観測で閉口を確認した候補だけをprivateclosedへ退役し、他候補/既restartへ戻す。外目標到達済み・未判定と区別し、未知入力再送/元期限・予算を広げない。
+Navは全旧判定後UNKNOWN/元phase全正INFの場合だけ、新phase（全3×3依存/UI/既知同材質・固定65独立2帯/元算術/全73）と旧3feature総強証明の別結合を追加。閉扉/金2exact/unique9/旧STONE非共線をANDしMOVED unitだけを返す。旧strong52帯100/旧全関数は不変。原22pairで旧known17/UNKNOWN4不変、328→353だけUP1MOVEDへ改善。
 
-新単体14の公開assertion Red→Green、独立1名の最終差分レビューP0/P1/P2なしでGO。限定CI34（新14/関連17/selector3）・新IPA/固定asset照合を進める。全Runtime/worldは積み増さない。
+ControllerはACK実MOVEDで固定口内側隣接へ到達し、元2拍/horizon内の独立2観測/strict0/同壁口/両脇壁/金商品保護なし/経路なしを確認した候補だけprivateclosedへ退役。他候補/既restartへ戻し、外目標到達済み/未判定を区別。旧期限/予算/UNKNOWN無再送を維持する。
 
-## 現行配布
+新14単体の公開Red→Green、実CI34（新14/関連17/selector3）全Green。独立1名の最終レビュー残P0/P1/P2なし。5verifier各1回でfreshG1/22seal（Nav/Controller2・他20）/actual4C・5Swift・6RSP/全9MachO147marker/全589sourceを照合。Runtimeは070 Red1/現6callのみ、全故障/world追加なし。
 
-現在は[TEST079/build128](https://github.com/shuhei0720/necrogold-automation/releases/tag/test079-build128)、code `6b54170593bdbdf7ae42cdb4f2ee9f7a410f721a`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test079-build128/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test079-build128/source.zip)。実CI34/5verifier/22seal/actualcompiler/全9MachO144marker/全583source/固定asset匿名全GETは[079検証](reviews/test079.md)の過去結果で、080へ流用しない。
+## 配布と次の実機
 
-## 残る受入
+[TEST080/build130](https://github.com/shuhei0720/necrogold-automation/releases/tag/test080-build130)、code `15cdd72b0188e11970d6e547ee62b76ad5957e8e`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test080-build130/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test080-build130/source.zip)。IPA0.3.4/build130/min16、17,615,287B/SHA `cfdee552a92b02c8f4f992443438f651cbb6a57ac615efce5b8a1e9d71d4f885`。最終sourceは文書3件だけclosingで製品不変。固定3assetの匿名全GET/SHA/CRCを返却前に照合する。
 
-新080を検証・公開後、通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認をまず2回、全画像照合後runtime/test-080-<run_id>.zip全回分を依頼する。079の追加回収/再実行は不要。
+SideStore更新・LoopCtrl完全終了/起動・Start Server/通常VPN。test_080.shで通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認をまず2回、全画像照合後runtime/test-080-<run_id>.zip全回分を依頼。079の追加回収/再実行は不要。
 
-全配置の安定到達・見逃し率、恒久毎拍/人超え、対象認識/通知/対象なし自動周回は未受入。初期見送り原画の保持不足は別追跡。実機主軸/品質維持/固定時間上限なし。通常利用は同じiPhoneのみ、ユーザーはMacなしで実機担当。raw/Scene/秘密値はGit外。[索引](context.md)から必要範囲だけ読む。
+原353自己比較UNKNOWNは後続Scene/次入力の確定失敗を示さず、開扉/進入/全商品到達は新実機で評価する。全配置の到達率/見逃し率、恒久毎拍/人超え、対象認識/通知/対象なし自動周回は未受入。初期原画保持不足は別追跡。実機主軸/品質維持/固定時間上限なし。通常利用は同じiPhoneのみ、ユーザーはMacなし。raw/Scene/秘密値はGit外。[索引](context.md)。

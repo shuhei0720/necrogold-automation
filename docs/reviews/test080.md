@@ -38,7 +38,7 @@ Bの新公開6methodsは旧079Controllerと他C/Hの全sourcehashを固定した
 
 独立計画レビューはP0/P1/P2なしで実装GO。Navの公開旧079正例はO0/strictO2×4方向の8semantic subfail/error0のRedを製品apply前に実測（Red時全corehashを別採取していないため全旧core凍結とは呼ばない）。新版8は初回6Green、C bridgeのctypes引数数2errorsとdense静止fixtureのdefault overlay誤用1failをfixtureだけ補正。BLOCKED期待は維持してoverlay=Falseとし、影響2methodsだけGreen。8.5px blended negative追加の1methodもGreen。他5は初回結果を継承、製品/epsilonは変更しない。新Nav test SHA `b106f7061d49fbff3de30618a9f8952e09351fb1fb102adba61433625d5139bd`、C11宣言（export8/static3）、Controller C seam0。新phase全73は製品mask/View/round/intensityhelper非依存scalarと同値、全9実依存/65帯非重複・.45/.08/300/100/mean6/contrast2.5/gainclamp・95%/15pp/元all正INF/旧known/未入店を確認した。
 
-独立1名が最終製品/全新14単体・既ログ/契約/runnerの差分を確認し、残P0/P1/P2なしでGO。レビュワーの試験再実行はなし。実限定CI/IPA/固定assetはこれから確認する。
+独立1名が最終製品/全新14単体・既ログ/契約/runnerの差分を確認し、残P0/P1/P2なしでGO。レビュワーの試験再実行はなし。実限定CI/IPAの照合は以下に記録し、固定assetの匿名全GETを返却前に確認する。
 
 新Nav8/Controller6・関連17（旧Nav2/078閉扉2/079露出2/Controller2/072通路6/074初期1/076待機1/ABI1）とselector3を選び、全Runtime/worldを追加しない。API16cap14v15/全ABI/Runtime/Perception/JSON/全旧閾値・期限・予算/G1/R12原40は維持する。新実機の到達率/見逃し率/恒久毎拍/人超え・対象認識/通知/対象なし自動周回は未受入。初期見送り原画の保持不足は別課題のまま。
 
@@ -47,3 +47,16 @@ Nav freezeはSHA `a81cb36bc3d06eb8b8186b83b33b75fbb3bc3e6d30360b451473cafd469747
 
 
 原353の自己比較は旧UNKNOWNだが、この同一PNGの照合は未来の独立観測や次ticketの実再検査を再現していない。今回の証明は過去unitの確認に限定し、次の開扉/進入/全商品到達は新実機で評価する。未収録futureのゼロ判定や入力権限を推測で追加しない。
+
+
+## 実CI・IPA照合（build130）
+
+code `15cdd72b0188e11970d6e547ee62b76ad5957e8e`、[run43017847436](https://github.com/shuhei0720/necrogold-automation/actions/runs/43017847436)の標準public Ubuntu/Mac device lane成功。新14/関連17/selector3の実34件はfailure/error/skip0。実sealed COREのcanonical18/bare17と5client HEAD/4callable・旧4client同bytesを照合。063/071/072/074/075/076/077/078/079/080 baseline envとBASELINE_NAVは空値も拒否。実compiler4C/5Swift/6RSPをsource/PBX/raw args/hashへ結び、Nav/Perception strictO2・他C O0/Swift Onone・hostmacro混入なしを確認。未変更Runtimeは070意味的Red1/現6callに限定し、全故障/worldは追加しない。
+
+Git外5verifierを各1回実行し全exit0、統合receipt SHA `90044e0d48b3683087e9738af1b00175005636a8128b539e4d7f15cca60f14d0`。全5reportのcode/manifest/IPA hash、host・compile・MachO全22source mapとRuntime4C mapが一致。22seal Nav/Controller2・他20、R12原40/G1/header/ABI/API16cap14v15、全9MachOに旧144+新3=147 marker/新C宣言11（export8/static3、Controller0）の混入なしを確認。rootも取得APIのrun/head/branch/digest/size・全ZIP CRC/安全path/重複0とinnerIPA全bytes/SHA/plistを独立照合。追加製品試験なし。
+
+IPA0.3.4/build130/min16.0/top.ebato.loopctrl、17,615,287B/SHA `cfdee552a92b02c8f4f992443438f651cbb6a57ac615efce5b8a1e9d71d4f885`。unsigned artifact13854556369は17,895,653B/`09f05f37dc9a40024deaedbb50afc23deea784493d4b54f85f3661899e845f36`、validation13854661335は1,270,793B/`9c1e00e0633afb99126700ba865ae0e8a98625f4e484b11589219ccd4de586d0`、host13853706413は10,487B/`06a9fada5e162dcc2db08a0486298eaac1089587f24e1ad794e8de9cbaa7c968`。
+
+code sourceは589 tracked files/7,703,737B/`7cd57c39915c72c00fb4bfc120c0392b04988e51ddb4db8624482373fdbc4213`の全bytes一致。最終sourceはstatus/本記録/device台帳の3文書だけclosingで全製品bytesを維持する。固定[Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test080-build130)へ検証済みIPA/完全source/SHA256SUMSを保存し、返却前の匿名全GET・SHA/CRC・タグ/asset来歴をGit外receiptへ記録する。IPA再ビルドなし。
+
+新実機は未実施。SideStoreで新IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。毎回新しい通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認をまず2回、展開sourceのtest_080.shで実行。短いrestartポーズはゲーム前面、5秒以上ならiSHへ戻り全画像/ZIP保存照合完了を待つ。runtime/test-080-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼する。079の追加回収/再実行は不要。

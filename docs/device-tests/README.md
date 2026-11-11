@@ -2977,4 +2977,9 @@ SideStore更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎�
 
 3は固定候補の内側隣接へ3歩進み口がDIRT・両脇壁で経路なし、2拍待機後NO_PATH。原160は省略で補完しない。新追加はACK実MOVED到達/独立2観測/strict0/同壁口/金商品保護なし/経路なしを元期限内で確認した候補だけprivate closedへ退役し、他候補又は既restartへ戻す。外目標到達済み/未判定は区別し、未知入力再送・壁掘削・世界全体の店なしへ広げない。
 
-新14単体の公開Red→Green、独立1名の最終レビュー残P0/P1/P2なしでGO。限定CI34（新14/関連17/selector3）と新IPA・完全source・固定asset照合の結果は完成後に追記する。Runtime/Perception/JSON/APIABI/元閾値・期限/予算は維持し、全Runtime/worldを積み増さない。新実機の全商品到達/恒久毎拍/人超えは未受入。
+新14単体の公開Red→Green、独立1名の最終レビュー残P0/P1/P2なしでGO。実限定CI34全Green、5実物verifier各1回全PASS。code `15cdd72b0188e11970d6e547ee62b76ad5957e8e`、build130/run43017847436。actual4C/5Swift/6RSP・Runtime070 Red1/現6call・全9MachO147marker/新C11不在・全589sourceを照合。Runtime/Perception/JSON/APIABI/元閾値・期限/予算は維持し、全Runtime/worldを積み増さない。新実機の全商品到達/恒久毎拍/人超えは未受入。
+
+
+IPA0.3.4/build130、17,615,287B/SHA `cfdee552a92b02c8f4f992443438f651cbb6a57ac615efce5b8a1e9d71d4f885`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test080-build130/LoopCtrl.ipa)・[全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test080-build130/source.zip)。closingは文書3件だけで製品不変、固定assetを匿名全取得/SHA/CRC照合後に返す。
+
+SideStore更新→LoopCtrl完全終了/起動→Start Server、通常VPN。毎回新しい通常1-1ポーズからrestart→金壁/通路候補→接近/入店→全商品確認をまず2回、展開sourceのtest_080.shで実行。短いrestartポーズはゲーム前面、5秒以上ならiSHへ戻り全画像/ZIP保存照合完了を待つ。runtime/test-080-<run_id>.zip全回分と全商品/停止位置/拍間隔を依頼。079の再回収不要、新実機到達/毎拍/人超えは未受入。
