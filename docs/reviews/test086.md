@@ -48,3 +48,13 @@ finalNav `3e428bec78cf0b530252a9d6c2032ed59054515cbc0d6f5ef2321498b430afd8`、Co
 原417画像（08197/08280/08380/08480/08580）のScene全bytes同一。候補差は原085093だけ0→32、旧候補bit欠落0。保守的stable ACK-prefix/元earliest以後/native終了前/source+3秒以内の213pixel組は旧known134全維持。UNKNOWN→UP1が08592→101/110と083da1051fd100→112の3組。rootと独立担当は083原100/112も視認し、同じ地形が画面下36px移りUP1と整合することを確認。112には新露出の扉状画素も見える。DOOR0という資格はScene分類値であり、原画に扉が存在しないとは主張しない。unit確認は開扉/入店creditを追加しない。085全適格8枚では100/102–106のUNKNOWNを保つ。校正であり私的visualDや欠落future frame/新iPhone継続成功を再構成しない。比較JSON SHA `2bbc2dda20d5fa19a3b09258174ade4dc9ee7a1852c7a20be5cc616450a00e11`。rootも085原212/218の3商品を視認した。
 
 fresh pinned Git/G1→seal/applyを一度実施、9既存＋13追加=22中Nav1変更21不変、manifest `a6567aa71c033c86ea6d94df190401dfa220ea338c2a0feb13784f3556e9cd2d`。全applied hash/Runtime/G1/core4同bytes。rootのmetadata集計が追加13だけを22と誤期待したassertは合計22へ訂正、構築/適用は再実行0・製品変更0。限定CI/実物と公開GETは後続。
+
+## 同code実物と配布
+
+code `ba7abcd8fdd683001c2d7ae8b05cc4256b765e17`、run43170890633/build146。限定host37methods/11scope全Green、fail/error/skip/expectedfail0。新native12と旧exact関連21・公開gate1/self3を分ける。Mac070旧Red1/現6entrypoints Green、081保存6entrypoints Green。Runtime048a…・固定保存fixture/seam/Red133は同bytes別証拠再利用、新Runtime Red/実ゲームCI/全故障worldは追加しない。
+
+5実物verifier各1回PASS・失敗/再実行0/意味再試験追加0。全651tracked blob/CRC/path、22seal1変更21不変、R12原40/G1/core4/Runtime同bytes・API16/cap15/client16/v2/旧v1回収を照合。実4C/Swift5/RSP6・rawlog/PBX/args/RSP、Perception/Nav strictO2・他C O0/Swift Onone/HOST不在。全9MachOで旧249 exactprefixを保つ全260marker不在、新B C宣言12（新5＋083再利用7、export11/static1）の全coverageを確認。
+
+crossbinding receipt 12068B/SHA `595bebe0831b2d5735dff5e781ae1f3b4401262f4c9cd3629e8a1a670daf6b1f`。5 result/verifier SHA・root独立in-memory IPA/3artifact API digest/bytes/head/runを同code/IPA/sealへ結合。同じ独立担当が実物読取確認しP0/P1/P2なしGO、意味再試験/文書編集追加0。IPA0.3.4/build146/min16、17630155B/SHA `f3c8da2f68cd0abc842751d2b45d61024de9322e67349cb956cee9c541641a49`。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test086-build146)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test086-build146/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test086-build146/source.zip)。code後closingはstatus/本レビュー/device台帳3文書のみ。closing全651blobを照合した完全sourceと検証済みIPAを固定assetへ保存、公開後3assetを匿名全GET/API digest/SHA/CRC照合して返す。SideStore更新/LoopCtrl完全再起動・Start Server/通常VPN、新test_086.shで通常1-1ポーズから一連5回、5秒以上ポーズ後iSHで全照合完了を待ち、全runtime/test-086-<run_id>.zipと結果の返却を依頼。

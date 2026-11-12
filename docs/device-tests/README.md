@@ -3041,3 +3041,13 @@ CI141の旧10ms fixture不適格は基準083でも再現し、時刻のみ訂正
 新12Red→Green、code `97a8cbe5177d85be080a33107fd799599c045b83`、run43149743552/build144のhost33/10全Green。Mac070旧Red1/現Green6・081保存Green6、固定保存Red133分離再利用。5実物各1回PASS、4C/Swift5/RSP6・9MachO249marker・全642source/IPAを照合。22seal2変更20不変、Runtime/core4/API16/cap15/client16/v2維持。同じ独立担当P0/P1/P2なしGO。
 
 [固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test085-build144)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test085-build144/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test085-build144/source.zip)。IPA 17626327B/SHA `ae16b4f3774b7c6bd2911e77165e6476342455313fc21f2d1e818c778f7a53d7`。closing文書3件のみ・公開後匿名全GET/SHA/CRC照合して返す。SideStore更新/LoopCtrl完全再起動/Start Server/通常VPN、新source/test_085.shで通常1-1ポーズ→restart→金壁/通路候補→商店→全商品可視/PAUSEを5回。5秒以上ポーズ後iSHで全照合完了を待ち、runtime/test-085-<run_id>.zip全回分を依頼する。新版実機受入・恒久毎拍/人超え・対象識別/通知/対象なし循環は未実施、旧081実5金1→2は未解決。
+
+## TEST085受領とTEST086: 角通路vantageと単金保持の実歩確認
+
+2026-11-12（クライアント日本時間）。[受領/検証](../reviews/test086.md)・[計画](../plans/test086-vantage-gold.md)・[独立レビュー](../reviews/test086-independent.md)。実順10554662 LIMIT/c4817849 GOODS/6a0429bf GOODS/153e6565 MOVEMENT。4ZIP/80原PNG・18,473,950画像B全CRC/SHA/現schema/client_load/prefix/cursor/実公開gate照合。全商品可視2/4・全paused/terminal/drained/回収完了、見送りsource16/16保持は既知誤陰性093を含む。085再回収不要。
+
+Aは固定4cornerの観測口/外床・両壁/壁列支持と最短床3のvantageだけでUNKNOWNを維持して接近。Bは旧15段後の単金1→1 unit-only proof。元raw/phase/blur/axis/geometry条件を全ANDし、原101/110を確認、他元適格6枚のUNKNOWN保持。Controller/Perception/Beat/Runtime/core4・全期限/予算/無再送を維持。原417Scene全bytes/旧known保持・候補差093だけ。
+
+新12Red→Green、code `ba7abcd8fdd683001c2d7ae8b05cc4256b765e17`、run43170890633/build146のhost37/11全Green。5実物各1回PASS・4C/Swift5/RSP6・9MachO260marker・全651source/IPA照合。22seal1変更21不変。同じ独立担当P0/P1/P2なしGO。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test086-build146)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test086-build146/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test086-build146/source.zip)。IPA 17630155B/SHA `f3c8da2f68cd0abc842751d2b45d61024de9322e67349cb956cee9c541641a49`。closing文書3件のみ・公開後匿名全GET/SHA/CRC照合。SideStore更新/LoopCtrl完全再起動/Start Server/通常VPN、新source/test_086.shで通常1-1ポーズ→restart→金壁/通路候補→商店→全商品可視/PAUSEを5回、全runtime/test-086-<run_id>.zipを依頼する。新版実機/恒久毎拍/人超え/識別通知は未受入、旧081実5金1→2は未解決。
