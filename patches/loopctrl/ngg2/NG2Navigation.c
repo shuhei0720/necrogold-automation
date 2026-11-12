@@ -231,6 +231,25 @@ static int passage_wall(const NG2Scene *s,int x,int y) {
     int k=tile(s,x,y);
     return k==NG2_TILE_DIRT || k==NG2_TILE_STONE;
 }
+/* A corner's observed mouth/outside can merit a closer FLOOR view while its
+ * inboard remains UNKNOWN. This hypothesis never makes that cell traversable. */
+static int passage_corner_vantage(const NG2Scene *s,const Path route[CELLS],int side,int k) {
+    int mx=side ? -3 : k,my=side ? k : -3,dx=side ? -1 : 0,dy=side ? 0 : -1;
+    int ix=mx-dx,iy=my-dy,inboard=index_of(ix,iy),vx,vy,vantage,walls=0,j;
+    if ((k!=-2 && k!=2) || tile(s,ix,iy)!=NG2_TILE_UNKNOWN ||
+        inboard<0 || route[inboard].cost!=INF_COST ||
+        tile(s,mx,my)!=NG2_TILE_FLOOR || tile(s,mx+dx,my+dy)!=NG2_TILE_FLOOR ||
+        !passage_wall(s,mx+dy,my-dx) || !passage_wall(s,mx-dy,my+dx) ||
+        !passage_clear(s,mx,my) || !passage_clear(s,mx+dx,my+dy) ||
+        !passage_clear(s,ix,iy)) return 0;
+    vx=ix+(side ? 0 : (k<0 ? 1 : -1));
+    vy=iy+(side ? (k<0 ? 1 : -1) : 0);
+    vantage=index_of(vx,vy);
+    if (vantage<0 || tile(s,vx,vy)!=NG2_TILE_FLOOR || !passage_clear(s,vx,vy) ||
+        route[vantage].cost==INF_COST || route[vantage].length!=3) return 0;
+    for (j=-3;j<=3;++j) walls+=passage_wall(s,side ? -3 : j,side ? j : -3);
+    return walls>=3;
+}
 uint32_t ng2_passage_candidates(const NG2Scene *s) {
     Path route[CELLS];uint32_t result=0;int side,k;
     if (!passage_scene(s)) return 0;
@@ -239,6 +258,7 @@ uint32_t ng2_passage_candidates(const NG2Scene *s) {
         int mx=side ? -3 : k,my=side ? k : -3,dx=side ? -1 : 0,dy=side ? 0 : -1;
         int inboard=index_of(mx-dx,my-dy),mouth=tile(s,mx,my);
         int first=passage_wall(s,mx+dy,my-dx),second=passage_wall(s,mx-dy,my+dx),walls=0,j;
+        if (passage_corner_vantage(s,route,side,k)) result|=UINT32_C(1)<<(side*5+k+2);
         if (inboard<0 || route[inboard].cost==INF_COST ||
             !passage_clear(s,mx,my) || !passage_clear(s,mx+dx,my+dy)) continue;
         if (mouth==NG2_TILE_FLOOR) {
@@ -1463,6 +1483,62 @@ static void stationary_terrain_motion(const NG2Scene *before,const NG2Scene *aft
     free(cache);out->kind=NG2_BLOCKED;
 }
 
+/* An already visible singleton can survive an observed floor unit without a
+ * bracket. Its old terrain and all independent image planes must agree; the
+ * single gold cell never substitutes for the terrain or pixel evidence. */
+static void singleton_gold_terrain_blur_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                              const View views[2],const Candidate candidates[73],NG2Motion *out) {
+    ClosedGateAxisCache *cache;
+    int dx,dy,i,stones=0,dirt=0,first=-1,second=-1,noncollinear=0,support,bad,regions[2];
+    if(out->kind!=NG2_MOTION_UNKNOWN||direction<1||direction>4)return;
+    dx=ddx[direction];dy=ddy[direction];
+    if(before->state!=NG2_FLOOR||after->state!=NG2_FLOOR
+        ||before->goods!=NG2_GOODS_UNKNOWN||after->goods!=NG2_GOODS_UNKNOWN
+        ||before->gold_state!=NG2_GOLD_CANDIDATE||after->gold_state!=NG2_GOLD_CANDIDATE
+        ||gold_count(before)!=1||gold_count(after)!=1
+        ||tile(before,0,0)!=NG2_TILE_FLOOR||tile(after,0,0)!=NG2_TILE_FLOOR
+        ||tile(before,dx,dy)!=NG2_TILE_FLOOR||tile(after,dx,dy)!=NG2_TILE_FLOOR)return;
+    for(i=0;i<CELLS;++i){
+        int a=before->tiles[i],b=after->tiles[i];
+        if(before->protected_cells[i]||after->protected_cells[i]
+            ||a==NG2_TILE_DOOR||b==NG2_TILE_DOOR||a==NG2_TILE_ITEM||b==NG2_TILE_ITEM)return;
+        if(a==NG2_TILE_GOLD&&tile(after,px(i)-dx,py(i)-dy)!=NG2_TILE_GOLD)return;
+        if(a==NG2_TILE_STONE){
+            if(tile(after,px(i)-dx,py(i)-dy)!=NG2_TILE_STONE)return;
+            ++stones;if(first<0)first=i;else if(second<0)second=i;
+        }
+    }
+    if(stones<2)return;
+    for(i=0;i<CELLS;++i)if(before->tiles[i]==NG2_TILE_DIRT
+        &&tile(after,px(i)-dx,py(i)-dy)==NG2_TILE_DIRT){
+        ++dirt;
+        if((px(second)-px(first))*(py(i)-py(first))
+            !=(py(second)-py(first))*(px(i)-px(first)))++noncollinear;
+    }
+    if(dirt<9||!noncollinear||!unique_terrain_translation(before,after,-9*dx,-9*dy))return;
+    for(i=0;i<73;++i)if(!isfinite(candidates[i].score))return;
+    if(candidates[0].sx!=-9*dx||candidates[0].sy!=-9*dy||!(candidates[0].score>.45)
+        ||!(candidates[1].score-candidates[0].score>=.08)||!independent_phase(views,candidates))return;
+    world_blur_texture(before,after,views,candidates[0].sx,candidates[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,95)||regions[0]<100||regions[1]<100)return;
+    for(i=1;i<73;++i){
+        int count,opposite;
+        world_blur_texture(before,after,views,candidates[i].sx,candidates[i].sy,&count,&opposite,NULL);
+        if(!texture_lead(support,bad,count,opposite))return;
+    }
+    cache=(ClosedGateAxisCache*)calloc(1,sizeof(*cache));if(!cache)return;
+    closed_gate_axis_features(before,cache->before,cache->indices,&cache->count);
+    closed_gate_axis_features(after,cache->after,NULL,NULL);
+    closed_gate_axis_texture(cache,candidates[0].sx,candidates[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,75)||regions[0]<100||regions[1]<100){free(cache);return;}
+    for(i=1;i<73;++i){
+        int count,opposite;
+        closed_gate_axis_texture(cache,candidates[i].sx,candidates[i].sy,&count,&opposite,NULL);
+        if(!texture_lead(support,bad,count,opposite)){free(cache);return;}
+    }
+    free(cache);out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+}
+
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -1493,6 +1569,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     corner_gradient_blur_motion(before,after,direction,views,candidates,out);
     first_gold_terrain_blur_motion(before,after,direction,views,candidates,out);
     stationary_terrain_motion(before,after,direction,views,candidates,out);
+    singleton_gold_terrain_blur_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,
