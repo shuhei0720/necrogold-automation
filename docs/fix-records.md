@@ -134,7 +134,6 @@
 | FR-091-INITIAL-IMAGE | 2026-11-13 | 090実1の最初の拒否原画175が残らない | 初歩経路の早期拒否が既比較診断へ乗らず、末尾画像で置換される。原175のmaskは未確定 | profile2の余剰1pinに一致snapshot/prefix/拒否時刻の原点未送信拒否raw1枚、旧critical7/map12の保持は維持。診断側はlevel入力0や回復権限を証明しない | [計画](plans/test091-device-stops.md)の新公開Runtime fixture5と旧081関連6がMacでGreen、固定c9の有効Red1も確認。全20PNG/10MiB/schemaを維持し、停止解消とは区別。FR-056/082/084/087の保持scopeと照合 | 0（新対策の実機再観測なし。実機未確認） |
 | FR-091-TERRAIN-AXIS | 2026-11-13 | 090実2の実UP1後に8UNKNOWN | 全旧STONEは保存されるが、旧有限左右raw帯/blur競合条件が不成立 | 旧17段を保ち、全旧STONE2/非共線DIRT9・unique9・有限raw全73/差・world95%・axis75%/旧15ppの別証明 | [091受領](reviews/test091.md)。旧FR-074-CLEAR-UNITに今回継続1を記録。HUD喪失0でFR-090-HUD-STONE適用外。新4単体/保存pair校正と現CI38件を確認。未来到達の確認ではない | 0（091新証明の実機再観測なし。旧通路問題の継続は上記に記録） |
 | FR-091-OPEN-BLUR | 2026-11-13 | 090実3で開扉しても2商品だけで停止 | 型DOORは正しいが、rawzero .45546/旧detail95%/gradient支持の不足で開通0変位がUNKNOWN | 旧証明不変、有限rawzero/runner差・unique bracket・detail75%/二帯/旧競合比較・blurzero絶対品質の別AND | [091受領](reviews/test091.md)。FR-074-OPEN-GRADIENTへ継続1を記録。FR-090-THIN-IRONと異なる段階。新5単体/原pair校正と現CI38件を確認。開扉0歩、全3商品不可視を完了/対象なしにしない。実機改善未確認 | 0（091新証明の実機再観測なし。旧開通問題の継続は上記に記録） |
-
 | FR-091-PUBLICATION-NAME | 2026-11-13 | 公開後の補助検査がasset名の集合比較で停止 | root作成の補助scriptがチェックサム名をSHA256SUMSと仮定。既publisher正本はSHA256SUMS.txtで配布物の破損ではない | 過去の配布検査/既workflow FILESを照合し実名へ訂正。3asset/全bytesの検査は維持 | [固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test091-build152)の実tagと全3assetの匿名GET200/全bytes/SHA一致を確認。初回は原asset読取前に失敗、実物5gate再実行0/製品・配布物変更0。公開後の文書追記のみ、固定tag/source731は維持 | 0（今回記録開始後の再観測なし。実機とは別の補助検査） |
 
 ## 未整理・未確定の扱い
