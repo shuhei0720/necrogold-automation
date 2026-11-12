@@ -3061,3 +3061,13 @@ Aは固定4cornerの観測口/外床・両壁/壁列支持と最短床3のvantag
 code `8553efb7a487b71e9be333a054465f76f4017111`、run43184318092/build148。host33/10全Green、新15/関連旧15/self3。5実物各1回PASS・4C/Swift5/RSP6・9MachO268marker/全664source/IPA照合。22seal Controller1/21不変、Runtime/API16/cap15/client16/旧v1維持。同じ独立担当P0/P1なしGO。
 
 [固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test087-build148)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/source.zip)。IPA 17629270B/SHA `f4c9e9f1c02e76fb0921f31f5613f9a7986d825d2528e848aabbd82b00b33a76`。closing文書3件のみ・匿名全GET/SHA/CRC照合。IPA更新・完全再起動/Start Server/通常VPN、新test_087.shで通常1-1ポーズから一連5回→iSH対象表示/全保存完了を待ちruntime/test-087-<run_id>.zip全回分を依頼。新版実機/未知陽性/iSH速度/毎拍/人超え/OS背景通知/対象なし循環は未受入。086再回収不要。
+
+## TEST087 Python3.9互換修正と保存済み結果の回復
+
+2026-11-12（日本時間）。[計画](../plans/test087-python39.md)・[検証/制限](../reviews/test087-python39.md)。実機Python3.9の20/20画像後AttributeErrorは対象判定のint.bit_count（3.10追加）が原因。3式の同値bin countへ置換し、専用recover087/shを追加。元087spool/UUID/report/PNG・通常entry/feature/nativeは維持。新start/RPCなしで同runの判定/ZIP公開だけを再開する。
+
+添付aeef427bは1回目の別run（ZIP SHA `a51485556fb54ff62b674087b1439f66efcf5fec137095b07d0c4550fb94f31c`、20PNG/4,072,671画像B、全照合・出版済み）。MOVEMENT10/GOODS0、LEFT実1歩後にACK済みUPの8UNKNOWN停止。Pythonエラーの2回目は未出版で未受領、歩行停止は今回未修正。欠落PNG/結果を推定しない。
+
+実3.9で有効Red→対象6/回復3全Green、原086実3の校正target維持。code36fbcd3a776d5b866bcbe0d3176b848c512d8fed/run43194860629の限定Ubuntu CIも実3.9.25/9件/56.187秒全成功、artifact13933080579の全CRC/SHA/source5件一致。独立担当1名レビューGO、native/R12全40と既entry等121pathの元bytes一致、Mac/新IPA作成0。
+
+[修正版完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-python39-fix1/source.zip)を展開しrecover_087.shのフォルダをiSHへmount、`sh recover_087.sh`で保存再開の実機確認を依頼する。IPAはbuild148をそのまま使い、再起動/新ゲームは不要。元iSHデータを残し、完了表示後のruntime/test-087-<run_id>.zipを依頼。回復/iSH速度/新版到達率は未確認。

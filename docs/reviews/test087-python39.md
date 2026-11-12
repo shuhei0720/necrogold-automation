@@ -24,4 +24,16 @@ TEST086/087と同じ独立担当が短い計画・最終差分と作者証跡を
 
 新shは純local回復のみでlocation keeper/ゲーム操作を追加しない。軽量Ubuntu workflowは実3.9とbit_count不在をassertし、対象6/回復3の計9だけを選ぶ。通常087 entry/publication/native_walk/validation/protocol・featureおよびpatch/native/R12の計120参照pathは元配布commitと全bytes同一。native/IPA再ビルドとMac/旧C全回帰は不要で、build148の検証済みIPAを維持する。diffcheck PASS。以後は同codeの3.9 CI・全source ZIP/固定Releaseの照合とユーザーの保存回復確認を別工程で確認する。
 
-作者freezeは回復3ファイルのみ、`recover087.py` SHAは上記、shは `21f991a0f2a85ec227316a3d60431f0668f5b22bcf699852181fe2bda210531d`、単体は `969a263ea5990bab63ee997c30f079509dad8bbbf00ee95af611fe7f765ee41d`。target6/回復3の有効Red/初回Green・原309・全native/R12と既entry等119path不変の作者証跡はGit外 `test087-python39` に保存。独立担当の120参照にはこれらと追加参照を含む。新しい実機結果や未回収の2回目の判定を推定していない。
+作者freezeは回復3ファイルのみ、`recover087.py` SHAは上記、shは `21f991a0f2a85ec227316a3d60431f0668f5b22bcf699852181fe2bda210531d`、単体は `969a263ea5990bab63ee997c30f079509dad8bbbf00ee95af611fe7f765ee41d`。target6/回復3の有効Red/初回Green・原309・全native/R12と既entry等121path不変の作者証跡はGit外 `test087-python39` に保存。独立担当の120参照は起動shを除いた同じ集合。最初の作者記録119はGitのquoted Unicode path読取りでR12日本語名2件を列挙から落としていたため、NUL区切りで全121（R12全40含む）へ訂正し全bytes一致を確認した。新しい実機結果や未回収の2回目の判定を推定していない。
+
+## 同人のPython3.9 CI確認
+
+code `36fbcd3a776d5b866bcbe0d3176b848c512d8fed` / run43194860629はpushのattempt1でsuccess。default未登録workflowへのdispatch404はCI実行0であり、追加したwatch2pathはfeature/通常shだけで製品を変えていない。独立担当がartifact13933080579（920B/SHA `5d0bc67a8a8a130a4505ed9b8c857b62e190402a93466b0e5fc3c025e2d7df07`）の全CRC・単一実ログと抽出log同bytesを確認した。実Python3.9.25、target6/recover3の9件が56.187秒で全OK、記録された5source SHAは対象codeの全blob bytesと一致する。意味試験の独立重複実行0、native/Mac/IPA新ビルド0。P0/P1/P2なしでsource-only固定ReleaseへGO。全source/公開後GETの最終照合と実機の同087保存回復は後続工程であり、このCIを実機回復完了とはしない。
+
+## CIと保存・配布
+
+code `cfab9ff3a48bfa11dd094bea7c2db36f021d96ff` を保存。新workflowは既定branch未登録で手動dispatchが404（実行0）だったため、watchへfeature JSON/通常shを加えた `36fbcd3a776d5b866bcbe0d3176b848c512d8fed` のpushから限定CIを一度だけ起動した。run43194860629/attempt1/number1、標準ubuntu-latest、実CPython3.9.25かつbit_count不在assert成功。対象6/回復3の計9methods、56.187秒、全Green。Mac/新IPA/旧C群は実行0。
+
+artifact13933080579/test087-python39-validationは920B、SHA `5d0bc67a8a8a130a4505ed9b8c857b62e190402a93466b0e5fc3c025e2d7df07`。GitHub APIの成功head/attempt/asset digest→実DL全CRC→ログ9件/版→対象/回復/通常test069/test087/featureの全5SHAをcodeと照合した。CIは開発機試験でありiSHの実速度や未回収runのtarget精度を証明しない。
+
+closingはstatus/本レビュー/実機台帳の文書だけを更新し、完全670sourceと元build148のnative不変を照合する。source-only固定Release `test087-python39-fix1` に完全source/検証SHAを保存し、公開後の匿名全GET/SHA/CRC/全bytesを確認して返す。既build148 IPAを再利用し、今回の実機依頼は新ゲーム試験ではなく `recover_087.sh` による同087保存済み結果の判定/ZIP公開のみ。表示されたrun別ZIPを受領後に別件の歩行停止へ進む。

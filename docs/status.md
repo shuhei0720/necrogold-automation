@@ -1,27 +1,35 @@
 # 最新状態
 
-更新: 2026-11-12（日本時間）。TEST087/build148。[計画](plans/test087-target-pause.md)・[受領/検証](reviews/test087.md)・[対象判定契約](contracts/target-assessment.md)。code `8553efb7a487b71e9be333a054465f76f4017111`、run43184318092。TEST086の4ZIP/80PNG・19,260,301画像Bを全照合。商品3点可視3/4・全paused/terminal/drained/回収完了、見送りsource21/21保持。実2は回収RPCdeadline3/cancel2、実4原16はnative行欠損を伴うがPNG/export正常。全取得画像保存ではない。
+更新: 2026-11-12（日本時間）。TEST087/build148のPython3.9互換修正。参照:[短い計画](plans/test087-python39.md)・[受領/検証](reviews/test087-python39.md)。前版の[判定実装/校正範囲](reviews/test087.md)・[対象判定契約](contracts/target-assessment.md)を維持。
 
-## 修正と限界
+## 今回のエラーと修正
 
-同iPhoneのiSH内で、既nativeポーズ・画像保存照合後に「のろいのゆびわ」を判定。同じ商品枠の絵と対象名が共に一致した場合target、絵だけならcandidate、不足はunknown。価格/固定run位置を使わず最大2枚、追加依存/画像外部送信/購入/リスタート0。判定を表示しimmutable target-assessment.jsonを初ZIP前に保存、閉native reportは不変。source/ACKの結合と保存中断の同run再開を確認した。
+実機Python3.9で画像20/20保存後、指輪判定の `int.bit_count`（3.10追加）がAttributeErrorとなりZIP公開前に停止。互換性の検証漏れを修正し、3式を同値のbin countへ変更した。feature/閾値/判定schema/native/通常087 entryと元spoolは不変。
 
-原086実3は新判定でtarget、別ringの実1はunknown。現在3runは校正。調整に使わず固定した旧8runは明示陰性4で誤検出0、不明4は陰性へ数えず、陽性holdout0。未知陽性精度/iSH処理速度・OS背景通知/対象なし循環は未受入（後2つは現active未実装）。
+新 `recover_087.sh` はiSHの `~/.necroprobe/runtime/test-087` を読み、同UUID・元report/PNGを保持して判定/ZIP公開だけを再開する。lock→strict load→元certificate/prepare/publishを使い、ゲーム起動/新session/RPC0。空・未完・破損は拒否し、既出版なら同ZIPの検証だけ。SIGINT/TERMでデータ保持する。回収済みrunから新ゲームを開始しない。
 
-実4の歩行停止は未解決。取消trigger355が未保存で最初の具体guardは未確定。閾値/期限を緩めず、通路の実差分があるUNKNOWN静止待ち入口を既診断へ記録し比較画像を優先保存する。signature-only mask0は対象外。入力権限・票/信用・旧W/P/50ms/10ms/8評価/全予算を維持。
+実Python3.9.25で有効Red→対象6/回復3全Green。元086実3の原309校正画像もtargetを維持。[CI1/run43194860629](https://github.com/shuhei0720/necrogold-automation/actions/runs/43194860629)も実3.9で9件成功。同じ独立担当の差分レビューGO。native/R12と既entry等121pathは元build148とbytes一致、新IPA作成0、実機回復/iSH速度は未確認。
 
-## 検証と配布
+添付aeef427bは1回目の別runで20PNG/4,072,671画像B・全照合/ZIP公開済み。MOVEMENT10/GOODS0、LEFT実1歩後、ACK済みUPの変位確認8回UNKNOWNで停止。Python例外runとは別原因で、歩行停止は今回未修正。2回目の未公開ZIPを先に回復する。
 
-新15（native3/target6/出版6）と関連旧15・self3、同code host33/10scope全Green。5実物各1回PASS・実4C/Swift5/RSP6・9MachO268marker不在・全664source/IPA照合。22seal Controller1変更21不変。Runtime/Nav/Perception/Beat・core client3/API16/cap15/client16/旧v1維持、test069は変更。同じ独立担当静的/実物P0/P1なしGO。
+## 配布と今回の実機確認
 
-[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test087-build148)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/LoopCtrl.ipa)・[全コードZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/source.zip)。IPA0.3.4/build148/min16、17629270B/SHA `f4c9e9f1c02e76fb0921f31f5613f9a7986d825d2528e848aabbd82b00b33a76`。closingは文書3件のみ。公開後3assetを匿名全GET/SHA/CRC照合して返す。
+[修正版の固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test087-python39-fix1)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-python39-fix1/source.zip)。source全670ファイルをclosing commitと照合し、公開後の固定assetを匿名全GET/SHA/CRC検証して返す。
 
-SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開したtest_087.shのフォルダをiSHへ選ぶ。
+**IPA更新・LoopCtrl再起動・ゲーム再実行は不要。保存済み結果の回復だけを依頼する。** 元iSHデータを残し、ZIP展開後 `recover_087.sh` があるフォルダをmount選択する。
 
 ```sh
-mkdir -p /mnt/necro_test087
-mount -t ios . /mnt/necro_test087
-cd /mnt/necro_test087 && sh test_087.sh
+mkdir -p /mnt/necro_test087_fix
+mount -t ios . /mnt/necro_test087_fix
+cd /mnt/necro_test087_fix && sh recover_087.sh
 ```
 
-新しい通常1-1ポーズからrestart→金壁/候補→店→全商品/PAUSE→対象判定/ZIPまで5回。5秒以上ポーズならiSHへ戻り判定と全保存照合完了を待ち、runtime/test-087-<run_id>.zip全回分と対象表示/商品可視/停止位置/見逃し/拍間隔を依頼。086再実行/回収不要。新版実機到達率・恒久毎拍/人超えは未受入。raw/Scene/秘密値はGit外。[索引](context.md)。
+判定と全画像/ZIP照合の完了を待ち、表示された `runtime/test-087-<run_id>.zip` を返却依頼。今回は通常の `test_087.sh` で新しいゲーム試験を始めない。回復後、その実画像/判定と別件の歩行停止を確認して次の実機版へ進む。
+
+既IPAは[build148固定asset](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/LoopCtrl.ipa)、0.3.4/build148/min16、17,629,270B/SHA `f4c9e9f1c02e76fb0921f31f5613f9a7986d825d2528e848aabbd82b00b33a76`。今回は再配布/再ビルドしない。
+
+## 継続する限界と要件
+
+同iPhoneの保存済み商品枠で絵と対象名の両一致だけ「のろいのゆびわ」target、絵のみcandidate、不足unknown。最大2枚、追加依存/外部画像送信/購入0、immutable sidecarは初ZIP前に保存し閉native report不変。陰性holdout4の誤検出0、不明4/校正3は未知陽性評価外。未知陽性精度・OS背景通知/対象なし循環は未受入（後2つは現active未実装）。
+
+旧086実4の停止trigger355は未保存で具体guard未確定。今回087実1も別件として保持。入力権限・票/信用・旧W/P/50ms/10ms/8評価/全予算は緩めない。主指標は全商品確認までの実機到達率。恒久毎拍/人超えは未受入。以後の通常実機は1-1ポーズから「restart→金壁/通路候補→店→全商品/PAUSE」を一連とし、回収完了前に終了表示や新startをしない。raw/Scene/秘密値はGit外。[索引](context.md)。
