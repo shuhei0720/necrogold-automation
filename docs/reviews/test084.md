@@ -52,3 +52,13 @@ fresh pinned Git checkout→G1→seal/apply成功。22中Perception/Nav/Controll
 最初のcode066a4a…/run43138286437/build141では新18と先行旧回帰はGreenだが、既test_motion_wait_diagnostic_retains_each_eligible_capture_and_fixed_deadlineの第2観測が失敗した。10ms間隔でattempt2/lastcapture29を期待したのに、既resolve_moveはperiod520msの1/10=52ms未満を評価せずattempt1/28を保持する。FLOOR同士の経路なので今回Dのnon-FLOOR診断は呼ばれない。IPA buildはskipされ、失敗log/API/066aのverifier guardFalse snapshotをGit外へ残した。実物verifierは未実行。
 
 immutable083全8C/Hと現084で当該methodだけを各1回実行し、CIと同じtupleで両FAILを確認。製品/閾値/元assert/選択methodを変えず、同method内だけ2/3回目を52ms間隔へ合わせた。元periodとretry52msの前提assert、初回後の旧10ms観測ではMotionWait/event全bytesが変わらない対照を追加し、attempt/lastID/fixedD/MOVED/creditの元assertを全て残した。変更methodだけ基準083/現084で各1回Green（2.205/2.086秒）、他単体の再実行0。fixture SHA `a3326511593a77b98d5e6019c99c0e7e56c8a6a3beff7e1959d2f6267f8ccdb6`。同じ独立担当が最小test-only案を確認し、製品8C/H/seal/C4/257原画比較は全不変なので再compile/再解析しない。失敗結果を成功へ上書きせず、修正後codeの限定CIを改めて行う。
+
+## 同code実物の最終確認と配布
+
+code `2d6a150e26975f0d5fa0f6818edcf20f8dd965ac`、run43139153631/build142でhost38methods/13scope全Green（native33=新18+旧15/client2/self3）、fail/error/skip/expectedfail0。旧fixture時刻の訂正と失敗CI141は前節どおり保存し、成功へ上書きしない。Mac070固定旧Runtime期待Red1/現Runtime6entrypoints Green、081保存6entrypoints Green。Runtime/保存fixture/seamは同bytesで、新Runtime Redではなく固定Red133を分離再利用した。実ゲームCI/全故障worldは追加していない。
+
+5実物verifier各1回PASS、verifier失敗/再実行0・意味試験追加0。codeZIP全633tracked blob/CRC/path、22seal3変更19不変、R12原40/G1/core4/Runtime同bytes、実4C/Swift5/RSP6とraw log/PBX/args/RSP、Perception/Nav strictO2/他C O0/Swift Onone・HOST macro不在を照合。全9MachOの237markerは旧225 exactprefix＋新12・重複0で全不在、新fixture C/Swift seam0、API16/cap15/client16/v2/旧v1回収を維持。
+
+crossbinding receiptはGit外test084-actual-five-crossbinding-receipt.json、12864B/SHA `b8764a8ad6dd5ed9cd690ce4c110430e17e2ce69bad11f2d8fdebe774405c655`。5 result/verifier SHA・root独立in-memory IPA/3artifact API digest/bytes/head/runを同code/IPA/sealへ結合。同じ独立担当が全実物を読取確認し残P0/P1/P2なしでGO、意味再試験/文書編集0。IPA0.3.4/build142/min16、17625904B/SHA `ee4f62ad4ce11886989ae9ea2c14c12edaf96eb303f8e7ee50986586651f0495`。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test084-build142)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test084-build142/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test084-build142/source.zip)。code後closingはstatus/本レビュー/device台帳の3文書のみで製品不変。closing全633blobを照合した完全sourceと検証済みIPAを固定assetへ保存し、公開後3assetを匿名全GET/API digest/SHA/CRC照合して返す。SideStore更新/LoopCtrl完全再起動・Start Server/通常VPN、新test_084.shで通常1-1ポーズから一連5回、5秒以上ポーズ後iSHへ戻り全照合完了を待って全runtime/test-084-<run_id>.zip返却を依頼する。
