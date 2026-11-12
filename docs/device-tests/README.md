@@ -3119,4 +3119,6 @@ code e7d9f42c4085316542fea864c9ba4e17a9e4acec、run43252794927/build150。実pat
 
 実1は確実未送信の初歩Scene拒否、原175未保持で最終predicate未確定。実2は旧STONE保持の実UP1を確認できず8UNKNOWN、実3は木扉の開通0変位を確認できず8UNKNOWN。実3原184にのろいのゆびわが見えるが全3商品は欠け、正式判定未呼出。調整前一回診断はno_complete_row、個別matcher精度の合格ではない。
 
-091は初歩0入力下の有限2画像再観測・拒否raw1pin、通路全旧STONEunit、木扉blur絶対品質の別zero証明を追加する。旧17段/期限/予算/UNKNOWN無再送・既critical7/map12・API16/cap15/ABIは維持。classifier/56,088B ELF/G1/R12は不変。作者単体/保存pair校正は未来の実機到達ではなく、新実機改善未確認。実CI/IPA固定配布は完了後に追記する。
+091は初歩0入力下の有限2画像再観測・拒否raw1pin、通路全旧STONEunit、木扉blur絶対品質の別zero証明を追加する。旧17段/期限/予算/UNKNOWN無再送・既critical7/map12・API16/cap15/ABIは維持。classifier/56,088B ELF/G1/R12は不変。作者単体/保存pair校正は未来の実機到達ではなく、新実機改善未確認。最終code `f355a1dd2c37ecdb04fafa0aa853b0e26f71c0ac`、run43265221701/build152。host38/11全Green、Mac固定c9 Red1/現新5＋旧081関連6も成功。実物5gate各1回PASS、実C4/Swift5/RSP6・9Mach-O342禁止marker・731source/IPA全照合。22seal3変更19不変。IPA17,636,448B/SHA `cfb5cbe037bf2b8bbfaefd41d81010d65e041381b627e873f58276874a04973e`。
+
+[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test091-build152/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test091-build152/source.zip)。closingは文書4件だけ、公開後匿名全GET/actualtagを照合する。更新/LoopCtrl完全再起動/Start Server/通常VPN、新test_091.shで通常1-1ポーズから一連4回、表示されたruntime/test-091-<run_id>.zip全回分を依頼。稀な対象待ち周回は不要。実機到達率/毎拍/人超え/未知陽性精度は未受入。

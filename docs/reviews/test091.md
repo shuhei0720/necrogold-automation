@@ -39,3 +39,13 @@ Runtimeは新HOST fixture/hashを製品編集前に固定した。開発機にSw
 作者の有効Red/Greenとsource/fixture receiptを読み、fixture構築衝突の修正後も公開Red assertion/競合拒否が維持されることを確認。独立compile/意味試験/原画分類の再実行は0。原184は対象名/iconを独立目視したが全商品不可視で、正式matcher未呼出と区別。拒否175の原因predicateは未確定のまま。P2の診断scope/未確定mask表現は訂正済み。
 
 レビュー時点でRuntimeのMac意味Red/Green・sealed host CI・IPA/source実物5gateは未実施。静的レビュー/単体/保存pair校正は、実機到達率・毎拍/人間速度・未知陽性精度の合格ではない。
+
+## 最終CI・実物確認
+
+製品code f355a1dd2c37ecdb04fafa0aa853b0e26f71c0ac、標準Mac/Ubuntuのdevice run43265221701/build152。現sealed sourceで新17＋関連17＋selector4の38methods/11scopeが全Green。Macは固定c9 Runtimeの有効Red1と現Runtimeの新5＋不変081関連6が成功し、61拒否条件/原metadata/20pin/10MiB・旧4MiBを確認した。Swift不在による事前意味Redの時系列制限は上記のまま維持する。全Runtime故障/worldは未実行。
+
+実artifact3件をAPI id/run/head/size/digestへ結合し全CRC/安全path/重複0を確認。IPA0.3.4/build152/min16は17,636,448B/SHA `cfb5cbe037bf2b8bbfaefd41d81010d65e041381b627e873f58276874a04973e`。22seal中Controller/Nav/Runtime3変更、残19と全40R12不変。旧293＋新49の342禁止markerが全9Mach-Oで不在。実C4/Swift5/RSP6・PBX/引数/rawlog/sourcehashを同じ実compile profileへ結合。build codeの完全731sourceも全tracked blob/CRC一致。
+
+5gate readerは日本語NUL列挙/旧293markerを維持し、Macの実selected main/差込HOSTをsourceから再構成して結合した。package/host/retained/macho/compileは各1回・計5attempt全PASS、追加compile/意味/分類0。前回Runtime全体証拠は旧c9のbaselineとしてのみ使用し、今回の実行成功へ読み替えない。同じ独立担当が今回receiptの結合を確認し、P0/P1なし・配布工程GOとした。独立したgate再実行/compile/意味/分類は0。
+
+closingはstatus/本review/実機台帳/修正表の4文書だけ。製品/試験/IPAはbuild codeのまま保持し、最終完全sourceの全blob/CRCを照合する。固定Release test091-build152へIPA/source/SHAを保存し、匿名全GET/actualtagを確認して返す。実機改善は未確認で、一連4回と全run ZIPを依頼する。
