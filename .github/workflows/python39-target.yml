@@ -1,0 +1,46 @@
+name: Python 3.9 target assessment and recovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/p1-capture-probe]
+    paths:
+      - 'necroprobe/target_assessment.py'
+      - 'necroprobe/recover087.py'
+      - 'necroprobe/test087.py'
+      - 'necroprobe/test069.py'
+      - 'tests/test_target_assessment087.py'
+      - 'tests/test_recover087.py'
+      - 'recover_087.sh'
+      - '.github/workflows/python39-target.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  python39-target:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.9'
+      - name: Verify actual iSH-compatible Python and selected tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -c 'import sys; print(sys.version); assert sys.version_info[:2] == (3, 9); assert not hasattr(0, "bit_count")' | tee python39.txt
+          sh -n test_087.sh
+          sh -n recover_087.sh
+          PYTHONPATH=tests python -m unittest tests.test_target_assessment087 tests.test_recover087 -v 2>&1 | tee -a python39.txt
+          sha256sum necroprobe/target_assessment.py necroprobe/recover087.py necroprobe/test069.py necroprobe/test087.py necroprobe/target_ring_features.json >> python39.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: test087-python39-validation
+          path: python39.txt
+          if-no-files-found: error
+          retention-days: 30

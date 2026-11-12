@@ -158,7 +158,7 @@ def _observations(rgba, cancelled):
             _check(cancelled)
             start = sy+69
             if left < 18 or left+72 >= 878 or start < 0 or start+20 >= HEIGHT or _hud(left-18, sy+24, left+90, start+20): continue
-            counts = [[sum(((white[y] >> (left+36*slot-11))&((1 << 23)-1)).bit_count()
+            counts = [[sum(bin((white[y] >> (left+36*slot-11))&((1 << 23)-1)).count('1')
                            for y in range(start+k, start+k+9)) for k in range(12)] for slot in range(3)]
             price = max(min(counts[slot][k] for slot in range(3)) for k in range(12))
             if price < 18: continue
@@ -207,8 +207,8 @@ def _word(white, cx, sy, reference, slot, cancelled):
         _check(cancelled)
         for x in range(max(0, cx-42-18), min(WIDTH-84, cx-42+18)+1):
             observed = [(white[y+dy] >> x)&mask for dy in range(11)]
-            intersection = sum((a&b).bit_count() for a, b in zip(reference, observed))
-            union = sum((a|b).bit_count() for a, b in zip(reference, observed))
+            intersection = sum(bin(a&b).count('1') for a, b in zip(reference, observed))
+            union = sum(bin(a|b).count('1') for a, b in zip(reference, observed))
             iou = intersection/max(union, 1); coverage = intersection/239
             if best is None or (iou, coverage) > (best['iou'], best['coverage']):
                 best = dict(slot=slot, iou=iou, coverage=coverage, box=[x, y, 84, 11])

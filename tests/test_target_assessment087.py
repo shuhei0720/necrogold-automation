@@ -97,8 +97,11 @@ class TargetAssessment087Tests(unittest.TestCase):
     def test_same_slot_icon_and_name_on_complete_observed_shop_is_target(self):
         data = png(shop())
         self.assertEqual((896, 414), struct.unpack('>II', data[16:24]))
-        self.assertEqual(239, sum(int(row, 16).bit_count() for row in FEATURES['word']['rows_hex']))
-        result = target.classify_png(data)
+        self.assertEqual(239, sum(bin(int(row, 16)).count('1') for row in FEATURES['word']['rows_hex']))
+        try:
+            result = target.classify_png(data)
+        except AttributeError as error:
+            self.fail('Supported iSH Python must classify the complete shop without an unsupported integer API: '+str(error))
         self.assertEqual('target', result['outcome'], 'the two independently located same-slot witnesses must identify the target')
         self.assertGreaterEqual(result['slots'][1]['icon_score'], .88)
         self.assertGreaterEqual(result['word']['iou'], .82)
