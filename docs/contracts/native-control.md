@@ -1,6 +1,6 @@
 # Nativeの不変条件
 
-[要件](../requirements/necrogold.md)・[通路と限定変更](passage-approach.md)。[084計画](../plans/test084-mouth-icon.md)の差分以外は維持。
+[要件](../requirements/necrogold.md)・[通路と限定変更](passage-approach.md)。[085計画](../plans/test085-verified-scheduling.md)の差分以外は維持。
 
 ## 2. 保存
 

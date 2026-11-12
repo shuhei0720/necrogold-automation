@@ -1365,6 +1365,104 @@ static void first_gold_terrain_blur_motion(const NG2Scene *before,const NG2Scene
     out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
 }
 
+/* This additional zero-only proof separates strength from disambiguation.
+ * Raw phase and signed-axis competition exclude alternative displacements;
+ * an independently blurred world supplies strength through lighting change.
+ * Every old stage, threshold and nonzero result remains unchanged. */
+static void stationary_blur_mask(unsigned char included[N]) {
+    int x,y,ox,oy;
+    memset(included,0,N);
+    for(y=20;y<79;++y)for(x=40;x<179;++x){
+        int known=1;
+        for(oy=-1;oy<=1&&known;++oy)for(ox=-1;ox<=1;++ox)
+            if(!mask(x+ox,y+oy,0)){known=0;break;}
+        included[y*W+x]=(unsigned char)known;
+    }
+}
+static double stationary_blur_phase(const View *a,const View *b,int sx,int sy,const unsigned char included[N]) {
+    uint32_t count=0,sa=0,sb=0,qa=0,qb=0,total=0;
+    int x,y;double contrast,ma,mb,gain;unsigned char lut[256];
+    /* Preserve intensity()'s score arithmetic and limits. Only its spatial
+     * support is restricted to an independent, dependency-safe raw band. */
+    for (y=20;y<85;++y) for (x=40;x<179;++x) {
+        unsigned int av,bv;
+        if (!included[y*W+x] || !included[(y+sy)*W+x+sx]) continue;
+        av=a->blur[y*W+x];bv=b->blur[(y+sy)*W+x+sx];
+        if (av<=6 || bv<=6) continue;
+        ++count;sa+=av;sb+=bv;qa+=av*av;qb+=bv*bv;
+    }
+    if (count<300) return INFINITY;
+    contrast=(sqrt(((double)qa-(double)sa*sa/count)/count)+sqrt(((double)qb-(double)sb*sb/count)/count))/2;
+    ma=(double)sa/count;mb=(double)sb/count;
+    if (contrast<2.5 || ma<6 || mb<6) return INFINITY;
+    gain=ma/mb;if (gain<.65) gain=.65;else if (gain>1.55) gain=1.55;
+    for (x=0;x<256;++x) { volatile double product=(double)x*gain;lut[x]=even_round(product); }
+    for (y=20;y<85;++y) for (x=40;x<179;++x) {
+        int av,bv;
+        if (!included[y*W+x] || !included[(y+sy)*W+x+sx]) continue;
+        av=a->blur[y*W+x];bv=b->blur[(y+sy)*W+x+sx];
+        if (av>6 && bv>6) total+=(uint32_t)abs(av-(int)lut[bv]);
+    }
+    return (double)total/count/contrast;
+}
+
+static void stationary_terrain_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                      const View views[2],const Candidate candidates[73],NG2Motion *out) {
+    unsigned char included[N];
+    ClosedGateAxisCache *cache;
+    int i,x,y,center,stones=0,dirt=0,first=-1,second=-1,noncollinear=0,support,bad,regions[2];
+    int dx,dy;double zero;
+    if(out->kind!=NG2_MOTION_UNKNOWN||direction<1||direction>4)return;
+    dx=ddx[direction];dy=ddy[direction];
+    if(before->state!=NG2_FLOOR||after->state!=NG2_FLOOR
+        ||before->goods!=NG2_GOODS_UNKNOWN||after->goods!=NG2_GOODS_UNKNOWN
+        ||before->gold_state!=NG2_GOLD_CLEAR||after->gold_state!=NG2_GOLD_CLEAR
+        ||tile(before,0,0)!=NG2_TILE_FLOOR||tile(after,0,0)!=NG2_TILE_FLOOR
+        ||tile(before,dx,dy)!=NG2_TILE_FLOOR||tile(after,dx,dy)!=NG2_TILE_FLOOR)return;
+    for(i=0;i<CELLS;++i){
+        int a=before->tiles[i],b=after->tiles[i];
+        if(before->protected_cells[i]||after->protected_cells[i]
+            ||a==NG2_TILE_GOLD||b==NG2_TILE_GOLD||a==NG2_TILE_DOOR||b==NG2_TILE_DOOR
+            ||a==NG2_TILE_ITEM||b==NG2_TILE_ITEM)return;
+        if(a==NG2_TILE_STONE){
+            if(b!=NG2_TILE_STONE)return;
+            ++stones;if(first<0)first=i;else if(second<0)second=i;
+        }
+    }
+    if(stones<2)return;
+    for(i=0;i<CELLS;++i)if(before->tiles[i]==NG2_TILE_DIRT&&after->tiles[i]==NG2_TILE_DIRT){
+        ++dirt;
+        if((px(second)-px(first))*(py(i)-py(first))
+            !=(py(second)-py(first))*(px(i)-px(first)))++noncollinear;
+    }
+    if(dirt<9||!noncollinear||!unique_terrain_translation(before,after,0,0))return;
+    for(center=0;center<2;++center)for(y=-1;y<=1;++y)for(x=-1;x<=1;++x)
+        if(tile(before,x+center*dx,y+center*dy)!=tile(after,x+center*dx,y+center*dy))return;
+    for(i=0;i<73;++i)if(!isfinite(candidates[i].score))return;
+    if(candidates[0].sx||candidates[0].sy||!(candidates[0].score>.45)
+        ||!(candidates[1].score-candidates[0].score>=.08))return;
+    stationary_blur_mask(included);
+    zero=stationary_blur_phase(&views[0],&views[1],0,0,included);
+    if(!isfinite(zero)||zero>.45)return;
+    for(i=1;i<73;++i){
+        double score=stationary_blur_phase(&views[0],&views[1],candidates[i].sx,candidates[i].sy,included);
+        if(!isfinite(score)||!(score>zero))return;
+    }
+    world_blur_texture(before,after,views,0,0,&support,&bad,regions);
+    if(!texture_strength(support,bad,95)||regions[0]<100||regions[1]<100)return;
+    cache=(ClosedGateAxisCache*)calloc(1,sizeof(*cache));if(!cache)return;
+    closed_gate_axis_features(before,cache->before,cache->indices,&cache->count);
+    closed_gate_axis_features(after,cache->after,NULL,NULL);
+    closed_gate_axis_texture(cache,0,0,&support,&bad,regions);
+    if(!texture_strength(support,bad,75)||regions[0]<100||regions[1]<100){free(cache);return;}
+    for(i=1;i<73;++i){
+        int count,opposite;
+        closed_gate_axis_texture(cache,candidates[i].sx,candidates[i].sy,&count,&opposite,NULL);
+        if(!texture_lead(support,bad,count,opposite)){free(cache);return;}
+    }
+    free(cache);out->kind=NG2_BLOCKED;
+}
+
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -1394,6 +1492,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     terrain_blur_motion(before,after,direction,views,candidates,out);
     corner_gradient_blur_motion(before,after,direction,views,candidates,out);
     first_gold_terrain_blur_motion(before,after,direction,views,candidates,out);
+    stationary_terrain_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,

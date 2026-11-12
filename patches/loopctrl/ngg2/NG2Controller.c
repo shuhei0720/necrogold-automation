@@ -2195,6 +2195,44 @@ static int prepare_recovery_slot(NG2Controller *p,uint64_t now){
         &&p->recovery_slot_not_before-p->s.last_capture_start_ns>CONTINUOUS_SOURCE)return 0;
     return 1;
 }
+/* A late committed MOVED can be current yet too old to acquire the next
+ * beat's source permission. Retire only that unissued candidate; the old
+ * ACK/event and all new-slot freshness/preparation checks remain unchanged. */
+static void recover_late_verified_source(NG2Controller *p,uint64_t now){
+    const NG2ControllerEvent *e=event(p);uint64_t not_before;
+    if(p->finish_requested||p->s.terminal||p->s.goods||!p->have_scene
+        ||p->s.phase!=NG2_PHASE_WALK||!p->s.lead_confirmed||p->s.moves<=0
+        ||p->s.input_state||p->s.current_command_id||p->replan_pending||p->continuous_pending
+        ||p->proof_reacquire||p->visual_phase_failed||p->beat_failed
+        ||p->stationary_wait_active||p->gate_refresh_state||p->passage_wait_kind
+        ||!p->proof_deadline||p->proof_deadline!=p->motion_wait.deadline_ns
+        ||now>p->proof_deadline||now>p->schedule_deadline||now>p->next_deadline
+        ||(p->next_update_deadline&&now>p->next_update_deadline)
+        ||!p->next_nominal||!p->next_period||!ng2_beat_model_valid(&p->model)
+        ||p->scene.state!=NG2_FLOOR||p->scene.goods!=NG2_GOODS_UNKNOWN
+        ||p->command.kind!=NG2_ACTION_MOVE||p->command.direction<1||p->command.direction>4
+        ||!e||memcmp(&e->command,&p->command,sizeof(p->command))||e->outcome!=2
+        ||!e->begin_ns||!e->end_ns||e->end_ns!=p->ack_ns||e->begin_ns>e->end_ns
+        ||e->motion!=NG2_MOVED||e->dx!=dx[p->command.direction]||e->dy!=dy[p->command.direction]
+        ||p->s.last_completed_id!=p->command.id||p->last_observed_prefix!=p->command.id
+        ||!p->proof_capture_id||p->proof_capture_id!=p->s.last_capture_id
+        ||e->observed_capture_id!=p->proof_capture_id||p->motion_wait.active
+        ||p->motion_wait.command_id!=p->command.id
+        ||p->motion_wait.source_capture_id!=p->command.source_capture_id
+        ||p->motion_wait.last_capture_id!=p->proof_capture_id||p->motion_wait.last_motion!=NG2_MOVED
+        ||!p->motion_wait.attempts||p->latest_verified_ns!=p->observe_now
+        ||p->s.last_capture_start_ns<p->ack_ns||p->s.last_capture_end_ns>now
+        ||now<p->latest_verified_ns||p->s.next_target_ns<p->s.lead_ns)return;
+    not_before=p->s.next_target_ns-p->s.lead_ns;
+    if((now<not_before&&not_before-now>CONTINUOUS_PUBLICATION)
+        ||p->s.last_capture_start_ns>=not_before
+        ||not_before-p->s.last_capture_start_ns<=CONTINUOUS_SOURCE)return;
+    if(p->command_sync_deadline){
+        if(now>=p->command_sync_deadline||sync_deadline(p)>p->command_sync_deadline)return;
+        p->recovery.mode=NG2_RECOVERY_POST_MOVE; /* Preserve the existing episode's bound. */
+    }
+    post_move_recover(p,now,NG2_RECOVERY_VISUAL_SCHEDULE);
+}
 int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t locked,int32_t owner,NG2Command *out){
     NG2Decision choice;int guard;
     if(out)memset(out,0,sizeof(*out));
@@ -2254,6 +2292,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
             ||(p->next_update_deadline&&now>p->next_update_deadline))
             post_move_recover(p,now,p->visual_phase_failed||p->beat_failed?
                 NG2_RECOVERY_VISUAL_PHASE:NG2_RECOVERY_VISUAL_SCHEDULE);
+        else recover_late_verified_source(p,now);
         p->proof_deadline=0;p->proof_reacquire=0;
     }
     if(!p->finish_requested&&initial_slot_active(p)){
