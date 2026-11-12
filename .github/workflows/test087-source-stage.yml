@@ -1,4 +1,4 @@
-name: Stage TEST088 source-only device release
+name: Stage TEST088 postprocess source-only release
 
 on:
   workflow_dispatch:
@@ -31,20 +31,18 @@ jobs:
               return subprocess.check_output(['git', *args])
           head = git('rev-parse', 'HEAD').decode().strip()
           assert head == os.environ['GITHUB_SHA']
-          code = 'f591d8308fa00ed43a1a8cc343dc5b426fbba441'
-          allowed = {'docs/status.md', 'docs/reviews/test087-python39.md',
-                     'docs/device-tests/README.md', 'docs/plans/test087-python39.md',
-                     'necroprobe/test088.py', 'test_088.sh', '.github/workflows/test087-source-stage.yml'}
+          code = '243730881828f0dfb42f538a25bc2f536229e7fc'
+          allowed = {'.github/workflows/test087-source-stage.yml'}
           changed = {x.decode() for x in git('diff', '--name-only', '-z', code, head).split(b'\0') if x}
           assert changed <= allowed, changed
           paths = [x.decode() for x in git('ls-tree', '-r', '--name-only', '-z', head).split(b'\0') if x]
-          assert len(paths) == 673
-          baseline = 'b2b1cb003f51009ffe75f89080b9089a6cb2fed9'
+          assert len(paths) == 677
+          baseline = '20171ccecfb9bfcdac7b1dcc275f40fd8575faac'
           preserved = [p for p in paths if p.startswith(('patches/loopctrl/', 'legacy/r12/'))]
-          preserved += ['necroprobe/native_walk.py', 'necroprobe/test069.py', 'necroprobe/test087.py',
+          preserved += ['necroprobe/native_walk.py',
                         'necroprobe/protocol.py', 'necroprobe/validation.py',
                         'necroprobe/target_ring_features.json', 'test_087.sh']
-          assert len(preserved) == 121 and sum(p.startswith('legacy/r12/') for p in preserved) == 40
+          assert len(preserved) == 119 and sum(p.startswith('legacy/r12/') for p in preserved) == 40
           for p in preserved:
               assert git('show', head+':'+p) == git('show', baseline+':'+p), p
           out = Path(os.environ['RUNNER_TEMP'])/'source-stage'; out.mkdir()
@@ -70,42 +68,42 @@ jobs:
           (out/'stage-receipt.json').write_text(json.dumps(dict(commit=head, code=code,
               tracked_files=len(paths), bytes=archive.stat().st_size, sha256=sha,
               all_crc_valid=True, all_bytes_match=True, preserved_paths=len(preserved),
-              new_ipa_build=0, release_tag='test088-python39-fix1', draft_only=True), indent=2)+'\n')
+              new_ipa_build=0, release_tag='test088-postprocess-fix2', draft_only=True), indent=2)+'\n')
           PY
       - name: Upload only source and checksum to the fixed draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh api repos/shuhei0720/necrogold-automation/releases/442792686 > "$RUNNER_TEMP/draft.json"
+          gh api repos/shuhei0720/necrogold-automation/releases/442896453 > "$RUNNER_TEMP/draft.json"
           python3 - <<'PY'
           import json, os
           from pathlib import Path
           release = json.loads((Path(os.environ['RUNNER_TEMP'])/'draft.json').read_text())
-          assert release['id'] == 442792686 and release['draft'] is True
-          assert release['tag_name'] == 'test088-python39-fix1' and not release['assets']
-          assert release['target_commitish'] in ('f591d8308fa00ed43a1a8cc343dc5b426fbba441', os.environ['GITHUB_SHA'])
+          assert release['id'] == 442896453 and release['draft'] is True
+          assert release['tag_name'] == 'test088-postprocess-fix2' and not release['assets']
+          assert release['target_commitish'] in ('20171ccecfb9bfcdac7b1dcc275f40fd8575faac', os.environ['GITHUB_SHA'])
           PY
-          gh api --method PATCH repos/shuhei0720/necrogold-automation/releases/442792686 -f tag_name=test088-python39-fix1 -f target_commitish="$GITHUB_SHA" > "$RUNNER_TEMP/updated-draft.json"
+          gh api --method PATCH repos/shuhei0720/necrogold-automation/releases/442896453 -f tag_name=test088-postprocess-fix2 -f target_commitish="$GITHUB_SHA" > "$RUNNER_TEMP/updated-draft.json"
           python3 - <<'PY'
           import json, os
           from pathlib import Path
           release = json.loads((Path(os.environ['RUNNER_TEMP'])/'updated-draft.json').read_text())
-          assert release['id'] == 442792686 and release['draft'] is True and not release['assets']
-          assert release['tag_name'] == 'test088-python39-fix1' and release['target_commitish'] == os.environ['GITHUB_SHA']
+          assert release['id'] == 442896453 and release['draft'] is True and not release['assets']
+          assert release['tag_name'] == 'test088-postprocess-fix2' and release['target_commitish'] == os.environ['GITHUB_SHA']
           PY
           curl --fail --silent --show-error --request POST --connect-timeout 20 --max-time 120 \
             --header "Authorization: Bearer $GH_TOKEN" --header 'Content-Type: application/zip' \
             --data-binary @"$RUNNER_TEMP/source-stage/source.zip" \
-            'https://uploads.github.com/repos/shuhei0720/necrogold-automation/releases/442792686/assets?name=source.zip' > /dev/null
+            'https://uploads.github.com/repos/shuhei0720/necrogold-automation/releases/442896453/assets?name=source.zip' > /dev/null
           curl --fail --silent --show-error --request POST --connect-timeout 20 --max-time 120 \
             --header "Authorization: Bearer $GH_TOKEN" --header 'Content-Type: text/plain' \
             --data-binary @"$RUNNER_TEMP/source-stage/SHA256SUMS.txt" \
-            'https://uploads.github.com/repos/shuhei0720/necrogold-automation/releases/442792686/assets?name=SHA256SUMS.txt' > /dev/null
+            'https://uploads.github.com/repos/shuhei0720/necrogold-automation/releases/442896453/assets?name=SHA256SUMS.txt' > /dev/null
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: test088-source-only-stage
+          name: test088-postprocess-source-stage
           path: ${{ runner.temp }}/source-stage/
           if-no-files-found: error
           retention-days: 30
