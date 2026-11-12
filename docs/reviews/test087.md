@@ -60,3 +60,13 @@ finalController `9492a632f02c4d053f4f7aca1e923ccbb83c50318edad34e915c61331b353c4
 33methods/10scopeを選択。native9=新入口3＋正当更新0822＋未変更旧4（082zero-mask/076期限等2/ABI1）、client21=target6＋出版6＋関連旧9（results1/出版4/evaluator4）、self3。旧Capture3は新decoderを通らず未変更なので省略。CORE12を選択前にsealed upstreamへ結合し、21override prefixは空値も拒否、main自己試験tupleの087をASTで固定。evaluatorの既NativeCoreはrepo側8sourceをsealed8と前後照合するので、upstreamへ差し替えたとは称しない。旧086entry互換も同bytesへ結合する。
 
 self3作者1回PASS。新C fixture宣言0、Python4module/classの8markerを旧260 exactprefixへ追加し計268・重複0。target/feature/classifier/schema/sidecar・evaluator/entryは同code metadataへ結合する。同じ独立担当が全静的差分/author証跡/selector/source/sealを確認しP0/P1/P2なしでGO。5実物verifierはcode/count/実物到着後の明示GOまで全guardFalse、実行0を維持。
+
+## 同code実物と公開
+
+code `8553efb7a487b71e9be333a054465f76f4017111`、run43184318092/build148。host33methods/10scope全Green（native9=新3/編集旧2/未変更旧4、target/出版新12/関連旧client9、self3）、fail/error/skip/expectedfail0。Mac070旧Red1/現6Green・081保存6Green、同bytesRuntimeの固定保存Red133は別証拠再利用。
+
+5実物verifier各1回PASS、失敗/再実行/追加意味0。全664tracked blob/CRC/path、22seal Controller1変更/21不変、R12原40/G1・core client3/API16/cap15/client16/旧v1を照合。実4C（Nav/Perception strictO2、Beat/Controller O0）・Swift5 Onone/RSP6・HOST不在、全9MachOで旧260 exactprefixを保つ268marker不在。新C fixture宣言0。target module/feature/classifier/schema/sidecar/evaluator/entryの同code identityを結合。
+
+receipt 13140B/SHA `c398bbe5e3b8de26ae1692bc83548216be75d49727775794e97977c5542bfddd`。5 result/verifier SHA・3artifact API digest/bytes/head/run・root独立in-memory IPAを同code/IPA/sealへ照合。同じ独立担当が実物読取確認しP0/P1なしGO、追加意味再試験/独立doc編集0。IPA0.3.4/build148/min16、17629270B/SHA `f4c9e9f1c02e76fb0921f31f5613f9a7986d825d2528e848aabbd82b00b33a76`。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test087-build148)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/source.zip)。closingはstatus/本レビュー/device台帳3件のみ。全664closing blobを照合したsourceと検証済みIPAを固定assetへ保存、公開後3assetを匿名全GET/digest/SHA/CRC照合して返す。新1-1ポーズから一連5回/対象表示/全保存完了後ZIP全回分を依頼。歩行停止/signature-onlymask0/未知陽性精度/OS背景通知/対象なし循環の未解決を維持する。

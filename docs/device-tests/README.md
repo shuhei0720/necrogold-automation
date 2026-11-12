@@ -3051,3 +3051,13 @@ Aは固定4cornerの観測口/外床・両壁/壁列支持と最短床3のvantag
 新12Red→Green、code `ba7abcd8fdd683001c2d7ae8b05cc4256b765e17`、run43170890633/build146のhost37/11全Green。5実物各1回PASS・4C/Swift5/RSP6・9MachO260marker・全651source/IPA照合。22seal1変更21不変。同じ独立担当P0/P1/P2なしGO。
 
 [固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test086-build146)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test086-build146/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test086-build146/source.zip)。IPA 17630155B/SHA `f3c8da2f68cd0abc842751d2b45d61024de9322e67349cb956cee9c541641a49`。closing文書3件のみ・公開後匿名全GET/SHA/CRC照合。SideStore更新/LoopCtrl完全再起動/Start Server/通常VPN、新source/test_086.shで通常1-1ポーズ→restart→金壁/通路候補→商店→全商品可視/PAUSEを5回、全runtime/test-086-<run_id>.zipを依頼する。新版実機/恒久毎拍/人超え/識別通知は未受入、旧081実5金1→2は未解決。
+
+## TEST086受領とTEST087: のろいのゆびわ判定と待機入口診断
+
+2026-11-12（日本時間）。[受領/検証](../reviews/test087.md)・[計画](../plans/test087-target-pause.md)・[独立レビュー](../reviews/test087-independent.md)。実順76e862cd/f7fae670/1b3efc43/c9bca989、4ZIP/80PNG・19,260,301画像Bを全CRC/SHA/現schema/client_load/prefix/cursor/実publication照合。原画で全3商品可視3/4、実3対象名と茶灰ring250確認。全回収完了/paused/terminal/drained、decision21/21保持。実2回収RPCdeadline3/cancel2、実4原16native行欠損はPNG/export正常と区別。
+
+新iSH local判定は同slot絵＋名前でtarget/絵だけcandidate/不足unknown、最大2認証画像・初ZIP前immutable sidecar、追加入力/対象なしリスタート0。原3run校正と凍結後旧8run（明示陰性4の誤検出0/不明4/陽性0）を分離。実4歩行停止未解決、355guardは資料不足。新nativeは通路非zero待機入口の診断だけで旧閾値/全権限/期限/予算を維持、mask0対象外。
+
+code `8553efb7a487b71e9be333a054465f76f4017111`、run43184318092/build148。host33/10全Green、新15/関連旧15/self3。5実物各1回PASS・4C/Swift5/RSP6・9MachO268marker/全664source/IPA照合。22seal Controller1/21不変、Runtime/API16/cap15/client16/旧v1維持。同じ独立担当P0/P1なしGO。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test087-build148)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/source.zip)。IPA 17629270B/SHA `f4c9e9f1c02e76fb0921f31f5613f9a7986d825d2528e848aabbd82b00b33a76`。closing文書3件のみ・匿名全GET/SHA/CRC照合。IPA更新・完全再起動/Start Server/通常VPN、新test_087.shで通常1-1ポーズから一連5回→iSH対象表示/全保存完了を待ちruntime/test-087-<run_id>.zip全回分を依頼。新版実機/未知陽性/iSH速度/毎拍/人超え/OS背景通知/対象なし循環は未受入。086再回収不要。

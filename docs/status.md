@@ -1,27 +1,27 @@
 # 最新状態
 
-更新: 2026-11-12（クライアント日本時間）。TEST086/build146。[計画](plans/test086-vantage-gold.md)・[受領/検証](reviews/test086.md)。code `ba7abcd8fdd683001c2d7ae8b05cc4256b765e17`、run43170890633。TEST085の4run/80原PNG・18,473,950画像Bを全照合。全3商品可視2/4、全paused/terminal/drained/回収完了。見送りsource16/16保持だが093の既知見逃しを含む。選択native行欠損0、全取得画像保存ではない。
+更新: 2026-11-12（日本時間）。TEST087/build148。[計画](plans/test087-target-pause.md)・[受領/検証](reviews/test087.md)・[対象判定契約](contracts/target-assessment.md)。code `8553efb7a487b71e9be333a054465f76f4017111`、run43184318092。TEST086の4ZIP/80PNG・19,260,301画像Bを全照合。商品3点可視3/4・全paused/terminal/drained/回収完了、見送りsource21/21保持。実2は回収RPCdeadline3/cancel2、実4原16はnative行欠損を伴うがPNG/export正常。全取得画像保存ではない。
 
-## 修正
+## 修正と限界
 
-原093は左角の口/外が床でも内側UNKNOWNのため候補から落ちた。UNKNOWNを床へ分類せず、固定4corner・観測口/外床/両壁/壁列3・金なし/元保護条件に加え、room内側endpointへの旧最短床path3がある場合だけ候補保持。元chooser/Controllerの有限接近で観測床へ向かう。原093以外の校正416Scene/既bitを保持した。
+同iPhoneのiSH内で、既nativeポーズ・画像保存照合後に「のろいのゆびわ」を判定。同じ商品枠の絵と対象名が共に一致した場合target、絵だけならcandidate、不足はunknown。価格/固定run位置を使わず最大2枚、追加依存/画像外部送信/購入/リスタート0。判定を表示しimmutable target-assessment.jsonを初ZIP前に保存、閉native reportは不変。source/ACKの結合と保存中断の同run再開を確認した。
 
-実4はACK後に実UP1と整合するが、単金1→1移動が旧15段でUNKNOWN。最後UNKNOWNだけへ同方向unitの別proofを追加。単金保持/全旧STONE最低2/非共線DIRT9/一意geometry・観測次床・raw73finite/9px/gap.08・元phase・blur95%/300/2帯100・axis75%/300/2帯100/元競合15ppを全AND。全期限・8評価・予算・UNKNOWN無再送、Controller/Perception/Beat/Runtime/core4は維持。
+原086実3は新判定でtarget、別ringの実1はunknown。現在3runは校正。調整に使わず固定した旧8runは明示陰性4で誤検出0、不明4は陰性へ数えず、陽性holdout0。未知陽性精度/iSH処理速度・OS背景通知/対象なし循環は未受入（後2つは現active未実装）。
 
-## 検証・配布
+実4の歩行停止は未解決。取消trigger355が未保存で最初の具体guardは未確定。閾値/期限を緩めず、通路の実差分があるUNKNOWN静止待ち入口を既診断へ記録し比較画像を優先保存する。signature-only mask0は対象外。入力権限・票/信用・旧W/P/50ms/10ms/8評価/全予算を維持。
 
-新12作者単体Red→Green。同code host37/11scope全Green。原417Scene全bytes不変・旧known全保持。Mac070旧Red1/現Green6・081保存Green6、無変更Runtimeの固定保存Red133は分離再利用。5実物verifier各1回PASS、実4C/Swift5/RSP6・全9MachO260marker不在・全651source/IPA照合。22seal1変更21不変、同じ独立担当静的/実物P0/P1/P2なしGO。
+## 検証と配布
 
-[TEST086/build146](https://github.com/shuhei0720/necrogold-automation/releases/tag/test086-build146)。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test086-build146/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test086-build146/source.zip)。IPA0.3.4/build146/min16、17630155B/SHA `f3c8da2f68cd0abc842751d2b45d61024de9322e67349cb956cee9c541641a49`。closing文書3件のみ。固定3assetを公開後に匿名全GET/SHA/CRC照合して返す。
+新15（native3/target6/出版6）と関連旧15・self3、同code host33/10scope全Green。5実物各1回PASS・実4C/Swift5/RSP6・9MachO268marker不在・全664source/IPA照合。22seal Controller1変更21不変。Runtime/Nav/Perception/Beat・core client3/API16/cap15/client16/旧v1維持、test069は変更。同じ独立担当静的/実物P0/P1なしGO。
 
-SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開したtest_086.shのフォルダをiSHへ選ぶ。
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test087-build148)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/LoopCtrl.ipa)・[全コードZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/source.zip)。IPA0.3.4/build148/min16、17629270B/SHA `f4c9e9f1c02e76fb0921f31f5613f9a7986d825d2528e848aabbd82b00b33a76`。closingは文書3件のみ。公開後3assetを匿名全GET/SHA/CRC照合して返す。
+
+SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開したtest_087.shのフォルダをiSHへ選ぶ。
 
 ```sh
-mkdir -p /mnt/necro_test086
-mount -t ios . /mnt/necro_test086
-cd /mnt/necro_test086 && sh test_086.sh
+mkdir -p /mnt/necro_test087
+mount -t ios . /mnt/necro_test087
+cd /mnt/necro_test087 && sh test_087.sh
 ```
 
-fresh通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認/PAUSEを5回。5秒以上ポーズならiSHへ戻り全画像/ZIP照合完了を待ち、runtime/test-086-<run_id>.zip全回分と商品可視/停止位置/候補見逃し/拍間隔を依頼。085再実行/追加回収不要。
-
-新版実機到達率・恒久毎拍/人超え・対象識別/通知/対象なし循環は未受入。旧081実5金1→2/newDOOR確認は新proof対象外・未解決。同じiPhoneのみ・実機主軸/品質維持/時間上限なし。raw/Scene/秘密値はGit外。[索引](context.md)。
+新しい通常1-1ポーズからrestart→金壁/候補→店→全商品/PAUSE→対象判定/ZIPまで5回。5秒以上ポーズならiSHへ戻り判定と全保存照合完了を待ち、runtime/test-087-<run_id>.zip全回分と対象表示/商品可視/停止位置/見逃し/拍間隔を依頼。086再実行/回収不要。新版実機到達率・恒久毎拍/人超えは未受入。raw/Scene/秘密値はGit外。[索引](context.md)。
