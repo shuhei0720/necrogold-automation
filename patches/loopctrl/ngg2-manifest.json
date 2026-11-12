@@ -79,11 +79,11 @@
     },
     "LoopCtrlUITests/NG2Navigation.c": {
       "source": "NG2Navigation.c",
-      "sha256": "dce5f19e9efa38e390c1f71c4d82019ddcf339a395e6da58ed08388e1043c19e"
+      "sha256": "99c0f6108f3f4b7bfb621ff8b5e9cfe1939ceef13603f1aeb0c7f61ce0a9f28b"
     },
     "LoopCtrlUITests/NG2Perception.c": {
       "source": "NG2Perception.c",
-      "sha256": "2818660c755078d24785b8ae7424de1b3c236a29a3eab5de21ce183075539dd2"
+      "sha256": "4f6737fbfcd68f6539a709df0444c9c3c4ead1d6e2dd1922b24efbda440ad19b"
     },
     "Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift": {
       "source": "NG2RPCContractsTests.swift",

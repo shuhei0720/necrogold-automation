@@ -188,6 +188,23 @@ static void ng2_material_proofs(const unsigned char *rgba,size_t stride,NG2Scene
     }
 }
 
+/* Recover observed floor around a narrow occlusion using two fixed, disjoint
+ * bands in one 36px tile. HUD exclusion covers all 750 sampled pixels. */
+static void ng2_separated_floor_bands(const unsigned char *rgba,size_t stride,NG2Scene *out){
+    for(int j=-5;j<5;++j)for(int i=-11;i<12;++i){
+        int idx=ng2_index(i,j),cx=448+36*i,cy=207+36*j;
+        NG2MaterialSample full,upper,lower;
+        if(out->tiles[idx]!=NG2_TILE_DIRT||ng2_hud_overlap(cx-12,cy-12,cx+13,cy+18))continue;
+        full=ng2_material_sample(rgba,stride,cx-12,cy-12,25,25);
+        if(!full.spread||full.r<39||full.r>52||100*full.g<45*full.r||100*full.g>68*full.r
+            ||100*full.b<=25*full.r||100*full.b>=44*full.r)continue;
+        upper=ng2_material_sample(rgba,stride,cx-12,cy-12,25,12);
+        lower=ng2_material_sample(rgba,stride,cx-12,cy+13,25,5);
+        if(upper.r>=16&&lower.r>=16&&ng2_material_floor(upper)&&ng2_material_floor(lower))
+            out->tiles[idx]=NG2_TILE_FLOOR;
+    }
+}
+
 static void ng2_tiles(const unsigned char *rgba,size_t stride,NG2Scene *out){
     int i,j,x,y,c,v,k;unsigned hist[3][256],sum[3],squares[3];
     for(j=-5;j<5;++j)for(i=-11;i<12;++i){
@@ -368,7 +385,7 @@ int ng2_analyze_rgba(const uint8_t *rgba,size_t length,size_t stride,NG2Scene *o
         &&!ng2_match(rgba,stride,gray,&ng2_template_death,0)){
         out->state=NG2_FLOOR;
         if(ng2_gold(rgba,stride,gray,work,density,out))result=-1;
-        else {ng2_tiles(rgba,stride,out);ng2_material_proofs(rgba,stride,out);result=ng2_merchandise(rgba,stride,gray,work,density,out);}
+        else {ng2_tiles(rgba,stride,out);ng2_material_proofs(rgba,stride,out);ng2_separated_floor_bands(rgba,stride,out);result=ng2_merchandise(rgba,stride,gray,work,density,out);}
         if(!result){ng2_lower_fringe(rgba,stride,out);
             for(y=0;y<H;y+=4)for(x=0;x<W;x+=4)out->signature[(y/4)*224+x/4]=gray[y*W+x];
             ng2_beat_extract(rgba,stride,out);}
