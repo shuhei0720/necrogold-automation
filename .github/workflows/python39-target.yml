@@ -6,12 +6,14 @@ on:
     branches: [work/p1-capture-probe]
     paths:
       - 'necroprobe/target_assessment.py'
+      - 'necroprobe/target_ring_features.json'
       - 'necroprobe/recover087.py'
       - 'necroprobe/test087.py'
       - 'necroprobe/test069.py'
       - 'tests/test_target_assessment087.py'
       - 'tests/test_recover087.py'
       - 'recover_087.sh'
+      - 'test_087.sh'
       - '.github/workflows/python39-target.yml'
 
 permissions:
