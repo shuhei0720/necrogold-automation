@@ -1,0 +1,126 @@
+name: Rebuild TEST089 ring engine and stage complete source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/p1-capture-probe]
+    paths: ['.github/workflows/test089-source-stage.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  stage-source:
+    if: github.repository == 'shuhei0720/necrogold-automation' && github.ref == 'refs/heads/work/p1-capture-probe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Rebuild the exact distributed static i386 engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check ziglang==0.15.2
+          cat > "$RUNNER_TEMP/zig-i386-cc" <<'SH'
+          #!/bin/sh
+          exec python3 -m ziglang cc -target x86-linux-musl -mcpu=i386 "$@"
+          SH
+          chmod 700 "$RUNNER_TEMP/zig-i386-cc"
+          export CC="$RUNNER_TEMP/zig-i386-cc" SOURCE_DATE_EPOCH=0
+          sh tools/ring_native/build.sh "$RUNNER_TEMP/ring-i386-rebuilt"
+          cmp necroprobe/bin/ring-i386 "$RUNNER_TEMP/ring-i386-rebuilt"
+          PYTHONPATH=. python3 tools/build_ring_manifest.py --check
+          sh -n test_088.sh
+          sh -n test_089.sh
+      - name: Verify frozen code and every source archive member
+        env:
+          CODE_COMMIT: 3e5cb959f2586487d64a52d9825fd2f39dc65791
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, stat, subprocess, zipfile
+          from pathlib import Path
+          def git(*args):
+              return subprocess.check_output(['git', *args])
+          head = git('rev-parse', 'HEAD').decode().strip()
+          assert head == os.environ['GITHUB_SHA']
+          code = os.environ['CODE_COMMIT']
+          changed = {x.decode() for x in git('diff', '--name-only', '-z', code, head).split(b'\0') if x}
+          assert changed <= {'.github/workflows/test089-source-stage.yml'}, changed
+          paths = [x.decode() for x in git('ls-tree', '-r', '--name-only', '-z', head).split(b'\0') if x]
+          preserved = [p for p in paths if p.startswith(('patches/loopctrl/', 'legacy/r12/'))]
+          preserved += ['necroprobe/protocol.py', 'necroprobe/validation.py',
+                        'necroprobe/target_ring_features.json', 'necroprobe/test088.py',
+                        'test_087.sh', 'test_088.sh', 'necroprobe/evidence088.py', 'evidence_088.sh']
+          assert sum(p.startswith('legacy/r12/') for p in preserved) == 40
+          for p in preserved:
+              assert git('show', head+':'+p) == git('show', 'e3eb9d59b10d2335a47f9c2d01296d908c7e92f2:'+p), p
+          out = Path(os.environ['RUNNER_TEMP'])/'source-stage'; out.mkdir()
+          archive = out/'source.zip'
+          subprocess.run(['git', 'archive', '--format=zip', '--prefix=necro_test089/',
+                          '--output='+str(archive), head], check=True)
+          with zipfile.ZipFile(archive) as package:
+              assert package.testzip() is None
+              assert len(package.namelist()) == len(set(package.namelist()))
+              actual = {}
+              for entry in package.infolist():
+                  path = Path(entry.filename)
+                  assert not path.is_absolute() and '..' not in path.parts
+                  assert not stat.S_ISLNK(entry.external_attr >> 16)
+                  if not entry.is_dir():
+                      assert entry.filename.startswith('necro_test089/')
+                      actual[entry.filename.split('/', 1)[1]] = entry
+              assert set(actual) == set(paths)
+              for p, entry in actual.items():
+                  assert package.read(entry) == git('show', head+':'+p), p
+          sha = hashlib.sha256(archive.read_bytes()).hexdigest()
+          (out/'SHA256SUMS.txt').write_text(sha+'  source.zip\n')
+          (out/'stage-receipt.json').write_text(json.dumps(dict(commit=head, code=code,
+              tracked_files=len(paths), bytes=archive.stat().st_size, sha256=sha,
+              all_crc_valid=True, all_bytes_match=True, preserved_paths=len(preserved),
+              native_engine_rebuild_identical=True, new_ipa_build=0,
+              release_tag='test089-native-ring', draft_only=True), indent=2)+'\n')
+          PY
+      - name: Upload source and checksum to the fixed draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/shuhei0720/necrogold-automation/releases/443057841 > "$RUNNER_TEMP/draft.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          release = json.loads((Path(os.environ['RUNNER_TEMP'])/'draft.json').read_text())
+          assert release['id'] == 443057841 and release['draft'] is True
+          assert release['tag_name'] == 'test089-native-ring' and not release['assets']
+          PY
+          gh api --method PATCH repos/shuhei0720/necrogold-automation/releases/443057841 -f tag_name=test089-native-ring -f target_commitish="$GITHUB_SHA" > "$RUNNER_TEMP/updated-draft.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          release = json.loads((Path(os.environ['RUNNER_TEMP'])/'updated-draft.json').read_text())
+          assert release['id'] == 443057841 and release['draft'] is True and not release['assets']
+          assert release['tag_name'] == 'test089-native-ring' and release['target_commitish'] == os.environ['GITHUB_SHA']
+          PY
+          curl --fail --silent --show-error --request POST --connect-timeout 20 --max-time 120 \
+            --header "Authorization: Bearer $GH_TOKEN" --header 'Content-Type: application/zip' \
+            --data-binary @"$RUNNER_TEMP/source-stage/source.zip" \
+            'https://uploads.github.com/repos/shuhei0720/necrogold-automation/releases/443057841/assets?name=source.zip' > /dev/null
+          curl --fail --silent --show-error --request POST --connect-timeout 20 --max-time 120 \
+            --header "Authorization: Bearer $GH_TOKEN" --header 'Content-Type: text/plain' \
+            --data-binary @"$RUNNER_TEMP/source-stage/SHA256SUMS.txt" \
+            'https://uploads.github.com/repos/shuhei0720/necrogold-automation/releases/443057841/assets?name=SHA256SUMS.txt' > /dev/null
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: test089-native-ring-source-stage
+          path: ${{ runner.temp }}/source-stage/
+          if-no-files-found: error
+          retention-days: 30
