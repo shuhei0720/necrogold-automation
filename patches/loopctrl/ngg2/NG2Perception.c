@@ -252,6 +252,40 @@ static void ng2_tiles(const unsigned char *rgba,size_t stride,NG2Scene *out){
         else if(t==7)out->tiles[idx]=NG2_TILE_UNKNOWN;
     }
 }
+/* The narrow, edge-on iron leaf can occupy too little of the 25x25 material
+ * sample to change its FLOOR median. Recover only that observed vertical
+ * leaf between an existing upper/lower GOLD bracket. An opened, rotated panel
+ * has upper-band pixels but no matching lower stripe; it stays FLOOR. */
+static void ng2_thin_gate_doors(const unsigned char *rgba,size_t stride,NG2Scene *out){
+    int i,j;
+    if(out->state!=NG2_FLOOR||out->gold_state!=NG2_GOLD_CANDIDATE||out->goods!=NG2_GOODS_UNKNOWN)return;
+    for(j=-5;j<5;++j)for(i=-11;i<12;++i){
+        int idx=ng2_index(i,j),above=ng2_index(i,j-1),below=ng2_index(i,j+1);
+        int cx=448+36*i,cy=207+36*j,column,row,qualified=0,protected=0;
+        if((!i&&!j)||out->tiles[idx]!=NG2_TILE_FLOOR||out->protected_cells[idx]
+            ||above<0||below<0||out->tiles[above]!=NG2_TILE_GOLD||out->tiles[below]!=NG2_TILE_GOLD
+            ||out->protected_cells[above]||out->protected_cells[below]
+            ||cx-8<0||cx-4>W||cy-23<0||cy+2>H
+            ||ng2_hud_overlap(cx-8,cy-23,cx-4,cy+2))continue;
+        for(row=0;row<25&&!protected;++row)for(column=0;column<4;++column){
+            int x=cx-8+column,y=cy-23+row;
+            int sample=ng2_index((x-34)/36-11,(y-9)/36-5);
+            if(sample<0||out->protected_cells[sample]){protected=1;break;}
+        }
+        if(protected)continue;
+        for(column=0;column<4;++column){
+            int upper=0,lower=0;
+            for(row=0;row<25;++row){
+                const unsigned char *p=rgba+(cy-23+row)*stride+4*(cx-8+column);
+                int low=ng2_min(p[0],ng2_min(p[1],p[2]));
+                int high=ng2_max(p[0],ng2_max(p[1],p[2]));
+                if(low>=45&&high-low<=45){if(row<12)++upper;else ++lower;}
+            }
+            qualified+=upper+lower>=20&&upper>=8&&lower>=8;
+        }
+        if(qualified>=3)out->tiles[idx]=NG2_TILE_DOOR;
+    }
+}
 static int ng2_even_round(double value){
     double lower=floor(value),fraction=value-lower;
     return (int)(lower+(fraction>.5||(fraction==.5&&fmod(lower,2)!=0)));
@@ -402,7 +436,7 @@ int ng2_analyze_rgba(const uint8_t *rgba,size_t length,size_t stride,NG2Scene *o
         out->state=NG2_FLOOR;
         if(ng2_gold(rgba,stride,gray,work,density,out))result=-1;
         else {ng2_tiles(rgba,stride,out);ng2_material_proofs(rgba,stride,out);ng2_black_entry_floor(rgba,stride,out);ng2_separated_floor_bands(rgba,stride,out);result=ng2_merchandise(rgba,stride,gray,work,density,out);}
-        if(!result){ng2_lower_fringe(rgba,stride,out);
+        if(!result){ng2_thin_gate_doors(rgba,stride,out);ng2_lower_fringe(rgba,stride,out);
             for(y=0;y<H;y+=4)for(x=0;x<W;x+=4)out->signature[(y/4)*224+x/4]=gray[y*W+x];
             ng2_beat_extract(rgba,stride,out);}
     }

@@ -39,7 +39,7 @@ def _prepare(base, record, report_sha, cancelled, *, classify=None, before=None)
         raise
     label = {'target': 'のろいのゆびわ（アイコンと名前が一致）',
              'candidate': '指輪候補（保持して目視確認してください）',
-             'unknown': '不明（判定できる証拠が不足しています）'}[value['outcome']]
+             'unknown': 'のろいのゆびわとの一致は未確認（対象なしとは未確定）'}[value['outcome']]
     print('対象判定: '+label, flush=True)
     return value
 

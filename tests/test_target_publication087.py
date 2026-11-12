@@ -186,13 +186,16 @@ class TargetPublication087Tests(unittest.TestCase):
             self.assertEqual(0, test087.main(['--check']))
             self.assertEqual('087', main.call_args.kwargs['test_number'])
             prepare = main.call_args.kwargs['prepare']
-        for outcome, expected in (('target', 'のろいのゆびわ'), ('candidate', '候補'), ('unknown', '不明')):
+        for outcome, expected in (('target', 'のろいのゆびわ'), ('candidate', '候補'),
+                                  ('unknown', 'のろいのゆびわとの一致は未確認（対象なしとは未確定）')):
             output = io.StringIO()
             with patch.object(test087, 'prepare_assessment', return_value=dict(outcome=outcome)) as assess:
                 with patch('sys.stdout', output): result = prepare(self.base, {}, 'a'*64, lambda: False)
             self.assertEqual(outcome, result['outcome'])
             self.assertIn(expected, output.getvalue())
-            self.assertNotIn('対象なし', output.getvalue())
+            # Permit only the explicit statement that absence is unconfirmed;
+            # any separate assertion of absence remains forbidden.
+            self.assertNotIn('対象なし', output.getvalue().replace(expected, '', 1))
             assess.assert_called_once()
         with patch.object(test086, 'device_main', return_value=0) as old:
             self.assertEqual(0, test086.main(['--check']))

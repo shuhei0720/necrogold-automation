@@ -1,6 +1,6 @@
 # Nativeの不変条件
 
-[要件](../requirements/necrogold.md)・[通路と限定変更](passage-approach.md)。[087計画](../plans/test087-target-pause.md)の差分以外は維持。
+[要件](../requirements/necrogold.md)・[通路と限定変更](passage-approach.md)。[087](../plans/test087-target-pause.md)・[090限定差分](../plans/test090-device-stops.md)以外は維持。
 
 ## 2. 保存
 
@@ -27,6 +27,8 @@ sync12秒は公開/begin/completeの等号で終了。TicketGuard短絡→comple
 FRESH（validation12）はlead確認済みcontinuousでSAME不成立時に最新判断へ替える。両FLOOR/GOODS_UNKNOWN/GOLD_CANDIDATE・origin FLOOR・全protected不変・source5field単一証明・strict BLOCKEDを要求。全230セルでUNKNOWN→FLOOR/DIRT/STONE/GOLD/DOOR、FLOOR→DIRT/STONE/GOLD/DOOR、DIRT→STONE/GOLD/DOORだけ許可。GOLD/STONE/DOOR/ITEM不変、新DOORはgold bracket必須。
 
 通常1MOVEを別ID/latest sourceへ予約。pending全5field/最新direction・x・yを検査。FRESH→SAMEで元方向へ戻さず、SAMEとchain2/run8・同拍/ordinal/全凍結期限を共有。未予約FRESHの重複/元source・phase horizon延長は禁止。
+
+090は前方3セルの旧DIRT→bracket DOORと旧金1→金2の露出、遠方DIRT→FLOORだけの限定関係を、元guard/完全source Decisionと同方向・同目標・FLOOR/reason8→7・strict BLOCKED後のFRESH12へ追加する。global monotone・旧時刻/予算・UNKNOWN無再送は変更しない。
 
 ## 6. 全期限・予算
 
@@ -58,6 +60,8 @@ RuntimeはC直前observeStartをobserve_atへ渡す。MOVED/DOOR_OPENED/TERRAIN_
 
 [067](../plans/test067-motion-confirmation.md)の追加MOVED証拠/入口BLOCKED再fitは元閾値/予算・消去前snapshot維持。motion全73候補、強度.45/差.08、texture支持300/75%、構造補助95%/全候補15pp差/2領域各100を保つ。MOVEDは同方向unit変位のみ。開扉/茶壁破壊と進入を分け、開通で歩数を増やさない。partial/逆方向/未知/入力数で移動を捏造せず、観測gold/保護/入口を維持。
 
+090の追加proofだけは、元可視STONEちょうど1個が投影先の心臓HUDでUNKNOWNとなる場合を扱う。残る可視STONE≥2/非共線DIRT≥9・9候補唯一・旧raw/band/world95%/axis75%/全73差を全て要求する。HUD外消失や既知矛盾は許可せず、旧16段の判定/閾値を変更しない。
+
 ## 9. 元画像fallback
 
 入力権限は最新Scene。immutable元Scene/capture・start・prefix/元ticket・period・期限/完全Decision/位置・visits・entranceはlead確認済/moves>0のcontinuous safe-floor logical MOVEだけ保持。資格付き未送信更新が必須。
@@ -69,6 +73,8 @@ FRESH後の旧referenceは再作成/SAME復活禁止。primary UNKNOWN時だけ�
 ## 10. 商品優先
 
 商品latchを追加入力より優先。適格な同一商品frameの移動確認は1回credit可、UNKNOWN/TWEENも商品保持して終了。earliest前/期限後は移動を捏造せず最終実評価診断を残す。不可視≠対象なし、候補保持/購入禁止/通知を維持。
+
+090の薄鉄検出は既FLOOR/上下金bracket/商品UNKNOWN・非原点/非保護/全ROI非HUDの固定縦線だけをDOORへ回復する。開いたSceneは変えず既DOOR_OPENEDの0歩creditを使う。商人/看板露出やPARTIALは商品確認完了ではない。
 
 ## 11. ABI/診断
 

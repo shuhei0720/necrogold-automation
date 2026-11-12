@@ -853,6 +853,45 @@ static int monotone_terrain(const NG2Scene *before,const NG2Scene *after){
     }
     return changed!=0;
 }
+/* A closed bracket may become readable while the same two-cell floor approach
+ * stays stationary. Only remote DIRT/FLOOR palette disagreement extends the
+ * ordinary monotone relation; it never clears a nearby traversal obstacle. */
+static int revealed_approach_terrain(const NG2Scene *before,const NG2Scene *after,int d){
+    int gx=3*dx[d],gy=3*dy[d],sx=dy[d],sy=-dx[d],leaf_x,leaf_y;
+    int i,old_gold=0,new_gold=0,palette=0;
+    if(tile(before,gx,gy)!=NG2_TILE_DIRT||tile(after,gx,gy)!=NG2_TILE_DOOR
+        ||tile(before,2*dx[d],2*dy[d])!=NG2_TILE_FLOOR
+        ||tile(after,2*dx[d],2*dy[d])!=NG2_TILE_FLOOR
+        ||tile(after,gx+sx,gy+sy)!=NG2_TILE_GOLD
+        ||tile(after,gx-sx,gy-sy)!=NG2_TILE_GOLD)return 0;
+    if(tile(before,gx+sx,gy+sy)==NG2_TILE_GOLD
+        &&tile(before,gx-sx,gy-sy)==NG2_TILE_DIRT){leaf_x=gx-sx;leaf_y=gy-sy;}
+    else if(tile(before,gx-sx,gy-sy)==NG2_TILE_GOLD
+        &&tile(before,gx+sx,gy+sy)==NG2_TILE_DIRT){leaf_x=gx+sx;leaf_y=gy+sy;}
+    else return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int a=before->tiles[i],b=after->tiles[i],x=i%23-11,y=i/23-5;
+        old_gold+=a==NG2_TILE_GOLD;new_gold+=b==NG2_TILE_GOLD;
+        if(before->protected_cells[i]!=after->protected_cells[i])return 0;
+        if(a==b)continue;
+        if(before->protected_cells[i]||after->protected_cells[i])return 0;
+        if(x==gx&&y==gy&&a==NG2_TILE_DIRT&&b==NG2_TILE_DOOR)continue;
+        if(x==leaf_x&&y==leaf_y&&a==NG2_TILE_DIRT&&b==NG2_TILE_GOLD)continue;
+        if(a==NG2_TILE_DIRT&&b==NG2_TILE_FLOOR){
+            if(abs(x)+abs(y)<6||(abs(x)<=1&&abs(y)<=1)
+                ||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1))return 0;
+            ++palette;continue;
+        }
+        /* Preserve the ordinary monotone alternatives for every other cell.
+         * In particular, known GOLD/STONE/DOOR/ITEM can never disappear. */
+        if(a==NG2_TILE_UNKNOWN){if(b<NG2_TILE_FLOOR||b>NG2_TILE_DOOR)return 0;}
+        else if(a==NG2_TILE_FLOOR){if(b!=NG2_TILE_DIRT&&b!=NG2_TILE_STONE&&b!=NG2_TILE_GOLD&&b!=NG2_TILE_DOOR)return 0;}
+        else if(a==NG2_TILE_DIRT){if(b!=NG2_TILE_STONE&&b!=NG2_TILE_GOLD&&b!=NG2_TILE_DOOR)return 0;}
+        else return 0;
+        if(b==NG2_TILE_DOOR&&!gate_at(after,x,y))return 0;
+    }
+    return old_gold==1&&new_gold==2&&palette>0;
+}
 static uint64_t continuous_horizon(const NG2Controller *p){
     uint64_t horizon=minimum(p->continuous_ticket.source_start_ns+FRESH,p->continuous_ticket.phase_sample_ns+FRESH);
     horizon=minimum(horizon,p->s.walk_started_ns+45*SECOND);
@@ -1439,7 +1478,7 @@ static int update_gate_refresh(NG2Controller *p,const NG2Scene *scene,uint64_t i
  * the current action and protected set, without searching for another beat. */
 static int continuous_validation(NG2Controller *p,const NG2Scene *scene,uint64_t end,NG2Decision *latest){
     NG2Decision before,after;NG2Motion motion;uint64_t aligned;
-    int direction=p->command.direction,strict=0,fresh_allowed;
+    int direction=p->command.direction,strict=0,fresh_allowed,revealed=0;
     if(p->s.input_state!=1||p->replan_pending||p->continuous_pending||p->finish_requested
         ||!p->s.lead_confirmed||!p->s.moves||p->s.phase!=NG2_PHASE_WALK||!p->continuous_ticket_valid
         ||p->command.kind!=NG2_ACTION_MOVE||direction<1||direction>4)return NG2_REVALIDATE_STATE;
@@ -1461,7 +1500,9 @@ static int continuous_validation(NG2Controller *p,const NG2Scene *scene,uint64_t
         &&p->before.goods==NG2_GOODS_UNKNOWN&&scene->goods==NG2_GOODS_UNKNOWN
         &&p->before.gold_state==NG2_GOLD_CANDIDATE&&scene->gold_state==NG2_GOLD_CANDIDATE
         &&tile(&p->before,0,0)==NG2_TILE_FLOOR&&tile(scene,0,0)==NG2_TILE_FLOOR
-        &&monotone_terrain(&p->before,scene);
+        &&(monotone_terrain(&p->before,scene)
+            ||(strict==NG2_REVALIDATE_GOLD
+                &&(revealed=revealed_approach_terrain(&p->before,scene,direction))));
     if(strict&&!fresh_allowed)return strict;
     /* One cached-source proof serves both policies. A second planner call
      * must never rescue a failed full Decision from the first call. */
@@ -1469,6 +1510,10 @@ static int continuous_validation(NG2Controller *p,const NG2Scene *scene,uint64_t
         ||before.direction!=direction||!same_choice(&before,&p->command_choice))return NG2_REVALIDATE_ROUTE;
     if(!choose_step(p,scene,&after)
         ||after.direction<1||after.direction>4)return NG2_REVALIDATE_ROUTE;
+    if(revealed&&(before.reason!=8||after.reason!=7||before.direction!=after.direction
+        ||before.obstacle!=NG2_TILE_FLOOR||after.obstacle!=NG2_TILE_FLOOR
+        ||before.target_x!=2*dx[direction]||before.target_y!=2*dy[direction]
+        ||before.target_x!=after.target_x||before.target_y!=after.target_y))return NG2_REVALIDATE_ROUTE;
     if(!same_continuous_action(&before,&after)&&!strict)strict=NG2_REVALIDATE_ROUTE;
     if(strict&&!fresh_allowed)return strict;
     if(!ng2_motion(&p->before,scene,direction,&motion)||motion.kind!=NG2_BLOCKED

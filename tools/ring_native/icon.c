@@ -7,6 +7,10 @@
 #include <fenv.h>
 #include "features.h"
 _Static_assert(FLT_RADIX==2 && DBL_MANT_DIG==53 && sizeof(double)==8,"binary64 required");
+/* Fixed features have at most 344 samples; every RGB channel is a byte.
+ * dot<=67,105,800, total<=263,160, square/cross<=201,317,400. All terms
+ * are nonnegative, so these bounds also cover every partial accumulation. */
+_Static_assert(INT64_C(344)*765*765<=INT32_MAX,"fixed moment bounds fit int32");
 #define WIDTH 896
 #define HEIGHT 414
 /* Each volatile store completes one Python binary64 operation; no FMA. */
@@ -39,27 +43,31 @@ int ring_icon(const unsigned char *rgba,size_t bytes,int cx,int sy,int mode,
             if(cancelled&&cancelled())return 1;
             for(int x=max_i(0,cx-sp->width/2-8);x<=min_i(WIDTH-sp->width,cx-sp->width/2+8);x++){
                 unsigned char observed[344][3];
-                int64_t dot=0,total=0,square=0,cross=0;
+                int32_t dot=0,total=0,square=0,cross=0;
                 for(int k=0;k<count;k++){
                     const Bright *p=&sp->bright[k];size_t at=4*((size_t)(y+p->dy)*WIDTH+x+p->dx);
                     int a=rgba[at],c=rgba[at+1],d=rgba[at+2],v=a+c+d;
                     observed[k][0]=(unsigned char)a;observed[k][1]=(unsigned char)c;observed[k][2]=(unsigned char)d;
-                    dot+=(int64_t)a*p->r+(int64_t)c*p->g+(int64_t)d*p->b;
-                    total+=v;square+=(int64_t)v*v;cross+=(int64_t)v*(p->r+p->g+p->b);
+                    dot+=a*p->r+c*p->g+d*p->b;
+                    total+=v;square+=v*v;cross+=v*(p->r+p->g+p->b);
                 }
-                double norm=root(max0(mul(sub((double)square,divide((double)(total*total),dc)),sp->target_var)));
-                double shape=max0(divide(sub((double)cross,divide((double)(total*sp->target_sum),dc)),norm>9.0?norm:9.0));
+                double norm=root(max0(mul(sub((double)square,divide((double)((int64_t)total*total),dc)),sp->target_var)));
+                double shape=max0(divide(sub((double)cross,divide((double)((int64_t)total*sp->target_sum),dc)),norm>9.0?norm:9.0));
                 double upper=mul(add(divide(mul(F55,dc),dc),mul(F45,shape)),add(F80,divide(mul(F20,dd),dd)));
                 if(upper<=best)continue;
                 double gain=divide((double)dot,(double)sp->energy);
                 gain=gain<F37?F37:gain;gain=gain>F130?F130:gain;
                 double tolerance=mul(3.0,add(13.0,mul(15.0,gain)));
+                /* Reuse the same rounded binary64 product for repeated byte
+                 * values. Subtraction and mode-specific summation stay below. */
+                double scaled[256];
+                for(int value=0;value<256;value++)scaled[value]=mul(gain,(double)value);
                 int matches=0;
                 for(int k=0;k<count;k++){
                     const Bright *p=&sp->bright[k];
-                    double values[3]={fabs(sub((double)observed[k][0],mul(gain,(double)p->r))),
-                                      fabs(sub((double)observed[k][1],mul(gain,(double)p->g))),
-                                      fabs(sub((double)observed[k][2],mul(gain,(double)p->b)))};
+                    double values[3]={fabs(sub((double)observed[k][0],scaled[p->r])),
+                                      fabs(sub((double)observed[k][1],scaled[p->g])),
+                                      fabs(sub((double)observed[k][2],scaled[p->b]))};
                     double error=0.0,correction=0.0;
                     for(int channel=0;channel<3;channel++){
                         double value=values[channel],next=add(error,value);

@@ -1,7 +1,7 @@
 {
   "binary": "ring-i386",
-  "binary_bytes": 56136,
-  "binary_sha256": "30967425eb55fd281a1cbea816d300d933f19839f01dd9d1d41630def69e3c02",
+  "binary_bytes": 56088,
+  "binary_sha256": "885356d8bf0fe8b2088ebc433e5497e58813821f4e0bfa129cd0b4f725c2535a",
   "features_sha256": "202322326d86f600b300713ca8572b592f3beb59ceff6e6f6e58ef9cb3b728b4",
   "protocol": "ngg2-ring-raw-v1",
   "schema": "ngg2-ring-engine-v1",
@@ -13,7 +13,7 @@
     "tools/ring_native/feature_sha.h": "838f08c8085927572e19ff6f9094ad66c3d0e1db5037719f2d01dc51dda3bb4a",
     "tools/ring_native/features.h": "9ee9dccd400c1038bd4ff77ae5d0191c962c4de9dfd5ac1e9011aed19e0665b9",
     "tools/ring_native/generate_features.py": "20620b00e998a1d3d83a781610e073714d21663bea418bcae18698d03604a7f1",
-    "tools/ring_native/icon.c": "54dbddb13e5dc01cd436eee87d86a860c489b575ced1edce35bf684ac59ea792",
+    "tools/ring_native/icon.c": "ffc276f6e02bb0b12c6445e26b68b0212595dcb32645ef367ff4e30c664ad7c1",
     "tools/ring_native/main.c": "57662ec7110dd25840f43950adc157623e1a76a096c759a8f2896cfaaaf92f77",
     "tools/ring_native/musl-COPYRIGHT": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af",
     "tools/ring_native/observe.c": "d49d1cd5b9ca26375bd5d52938a7fadc8d0dbaeae2741c806a0cf2cf80bf7f27",

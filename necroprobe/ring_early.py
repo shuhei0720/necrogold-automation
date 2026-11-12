@@ -99,7 +99,7 @@ class EarlyAssessment:
             outcome = 'target' if 'target' in outcomes else 'candidate' if 'candidate' in outcomes else 'unknown'
             label = {'target': 'のろいのゆびわ（アイコンと名前が一致）',
                      'candidate': '指輪候補（保持して目視確認してください）',
-                     'unknown': '不明（対象なしとは確定しません）'}[outcome]
+                     'unknown': 'のろいのゆびわとの一致は未確認（対象なしとは未確定）'}[outcome]
             elapsed = time.monotonic()-self._began
             try:
                 self._notice('対象の暫定先行確認: '+label+'（全画像の保存・照合は継続中。結果回収開始から'

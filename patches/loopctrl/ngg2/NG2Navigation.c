@@ -1539,6 +1539,96 @@ static void singleton_gold_terrain_blur_motion(const NG2Scene *before,const NG2S
     free(cache);out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
 }
 
+/* Material sampling intentionally omits the fixed heart HUD. An old stone
+ * entering that rectangle is unavailable, never a contradictory observation
+ * or an extra anchor. Source anchors themselves must remain observable. */
+static int heart_sample_hidden(int x,int y) {
+    int cx=448+36*x,cy=207+36*y;
+    return index_of(x,y)>=0 && cx-12<485 && cx+13>405 && cy-12<414 && cy+13>321;
+}
+static int hud_sample_hidden(int x,int y) {
+    static const int hud[][4]={{0,0,143,140},{663,0,896,80},{717,315,896,414},
+        {405,321,485,414},{0,380,896,414},{429,0,465,45},{866,45,896,290}};
+    int cx=448+36*x,cy=207+36*y;size_t i;
+    if(index_of(x,y)<0)return 1;
+    for(i=0;i<sizeof(hud)/sizeof(hud[0]);++i)
+        if(cx-12<hud[i][2]&&cx+13>hud[i][0]&&cy-12<hud[i][3]&&cy+13>hud[i][1])return 1;
+    return 0;
+}
+static int hud_terrain_translation(const NG2Scene *a,const NG2Scene *b,int tx,int ty) {
+    int i,first=-1,second=-1,visible=0,hidden=0,dirt=0,noncollinear=0;
+    for(i=0;i<CELLS;++i)if(a->tiles[i]==NG2_TILE_STONE){
+        int x=px(i),y=py(i),latest=tile(b,x+tx,y+ty);
+        if(hud_sample_hidden(x,y))return 0;
+        if(latest==NG2_TILE_STONE&&!hud_sample_hidden(x+tx,y+ty)){
+            ++visible;if(first<0)first=i;else if(second<0)second=i;
+        }else if(latest==NG2_TILE_UNKNOWN&&heart_sample_hidden(x+tx,y+ty))++hidden;
+        else return 0;
+    }
+    if(visible<2||hidden!=1)return 0;
+    for(i=0;i<CELLS;++i)if(a->tiles[i]==NG2_TILE_DIRT
+        &&!hud_sample_hidden(px(i),py(i))&&!hud_sample_hidden(px(i)+tx,py(i)+ty)
+        &&tile(b,px(i)+tx,py(i)+ty)==NG2_TILE_DIRT){
+        ++dirt;
+        if((px(second)-px(first))*(py(i)-py(first))
+            !=(py(second)-py(first))*(px(i)-px(first)))++noncollinear;
+    }
+    return dirt>=9&&noncollinear;
+}
+static int unique_hud_terrain_translation(const NG2Scene *a,const NG2Scene *b,int sx,int sy) {
+    int amount,d,matches=0,tx=0,ty=0;
+    for(amount=0;amount<=2;++amount)for(d=1;d<=(amount?4:1);++d){
+        int x=amount*ddx[d],y=amount*ddy[d];
+        if(hud_terrain_translation(a,b,x,y)){++matches;tx=x;ty=y;}
+    }
+    return matches==1&&sx==9*tx&&sy==9*ty;
+}
+static void hud_occluded_terrain_blur_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                            const View views[2],const Candidate candidates[73],NG2Motion *out) {
+    ClosedGateAxisCache *cache;
+    int i,dx,dy,band,support,bad,regions[2];
+    if(out->kind!=NG2_MOTION_UNKNOWN||direction<1||direction>4)return;
+    dx=ddx[direction];dy=ddy[direction];
+    if(before->state!=NG2_FLOOR||after->state!=NG2_FLOOR
+        ||before->gold_state!=NG2_GOLD_CLEAR||after->gold_state!=NG2_GOLD_CLEAR
+        ||before->goods!=NG2_GOODS_UNKNOWN||after->goods!=NG2_GOODS_UNKNOWN
+        ||tile(before,0,0)!=NG2_TILE_FLOOR||tile(before,dx,dy)!=NG2_TILE_FLOOR
+        ||tile(after,0,0)!=NG2_TILE_FLOOR||!isfinite(candidates[0].score)
+        ||!(candidates[0].score>.45)||!isfinite(candidates[1].score)
+        ||!(candidates[1].score-candidates[0].score>=.08)
+        ||candidates[0].sx!=-9*dx||candidates[0].sy!=-9*dy)return;
+    for(i=0;i<CELLS;++i)if(before->protected_cells[i]||after->protected_cells[i]
+        ||before->tiles[i]==NG2_TILE_GOLD||after->tiles[i]==NG2_TILE_GOLD
+        ||before->tiles[i]==NG2_TILE_DOOR||after->tiles[i]==NG2_TILE_DOOR
+        ||before->tiles[i]==NG2_TILE_ITEM||after->tiles[i]==NG2_TILE_ITEM)return;
+    for(i=0;i<73;++i)if(!isfinite(candidates[i].score))return;
+    if(!unique_hud_terrain_translation(before,after,candidates[0].sx,candidates[0].sy))return;
+    for(band=0;band<2;++band){
+        double first=phase_band_intensity(&views[0],&views[1],candidates[0].sx,candidates[0].sy,band);
+        double second=phase_band_intensity(&views[0],&views[1],candidates[1].sx,candidates[1].sy,band);
+        if(!isfinite(first)||!isfinite(second)||!(second-first>=.08))return;
+    }
+    if(!independent_phase(views,candidates))return;
+    world_blur_texture(before,after,views,candidates[0].sx,candidates[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,95)||regions[0]<100||regions[1]<100)return;
+    for(i=1;i<73;++i){
+        int count,opposite;
+        world_blur_texture(before,after,views,candidates[i].sx,candidates[i].sy,&count,&opposite,NULL);
+        if(!texture_lead(support,bad,count,opposite))return;
+    }
+    cache=(ClosedGateAxisCache*)calloc(1,sizeof(*cache));if(!cache)return;
+    closed_gate_axis_features(before,cache->before,cache->indices,&cache->count);
+    closed_gate_axis_features(after,cache->after,NULL,NULL);
+    closed_gate_axis_texture(cache,candidates[0].sx,candidates[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,75)||regions[0]<100||regions[1]<100){free(cache);return;}
+    for(i=1;i<73;++i){
+        int count,opposite;
+        closed_gate_axis_texture(cache,candidates[i].sx,candidates[i].sy,&count,&opposite,NULL);
+        if(!texture_lead(support,bad,count,opposite)){free(cache);return;}
+    }
+    free(cache);out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+}
+
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -1570,6 +1660,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     first_gold_terrain_blur_motion(before,after,direction,views,candidates,out);
     stationary_terrain_motion(before,after,direction,views,candidates,out);
     singleton_gold_terrain_blur_motion(before,after,direction,views,candidates,out);
+    hud_occluded_terrain_blur_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,
