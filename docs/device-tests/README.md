@@ -3085,3 +3085,9 @@ code `8553efb7a487b71e9be333a054465f76f4017111`、run43184318092/build148。host
 有効Red→実3.9の性能2/target6/進捗2/回復3の13件、開発3.12.14の関連出版4件が成功。原086校正309全field exact一致、iSH速度/未知陽性精度ではない。native/IPA148不変、新Mac/C/IPA作成0。
 
 [修正版完全ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test088-postprocess-fix2/source.zip)。Ctrl+Cで現在の待機を止めて元データを残し、新sourceのtest_088.shで同088の保存を先に完了する実機確認を依頼。初回はゲーム開始0で正常。全保存完了ZIPを返却後、通常1-1ポーズから同コマンドで一連3回と全run ZIP/商品可視/停止/見逃し/後処理秒を依頼する。歩行停止は今回未修正。
+
+## TEST088 fix2受領: 判定128秒超と証拠ZIP専用回収
+
+2026-11-12（日本時間）。[計画](../plans/test088-evidence.md)・[検証](../reviews/test088-evidence.md)。画像/記録照合完了後に指輪判定128秒超を実機画面で確認、前修正の効果は不足。通常_publishが判定後までZIPを作らないため、別evidence088入口で同088の原画像/active/reportだけを既lock/certificate下から別ZIPへ回収する。通常archive/receipt/sidecar・原bytes/mtime不変、判定/RPC/新game0、通常pendingを保持。診断を判定成功/陰性/通常出版とは呼ばない。
+
+実3.9新4は有効Red→Green。既判定/通常entry/native/IPA148不変で旧17/全Mac/C/IPAは再実行0。Ctrl+C後prompt復帰→新evidence_088.shで回収だけの実機確認を依頼し、runtime/test-088-evidence-<uuid>.zipを返却してもらう。重い通常試験を繰り返さず、この実データで候補数/処理位置を確認して根本修正へ進む。指輪判定性能と歩行停止は未解決。

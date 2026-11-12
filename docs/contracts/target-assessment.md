@@ -23,3 +23,7 @@
 入力入替・symlink・foreignrun・未知field・余計なファイルを拒否する。既sidecar/ZIP/receiptは勝手に上書きせず、未完なら同runを先に再開し新ゲームstart0。旧entryのhook既定None・旧ZIP互換を保つ。evaluatorがsidecarを受理する場合も、この1名と閉schema/参照画像hashを検証する。
 
 iSHへの結果表示はOSバックグラウンド通知ではない。今回、対象通知/対象なし循環・未知runの識別精度・iPhone後処理速度を達成済みとはしない。target/candidateでも既ゲームのポーズを保持し、自動購入しない。
+
+## 診断用の原画像回収（TEST088）
+
+対象判定の長時間化で通常ZIPが未完成の場合、既publication lock/certificate下で登録済み全PNGと元active/reportだけを別の証拠ZIPへ出せる。ファイル名はtest-088-evidence-<uuid>.zip、別storage/別schema receiptを使い、通常archive/receiptやsidecarは変更しない。未完成part/未登録資料を混入させず、全CRC/SHA/元bytesの照合を行う。これは診断回収だけで、対象判定/通常出版完了や次run開始の許可ではない。通常の判定はpendingとして保持し、unknownや陰性を捏造しない。
