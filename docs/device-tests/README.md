@@ -3101,3 +3101,14 @@ code `8553efb7a487b71e9be333a054465f76f4017111`、run43184318092/build148。host
 実3.9/3.12 bridgeと実i386/QEMUのpublic classifier/decoder/packet/publication、明度/位置/第三slot/部分名欠けを確認。固定8runは全field/canonical bytesが旧oracleと一致、人陰性4の誤target0、不明4は採点外。未知陽性0のまま、校正正例/合成変形を未知実機精度とは呼ばない。全source/license/featureと56,136B ELF SHA30967425eb55fd281a1cbea816d300d933f19839f01dd9d1d41630def69e3c02を結合。iOS native/API/R12・IPA148不変、新Mac/IPA作成0。
 
 [固定完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test089-native-ring/source.zip)を配布時に再build/CRC/全tracked blob/匿名GET/SHA/actualtag照合。IPA更新不要。展開したnecro_test089をiSHへ選び、`mkdir -p /mnt/necro_test089`、`mount -t ios . /mnt/necro_test089`、`cd /mnt/necro_test089 && sh test_088.sh`。先に同088の通常保存を完了する（ゲーム開始0が正常）。既evidence_088.shを繰り返さない。続いてLoopCtrl Start Server/通常VPN・通常1-1ポーズから`sh test_089.sh`でrestart→金壁/通路候補→商店→全商品確認を3回、商品到達後の暫定指輪表示と全画像/ZIP完了を別に計時し全run ZIP返却を依頼。稀な対象を出す周回は不要。iSH実秒・到達率/毎拍・人超え・未知陽性精度・旧歩行停止は未受入。
+
+
+## TEST089受領とTEST090: 3停止の限定対策・修正記録
+
+2026-11-13（日本時間）。[計画](../plans/test090-device-stops.md)・[検証](../reviews/test090.md)・[修正記録表](../fix-records.md)。実順c11722aa/4bca6a1d/059f6b82/848d9572の4ZIP/80原PNGを全CRC/SHA/strict load/certificate/sidecarへ照合、全回収完了・商品全体確認1/4。実1はカリスマのゆびわで、のろいの見逃し根拠なし。「判定だめそう」はiSHの「不明」が理由と追加回答。表示だけをのろい一致未確認/対象なし未確定へ明確化した。
+
+実2の旧STONE1個の移動先HUD喪失、実3の新bracket/遠方床による未送信FRESH拒否、実4の薄鉄閉扉FLOOR誤認を個別の限定proofで対策した。旧閾値/16stage/monotone・時刻/予算・UNKNOWN無再送を維持。開扉0歩と入店/商品全可視は別。実機改善未確認。
+
+code e7d9f42c4085316542fea864c9ba4e17a9e4acec、run43252794927/build150。実patched sourceの新11＋関連9＋selector4=24/9scopeが全Green。実物5gate PASS、19/22seal・Runtime/G1/R12不変、全9MachO/293禁止marker・実C4/Swift5/RSP6を照合。R12日本語2pathを誤集計したreader1行のみUnicode Red/Green後にretainedだけ再実行、既PASS2再実行0・計6attempt。修正表へ原因/対策/確認範囲/再発数を記録し、単体や対策記録を改善完了と扱わない。closing4docsだけで製品bytesは不変。
+
+[IPA150](https://github.com/shuhei0720/necrogold-automation/releases/download/test090-build150/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test090-build150/source.zip)。IPA17,631,754B/SHA956005dc4cc518a5e783529b5d94c833eb7552030f37fbe466f846372253b4db。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。test_090.shのあるフォルダをiSHへ選び、mkdir -p /mnt/necro_test090、mount -t ios . /mnt/necro_test090、cd /mnt/necro_test090 && sh test_090.sh。通常1-1ポーズから一連4回、商品全体可視/停止/判定・全保存の時間とruntime/test-090-<uuid>.zip全回分を依頼する。089追加回収/088再実行/稀な対象待ち周回は不要。到達率/毎拍・人超え/未知陽性精度は未受入。

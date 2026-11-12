@@ -27,7 +27,7 @@ icon kernelは整数上界と同じbinary64積の再利用による意味不変�
 
 ## 修正記録と再発照合
 
-追加ユーザー指示により[修正記録表](../fix-records.md)へ主要履歴80件と今回6件を整理し、修正日/事象/原因/対策/改善確認方法/再発数を記録した。AGENTSの修正前参照を必須とし、今回の着手済み分は提出前に遡及照合。旧038の可視anchor、074の通路/開通、055/081のFRESH・再取得、082の明示回帰、088/089の判定対策を確認した。類似症状だけで同原因再発へ加算せず、同じ原因が対策後にも出れば継続/回帰を記録する。
+追加ユーザー指示により[修正記録表](../fix-records.md)へ主要履歴80件と今回7件を整理し、修正日/事象/原因/対策/改善確認方法/再発数を記録した。AGENTSの修正前参照を必須とし、今回の着手済み分は提出前に遡及照合。旧038の可視anchor、074の通路/開通、055/081のFRESH・再取得、082の明示回帰、088/089の判定対策を確認した。類似症状だけで同原因再発へ加算せず、同じ原因が対策後にも出れば継続/回帰を記録する。
 
 修正日や単体合格・保存画像校正を改善完了とは扱わない。実機改善未確認は未確認で、表の過去対策を原因候補から除外する根拠にしない。既知の082配布前回帰と088の待ち継続も記録し、不明な過去回数を0にしていない。
 
@@ -50,3 +50,18 @@ native seal731490124fc8be88b367ab194cd032be6bb76cc95f816e8afb6e6b732eb22fedは22
 device laneでは旧070/081を再実行せず、Runtimeと対応fixtureの不変bytes・過去receiptへ結合してnot_runと明記する。MacのIPA実compile/Perception profile/package/provenance検査は無条件で残す。実物readerはpackage/host/retained/Mach-O/実compilerの5gateを維持し、CODE/RUN/BUILDとactual GOの未設定を拒否する。指摘したP1（新forbidden markerの空/欠落を許す）は、固定HEADの新fixture3とselectorのAST/class/testmethod/Cshim定義から得る完全集合へ結合する修正で解消した。旧268markerは保持し、今回の新25を足す。実物を読む前のcoverage/self検査と実CI/IPA検査は分ける。
 
 ユーザーの修正履歴ルールは今回の修正着手後に追加されたため、今回分は提出前の遡及照合であり、以後は修正前照合を必須とする。再発数不明を0にせず、同症状の別原因と同根本の再発を区別する。修正記録表の今回行が未実機確認を完了扱いしていないことを最終文書gateで確認する。商品到達率・人超え/毎拍・未知陽性精度は未受入で、単体/校正/静的reviewを実機合格へ転用しない。
+
+
+## 最終試験・実物確認
+
+製品code e7d9f42c4085316542fea864c9ba4e17a9e4acec、標準Mac/Ubuntuのdevice run43252794927/build150。実patched sourceで新11＋関連9＋selector4の24methods/9scopeが全Green、空/skip/error0、source前後不変。元と今回の期待が異なるfixture前提の訂正は各作者記録へ残し、既assertの削除/skipで通していない。全Runtime故障/070・081の意味試験は今回未実行、元source/fixture不変を過去証拠へ結合し今回のGreenとは呼ばない。
+
+原99→8観測の最終motion校正は109/110をUNKNOWNに保持、111以降6枚がUP1。追加HUD可視fence後は全元支持セルが7HUD外であることを静的結合し再分類を繰り返していない。Controllerは明示合成時計、新thinは原108の1byteだけFLOOR→DOOR、原115は全bytes不変でPARTIAL=1。status goods=0の全可視latchとは別。元98→108のLEFT1を維持し108→115はDOOR_OPENED/移動0を確認、未来商品frameの生成0。実機改善未確認。
+
+指輪は原309/235/204のmode0/1計6packetで全raw同値、同Zig0.15.2/異cwdの最終ELF56,088Bが全bytes一致、実3.9公開backend1成功。表示2literalの厳密逆変換と既表示/進捗3を実3.9で確認。初回はPillow不足で未実行だったため作業専用へ既依存を導入し、環境不足を意味Redに数えていない。
+
+API3artifactのid/run/head/size/SHAと全CRC/安全path/重複0、内IPAを照合。IPA0.3.4/build150/min16は17,631,754B/SHA `956005dc4cc518a5e783529b5d94c833eb7552030f37fbe466f846372253b4db`。22seal中Controller/Navigation/Perception3変更・19不変、全40R12不変、全9Mach-Oで旧268＋新25の禁止marker不在。実C4/Swift5/RSP6・PBX/rawlog/引数/source hashを同じ実compile profileへ結合した。build code全720sourceは全tracked blob/CRCと一致。
+
+実物5gateは計6attempt。package/host初回PASS後、retained readerがGit引用表示の日本語2pathを数えず38と誤集計して停止。実R12/source/IPAの破損ではない。過去表のパス/JSON/CI記録を参照し、Git列挙を-z/NUL/UTF8にする1行を有効Unicode Red→Greenで訂正した。旧reader/初回ledger/失敗出力を保持し、retainedだけroot明示GOで再実行、未実行macho/compileは各1回。既PASS2の再実行0/receipt bytes不変、追加compile/意味/分類0。同じ独立担当が最終実物GOを確認した。
+
+closingはstatus/本review/実機台帳/修正表の4文書だけ。製品/試験/IPA/source sealはbuild codeと不変として結合し、最終完全sourceの全tracked blob/CRCを再照合する。固定Release test090-build150でIPA/source/SHAを公開し、匿名全GET/actualtagを照合して返す。全実機受入は未確認であり、次の一連4回と全run ZIPを依頼する。
