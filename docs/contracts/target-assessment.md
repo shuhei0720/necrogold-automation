@@ -4,7 +4,7 @@
 
 ## データと判定
 
-既nativeの全商品可視/ポーズ・入力drainと全画像の保存照合後、同iPhoneのiSH内で判定する。外部へ画像を送らず、新しいゲーム入力を出さない。入力は元certificate済み同runの最終ACK PAUSE authorityを先に、必要時だけ同prefix/stable/非inflight/非交差の保持proof1枚を使う。画像上限2、896×414の原寸と有限3slot/scale/探索範囲・取消を維持する。
+既nativeの全商品可視/ポーズ・入力drain後、同iPhoneのiSH内で判定する。外部へ画像を送らず、新しいゲーム入力を出さない。入力は同runの最終ACK PAUSE authorityを先に、必要時だけ同prefix/stable/非inflight/非交差の保持proof1枚を使う。画像上限2、896×414の原寸と有限3slot/scale/探索範囲・取消を維持し、正式sidecarは全画像certificate後に確定する。
 
 看板・3価格/商品列を観測から求め、同画像・同じ商品slotのiconと表示名を空間的に結合する。価格の数値やrun/capture番号、特定runの固定座標を識別条件にしない。対象文字は「のろいのゆびわ」のderived glyph、iconはpublic既存R12 assetからのderived feature。raw/cropをGitへ保存せず、featureの出典hash/ROI・版/校正用途を記録しlegacy40filesを変えない。
 
@@ -15,6 +15,16 @@
 | unknown | 可視/資料/一致/判読が不十分。対象なしとはしない |
 
 実3原309を正例、原225の別ringと他商品を校正に使った。新原寸featureの固定閾値はicon候補≥.80、targetはicon≥.88 AND word IoU≥.82/coverage≥.90。raw原308は飛行中なのでpixel校正でだけcandidate例にし、本番sourceへ入れない。隣接画像・変形を別run未知評価へ数えない。対象なし/自動リスタートを新たに判断しない。
+
+## iSH内の画素処理と早期表示（TEST089）
+
+Pythonは元のchunk/CRC/寸法/有限inflateを担当し、同梱static i386 helperがunfilter0..4/全画素alpha=255/観測・icon・名前探索を実行する。最大4行×3slotのraw doubleを親で元min/round9/判定順に集約する。3.9–3.11の逐次sumと3.12の補償sumを区別し、未検証Python版は明示失敗。raw iconは数学上界の丸め余裕0..1.000001だけ受理する。C内でdecimal丸めやtarget判定をしない。名前の探索範囲が幾何的に空の左右端でのみword:nullを許し、絵が見えればcandidateを保持する。
+
+固定ELF/全source/feature/toolchain SHAをmanifestへ結合し、homeの専用0700cacheへ検証して配置する。shell/任意engine path/遅いPythonへのfallbackなし。固定長入力・相関SHA・閉schema・有限stdout/stderr・30秒期限と取消を検証し、故障は子を回収して固定reason/pendingとする。SHA相関echoをC内の独立hash計算と呼ばない。故障/時間切れをunknownや陰性に変換しない。
+
+TEST089だけはread-only/drainedのterminal manifest下でauthority画像を優先取得し、個別SHA/寸法/durable保存後に暫定先行結果を表示できる。元metadata/offset/prefix/保存画像順を変更せず、取得indexだけ優先する。authorityがtargetならproof分類を省く。memory cacheはrun/export/source SHA/feature/classifier/protocolへ結合し、最終certificate後のbefore_prepareと分類時に資格・再読込画像を照合する。全画像照合前のsidecar/完了/次startは0。observer失敗は診断回収を続行し、最終prepareで必ず失敗する。既定Noneの旧client動作を維持する。
+
+商品到達、暫定判定、全画像/ZIP完了の各時間を別に測る。早期表示で診断回収自体が速くなるとはしない。開発機/QEMUの倍率はiSHの人間速度達成の証拠ではない。固定実8runは陰性4/不明4、未知陽性0。校正正例/合成明度・位置・欠けの検証を未知陽性評価へ数えず、稀な対象を出す実機周回をユーザーへ要求しない。
 
 ## 保存と回復
 

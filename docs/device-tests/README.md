@@ -3091,3 +3091,13 @@ code `8553efb7a487b71e9be333a054465f76f4017111`、run43184318092/build148。host
 2026-11-12（日本時間）。[計画](../plans/test088-evidence.md)・[検証](../reviews/test088-evidence.md)。画像/記録照合完了後に指輪判定128秒超を実機画面で確認、前修正の効果は不足。通常_publishが判定後までZIPを作らないため、別evidence088入口で同088の原画像/active/reportだけを既lock/certificate下から別ZIPへ回収する。通常archive/receipt/sidecar・原bytes/mtime不変、判定/RPC/新game0、通常pendingを保持。診断を判定成功/陰性/通常出版とは呼ばない。
 
 実3.9新4は有効Red→Green。既判定/通常entry/native/IPA148不変で旧17/全Mac/C/IPAは再実行0。Ctrl+C後prompt復帰→新evidence_088.shで回収だけの実機確認を依頼し、runtime/test-088-evidence-<uuid>.zipを返却してもらう。重い通常試験を繰り返さず、この実データで候補数/処理位置を確認して根本修正へ進む。指輪判定性能と歩行停止は未解決。
+
+## TEST088証拠受領とTEST089: 指輪判定の画素処理と先行確認
+
+2026-11-12（日本時間）。[計画](../plans/test089-native-ring.md)・[検証](../reviews/test089.md)・[契約](../contracts/target-assessment.md)。73de7920の22member/20PNGを全CRC/SHA/size/strict load/certificateで照合し、authority235一枚の実3.9 profileでicon70%/PNG復元27%を確認。rawはGit外。未知ラベルの235を陰性へ数えない。実機128秒超を小さなPython整理で直ったとは扱わず、同iSH内のstatic i386 helperへ画素ループを移す。
+
+商品到達後、authorityを先に取得して暫定判定し、全診断画像の保存・照合後にcacheを再結合して正式sidecar/通常ZIPを確定する。全画像待ちを判定前から外すが、回収自体を不要とはしない。元metadata/cursor/保存順・閉report・既immutableZIPは維持。helper故障/取消/期限は固定reasonとpending保持、対象なしに変換しない。
+
+実3.9/3.12 bridgeと実i386/QEMUのpublic classifier/decoder/packet/publication、明度/位置/第三slot/部分名欠けを確認。固定8runは全field/canonical bytesが旧oracleと一致、人陰性4の誤target0、不明4は採点外。未知陽性0のまま、校正正例/合成変形を未知実機精度とは呼ばない。全source/license/featureと56,136B ELF SHA30967425eb55fd281a1cbea816d300d933f19839f01dd9d1d41630def69e3c02を結合。iOS native/API/R12・IPA148不変、新Mac/IPA作成0。
+
+[固定完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test089-native-ring/source.zip)を配布時に再build/CRC/全tracked blob/匿名GET/SHA/actualtag照合。IPA更新不要。展開したnecro_test089をiSHへ選び、`mkdir -p /mnt/necro_test089`、`mount -t ios . /mnt/necro_test089`、`cd /mnt/necro_test089 && sh test_088.sh`。先に同088の通常保存を完了する（ゲーム開始0が正常）。既evidence_088.shを繰り返さない。続いてLoopCtrl Start Server/通常VPN・通常1-1ポーズから`sh test_089.sh`でrestart→金壁/通路候補→商店→全商品確認を3回、商品到達後の暫定指輪表示と全画像/ZIP完了を別に計時し全run ZIP返却を依頼。稀な対象を出す周回は不要。iSH実秒・到達率/毎拍・人超え・未知陽性精度・旧歩行停止は未受入。

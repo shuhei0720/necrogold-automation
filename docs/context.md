@@ -14,7 +14,7 @@
 | 並行処理・前面・取消・drain | `patches/loopctrl/ngg2/NG2Runtime.swift`、`NG2Ticket.swift` | `patches/loopctrl/ngg2_runtime_tests.swift` の対応する公開fixture、`check_ngg2.py` の該当mutation |
 | 診断・旧journal・結果回収 | `necroprobe/native_walk.py` の `_report`、`_load`、`_collect_paged`、`run_session`、Runtimeのcache/priorityCaptureIDs/selectedExportFrames/results | `tests/test_native_compat070.py`・`tests/test_native_release070.py`・`tests/test_native_collection069.py`・`tests/test_native_publication069.py`（`necroprobe/test069.py`のlocal spool/ZIP公開）・`tests/test_native_collection068.py`、`tests/test_native_results.py`、`test_native_motion_references.py`、`test_native_recovery_results.py`、`test_native_paged_results.py`、`test_native_export_batch.py` |
 | 接続・起動・暗号HTTP | `necroprobe/native_walk.py` のpreflightとstart、`protocol.py` | `tests/test_json075.py`・`tests/test_native_connect.py`、`test_http_diagnostics.py`、`test_protocol.py`、`test_http_and_cli.py` |
-| 対象指輪の個別判定 | `necroprobe/target_assessment.py`・`target_ring_features.json`・TEST087 entry、test069の出版hook | [対象判定契約](contracts/target-assessment.md)、`tests/test_target_assessment087.py`・該当出版結合 |
+| 対象指輪の個別判定 | `necroprobe/target_assessment.py`・`ring_native.py`・`ring_early.py`・feature/engine manifest・TEST089 entry、test069の出版hook | [対象判定契約](contracts/target-assessment.md)、`tests/test_ring_*089.py`・`tests/test_target_assessment087.py`・[今回計画](plans/test089-native-ring.md) |
 | 実記録の評価 | `tools/evaluate_device_recording.py` のarchive/lineage/partial/milestone | `tests/test_device_recording.py`、[証明範囲](testing.md) |
 | compiler・封印・IPA | `patches/loopctrl/check_perception_build.py`、`apply_ngg2.py`、`verify_package.py` | `patches/loopctrl/test_*.py`、[Mac workflow](../.github/workflows/loopctrl-geometry.yml) |
 

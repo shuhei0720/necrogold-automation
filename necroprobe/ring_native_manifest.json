@@ -1,0 +1,34 @@
+{
+  "binary": "ring-i386",
+  "binary_bytes": 56136,
+  "binary_sha256": "30967425eb55fd281a1cbea816d300d933f19839f01dd9d1d41630def69e3c02",
+  "features_sha256": "202322326d86f600b300713ca8572b592f3beb59ceff6e6f6e58ef9cb3b728b4",
+  "protocol": "ngg2-ring-raw-v1",
+  "schema": "ngg2-ring-engine-v1",
+  "sources": {
+    "necroprobe/target_ring_features.json": "202322326d86f600b300713ca8572b592f3beb59ceff6e6f6e58ef9cb3b728b4",
+    "tools/build_ring_manifest.py": "d692e879e3f310849ba8bb09aec488252fd426a88ffa653326fe95d629d58ad2",
+    "tools/ring_native/Zig-LICENSE": "5c537d6853e005298a285d508cff9ac7192cea23576c840d485b2b586a7ff177",
+    "tools/ring_native/build.sh": "ea00c4835c8974430a9554037ae9465af585889a34b71ea04d97db108320caf1",
+    "tools/ring_native/feature_sha.h": "838f08c8085927572e19ff6f9094ad66c3d0e1db5037719f2d01dc51dda3bb4a",
+    "tools/ring_native/features.h": "9ee9dccd400c1038bd4ff77ae5d0191c962c4de9dfd5ac1e9011aed19e0665b9",
+    "tools/ring_native/generate_features.py": "20620b00e998a1d3d83a781610e073714d21663bea418bcae18698d03604a7f1",
+    "tools/ring_native/icon.c": "54dbddb13e5dc01cd436eee87d86a860c489b575ced1edce35bf684ac59ea792",
+    "tools/ring_native/main.c": "57662ec7110dd25840f43950adc157623e1a76a096c759a8f2896cfaaaf92f77",
+    "tools/ring_native/musl-COPYRIGHT": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af",
+    "tools/ring_native/observe.c": "d49d1cd5b9ca26375bd5d52938a7fadc8d0dbaeae2741c806a0cf2cf80bf7f27",
+    "tools/ring_native/ring.h": "db91570652dacf750b1f1a6286dcf4f8af7f0dc8b0ab779adb2f561fadcb4e4e",
+    "tools/ring_native/unfilter.c": "673464560898793a90c7f8d8e5db63463f4c91885dfad50deacbcbae57d49040",
+    "tools/ring_native/word.c": "9625c2e1e37a68065b5574b3006e1129293b259d7eacf64559441001927db581",
+    "tools/ring_native/word_features.h": "b612eca3b2e8723ce30868fdc4543ff6a0e9431b60a585f7cc2fa2267b981556"
+  },
+  "toolchain": {
+    "cpu": "i386",
+    "flags": "-target x86-linux-musl -mcpu=i386 -std=c11 -O2 -fno-fast-math -ffp-contract=off -fexcess-precision=standard -frounding-math -fno-stack-protector -Wall -Wextra -Werror -static -s -Wl,--build-id=none -lm",
+    "libc": "musl-bundled-with-zig-0.15.2",
+    "name": "zig",
+    "source_date_epoch": "0",
+    "target": "x86-linux-musl",
+    "version": "0.15.2"
+  }
+}

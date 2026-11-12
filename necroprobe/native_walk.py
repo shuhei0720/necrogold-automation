@@ -992,7 +992,7 @@ def _read_only_terminal(state, report):
 
 
 def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_timeout,
-                   cancelled=lambda: False, progress=None, read_only_clock=None):
+                   cancelled=lambda: False, progress=None, read_only_clock=None, image_observer=None):
     run_id = record['run_id']
     def check():
         _require(not cancelled(), 'cancel_requested')
@@ -1040,7 +1040,45 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
     fragments = image_folder/'.parts'
     fragments.mkdir(mode=0o700, exist_ok=True)
     verified = {item['name']:item for item in record['images']}
-    for index, item in enumerate(current['images']):
+    def observer_failed():
+        try:
+            image_observer.failed()
+        except Exception:
+            pass
+    def observed(item):
+        if image_observer is not None:
+            try:
+                image_observer.saved(base, record, item, cancelled)
+            except Exception:
+                # A local assessment must never lose diagnostic images or
+                # escape into the game-session emergency-cancel path.
+                observer_failed()
+            check()
+    remaining_indices = list(range(len(current['images'])))
+    while remaining_indices:
+        index = remaining_indices[0]
+        if image_observer is not None:
+            try:
+                priority = image_observer.priority(record, current['images'])
+                if (type(priority) not in (list, tuple) or len(priority) > MAX_IMAGES
+                        or any(type(value) is not int for value in priority)
+                        or len(set(priority)) != len(priority)
+                        or any(value not in {row['capture_id'] for row in current['images']}
+                               for value in priority)):
+                    raise ValueError('invalid image priority')
+                for capture_id in priority:
+                    preferred = next((candidate for candidate in remaining_indices
+                        if current['images'][candidate]['capture_id'] == capture_id), None)
+                    if preferred is not None:
+                        index = preferred
+                        break
+            except Exception:
+                observer_failed()
+            check()
+        remaining_indices.remove(index)
+        # Only iteration order changes. Manifest order, cursors and every
+        # record.images checkpoint retain their original authenticated indices.
+        item = current['images'][index]
         image_path = image_folder/item['name']
         fragment = fragments/(item['name']+'.part')
         offset = current['offsets'][index]
@@ -1111,12 +1149,14 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
                 except FileNotFoundError:
                     pass
                 check()
+                observed(item)
                 continue
         _atomic(image_path, raw)
         verified[item['name']] = item
         record['images'] = [verified[entry['name']] for entry in current['images'] if entry['name'] in verified]
         _save(base, record)
         check()
+        observed(item)
         show_progress()
         try:
             fragment.unlink()
@@ -1129,7 +1169,7 @@ def _collect_paged(request, base, record, clock, deadline, rpc_seconds, client_t
 def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic_ns,
                 sleep=time.sleep, poll_seconds=.25, max_seconds=185, recovery_seconds=6,
                 results_seconds=8, export_seconds=90, lock_path=None, progress=None,
-                recovery_notice=None, collection_seconds=300):
+                recovery_notice=None, collection_seconds=300, image_observer=None):
     """Start once; recover known work with read-only status and bounded cancel."""
     number(poll_seconds, .001, 1)
     number(max_seconds, .01, 200)
@@ -1370,7 +1410,7 @@ def run_session(client, output, *, cancelled=lambda: False, clock=time.monotonic
                             export_guard = (results_deadline, export_cancelled)
                             state, report = _collect_paged(request, base, record, clock,
                                 results_deadline, results_seconds, client.timeout, export_cancelled,
-                                progress, read_only_clock)
+                                progress, read_only_clock, image_observer)
                         else:
                             # A started old journal keeps its original protocol.
                             results_deadline = min(invocation_deadline, clock()+int(results_seconds*1e9))
@@ -1450,7 +1490,7 @@ def parser():
     return ap
 
 
-def main(argv=None, *, outcome=None, cancelled=lambda: False):
+def main(argv=None, *, outcome=None, cancelled=lambda: False, image_observer=None):
     args = parser().parse_args(argv)
     if args.check:
         print(REVISION + ' / ' + API_VERSION)
@@ -1473,8 +1513,9 @@ def main(argv=None, *, outcome=None, cancelled=lambda: False):
             def recovery_notice():
                 recovering[0] = True
                 print('前回の結果の回収のみ行います。今回はゲームを起動しません。', flush=True)
+            observer_options = {} if image_observer is None else {'image_observer': image_observer}
             record = run_session(client, args.output, cancelled=is_cancelled, progress=progress,
-                                 recovery_notice=recovery_notice)
+                                 recovery_notice=recovery_notice, **observer_options)
         if outcome is not None:
             # A storage wrapper owns its completion display after publishing the
             # collected evidence. Preserve pairing, timers and signal handling.

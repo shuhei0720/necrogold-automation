@@ -273,7 +273,7 @@ def run(destination, *, spool, session, cancelled=lambda: False, notice=print, t
         return record, _publish(base, destination, record, storage, cancelled, notice, test_number, prepare=prepare)
 
 
-def main(argv=None, *, test_number='069', prepare=None):
+def main(argv=None, *, test_number='069', prepare=None, image_observer=None):
     label = _test_label(test_number)
     heading = 'TEST-'+test_number
     parser = argparse.ArgumentParser(description=heading+': 全画像を永続保存して返却ZIPを作成')
@@ -295,7 +295,8 @@ def main(argv=None, *, test_number='069', prepare=None):
         def outcome(record, cancelled):
             stopped[0] = stopped[0] or cancelled
             return record
-        return native.main(options, outcome=outcome, cancelled=lambda: stopped[0])
+        observer_options = {} if image_observer is None else {'image_observer': image_observer}
+        return native.main(options, outcome=outcome, cancelled=lambda: stopped[0], **observer_options)
     try:
         record, archive = run(Path.cwd(), spool=Path.home()/'.necroprobe'/'runtime'/label,
             session=session, cancelled=lambda: stopped[0], notice=notice, test_number=test_number, prepare=prepare)

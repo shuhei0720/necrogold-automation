@@ -38,8 +38,8 @@ def _check(cancelled):
     _require(not cancelled(), 'target_cancelled')
 
 
-def decode_png(data, cancelled=lambda: False):
-    """Strict original-size opaque RGBA8 PNG; bounded inflate and filters 0..4."""
+def _filtered_png(data, cancelled=lambda: False):
+    """Validate original PNG chunks and return only the bounded inflate bytes."""
     _check(cancelled)
     _require(type(data) is bytes and 8 <= len(data) <= 512*1024, 'target_png_limit')
     _require(data[:8] == b'\x89PNG\r\n\x1a\n', 'target_png_format')
@@ -76,6 +76,13 @@ def decode_png(data, cancelled=lambda: False):
         raise AssessmentError('target_png_deflate') from exc
     _require(len(raw) == expected and inflater.eof and not inflater.unused_data and not inflater.unconsumed_tail,
              'target_png_inflate')
+    _check(cancelled)
+    return raw
+
+
+def decode_png(data, cancelled=lambda: False):
+    """Reference opaque RGBA8 decoder retained for numeric/filter regression."""
+    raw = _filtered_png(data, cancelled)
     result = bytearray(); prior = bytes(WIDTH*4); stride = WIDTH*4
     for y in range(HEIGHT):
         if not y % 8: _check(cancelled)
@@ -230,8 +237,8 @@ def _outcome(slots, word):
     return ('candidate', 'icon_only') if maximum >= .80 else ('unknown', 'no_target_evidence')
 
 
-def classify_png(data, cancelled=lambda: False):
-    """Find three observed merchandise slots, then join icon/name in one slot."""
+def _classify_png_reference(data, cancelled=lambda: False):
+    """Numerical regression oracle only; never a runtime failure fallback."""
     rgba = decode_png(data, cancelled); sprites, reference = _features()
     white, rows = _observations(rgba, cancelled)
     best = dict(outcome='unknown', reason='no_complete_row', row=None, slots=[], word=None)
@@ -252,6 +259,43 @@ def classify_png(data, cancelled=lambda: False):
         if outcome == 'target': break
     _check(cancelled)
     return best
+
+
+def _aggregate_rows(rows, cancelled=lambda: False):
+    """Apply the original Python rounding/selection to bounded native raw rows."""
+    best = dict(outcome='unknown', reason='no_complete_row', row=None, slots=[], word=None)
+    for row in rows:
+        _check(cancelled)
+        slots = [dict(slot=index, icon_score=round(min(1., float(item['score'])), 9),
+                      icon_box=item['box']) for index, item in enumerate(row['slots'])]
+        words = [dict(slot=index, iou=round(float(item['word']['iou']), 9),
+                      coverage=round(float(item['word']['coverage']), 9), box=item['word']['box'])
+                 for index, item in enumerate(row['slots'])
+                 if slots[index]['icon_score'] >= .80 and item['word'] is not None]
+        word = max(words, key=lambda item: (slots[item['slot']]['icon_score'] >= .88
+                   and item['iou'] >= .82 and item['coverage'] >= .90,
+                   item['iou'], item['coverage'], slots[item['slot']]['icon_score']), default=None)
+        outcome, reason = _outcome(slots, word)
+        value = dict(outcome=outcome, reason=reason, row=row['row'], slots=slots, word=word)
+        if (outcome == 'target' or best['row'] is None or
+                max(item['icon_score'] for item in slots) > max(item['icon_score'] for item in best['slots'])):
+            best = value
+        if outcome == 'target':
+            break
+    _check(cancelled)
+    return best
+
+
+def classify_png(data, cancelled=lambda: False):
+    """Use the local compiled pixel engine; keep strict PNG checks and decisions."""
+    raw = _filtered_png(data, cancelled)
+    _features()
+    from .ring_native import NativeRingError, classify_filtered
+    try:
+        rows = classify_filtered(raw, FEATURE_SHA256, cancelled)
+    except NativeRingError as error:
+        raise AssessmentError(str(error)) from error
+    return _aggregate_rows(rows, cancelled)
 
 
 def _selected(record):
@@ -362,7 +406,7 @@ def _read(path, base, limit):
     return data
 
 
-def prepare_assessment(base, record, report_sha, cancelled=lambda: False):
+def prepare_assessment(base, record, report_sha, cancelled=lambda: False, *, classify=None):
     """After the publication certificate, freeze a deterministic same-run sidecar."""
     _check(cancelled); base = Path(base); folder = base/('native-'+record['run_id'])
     active = _read(base/'active.json', base, 2*1024*1024)
@@ -392,7 +436,10 @@ def prepare_assessment(base, record, report_sha, cancelled=lambda: False):
     sources = []
     for source in selected:
         _check(cancelled)
-        sources.append(dict(source, **classify_png(images[source['capture_id']], cancelled)))
+        data = images[source['capture_id']]
+        result = (classify_png(data, cancelled) if classify is None
+                  else classify(record, source, data, cancelled))
+        sources.append(dict(source, **result))
         if sources[-1]['outcome'] == 'target': break
     outcomes = [source['outcome'] for source in sources]
     outcome = 'target' if 'target' in outcomes else 'candidate' if 'candidate' in outcomes else 'unknown'
