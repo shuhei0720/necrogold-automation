@@ -3075,15 +3075,22 @@ int ng2_choose(const NG2Scene *s,int32_t x,int32_t y,const uint16_t *visits,size
                          (reserved.command_id,reserved.source_capture_id,reserved.last_capture_id,reserved.attempts,reserved.active))
         self.assertEqual(command.target_ns+PERIOD-150_000_000+10_000_000,self.recovery().schedule_deadline_ns)
         self.ack(command);self.assertEqual(1,self.motion_wait().active)
+        retry_gap=PERIOD//10
+        self.assertEqual((PERIOD,52_000_000),(self.status().beat_period_ns,retry_gap))
         unknown=translated(terrain,command.direction);unknown.signature=bytes([40])*23296
         for n in range(2):
-            self.observed_result(command,unknown,offset=80_000_002+n*10_000_000)
+            self.observed_result(command,unknown,offset=80_000_002+n*retry_gap)
             record=self.motion_wait()
             self.assertEqual((command.id,command.source_capture_id,self.number,reserved.deadline_ns,n+1,0,1),
                              (record.command_id,record.source_capture_id,record.last_capture_id,record.deadline_ns,
                               record.attempts,record.last_motion,record.active))
             self.assertEqual(self.number,self.events()[-1].observed_capture_id)
-        self.observed_result(command,translated(terrain,command.direction),offset=100_000_002)
+            if n==0:
+                saved=(bytes(record),bytes(self.events()[-1]))
+                self.observed_result(command,unknown,offset=90_000_002)
+                self.assertEqual(saved,(bytes(self.motion_wait()),bytes(self.events()[-1])),
+                                 'a10ms frame is earlier than the original52ms retry boundary')
+        self.observed_result(command,translated(terrain,command.direction),offset=80_000_002+2*retry_gap)
         record=self.motion_wait()
         self.assertEqual((3,1,0,self.number),(record.attempts,record.last_motion,record.active,record.last_capture_id))
         self.assertEqual((1,1),(self.status().inputs,self.status().moves))

@@ -37,3 +37,9 @@ rootの同8C/H・C4 library `e45b5096…` の原257枚比較は、通常の材�
 selector `3bce06fd…` とowned5ファイルのfreeze hash、inventory12行のsource hash/全選択名をASTで照合した。新18＋旧native15＋client2＋自己3＝38件/13scope、native/client35件は重複0。自己3件の初回Green（0.018秒）を実ログで確認した。全12COREの選択前結合、空値も含むbaseline/特殊D override拒否、実client/core4・JSON/publication結合、ABI実query選択、件数/skip/error/expected-failure拒否、試験前後seal/client不変を維持する。旧083 runner/自己試験/entry/shell/core4/Runtimeは基準版bytesと一致。workflow差分はdevice laneのrunner変更1行だけで、旧070/081 Mac保存stepは不変。
 
 次工程は同codeの限定CI・Mac保存Green・実compiler・IPA/全sourceと5実物verifierの照合で、この時点では未実施。固定Release公開GET、新iPhoneでの候補発見/商品可視/実PAUSE・到達率・恒久毎拍/人超え・対象識別は未受入であり、同じ担当が後続実物を読取確認する。
+
+## CI141の旧fixture修正追確認
+
+build141/run43138286437のhostは新18件のGreen後、選択した旧 `test_motion_wait_diagnostic_retains_each_eligible_capture_and_fixed_deadline` で失敗した。第2観測を初回から10ms後に置きながらattempt2/最新IDを期待しており、元070から維持するcommand_period/10（このfixtureは52ms）の資格に届かない。同じ旧fixtureをimmutable083の8C/Hと現084で各1回実行した作者ログは、同じexpected29/2対actual28/1のassertion failure・compile/error0を示す。Dは非FLOORだけで、この両FLOOR経路を変更していない。CI141を全Greenや今回製品の意味Redには数えない。
+
+同じ独立担当がtest-only案へGO後、当該methodだけの最小差分を確認した。元のattempt/lastID/固定deadline/event ID/最終MOVED/creditの全assertを保ち、PERIODとretry_gap=52msを事前assertして第2/第3観測を元period/10間隔へ移す。初回後10msの早いUNKNOWNを別に置き、MotionWait/eventの全bytes不変を追加した。修正fixture SHA `a3326511…` のbaseline083/current084各1method Green（2.205/2.086秒）とsource identityを読取確認し、再静的GO、残P0/P1/P2なし。製品3Cは前節の各SHAと同一、追加のC5/D3/他意味試験の再実行0、独立担当の意味再実行0。出典はGit外 `test084-controller/ci141-diagnosis/` の旧比較・修正比較JSONと4実ログ。同修正を含む新codeのCI/実物検証は未実施のまま次工程とする。
