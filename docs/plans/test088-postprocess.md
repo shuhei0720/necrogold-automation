@@ -1,0 +1,11 @@
+# TEST088: 画像保存後の無表示待ちを改善
+
+2026-11-12（日本時間）。基準20171ccecfb9bfcdac7b1dcc275f40fd8575faac。実機画面は「前回のZIP保存を再開します。今回はゲームを起動しません」。同088の未出版runに戻りcertificate/対象判定を同期実行する区間で、再実行は未保存の判定をやり直す。実機report/時間は未受領のため、実滞留箇所を断定しない。
+
+開発機の実Python3.9 profileで_iconがclassifyの約96.5%、nested generatorが大量に再開される。_iconだけRGB3値のtuple sumへ同値化しslice/zip/generatorを除去する。shapeを先に計算し、元float評価順へ最大matches/outlineを代入した上界がraw best以下の場合だけ残りを省く。shapeの元の下限0を維持し上限1へはclampせず、探索順/同率/丸め/弱slotを含む出力とfeature/閾値/schemaを維持する。
+
+test069._publishにcertificate前/対象判定前の進捗、test087._prepareに既cancelチェックを透過するmonotonic heartbeatを追加する。初回と概ね5秒ごとにstdoutへ表示し、時間はsidecar/reportへ保存しない。別thread/process/新依存/入力/タイムアウトでunknown確定を追加しない。旧immutable sidecar/ZIPは再分類・追記せず、同088spool/UUID/PNGと取消を守る。
+
+新性能2/進捗2の有効Assertion Red→Green。実3.9で既target6/回復3、出版境界に関係する既4を既存開発Pythonで選ぶ。原086実3の既校正309は全field同一を1回確認し、未知評価へ数えない。旧全Mac/C/33群・新IPAはnative不変なので不要。同じ独立担当1名で差分と実物を確認する。
+
+固定Release test088-postprocess-fix2へ完全source/SHAを保存し、全tracked blob/CRC/匿名GET/actual tagを検証して返す。同番号088を維持し、既待機はCtrl+Cで停止後、新sourceのtest_088.shで先に同run保存を完了。初回のゲーム起動0は正常。全画像/ZIP照合を終えたZIPを返却依頼し、その後の通常1-1ポーズから一連試験も依頼する。歩行途中停止やiSH所要時間は未受入のまま示す。

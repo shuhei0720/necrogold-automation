@@ -3077,3 +3077,11 @@ code `8553efb7a487b71e9be333a054465f76f4017111`、run43184318092/build148。host
 2026-11-12（日本時間）。ユーザーは元ファイルを削除済み、新しい通常テストを要求。復旧ではなく088の新entry/spoolで通常一連試験へ戻す。test087._prepare/test069出版・Python3.9修正を共用し、旧087資料は削除しない。新入口の実3.9 --check/sh -n成功、共有9件は同bytesの過去CIを再利用、native/IPA148不変・新ビルド0。
 
 [完全ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test088-python39-fix1/source.zip)。IPA更新不要、LoopCtrl完全再起動/Start Server/通常VPN→通常1-1の新ランをポーズ→test_088.sh。一連のrestart/候補/商店/全商品PAUSE/対象判定/全画像ZIP照合を3回、runtime/test-088-<run_id>.zip全回分と商品可視/停止位置/見逃しを依頼。歩行停止と未知陽性精度/iSH速度・新版到達率は未解決/未受入で、画像保存後例外の修正と区別する。
+
+## TEST088保存後処理修正: 無表示待ちと指輪判定の負荷
+
+2026-11-12（日本時間）。[計画](../plans/test088-postprocess.md)・[検証](../reviews/test088-postprocess.md)。実機画像は同088未出版run再開後の無表示。実滞留箇所/秒は未確認だが、開発3.9でiconが約96.5%のCPU時間を占めた。RGB一致をtuple sumへ等価化し元式の最大上界<=rawbestだけ省略、数値/弱slot/探索順/feature/閾値/schema不変。certificate/判定前と既cancelチェック時の経過表示を追加した。時限unknownや未完runの破棄0。
+
+有効Red→実3.9の性能2/target6/進捗2/回復3の13件、開発3.12.14の関連出版4件が成功。原086校正309全field exact一致、iSH速度/未知陽性精度ではない。native/IPA148不変、新Mac/C/IPA作成0。
+
+[修正版完全ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test088-postprocess-fix2/source.zip)。Ctrl+Cで現在の待機を止めて元データを残し、新sourceのtest_088.shで同088の保存を先に完了する実機確認を依頼。初回はゲーム開始0で正常。全保存完了ZIPを返却後、通常1-1ポーズから同コマンドで一連3回と全run ZIP/商品可視/停止/見逃し/後処理秒を依頼する。歩行停止は今回未修正。

@@ -187,15 +187,22 @@ def _icon(rgba, cx, sy, sprites, cancelled):
                     a, c, d = rgba[at], rgba[at+1], rgba[at+2]; v = a+c+d
                     observed.append((a, c, d)); dot += a*r+c*g+d*b
                     total += v; square += v*v; cross += v*intensity
+                norm = math.sqrt(max(0, (square-total*total/count)*target_var))
+                shape = max(0, (cross-total*target_sum/count)/max(norm, 9))
+                # Substitute maximum matches/outline in the original float
+                # expression; a tied raw score cannot replace the first box.
+                if ((.55*count/count+.45*shape)*(.80+.20*len(dark)/len(dark))) <= best:
+                    continue
                 gain = min(1.30, max(.37, dot/energy))
-                matches = sum(sum(abs(a-gain*b) for a, b in zip(pixel, point[2:])) < 3*(13+15*gain)
-                              for pixel, point in zip(observed, bright))
+                tolerance = 3*(13+15*gain); matches = 0
+                for (a, c, d), (_, _, r, g, b) in zip(observed, bright):
+                    # Keep sum's order and float behavior on every supported
+                    # Python, without a nested generator for every RGB point.
+                    matches += sum((abs(a-gain*r), abs(c-gain*g), abs(d-gain*b))) < tolerance
                 outline = 0
                 for dx, dy in dark:
                     at = 4*((y+dy)*WIDTH+x+dx)
                     outline += rgba[at]+rgba[at+1]+rgba[at+2] < 144
-                norm = math.sqrt(max(0, (square-total*total/count)*target_var))
-                shape = max(0, (cross-total*target_sum/count)/max(norm, 9))
                 score = (.55*matches/count+.45*shape)*(.80+.20*outline/len(dark))
                 if score > best: best, box = score, [x, y, width, height]
     return round(min(1., best), 9), box

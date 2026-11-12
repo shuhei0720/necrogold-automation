@@ -213,10 +213,12 @@ def _copy(source, target, cancelled):
 
 
 def _publish(base, destination, record, storage, cancelled, notice, test_number='069', *, prepare=None):
+    notice('保存済みの全画像と実行記録を照合しています。')
     report_sha = _certificate(base, record, cancelled)
     # A local assessment belongs to the first immutable archive snapshot.
     # Recovery verifies an existing archive without retrofitting new evidence.
     if prepare is not None and not (storage/(record['run_id']+'.zip')).exists():
+        notice('全画像の照合が完了しました。指輪の判定を行います。')
         prepare(base, record, report_sha, cancelled)
         _check(cancelled)
     notice('全画像を確認済みです。返却用ZIPを保存・照合しています。')
