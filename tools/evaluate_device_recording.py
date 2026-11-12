@@ -121,6 +121,13 @@ def _archive(path):
             record = native_walk._load(location)
         require(record['native_report'] is not None, 'native_report_missing')
         allowed = {active[0], report_name} | {folder+'/images/'+item['name'] for item in record['images']}
+        assessment_name = folder+'/target-assessment.json'
+        if assessment_name in files:
+            from necroprobe.target_assessment import MAX_SIDECAR, validate_assessment
+            require(files[assessment_name].file_size <= MAX_SIDECAR, 'target_sidecar_limit')
+            validate_assessment(json_object(archive.read(files[assessment_name]), MAX_SIDECAR),
+                                record=record, report_sha=sha(report_raw))
+            allowed.add(assessment_name)
         require(set(files) == allowed, 'unsupported_or_multiple_run_layout')
         require(directories <= {base+'/', folder+'/', folder+'/images/', folder+'/images/.parts/'},
                 'unsupported_or_multiple_run_layout')

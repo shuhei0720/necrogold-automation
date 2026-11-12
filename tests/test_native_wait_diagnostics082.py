@@ -91,11 +91,15 @@ class NativeWaitDiagnostics082Tests(unittest.TestCase):
             bytes(self.recovery()), bytes(self.motion_wait()),
             tuple(bytes(r) for r in self.motion_references()))
 
-    def trace(self, old, observed, validation, changed_tiles):
+    def trace(self, old, observed, validation, changed_tiles, entry=None):
         rows, details = self.scene_changes(), self.scene_details()
-        self.assertEqual(1, len(rows), 'the original rejected nonzero-mask proof needs a diagnostic row')
-        self.assertEqual(1, len(details))
-        row, detail = rows[0], details[0]
+        expected = 1 if entry is None else 2
+        self.assertEqual(expected, len(rows), 'each true entry/rejection retains its own diagnostic row')
+        self.assertEqual(expected, len(details))
+        if entry is not None:
+            self.assertEqual(entry, (bytes(rows[0]), bytes(details[0])),
+                             'the later rejection cannot overwrite the original entry evidence')
+        row, detail = rows[-1], details[-1]
         self.assertEqual((old.id, old.source_capture_id, observed, old.target_ns, old.deadline_ns,
             4, changed_tiles, 0, 0), (row.command_id, row.source_capture_id,
             row.observed_capture_id, row.target_ns, row.deadline_ns, row.change_mask,
@@ -132,9 +136,13 @@ class NativeWaitDiagnostics082Tests(unittest.TestCase):
 
     def test_ready_unknown_motion_records_only_real_nonzero_scene_diff(self):
         terrain, changed, old = self.start_wait('passage', remote=True)
+        self.trace(old, self.trigger_id, 11, 1)
+        entry = (bytes(self.scene_changes()[0]), bytes(self.scene_details()[0]))
         self.now += 100_000_000; self.observe(changed)
         self.assert_waiting(old)
-        self.assertEqual([], self.scene_changes(), 'OBSERVE UNKNOWN remains a wait, not a rejected proof')
+        self.assertEqual(entry, (bytes(self.scene_changes()[0]), bytes(self.scene_details()[0])))
+        self.assertEqual((1, 1), (len(self.scene_changes()), len(self.scene_details())),
+                         'a repeated OBSERVE UNKNOWN does not append another entry or rejection')
         self.now += 100_000_000; self.observe(terrain)  # Independent strict zero; do not issue a ticket.
         self.assertEqual((0, 0), (self.status().reason, self.status().input_state))
         saved = self.frozen_authority()
@@ -142,7 +150,7 @@ class NativeWaitDiagnostics082Tests(unittest.TestCase):
         self.assertEqual((17, 0, 1, 1), (self.status().reason, self.status().input_state,
             self.status().inputs, self.status().moves))
         self.assertEqual(saved, self.frozen_authority())
-        detail, cells = self.trace(old, self.number, 11, 1)
+        detail, cells = self.trace(old, self.number, 11, 1, entry=entry)
         self.assertEqual((1, 0), (detail.cell_count, detail.omitted_cells))
         self.assertEqual([(-10, 4)], [(cell['x'], cell['y']) for cell in cells])
 
@@ -163,6 +171,13 @@ class NativeWaitDiagnostics082Tests(unittest.TestCase):
                     self.assertEqual(saved, self.frozen_authority())
                     self.assertEqual([], self.scene_changes()); continue
                 terrain, changed, old = self.start_wait('passage', remote=fault!='mask_zero')
+                if fault == 'mask_zero':
+                    self.assertEqual([], self.scene_changes())
+                    self.assertEqual([], self.scene_details())
+                else:
+                    self.trace(old, self.trigger_id, 11, 1)
+                original_journal = (tuple(bytes(row) for row in self.scene_changes()),
+                                    tuple(bytes(row) for row in self.scene_details()))
                 if fault in ('mask_zero', 'issued'):
                     if fault == 'issued': self.future_ticket(terrain)
                     else:
@@ -176,8 +191,13 @@ class NativeWaitDiagnostics082Tests(unittest.TestCase):
                 if fault in ('visible', 'partial'):
                     changed = deepcopy(changed); changed.goods = fault
                 self.observe(changed, **options)
-                self.assertEqual([], self.scene_changes())
-                self.assertEqual([], self.scene_details())
+                self.assertEqual(original_journal,
+                    (tuple(bytes(row) for row in self.scene_changes()),
+                     tuple(bytes(row) for row in self.scene_details())),
+                    'the existing entry is retained without a false later failure/entry row')
+                if fault == 'mask_zero':
+                    self.assertEqual([], self.scene_changes())
+                    self.assertEqual([], self.scene_details())
                 if fault in ('prefix', 'unstable'):
                     self.assertEqual(0, self.status().reason)
                 else:

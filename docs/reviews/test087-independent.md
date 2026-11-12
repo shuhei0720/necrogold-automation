@@ -1,0 +1,33 @@
+# TEST087 独立レビュー
+
+2026-11-12（日本時間）。[計画](../plans/test087-target-pause.md)。基準 `6a937163ac87dde049887eaf56a65f9dda757911`。同じ独立担当1名がB計画/最終差分/同code実物を確認、意味試験の独立重複実行0。A nativeは独立した根拠/意味Red/planGOまで未適用。
+
+## B計画
+
+BはP0/P1なしGO。原実3の対象名/灰茶spriteと、実1の別ringを独立視認した。rawはGit外、現在の3runは校正であり隣接frameを未知評価にしない。targetは同PNG・同slotのicon/表示名の全AND、iconだけはcandidate、読めない/不足/破損を対象なしにしない。原308はinflightなのでpixel校正に限り、本番sourceは最終ACK PAUSE authority309（stable/noninflight/prefix21）を先に、同prefix/authority以下/非交差の保持proof1枚まで。
+
+certificate→bounded同runPNG判定→immutable版付きsidecar→元inventory/ZIP/receiptの順とし、未完は新start0で同run再開。closed native/report/active/API/ABIを変更せず、旧entry optional hook=Noneを維持する。既ZIP出版後にsidecarを足さず、原報告/asset/source入替やsymlink/未知field/foreignrun/任意extraを拒否する。新moduleのImportErrorはRedではなく、有効な前提の後で期待target/candidate対unknownのassertion Redを取る。OSバックグラウンド通知・対象なし循環・未知精度は今回未受入。
+
+## A事前調査
+
+原354/371の同pose・明るさ/文字変化を独立視認した。cmd26は未送信であり『LEFT送信後に止まった』とはしない。原355欠落から最初の具体guardを特定せず、固定旧STONE planeでzero限定補助を検討する根拠と分ける。旧axis75/lead不足を格上げしない。製品適用GOはまだ出していない。
+
+最終コード/作者単体/selector/実物は完成後に同担当が読取確認し、実機受入と分離して記録する。
+
+## 最終計画とcode前の差分判定
+
+同じ独立担当がAの限定計画と最終全差分を確認し、P0/P1/P2なしでGO。独立の意味試験/compile再実行は0、他製品/試験/文書への編集0。本節以前のA未適用は事前調査時点の記録であり、最終Aは次の通路診断だけへ変更した。
+
+Aは歩行停止を修正したとはしない。STONE追加proofは独立支持不足で不採用。Cは `9492a632f02c4d053f4f7aca1e923ccbb83c50318edad34e915c61331b353c4d`。旧全資格・UNKNOWN/selfBLOCKEDを通る通路wait入口でだけ、実mask!=0を既record_changeへactual counts/allowed0/MOTION11として記録する。既宣言移動/3locals/計算と限定call以外は元bytes、イベントobserved0/outcome3/motion0・票/信用/歩数/期限/予算は維持する。generic/shop callerは元記録があるので追加しない。初回Greenのshop重複失敗をpassage_activeのANDで修正し、重複禁止assertを残した。新3 distinct methodsの有効Red/Greenと、編集した旧082の2methodsを最終C sourceで確認した作者記録を読んだ。旧空期待はentrymetadata/bytes保持・repeat重複禁止・後続reject順序へ強化され、mask0拒否を維持する。
+
+event.observedへの追加だけではRuntime requiredの空き20制限で保存を保証しない点と、change_mask0を元clientが拒否する点を事前指摘し、両案は不採用。最終案は既first1/latest2の比較枠を使い、既Runtime diagnostic priorityへ結合する。最大12restart+stop/found2+比較4+最後MOVE source1=19で元20枠内。原355の具体取消guard、signature-only0maskの記録、実4の歩行停止は未解決であり、初取消画像の回収保証や将来の到達成功へ拡大しない。
+
+B moduleは `b2b52ffe41826ea7031f24ca26ab6a77a1283efc7d18a134470f7c8dcea37575`、featureは `202322326d86f600b300713ca8572b592f3beb59ceff6e6f6e58ef9cb3b728b4`。stdlib PNGは入力512KiB/原寸RGBA8/64chunk/有限inflate・filter0〜4/CRC/opaque alpha/余剰/取消を検査する。最大2画像・4商品列・3slot・固定scale/探索範囲を保つ。同slotのicon≥.88と文字IoU≥.82/coverage≥.90が全成立した時だけtarget、icon≥.80だけはcandidate、不足はunknown。価格250や固有run/位置を条件にせず、none/購入/新入力を追加しない。
+
+source選択のNone==Noneによりprefix欠落を適格とし得るP1を指摘し、明示nonbool intの3prefix、PAUSE直前ACK ID、ACKend≤image.start<end≤PAUSEbegin、authority.start==PAUSE.source_startのANDへ修正された。元同run/report/feature/source hashと版付き閉sidecarを守る。rootが指摘したlink後unlink前の中断も、既正本を検証後、同canonical bytesのpartだけを除去・dirsyncし再分類0で回復する境界へ修正された。関連の有効Redと変更methodだけのGreenを確認。その他の型/ROI/未評価proof/PNG chunk/複数icon同slotの作者補強も、拒否条件やslot結合を強めており、元target期待や閾値を弱めていない。
+
+出版hookはcertificate後・初回archive前だけ。closed active/reportは同bytes、Noneの旧entry、既archive/receiptの不変と未公開run回復start0を保つ。evaluatorは上限/strict validator付きのsidecar1名だけを受け入れ、未知extraとforeignrunを拒否する。新結合6methodsはnativeCをunavailable adapterと明示し、sidecar受理をnative商品到達へ変換しない。初回fixtureのui_frozen不足はfixture訂正であり意味Redと別記する。iSH表示はOS背景通知ではなく、通知1回・対象なし循環・iPhone処理速度は未受入を保持する。
+
+原3runの校正はtarget/unknown/unknown。凍結後に別途固定した旧8runはnegative4のtarget誤検出0、正解不明4は全unknown、positive holdout0。source/partだけの修正後は9pixel関数本文とfeatureが同一のため元評価を再結合し、raw再走査0。この結果を未知正例精度や実機速度へ拡大しない。旧417比較/現80Sceneも数学C source不変を根拠に再利用し、Controller replayとしない。最終C4 `f3ee2dedea3b16044d707919de83ba6ff048dfde5294b55f2a3b04cc74bd74cb`、fresh G1/seal/applyは22源中Controller1変更/21同一、manifest `a4cec8352ed908b9e45da48a7daea7677c7d005746cea84fa9cebc25d7b4deaa`。Runtime/API/ABIとnative_walk/validation/protocolは維持し、変更したtest069を不変4coreへ数えない。
+
+selectorは新15/編集旧2/未変更関連13/self3の33件・10scope、CORE12 canonical/既存bareを選択前に束縛する。repo8 C/Hもsealed源と前後照合し、evaluator実module/featureSHA/新旧entry/optional Noneを検査する。旧19に082_DIAGNOSTICと087を加えた21override prefixは空でも拒否し、self tupleが087であるAST assertionを確認した。self3作者ログは全PASS。新C宣言0、268markerの実MachO確認は今後の実物工程と分ける。最初3文書15,333B/native契約12,277Bは予算内、diffcheck PASS。同code CI/IPA/5実物verifier/全source/固定Releaseは未実施として保留し、code凍結後に同担当がread-onlyで確認する。

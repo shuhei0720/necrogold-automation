@@ -1303,10 +1303,12 @@ static int stationary_wait_proof(const NG2Controller *p,const NG2Scene *scene){
         &&ng2_motion(&p->gate_refresh_anchor,scene,p->gate_refresh_choice.direction,&still)
         &&still.kind==NG2_BLOCKED&&!still.dx&&!still.dy;
 }
+static void record_change(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    int mask,int changed_tiles,int changed_protected,int allowed,int validation);
 static int start_stationary_wait(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t now){
     NG2ControllerEvent *e=event(p);NG2Motion unresolved,texture;uint64_t budget,aligned;
-    int d=p->command.direction;
+    int d=p->command.direction,mask,tiles,protected_cells;
     if(p->observation_refresh_count>=8||p->observation_refresh_verified==p->latest_verified_ns
         ||p->gate_refresh_state||p->stationary_gate_retry_waiting||p->passage_wait_kind
         ||p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||d<1||d>4||!p->command.id
@@ -1336,6 +1338,8 @@ static int start_stationary_wait(NG2Controller *p,const NG2Scene *scene,uint64_t
     if(!stationary_wait_scene(p,scene)||!ng2_motion(&p->before,scene,d,&unresolved)
         ||unresolved.kind!=NG2_MOTION_UNKNOWN||!ng2_motion(scene,scene,d,&texture)
         ||texture.kind!=NG2_BLOCKED||texture.dx||texture.dy)return 0;
+    mask=scene_change(&p->before,scene,&tiles,&protected_cells);
+    if(mask&&p->passage_active)record_change(p,scene,id,mask,tiles,protected_cells,0,NG2_REVALIDATE_MOTION);
     ++p->observation_refresh_count;p->observation_refresh_verified=p->latest_verified_ns;
     p->stationary_wait_active=1;p->stationary_wait_parent=budget;p->stationary_wait_trigger_id=id;
     p->gate_refresh_state=NG2_GATE_REFRESH_OBSERVE;p->gate_refresh_proof_id=0;
@@ -1349,8 +1353,6 @@ static int start_stationary_wait(NG2Controller *p,const NG2Scene *scene,uint64_t
     p->motion_wait.active=0;p->visual_phase_failed=0;p->s.phase=NG2_PHASE_SYNC;p->proof_capture_id=id;
     return 1;
 }
-static void record_change(NG2Controller *p,const NG2Scene *scene,uint64_t id,
-    int mask,int changed_tiles,int changed_protected,int allowed,int validation);
 /* The retired unsent source still equals this fixed anchor before issuance.
  * Only a real Scene difference can use the existing nonzero-mask journal. */
 static void record_stationary_failure(NG2Controller *p,const NG2Scene *scene,uint64_t id,

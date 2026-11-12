@@ -212,8 +212,13 @@ def _copy(source, target, cancelled):
         os.fsync(copied.fileno())
 
 
-def _publish(base, destination, record, storage, cancelled, notice, test_number='069'):
+def _publish(base, destination, record, storage, cancelled, notice, test_number='069', *, prepare=None):
     report_sha = _certificate(base, record, cancelled)
+    # A local assessment belongs to the first immutable archive snapshot.
+    # Recovery verifies an existing archive without retrofitting new evidence.
+    if prepare is not None and not (storage/(record['run_id']+'.zip')).exists():
+        prepare(base, record, report_sha, cancelled)
+        _check(cancelled)
     notice('全画像を確認済みです。返却用ZIPを保存・照合しています。')
     archive = _archive(base, record, storage, cancelled, report_sha, test_number)
     signature = _digest(archive, cancelled)
@@ -239,8 +244,9 @@ def _publish(base, destination, record, storage, cancelled, notice, test_number=
     return final
 
 
-def run(destination, *, spool, session, cancelled=lambda: False, notice=print, test_number='069'):
+def run(destination, *, spool, session, cancelled=lambda: False, notice=print, test_number='069', prepare=None):
     _test_label(test_number)
+    _require(prepare is None or callable(prepare), 'publication_prepare_invalid')
     base = Path(spool).resolve()
     destination = Path(destination).resolve()
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -253,7 +259,7 @@ def run(destination, *, spool, session, cancelled=lambda: False, notice=print, t
         if record is not None and record['resolved'] and not _never_started(record):
             if not _published(base, destination, record, storage, cancelled, test_number):
                 notice('前回のZIP保存を再開します。今回はゲームを起動しません。')
-                return record, _publish(base, destination, record, storage, cancelled, notice, test_number)
+                return record, _publish(base, destination, record, storage, cancelled, notice, test_number, prepare=prepare)
         _check(cancelled)
         record = session(base)
         if not isinstance(record, dict):
@@ -262,10 +268,10 @@ def run(destination, *, spool, session, cancelled=lambda: False, notice=print, t
         if not record['resolved'] or _never_started(record):
             return record, None
         _require(record == native._load(base), 'publication_journal_changed')
-        return record, _publish(base, destination, record, storage, cancelled, notice, test_number)
+        return record, _publish(base, destination, record, storage, cancelled, notice, test_number, prepare=prepare)
 
 
-def main(argv=None, *, test_number='069'):
+def main(argv=None, *, test_number='069', prepare=None):
     label = _test_label(test_number)
     heading = 'TEST-'+test_number
     parser = argparse.ArgumentParser(description=heading+': 全画像を永続保存して返却ZIPを作成')
@@ -290,7 +296,7 @@ def main(argv=None, *, test_number='069'):
         return native.main(options, outcome=outcome, cancelled=lambda: stopped[0])
     try:
         record, archive = run(Path.cwd(), spool=Path.home()/'.necroprobe'/'runtime'/label,
-            session=session, cancelled=lambda: stopped[0], notice=notice, test_number=test_number)
+            session=session, cancelled=lambda: stopped[0], notice=notice, test_number=test_number, prepare=prepare)
         _check(lambda: stopped[0])
         report = record['native_report'] or {}
         reason = report.get('reason_name') if record['native_state'] in native.TERMINAL else None
