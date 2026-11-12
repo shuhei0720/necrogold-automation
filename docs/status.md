@@ -14,7 +14,7 @@
 
 ## 配布と今回の実機確認
 
-[修正版の固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test087-python39-fix1)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-python39-fix1/source.zip)。source全670ファイルをclosing commitと照合し、公開後の固定assetを匿名全GET/SHA/CRC検証して返す。
+[修正版の固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test087-python39-fix1)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-python39-fix1/source.zip)。source全671ファイルをclosing commitと照合し、公開後の固定assetを匿名全GET/SHA/CRC検証して返す。
 
 **IPA更新・LoopCtrl再起動・ゲーム再実行は不要。保存済み結果の回復だけを依頼する。** 元iSHデータを残し、ZIP展開後 `recover_087.sh` があるフォルダをmount選択する。
 

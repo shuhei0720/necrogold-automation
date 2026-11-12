@@ -1,0 +1,95 @@
+name: Stage TEST087 source-only recovery release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/p1-capture-probe]
+    paths: ['.github/workflows/test087-source-stage.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  stage-source:
+    if: github.repository == 'shuhei0720/necrogold-automation' && github.ref == 'refs/heads/work/p1-capture-probe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check frozen code and create the complete source archive
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, stat, subprocess, zipfile
+          from pathlib import Path
+          def git(*args):
+              return subprocess.check_output(['git', *args])
+          head = git('rev-parse', 'HEAD').decode().strip()
+          assert head == os.environ['GITHUB_SHA']
+          code = '36fbcd3a776d5b866bcbe0d3176b848c512d8fed'
+          allowed = {'docs/status.md', 'docs/reviews/test087-python39.md',
+                     'docs/device-tests/README.md', '.github/workflows/test087-source-stage.yml'}
+          changed = {x.decode() for x in git('diff', '--name-only', '-z', code, head).split(b'\0') if x}
+          assert changed <= allowed, changed
+          paths = [x.decode() for x in git('ls-tree', '-r', '--name-only', '-z', head).split(b'\0') if x]
+          assert len(paths) == 671
+          baseline = 'b2b1cb003f51009ffe75f89080b9089a6cb2fed9'
+          preserved = [p for p in paths if p.startswith(('patches/loopctrl/', 'legacy/r12/'))]
+          preserved += ['necroprobe/native_walk.py', 'necroprobe/test069.py', 'necroprobe/test087.py',
+                        'necroprobe/protocol.py', 'necroprobe/validation.py',
+                        'necroprobe/target_ring_features.json', 'test_087.sh']
+          assert len(preserved) == 121 and sum(p.startswith('legacy/r12/') for p in preserved) == 40
+          for p in preserved:
+              assert git('show', head+':'+p) == git('show', baseline+':'+p), p
+          out = Path(os.environ['RUNNER_TEMP'])/'source-stage'; out.mkdir()
+          archive = out/'source.zip'
+          subprocess.run(['git', 'archive', '--format=zip', '--prefix=necro_test087_fix/',
+                          '--output='+str(archive), head], check=True)
+          with zipfile.ZipFile(archive) as package:
+              assert package.testzip() is None
+              assert len(package.namelist()) == len(set(package.namelist()))
+              actual = {}
+              for entry in package.infolist():
+                  path = Path(entry.filename)
+                  assert not path.is_absolute() and '..' not in path.parts
+                  assert not stat.S_ISLNK(entry.external_attr >> 16)
+                  if not entry.is_dir():
+                      assert entry.filename.startswith('necro_test087_fix/')
+                      actual[entry.filename.split('/', 1)[1]] = entry
+              assert set(actual) == set(paths)
+              for p, entry in actual.items():
+                  assert package.read(entry) == git('show', head+':'+p), p
+          sha = hashlib.sha256(archive.read_bytes()).hexdigest()
+          (out/'SHA256SUMS.txt').write_text(sha+'  source.zip\n')
+          (out/'stage-receipt.json').write_text(json.dumps(dict(commit=head, code=code,
+              tracked_files=len(paths), bytes=archive.stat().st_size, sha256=sha,
+              all_crc_valid=True, all_bytes_match=True, preserved_paths=len(preserved),
+              new_ipa_build=0, release_tag='test087-python39-fix1', draft_only=True), indent=2)+'\n')
+          PY
+      - name: Upload only source and checksum to the fixed draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api repos/shuhei0720/necrogold-automation/releases/442755499 > "$RUNNER_TEMP/draft.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          release = json.loads((Path(os.environ['RUNNER_TEMP'])/'draft.json').read_text())
+          assert release['id'] == 442755499 and release['draft'] is True
+          assert release['tag_name'] == 'test087-python39-fix1' and not release['assets']
+          assert release['target_commitish'] in ('5dfd7987ddaf0b5ca238b02087a656e4ec104f8f', os.environ['GITHUB_SHA'])
+          PY
+          gh api --method PATCH repos/shuhei0720/necrogold-automation/releases/442755499 -f target_commitish="$GITHUB_SHA" > /dev/null
+          gh release upload test087-python39-fix1 "$RUNNER_TEMP/source-stage/source.zip" "$RUNNER_TEMP/source-stage/SHA256SUMS.txt" --repo shuhei0720/necrogold-automation
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: test087-source-only-stage
+          path: ${{ runner.temp }}/source-stage/
+          if-no-files-found: error
+          retention-days: 30

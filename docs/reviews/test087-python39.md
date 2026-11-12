@@ -36,4 +36,8 @@ code `cfab9ff3a48bfa11dd094bea7c2db36f021d96ff` を保存。新workflowは既定
 
 artifact13933080579/test087-python39-validationは920B、SHA `5d0bc67a8a8a130a4505ed9b8c857b62e190402a93466b0e5fc3c025e2d7df07`。GitHub APIの成功head/attempt/asset digest→実DL全CRC→ログ9件/版→対象/回復/通常test069/test087/featureの全5SHAをcodeと照合した。CIは開発機試験でありiSHの実速度や未回収runのtarget精度を証明しない。
 
-closingはstatus/本レビュー/実機台帳の文書だけを更新し、完全670sourceと元build148のnative不変を照合する。source-only固定Release `test087-python39-fix1` に完全source/検証SHAを保存し、公開後の匿名全GET/SHA/CRC/全bytesを確認して返す。既build148 IPAを再利用し、今回の実機依頼は新ゲーム試験ではなく `recover_087.sh` による同087保存済み結果の判定/ZIP公開のみ。表示されたrun別ZIPを受領後に別件の歩行停止へ進む。
+closingはstatus/本レビュー/実機台帳の文書だけを更新し、完全671sourceと元build148のnative不変を照合する。source-only固定Release `test087-python39-fix1` に完全source/検証SHAを保存し、公開後の匿名全GET/SHA/CRC/全bytesを確認して返す。既build148 IPAを再利用し、今回の実機依頼は新ゲーム試験ではなく `recover_087.sh` による同087保存済み結果の判定/ZIP公開のみ。表示されたrun別ZIPを受領後に別件の歩行停止へ進む。
+
+配布APIでdraft442755499を作成できたが、managed接続のuploads.github.comが401となりasset0のまま停止。期限付きリンクへ戻さず、固定draft専用の標準Ubuntu staging workflowを追加する。CI36fbcd3との差分を文書3件/当workflowだけへ制限し、全671source/CRC/全blob・元native等121を照合、fixed draft/tag/空assetを確認してtargetを同headへ結合し、source.zip/SHA256SUMSだけを非上書きuploadする。公開処理は持たず、rootの全source/asset digest確認後に公開し匿名GETを照合する。対象9件/Mac/IPAの再実行はしない。stage実行/実物証跡はGit外へ保持する。
+
+同じ独立担当が配布専用workflowを静的確認し、stagingのみGO。固定repo/branch/draft ID/tag/空assetを検査し、CIとの差分allowlist・671全blob/CRC/safe path・R12全40を含む121保存pathを先に確認する。GH_TOKEN環境はupload stepへ限定し、source/SHA以外のasset作成・clobber・公開・製品試験の経路を持たない。release.target_commitishのPATCHは既存Git tag refを更新しないため、rootは公開前後にactual tag refが最終source commitと一致することも確認する。tag未作成なら更新後のtargetからpublish時に作成する。既refが旧commitならdraftの来歴を整えてから公開し、単にtarget fieldだけを同一性根拠にしない。独立意味/compile再実行0、配布実物の最終確認は後続工程とする。
