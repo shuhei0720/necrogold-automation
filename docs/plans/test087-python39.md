@@ -9,3 +9,9 @@
 - 同じ独立担当1名で差分と3.9/回復結果を確認する。完全sourceの固定Release assetと整合する修復手順を配布し、匿名全GET/SHA/CRCを照合する。新source folderで回復専用shをiSHへmountし、同087永続データから再開する実機テストを依頼。今回の20/20後例外は未公開ZIPのため、先に保存再開を依頼し、新しいゲーム試験を求めない。
 
 新添付aeef427bはnative MOVEMENT10/GOODS0で、後続Pythonエラーのrunと別件。raw解析を並行するが、今回のhost互換修正へnative歩行修正を混ぜない。元runの再回収と新runの開始を区別する。
+
+## 最新指示: TEST088として通常の実機試験を出し直す
+
+ユーザーは元ファイル削除済みで、新しい通常テストを要求した。旧087のhidden原本が残っているかを前提にせず、新088 label/spoolの薄いentry/shを追加し通常1-1から一連の試験を出す。087._prepare/test069出版とPython3.9修正・native/IPA148をそのまま利用する。旧087 spool/receiptや原本の削除0、通常088も同088内で未公開結果を無視しない。
+
+番号入口のみのため実Python3.9 --check/sh -n/元shの番号置換一致と同人差分レビューを選び、既target6/回復3は同bytesの過去Greenとして再利用する。新しい意味試験やMac/native/IPA作成を形式追加しない。全673sourceを固定Releaseへ保存して匿名GET/全blob照合後、LoopCtrl再起動/Start Server/通常VPN→通常1-1ポーズから一連3回と全runtime/test-088-<run_id>.zipを依頼する。歩行停止は今回未修正と示す。

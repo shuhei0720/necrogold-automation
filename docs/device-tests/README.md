@@ -3071,3 +3071,9 @@ code `8553efb7a487b71e9be333a054465f76f4017111`、run43184318092/build148。host
 実3.9で有効Red→対象6/回復3全Green、原086実3の校正target維持。code36fbcd3a776d5b866bcbe0d3176b848c512d8fed/run43194860629の限定Ubuntu CIも実3.9.25/9件/56.187秒全成功、artifact13933080579の全CRC/SHA/source5件一致。独立担当1名レビューGO、native/R12全40と既entry等121pathの元bytes一致、Mac/新IPA作成0。
 
 [修正版完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-python39-fix1/source.zip)を展開しrecover_087.shのフォルダをiSHへmount、`sh recover_087.sh`で保存再開の実機確認を依頼する。IPAはbuild148をそのまま使い、再起動/新ゲームは不要。元iSHデータを残し、完了表示後のruntime/test-087-<run_id>.zipを依頼。回復/iSH速度/新版到達率は未確認。
+
+## TEST088: Python3.9修正済みの通常実機試験
+
+2026-11-12（日本時間）。ユーザーは元ファイルを削除済み、新しい通常テストを要求。復旧ではなく088の新entry/spoolで通常一連試験へ戻す。test087._prepare/test069出版・Python3.9修正を共用し、旧087資料は削除しない。新入口の実3.9 --check/sh -n成功、共有9件は同bytesの過去CIを再利用、native/IPA148不変・新ビルド0。
+
+[完全ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test088-python39-fix1/source.zip)。IPA更新不要、LoopCtrl完全再起動/Start Server/通常VPN→通常1-1の新ランをポーズ→test_088.sh。一連のrestart/候補/商店/全商品PAUSE/対象判定/全画像ZIP照合を3回、runtime/test-088-<run_id>.zip全回分と商品可視/停止位置/見逃しを依頼。歩行停止と未知陽性精度/iSH速度・新版到達率は未解決/未受入で、画像保存後例外の修正と区別する。

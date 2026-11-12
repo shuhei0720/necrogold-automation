@@ -45,3 +45,15 @@ closingはstatus/本レビュー/実機台帳の文書だけを更新し、完�
 stage43196448583はsource671/CRC/121検証後、targetだけのPATCHでdraft名がuntaggedとなりタグlookup uploadに失敗、asset0で停止した。rootが固定tag/旧closing target/空assetへ戻した後、tag_nameとtargetの同時PATCH・返却id/tag/target/draft/空assetの再assertへ限定修正。同じ独立担当が固定release IDへのsource/SHA2本だけの認証curl POST、非上書き、token非表示、artifact alwaysを確認しP0/P1なしで再staging GO。製品/対象9試験/native/IPAは不変で、配布失敗を意味試験失敗や実機失敗へ数えない。rootによるupload後のdigest/全source/actual tag確認と公開前後の照合を維持する。
 
 初回stage43196448583/code27f55d6は671source/CRC/全blob/121保持の検証までPASSしたが、targetだけのPATCHでdraft.tag_nameがuntaggedへ変わり、その後のタグ検索が失敗（asset0）。空draftを固定tag/旧targetへ復旧。tag/targetを同時に指定して更新直後もid/draft/空asset/tag/同headを検査し、uploadを固定release IDの2つのPOSTへ変更する。tokenはrunner upload stepだけ、出力/traceなし。失敗時もsource/検証receiptをartifactへ保持する。製品/9試験/IPAは不変で意味試験を繰り返さない。
+
+## TEST088: 削除後の通常試験出し直し
+
+ユーザー最新指示は「エラー修正済みなら通常テスト用を出す、元ファイル削除済み」。保存再開は要求せず、088番号の薄いentry/shで新spool/ZIPを使う。087のhidden原本が残っていても触れず、旧spool/receiptの削除や改変0。test069の同088未完優先/全画像保存/取消・test087._prepareのPython3.9修正をそのまま使う。native/IPA148と対象feature/閾値は不変、歩行停止は未修正。
+
+新2ファイルだけ実Python3.9.25 --check（native-walk-v16 / 1.98.16-ngg2）とsh -n成功、shは087→088置換以外全bytes一致。作者証跡はGit外test088-entry/freeze.json。単なる番号入口のため実装をなぞる新単体を増設せず、共有target/回復の9件は同bytesの過去CIとして再利用する。新意味試験/Mac/native/IPAビルド0。
+
+配布は固定draft442792686/tagtest088-python39-fix1のsource-only。以前の公開087 assetは変更しない。stagingは元f591d83との差分を今回の新2入口/関連文書/当workflowへ限定し、全673blob/CRC/安全entries・native等121/R12全40不変を確認する。固定tagとtarget=同headを一緒に指定して再照合、source/SHAだけ非上書きuploadし、root実物確認後に公開→actual tag/匿名全GETを照合する。実機は通常1-1ポーズから一連3回と全runtime/test-088-<run_id>.zipを依頼する。
+
+同じ独立担当がTEST088の全差分を確認しP0/P1/P2なしでGO。新entry `4320f09183f6439a40c552bac992a5a0e9dc10ca9d398520642dfd52487df771` はtest069.mainへ番号088/同087._prepareを渡すだけ、新sh `558220e24c06a0c600384becd5b76fca9c7310b9caf4c69bb2ab0374549c3dd2` は旧shの087→088以外全bytes同一。新labelはtest069がhome spool/ZIP名に反映し、087を読取/削除/復旧する経路を追加しない。実3.9 --check/sh -nの作者証跡とtarget534a0974/feature20232232/publication0c6db1b0/087entry886de4edの同bytesを確認。新しい意味試験を形式的に増やさず、過去の共有9件/IPA148の結果として区別する。
+
+配布workflowの固定ID/tag/target/673数/prefix/差分allowlistへの変更も確認。検証済みのtag+target同時PATCH・返却再assert・固定IDへの2asset POST・空draft/非上書き/公開0を維持し、公開済み087を変更しない。関連文書は最新ユーザー指示を旧回復依頼より優先し、通常088一連試験へ切り替え、歩行停止未修正と未受入を残している。初期3文書16,054B/native契約12,277Bは予算内、diffcheck PASS。独立意味/compile/他ファイル編集0。以後は同人が673sourceの実物/公開後actual tagと匿名GETをread-only確認する。

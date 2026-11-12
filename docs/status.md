@@ -1,35 +1,33 @@
 # 最新状態
 
-更新: 2026-11-12（日本時間）。TEST087/build148のPython3.9互換修正。参照:[短い計画](plans/test087-python39.md)・[受領/検証](reviews/test087-python39.md)。前版の[判定実装/校正範囲](reviews/test087.md)・[対象判定契約](contracts/target-assessment.md)を維持。
+更新: 2026-11-12（日本時間）。TEST088・既LoopCtrl build148。[計画](plans/test087-python39.md#最新指示-test088として通常の実機試験を出し直す)・[検証](reviews/test087-python39.md)・[対象判定契約](contracts/target-assessment.md)。ユーザーは元ファイル削除済みで通常の実機テストを要求。保存再開の依頼を取り下げ、088の新しい実行記録で通常試験を出す。旧087 hidden原本/receiptは削除せず、087回復へ戻さない。
 
-## 今回のエラーと修正
+## 修正と検証
 
-実機Python3.9で画像20/20保存後、指輪判定の `int.bit_count`（3.10追加）がAttributeErrorとなりZIP公開前に停止。互換性の検証漏れを修正し、3式を同値のbin countへ変更した。feature/閾値/判定schema/native/通常087 entryと元spoolは不変。
+画像20/20保存後のPython3.9 AttributeErrorは、対象判定のint.bit_count（3.10追加）が原因。3式を同値のbin countへ修正済み。実3.9.25で有効Red→対象6/回復3全Green、[CI/run43194860629](https://github.com/shuhei0720/necrogold-automation/actions/runs/43194860629)でも9件成功。feature/閾値/閉schema/native不変。
 
-新 `recover_087.sh` はiSHの `~/.necroprobe/runtime/test-087` を読み、同UUID・元report/PNGを保持して判定/ZIP公開だけを再開する。lock→strict load→元certificate/prepare/publishを使い、ゲーム起動/新session/RPC0。空・未完・破損は拒否し、既出版なら同ZIPの検証だけ。SIGINT/TERMでデータ保持する。回収済みrunから新ゲームを開始しない。
-
-実Python3.9.25で有効Red→対象6/回復3全Green。元086実3の原309校正画像もtargetを維持。[CI1/run43194860629](https://github.com/shuhei0720/necrogold-automation/actions/runs/43194860629)も実3.9で9件成功。同じ独立担当の差分レビューGO。native/R12と既entry等121pathは元build148とbytes一致、新IPA作成0、実機回復/iSH速度は未確認。
-
-添付aeef427bは1回目の別runで20PNG/4,072,671画像B・全照合/ZIP公開済み。MOVEMENT10/GOODS0、LEFT実1歩後、ACK済みUPの変位確認8回UNKNOWNで停止。Python例外runとは別原因で、歩行停止は今回未修正。2回目の未公開ZIPを先に回復する。
+TEST088はtest069.mainへtest_number=088・test087._prepareを渡す薄いentryと、087の番号だけを置換したsh。旧087の未出版結果と別spoolになり、通常088内の全画像/ZIP照合・未完優先・取消は既存処理を使う。実Python3.9 --checkとsh -n成功、同人差分レビューを行う。共有判定/出版の既9件は同bytesの過去結果として再利用し、意味試験/Mac/IPAを繰り返さない。
 
 ## 配布と今回の実機確認
 
-[修正版の固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test087-python39-fix1)・[完全source ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-python39-fix1/source.zip)。source全671ファイルをclosing commitと照合し、公開後の固定assetを匿名全GET/SHA/CRC検証して返す。
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test088-python39-fix1)・[実機テスト用完全ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test088-python39-fix1/source.zip)。全673sourceを保存commit/CRCと照合、公開後の匿名全GET/SHAを確認して返す。前087固定Releaseは変更しない。
 
-**IPA更新・LoopCtrl再起動・ゲーム再実行は不要。保存済み結果の回復だけを依頼する。** 元iSHデータを残し、ZIP展開後 `recover_087.sh` があるフォルダをmount選択する。
+**IPA更新不要。既build148を使用する。** LoopCtrlを完全終了→再起動→Start Server・通常VPNを有効化。通常1-1の新しいランをポーズする。ZIP展開後、test_088.shがあるnecro_test088フォルダを選択する。
 
 ```sh
-mkdir -p /mnt/necro_test087_fix
-mount -t ios . /mnt/necro_test087_fix
-cd /mnt/necro_test087_fix && sh recover_087.sh
+mkdir -p /mnt/necro_test088
+mount -t ios . /mnt/necro_test088
+cd /mnt/necro_test088 && sh test_088.sh
 ```
 
-判定と全画像/ZIP照合の完了を待ち、表示された `runtime/test-087-<run_id>.zip` を返却依頼。今回は通常の `test_087.sh` で新しいゲーム試験を始めない。回復後、その実画像/判定と別件の歩行停止を確認して次の実機版へ進む。
+「金壁/通路候補までrestart→商店→全商品/PAUSE→指輪判定→全画像/ZIP照合」を一連で3回依頼。5秒以上ポーズならiSHへ戻り完了表示まで待つ。表示されたruntime/test-088-<run_id>.zipを全回分と、商品可視/対象判定/停止位置/見逃しを返却依頼。旧runの回復や通常回収を終えるための追加再実行を求めない。
 
-既IPAは[build148固定asset](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/LoopCtrl.ipa)、0.3.4/build148/min16、17,629,270B/SHA `f4c9e9f1c02e76fb0921f31f5613f9a7986d825d2528e848aabbd82b00b33a76`。今回は再配布/再ビルドしない。
+既IPAは[build148固定asset](https://github.com/shuhei0720/necrogold-automation/releases/download/test087-build148/LoopCtrl.ipa)、0.3.4/build148/min16、17,629,270B/SHA `f4c9e9f1c02e76fb0921f31f5613f9a7986d825d2528e848aabbd82b00b33a76`。native/R12等121pathは元build148不変、新IPA作成0。
 
-## 継続する限界と要件
+## 未解決と継続要件
 
-同iPhoneの保存済み商品枠で絵と対象名の両一致だけ「のろいのゆびわ」target、絵のみcandidate、不足unknown。最大2枚、追加依存/外部画像送信/購入0、immutable sidecarは初ZIP前に保存し閉native report不変。陰性holdout4の誤検出0、不明4/校正3は未知陽性評価外。未知陽性精度・OS背景通知/対象なし循環は未受入（後2つは現active未実装）。
+087添付aeef427bはMOVEMENT10/GOODS0、LEFT実1歩後ACK済みUPの変位確認8回UNKNOWNで停止。20PNG/4,072,671画像B・出版正常で、Python例外runとは別件。今回の歩行停止は未修正。旧086実4 trigger355も未保存で具体guard未確定。088実機到達率/iSH速度は未確認。
 
-旧086実4の停止trigger355は未保存で具体guard未確定。今回087実1も別件として保持。入力権限・票/信用・旧W/P/50ms/10ms/8評価/全予算は緩めない。主指標は全商品確認までの実機到達率。恒久毎拍/人超えは未受入。以後の通常実機は1-1ポーズから「restart→金壁/通路候補→店→全商品/PAUSE」を一連とし、回収完了前に終了表示や新startをしない。raw/Scene/秘密値はGit外。[索引](context.md)。
+対象は同じ商品枠の絵/名前両一致だけtarget、絵のみcandidate、不足unknown。原086実3は校正陽性で、陰性holdout4の誤検出0、不明4/校正3は未知陽性評価外。未知陽性精度・OS背景通知/対象なし循環は未受入（後2つは現active未実装）。最大2枚・追加依存/外部画像送信/購入0、immutable sidecarは初ZIP前、閉native report不変。
+
+主指標は全商品確認までの実機到達率。毎拍/人超えは未受入。入力権限・票/信用・旧W/P/50ms/10ms/8評価/全予算は緩めない。raw/Scene/秘密値はGit外。[索引](context.md)。
