@@ -49,8 +49,8 @@
 | FR-067-CLOSED-UNIT | 2026-11-10 | 閉入口へ実1歩進んでもUNKNOWN | 元textureの95%条件不足 | UNKNOWN限定の閉入口一意unitに、強い地形detailの独立証拠をAND | [計画](plans/test067-motion-confirmation.md)、[単体](../tests/test_native_motion067.py)。元73候補/強度/差/支持/2領域を保持。未確定の他原画はUNKNOWN維持 | 未集計 |
 | FR-068-LOWER-GOLD | 2026-11-10 | 下端の金壁が見える回で0歩 | 金対がgrid外またはHUD除外内で金候補にならない | 下端の一意raw金対をhintにし、観測済みDOWN床だけ1run1入力 | [計画](plans/test068-fringe-collection.md)、[単体](../tests/test_native_fringe068.py)。119原画中該当5枚だけ補正。未観測gridや次2歩目を作らない | 未集計 |
 | FR-072-NARROW-OPEN | 2026-11-11 | 狭い通路で扉が開いても8UNKNOWN | 元textureの支持不足でDOOR→FLOORの0変位を証明できない | 元開通条件に独立したdetail2帯を追加 | [計画](plans/test072-approach.md)、[単体](../tests/test_native_door072.py)。開扉0歩、進入別確認。FR-090の薄鉄型誤認とは別条件 | 未集計 |
-| FR-074-OPEN-GRADIENT | 2026-11-11 | 開扉後2商品だけで停止 | 既開通の0変位を元面だけで確認できない | primary UNKNOWN時だけ既知地形の強いzero勾配証拠を追加 | [検証](reviews/test074.md)、[単体](../tests/test_native_motion074.py)。46画像比較で対象開通/実移動pairのみ変化、既nonUNKNOWN21維持。未観測商品は未確認 | 未集計 |
-| FR-074-CLEAR-UNIT | 2026-11-11 | 金なし通路の実unitをUNKNOWNと判定 | 入口向け幾何では旧STONE/地形移動を証明できない | 旧STONEの一意translation・非共線DIRT・強いdetailをAND | [計画](plans/test074-visible-evidence.md)、[単体](../tests/test_native_motion074.py)。過去の実変位と未来nextの安全性を別に確認。全通路への一般化は未受入 | 未集計 |
+| FR-074-OPEN-GRADIENT | 2026-11-11、追加2026-11-13 | 開扉後2商品だけで停止 | 既開通の0変位を元面だけで確認できない。090実3もDOOR型は正しいがtexture不足でUNKNOWN | 旧証明を維持し091で独立blur絶対品質とraw/detail/unique bracketの別zero証明を追加 | [検証](reviews/test074.md)、[旧単体](../tests/test_native_motion074.py)、[091受領](reviews/test091.md)。旧46画像比較の合格を今回条件の解消と扱わない。未観測商品は未確認 | 過去未集計＋今回1（090実3の継続。旧対策削除による回帰は未確定） |
+| FR-074-CLEAR-UNIT | 2026-11-11、追加2026-11-13 | 金なし通路の実unitをUNKNOWNと判定 | 旧地形証明の対象外条件が継続。090実2は左raw帯runner支持不足/blur競合差不足 | 旧証明を維持し091で全旧STONE保存・非共線DIRT・raw/world/axisをANDする別unit証明を追加 | [計画](plans/test074-visible-evidence.md)、[旧単体](../tests/test_native_motion074.py)、[091受領](reviews/test091.md)。過去の実変位と未来nextの安全性を別に確認。全通路への一般化は未受入 | 過去未集計＋今回1（090実2で適用外条件が継続。旧対策削除による回帰は未確定） |
 | FR-075-STATIC | 2026-11-11 | 静止した次床の入力前確認がUNKNOWN | texture支持283で元300に不足 | UNKNOWN限定で旧強度・競合条件と独立zero証拠を追加 | [検証](reviews/test075.md)、[単体](../tests/test_native_static075.py)。全73 cacheの1,898比較同値。別方向移動をzeroにしない | 未集計 |
 | FR-075-UNIT | 2026-11-11 | UP実1歩が8UNKNOWNで停止 | 元blur/texture面だけでは実unitを確認できない | 原画の明確な移動へ限定した独立unit証拠を追加 | [計画](plans/test075-motion-rpc.md)、[単体](../tests/test_native_motion075.py)。raw/phase/地形/別面をANDし、合成時計と原画像校正を区別 | 未集計 |
 | FR-078-CLOSED-UNIT | 2026-11-11 | 金扉前へ実UP1歩進んで停止 | 閉扉の狭い画面では元の独立texture帯が不足 | UNKNOWN限定で全旧金exact/unique9/raw73と固定3面・2帯をAND | [検証](reviews/test078.md)、[単体](../tests/test_native_closed_gate078.py)。受領078の資格付きreferenceでMOVED採用を当該回に確認。全配置/開通/商品成功とはしない | 未集計 |
@@ -125,6 +125,15 @@
 | FR-090-READER-PATH | 2026-11-13 | 実物検査がR12を38件と誤集計して停止 | Git name-onlyの引用された日本語2pathを改行分割のprefix判定で落とした | 列挙を-z/NUL/UTF8へ訂正し実40pathと全bytesを照合 | [検証記録](reviews/test090.md)。過去のパス/JSON/CI行を参照し別原因と確認。Unicode単体Red→Green、retainedだけ明示再実行してPASS、既PASS2は再実行0。IPA/製品変更なしの補助検査で、実機改善を示さない | 0（今回記録開始後の再観測なし） |
 
 今回の記録ルールは修正着手後に追加されたため、TEST090は提出前に過去対策を遡及照合した。以降は修正前の照合を必須にする。関連IDは同原因の証明ではなく、旧対策の維持と適用条件を調べるための参照である。
+
+## TEST091の対策（実機改善未確認）
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-091-INITIAL-SCENE | 2026-11-13 | 090実1で初歩を送る前に0歩SCREEN停止 | 初歩票確定後のScene拒否を再観測へ戻せない。最初拒否175が欠け最終predicateは未確定 | 入力/移動/lead0・確実未送信だけ旧IDを撤回、既replan2回/元12秒/元walk/session内で独立2枚から新票を得る | [計画](plans/test091-device-stops.md)・[新単体](../tests/test_native_initial_scene091.py)。元時刻/prefix/取消/商品優先/無再送を維持。FR-045/061/074/076のscopeと照合。実機改善未確認 | 未確認（原因の一部未確定。旧175を後187で補わない） |
+| FR-091-INITIAL-IMAGE | 2026-11-13 | 090実1の最初の拒否原画175が残らない | 初歩経路の早期拒否が既比較診断へ乗らず、末尾画像で置換される。原175のmaskは未確定 | profile2の余剰1pinに一致snapshot/prefix/拒否時刻の原点未送信拒否raw1枚、旧critical7/map12の保持は維持。診断側はlevel入力0や回復権限を証明しない | [計画](plans/test091-device-stops.md)の新公開Runtime fixtureと旧081関連をMacで検査する。全20PNG/10MiB/schemaを維持し、停止解消とは区別。FR-056/082/084/087の保持scopeと照合 | 0（新対策の実機再観測なし。実機未確認） |
+| FR-091-TERRAIN-AXIS | 2026-11-13 | 090実2の実UP1後に8UNKNOWN | 全旧STONEは保存されるが、旧有限左右raw帯/blur競合条件が不成立 | 旧17段を保ち、全旧STONE2/非共線DIRT9・unique9・有限raw全73/差・world95%・axis75%/旧15ppの別証明 | [091受領](reviews/test091.md)。旧FR-074-CLEAR-UNITに今回継続1を記録。HUD喪失0でFR-090-HUD-STONE適用外。新単体/保存pair校正は未来到達の確認ではない | 0（091新証明の実機再観測なし。旧通路問題の継続は上記に記録） |
+| FR-091-OPEN-BLUR | 2026-11-13 | 090実3で開扉しても2商品だけで停止 | 型DOORは正しいが、rawzero .45546/旧detail95%/gradient支持の不足で開通0変位がUNKNOWN | 旧証明不変、有限rawzero/runner差・unique bracket・detail75%/二帯/旧競合比較・blurzero絶対品質の別AND | [091受領](reviews/test091.md)。FR-074-OPEN-GRADIENTへ継続1を記録。FR-090-THIN-IRONと異なる段階。開扉0歩、全3商品不可視を完了/対象なしにしない。実機改善未確認 | 0（091新証明の実機再観測なし。旧開通問題の継続は上記に記録） |
 
 ## 未整理・未確定の扱い
 

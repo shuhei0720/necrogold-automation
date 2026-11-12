@@ -1629,6 +1629,112 @@ static void hud_occluded_terrain_blur_motion(const NG2Scene *before,const NG2Sce
     free(cache);out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
 }
 
+/* A clear-floor unit can retain its entire observed stone set without an
+ * L-shaped corner. This separate proof uses finite global raw competition,
+ * blurred-world quality and independently competing signed axes. It never
+ * treats a missing raw-band competitor as a winning margin. Every older
+ * finite-band, blur-lead and HUD proof remains unchanged. */
+static int visible_terrain_translation(const NG2Scene *a,const NG2Scene *b,int tx,int ty) {
+    int i,first=-1,second=-1,stone=0,dirt=0,noncollinear=0;
+    for(i=0;i<CELLS;++i)if(a->tiles[i]==NG2_TILE_STONE){
+        int x=px(i),y=py(i);
+        if(hud_sample_hidden(x,y)||hud_sample_hidden(x+tx,y+ty)
+            ||tile(b,x+tx,y+ty)!=NG2_TILE_STONE)return 0;
+        ++stone;if(first<0)first=i;else if(second<0)second=i;
+    }
+    if(stone<2)return 0;
+    for(i=0;i<CELLS;++i)if(a->tiles[i]==NG2_TILE_DIRT
+        &&!hud_sample_hidden(px(i),py(i))&&!hud_sample_hidden(px(i)+tx,py(i)+ty)
+        &&tile(b,px(i)+tx,py(i)+ty)==NG2_TILE_DIRT){
+        ++dirt;
+        if((px(second)-px(first))*(py(i)-py(first))
+            !=(py(second)-py(first))*(px(i)-px(first)))++noncollinear;
+    }
+    return dirt>=9&&noncollinear;
+}
+static int unique_visible_terrain_translation(const NG2Scene *a,const NG2Scene *b,int sx,int sy) {
+    int amount,d,matches=0,tx=0,ty=0;
+    for(amount=0;amount<=2;++amount)for(d=1;d<=(amount?4:1);++d){
+        int x=amount*ddx[d],y=amount*ddy[d];
+        if(visible_terrain_translation(a,b,x,y)){++matches;tx=x;ty=y;}
+    }
+    return matches==1&&sx==9*tx&&sy==9*ty;
+}
+static void terrain_axis_unit_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                     const View views[2],const Candidate candidates[73],NG2Motion *out) {
+    ClosedGateAxisCache *cache;
+    int dx,dy,i,support,bad,regions[2];
+    if(out->kind!=NG2_MOTION_UNKNOWN||direction<1||direction>4)return;
+    dx=ddx[direction];dy=ddy[direction];
+    if(before->state!=NG2_FLOOR||after->state!=NG2_FLOOR
+        ||before->gold_state!=NG2_GOLD_CLEAR||after->gold_state!=NG2_GOLD_CLEAR
+        ||before->goods!=NG2_GOODS_UNKNOWN||after->goods!=NG2_GOODS_UNKNOWN
+        ||tile(before,0,0)!=NG2_TILE_FLOOR||tile(before,dx,dy)!=NG2_TILE_FLOOR
+        ||tile(after,0,0)!=NG2_TILE_FLOOR||!isfinite(candidates[0].score)
+        ||!(candidates[0].score>.45)||!isfinite(candidates[1].score)
+        ||!(candidates[1].score-candidates[0].score>=.08)
+        ||candidates[0].sx!=-9*dx||candidates[0].sy!=-9*dy)return;
+    for(i=0;i<73;++i)if(!isfinite(candidates[i].score))return;
+    for(i=0;i<CELLS;++i)if(before->protected_cells[i]||after->protected_cells[i]
+        ||before->tiles[i]==NG2_TILE_GOLD||after->tiles[i]==NG2_TILE_GOLD
+        ||before->tiles[i]==NG2_TILE_DOOR||after->tiles[i]==NG2_TILE_DOOR
+        ||before->tiles[i]==NG2_TILE_ITEM||after->tiles[i]==NG2_TILE_ITEM)return;
+    if(!unique_visible_terrain_translation(before,after,candidates[0].sx,candidates[0].sy))return;
+    world_blur_texture(before,after,views,candidates[0].sx,candidates[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,95)||regions[0]<100||regions[1]<100)return;
+    cache=(ClosedGateAxisCache*)calloc(1,sizeof(*cache));if(!cache)return;
+    closed_gate_axis_features(before,cache->before,cache->indices,&cache->count);
+    closed_gate_axis_features(after,cache->after,NULL,NULL);
+    closed_gate_axis_texture(cache,candidates[0].sx,candidates[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,75)||regions[0]<100||regions[1]<100){free(cache);return;}
+    for(i=1;i<73;++i){
+        int count,opposite;
+        closed_gate_axis_texture(cache,candidates[i].sx,candidates[i].sy,&count,&opposite,NULL);
+        if(!texture_lead(support,bad,count,opposite)){free(cache);return;}
+    }
+    free(cache);out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+}
+
+/* A known door may open without moving the camera while newly illuminated
+ * merchandise changes the unblurred terrain texture. This zero-only proof
+ * leaves every older stage and its 95% opening evidence unchanged.
+ *
+ * Raw winner/runner and the original detail competition reject ambiguity;
+ * the dependency-safe blur contributes absolute zero quality only. An
+ * unsupported (+INF) competitor is not affirmative displacement evidence. */
+static void opening_blur_quality_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                        const View views[2],const Candidate candidates[73],NG2Motion *out) {
+    unsigned char included[N];
+    int dx=ddx[direction],dy=ddy[direction],support,bad,regions[2],i;
+    double zero;
+    if(out->kind!=NG2_MOTION_UNKNOWN||before->state!=NG2_FLOOR||after->state!=NG2_FLOOR
+        ||before->goods>NG2_GOODS_PARTIAL||after->goods>NG2_GOODS_PARTIAL
+        ||after->goods<before->goods||before->gold_state!=NG2_GOLD_CANDIDATE
+        ||after->gold_state!=NG2_GOLD_CANDIDATE
+        ||tile(before,0,0)!=NG2_TILE_FLOOR||tile(after,0,0)!=NG2_TILE_FLOOR
+        ||tile(before,dx,dy)!=NG2_TILE_DOOR||tile(after,dx,dy)!=NG2_TILE_FLOOR
+        ||protected_at(before,0,0)||protected_at(after,0,0)
+        ||protected_at(before,dx,dy)||protected_at(after,dx,dy)
+        ||!gate(before,dx,dy)||gate(before,dx,dy)!=gate(after,dx,dy)
+        ||!unique_gate_translation(before,after,0,0)
+        ||!isfinite(candidates[0].score)||!isfinite(candidates[1].score)
+        ||!(candidates[1].score-candidates[0].score>=.08)
+        ||candidates[0].sx||candidates[0].sy)return;
+    for(i=0;i<73;++i)
+        if(isnan(candidates[i].score)||candidates[i].score<0)return;
+    opening_texture(&views[0],&views[1],0,0,&support,&bad,regions);
+    if(!texture_strength(support,bad,75)||regions[0]<100||regions[1]<100)return;
+    for(i=1;i<73;++i){
+        int count,opposite;
+        opening_texture(&views[0],&views[1],candidates[i].sx,candidates[i].sy,&count,&opposite,NULL);
+        if(!texture_lead(support,bad,count,opposite))return;
+    }
+    stationary_blur_mask(included);
+    zero=stationary_blur_phase(&views[0],&views[1],0,0,included);
+    if(!isfinite(zero)||zero>.45)return;
+    out->kind=NG2_DOOR_OPENED;out->dx=out->dy=0;
+}
+
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -1661,6 +1767,8 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     stationary_terrain_motion(before,after,direction,views,candidates,out);
     singleton_gold_terrain_blur_motion(before,after,direction,views,candidates,out);
     hud_occluded_terrain_blur_motion(before,after,direction,views,candidates,out);
+    terrain_axis_unit_motion(before,after,direction,views,candidates,out);
+    opening_blur_quality_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,

@@ -327,7 +327,7 @@ jobs:
           python3 driver/patches/loopctrl/apply_ngg2.py upstream
           NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test061_host.py
           if [ "${{ inputs.native_lane }}" = device ]; then
-            NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test090_host.py
+            NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test091_host.py
           fi
           "$RUNNER_TEMP/test061-host-venv/bin/python" "$NATIVE_HOST_RUNNER" driver upstream "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/host-command.txt"
       - name: Save selected host evidence and explicit test inventory
@@ -359,6 +359,9 @@ jobs:
         run: |
           python3 driver/patches/loopctrl/apply_patch.py upstream
           python3 driver/patches/loopctrl/apply_ngg2.py upstream
+      - name: Verify TEST091 initial rejection pin against baseline and current Runtime
+        if: inputs.native_lane == 'device'
+        run: python3 driver/patches/loopctrl/check_initial_rejection091.py upstream "$RUNNER_TEMP/test091-initial-rejection"
       - name: Install build tools
         run: |
           brew install xcodegen
@@ -486,6 +489,7 @@ jobs:
             ${{ runner.temp }}/test058-shop/
             ${{ runner.temp }}/test070-runtime/
             ${{ runner.temp }}/test081-retention/
+            ${{ runner.temp }}/test091-initial-rejection/
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt
             ${{ runner.temp }}/ngg2/perception-build/

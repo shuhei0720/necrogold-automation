@@ -1,36 +1,27 @@
 # 最新状態
 
-更新: 2026-11-13（日本時間）。TEST090・LoopCtrl build150（実機改善未確認）。基準169eb67。[計画](plans/test090-device-stops.md)・[検証](reviews/test090.md)・[修正記録表](fix-records.md)。修正前に過去の同じ事象/原因を照合する。実機未確認は未確認、対策記録や単体合格を改善完了と扱わない。
+更新: 2026-11-13（日本時間）。TEST091開発中。基準c9e0870。[今回計画](plans/test091-device-stops.md)・[受領/検証](reviews/test091.md)・[修正記録](fix-records.md)。実機未確認を改善完了と扱わず、修正前に過去の同じ事象/原因を照合する。
 
-## 実089の受領
+## 実090の結果
 
-開始時刻順c11722aa/4bca6a1d/059f6b82/848d9572。4ZIP/80原PNGを全CRC/SHA/strict load/certificate/sidecarへ照合し、全回収完了。商品全体確認1/4。実1中央はカリスマのゆびわで、のろいの見逃し根拠なし。「判定だめそう」はiSHの「不明」表示が理由と回答あり。全商品名識別/対象なし確定を実装したとはしない。
+実順c4109c61/3c04c7df/ec411d6f、3ZIP/60原PNGを全CRC/SHA/strict load/certificate/canonical sidecarへ照合、全回収完了。全商品確認0/3。
 
-実2は実UP1後にSTONE1個が心臓HUDへ隠れ8UNKNOWN。実3は新しい金壁/扉と遠方床の露出で同じ次LEFTを未送信拒否。実4は薄い鉄閉扉をFLOORと読み、開扉をBLOCKEDとして入口停止。商品未確認を成功にしない。
+- 実1はLEFT初歩を送る前に0歩SCREEN停止。元174は候補、最初拒否175が未保持のため最終predicate未確定。後187を代用しない。
+- 実2はUP1を確認できず8UNKNOWN。全旧STONE2/非共線DIRT17は保持されるが、旧左raw帯のrunner支持/blur競合差が不足。090のHUD喪失例とは別条件。
+- 実3は木扉DOOR→FLOORの開通0変位を確認できず8UNKNOWN。2商品だけ見え、3商品は未確認。のろいのゆびわは人目で確認したが正式個別判定は未呼出。調整前の一回診断はno_complete_rowで、icon/name精度の合格ではない。
 
 ## 今回の限定対策
 
-- 元可視STONE1個だけが投影先心臓HUDでUNKNOWNになる場合を、残るSTONE/非共線DIRT・全候補の独立画像証拠で確認する。
-- 前方3セルの新gold bracketと遠方床変化だけ、同方向/同目標/FLOORを元未送信ticketの期限/予算下で既FRESHへ移す。
-- 金bracket内の観測された薄鉄縦線をDOORへ回復し、既開扉処理へ渡す。開扉は0歩。
-- 指輪kernelの整数累積/同じ積の再利用だけを整理。原309/235/今回204のmode0/1全raw bytes同値。unknown表示は「のろいのゆびわとの一致は未確認（対象なしとは未確定）」へ変更。
+初歩は入力/移動/lead0の確実未送信票だけを撤回し、元12秒/既replan2回/全予算内で独立2枚から再取得する。拒否原画1枚はv2の余剰20番目pinへ追加し、既critical7/map12を削らない。
 
-feature/閾値/word・source15検証は維持。新ELF56,088Bの数値同値/別cwd再build一致と実3.9公開backendを確認。開発単発約18%短縮を実機速度の合格にしない。
+通路は全旧STONEを保持する別unit証明、開扉は独立blur絶対品質と既raw/detail/unique bracketの別zero証明を追加する。旧17段・既閾値/UNKNOWN無再送・入力窓・元期限を保持する。classifier/ELF/feature/authorityは変更しない。過去通路/開扉問題の適用外条件が継続しており、旧対策削除による回帰とは未確定。
 
-## 配布・実機確認
+## 試験・配布
 
-[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test090-build150/LoopCtrl.ipa)・[完全ZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test090-build150/source.zip)。CI24件/9scope、新IPA・22seal/実compiler/9Mach-O/全720sourceを照合。公開後に匿名全GET/actualtagも確認して返す。API16/cap15/ABI・Runtime/G1/R12・旧公開assetは維持。実機改善は未確認。
+変更部の単体/関連回帰、変更したRuntime保存境界の限定Mac試験、必要なIPA/source同一性照合を行う。全Runtime故障/旧全33群は通常反復の前提にしない。現段階は新IPA未配布で、TEST090 build150が直前配布版。新実装の検証/固定URLは確認後に更新する。
 
-IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。完全ZIPを展開しtest_090.shのあるフォルダをiSHへ選ぶ。
-
-```sh
-mkdir -p /mnt/necro_test090
-mount -t ios . /mnt/necro_test090
-cd /mnt/necro_test090 && sh test_090.sh
-```
-
-通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を一連で4回依頼する。商品到達後はiSHへ戻り、暫定表示と全画像/ZIP完了を別に確認し、表示されたruntime/test-090-<uuid>.zip全回分を返却。実089の追加回収や同088再実行・稀な指輪を出す周回は不要。
+次の実機は新IPA更新/LoopCtrl完全再起動/Start Server/通常VPNから、通常1-1ポーズでrestart→金壁/通路候補→商店→全商品確認を一連に実施し、表示された全run別ZIPを返却する。090追加回収/同088再実行/稀な対象待ちの周回は不要。
 
 ## 未受入
 
-今回の対策は実機改善未確認。到達率・毎拍/人超え・未知陽性精度・OS背景通知/対象なし循環は未受入。単体/校正/静的reviewを実機成功と呼ばない。自動購入0、候補保持、UNKNOWN無再送・元期限/予算・全画像保存を維持。過去の同症状も対策済みという理由で原因候補から除外しない。raw/秘密値はGit外。[索引](context.md)。
+実機到達率・毎拍/人超え・未知陽性精度・OS背景通知/対象なし循環は未受入。単体/校正/CIを実機成功にしない。候補保持/自動購入0/UNKNOWN無再送/全画像保存と旧API16/cap15/ABI/G1/R12を維持する。[索引](context.md)。

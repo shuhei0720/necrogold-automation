@@ -20,6 +20,8 @@ main.sync/run lock外でAX照会、callback実returnまでlease保持。最終ca
 
 sync12秒は公開/begin/completeの等号で終了。TicketGuard短絡→complete0はstate1の純D超過だけ撤回。確認済連続/pendingは[065](../plans/test065-pending-unsent.md)。期限内complete0/state2/3/4/retune/権限失効は対象外。旧ID/状態検査は時計/予算更新より先。確認後同期は§8。
 
+091は初歩state1のScene拒否だけ、同level入力/移動/lead=0・固定原点・同prefix・確実未送信・正常FLOOR/商品UNKNOWN/非保護下で旧票とslot/modelを撤回する。既初歩replan上限2回と元sync12秒/initial view/walk/sessionを保持し、独立2枚の新しい同候補支持（新actual GOLDも含む）が揃うまで別IDなし。送信済みUNKNOWN/移動後へ広げない。[限定計画](../plans/test091-device-stops.md)。
+
 ## 5. 未送信再予約
 
 [066](../plans/test066-shop-action.md)・[071](../plans/test071-observed-entry.md)の限定quietは同ID保持。それ以外は初歩≤2回、continuousはchain≤2/run≤8。確実未送信・両Scene safe_floor/同gold/strict BLOCKEDが必須。初歩は同direction/origin・next近傍保護、continuousは全protected/元・保存の完全5field Decision/最新actionを検査。元target/notBefore/deadline/period/ordinal/horizon保持。reason8/FLOORは許可済み遠方target座標だけ変更可（direction/reason/obstacle/最新判断を再検査）。未知inputの次拍置換は禁止、初歩失効は§4で撤回。
@@ -90,7 +92,7 @@ RecoveryTrace192B/RecoveryStatus456Bの別getterで消去前model/raw samples≤
 
 ## 13. Export
 
-profile1 `normal-1-1-v1` は旧initial/優先・PNG≤20/各512KiB/計4MiB・legacy/paged同一。profile2 `normal-1-1-evidence-v2` だけ各map最終正常見送りsource≤12＋既critical≤7を20pin内保持、PNG≤20/各512KiB/計10MiB、paged-only/bulk拒否。profile/予算はrun固定、wireから拡張禁止。欠落/oversizeを記録。chunk64KiB、manifest wire512KiB/chunk wire256KiB、batch≤4chunk/256KiB。各chunk検証/取消/期限、検証済prefixだけhash/cursorへ反映。atomic fragment→journal順保存、再中断も未検証suffix保持、active journalが回復権限。暗号/HTTP上限不変。
+profile1 `normal-1-1-v1` は旧initial/優先・PNG≤20/各512KiB/計4MiB・legacy/paged同一。profile2 `normal-1-1-evidence-v2` は各map最終正常見送りsource≤12＋既critical≤7に、091で一致snapshot/拒否時刻/prefixを証明したlead未確認・原点・CLEAR sourceの未送信MOVE SCREEN拒否raw最大1枚（累積入力/移動不変。level入力0の証明や回復権限にはしない）を追加する。既criticalの順序/保持は維持し合計critical≤8/20pin、PNG≤20/各512KiB/計10MiB、paged-only/bulk拒否。profile/予算はrun固定、wireから拡張禁止。欠落/oversizeを記録。chunk64KiB、manifest wire512KiB/chunk wire256KiB、batch≤4chunk/256KiB。各chunk検証/取消/期限、検証済prefixだけhash/cursorへ反映。atomic fragment→journal順保存、再中断も未検証suffix保持、active journalが回復権限。暗号/HTTP上限不変。
 
 RPC2秒/結果8秒。unsafe/非pagedは90秒を残session180秒内へ。[069](../plans/test069-collection-gate.md)のterminal/drained・input0/3・非inflight/非凍結pagedは独立300秒。同UUID/cursorのread-only、start/入力/keepalive/cancelなし。旧返信cache消去・未知input解決の誤認禁止。local原本保持、全画像検証/ZIP公開前の終了/次start禁止。§3排他。
 

@@ -209,6 +209,9 @@ private final class NG2Run {
     var pinned: [UInt64: NG2Frame] = [:]
     // Cached on controlQueue with the C snapshot. Results never query C.
     var diagnosticCaptureIDs: [UInt64] = []
+    // Profile2 uses its existing twentieth slot for one original initial
+    // rejection raster. Replacements do not grow the pin/export budgets.
+    var initialRejectedCaptureID: UInt64?
     var terminalCaptureID: UInt64?
     var references = Set<UInt64>()
     var analyzedFrames: UInt64 = 0
@@ -524,7 +527,7 @@ final class NG2Runtime {
         // Existing stop/goods/comparison evidence stays ahead of the bounded
         // per-restart set. Its initial strong frame is already in that set.
         for id in [run.terminalCaptureID, run.found?.id].compactMap({ $0 }) + initial
-            + run.diagnosticCaptureIDs + decisions {
+            + run.diagnosticCaptureIDs + [run.initialRejectedCaptureID].compactMap({ $0 }) + decisions {
             if id != 0 && !ids.contains(id) { ids.append(id) }
         }
         return ids
@@ -1537,6 +1540,7 @@ final class NG2Runtime {
             #endif
         }
         run.lock.ng2Locked {
+            retainInitialRejectionLocked(run, snapshot)
             retainRestartDecisionLocked(run, snapshot)
             // A dispatch snapshot still publishes the full coherent C state.
             // Reserve its raw authority before deferring diagnostic pin work.
@@ -1550,6 +1554,55 @@ final class NG2Runtime {
         }
         run.lastCache = Self.now()
         return snapshot
+    }
+
+    // Cache only a coherent certainly-unsent transition while both original
+    // rasters are still available. This is diagnostic retention, never input
+    // authority, movement credit, recovery permission or a synthesized frame.
+    private func retainInitialRejectionLocked(_ run: NG2Run, _ snapshot: NG2ControllerSnapshot) {
+        let status = snapshot.status
+        guard run.profile == Self.evidenceProfile, run.cancelReason == 0, !run.stopped,
+              !run.terminal, !run.inFlight, ownerActive(run),
+              let previous = run.controllerSnapshot else { return }
+        let old = previous.status
+        guard old.input_state == 1, old.current_command_id != 0, old.reason == 0,
+              old.terminal == 0, old.goods == 0, old.lead_confirmed == 0, old.x == 0, old.y == 0,
+              status.input_state == 0, status.current_command_id == 0,
+              status.reason == 0 || status.reason == 17,
+              status.terminal == 0, status.goods == 0, status.lead_confirmed == 0,
+              status.x == 0, status.y == 0, status.inputs == old.inputs, status.moves == old.moves,
+              run.prefix == old.last_completed_id, status.last_completed_id == old.last_completed_id,
+              let pending = previous.events.last(where: { $0.command.id == old.current_command_id }),
+              pending.command.kind == 4, pending.begin_ns == 0, pending.outcome == 0,
+              let rejected = snapshot.events.last(where: { $0.command.id == old.current_command_id }),
+              rejected.begin_ns == 0, rejected.outcome == 3, rejected.reason == 17,
+              rejected.end_ns == status.last_capture_end_ns else { return }
+        let a = pending.command, b = rejected.command
+        guard a.id == b.id, a.ordinal == b.ordinal, a.target_ns == b.target_ns,
+              a.not_before_ns == b.not_before_ns, a.deadline_ns == b.deadline_ns,
+              a.source_capture_id == b.source_capture_id, a.source_start_ns == b.source_start_ns,
+              a.phase_sample_ns == b.phase_sample_ns, a.kind == b.kind,
+              a.direction == b.direction, a.x == b.x, a.y == b.y,
+              a.source_capture_id != 0, status.last_capture_id > a.source_capture_id,
+              status.last_capture_id > old.last_capture_id else { return }
+        let available = run.images + Array(run.pinned.values) + [run.initial, run.found].compactMap({ $0 })
+        guard let source = available.first(where: { $0.id == a.source_capture_id }),
+              let frame = available.first(where: { $0.id == status.last_capture_id }),
+              source.generation == run.generation, frame.generation == run.generation,
+              source.stable, frame.stable,
+              !source.startInFlight, !source.endInFlight, !frame.startInFlight, !frame.endInFlight,
+              source.startPrefix == run.prefix, source.prefix == run.prefix,
+              frame.startPrefix == run.prefix, frame.prefix == run.prefix,
+              source.start == a.source_start_ns, frame.start >= source.start,
+              frame.start == status.last_capture_start_ns, frame.end == status.last_capture_end_ns,
+              source.analysis.scene.pointee.state == 2,
+              source.analysis.scene.pointee.gold_state == 1,
+              source.analysis.scene.pointee.goods == 0 else { return }
+        run.initialRejectedCaptureID = frame.id
+        run.references.insert(frame.id)
+        // Reserve the one existing slot even when the rest of pin work is
+        // deferred until after dispatch. The previous snapshot is not reused.
+        pinDispatchSourceLocked(run, frame.id)
     }
 
     // Call under run.lock, before a dispatch snapshot can defer pin work.

@@ -3112,3 +3112,11 @@ code `8553efb7a487b71e9be333a054465f76f4017111`、run43184318092/build148。host
 code e7d9f42c4085316542fea864c9ba4e17a9e4acec、run43252794927/build150。実patched sourceの新11＋関連9＋selector4=24/9scopeが全Green。実物5gate PASS、19/22seal・Runtime/G1/R12不変、全9MachO/293禁止marker・実C4/Swift5/RSP6を照合。R12日本語2pathを誤集計したreader1行のみUnicode Red/Green後にretainedだけ再実行、既PASS2再実行0・計6attempt。修正表へ原因/対策/確認範囲/再発数を記録し、単体や対策記録を改善完了と扱わない。closing4docsだけで製品bytesは不変。
 
 [IPA150](https://github.com/shuhei0720/necrogold-automation/releases/download/test090-build150/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test090-build150/source.zip)。IPA17,631,754B/SHA956005dc4cc518a5e783529b5d94c833eb7552030f37fbe466f846372253b4db。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。test_090.shのあるフォルダをiSHへ選び、mkdir -p /mnt/necro_test090、mount -t ios . /mnt/necro_test090、cd /mnt/necro_test090 && sh test_090.sh。通常1-1ポーズから一連4回、商品全体可視/停止/判定・全保存の時間とruntime/test-090-<uuid>.zip全回分を依頼する。089追加回収/088再実行/稀な対象待ち周回は不要。到達率/毎拍・人超え/未知陽性精度は未受入。
+
+## TEST090受領とTEST091: 初歩再観測と通路・開通の別証明
+
+2026-11-13（日本時間）。[受領/検証](../reviews/test091.md)・[計画](../plans/test091-device-stops.md)・[修正記録](../fix-records.md)。実順c4109c61/3c04c7df/ec411d6f、3ZIP/60原PNG全CRC/SHA/strict load/certificate/canonical sidecarを照合、全回収完了。全商品確認0/3。
+
+実1は確実未送信の初歩Scene拒否、原175未保持で最終predicate未確定。実2は旧STONE保持の実UP1を確認できず8UNKNOWN、実3は木扉の開通0変位を確認できず8UNKNOWN。実3原184にのろいのゆびわが見えるが全3商品は欠け、正式判定未呼出。調整前一回診断はno_complete_row、個別matcher精度の合格ではない。
+
+091は初歩0入力下の有限2画像再観測・拒否raw1pin、通路全旧STONEunit、木扉blur絶対品質の別zero証明を追加する。旧17段/期限/予算/UNKNOWN無再送・既critical7/map12・API16/cap15/ABIは維持。classifier/56,088B ELF/G1/R12は不変。作者単体/保存pair校正は未来の実機到達ではなく、新実機改善未確認。実CI/IPA固定配布は完了後に追記する。
