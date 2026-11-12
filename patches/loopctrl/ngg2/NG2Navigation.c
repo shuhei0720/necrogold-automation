@@ -242,7 +242,13 @@ uint32_t ng2_passage_candidates(const NG2Scene *s) {
         if (inboard<0 || route[inboard].cost==INF_COST ||
             !passage_clear(s,mx,my) || !passage_clear(s,mx+dx,my+dy)) continue;
         if (mouth==NG2_TILE_FLOOR) {
-            if (!first || !second) continue;
+            if (!first || !second) {
+                int a=tile(s,mx+dy,my-dx),b=tile(s,mx-dy,my+dx);
+                if(!((first&&b==NG2_TILE_UNKNOWN)||(second&&a==NG2_TILE_UNKNOWN))
+                    ||tile(s,mx+dx,my+dy)!=NG2_TILE_FLOOR)continue;
+                for(j=-3;j<=3;++j)walls+=passage_wall(s,side?-3:j,side?j:-3);
+                if(walls<3)continue;
+            }
         } else if (mouth==NG2_TILE_UNKNOWN) {
             if ((!first && !second) || tile(s,mx+dx,my+dy)!=NG2_TILE_FLOOR) continue;
             for (j=-3;j<=3;++j) walls+=passage_wall(s,side ? -3 : j,side ? j : -3);

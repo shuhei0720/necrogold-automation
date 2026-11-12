@@ -1574,6 +1574,27 @@ static void record_change(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     }
     detail->cell_count=total<4?total:4;detail->omitted_cells=total-detail->cell_count;
 }
+/* Same-ACK state3 cannot replace before. Journal the rejected state without
+ * claiming a motion assessment or changing the existing SCREEN stop. */
+static void record_ack_nonfloor_failure(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    uint64_t start,uint64_t end,uint64_t now){
+    const NG2ControllerEvent *e=event(p);int mask,tiles,protected_cells;
+    if(p->s.input_state!=3||p->command.kind!=NG2_ACTION_MOVE||!p->command.id
+        ||!p->command.source_capture_id||p->finish_requested||p->s.terminal||p->s.goods
+        ||p->replan_pending||p->continuous_pending
+        ||p->s.current_command_id!=p->command.id||p->s.last_completed_id!=p->command.id
+        ||p->last_observed_prefix!=p->command.id
+        ||!e||memcmp(&e->command,&p->command,sizeof(p->command))||e->outcome!=2
+        ||!e->begin_ns||!e->end_ns||e->begin_ns>e->end_ns||e->end_ns!=p->ack_ns
+        ||!p->motion_wait.active||p->motion_wait.command_id!=p->command.id
+        ||p->motion_wait.source_capture_id!=p->command.source_capture_id
+        ||p->before.state!=NG2_FLOOR||scene->state==NG2_FLOOR
+        ||id<=p->command.source_capture_id||start<p->ack_ns
+        ||start<p->command.source_start_ns||end<=start||now<end
+        ||now>p->motion_wait.deadline_ns)return;
+    mask=scene_change(&p->before,scene,&tiles,&protected_cells);
+    if(mask)record_change(p,scene,id,mask,tiles,protected_cells,0,NG2_REVALIDATE_STATE);
+}
 NG2Controller *ng2_controller_create(uint64_t now){
     NG2Controller *p;
     if(!valid_time(now)||now>NS_LIMIT-180*SECOND-1)return NULL;
@@ -1883,7 +1904,10 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
     if(p->s.input_state==3){
         pending_kind=p->command.kind;
         if(pending_kind==NG2_ACTION_MOVE){
-            if(scene->state!=NG2_FLOOR){p->s.input_state=0;p->s.current_command_id=0;finish(p,end,NG2_REASON_SCREEN);}
+            if(scene->state!=NG2_FLOOR){
+                record_ack_nonfloor_failure(p,scene,id,start,end,commit);
+                p->s.input_state=0;p->s.current_command_id=0;finish(p,end,NG2_REASON_SCREEN);
+            }
             else if(p->s.goods){
                 event(p)->observed_capture_id=id;
                 resolve_move(p,scene,id,start,end);

@@ -57,10 +57,10 @@ static int ng2_pause_icon(const unsigned char *rgba,size_t stride,const unsigned
                 &&ng2_neutral(rgba+(y+6)*stride+4*(x+429)));
         if(ng2_icon_overlap(masks[k]))return 1;
     }
-    /* Keep the original 13px opening first. Compressed bars interrupted by
-     * item labels may retain only 11/12px runs. The 11px fallback still uses
-     * the full reference/0.8 IoU, without filling gaps or clipping padding. */
-    for(radius=6;radius>=5;--radius)for(k=0;k<2;++k){
+    /* Keep the original 13px and 11px openings first. Compressed bars under
+     * item labels may also retain 9px runs. Every opening uses the full
+     * reference/0.8 IoU, without filling gaps or clipping padding. */
+    for(radius=6;radius>=4;--radius)for(k=0;k<2;++k){
         for(y=0;y<36;++y)for(x=0;x<36;++x){int value=1;
             for(dy=-radius;dy<=radius;++dy)if(y+dy<0||y+dy>=36||!masks[k][(y+dy)*36+x])value=0;
             eroded[y*36+x]=(unsigned char)value;
@@ -185,6 +185,22 @@ static void ng2_material_proofs(const unsigned char *rgba,size_t stride,NG2Scene
             ll=ng2_material_sample(rgba,stride,cx-12,cy,12,13);
             if(ng2_material_stone(ur)&&ng2_material_stone(ll))out->tiles[idx]=NG2_TILE_STONE;
         }
+    }
+}
+
+/* A separately observed lower floor may coexist with a black upper half.
+ * Require current pixel colour/texture, never infer it from a passage shape. */
+static void ng2_black_entry_floor(const unsigned char *rgba,size_t stride,NG2Scene *out){
+    for(int j=-5;j<5;++j)for(int i=-11;i<12;++i){
+        int idx=ng2_index(i,j),cx=448+36*i,cy=207+36*j;
+        NG2MaterialSample full,upper,lower;
+        if(out->tiles[idx]!=NG2_TILE_UNKNOWN||ng2_hud_overlap(cx-12,cy-12,cx+13,cy+13))continue;
+        full=ng2_material_sample(rgba,stride,cx-12,cy-12,25,25);
+        if(!full.spread||(full.r>=6&&full.g>=3)||full.r>12||full.g>12||full.b>12)continue;
+        upper=ng2_material_sample(rgba,stride,cx-12,cy-12,25,12);
+        lower=ng2_material_sample(rgba,stride,cx-12,cy,25,13);
+        if(100*upper.black>=95*upper.count&&100*(lower.count-lower.black)>=90*lower.count
+            &&16<=lower.r&&lower.r<=52&&ng2_material_floor(lower))out->tiles[idx]=NG2_TILE_FLOOR;
     }
 }
 
@@ -385,7 +401,7 @@ int ng2_analyze_rgba(const uint8_t *rgba,size_t length,size_t stride,NG2Scene *o
         &&!ng2_match(rgba,stride,gray,&ng2_template_death,0)){
         out->state=NG2_FLOOR;
         if(ng2_gold(rgba,stride,gray,work,density,out))result=-1;
-        else {ng2_tiles(rgba,stride,out);ng2_material_proofs(rgba,stride,out);ng2_separated_floor_bands(rgba,stride,out);result=ng2_merchandise(rgba,stride,gray,work,density,out);}
+        else {ng2_tiles(rgba,stride,out);ng2_material_proofs(rgba,stride,out);ng2_black_entry_floor(rgba,stride,out);ng2_separated_floor_bands(rgba,stride,out);result=ng2_merchandise(rgba,stride,gray,work,density,out);}
         if(!result){ng2_lower_fringe(rgba,stride,out);
             for(y=0;y<H;y+=4)for(x=0;x<W;x+=4)out->signature[(y/4)*224+x/4]=gray[y*W+x];
             ng2_beat_extract(rgba,stride,out);}
