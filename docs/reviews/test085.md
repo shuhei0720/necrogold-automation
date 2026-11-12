@@ -64,3 +64,13 @@ fresh pinned Git checkout→G1→seal/apply成功。22中Controller/Nav2変更�
 self3の作者初回Green0.018秒後、独立reviewがmainのself選択tupleだけ旧084を指すP1を発見した。native/client選択のASTとself関数のGreenだけではmain経路の版を保証しないため、新085 module/classへの1tuple訂正を行い、main ASTに旧084定数がないことを確認。self3ソース/対象helper/他意味処理は不変で形式再実行を増やさず、同code CIで実際の新self3選択を必須にする。最終runner SHA `1ae9491ebf69538a8ae994b204f9be1a31a5a6b32e6f418eeb2ea77d9786aa2c`。workflowはdevice参照の1行だけ。
 
 新markerはPython3module/classの6とB C6の12件を旧237 exactprefixへ加え計249、重複0・全C宣言coverage。HOST試験Cは製品sourceへ混ぜない。5実物verifierはこの時点では全guardFalse/未実行で、code/count/実物到着後に同一性を照合する。
+
+## 同code実物と配布
+
+code `97a8cbe5177d85be080a33107fd799599c045b83`、run43149743552/build144の限定host33methods/10scopeが全Green、fail/error/skip/expectedfail0。新native12と選択旧回帰・client公開gate/self3を分ける。Mac070固定旧Runtimeの期待Red1/現6entrypoints Green、081保存6entrypoints Green。無変更Runtime048a…/固定保存fixture/seamとRed133を別証拠再利用し、新Runtime Redや実ゲームCI/全故障worldを追加しない。
+
+5実物verifier各1回PASS、失敗/再実行0・意味試験追加0。全642tracked blob/CRC/path、22seal2変更20不変、R12原40/G1/core4/Runtime同bytes・API16/cap15/client16/v2/旧v1回収を照合。実4C/Swift5/RSP6とraw log/PBX/args/RSP、Perception/Nav strictO2/他C O0/Swift Onone/HOST不在を確認。全9MachOで旧237 exactprefixを保つ全249markerが不在、新試験C宣言6の全coverageを確認した。
+
+crossbinding receiptはGit外test085-actual-five-crossbinding-receipt.json、12176B/SHA `0bd84948311902792df43282e7fe52870ee61356f98bbc104606170209773ad6`。5 result/verifier SHA・root独立in-memory IPA/3artifact API digest/bytes/head/runを同code/IPA/sealへ結合。同じ独立担当が実物を読取確認しP0/P1/P2なしでGO、追加意味再試験/文書編集0。IPA0.3.4/build144/min16、17626327B/SHA `ae16b4f3774b7c6bd2911e77165e6476342455313fc21f2d1e818c778f7a53d7`。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test085-build144)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test085-build144/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test085-build144/source.zip)。code後closingはstatus/本レビュー/device台帳3文書のみ、製品不変。closing全642blobを照合した完全sourceと検証済みIPAを固定assetへ保存し、公開後3assetを匿名全GET/API digest/SHA/CRC照合して返す。SideStore更新/LoopCtrl完全再起動・Start Server/通常VPN、新test_085.shで通常1-1ポーズから一連5回、5秒以上ポーズ後iSHで全照合完了を待ち、全runtime/test-085-<run_id>.zipと結果の返却を依頼する。

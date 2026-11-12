@@ -3031,3 +3031,13 @@ SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開�
 CI141の旧10ms fixture不適格は基準083でも再現し、時刻のみ訂正/全assert維持。最終code `2d6a150e26975f0d5fa0f6818edcf20f8dd965ac`、run43139153631/build142はhost38/13全Green、新18Red→Green、Mac070旧Red1/現Green6・081保存Green6、固定保存Red133分離再利用。5実物verifier各1回PASS、4C/Swift5/RSP6・9MachO237marker・全633source/IPA照合、22seal3変更19不変/Runtime/core4/API16/cap15/client16/v2維持。同じ独立担当P0/P1/P2なしGO。
 
 [固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test084-build142)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test084-build142/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test084-build142/source.zip)。IPA 17625904B/SHA `ee4f62ad4ce11886989ae9ea2c14c12edaf96eb303f8e7ee50986586651f0495`。closing文書3件のみ・公開後匿名全GET/SHA/CRC照合して返す。SideStore更新/LoopCtrl完全再起動/Start Server/通常VPN、新source/test_084.shで通常1-1ポーズ→restart→金壁/通路候補→商店→全商品可視/PAUSEを5回。5秒以上ポーズ後iSHで全照合完了を待ち、runtime/test-084-<run_id>.zip全回分を依頼する。新版実機受入・毎拍/人超え・対象識別/通知/対象なし循環は未実施、旧081実5金1→2は未解決。
+
+## TEST084受領とTEST085: 確認済み歩行後の予約と無金通路静止確認
+
+2026-11-12（クライアント日本時間）。[受領/検証](../reviews/test085.md)・[計画](../plans/test085-verified-scheduling.md)・[独立レビュー](../reviews/test085-independent.md)。実順3a5b22f5 goods/1babdecf late/26857403 beat/a41de5bb goodsの4ZIP/80原PNG・17,923,256画像Bを全hash/CRC/現schema/client_load/manifest/prefix/cursor/実公開gate照合。商品可視2/4、全paused/terminal/drained/回収完了・正常見送りsource7/7保持・選択native行欠損0。084追加回収不要。
+
+実2の遅い確定MOVEDが次拍source200ms資格に不足する場合、元proof/D/100ms窓・未発行nextの限定ANDで既再同期へ。実3は元2拍W内に別zero-onlyの背景proofで静止を確認する。元14stage/全期限・予算・UNKNOWN無再送を維持。実4金扉前の約2.625秒待機は新proof対象外で短縮未受入。Beat.cは変更していない。
+
+新12Red→Green、code `97a8cbe5177d85be080a33107fd799599c045b83`、run43149743552/build144のhost33/10全Green。Mac070旧Red1/現Green6・081保存Green6、固定保存Red133分離再利用。5実物各1回PASS、4C/Swift5/RSP6・9MachO249marker・全642source/IPAを照合。22seal2変更20不変、Runtime/core4/API16/cap15/client16/v2維持。同じ独立担当P0/P1/P2なしGO。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test085-build144)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test085-build144/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test085-build144/source.zip)。IPA 17626327B/SHA `ae16b4f3774b7c6bd2911e77165e6476342455313fc21f2d1e818c778f7a53d7`。closing文書3件のみ・公開後匿名全GET/SHA/CRC照合して返す。SideStore更新/LoopCtrl完全再起動/Start Server/通常VPN、新source/test_085.shで通常1-1ポーズ→restart→金壁/通路候補→商店→全商品可視/PAUSEを5回。5秒以上ポーズ後iSHで全照合完了を待ち、runtime/test-085-<run_id>.zip全回分を依頼する。新版実機受入・恒久毎拍/人超え・対象識別/通知/対象なし循環は未実施、旧081実5金1→2は未解決。
