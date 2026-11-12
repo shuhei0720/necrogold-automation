@@ -3008,3 +3008,16 @@ SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。iSHで 
 code `c28c087b36742543c134ac1d8384160c1ca3b522`、build137/run43055416759。IPA0.3.4/build137/min16、17624649B/SHA `fcc148ce172dde647d541876ba0533f27935b7e3fcd7e147e1cf110de85178da`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test082-build137/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test082-build137/source.zip)。closingは文書3件だけで製品不変。固定3assetの匿名全GET/SHA/CRC照合後に返す。
 
 SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開したtest_082.shのフォルダをiSHへ選び、`mkdir -p /mnt/necro_test082`、`mount -t ios . /mnt/necro_test082`、`cd /mnt/necro_test082 && sh test_082.sh`。fresh通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を5回。5秒以上ポーズならiSHへ戻り保存完了を待ち、runtime/test-082-<run_id>.zip全回分と商品全体可視/停止位置/逆方向/候補見逃し/拍間隔を依頼。081再実行/追加回収不要。
+
+
+## TEST082受領とTEST083: 下側商品の視認位置と初金露出
+
+2026-11-12（クライアント日本時間）。[計画](../plans/test083-first-gold-goods-view.md)・[受領/検証](../reviews/test083.md)・[独立レビュー](../reviews/test083-independent.md)。実順7eb9c53d/156d2950/d50399c6/41891edf、4ZIP/80原PNG・20,823,798画像Bを全SHA/CRC/schema/manifest/prefix/cursor/実publicationへ照合、全PAUSE/完収。原494/199で3商品が全可視、到達2/4。正常見送り判断16/16保持、古いnative ring3行欠損は正常なexport画像/metadataと分ける。全取得画像保存ではない。
+
+実1は下の商品がPARTIALで、商人HP下の床がDIRTとなり、旧GOLD距離目標も左へ偏った。旧DIRT/fullRGB/固定二帯425pxの実床色・texture/全750px HUD除外で床を確認し、実入店/PARTIAL/Scene ITEMだけ観測FLOOR経路の画面端overflowを減らすgoalを優先する。原297/343ではDOWNを選ぶ。実4はCLEAR金0→新CANDIDATE金1で実LEFT1を確認できず8UNKNOWN。旧全STONE/非共線DIRT/unique9・raw有限unit・旧blur/phase全強条件と元projection UNKNOWNをANDし、適格115だけLEFT1を確認する。旧113/後続INF・UNKNOWN再送/期限/予算/商品保護は維持。
+
+新16単体は有効assertion Red→Green（前提不足textureと迂回fixtureの誤期待は別記録）。同code CI40/16scope（native36/client1/self3）全Green、Mac旧070 Red1/現Green6・081保存Green6、旧意味Red133は別run証拠として再利用。5実物verifier各1回PASS、実C4/Swift5/RSP6・全9MachO225marker不在・全622source/IPA同一性を確認。同じ独立担当が静的/実物とも残P0/P1/P2なしでGO。原177/83ACKでは旧known59全部維持・回帰0、36材質セル4→1のみ。校正と新実機受入を区別する。
+
+code `2779b2b4f4aa38a741a8a75cb6896f3c11a236ae`、build139/run43127850144。IPA0.3.4/build139/min16、17624015B/SHA `f479dffd2d05f475ef004d591ab53a12c407cb3a11a7c9ca7e902db9210cd06f`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test083-build139/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test083-build139/source.zip)。closingは文書3件だけで製品不変。公開後、固定3assetを匿名全GET/SHA/CRC照合して返す。
+
+SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開したtest_083.shのフォルダをiSHへ選び、`mkdir -p /mnt/necro_test083`、`mount -t ios . /mnt/necro_test083`、`cd /mnt/necro_test083 && sh test_083.sh`。fresh通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を5回。5秒以上ポーズならiSHへ戻り全画像/ZIP保存照合完了を待ち、`runtime/test-083-<run_id>.zip`全回分と商品全体可視/停止位置/逆方向/候補見逃し/拍間隔を依頼。082追加回収/再実行不要。旧081実5の金1→2は別のpixel証明が必要で未解決、新実機到達率/見逃し率/恒久毎拍・人超え・対象識別/通知/対象なし循環は未受入。

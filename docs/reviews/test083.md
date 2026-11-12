@@ -61,6 +61,14 @@ fresh pinned Git clone→G1→seal/apply成功。22中Perception/Nav2変更・�
 
 ## 単体・最終検証・配布
 
-最終selectorは40methods/16scope（新16＋旧native20＋公開gate1＋self3）。selector自己3は初回Green、native/clientの局所重複実行0。device workflowは083 runnerへ参照1行だけ変更し、旧070/081 Mac保存stepsを維持する。Runtime/Controller/core4と旧082履歴の全bytes不変を確認した。
+code `2779b2b4f4aa38a741a8a75cb6896f3c11a236ae`、run43127850144/build139で、host40methods/16scope（native36=新16+旧20/client公開gate1/self3）が全Green。fail/error/skip/expectedfail0。selector自己は作者初回Green、旧native/clientのlocal意味重複0。device workflowは083runner参照1行だけを変更し、旧070/081 Mac保存stepsを維持した。
 
-最終same-code host CI/IPA/5実物検証/固定公開GETはこの時点で未実施。同じ独立担当が製品・作者ログ・原画比較・seal・selectorの全差分を確認し、残P0/P1/P2なしで最終静的GO。codeと全sourceを固定し同codeの実ビルドへ進む。Runtime本文/旧保存fixtureは同bytesなので新Runtime Redを増やさず、旧意味Red133再利用と今回のMac Greenを区別する。
+Macの今回実行は070固定旧Runtimeの期待Red1/現Runtime6entrypoints Green、081保存6entrypoints Green。Runtime048a…/fixture302c…/seame98b…は同bytesで、新Runtime Redは不要。保存の意味Red133/run43030728793は別runの再利用として区別し、今回のRedと呼ばない。全Runtime故障/worldや実ゲームCIは追加していない。
+
+5実物verifierを各1回実行し全PASS、verifier失敗/再実行0・意味試験追加0。codeZIP622全tracked blob/CRC/path、22seal中2変更20不変・R12原40/G1/core4/Controller/Runtime同bytes、host40/16、actual4C/Swift5/RSP6とraw log/PBX/args/RSPの結合、Perception/Nav strictO2/他C O0/Swift Onone・HOST macro不在を確認。全9MachOで225marker（旧208 exactprefix保持/新17/重複0）不在、新C7=export6/static1の全coverageとAPI16/cap15/client16/v2・旧v1回収を確認した。
+
+crossbinding receiptはGit外 `test083-actual-five-crossbinding-receipt.json`、7684B/SHA `2975d9799bf61f74ddcc42f4f7fbac2477efc1eaba6d73c94a8c8e49f4b064eb`。5 result/verifier SHA、root独立in-memory IPA/3artifact APIのdigest/bytes/head/runと全結果が同code/IPA/sealへ一致。同じ独立担当が全実物を読取確認し、残P0/P1/P2なしで最終GO、追加テスト/文書編集0。IPA0.3.4/build139/min16、17624015B/SHA `f479dffd2d05f475ef004d591ab53a12c407cb3a11a7c9ca7e902db9210cd06f`。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test083-build139)・[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test083-build139/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test083-build139/source.zip)。code後のclosingはstatus/本レビュー/device台帳の3文書だけで製品不変。closing全622blobを照合した完全sourceと検証済みIPAを固定assetへ保存し、公開後は3assetを匿名全GET/API digest/SHA/CRC照合して返す。
+
+SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開sourceのtest_083.shで、毎回新しい通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を5回依頼する。5秒以上ポーズならiSHへ戻り全画像/ZIP照合完了を待ち、`runtime/test-083-<run_id>.zip`全回分と商品全体可視/停止位置/逆方向/候補見逃し/拍間隔を返してもらう。082追加回収/再実行不要。旧081実5の金1→2は別のpixel証明が必要で未解決、新版の実機到達率/見逃し率・毎拍/人超え・対象識別/通知/対象なし循環は未受入。

@@ -1,29 +1,29 @@
 # 最新状態
 
-更新: 2026-11-12（日本時間）。TEST082/build137。[計画](plans/test082-materials-motion.md)・[受領/実装/検証](reviews/test082.md)。code `c28c087b36742543c134ac1d8384160c1ca3b522`、run43055416759。TEST081の5run/97原PNGを全照合、原275で全3商品100/50/100を確認し到達1/5。全PAUSE/完収、正常見送り判断18/18枚と最終criticalを保持した。全取得画像保存ではない。
+更新: 2026-11-12（クライアント日本時間）。TEST083/build139。[計画](plans/test083-first-gold-goods-view.md)・[受領/検証](reviews/test083.md)。code `2779b2b4f4aa38a741a8a75cb6896f3c11a236ae`、run43127850144。TEST082の4run/80原PNGを全照合、実2原494/実3原199で全3商品を確認し到達2/4。全PAUSE/完収、正常見送り判断16/16保持。実2の古いnative bounded ring3行は欠損、exportmetadata/画像は正常。全取得画像保存ではない。
 
 ## 変更と根拠
 
-既DIRTの追加pixel証拠で、bright FLOOR/半可視FLOOR/STONEの境界誤分類を補う。元palette行・gate/wood処理を維持し、固定非重複領域・元色/texture・黒入口条件を要求。校正97画像の29セルだけ変更、商品/保護/拍/署名等の非tile bytesは不変。逆方向移動と初回候補見逃しの観測原因へ対応した。
+既DIRTのfullR/G/Bと固定upper300/同tile内outer-lower125の二つの床色/textureを要求する別proofで、商人HPが重なった床を確認。全750実依存pixelへ元HUD/画像範囲除外を適用する。旧palette/gate/wood/量子化082の3proof・商品/保護/可視条件を維持。177校正画像ではDIRT→FLOOR36セルだけ、全非tile bytes不変。
 
-無金の実UP1は074の全旧STONE/非共線DIRT unique9と075の既pixel証拠をAND。正しい床補正で露呈した旧LEFT1回帰には、075唯一L/有限phaseとblur95%品質、別raw gradient75%品質/全73の元15pp識別をANDする。支持は合算せず、旧関数/閾値本文を変更しない。旧known27全部維持・回帰0、旧UNKNOWN9は実1だけUP1へ改善し残8維持。これは既資料の校正で実機受入ではない。
+実入店/PARTIAL/grid内ITEMに限り、既入口半平面内の観測FLOOR経路から商品位置の画面端overflowを厳密に減らすgoalをGOLD接近より優先。world±16/商品・保護/入口通過/旧reason8全5fieldと1歩入力を維持、改善無しは旧chooserへ戻す。帯は位置ヒントであり成功は元VISIBLEだけ。
 
-未発行stationary waitの拒否は元anchor同一/独立current-prefix/真mask非0だけ既ROUTE/MOTION診断へ記録する。ISSUED・mask0・期限/prefix不成立に偽行を足さず、停止/入力/票/予算・UNKNOWN無再送を維持。Runtime/core4・API16/cap15/client16/profilev2の20PNG/10MiBと旧v1回収は同一bytes。
+無金探索中の実1歩で初金1セルが新露出するケースへ、元投影UNKNOWN/旧STONE全保持・非共線DIRT unique9・raw有限unit/gap・原075 blur/独立phaseを全ANDする別motion補助を追加。元113の8px/後続INFは拒否し、元115の適格画像でLEFT1を確認する。開通/入店credit・UNKNOWN再送・元期限/8評価/予算は増やさない。
 
 ## 検証・配布
 
-新18作者単体Red→Green。同codeのhost43全Green（native36/client4/selector3）、旧070/081保存試験も今回実行。独立最終レビューGO。5実物verifier各1回PASS、失敗/再実行0。実C4/Swift5/RSP6・全9MachO/208marker不在・全612sourceとIPAを照合。Runtime048a…は未変更、別runの保存意味Red133を再利用し今回のGreenと区別する。公開後、固定3assetを匿名全GET/SHA/CRC照合して返す。
+新16作者単体は有効Red→Green。同code host40/16scope全Green（native36/client1/self3）、Mac070旧Red1/現Green6・081保存Green6、過去の意味Red133は別証拠再利用。5実物verifier各1回PASS、実C4/Swift5/RSP6・全9MachO225marker不在・全622source/IPAを照合。同じ独立担当が静的/実物ともP0/P1/P2なしでGO。Runtime/Controller/core4・API16/cap15/client16/v2・22seal2変更20不変を確認。
 
-[TEST082/build137](https://github.com/shuhei0720/necrogold-automation/releases/tag/test082-build137)。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test082-build137/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test082-build137/source.zip)。IPA0.3.4/build137/min16、17624649B/SHA `fcc148ce172dde647d541876ba0533f27935b7e3fcd7e147e1cf110de85178da`。closingは文書3件だけで製品不変。
+[TEST083/build139](https://github.com/shuhei0720/necrogold-automation/releases/tag/test083-build139)。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test083-build139/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test083-build139/source.zip)。IPA0.3.4/build139/min16、17624015B/SHA `f479dffd2d05f475ef004d591ab53a12c407cb3a11a7c9ca7e902db9210cd06f`。closingは文書3件だけで製品不変。固定3assetを公開後に匿名全GET/SHA/CRC照合して返す。
 
-SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開したtest_082.shのフォルダを選びiSHで実行する。
+SideStore更新→LoopCtrl完全終了/起動→Start Server/通常VPN。展開したtest_083.shのフォルダをiSHへ選ぶ。
 
 ```sh
-mkdir -p /mnt/necro_test082
-mount -t ios . /mnt/necro_test082
-cd /mnt/necro_test082 && sh test_082.sh
+mkdir -p /mnt/necro_test083
+mount -t ios . /mnt/necro_test083
+cd /mnt/necro_test083 && sh test_083.sh
 ```
 
-fresh通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を5回。5秒以上ポーズならiSHへ戻り全画像/ZIP照合完了を待ち、runtime/test-082-<run_id>.zip全回分と商品全体可視/停止位置/逆方向/候補見逃し/拍間隔を依頼。081追加回収/再実行不要。
+fresh通常1-1ポーズからrestart→金壁/通路候補→商店→全商品確認を5回。5秒以上ポーズならiSHへ戻り全画像/ZIP照合完了を待ち、runtime/test-083-<run_id>.zip全回分と商品全体可視/停止位置/逆方向/候補見逃し/拍間隔を依頼。082再実行/追加回収は不要。
 
-実5の最後のLEFT移動確認は未解決、実2の最初の拒否は原128/129不足で未確定。新実機の到達/見逃し率・恒久毎拍/人超え・対象認識/通知/対象なし自動周回は未受入。実機主軸/品質維持/固定時間上限なし。同じiPhoneのみ、raw/Scene/秘密値はGit外。[索引](context.md)。
+旧081実5最後の金1→2移動確認は未解決で今回0→1と異なる。新実機の到達率/見逃し率・恒久毎拍/人超え・対象認識/通知/対象なし自動循環は未受入。同じiPhoneのみ・実機主軸/品質維持/固定時間上限なし。raw/Scene/秘密値はGit外。[索引](context.md)。
