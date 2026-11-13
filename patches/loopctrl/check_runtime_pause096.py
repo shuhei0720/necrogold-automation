@@ -121,7 +121,28 @@ def main():
         green = execute(runtime, 'pause-production-green')
         print(green.stdout, end='')
         if green.returncode or not green.stdout.strip().endswith(PASS):
-            raise SystemExit(green.stderr or 'TEST096 Runtime Green failed (returncode='+str(green.returncode)+')')
+            # Full output remains in the artifact. Keep the CI failure useful
+            # without dumping hundreds of procedural capture records.
+            lines = green.stdout.splitlines()
+            failed = [line for line in lines if line.startswith('FAIL ')]
+            state = {}
+            for line in reversed(lines):
+                if not line.startswith('DIAGNOSTIC runtime_fixture '):
+                    continue
+                try:
+                    diagnostic = json.loads(line[len('DIAGNOSTIC runtime_fixture '):])
+                    payload = diagnostic.get('cycle_status', {})
+                    cycle = payload.get('cycle', {})
+                    report = diagnostic.get('controller_report', {})
+                    state = dict(cycle={key: cycle.get(key) for key in
+                        ('state', 'level_id', 'outcome', 'assessment_status', 'pending', 'completed_shops')},
+                        controller={key: report.get(key) for key in ('paused', 'restarts', 'current_command_id', 'input_state')},
+                        taps=diagnostic.get('tap_count'), drained=payload.get('workers_drained'))
+                except (ValueError, TypeError, AttributeError):
+                    state = {'diagnostic': 'unavailable; full output retained'}
+                break
+            raise SystemExit('TEST096 Runtime Green failed (returncode='+str(green.returncode)+')\n'+
+                '\n'.join(failed[-1:])+('\n'+json.dumps(state, sort_keys=True) if state else '')+'\n'+green.stderr)
         for destination, entry in manifest['additions'].items():
             if digest((args.upstream.resolve()/destination).read_bytes()) != installed[destination]:
                 raise ValueError('installed source changed during callbacks: '+destination)

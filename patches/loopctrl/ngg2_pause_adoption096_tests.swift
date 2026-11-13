@@ -5,7 +5,7 @@ func testCycle096SlowPause(_ root: URL, negative: Bool) {
     let finished = DispatchSemaphore(value: 0)
     var resultReady = false, firstFinish: UInt64 = 0, firstDeadline: UInt64 = 0
     var pauseBegin: UInt64 = 0, pauseEnd: UInt64 = 0, pauseCount = 0
-    var restarted = false, settle = false
+    var restarted = false, settle = false, settleNext = false
     let first = cycleSearchPixels(worldX: 0, variant: 0, goods: 1)
     let next = cycleSearchPixels(worldX: 36, variant: 1, goods: 1)
     NG2RuntimeCycleTestHooks.rgba = { original in
@@ -52,8 +52,14 @@ func testCycle096SlowPause(_ root: URL, negative: Bool) {
             state["outcome"]?.stringValue == "negative" && (state["pause_capture_id"]?.intValue ?? 0) > 0 &&
             (state["durable_ns"]?.intValue ?? 0) > 0
         if advance { settle = true }
+        // As in TEST095, time must also pass after RESTART before C may PAUSE
+        // the next shop. Advance only after that candidate was adopted.
+        let advanceNext = negative && !settleNext && (state["level_id"]?.intValue ?? 0) >= 2 &&
+            state["pending"]?.boolValue == false && state["assessment_status"]?.stringValue == "ok" &&
+            state["outcome"]?.stringValue == "candidate"
+        if advanceNext { settleNext = true }
         gate.unlock()
-        if advance { clock.advance(220_000_000) }
+        if advance || advanceNext { clock.advance(220_000_000) }
     }
     cycleStart(id)
     pump("cycle096_slow_pause_drained", timeout: 30) { cycleDrained(id) }
