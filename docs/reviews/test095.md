@@ -48,3 +48,7 @@ mode2は新13＋旧target14/bank20の47件がGreen。文字vetoの二つの不�
 現094の保持Scene214/142はgoods=PARTIALのまま各1回だけ判定し、host4.22/7.95msでOK/UNKNOWN/INCOMPLETE。Perception再実行0で、実画像の完全陰性や未知精度とは数えない。完全なprocedural画像は不変100ms期限で39.85ms、NEGATIVE/COMPLETE。iPhoneの速度・到達率は未確認。
 
 Controllerのpolicy2新5＋旧cycle29も同一sourceでGreen。新しいSwiftの実行結果・最終同一source CI・実物照合はこの後に追記する。
+
+## CI167で確認したfixtureの誤期待
+
+18467cd/run43408419539のhost205件と旧Mac境界、実Cの5入力、policy2 Wireは成功。新Runtimeの陰性→restart1回→候補保持はlevel2/taps3/drainまで到達したが、商店数の期待1に対し実際2で試験が失敗した。Controllerは陰性と候補の両方を数え、旧094の同等試験も2を要求する。独立レビュー後、専用fixtureだけを2へ訂正。他の連言・耐久checkpoint/intent/outcomeを維持する。製品の36source/sealは不変で、Swift全Green/IPA作成成功とは数えない。

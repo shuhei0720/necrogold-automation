@@ -206,5 +206,5 @@ TEST094最終確認: build165の限定host144・Mac Runtime新11＋旧3/API/spoo
 | FR-095-SINGLETON-ZERO | 2026-11-13 | 094実3で2歩後の未送信UPを再取得できず終了 | 固定元129の旧STONE1個は旧2STONE/2GOLD静止証明の適用外 | 確実未送信通路待機だけ、旧STONE1＋非共線DIRT9/unique9＋全強画素条件で別zero証明 | [限定計画](plans/test095-device-stops.md)。既知Motion/UNKNOWN/保護/各期限の拒否と作者Red→Green、実機未確認 | 初観測1（旧090/091unit・092GOLDzeroの同原因再発ではない） |
 | FR-095-TARGET-ONLY | 2026-11-13 | 対象外の未登録品で周回が止まり、商品辞書の追加が必要になる | のろいのゆびわだけを探す要件に対し全商品識別を陰性の前提にした | 追加catalogを撤回。有限商品帯の主画像全探索と候補保持のpolicy2へ変更 | [計画](plans/test095-target-only.md)。新判定/証明/Controller/Runtime境界のRed→Greenと関連回帰を実施中、実機未確認 | 初観測1（設計の変更。実機改善済みとはしない） |
 | FR-095-RETURN-LABEL | 2026-11-13 | 新試験の保存/ZIP名が094のまま | 旧専用entryとprefixの固定文字列 | 095 entryと専用spool、厳格test-数字3桁のみラベル採用。旧default/回復は保持 | 意味assert Red1→実Python3.9の新3＋旧34 Green、通信とnative入力は不変 | 0（配布前のラベル対応、実機未確認） |
-
 | FR-095-TARGET-WORD-VETO | 2026-11-13 | 作成中の対象だけ判定で、強い対象名が別の文字候補やpartial置換に隠れ得る | IoU最大とcoverage条件の順序、旧partial内の同じ順序を保持した | mode2の完全観測文字は両閾値を満たす配置を先に選び、元row/partialの対象情報を置換前に保持 | 交差する二文字候補・旧partialを合わせたassert Red→Greenと独立レビュー。実機未確認 | 作成中の対策後に同系統の残存1件を検出（実機未配布） |
+| FR-095-FIXTURE-SHOP-COUNT | 2026-11-13 | CI167の新しい周回fixtureが商店数で失敗 | 陰性店だけを数える期待1にしたが、既契約は次の候補店も数え2 | 旧094同等fixture/Controllerと照合して期待2へ修正。他の入力/耐久/保持条件は維持 | CI167ログと独立レビューで確認、次の同一source Macで実行。製品変更なし | 0（新fixtureの誤期待。実機改善とは数えない） |

@@ -138,7 +138,8 @@ func testCycle095NegativeRestart(_ root: URL) {
     pump("cycle095_binary_negative_then_candidate_drained", timeout: 30) { cycleDrained(id) }
     gate.lock(); let observedIntent = intentEntered && intentDurable, calls = modes.pointee; gate.unlock()
     let taps = NG2Fake.taps(), state = cycleCompanion(id)
-    require(observedIntent && calls.count >= 2 && state["completed_shops"]?.intValue == 1 &&
+    // This counter includes both the negative shop and the held candidate.
+    require(observedIntent && calls.count >= 2 && state["completed_shops"]?.intValue == 2 &&
         state["level_id"]?.intValue == 2 && state["outcome"]?.stringValue == "candidate" &&
         taps.filter { $0.x == 144 && $0.y == 448 }.count == 1 && taps.count == 3 && NG2Fake.paths().isEmpty,
         "cycle095_binary_negative_durable_intent_restart_then_candidate_hold")
