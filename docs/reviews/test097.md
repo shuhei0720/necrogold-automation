@@ -1,6 +1,6 @@
 # TEST097: TEST096の実機失敗を受領
 
-2026-11-13（日本時間）。調査中、TEST097は未配布。[計画](../plans/test097-arrival-continuation.md)・[修正表](../fix-records.md)。CIや画像校正を商品到達成功へ数えない。
+2026-11-13（日本時間）。CI/配布物照合済み、実機改善未確認。[計画](../plans/test097-arrival-continuation.md)・[修正表](../fix-records.md)。CIや画像校正を商品到達成功へ数えない。
 
 4 ZIP/85 PNG、計17,744,224B。全CRC/SHA・manifest/record chain・全画像metadata・登録集合・ZIP inventoryを照合。全complete/terminal/drained、回収不足0。添付順と実行順は異なり、以下はsession開始時刻順とユーザー指定captureを照合した順序。
 
@@ -25,4 +25,14 @@ Controllerは既071の開扉後shielded材質関係と遠方STONE→DIRTを新cy
 
 作成中framing待機へ新FULLが来た場合の通常job引継ぎ不足と、非FLOORも結合し得る不足を検出し、framing限定・独立した正常FULL/FLOORからの再分類へ訂正した。旧ticket/旧jobは再利用しない。新Controller16＋旧cycle29/partial5/shop071の5＝55件が成功。最初のprivate集計wrapperは53を期待して失敗したが、unittest自体はreturn0/55件成功。元ログを保存し集計だけ訂正、製品や試験を再実行していない。
 
-独立した設計/差分確認で、修正済み指摘以外のP0/P1なし。new31ではなくFULL引継ぎの1method追加を含むnew32、選択CIはhost132/16scope＋selector5/1scope＝137/17scope。CIのController61は局所55へ旧093の6件を追加する。全world/全故障集合ではない。Macは現sourceのAPI/spool/Exportと既Runtime096の12callbackを実行し、古い094 Runtimeの順序依存fixtureは保存したまま未実行にする。ビルド/配布物照合と実機改善はこの段階では未確認。
+独立した設計/差分確認で、修正済み指摘以外のP0/P1なし。FULL引継ぎを含む新32・関連100、選択CIはhost132/16scope＋selector5/1scope＝137/17scope。CIのController61は局所55へ旧093の6件を追加する。全world/全故障集合ではない。Macは現sourceのAPI/spool/Exportと既Runtime096の12callbackを実行し、古い094 Runtimeの順序依存fixtureは保存したまま未実行にする。ビルド/配布物照合と実機改善はこの段階では未確認。
+
+## 最終CIと配布物
+
+code `eb48c1479d3662bda10812af8c604f5f619228c9`、run43439504944/build173。現sourceのhost132/16scope＋selector5/1scope＝137件/17scopeが成功。Macの現API owner/schema・実FS spool・Exportと既Runtime096の12callback・旧Runtimeの指定assert Redが成功。旧094のobsolete Runtime fixtureは保存したまま未実行であり、今回実行したとは扱わない。実C producerの5入力は既policy2であり、全iPhone画像精度を示すものではない。
+
+保持SceneのController最終校正2関係・原167のframing許可条件1件は成功。入力/追加Perception/Ring分類0、Scene/source不変。原167後の独立したFLOORは未収録なので、実歩行や未来の商品到達とは扱わない。
+
+rootの実物5種類は計5試行/5種類で合格。36seal/2変更、実C8/Swift5/profile3のRSP/FileList・9Mach-Oと旧748＋新79の禁止827marker、canonical15source/56,088B ELF・旧Bank/Coverage・G1/R12全40・build source821ファイルの全bytes/CRCを照合した。IPA 18,015,742B、SHA `0ee31166348555b69076c4856a2f5ddaede4afb7ab5b2c0ebb0bf37a7a9249f5`。motion作者Redは原assert失敗とcompiler/source/test束を保持しているが、元shellが数値のprocess exitを保存しなかったため未保持と明示し、exit1を作らない。現CI Greenを原Redの完全なprocess receiptへ読み替えない。
+
+closingは文書だけを変更し製品/試験/seal不変。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test097-build173/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test097-build173/source.zip)を固定Releaseへ保存し、公開後の匿名全GET/SHA/実tag/closing source全bytesを私有配布記録で照合する。次の実機は通常1-1ポーズから候補探索→入店→3商品可視→対象だけ判定→対象なしなら次周回。停止通知後、iSHの全保存/ZIP照合終了を待ち表示ZIP全体を返却してもらう。実機到達・速度・未知精度は未確認。

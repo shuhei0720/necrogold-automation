@@ -3162,3 +3162,9 @@ code288e1e7a470a7ac34e90813a763725c51408b07b/run43409363287/build168。host205�
 2026-11-13（日本時間）。[計画](../plans/test096-walk-cycle-repair.md)・[受領/検証](../reviews/test096.md)・[修正表](../fix-records.md)。095の3ZIP/61PNGを照合。前2回は金/入口露出後の曲がる1歩をUNKNOWN、実3はPAUSEで採用遅延と商店固定画素認証失敗。旧stageを変えない限定motion、元期限内の採用順序、全商品登録なしの証明3を追加。
 
 codec12e66667de54ea69180c0b6629cf11e7498a1af/run43427316593/build171。選択host134、現Mac API/spool/Export・Runtime12/旧source意味Red、実物5種類を照合。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test096-build171/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test096-build171/source.zip)。IPA更新/完全再起動/Start Server/通知許可/通常VPN、test_096.shで通常1-1ポーズから一連を実施し、停止通知後に全照合済みrun ZIPを返却。実機の到達率/速度/精度は未受入。
+
+## TEST096受領とTEST097: 通路候補・接近移動・開扉後の観測
+
+2026-11-13（日本時間）。[計画](../plans/test097-arrival-continuation.md)・[受領/検証](../reviews/test097.md)・[修正表](../fix-records.md)。096の4ZIP/85PNGを照合し、候補4枚、実UPのUNKNOWN、空の上端部分表示、開扉後の材質差による停止を修正。旧Nav全段/陰性証明を保持し、空を対象なしにせず独立静止後の1入力framingで観測を改善する。新FULLは通常の分類へ渡す。
+
+codeeb48c1479d3662bda10812af8c604f5f619228c9/run43439504944/build173。選択137件/17scope、現Mac API/spool/Export・Runtime096の12callback/旧source意味Red、実物5種類を照合。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test097-build173/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test097-build173/source.zip)。IPA更新/完全再起動/Start Server/通知許可/通常VPN、test_097.shで通常1-1ポーズから一連を実施し、停止通知後に全照合済みrun ZIPを返却。実機の到達率/速度/精度は未受入。
