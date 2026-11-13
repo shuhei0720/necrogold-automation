@@ -3134,3 +3134,11 @@ code e7d9f42c4085316542fea864c9ba4e17a9e4acec、run43252794927/build150。実pat
 code `78faae482fe4c44ca9329c6514e32a0267308f9d`、run43353378401/build157。限定host30/10scope、Macの基準Red1・現新9＋旧091保存1が成功。154は型を共有するテストhelper、155は正常画像後の入力期待、156はHOST待機時間の誤りでIPA作成前に停止した。試験のみ訂正し製品seal5f315a21は維持、最終fixture017d064aを初版の事前凍結と混同しない。
 
 5実物検査各1回で全PASS（追加compile・意味試験・分類0）、IPA 17643859B/SHA `f5d213ff6d702e945d5436eef2c06971a9b7f822b3fb8b51502189813124349f`、完全source743件を照合。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test092-build157/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test092-build157/source.zip)へ保存し、公開後の匿名GET/実tagを確認する。IPA更新/完全再起動/Start Server/通常VPN、新test_092.shで通常1-1ポーズから一連4回と全表示ZIPを依頼。今回受領の到達2/4を全配置の改善完了にせず、新版の実機改善/毎拍/人超え/未知陽性精度は未受入。
+
+## TEST092受領とTEST093: 開扉後の入店権限
+
+2026-11-13（日本時間）。[計画](../plans/test093-opened-entry.md)・[受領/検証](../reviews/test093.md)・[修正表](../fix-records.md)。4ZIP/80PNGは全回収照合済み、実順4062/a6（同配置再試行）/e3goods/ebfで商品確認1/4。失敗3回とも開扉は成功、次のMOVEの未送信拒否。原246/130にのろいが写るが2商品だけでauthorityなし、個別照合未実施。matcher陰性精度の評価にはしない。
+
+Controllerだけに、同じ安全な開通済み床の別FRESHと、元親horizon内のPARTIAL未送信期限切れ回復を追加。投影保護/次床/金bracket/完全判断/strict0・旧ID不活性/全予算を維持。旧081mask0保持との衝突は配布前に既存assertのRedで検出し1行修正、元assertは保持した。code7e6b9ba70711512145dfbc7a275287d56234aa97/run43362104103/build159の限定18/6scopeが全Green。新Runtime/world/UI再試験は行わず、旧Runtime092を過去証跡として結合。
+
+実物5gate各1回PASS、22seal1変更21同一・実compiler・9Mach-O/398marker・R12全40・source750件を照合。IPA 17,645,407B/SHA `e52219b40d2d075a87d3354dd8ecd2e7f38c170adf5edd1c9f0ba7096aa6f128`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test093-build159/LoopCtrl.ipa)・[全コードZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test093-build159/source.zip)。公開後匿名全GET/実tagも照合する。更新/完全再起動/Start Server/通常VPN、test_093.shで通常1-1ポーズから一連4回・全表示run ZIPを依頼。実機改善は未確認。

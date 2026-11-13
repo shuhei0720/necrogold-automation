@@ -1,25 +1,21 @@
 # 最新状態
 
-更新: 2026-11-13（日本時間）。TEST093開発中、直前配布は[TEST092/build157](https://github.com/shuhei0720/necrogold-automation/releases/tag/test092-build157)。[今回計画](plans/test093-opened-entry.md)・[受領/検証](reviews/test093.md)・[修正表](fix-records.md)。単体や過去の対策を実機改善完了と扱わない。
+更新: 2026-11-13（日本時間）。TEST093/build159を配布、実機改善未確認。[計画](plans/test093-opened-entry.md)・[受領/検証](reviews/test093.md)・[修正表](fix-records.md)。単体や過去の対策を実機改善完了と扱わない。
 
-## 最新092の受領
+## 最新092の受領と093の対策
 
-4ZIP/80PNGを全CRC/SHA/strict load/certificate/canonical sidecar/登録集合へ照合、全回収完了。実時刻順4062 screen5歩→a6b6 screen5歩（同配置の再試行）→e3a6 goods6歩→ebf screen6歩。商品確認1/4。全失敗でDOOR_OPENEDは確認済み、その次の入店MOVEをbegin前に拒否した。
+4ZIP/80PNGを全CRC/SHA/strict load/certificate/canonical sidecar/登録集合へ照合、全回収完了。実順4062 screen5歩→a6b6 screen5歩（同配置再試行）→e3a6 goods6歩→ebf screen6歩、商品確認1/4。失敗3回はDOOR_OPENED確認済み、次の入店MOVEを未送信拒否。原246/130にはのろいの名/絵と2商品が見えるが、全商品authority前で個別判定未実施。matcherの偽陰性/対象なしにしない。
 
-原246/130はのろいの名/絵と2商品が見えるが3つ目不可視。失敗3回はauthorityなしで個別判定未実施、matcherの偽陰性とは区別。成功回は原303以降3商品、313で判定実施済み・一致未確認。未知/未観測を対象なしにしない。
+093はCだけで、開通確認済み・同方向/同完全Decision・金bracket/安全な次床/strict0を満たす別FRESH権限を追加。上端ITEM保護投影端と遠方差、入口奥2セルDIRT→FLOORを限定して扱う。元窓に間に合わない確実未送信PARTIALだけ、元親horizon内で独立画像/HUD/将来拍の権限へ戻す。旧ID/元窓/予算を延長せずUNKNOWN入力を再送しない。
 
-## 今回の限定対策
+## 検証と配布
 
-4062/a6b6の上端ITEM保護投影の拡大/縮小と遠方差、ebfの入口奥2セルDIRT→FLOORが旧条件外。既strict motionは4pairともBLOCKED0、同完全Decision5/実visits・次FLOOR。Nav/Perceptionの変更不要。旧081対策の適用外継続2を記録し、薄鉄/開通証明の再発と混同しない。
+code `7e6b9ba70711512145dfbc7a275287d56234aa97`、run43362104103/build159。同sourceの新6＋旧8＋selector4＝18/6scopeが全Green。実物5gate各1回PASS、22seal1変更21不変・実compiler・全9Mach-O/398禁止marker・R12全40・完全source750件を照合。Runtime/Nav/Perception/UI/engine/API16/cap15/ABI/G1/R12は不変。Runtime092の9＋旧1は過去証跡、今回再実行なし。
 
-Cだけで、同方向開通確認済み・未入店・確実未送信・同じ安全な次床/全判断/金bracket/静止を満たす別FRESH権限を検討。上端商品は実観測ITEMの十字投影で限定する。元ID/窓/epoch/期限/全予算は保持、既PARTIALの確実未送信期限切れも元親horizon内の独立した将来権限へ戻す。元窓延長や未確認入力再送はしない。
+[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test093-build159/LoopCtrl.ipa)・[全コードZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test093-build159/source.zip)。IPA 17,645,407B/SHA `e52219b40d2d075a87d3354dd8ecd2e7f38c170adf5edd1c9f0ba7096aa6f128`。公開後の匿名全GET/実tagも照合して返す。
 
-新6単体/必要関連、同担当の独立レビュー、必要IPA/実compiler/全source・Mach-O照合後に固定Releaseへ保存する。新実機改善は未確認。Runtime/Nav/Perception/UI/engine/API16/cap15/ABI/G1/R12を保持し、092 Runtime9＋旧1は過去証跡として結合、今回再実行しない。
+## 次の実機
 
-## 配布と次の実機
+IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。ZIPを展開しtest_093.shのあるフォルダをiSHへ選択、`mkdir -p /mnt/necro_test093`、`mount -t ios . /mnt/necro_test093`、`cd /mnt/necro_test093 && sh test_093.sh`。通常1-1ポーズからrestart→金壁/通路候補→商店→商品3つ確認を一連4回。自動ポーズ後5秒でiSHへ戻り、全画像/ZIP照合完了後の表示ZIPを全回分返却。回収済み092の再回収/稀な対象待ち周回は不要。
 
-新093 IPAは未配布。前回092のIPA/743source/実物5gate各1回/匿名全GET/実tagは照合済み。093完成後に新IPA/全コードZIP固定URLと更新手順を示す。
-
-次は通常1-1ポーズからrestart→金壁/通路候補→商店→商品3つ確認を一連4回。IPA更新/LoopCtrl完全終了・起動/Start Server/通常VPN。全画像/ZIP照合完了後の表示run ZIPを全回分返却。回収済み092の再回収や稀な指輪待ち周回を求めない。
-
-到達率/毎拍・人超え/未知陽性精度は未受入。候補保持・自動購入0・UNKNOWN無再送・全画像公開照合を維持。[作業索引](context.md)。
+到達率/毎拍・人超え/未知陽性精度は未受入。候補保持・自動購入0・全画像公開照合を維持。[索引](context.md)。

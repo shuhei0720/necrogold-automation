@@ -150,14 +150,14 @@
 | FR-092-HARNESS-STARTUP-PHASE | 2026-11-13 | CI155の起動fixtureが正常画像解析後に失敗 | 縦画像待機中の入力禁止を、正常画像からの正規PAUSEにも要求した | 正常3caseで最初のC observe直前の無入力を確認し、その後はaccepted正常sourceだけの操作を要求。禁止系の入力0は維持 | host30合格/旧Runtimeのnamed Red/現Runtimeの正常raster解析を確認。fixture30873b95を独立静的レビュー、修正後MacはCI157で確認。製品/seal不変、初版だけ事前凍結であることを明記 CI157の新9＋旧保存1で成功、最終fixture017d064a。 | 0（修正後の再観測なし。実機停止とは別） |
 | FR-092-HARNESS-WALL-BUDGET | 2026-11-13 | CI156の64portrait上限試験が57取得で終了 | 模擬時計1ms/取得とHOSTのdecode/queue/50ms待機を分けず、試験側8秒が先に切れた | HOST pumpだけ30秒へ。製品3秒/64回/50msとfixtureのexact64/最終failure64/入力0を維持 | CI156の正常回復case合格・57取得/論理57ms/無入力を確認。残りcaseの時刻更新順・取消/lease/hookを静的点検。CI157で上限試験を確認。製品不変 CI157でexact64/最終failure64/入力0を含む新9＋旧保存1が成功。 | 0（試験修正後の再観測なし。製品の意味Redではない） |
 
-## TEST093の対策（最終検証・実機改善未確認）
+## TEST093の対策（実機改善未確認）
 
 | ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
 | --- | --- | --- | --- | --- | --- | --- |
-| FR-093-PROJECTED-ENTRY | 2026-11-13 | 092実1/再試行で2商品だけ見えて入店前停止、のろい判定未呼出 | 開扉は成功。上端ITEM/protected投影の端と遠方材質差が旧081条件外。最初はearly lost-GOLD guard、再試行はPARTIAL一般FRESH拒否 | 観測ITEMの中心/十字1セル投影に限定した別FRESH権限へ。旧ID保持をせず全判断/保護近傍/静止/元窓を検査 | [計画](plans/test093-opened-entry.md)・[受領](reviews/test093.md)。旧071/077/081 helper/assertは保持。現保存Cで実2pairはstrict0/同判断、未保持244/245を補わない。新6単体の477版Green、P1修正後の最終CIは未実施。実機改善未確認 | 0（新対策後の実機再観測なし。旧081継続2は旧行へ記録） |
-| FR-093-INNER-FLOOR | 2026-11-13 | 092実4で開扉後に入店票を拒否 | UNKNOWNの入口奥2セルDIRT→FLOOR/遠方STONE→DIRTが旧071対角PARTIAL条件外、一般FRESHも不適格 | 同ACK開通/次FLOOR・同完全判断・GOLD/保護保持とstrict0下で軸2セル目だけを別FRESHへ | [計画](plans/test093-opened-entry.md)。FR-071-SHIELD/077-NEW-GOLD/090-THIN-IRON/091-OPEN-BLURを照合。開通成功を再発に数えず、次の未送信段階を区別。新6単体の477版Green、P1修正後の最終CIは未実施。実機改善未確認 | 0（新対策後の実機再観測なし。別適用条件） |
-| FR-093-EXPIRED-ENTRY | 2026-11-13 | 遅い入店再判断で、元窓を保つだけでは再び停止し得る | 092実4はC commitからDまで10.719539ms。旧expired回復はUNKNOWN/完全一致のみでPARTIALを扱えない | 完全一致の同開通済みPARTIAL床だけを既確実未送信回復へ追加。元visual/12秒/45秒/180秒を上限に独立した将来権限を再取得 | 元旧ID/窓/epochを延長せず、遅い実begin/complete0・独立画像/HUD/準備50ms・全拒否を新単体で確認。段階別の意味Red→477版Green、最終CI未実施・実機改善未確認。発生済みの別停止理由とは断定しない | 未確認（現092で期限超過停止は未観測。既知の狭い残時間に対する境界対策） |
-| FR-093-QUIET-PRIORITY | 2026-11-13 | 新実装の配布前レビューで旧081の同ID保持を壊す回帰を検出 | mask非zeroの時だけquiet成功が新refreshを撤回し、元sourceへ戻るmask0では新FRESHへ進む | quiet成功をmask0でも優先する1行だけを修正。旧helper/旧assert・新fixtureは維持 | 旧081のsource-mask-return1methodが意味Red fail1/errors0、修正後C ab3fe447を独立静的確認。最終CI18でGreenを確認する。配布済み092の停止とは別 | 1（093作成中に配布前回帰を検出、実機未配布） |
+| FR-093-PROJECTED-ENTRY | 2026-11-13 | 092実1/再試行で2商品だけ見えて入店前停止、のろい判定未呼出 | 開扉は成功。上端ITEM/protected投影の端と遠方材質差が旧081条件外。最初はearly lost-GOLD guard、再試行はPARTIAL一般FRESH拒否 | 観測ITEMの中心/十字1セル投影に限定した別FRESH権限へ。旧ID保持をせず全判断/保護近傍/静止/元窓を検査 | [計画](plans/test093-opened-entry.md)・[受領](reviews/test093.md)。旧071/077/081 helper/assertは保持。現保存Cで実2pairはstrict0/同判断、未保持244/245を補わない。新6単体の477版Green、P1修正後のCI159で新6＋旧8＋selector4全18が合格。実機改善未確認 | 0（新対策後の実機再観測なし。旧081継続2は旧行へ記録） |
+| FR-093-INNER-FLOOR | 2026-11-13 | 092実4で開扉後に入店票を拒否 | UNKNOWNの入口奥2セルDIRT→FLOOR/遠方STONE→DIRTが旧071対角PARTIAL条件外、一般FRESHも不適格 | 同ACK開通/次FLOOR・同完全判断・GOLD/保護保持とstrict0下で軸2セル目だけを別FRESHへ | [計画](plans/test093-opened-entry.md)。FR-071-SHIELD/077-NEW-GOLD/090-THIN-IRON/091-OPEN-BLURを照合。開通成功を再発に数えず、次の未送信段階を区別。新6単体の477版Green、P1修正後のCI159で新6＋旧8＋selector4全18が合格。実機改善未確認 | 0（新対策後の実機再観測なし。別適用条件） |
+| FR-093-EXPIRED-ENTRY | 2026-11-13 | 遅い入店再判断で、元窓を保つだけでは再び停止し得る | 092実4はC commitからDまで10.719539ms。旧expired回復はUNKNOWN/完全一致のみでPARTIALを扱えない | 完全一致の同開通済みPARTIAL床だけを既確実未送信回復へ追加。元visual/12秒/45秒/180秒を上限に独立した将来権限を再取得 | 元旧ID/窓/epochを延長せず、遅い実begin/complete0・独立画像/HUD/準備50ms・全拒否を新単体で確認。段階別の意味Red→477版Green、CI159全18が合格・実機改善未確認。発生済みの別停止理由とは断定しない | 未確認（現092で期限超過停止は未観測。既知の狭い残時間に対する境界対策） |
+| FR-093-QUIET-PRIORITY | 2026-11-13 | 新実装の配布前レビューで旧081の同ID保持を壊す回帰を検出 | mask非zeroの時だけquiet成功が新refreshを撤回し、元sourceへ戻るmask0では新FRESHへ進む | quiet成功をmask0でも優先する1行だけを修正。旧helper/旧assert・新fixtureは維持 | 旧081のsource-mask-return1methodが意味Red fail1/errors0、修正後C ab3fe447を独立静的確認。CI159の18件で旧assertを変更せずGreenを確認。配布済み092の停止とは別 | 1（093作成中に配布前回帰を検出、実機未配布） |
 
 ## 未整理・未確定の扱い
 
