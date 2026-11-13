@@ -3,6 +3,7 @@ import CoreGraphics
 #if !NG2_RUNTIME_HOST_TEST
 import XCTest
 import UIKit
+import UserNotifications
 #endif
 import CryptoKit
 
@@ -61,6 +62,66 @@ private struct NG2Frame {
     let encodedBytes: Int
     let diagnosticOrientation: Int?
 }
+
+// This state is owned by the run gate. Expensive classification and durable
+// storage use separate single workers; neither worker has input authority.
+private final class NG2CycleRun {
+    var companion = NG2ControllerCycleStatus()
+    var spool: NG2CycleSpool?
+    var classificationOutstanding = false
+    var persistenceOutstanding = false
+    var checkpointJob: UInt64 = 0
+    var intentCommand: UInt64 = 0
+    var outcomeJob: UInt64 = 0
+    var terminalPersistenceStarted = false
+    var terminalPersisted = false
+    var frames: [UInt64: NG2Frame] = [:]
+    var assessment: [String: JSONValue]?
+    var assessmentAdopted = false
+    var rawSHA256: String?
+    var completed: [JSONValue] = []
+    var storedCaptureIDs = Set<UInt64>()
+    var failure: String?
+    var notificationState = "not_requested"
+    var notificationRequested = false
+    var published = false
+    var recovered = false
+    var recoveredInputState: Int32 = 0
+    var exporter: NG2CycleExport?
+    var workerBusy: Bool { classificationOutstanding || persistenceOutstanding }
+    init() {
+        companion.abi_version = 1; companion.struct_size = UInt32(MemoryLayout<NG2ControllerCycleStatus>.size)
+        companion.level_id = 1
+    }
+}
+
+private final class NG2CycleJob {
+    let run: NG2Run
+    let frame: NG2Frame
+    let generation, level, job, prefix, deadline: UInt64
+    init(_ run: NG2Run, frame: NG2Frame, state: NG2ControllerCycleStatus) {
+        self.run = run; self.frame = frame; generation = frame.generation
+        level = state.level_id; job = state.job_id; prefix = state.prefix; deadline = state.deadline_ns
+    }
+    var cancelled: Bool {
+        run.lock.ng2Locked { run.cancelReason != 0 || run.stopped || run.generation != generation }
+    }
+}
+
+#if NG2_RUNTIME_HOST_TEST
+enum NG2RuntimeCycleTestHooks {
+    static var spoolRoot: URL?
+    static var rgba: ((Data) -> Data)?
+    static var notificationAuthorization = "authorized"
+    static var beforeClassification: ((UInt64) -> Void)?
+    static var classificationResult: ((UInt64, UnsafePointer<NG2Scene>, inout NG2RingResult) -> Void)?
+    static var beforeClassificationCommit: ((UInt64) -> Void)?
+    static var beforeCheckpointWrite: ((UInt64) -> Void)?
+    static var beforeIntentWrite: ((UInt64) -> Void)?
+    static var beforePersistenceCommit: ((UInt64) -> Void)?
+    static var afterNotification: ((String) -> Void)?
+}
+#endif
 
 private struct AuthoritySample {
     var start: UInt64 = 0
@@ -188,7 +249,7 @@ private final class NG2Run {
     let id: String
     let profile: String
     let maximumExportBytes: Int
-    let clock = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+    let clock: String
     var generation: UInt64 = 1
     var cancelReason: Int32 = 0
     var heartbeat: UInt64
@@ -251,8 +312,11 @@ private final class NG2Run {
     // A builder retains its token until it actually returns, even if revoked.
     var exportCache: NG2ExportCache?
     var exportBuildID: String?
-    init(owner: String, id: String, now: UInt64, profile: String = "normal-1-1-v1") {
+    let cycle: NG2CycleRun?
+    init(owner: String, id: String, now: UInt64, profile: String = "normal-1-1-v1", clock: String? = nil) {
         self.owner = owner; self.id = id; self.profile = profile
+        self.clock = clock ?? UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+        cycle = profile == NG2Runtime.cycleProfile ? NG2CycleRun() : nil
         maximumExportBytes = profile == NG2Runtime.evidenceProfile ? 10 * 1024 * 1024 : 4 * 1024 * 1024
         heartbeat = now; acceptedStarted = now
     }
@@ -307,14 +371,25 @@ private struct NG2ResponseProjection {
 /// Status/cancel RPCs read immutable cached dictionaries and never touch C.
 final class NG2Runtime {
     static let shared = NG2Runtime()
-    static let methods: Set<String> = ["necro_native_start", "necro_native_status", "necro_native_cancel", "necro_native_results"]
+    static let methods: Set<String> = ["necro_native_start", "necro_native_status", "necro_native_cancel", "necro_native_results", "necro_native_cycle"]
     static let ownerParam = "_necro_owner"
     static let profile = "normal-1-1-v1"
     static let evidenceProfile = "normal-1-1-evidence-v2"
+    static let cycleProfile = "normal-1-1-cycle-v1"
     private static let game = "jp.co.spike-chunsoft.necrodancerjp"
     private let lock = NSLock()
     private let controlQueue = DispatchQueue(label: "necro.native.control", qos: .userInteractive)
     private let watchdogQueue = DispatchQueue(label: "necro.native.watchdog", qos: .userInteractive)
+    private let classificationQueue = DispatchQueue(label: "necro.native.cycle.classification", qos: .userInteractive)
+    private let persistenceQueue = DispatchQueue(label: "necro.native.cycle.persistence", qos: .userInitiated)
+    private var cycleScanState = "pending"
+    private var cycleScanStarted = false
+    private var unpublishedCycles: [String] = []
+    private var notificationAuthorization = "pending"
+    private var notificationPreparationStarted = false
+    private var recoveredCycles: [String: NG2Run] = [:]
+    private var cycleRecoveryPending = Set<String>()
+    private let runtimeInstanceID = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     private var current: NG2Run?
     private var seen = Set<String>()
     // Metadata for at most 64 drained runs. Only the current run retains raw
@@ -325,7 +400,15 @@ final class NG2Runtime {
     // A started input without a trustworthy ACK freezes all later UI for this
     // runner process. Worker drain does not certify the game input outcome.
     private var poisoned = false
-    private init() {}
+    private init() {
+        // Empty legacy installations retain their immediate start path. When
+        // a cycle directory exists, the asynchronous crash-recovery admission
+        // check must finish before any profile can acquire new input.
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        if let support, FileManager.default.fileExists(atPath: support.appendingPathComponent("NGG2Cycles").path) {
+            beginCycleScan()
+        } else { cycleScanState = "ready" }
+    }
     static func now() -> UInt64 {
         #if NG2_RUNTIME_HOST_TEST
         if let clock = NG2RuntimeTestHooks.clock { return clock() }
@@ -371,6 +454,7 @@ final class NG2Runtime {
               lowerHexIdentity(id) else {
             return failure("Invalid native request identity.", -32602)
         }
+        if method == "necro_native_cycle" { return handleCycle(owner: owner, id: id, params: params ?? [:]) }
         var exportMode: String?
         if method == "necro_native_results", let value = params?["mode"] {
             guard let mode = value.stringValue, mode == "manifest" || mode == "chunk" else {
@@ -385,7 +469,7 @@ final class NG2Runtime {
         guard Set((params ?? [:]).keys).isSubset(of: allowed) else { return failure("Unknown native request parameter.", -32602) }
         if method == "necro_native_start" {
             guard let profile = params?["profile"]?.stringValue,
-                  profile == Self.profile || profile == Self.evidenceProfile else {
+                  profile == Self.profile || profile == Self.evidenceProfile || profile == Self.cycleProfile else {
                 return failure("Unsupported native profile.", -32602)
             }
             guard !RemoteSession.shared.paused else { return failure("Owner paused native control.") }
@@ -400,6 +484,17 @@ final class NG2Runtime {
                         return failure("Native run profile is immutable.", -32602)
                     }
                     return (historical(archived.response), nil)
+                }
+                guard cycleScanState == "ready", unpublishedCycles.isEmpty else {
+                    return profile == Self.cycleProfile ? cycleNotStarted("Native cycle evidence must be recovered and publication acknowledged before a new start.")
+                        : failure("Native cycle evidence must be recovered and publication acknowledged before a new start.")
+                }
+                if profile == Self.cycleProfile && notificationAuthorization != "authorized" && notificationAuthorization != "provisional" {
+                    return cycleNotStarted("Prepare native cycle notifications before starting gameplay.")
+                }
+                if let oldCycle = current?.cycle, !oldCycle.published {
+                    return profile == Self.cycleProfile ? cycleNotStarted("Previous native cycle publication is not acknowledged.")
+                        : failure("Previous native cycle publication is not acknowledged.")
                 }
                 if poisoned { return failure("Unknown native input freezes new runs until the runner process restarts.") }
                 if current?.lock.ng2Locked({ current?.lease ?? false }) == true { return failure("Previous native run is still draining.") }
@@ -417,7 +512,10 @@ final class NG2Runtime {
                 current = run; seen.insert(id); created = run
                 return (response(run), nil)
             }
-            if let run = created { controlQueue.async { self.start(run) } }
+            if let run = created {
+                if run.cycle != nil { initializeCycle(run) }
+                else { controlQueue.async { self.start(run) } }
+            }
             return answer
         }
         guard let run = lock.ng2Locked({ current }), run.owner == owner, run.id == id else {
@@ -447,6 +545,7 @@ final class NG2Runtime {
             return (response(run), nil)
         }
         if method == "necro_native_cancel" { run.cancel(2); return (response(run), nil) }
+        if run.cycle != nil { return failure("Cycle profile requires the dedicated cycle query.") }
         if exportMode == "manifest" { return exportManifest(run) }
         if exportMode == "chunk" { return exportChunk(run, params ?? [:]) }
         guard run.profile != Self.evidenceProfile else { return failure("Evidence profile requires paged image export.") }
@@ -677,6 +776,643 @@ final class NG2Runtime {
                 return (result, nil)
             }
         }
+    }
+
+    private func refreshCycleEvidence(_ run: NG2Run, frame: NG2Frame? = nil) {
+        guard let cycle = run.cycle, let core = run.core else { return }
+        var state = NG2ControllerCycleStatus(); ng2_controller_cycle_status(core, &state)
+        run.lock.ng2Locked {
+            if state.job_id != cycle.companion.job_id && state.pending != 0 {
+                cycle.assessment = nil; cycle.assessmentAdopted = false; cycle.rawSHA256 = nil
+                if !cycle.classificationOutstanding { cycle.frames.removeAll() }
+            }
+            cycle.companion = state
+            let needed = Set([state.capture_id, state.queued_capture_id, state.pause_source_capture_id,
+                state.pause_capture_id, state.next_floor_capture_id].filter { $0 != 0 })
+            let available = [frame, run.initial, run.found].compactMap { $0 } + run.images + Array(run.pinned.values)
+            for item in available where needed.contains(item.id) { cycle.frames[item.id] = item }
+        }
+    }
+
+    private func serviceCycleAssessment(_ run: NG2Run) {
+        guard let cycle = run.cycle, let core = run.core else { return }
+        refreshCycleEvidence(run)
+        let job: NG2CycleJob? = run.lock.ng2Locked {
+            let state = cycle.companion
+            guard !cycle.classificationOutstanding, state.pending == 1, state.worker_started_ns == 0,
+                  state.capture_id != 0, run.cancelReason == 0, !run.stopped, ownerActive(run),
+                  !LockStateMonitor.shared().isLocked, let frame = cycle.frames[state.capture_id],
+                  frame.generation == run.generation, frame.stable, !frame.startInFlight, !frame.endInFlight,
+                  frame.startPrefix == state.prefix, frame.prefix == state.prefix,
+                  frame.start == state.capture_start_ns,
+                  ng2_controller_cycle_worker_begin(core, state.job_id, state.capture_id, state.prefix, Self.now()) == 1 else { return nil }
+            var admitted = NG2ControllerCycleStatus(); ng2_controller_cycle_status(core, &admitted)
+            cycle.companion = admitted; cycle.classificationOutstanding = true
+            return NG2CycleJob(run, frame: frame, state: admitted)
+        }
+        if let job {
+            classificationQueue.async {
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeCycleTestHooks.beforeClassification?(job.job)
+                #endif
+                let digest = NG2CycleWire.hash(job.frame.rgba)
+                var options = NG2RingOptions()
+                options.abi = 1; options.size = UInt32(MemoryLayout<NG2RingOptions>.size)
+                options.mode = 0; options.fast = 1; options.deadline_ns = job.deadline
+                options.scene = UnsafePointer(job.frame.analysis.scene)
+                options.context = Unmanaged.passUnretained(job).toOpaque()
+                options.now_ns = { _ in NG2Runtime.now() }
+                options.cancelled = { context in
+                    guard let context else { return 1 }
+                    return Unmanaged<NG2CycleJob>.fromOpaque(context).takeUnretainedValue().cancelled ? 1 : 0
+                }
+                var result = NG2RingResult()
+                var returned = job.frame.rgba.withUnsafeBytes { raw in
+                    ng2_ring_assess_rgba(raw.bindMemory(to: UInt8.self).baseAddress, raw.count, 896 * 4, &options, &result)
+                }
+                #if NG2_RUNTIME_HOST_TEST
+                if let fixture = NG2RuntimeCycleTestHooks.classificationResult {
+                    fixture(job.job, UnsafePointer(job.frame.analysis.scene), &result)
+                    returned = Int32(result.status)
+                }
+                #endif
+                let encoded = try? NG2CycleWire.assessment(result)
+                self.controlQueue.async {
+                    #if NG2_RUNTIME_HOST_TEST
+                    NG2RuntimeCycleTestHooks.beforeClassificationCommit?(job.job)
+                    #endif
+                    run.lock.ng2Locked {
+                        defer { cycle.classificationOutstanding = false }
+                        guard let currentCore = run.core, run.generation == job.generation, run.cancelReason == 0,
+                              self.ownerActive(run), !LockStateMonitor.shared().isLocked else { return }
+                        var current = NG2ControllerCycleStatus(); ng2_controller_cycle_status(currentCore, &current)
+                        guard current.level_id == job.level, current.job_id == job.job,
+                              current.capture_id == job.frame.id, current.prefix == job.prefix,
+                              current.capture_start_ns == job.frame.start else { return }
+                        cycle.assessment = encoded; cycle.assessmentAdopted = false; cycle.rawSHA256 = digest
+                        // A same-job late report may remain diagnostic evidence;
+                        // it cannot reopen a terminal or restore input authority.
+                        guard !run.stopped else { return }
+                        if returned != Int32(result.status) || encoded == nil {
+                            _ = ng2_controller_cycle_fail(currentCore, job.job, Self.now(), 6)
+                        } else {
+                            let committed = ng2_controller_cycle_assess(currentCore, job.job, job.frame.id, job.prefix, Self.now(), &result)
+                            if committed == 1 {
+                                var adopted = NG2ControllerCycleStatus(); ng2_controller_cycle_status(currentCore, &adopted)
+                                cycle.assessmentAdopted = adopted.status == Int32(result.status)
+                                    && adopted.outcome == Int32(result.outcome) && Self.now() <= job.deadline
+                            }
+                        }
+                    }
+                    self.refreshCycleEvidence(run)
+                    self.cycle(run)
+                }
+            }
+        }
+        persistCycleCheckpoint(run)
+        persistCycleOutcome(run)
+    }
+
+    private func cycleCommand(_ value: NG2Command) -> [String: JSONValue] {
+        ["id": NG2CycleWire.number(value.id), "ordinal": NG2CycleWire.number(value.ordinal),
+         "target_ns": NG2CycleWire.number(value.target_ns), "not_before_ns": NG2CycleWire.number(value.not_before_ns),
+         "deadline_ns": NG2CycleWire.number(value.deadline_ns), "source_capture_id": NG2CycleWire.number(value.source_capture_id),
+         "source_start_ns": NG2CycleWire.number(value.source_start_ns), "phase_sample_ns": NG2CycleWire.number(value.phase_sample_ns),
+         "kind": .int(Int(value.kind)), "direction": .int(Int(value.direction)), "x": .int(Int(value.x)), "y": .int(Int(value.y))]
+    }
+
+    private func persistCycleIntent(_ run: NG2Run, command: NG2Command) {
+        guard let cycle = run.cycle, let core = run.core else { return }
+        var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
+        _ = cache(run, status, retainEvidence: false)
+        refreshCycleEvidence(run)
+        let admission: (NG2CycleSpool, NG2Frame, NG2ControllerCycleStatus, UInt64, Bool)? = run.lock.ng2Locked {
+            guard !cycle.persistenceOutstanding, cycle.intentCommand != command.id, run.cancelReason == 0, !run.stopped,
+                  cycle.companion.durable_ns != 0, let spool = cycle.spool,
+                  let frame = (run.images + Array(run.pinned.values) + Array(cycle.frames.values)).first(where: { $0.id == command.source_capture_id }),
+                  frame.generation == run.generation, frame.stable, !frame.startInFlight, !frame.endInFlight,
+                  frame.startPrefix == run.prefix, frame.prefix == run.prefix,
+                  frame.analysis.scene.pointee.state == 1, frame.analysis.scene.pointee.restart_label == 1 else { return nil }
+            cycle.intentCommand = command.id; cycle.persistenceOutstanding = true; cycle.frames[frame.id] = frame
+            return (spool, frame, cycle.companion, run.generation, cycle.storedCaptureIDs.contains(frame.id))
+        }
+        guard let (spool, frame, state, generation, stored) = admission else {
+            _ = ng2_controller_cycle_storage_failed(core, cycle.companion.job_id, Self.now()); return
+        }
+        persistenceQueue.async {
+            var success = false
+            do {
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeCycleTestHooks.beforeIntentWrite?(state.job_id)
+                #endif
+                if !stored {
+                    try spool.reserveCheckpoint(frames: 2, metadataBytes: 64 * 1024)
+                    _ = try spool.commitFrame(captureID: frame.id, rgba: frame.rgba, metadata: self.cycleFrameMetadata(frame))
+                }
+                let body: [String: JSONValue] = ["cycle": .object(NG2CycleWire.companion(state)),
+                    "command": .object(self.cycleCommand(command)), "generation": NG2CycleWire.number(generation),
+                    "source_prefix": NG2CycleWire.number(frame.prefix), "source_raw_sha256": .string(NG2CycleWire.hash(frame.rgba))]
+                _ = try spool.commitRecord(kind: "restart_intent", cycle: UInt64(max(state.completed_shops, 0)), payload: NG2CycleWire.object(body))
+                success = true
+            } catch { }
+            let durable = success
+            self.controlQueue.async {
+                var dispatch = false
+                run.lock.ng2Locked {
+                    cycle.persistenceOutstanding = false
+                    if durable { cycle.storedCaptureIDs.insert(frame.id) }
+                    guard let currentCore = run.core, run.generation == generation, run.cancelReason == 0,
+                          !run.stopped, self.ownerActive(run), !LockStateMonitor.shared().isLocked else { return }
+                    if durable {
+                        dispatch = ng2_controller_cycle_intent_commit(currentCore, state.job_id, command.id, frame.id, frame.prefix, Self.now()) == 1
+                    } else {
+                        cycle.failure = "restart_intent_commit_failed"
+                        _ = ng2_controller_cycle_storage_failed(currentCore, state.job_id, Self.now())
+                    }
+                }
+                self.refreshCycleEvidence(run)
+                if dispatch, let currentCore = run.core { _ = self.dispatchReserved(run, command: command, core: currentCore) }
+                else { self.cycle(run) }
+            }
+        }
+    }
+
+    private func persistCycleOutcome(_ run: NG2Run) {
+        guard let cycle = run.cycle, let core = run.core else { return }
+        var state = NG2ControllerCycleStatus(); ng2_controller_cycle_status(core, &state)
+        let admission: (NG2CycleSpool, NG2Frame, UInt64, Bool, NG2ControllerSnapshot?)? = run.lock.ng2Locked {
+            guard state.next_floor_capture_id != 0, state.outcome_ns == 0,
+                  cycle.outcomeJob != state.job_id, !cycle.persistenceOutstanding,
+                  run.cancelReason == 0, !run.stopped, let spool = cycle.spool,
+                  let frame = cycle.frames[state.next_floor_capture_id], frame.stable,
+                  !frame.startInFlight, !frame.endInFlight, frame.generation == run.generation else { return nil }
+            cycle.outcomeJob = state.job_id; cycle.persistenceOutstanding = true
+            return (spool, frame, run.generation, cycle.storedCaptureIDs.contains(frame.id), run.controllerSnapshot)
+        }
+        guard let (spool, frame, generation, stored, snapshot) = admission else { return }
+        persistenceQueue.async {
+            var success = false
+            do {
+                if !stored {
+                    try spool.reserveCheckpoint(frames: 1, metadataBytes: 128 * 1024)
+                    _ = try spool.commitFrame(captureID: frame.id, rgba: frame.rgba, metadata: self.cycleFrameMetadata(frame))
+                }
+                let body: [String: JSONValue] = ["cycle": .object(NG2CycleWire.companion(state)),
+                    "generation": NG2CycleWire.number(generation), "floor_capture_id": NG2CycleWire.number(frame.id),
+                    "floor_prefix": NG2CycleWire.number(frame.prefix), "floor_raw_sha256": .string(NG2CycleWire.hash(frame.rgba)),
+                    "controller": snapshot.map { .object(self.encodeSnapshot($0, origin: "cycle_restart_outcome")) } ?? .null]
+                _ = try spool.commitRecord(kind: "restart_outcome", cycle: UInt64(max(state.completed_shops, 0)), payload: NG2CycleWire.object(body))
+                success = true
+            } catch { }
+            let durable = success
+            self.controlQueue.async {
+                run.lock.ng2Locked {
+                    cycle.persistenceOutstanding = false
+                    if durable { cycle.storedCaptureIDs.insert(frame.id) }
+                    guard let currentCore = run.core, run.generation == generation, run.cancelReason == 0,
+                          !run.stopped, self.ownerActive(run) else { return }
+                    if durable {
+                        if ng2_controller_cycle_outcome_commit(currentCore, state.job_id, frame.id, frame.prefix, Self.now()) == 1 {
+                            cycle.completed.append(.object(NG2CycleWire.companion(state)))
+                            cycle.frames.removeAll(); cycle.assessment = nil; cycle.assessmentAdopted = false; cycle.rawSHA256 = nil
+                        }
+                    } else {
+                        cycle.failure = "restart_outcome_commit_failed"
+                        _ = ng2_controller_cycle_storage_failed(currentCore, state.job_id, Self.now())
+                    }
+                }
+                self.refreshCycleEvidence(run); self.cycle(run)
+            }
+        }
+    }
+
+    private func cycleFrameMetadata(_ frame: NG2Frame) -> [String: Any] {
+        ["capture_id": frame.id, "capture_start_ns": frame.start, "capture_end_ns": frame.end,
+         "decode_end_ns": frame.decodeEnd, "generation": frame.generation,
+         "completed_prefix_start": frame.startPrefix, "completed_prefix_end": frame.prefix,
+         "inflight_start": frame.startInFlight, "inflight_end": frame.endInFlight,
+         "stable_prefix": frame.stable, "pixel_width": 896, "pixel_height": 414,
+         "analysis_start_ns": frame.analysisStart, "analysis_end_ns": frame.analysisEnd]
+    }
+
+    private func persistCycleCheckpoint(_ run: NG2Run) {
+        guard let cycle = run.cycle, let core = run.core else { return }
+        var state = NG2ControllerCycleStatus(); ng2_controller_cycle_status(core, &state)
+        let admission: (NG2CycleSpool, [NG2Frame], Set<UInt64>, NG2ControllerSnapshot?, [String: JSONValue]?, String?, UInt64)? = run.lock.ng2Locked {
+            guard state.job_id != 0, state.pending == 0, state.assessment_ns != 0, state.pause_capture_id != 0,
+                  state.durable_ns == 0, cycle.checkpointJob != state.job_id, !cycle.persistenceOutstanding,
+                  run.cancelReason == 0, !run.stopped, let spool = cycle.spool else { return nil }
+            cycle.checkpointJob = state.job_id; cycle.persistenceOutstanding = true
+            let ids = Set([state.capture_id, state.pause_source_capture_id, state.pause_capture_id].filter { $0 != 0 })
+            let frames = ids.compactMap { cycle.frames[$0] }
+            return (spool, frames, ids, run.controllerSnapshot, cycle.assessment, cycle.rawSHA256, run.generation)
+        }
+        guard let (spool, frames, ids, snapshot, assessment, rawSHA, generation) = admission else { return }
+        let previousStored = run.lock.ng2Locked { cycle.storedCaptureIDs }
+        let adopted = run.lock.ng2Locked { cycle.assessmentAdopted }
+        persistenceQueue.async {
+            var success = false
+            do {
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeCycleTestHooks.beforeCheckpointWrite?(state.job_id)
+                #endif
+                guard frames.count == ids.count, frames.count <= 6 else { throw NG2CycleSpool.Failure.invalid("checkpoint-frames") }
+                let fresh = frames.filter { !previousStored.contains($0.id) }
+                try spool.reserveCheckpoint(frames: fresh.count + 3, metadataBytes: 128 * 1024)
+                for frame in fresh { _ = try spool.commitFrame(captureID: frame.id, rgba: frame.rgba, metadata: self.cycleFrameMetadata(frame)) }
+                var payload: [String: JSONValue] = ["run_id": .string(run.id), "clock_id": .string(run.clock),
+                    "generation": NG2CycleWire.number(generation), "cycle": .object(NG2CycleWire.companion(state)),
+                    "assessment": assessment.map { .object($0) } ?? .null,
+                    "assessment_adopted": .bool(adopted),
+                    "raw_sha256": rawSHA.map { .string($0) } ?? .null,
+                    "capture_ids": .array(ids.sorted().map { NG2CycleWire.number($0) })]
+                payload["controller"] = snapshot.map { .object(self.encodeSnapshot($0, origin: "cycle_checkpoint")) } ?? .null
+                _ = try spool.commitRecord(kind: "checkpoint", cycle: UInt64(state.completed_shops), payload: NG2CycleWire.object(payload))
+                success = true
+            } catch { }
+            let durable = success
+            self.controlQueue.async {
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeCycleTestHooks.beforePersistenceCommit?(state.job_id)
+                #endif
+                run.lock.ng2Locked {
+                    cycle.persistenceOutstanding = false
+                    if durable { cycle.storedCaptureIDs.formUnion(ids) }
+                    guard let currentCore = run.core, run.generation == generation, run.cancelReason == 0,
+                          !run.stopped, self.ownerActive(run) else { return }
+                    if durable { _ = ng2_controller_cycle_durable(currentCore, state.job_id, state.capture_id, state.prefix, Self.now()) }
+                    else {
+                        cycle.failure = "checkpoint_commit_failed"
+                        _ = ng2_controller_cycle_storage_failed(currentCore, state.job_id, Self.now())
+                    }
+                }
+                self.refreshCycleEvidence(run); self.notifyCycleIfNeeded(run); self.cycle(run)
+            }
+        }
+    }
+
+    private func persistCycleTerminal(_ run: NG2Run) {
+        guard let cycle = run.cycle else { return }
+        let admission: (NG2CycleSpool, [NG2Frame], Set<UInt64>, NG2ControllerSnapshot?, NG2ControllerCycleStatus)? = run.lock.ng2Locked {
+            guard !cycle.terminalPersistenceStarted, !cycle.workerBusy, let spool = cycle.spool else { return nil }
+            cycle.terminalPersistenceStarted = true; cycle.persistenceOutstanding = true
+            return (spool, selectedExportFrames(run), cycle.storedCaptureIDs, run.controllerSnapshot, cycle.companion)
+        }
+        guard let (spool, frames, stored, snapshot, state) = admission else {
+            run.lock.ng2Locked { if cycle.spool == nil && !cycle.workerBusy { cycle.terminalPersisted = true } }
+            return
+        }
+        let assessment = run.lock.ng2Locked { cycle.assessment }
+        let adopted = run.lock.ng2Locked { cycle.assessmentAdopted }
+        persistenceQueue.async {
+            var saved = Set<UInt64>()
+            var failure: String?
+            do {
+                let fresh = frames.filter { !stored.contains($0.id) }
+                try spool.reserveCheckpoint(frames: fresh.count, metadataBytes: 256 * 1024)
+                for frame in fresh {
+                    _ = try spool.commitFrame(captureID: frame.id, rgba: frame.rgba, metadata: self.cycleFrameMetadata(frame)); saved.insert(frame.id)
+                }
+                let body: [String: JSONValue] = ["cycle": .object(NG2CycleWire.companion(state)),
+                    "assessment": assessment.map { .object($0) } ?? .null, "assessment_adopted": .bool(adopted),
+                    "controller": snapshot.map { .object(self.encodeSnapshot($0, origin: "cycle_terminal")) } ?? .null]
+                _ = try spool.commitRecord(kind: "terminal", cycle: UInt64(max(state.completed_shops, 0)), payload: NG2CycleWire.object(body))
+            } catch { failure = "terminal_commit_failed" }
+            self.controlQueue.async {
+                run.lock.ng2Locked {
+                    cycle.persistenceOutstanding = false; cycle.terminalPersisted = true
+                    cycle.storedCaptureIDs.formUnion(saved)
+                    if let failure { cycle.failure = failure }
+                }
+                self.notifyCycleIfNeeded(run); self.cycle(run)
+            }
+        }
+    }
+
+    private func notifyCycleIfNeeded(_ run: NG2Run) {
+        guard let cycle = run.cycle else { return }
+        let outcome: Int32? = run.lock.ng2Locked {
+            guard !cycle.notificationRequested, run.controllerSnapshot?.status.paused == 1,
+                  cycle.companion.outcome == 1 || cycle.companion.outcome == 2,
+                  run.cancelReason == 0, ownerActive(run) else { return nil }
+            cycle.notificationRequested = true; cycle.notificationState = "pending"; return cycle.companion.outcome
+        }
+        guard let outcome else { return }
+        #if NG2_RUNTIME_HOST_TEST
+        run.lock.ng2Locked { cycle.notificationState = "requested" }
+        NG2RuntimeCycleTestHooks.afterNotification?(run.id)
+        #else
+        let content = UNMutableNotificationContent()
+        content.title = outcome == 2 ? "のろいのゆびわを確認" : "のろいのゆびわの候補を保持"
+        content.body = "ゲームをポーズしました。商品を確認してください。"
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "necro-cycle-" + run.id, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            run.lock.ng2Locked { cycle.notificationState = error == nil ? "requested" : "failed" }
+        }
+        #endif
+    }
+
+    private func beginCycleScan() {
+        let start = lock.ng2Locked { () -> Bool in
+            guard !cycleScanStarted else { return false }
+            cycleScanStarted = true; cycleScanState = "pending"; return true
+        }
+        guard start else { return }
+        persistenceQueue.async {
+            do {
+                let pending: [String]
+                #if NG2_RUNTIME_HOST_TEST
+                if let root = NG2RuntimeCycleTestHooks.spoolRoot { pending = try NG2CycleSpool.testUnpublishedRunIDs(rootURL: root) }
+                else { pending = try NG2CycleSpool.unpublishedRunIDs() }
+                #else
+                pending = try NG2CycleSpool.unpublishedRunIDs()
+                #endif
+                self.lock.ng2Locked { self.unpublishedCycles = pending; self.cycleScanState = "ready" }
+            } catch { self.lock.ng2Locked { self.cycleScanState = "failed" } }
+        }
+    }
+
+    private func prepareCycleNotifications(request: Bool) {
+        #if NG2_RUNTIME_HOST_TEST
+        lock.ng2Locked { notificationAuthorization = NG2RuntimeCycleTestHooks.notificationAuthorization }
+        #else
+        let start = lock.ng2Locked { () -> Bool in
+            guard !notificationPreparationStarted else { return false }
+            notificationPreparationStarted = true; return true
+        }
+        guard start else { return }
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            let state: String
+            switch settings.authorizationStatus {
+            case .authorized: state = "authorized"
+            case .provisional, .ephemeral: state = "provisional"
+            case .denied: state = "denied"
+            case .notDetermined: state = "not_determined"
+            @unknown default: state = "unavailable"
+            }
+            self.lock.ng2Locked { self.notificationAuthorization = state; self.notificationPreparationStarted = false }
+            guard request && state == "not_determined" else { return }
+            DispatchQueue.main.async {
+                guard let bundle = Bundle.main.bundleIdentifier else { return }
+                let runnerPID = ForegroundApp.processID(forBundleID: bundle)
+                guard runnerPID > 0 && ForegroundApp.frontmostPID() == runnerPID else { return }
+                let admitted = self.lock.ng2Locked { () -> Bool in
+                    guard !self.notificationPreparationStarted else { return false }
+                    self.notificationPreparationStarted = true; self.notificationAuthorization = "pending"; return true
+                }
+                guard admitted else { return }
+                center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+                    self.lock.ng2Locked {
+                        self.notificationAuthorization = error == nil ? (granted ? "authorized" : "denied") : "unavailable"
+                        self.notificationPreparationStarted = false
+                    }
+                }
+            }
+        }
+        #endif
+    }
+
+    private func initializeCycle(_ run: NG2Run) {
+        guard let cycle = run.cycle else { return }
+        run.lock.ng2Locked { cycle.persistenceOutstanding = true }
+        persistenceQueue.async {
+            do {
+                let provenance: [String: Any] = ["clock_id": run.clock, "accepted_started_ns": run.acceptedStarted,
+                    "generation": run.generation, "runtime_instance_id": self.runtimeInstanceID,
+                    "system_uptime_ns": UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000_000)]
+                let spool: NG2CycleSpool
+                #if NG2_RUNTIME_HOST_TEST
+                if let root = NG2RuntimeCycleTestHooks.spoolRoot {
+                    spool = try NG2CycleSpool.testCreate(rootURL: root, runID: run.id, owner: run.owner, provenance: provenance)
+                } else { spool = try NG2CycleSpool.create(runID: run.id, owner: run.owner, provenance: provenance) }
+                #else
+                spool = try NG2CycleSpool.create(runID: run.id, owner: run.owner, provenance: provenance)
+                #endif
+                try spool.reserveCheckpoint(frames: 6, metadataBytes: 256 * 1024)
+                self.controlQueue.async {
+                    let active = run.lock.ng2Locked { () -> Bool in
+                        cycle.spool = spool; cycle.persistenceOutstanding = false
+                        let now = Self.now()
+                        return run.cancelReason == 0 && !run.stopped && self.ownerActive(run)
+                            && now >= run.acceptedStarted && now - run.acceptedStarted < 180_000_000_000
+                    }
+                    self.lock.ng2Locked { if !self.unpublishedCycles.contains(run.id) { self.unpublishedCycles.append(run.id) } }
+                    if active { self.start(run) }
+                    else {
+                        if run.lock.ng2Locked({ run.cancelReason == 0 }) { run.cancel(15) }
+                        run.lock.ng2Locked {
+                            cycle.companion.state = 8; cycle.companion.status = 2
+                            run.terminal = true; run.captureWorkerDone = true; run.lease = false
+                        }
+                    }
+                }
+            } catch {
+                self.controlQueue.async {
+                    run.cancel(6)
+                    run.lock.ng2Locked {
+                        cycle.persistenceOutstanding = false; cycle.failure = "spool_initialization_failed"
+                        cycle.companion.state = 8; cycle.companion.status = 3
+                        run.terminal = true; run.captureWorkerDone = true; run.lease = false
+                    }
+                    self.lock.ng2Locked { if !self.unpublishedCycles.contains(run.id) { self.unpublishedCycles.append(run.id) } }
+                }
+            }
+        }
+    }
+
+    private func cyclePayload(_ run: NG2Run) -> [String: JSONValue] {
+        let permission = lock.ng2Locked { notificationAuthorization }
+        return run.lock.ng2Locked {
+            let status = run.controllerSnapshot?.status
+            let cycle = run.cycle!
+            return ["state": .string(run.terminal ? (run.lease ? "draining" : "stopped") : "running"),
+                "terminal": .bool(run.terminal), "workers_drained": .bool(!run.lease && !cycle.workerBusy),
+                "input_state": .int(Int(status?.input_state ?? cycle.recoveredInputState)), "ui_frozen": .bool(run.uiFrozen),
+                "native_inflight": .bool(run.inFlight), "cycle": .object(NG2CycleWire.companion(cycle.companion)),
+                "notification": .object(["authorization": .string(permission), "state": .string(cycle.notificationState)])]
+        }
+    }
+
+    private func beginCycleRecovery(owner: String, id: String) {
+        let admitted = lock.ng2Locked { () -> Bool in
+            guard !cycleRecoveryPending.contains(id), recoveredCycles.count < 16 else { return false }
+            cycleRecoveryPending.insert(id); return true
+        }
+        guard admitted else { return }
+        persistenceQueue.async {
+            defer { self.lock.ng2Locked { self.cycleRecoveryPending.remove(id) } }
+            do {
+                let spool: NG2CycleSpool
+                #if NG2_RUNTIME_HOST_TEST
+                if let root = NG2RuntimeCycleTestHooks.spoolRoot { spool = try NG2CycleSpool.testRecover(rootURL: root, runID: id, owner: owner) }
+                else { spool = try NG2CycleSpool.recover(runID: id, owner: owner) }
+                #else
+                spool = try NG2CycleSpool.recover(runID: id, owner: owner)
+                #endif
+                var clock: String?
+                if let header = try? spool.sessionBytes(),
+                   let object = try? JSONSerialization.jsonObject(with: header) as? [String: Any],
+                   let provenance = object["provenance"] as? [String: Any],
+                   let original = provenance["clock_id"] as? String, self.lowerHexIdentity(original) { clock = original }
+                let run = NG2Run(owner: owner, id: id, now: Self.now(), profile: Self.cycleProfile, clock: clock)
+                let cycle = run.cycle!
+                cycle.spool = spool; cycle.recovered = true; cycle.terminalPersisted = true
+                cycle.companion.state = 8
+                run.terminal = true; run.stopped = true; run.lease = false; run.captureWorkerDone = true
+                let records = try spool.records()
+                let intents = records.filter { $0.kind == "restart_intent" }
+                let outcomes = records.filter { $0.kind == "restart_outcome" }
+                let dangling = intents.contains { intent in
+                    guard let command = intent.payload["command"] as? [String: Any],
+                          let commandID = command["id"] as? NSNumber else { return true }
+                    return !outcomes.contains { outcome in
+                        guard outcome.sequence > intent.sequence,
+                              let source = outcome.payload["cycle"] as? [String: Any],
+                              let completed = source["restart_command_id"] as? NSNumber else { return false }
+                        return completed.uint64Value == commandID.uint64Value
+                    }
+                }
+                let unknown = records.contains { record in
+                    let controller = record.payload["controller"] as? [String: Any]
+                    return (controller?["input_state"] as? NSNumber)?.intValue == 4
+                }
+                if dangling || unknown { cycle.recoveredInputState = 4; run.uiFrozen = true }
+                if let payload = records.last(where: { $0.payload["cycle"] != nil })?.payload,
+                   let value = payload["cycle"] as? [String: Any] {
+                    func n(_ key: String) -> UInt64 { (value[key] as? NSNumber)?.uint64Value ?? 0 }
+                    cycle.companion.level_id = n("level_id"); cycle.companion.job_id = n("job_id")
+                    cycle.companion.capture_id = n("capture_id"); cycle.companion.prefix = n("prefix")
+                    cycle.companion.completed_shops = Int32(n("completed_shops"))
+                    cycle.companion.outcome = Int32(["unknown", "candidate", "target", "negative"].firstIndex(of: value["outcome"] as? String ?? "unknown") ?? 0)
+                    cycle.companion.coverage = Int32(["unknown", "incomplete", "complete"].firstIndex(of: value["coverage"] as? String ?? "unknown") ?? 0)
+                }
+                self.lock.ng2Locked { self.recoveredCycles[id] = run }
+            } catch { /* The explicit query remains read only and retryable. */ }
+        }
+    }
+
+    private func beginCycleExport(_ run: NG2Run) {
+        guard let cycle = run.cycle else { return }
+        let status = cyclePayload(run)
+        let exporter: NG2CycleExport? = run.lock.ng2Locked {
+            guard run.terminal, !run.lease, !cycle.workerBusy, cycle.exporter == nil, let spool = cycle.spool else { return nil }
+            let value = NG2CycleExport(spool: spool, status: status, recovered: cycle.recovered, owner: run.owner)
+            cycle.exporter = value; return value
+        }
+        exporter?.prepare()
+    }
+
+    private func handleCycle(owner: String, id: String, params: [String: JSONValue]) -> ([String: JSONValue]?, JSONRPCError?) {
+        let mode = params["mode"]?.stringValue ?? "status"
+        let base: Set<String> = ["run_id", "mode", Self.ownerParam]
+        let extra: Set<String>
+        switch mode {
+        case "prepare": extra = ["request_authorization"]
+        case "status": extra = ["keepalive"]
+        case "manifest": extra = []
+        case "chunk": extra = ["export_id", "capture_id", "offset"]
+        case "record": extra = ["export_id", "sequence", "offset"]
+        case "batch": extra = ["export_id", "capture_id", "offset", "count"]
+        case "published": extra = ["export_id", "manifest_sha256", "archive_sha256"]
+        default: return failure("Unsupported cycle query mode.", -32602)
+        }
+        guard Set(params.keys).isSubset(of: base.union(extra)),
+              AuthManager.shared.clientName(forTokenId: owner) != nil, !RemoteSession.shared.paused else {
+            return failure("Invalid or inactive cycle request.", -32602)
+        }
+        if mode == "prepare" {
+            guard params["request_authorization"] == nil || params["request_authorization"]?.boolValue != nil else {
+                return failure("request_authorization must be boolean.", -32602)
+            }
+            beginCycleScan(); prepareCycleNotifications(request: params["request_authorization"]?.boolValue ?? false)
+            let payload: [String: JSONValue] = lock.ng2Locked {
+                let permitted = notificationAuthorization == "authorized" || notificationAuthorization == "provisional"
+                let reason = cycleScanState == "failed" ? "recovery_scan_failed" : (cycleScanState != "ready" ? "recovery_scan_pending"
+                    : (!unpublishedCycles.isEmpty ? "unpublished_cycle" : (permitted ? "none" : "need_open_loopctrl_notifications")))
+                return ["ready": .bool(permitted && cycleScanState == "ready" && unpublishedCycles.isEmpty),
+                    "notification_authorization": .string(notificationAuthorization), "recovery_scan": .string(cycleScanState),
+                    "unpublished_run_ids": .array(unpublishedCycles.sorted().map { .string($0) }), "reason": .string(reason)]
+            }
+            return (NG2CycleWire.envelope(runID: id, mode: mode, payload: payload), nil)
+        }
+        let existing = lock.ng2Locked { current }
+        let run: NG2Run?
+        if let existing, existing.id == id, existing.owner == owner, existing.cycle != nil,
+           existing.lock.ng2Locked({ existing.cycle!.spool != nil || !existing.terminal || existing.lease }) { run = existing }
+        else { run = lock.ng2Locked { recoveredCycles[id] }.flatMap { $0.owner == owner ? $0 : nil } }
+        guard let run, let cycle = run.cycle else {
+            if let existing, existing.id == id, existing.cycle != nil, existing.lock.ng2Locked({ existing.lease }) {
+                existing.cancel(5); return failure("Previous cycle workers must drain before read-only recovery.")
+            }
+            beginCycleRecovery(owner: owner, id: id)
+            return failure("Native cycle read-only recovery is pending.", -32094)
+        }
+        if mode == "status" {
+            guard params["keepalive"] == nil || params["keepalive"]?.boolValue != nil else { return failure("keepalive must be boolean.", -32602) }
+            run.lock.ng2Locked {
+                if !cycle.recovered && NG2TicketGuard.renewsHeartbeat(keepalive: params["keepalive"]?.boolValue ?? false,
+                    ownerActive: ownerActive(run), cancelled: run.cancelReason != 0) { run.heartbeat = Self.now() }
+            }
+            return (NG2CycleWire.envelope(runID: id, mode: mode, payload: cyclePayload(run)), nil)
+        }
+        guard run.lock.ng2Locked({ run.terminal && !run.lease && !cycle.workerBusy }) else {
+            return failure("Cycle export requires terminal, drained workers.")
+        }
+        let exporter: NG2CycleExport? = run.lock.ng2Locked { cycle.exporter }
+        guard let exporter else {
+            beginCycleExport(run)
+            return failure("Native cycle export is being prepared.", -32094)
+        }
+        let answer: ([String: JSONValue]?, String?)
+        if mode == "manifest" { answer = exporter.manifest() }
+        else if mode == "published" {
+            guard let exportID = params["export_id"]?.stringValue, lowerHexIdentity(exportID),
+                  let manifestSHA = params["manifest_sha256"]?.stringValue, isSHA256(manifestSHA),
+                  let archiveSHA = params["archive_sha256"]?.stringValue, isSHA256(archiveSHA) else {
+                return failure("Invalid cycle publication identity.", -32602)
+            }
+            answer = exporter.published(exportID: exportID, manifestSHA: manifestSHA, archiveSHA: archiveSHA)
+            if answer.0?["accepted"]?.boolValue == true {
+                run.lock.ng2Locked { cycle.published = true }
+                lock.ng2Locked { unpublishedCycles.removeAll(where: { $0 == run.id }) }
+            }
+        } else {
+            guard let exportID = params["export_id"]?.stringValue, lowerHexIdentity(exportID),
+                  case .int(let offset)? = params["offset"], offset >= 0, offset < 2 * 1024 * 1024 else {
+                return failure("Invalid cycle export identity or offset.", -32602)
+            }
+            guard let currentExport = exporter.identifier else { return failure("Native cycle export is pending.", -32094) }
+            guard currentExport == exportID else { return failure("Cycle export identity changed.", -32602) }
+            if mode == "record" {
+                guard case .int(let sequence)? = params["sequence"], sequence >= 0 else { return failure("Invalid cycle record sequence.", -32602) }
+                answer = exporter.record(sequence: sequence, offset: offset)
+            } else {
+                guard case .int(let capture)? = params["capture_id"], capture > 0 else { return failure("Invalid cycle capture identity.", -32602) }
+                if mode == "batch" {
+                    guard case .int(let count)? = params["count"], (1...4).contains(count) else { return failure("Invalid cycle batch count.", -32602) }
+                    answer = exporter.batch(requests: (0..<count).map { (captureID: UInt64(capture), offset: offset + $0 * NG2CycleWire.chunkBytes) })
+                } else { answer = exporter.chunk(captureID: UInt64(capture), offset: offset) }
+            }
+            guard answer.0?["export_id"]?.stringValue == exportID || answer.0 == nil else {
+                return failure("Cycle export identity changed.")
+            }
+        }
+        guard let payload = answer.0 else {
+            let pending = answer.1 == "pending"
+            return failure(answer.1 ?? "Native cycle export is pending.", pending ? -32094 : -32004)
+        }
+        return (NG2CycleWire.envelope(runID: id, mode: mode, payload: payload), nil)
+    }
+
+    private func isSHA256(_ value: String) -> Bool {
+        value.utf8.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
+    }
+
+    private func cycleNotStarted(_ message: String) -> ([String: JSONValue]?, JSONRPCError?) {
+        (nil, JSONRPCError(code: -32095, message: message,
+            data: ["outcome": .string("definitive_not_started"), "retry_safe": .bool(true)]))
     }
 
     private func failure(_ message: String, _ code: Int = -32004) -> ([String: JSONValue]?, JSONRPCError?) {
@@ -1085,7 +1821,8 @@ final class NG2Runtime {
     }
 
     private func start(_ run: NG2Run) {
-        guard let core = ng2_controller_create(Self.now()) else {
+        let createdCore = run.cycle == nil ? ng2_controller_create(Self.now()) : ng2_controller_create_cycle(run.acceptedStarted)
+        guard let core = createdCore else {
             run.cancel(15); run.lock.ng2Locked { run.terminal = true; run.captureWorkerDone = true; run.lease = false }; return
         }
         run.core = core
@@ -1250,8 +1987,10 @@ final class NG2Runtime {
             // Pure image scanning belongs to the existing capture worker. It
             // never touches the controller or blocks its timed ticket queue.
             #if NG2_RUNTIME_HOST_TEST
-            let analysisRGBA = NG2RuntimeTestHooks.analysisRGBA?(decoded.rgba) ?? decoded.rgba
+            let frameRGBA = NG2RuntimeCycleTestHooks.rgba?(decoded.rgba) ?? decoded.rgba
+            let analysisRGBA = NG2RuntimeTestHooks.analysisRGBA?(decoded.rgba) ?? frameRGBA
             #else
+            let frameRGBA = decoded.rgba
             let analysisRGBA = decoded.rgba
             #endif
             let analyzed = analysisRGBA.withUnsafeBytes { ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress,
@@ -1259,7 +1998,7 @@ final class NG2Runtime {
             let frame = NG2Frame(id: before.0, start: start, end: captureEnd, decodeEnd: decodeEnd,
                 generation: before.3, analysisStart: analysisStart, analysisEnd: Self.now(), analysis: analysis,
                 startPrefix: before.1, prefix: endPrefix, startInFlight: before.2, endInFlight: endInFlight,
-                stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: decoded.rgba,
+                stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: frameRGBA,
                 rasterTrace: decoded.trace, encodedBytes: raw?.count ?? 0,
                 diagnosticOrientation: decoded.diagnosticOrientation)
             if analyzed != 0 {
@@ -1327,6 +2066,7 @@ final class NG2Runtime {
                 if committed {
                     var observedStatus = NG2ControllerStatus(); ng2_controller_status(core, &observedStatus)
                     cache(run, observedStatus)
+                    refreshCycleEvidence(run, frame: frame)
                 } else {
                     // A generation-only replacement discards this old frame;
                     // it must not cancel or mutate the current generation.
@@ -1338,14 +2078,22 @@ final class NG2Runtime {
                 }
         }
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
+        serviceCycleAssessment(run)
         if status.terminal != 0 {
-            run.lock.ng2Locked { run.terminal = true; run.successful = status.goods == 1 && status.paused == 1; run.stopped = true; run.mainCommandID = 0; run.latest = nil; run.preparation = nil }
+            run.lock.ng2Locked {
+                run.terminal = true
+                run.successful = run.cycle == nil ? (status.goods == 1 && status.paused == 1)
+                    : (status.paused == 1 && (run.cycle!.companion.outcome == 1 || run.cycle!.companion.outcome == 2))
+                run.stopped = true; run.mainCommandID = 0; run.latest = nil; run.preparation = nil
+            }
             cache(run, status)
             flushReport(run)
+            persistCycleTerminal(run)
             let legacy = lock.ng2Locked { streamCaptures } + Int(NG2CaptureBridge.pendingRequests)
             let drained = run.lock.ng2Locked {
                 NG2TicketGuard.canReleaseLease(captureWorkerDone: run.captureWorkerDone,
                     captureOutstanding: run.captureOutstanding, mainOutstanding: run.mainOutstanding, legacyCaptures: legacy)
+                    && !(run.cycle?.workerBusy ?? false) && (run.cycle == nil || run.cycle!.terminalPersisted)
             }
             if drained {
                 ng2_controller_destroy(core); run.core = nil
@@ -1378,47 +2126,62 @@ final class NG2Runtime {
             let ticket = ng2_controller_tick(core, Self.now(), run.foreground ? 1 : 0,
                 LockStateMonitor.shared().isLocked ? 1 : 0, ownerActive(run) ? 1 : 0, &command)
             if ticket == 1 {
-                let generation = run.lock.ng2Locked {
-                    run.mainCommandID = command.id; run.mainCallbacks.insert(command.id); return run.generation
+                if run.cycle != nil && command.kind == 3 {
+                    refreshCycleEvidence(run)
                 }
-                ng2_controller_status(core, &status)
-                let dispatchSnapshot = cache(run, status, retainEvidence: false)
-                let preparation = preparePipeline(run, command, generation: generation)
-                let authority = preparation.authority
-                let at = Self.now()
-                let delay = command.not_before_ns > at ? Double(command.not_before_ns - at) / 1e9 : 0
-                let callback = {
-                    self.execute(run, command, generation: generation, authority: authority, preparation: preparation)
-                    // This following queue item executes only after the exact
-                    // callback has returned; its earlier AX preparation also returned.
-                    self.controlQueue.async {
-                        run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }
-                        #if NG2_RUNTIME_HOST_TEST
-                        NG2RuntimeTestHooks.afterTicketReturned?(command.id)
-                        #endif
-                        self.cycle(run)
-                    }
+                if let cycle = run.cycle, command.kind == 3, cycle.companion.state == 6,
+                   cycle.companion.restart_command_id == command.id {
+                    persistCycleIntent(run, command: command); return
                 }
-                #if NG2_RUNTIME_HOST_TEST
-                if NG2RuntimeTestHooks.scheduleTicket?(command.id, { self.controlQueue.async(execute: callback) }) == true {
-                    if let dispatchSnapshot { retainEvidence(run, dispatchSnapshot) }
-                    return
-                }
-                #endif
-                // A due prepared ticket must reach main before diagnostic work
-                // or another queued capture cycle spends its frozen window.
-                if delay == 0 {
-                    #if NG2_RUNTIME_HOST_TEST
-                    NG2RuntimeTestHooks.beforeDueDispatch?(command.id)
-                    #endif
-                    callback(); return
-                }
-                controlQueue.asyncAfter(deadline: .now() + delay, execute: callback)
-                if let dispatchSnapshot { retainEvidence(run, dispatchSnapshot) }
+                if dispatchReserved(run, command: command, core: core) { return }
             }
         }
         if now - min(now, run.lastCache) >= 50_000_000 { ng2_controller_status(core, &status); cache(run, status) }
         if run.lock.ng2Locked({ run.mainCommandID == 0 }) { flushReport(run) }
+    }
+
+    // Shared dispatch keeps the unchanged old-profile callback gates. Only the
+    // cycle RESTART caller waits for its exact durable intent before entering.
+    private func dispatchReserved(_ run: NG2Run, command: NG2Command, core: OpaquePointer) -> Bool {
+        var status = NG2ControllerStatus()
+        let generation = run.lock.ng2Locked {
+            run.mainCommandID = command.id; run.mainCallbacks.insert(command.id); return run.generation
+        }
+        ng2_controller_status(core, &status)
+        let dispatchSnapshot = cache(run, status, retainEvidence: false)
+        let preparation = preparePipeline(run, command, generation: generation)
+        let authority = preparation.authority
+        let at = Self.now()
+        let delay = command.not_before_ns > at ? Double(command.not_before_ns - at) / 1e9 : 0
+        let callback = {
+            self.execute(run, command, generation: generation, authority: authority, preparation: preparation)
+            // This following queue item executes only after the exact
+            // callback has returned; its earlier AX preparation also returned.
+            self.controlQueue.async {
+                run.lock.ng2Locked { run.mainCallbacks.remove(command.id) }
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeTestHooks.afterTicketReturned?(command.id)
+                #endif
+                self.cycle(run)
+            }
+        }
+        #if NG2_RUNTIME_HOST_TEST
+        if NG2RuntimeTestHooks.scheduleTicket?(command.id, { self.controlQueue.async(execute: callback) }) == true {
+            if let dispatchSnapshot { retainEvidence(run, dispatchSnapshot) }
+            return true
+        }
+        #endif
+        // A due prepared ticket must reach main before diagnostic work
+        // or another queued capture cycle spends its frozen window.
+        if delay == 0 {
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeTestHooks.beforeDueDispatch?(command.id)
+            #endif
+            callback(); return true
+        }
+        controlQueue.asyncAfter(deadline: .now() + delay, execute: callback)
+        if let dispatchSnapshot { retainEvidence(run, dispatchSnapshot) }
+        return false
     }
 
     private func ownsTicket(_ run: NG2Run, _ command: NG2Command, generation: UInt64) -> Bool {
@@ -1653,7 +2416,7 @@ final class NG2Runtime {
     // authority, movement credit, recovery permission or a synthesized frame.
     private func retainInitialRejectionLocked(_ run: NG2Run, _ snapshot: NG2ControllerSnapshot) {
         let status = snapshot.status
-        guard run.profile == Self.evidenceProfile, run.cancelReason == 0, !run.stopped,
+        guard (run.profile == Self.evidenceProfile || run.profile == Self.cycleProfile), run.cancelReason == 0, !run.stopped,
               !run.terminal, !run.inFlight, ownerActive(run),
               let previous = run.controllerSnapshot else { return }
         let old = previous.status
@@ -1701,7 +2464,7 @@ final class NG2Runtime {
     // A replacement within one level cannot add an unbounded evidence slot.
     private func retainRestartDecisionLocked(_ run: NG2Run, _ snapshot: NG2ControllerSnapshot) {
         let status = snapshot.status
-        guard run.profile == Self.evidenceProfile, run.cancelReason == 0, !run.stopped,
+        guard (run.profile == Self.evidenceProfile || run.profile == Self.cycleProfile), run.cancelReason == 0, !run.stopped,
               !run.terminal, !run.inFlight, ownerActive(run),
               status.restarts >= 0, status.restarts < 12, status.input_state == 1,
               status.reason == 0, status.goods == 0, status.terminal == 0,

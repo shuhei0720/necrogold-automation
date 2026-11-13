@@ -92,7 +92,8 @@ EXPECTED_RUNTIME_MUTATIONS = frozenset((
 
 def native_object_flags(name, *, test049=False):
     # Match the app's per-source profile. Controller and Beat stay Debug O0.
-    strict = name == 'NG2Perception.c' or (name == 'NG2Navigation.c' and not test049)
+    strict = (name == 'NG2Perception.c' or (name == 'NG2Navigation.c' and not test049)
+              or name in ('NG2Ring.c', 'observe.c', 'icon.c', 'word.c'))
     return ['-O2', *STRICT_PERCEPTION_FP] if strict else ['-O0']
 
 EXPECTED_TEST061_RUNTIME_MUTATIONS = frozenset(('recovery-actual-commit', 'recovery-records-connection', 'recovery-stale-callback'))
@@ -656,14 +657,26 @@ def raster_contract(upstream, output, *, expect_red=False, expect_native_red=Fal
     stage = output / 'raster'; stage.mkdir(exist_ok=True)
     native = HERE / 'ngg2' if expect_red or expect_native_red else upstream / 'LoopCtrlUITests'
     objects = []
-    for source in sorted(native.glob('NG2*.c')):
-        target = stage / (source.stem + '.o')
+    expected = {'NG2Beat.c', 'NG2Controller.c', 'NG2Navigation.c', 'NG2Perception.c'}
+    if (native/'NG2Ring.c').exists():
+        expected.add('NG2Ring.c')
+    if {path.name for path in native.glob('NG2*.c')} != expected:
+        raise ValueError('native_C_source_set')
+    native_sources = sorted(native.glob('NG2*.c'))
+    if 'NG2Ring.c' in expected:
+        ring = native/'NG2RingKernel'
+        if not ring.is_dir() and native.resolve() == (HERE/'ngg2').resolve():
+            ring = HERE.parents[1]/'tools'/'ring_native'
+        native_sources += [ring/name for name in ('observe.c', 'icon.c', 'word.c')]
+    for source in native_sources:
+        stem = source.stem if source.name.startswith('NG2') else 'NG2RingKernel_' + source.stem
+        target = stage / (stem + '.o')
         result = subprocess.run(['clang', '-std=c11', *native_object_flags(source.name),
                                 '-I', str(native), '-c', str(source), '-o', str(target)],
                                 capture_output=True, text=True, timeout=120)
         (output / (source.stem+'-compile.txt')).write_text(result.stdout+result.stderr)
         checked(result); objects.append(target)
-    if len(objects) != 4: raise ValueError('native_C_source_set')
+    if len(objects) != (8 if 'NG2Ring.c' in expected else 4): raise ValueError('native_C_source_set')
     source = (native / 'NG2Raster.swift').read_text()
     (stage / 'NG2Raster.swift').write_text(source)
     reference = (HERE / 'ngg2_raster_reference.swift').read_text()
@@ -911,7 +924,9 @@ def runtime_contract(upstream, output, *, expect_capture_red=False, expect_dispa
     native = HERE/'ngg2' if expect_capture_red or expect_dispatch_red or expect_observe_red or expect_manifest_red else upstream / 'LoopCtrlUITests'
     if baseline_native is not None:
         native = baseline_native
-    (stage / 'NG2RuntimeFixture.h').write_text('#include "NG2Core.h"\n#include "NG2Controller.h"\n#include "ngg2_runtime_scene_fixtures.h"\nvoid ng2_test_pause(uint8_t *, size_t);\n')
+    (stage / 'NG2RuntimeFixture.h').write_text('#include "NG2Core.h"\n#include "NG2Controller.h"\n'
+        + ('#include "NG2Ring.h"\n' if (native/'NG2Ring.h').is_file() else '')
+        + '#include "ngg2_runtime_scene_fixtures.h"\nvoid ng2_test_pause(uint8_t *, size_t);\n')
     (stage / 'fixture.c').write_text('''#include "NG2Core.h"
 #include "NG2Templates.h"
 #include <string.h>
@@ -1026,6 +1041,8 @@ void ng2_test_pause(uint8_t *out,size_t length) {
     (stage/'NG2Runtime.swift').write_text(source)
     sources = [output/'api/RPCTypes.swift', native/'NG2Ticket.swift', native/'NG2Raster.swift',
                stage/'Fakes.swift', stage/'NG2Runtime.swift', stage/'main.swift']
+    if 'NG2CycleWire' in source:
+        sources[3:3] = [native/name for name in ('NG2CycleWire.swift', 'NG2CycleSpool.swift', 'NG2CycleExport.swift')]
     objects = (list(native_objects) if native_objects is not None else sorted((output/'raster').glob('NG2*.o'))) + [stage/'fixture.o', scene_object]
     extra = ['-D', 'NG2_RUNTIME_HOST_TEST', '-Xcc', '-I'+str(native), '-Xcc', '-I'+str(HERE), '-import-objc-header', stage/'NG2RuntimeFixture.h', *objects]
     if expect_capture_red:

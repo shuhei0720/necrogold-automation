@@ -257,10 +257,27 @@ static int passage_corner_vantage(const NG2Scene *s,const Path route[CELLS],int 
     for (j=-3;j<=3;++j) walls+=passage_wall(s,side ? -3 : j,side ? j : -3);
     return walls>=3;
 }
+/* A marked upper-left shadow can merit a closer observed FLOOR view beside
+ * its long brown wall. The four dark cells remain UNKNOWN; this grants only
+ * a fixed initial-world hypothesis, never floor or gold beyond the vantage. */
+static int passage_shadow_vantage(const NG2Scene *s,const Path route[CELLS]) {
+    int i,x,y,vantage=index_of(-2,-1);
+    if(s->gold_state!=NG2_GOLD_CLEAR
+        ||tile(s,-2,-3)!=NG2_TILE_UNKNOWN||tile(s,-2,-4)!=NG2_TILE_UNKNOWN
+        ||tile(s,-2,-2)!=NG2_TILE_UNKNOWN||tile(s,-1,-2)!=NG2_TILE_UNKNOWN
+        ||tile(s,-1,-3)!=NG2_TILE_DIRT)return 0;
+    for(i=0;i<CELLS;++i)
+        if(s->protected_cells[i]||s->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(y=-4;y<=1;++y)if(tile(s,-3,y)!=NG2_TILE_DIRT)return 0;
+    for(y=-1;y<=0;++y)for(x=-2;x<=0;++x)
+        if(tile(s,x,y)!=NG2_TILE_FLOOR)return 0;
+    return route[vantage].cost!=INF_COST&&route[vantage].length==3;
+}
 uint32_t ng2_passage_candidates(const NG2Scene *s) {
     Path route[CELLS];uint32_t result=0;int side,k;
     if (!passage_scene(s)) return 0;
     path_search(s,0,1,route);
+    if(passage_shadow_vantage(s,route))result|=UINT32_C(1);
     for (side=0;side<2;++side) for (k=-2;k<=2;++k) {
         int mx=side ? -3 : k,my=side ? k : -3,dx=side ? -1 : 0,dy=side ? 0 : -1;
         int inboard=index_of(mx-dx,my-dy),mouth=tile(s,mx,my);

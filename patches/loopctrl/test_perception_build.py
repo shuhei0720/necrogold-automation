@@ -69,6 +69,59 @@ def generated_project(flags=None):
     }}
 
 
+def generated_ring_project():
+    project = generated_project()
+    objects = project['objects']
+    objects['RING_GROUP'] = {'isa': 'PBXGroup', 'path': 'NG2RingKernel',
+        'children': [], 'sourceTree': '<group>'}
+    objects['UITEST_GROUP']['children'].append('RING_GROUP')
+    for name in ('NG2Ring.c', 'observe.c', 'icon.c', 'word.c'):
+        ref = name + '_REF'
+        build = name + '_BUILD'
+        group = 'UITEST_GROUP' if name == 'NG2Ring.c' else 'RING_GROUP'
+        objects[group]['children'].append(ref)
+        objects[ref] = {'isa': 'PBXFileReference', 'path': name, 'sourceTree': '<group>'}
+        objects[build] = {'isa': 'PBXBuildFile', 'fileRef': ref,
+            'settings': {'COMPILER_FLAGS': '-O2 -fno-fast-math -ffp-contract=off'}}
+        objects['UITEST_SOURCES']['files'].append(build)
+    return project
+
+
+class RingProjectContract094Tests(unittest.TestCase):
+    def test_profile3_requires_aggregation_and_each_shared_kernel_exactly_once(self):
+        accepted = None
+        try:
+            accepted = checker.project_contract(generated_ring_project(), profile_version=3)
+        except checker.ProfileError:
+            pass
+        self.assertIsNotNone(accepted, 'ring_profile3_accepts_canonical_shared_kernel_paths')
+        self.assertEqual(3, accepted['format_version'])
+        self.assertEqual({'NG2Perception.c', 'NG2Navigation.c', 'NG2Ring.c',
+                          'observe.c', 'icon.c', 'word.c'}, set(accepted['sources']))
+        for row in accepted['sources'].values():
+            self.assertEqual(1, row['source_count'])
+            self.assertEqual(checker.FLAGS, row['compiler_flags'])
+
+    def test_each_ring_source_requires_canonical_path_flags_and_single_target(self):
+        for name in ('NG2Ring.c', 'observe.c', 'icon.c', 'word.c'):
+            for fault in ('missing', 'duplicate', 'flags', 'wrong_path', 'extra_target'):
+                project = generated_ring_project()
+                objects = project['objects']
+                build = name + '_BUILD'
+                if fault == 'missing':
+                    objects['UITEST_SOURCES']['files'].remove(build)
+                elif fault == 'duplicate':
+                    objects['UITEST_SOURCES']['files'].append(build)
+                elif fault == 'flags':
+                    objects[build]['settings']['COMPILER_FLAGS'] += ' -O0'
+                elif fault == 'wrong_path':
+                    objects[name + '_REF']['path'] = 'elsewhere/' + name
+                else:
+                    objects['APP_SOURCES']['files'].append(build)
+                with self.subTest(source=name, fault=fault), self.assertRaises(checker.ProfileError):
+                    checker.project_contract(project, profile_version=3)
+
+
 class NavigationProjectContractTests(unittest.TestCase):
     def test_new_project_contains_both_independent_strict_sources(self):
         profile = checker.project_contract(generated_project())
@@ -1102,6 +1155,104 @@ class PerceptionCompileLogTests(unittest.TestCase):
         with patch.object(checker.subprocess, 'run', side_effect=AssertionError('executed log')):
             self.inspect(lines)
         self.assertFalse(marker.exists())
+
+
+class RingCompileProfile094Tests(unittest.TestCase):
+    swift_command = PerceptionCompileLogTests.swift_command
+
+    def setUp(self):
+        PerceptionCompileLogTests.setUp(self)
+        self.names += ['NG2Ring', 'observe', 'icon', 'word']
+        for name in checker.RING_C:
+            source = self.upstream / checker.native_source_relative(name)
+            source.parent.mkdir(exist_ok=True)
+            source.write_text('/* shared ring compile fixture */\n')
+        self.profile = checker.project_contract(generated_ring_project(), profile_version=3)
+        self.profile['source_sha256'] = {name: checker.digest(
+            (self.upstream / checker.native_source_relative(name)).read_bytes())
+            for name in checker._strict_sources(3)}
+        self.profile['project_sha256'] = '0' * 64
+
+    def c_command(self, name, flags=None, source=None, output=None, arch='arm64'):
+        if flags is None:
+            flags = checker.FLAGS if name + '.c' in checker._strict_sources(3) else ['-O0']
+        if source is None:
+            source = self.upstream / checker.native_source_relative(name + '.c')
+        return PerceptionCompileLogTests.c_command(self, name, flags, source, output, arch)
+
+    def commands(self):
+        return PerceptionCompileLogTests.commands(self)
+
+    def inspect(self, lines):
+        self.log.write_text('\n'.join(lines) + '\n')
+        with patch.object(checker, 'inspect_project', return_value=copy.deepcopy(self.profile)):
+            return checker.inspect_compile_log(self.upstream, self.log, self.proof, profile_version=3)
+
+    def test_all_shared_compiles_keep_canonical_path_hash_and_strict_flags(self):
+        result = self.inspect(self.commands())
+        self.assertEqual('strict-O2-v3', result['profile'])
+        self.assertEqual(set(checker.RING_C), set(result['ring_compiles']))
+        self.assertEqual({'NG2Beat.c', 'NG2Controller.c'}, set(result['other_c_profiles']))
+        for name, rows in result['ring_compiles'].items():
+            self.assertEqual(1, len(rows))
+            self.assertEqual(checker.native_source_relative(name), rows[0]['source'])
+            self.assertEqual(self.profile['source_sha256'][name], rows[0]['source_sha256'])
+            self.assertEqual('-O2', rows[0]['optimization'])
+            self.assertFalse(rows[0]['fast_math'])
+            self.assertEqual('off', rows[0]['fp_contract'])
+
+    def test_missing_duplicate_unsafe_and_wrong_source_ring_compiles_are_rejected(self):
+        for name in ('NG2Ring', 'observe', 'icon', 'word'):
+            index = self.names.index(name)
+            for fault in ('missing', 'duplicate', 'post_o0', 'fast_math', 'fma', 'wrong_source'):
+                lines = self.commands()
+                if fault == 'missing':
+                    del lines[index]
+                elif fault == 'duplicate':
+                    lines.append(self.c_command(name))
+                elif fault == 'wrong_source':
+                    lines[index] = self.c_command(name, source=self.sources / (name + '.c'))
+                    if name == 'NG2Ring':
+                        lines[index] = self.c_command(name, source=self.upstream / 'Elsewhere/NG2Ring.c')
+                else:
+                    option = {'post_o0': '-O0', 'fast_math': '-ffast-math', 'fma': '-ffp-contract=fast'}[fault]
+                    lines[index] = self.c_command(name, [*checker.FLAGS, option])
+                with self.subTest(source=name, fault=fault), self.assertRaises(checker.ProfileError):
+                    self.inspect(lines)
+
+    def test_shared_kernel_parent_symlink_is_not_valid_compile_evidence(self):
+        directory = self.sources / 'NG2RingKernel'
+        outside = self.base / 'external-kernel'
+        directory.rename(outside)
+        directory.symlink_to(outside, target_is_directory=True)
+        with self.assertRaises(checker.ProfileError):
+            self.inspect(self.commands())
+
+    def test_saved_profile3_rechecks_every_kernel_and_rejects_profile_downgrade(self):
+        saved = self.inspect(self.commands())
+        path = self.upstream / 'release/native-perception-profile.json'
+        path.parent.mkdir()
+        path.write_text(json.dumps(saved))
+        with patch.object(checker, 'inspect_project', return_value=copy.deepcopy(self.profile)):
+            self.assertEqual(saved, checker.read_compile_profile(self.upstream, required_version=3))
+            with self.assertRaises(checker.ProfileError):
+                checker.read_compile_profile(self.upstream, required_version=2)
+            for name in checker.RING_C:
+                for fault in ('missing', 'duplicate', 'hash', 'unsafe'):
+                    mutated = copy.deepcopy(saved)
+                    rows = mutated['ring_compiles'][name]
+                    if fault == 'missing':
+                        del mutated['ring_compiles'][name]
+                    elif fault == 'duplicate':
+                        rows.append(copy.deepcopy(rows[0]))
+                    elif fault == 'hash':
+                        rows[0]['source_sha256'] = '0' * 64
+                    else:
+                        for key in ('raw_arguments', 'arguments'):
+                            rows[0][key].append('-ffast-math')
+                    path.write_text(json.dumps(mutated))
+                    with self.subTest(source=name, fault=fault), self.assertRaises(checker.ProfileError):
+                        checker.read_compile_profile(self.upstream, required_version=3)
 
 
 class PerceptionSavedProfileTests(unittest.TestCase):

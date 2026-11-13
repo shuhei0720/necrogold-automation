@@ -7,6 +7,17 @@ The added NG2 source files and complete modified upstream files accompany the
 private build artifact. Upstream copyright and third-party notices below are
 preserved. This notice does not relicense the remainder of the NecroGold project.
 
+NecroGold TEST094 shared classifier notice (2026-11-13): the native build copies
+`tools/ring_native/{ring.h,features.h,word_features.h,observe.c,icon.c,word.c}`
+byte for byte into `LoopCtrlUITests/NG2RingKernel/`. These are the canonical
+NecroGold pixel kernels also used by the separate iSH engine; each copied source
+is pinned in `ngg2-manifest.json` and checked again immediately before install.
+`NG2Ring.c` adds bounded direct-RGBA aggregation. The native classifier does not
+link the separate i386 ELF, PNG/stdin wrapper, Zig runtime or musl. The existing
+Zig/MIT and musl/MIT notices remain with that separate engine and its complete
+source distribution. This modification notice assigns no new license to the
+NecroGold project or to the shared feature data.
+
 LoopCtrl
 Copyright 2026 Ebato and the LoopCtrl contributors
 

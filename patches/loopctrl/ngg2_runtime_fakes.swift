@@ -199,8 +199,10 @@ enum NG2Fake {
     static var touches = 0
     static var failTouch = false
     static var authenticatedOwnerActive = true
+    static var authorizedOwners: Set<String> = ["fixture-owner"]
     static var frontPID: pid_t = 42
     static var beforeForegroundQuery: (() -> Void)?
+    static var cycleTap: ((Double, Double) -> Void)?
     static var gesturePaths: [[[(point: CGPoint, t: Double)]]] = []
     static var tapPoints: [CGPoint] = []
     static var walkX: Int32 = 0
@@ -245,7 +247,7 @@ enum NG2Fake {
     static var observeEntries: [UInt64] = []
     static var observeExits: [UInt64] = []
     static func reset(_ next: Mode) {
-        lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; authenticatedOwnerActive = true; frontPID = 42; callbacks = []; offset = 0; fixedClock = nil; fixedCaptureAdvance = 80_000_000; pending = 0 }
+        lock.fixtureLocked { mode = next; requests = 0; activations = 0; touches = 0; failTouch = false; authenticatedOwnerActive = true; authorizedOwners = ["fixture-owner"]; frontPID = 42; callbacks = []; offset = 0; fixedClock = nil; fixedCaptureAdvance = 80_000_000; pending = 0 }
         lock.fixtureLocked {
             replyData = nil; replyError = nil
             captureTimeProvider = nil
@@ -277,6 +279,10 @@ enum NG2Fake {
         NG2RuntimeTestHooks.afterCaptureDrainProcessed = nil
         NG2RuntimeTestHooks.beforeCaptureFailureCommit = nil
         NG2RuntimeTestHooks.analysisRGBA = nil
+        #if NG2_CYCLE_TEST094
+        NG2RuntimeCycleTestHooks.rgba = nil
+        #endif
+        cycleTap = nil
         NG2RuntimeTestHooks.afterWatchdogCheck = nil
         LockStateMonitor.monitor.isLocked = false
         NG2RuntimeTestHooks.clock = nil
@@ -553,7 +559,7 @@ final class RemoteSession {
 final class AuthManager {
     static let shared = AuthManager()
     func clientName(forTokenId owner: String) -> String? {
-        NG2Fake.lock.fixtureLocked { owner == "fixture-owner" && NG2Fake.authenticatedOwnerActive ? "Fixture" : nil }
+        NG2Fake.lock.fixtureLocked { NG2Fake.authorizedOwners.contains(owner) && NG2Fake.authenticatedOwnerActive ? "Fixture" : nil }
     }
 }
 final class LockStateMonitor {
@@ -585,6 +591,7 @@ final class FastActionHandler {
             NG2Fake.tapPoints.append(CGPoint(x: x, y: y))
             if NG2Fake.mode == .walk && x == 390 && y == 448 { NG2Fake.walkPaused = true }
         }
+        NG2Fake.cycleTap?(x, y)
         return touch()
     }
     func fastGesture(_ fingers: [[(point: CGPoint, t: Double)]]) -> ([String: JSONValue]?, JSONRPCError?) {

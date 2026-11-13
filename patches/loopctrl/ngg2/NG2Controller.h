@@ -4,6 +4,7 @@
 #ifndef NG2_CONTROLLER_H
 #define NG2_CONTROLLER_H
 #include "NG2Core.h"
+#include "NG2Ring.h"
 typedef struct NG2Controller NG2Controller;
 enum { NG2_ACTION_NONE=0, NG2_ACTION_RESUME=1, NG2_ACTION_PAUSE=2,
        NG2_ACTION_RESTART=3, NG2_ACTION_MOVE=4 };
@@ -125,9 +126,48 @@ typedef struct {
     NG2ControllerRecoveryTrace records[2];
 } NG2ControllerRecoveryStatus;
 
+/* TEST094 companion ABI. Existing Status/Event/Scene layouts are unchanged.
+ * These states belong only to normal-1-1-cycle-v1; old finish/terminal latches
+ * are never cleared. A classified image is evidence, not a later UI ticket. */
+enum { NG2_CYCLE_SEARCH=0, NG2_CYCLE_HOLD=1, NG2_CYCLE_ASSESS=2,
+       NG2_CYCLE_OBSERVE_MORE=3, NG2_CYCLE_NEGATIVE_PAUSE=4,
+       NG2_CYCLE_NEGATIVE_PERSIST=5, NG2_CYCLE_NEGATIVE_RESTART=6,
+       NG2_CYCLE_HELD=7, NG2_CYCLE_DONE=8 };
+typedef struct {
+    uint32_t abi_version, struct_size;
+    int32_t state, outcome, status, coverage, partial, pending, completed_shops;
+    int32_t candidate_latched, full_seen, reserved;
+    uint64_t level_id, job_id, capture_id, capture_start_ns, prefix, deadline_ns;
+    uint64_t hold_started_ns, worker_started_ns, assessment_ns, durable_ns;
+    uint64_t pause_source_capture_id, pause_capture_id, restart_command_id;
+    uint64_t next_floor_capture_id, intent_ns, outcome_ns, release_after_ns;
+    uint64_t continuation_deadline_ns;
+    uint64_t queued_capture_id, queued_capture_start_ns, queued_prefix;
+} NG2ControllerCycleStatus;
+
 /* Defaults: 16 directions, 12 restarts, 45s walking, 180s session. */
 NG2Controller *ng2_controller_create(uint64_t now);
+NG2Controller *ng2_controller_create_cycle(uint64_t now);
 void ng2_controller_destroy(NG2Controller *controller);
+void ng2_controller_cycle_status(const NG2Controller *, NG2ControllerCycleStatus *out);
+/* Admission tightens the adoption deadline to min(capture+150ms, now+100ms).
+ * Caller checks owner/run/generation/SHA at the same serial cancellation gate. */
+int ng2_controller_cycle_worker_begin(NG2Controller *, uint64_t job_id,
+    uint64_t capture_id, uint64_t prefix, uint64_t now);
+int ng2_controller_cycle_assess(NG2Controller *, uint64_t job_id,
+    uint64_t capture_id, uint64_t prefix, uint64_t now, const NG2RingResult *);
+/* The writer commits raw evidence and canonical records before granting
+ * checkpoint/intent/outcome durability. None of these methods sends input. */
+int ng2_controller_cycle_durable(NG2Controller *, uint64_t job_id,
+    uint64_t capture_id, uint64_t prefix, uint64_t now);
+int ng2_controller_cycle_intent_commit(NG2Controller *, uint64_t job_id,
+    uint64_t command_id, uint64_t source_capture_id, uint64_t prefix, uint64_t now);
+int ng2_controller_cycle_outcome_commit(NG2Controller *, uint64_t job_id,
+    uint64_t floor_capture_id, uint64_t prefix, uint64_t now);
+int ng2_controller_cycle_fail(NG2Controller *, uint64_t job_id, uint64_t now, int32_t reason);
+/* Storage failure cannot truthfully become durable. It permanently forbids
+ * RESTART and permits stopping only after the holding PAUSE (or old guards). */
+int ng2_controller_cycle_storage_failed(NG2Controller *, uint64_t job_id, uint64_t now);
 /* stable=1 only if capture saw the same completed prefix and no inflight UI
  * command at both boundaries. Scene bytes are copied before returning. */
 int ng2_controller_observe(NG2Controller *, const NG2Scene *, uint64_t capture_id,

@@ -13,6 +13,11 @@ UPSTREAM_COMMIT = '6e25cf6a9f65bc86c372cdce94bdb151d0cf6767'
 PATCH_PATH = HERE / 'ngg2.patch'
 MANIFEST_PATH = HERE / 'ngg2-manifest.json'
 ASSETS_ROOT = HERE / 'ngg2'
+RING_ASSETS_ROOT = HERE.parents[1] / 'tools/ring_native'
+RING_SHARED_SOURCES = frozenset({
+    'ring.h', 'features.h', 'word_features.h', 'feature_sha.h', 'observe.c', 'icon.c', 'word.c',
+})
+RING_DESTINATION = 'LoopCtrlUITests/NG2RingKernel/'
 ALLOWED_TARGETS = {
     'LoopCtrlUITests/ActionHandler.swift',
     'LoopCtrlUITests/LoopCtrlUITests.swift',
@@ -74,12 +79,26 @@ def run_patch(stage, raw):
             raise ValueError('patch_rejected: ' + result.stderr.decode('utf-8', errors='replace').strip())
 
 
-def valid_addition(name, source):
+def valid_addition(name, source, source_root='ngg2'):
     path = Path(name)
+    if source_root == 'ring_native':
+        return source in RING_SHARED_SOURCES and name == RING_DESTINATION + source
+    if source_root != 'ngg2':
+        return False
     if source == 'NG2RPCContractsTests.swift':
         return name == 'Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift'
     return (path.parent.as_posix() == 'LoopCtrlUITests' and path.name == source
             and path.name.startswith('NG2') and path.suffix in ('.swift', '.c', '.h', '.m'))
+
+
+def addition_source(assets_root, name, expected):
+    source_root = expected.get('source_root', 'ngg2')
+    if not valid_addition(name, expected['source'], source_root):
+        raise ValueError('unsafe_addition: ' + name)
+    directory = RING_ASSETS_ROOT if source_root == 'ring_native' else assets_root
+    if directory.is_symlink() or not directory.is_dir():
+        raise ValueError('invalid_source_root')
+    return safe_path(directory, expected['source'])
 
 
 def apply(root, manifest=None, patch_path=None, assets_root=None):
@@ -119,17 +138,20 @@ def apply(root, manifest=None, patch_path=None, assets_root=None):
     for name, expected in additions.items():
         # Validate paths before checking the fixed destination policy.
         destination = safe_path(root, name, exists=False)
-        source = safe_path(assets_root, expected['source'])
-        if not valid_addition(name, expected['source']):
-            raise ValueError('unsafe_addition: ' + name)
+        source = addition_source(assets_root, name, expected)
         raw = source.read_bytes()
         if digest(raw) != expected['sha256']:
             raise ValueError('asset_hash_mismatch: ' + name)
         assets[name], destinations[name] = raw, destination
     inventory = {p.name for p in assets_root.iterdir()
                  if p.name.startswith('NG2') and p.suffix in ('.swift', '.c', '.h', '.m')}
-    if inventory != {spec['source'] for spec in additions.values()}:
+    if inventory != {spec['source'] for spec in additions.values()
+                     if spec.get('source_root', 'ngg2') == 'ngg2'}:
         raise ValueError('asset_inventory_mismatch')
+    shared = {spec['source'] for spec in additions.values()
+              if spec.get('source_root') == 'ring_native'}
+    if shared and shared != RING_SHARED_SOURCES:
+        raise ValueError('ring_asset_inventory_mismatch')
     with tempfile.TemporaryDirectory(prefix='.ngg2-stage-', dir=root) as temporary:
         stage = Path(temporary)
         for name, raw in original.items():
@@ -153,24 +175,40 @@ def apply(root, manifest=None, patch_path=None, assets_root=None):
                 raise ValueError('source_changed_during_staging: ' + name)
         for name, expected in additions.items():
             safe_path(root, name, exists=False)
-            if safe_path(assets_root, expected['source']).read_bytes() != assets[name]:
+            if addition_source(assets_root, name, expected).read_bytes() != assets[name]:
                 raise ValueError('asset_changed_during_staging: ' + name)
         backup = stage / '.rollback'
         backup.mkdir()
         for index, name in enumerate(files):
             (backup / str(index)).write_bytes(original[name])
-        installed = []
+        installed, created_directories = [], []
         try:
             for index, name in enumerate([*files, *additions]):
                 destination = sources.get(name, destinations.get(name))
+                missing = []
+                directory = destination.parent
+                while directory != root and not directory.exists():
+                    missing.append(directory)
+                    directory = directory.parent
+                for directory in reversed(missing):
+                    directory.mkdir()
+                    created_directories.append(directory)
+                safe_path(root, name, exists=name in files)
                 os.replace(stage / name, destination)
                 installed.append((index, name, destination))
-        except OSError:
+        except (OSError, ValueError):
             for index, name, destination in reversed(installed):
                 if name in original:
                     os.replace(backup / str(index), destination)
                 else:
                     destination.unlink()
+            for directory in reversed(created_directories):
+                # Preserve a concurrent writer's files; only directories made
+                # by this attempted installation and still empty may go away.
+                try:
+                    directory.rmdir()
+                except OSError:
+                    pass
             raise
     return {name: expected['patched_sha256'] for name, expected in files.items()} | {
         name: expected['sha256'] for name, expected in additions.items()}
@@ -213,6 +251,12 @@ def seal(root):
             additions[directory + source.name] = {'source': source.name, 'sha256': digest(raw)}
     if not additions:
         raise ValueError('no_native_sources')
+    if RING_ASSETS_ROOT.is_symlink() or not RING_ASSETS_ROOT.is_dir():
+        raise ValueError('invalid_source_root')
+    for name in sorted(RING_SHARED_SOURCES):
+        raw = safe_path(RING_ASSETS_ROOT, name).read_bytes()
+        additions[RING_DESTINATION + name] = {
+            'source': name, 'source_root': 'ring_native', 'sha256': digest(raw)}
     manifest = {'format_version': 1, 'upstream_commit': UPSTREAM_COMMIT,
         'api_version': '1.98.16-ngg2', 'capability': 'necrogold_native_v1',
         'client_capability': 'necrogold_native_v15',

@@ -71,14 +71,14 @@
  // Modified for NecroGold NG-G1: opt-in screenshot image geometry, 2026-11-05.
  import Foundation
 
-@@ -26,6 +27,24 @@
+@@ -26,6 +27,37 @@
 
  struct RPCMethodRegistry {
      static let methods: [RPCMethodDef] = [
 +        RPCMethodDef(name: "necro_native_start",
 +            description: "Start one bounded native normal-zone1-1 run. UI and capture are exclusively leased until all workers drain. Same owner/run_id is idempotent. No purchase. Native status heartbeat must arrive within 5 seconds.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Fresh 32 lowercase hex UUID; retain before submitting."),
-+                     RPCParamDef(name: "profile", type: "string", required: true, description: "normal-1-1-v1: legacy/paged PNGs up to 4 MiB; normal-1-1-evidence-v2: manifest/chunk only, up to 20 PNGs / 512 KiB each / 10 MiB total")],
++                     RPCParamDef(name: "profile", type: "string", required: true, description: "normal-1-1-v1: legacy/paged PNGs up to 4 MiB; normal-1-1-evidence-v2: manifest/chunk only, up to 20 PNGs / 512 KiB each / 10 MiB total; normal-1-1-cycle-v1: independent native classifier and durable bounded multi-shop cycle")],
 +            returns: "{run_id,profile,state,api_version,report:{schema,clock_id,device_now_ns,input_state,...}}"),
 +        RPCMethodDef(name: "necro_native_status", description: "Image-free cached native status; default is read-only. Only explicit keepalive:true renews an active uncancelled owner heartbeat. Input state 4 means started unknown; never resend.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID"), RPCParamDef(name: "keepalive", type: "boolean", required: false, description: "Default false: read-only; true renews the active uncancelled owner heartbeat")],
@@ -86,6 +86,19 @@
 +        RPCMethodDef(name: "necro_native_cancel", description: "Invalidate pending native tickets immediately. An already started synth cannot be cancelled; status retains its outcome. No implicit pause input.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID")],
 +            returns: "{run_id,profile,state,api_version,report:{cancel_requested,...}}"),
++        RPCMethodDef(name: "necro_native_cycle", description: "Read-only bounded native cycle status, immutable evidence export and client publication receipt. prepare checks notification readiness before gameplay. No cycle query grants game input.",
++            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Persisted 32 lowercase hex run UUID"),
++                     RPCParamDef(name: "mode", type: "string", required: false, description: "prepare, status (default), manifest, chunk, batch, record or published"),
++                     RPCParamDef(name: "keepalive", type: "boolean", required: false, description: "status only: explicit current-owner heartbeat"),
++                     RPCParamDef(name: "request_authorization", type: "boolean", required: false, description: "prepare only: request OS notification permission if the runner is foreground; never synthesize permission taps"),
++                     RPCParamDef(name: "export_id", type: "string", required: false, description: "Exact immutable export ID"),
++                     RPCParamDef(name: "capture_id", type: "integer", required: false, description: "chunk/batch: manifest capture ID"),
++                     RPCParamDef(name: "sequence", type: "integer", required: false, description: "record: manifest record export sequence"),
++                     RPCParamDef(name: "offset", type: "integer", required: false, description: "Exact byte offset"),
++                     RPCParamDef(name: "count", type: "integer", required: false, description: "batch: 1 through 4 chunks"),
++                     RPCParamDef(name: "manifest_sha256", type: "string", required: false, description: "published: exact manifest UTF8 hash"),
++                     RPCParamDef(name: "archive_sha256", type: "string", required: false, description: "published: client durable ZIP hash; native acknowledges receipt, not ZIP contents")],
++            returns: "{schema:ngg2-cycle-v1,run_id,profile:normal-1-1-cycle-v1,mode,payload}; manifest returns byte-exact manifest_json and its SHA; image chunks <=64KiB, batch raw<=256KiB/wire<=512KiB"),
 +        RPCMethodDef(name: "necro_native_results", description: "Export at most 20 retained normalized PNGs after terminal worker drain and with an active authenticated owner. Default preserves legacy images; manifest creates one immutable bounded export; chunk returns at most 65536 PNG bytes. Capture/synth times are call intervals, not presentation or gameplay-receipt timestamps.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID"),
 +                     RPCParamDef(name: "mode", type: "string", required: false, description: "manifest or chunk; omit for legacy response"),
@@ -96,7 +109,7 @@
          RPCMethodDef(
              name: "config",
              description: "Read or update server settings and manage authorized sessions. With no params: returns current config plus the list of authorized sessions (client name, masked token prefix, granted/expiry times). Pass allow_remote_access and/or listen_port to change settings (persisted; server restarts, dropping the connection — reconnect at the returned address). Pass revoke_session_id to remove one session, or clear_sessions=true to revoke ALL tokens (including your own). Pass stop_server=true to SHUT DOWN the service (stops listening after replying; re-launch the runner to restart — tokens are preserved so no re-auth is needed).",
-@@ -549,7 +568,7 @@
+@@ -549,7 +581,7 @@
      /// release that added the encrypted auth channel plus the docs/Skill,
      /// clear-text, page-source, and reliability improvements. Single source of
      /// truth for /schema AND device_info.
@@ -105,7 +118,7 @@
 
      /// When this binary was built, as "YYYY-MM-DD HH:MM".
      ///
-@@ -569,6 +588,21 @@
+@@ -569,6 +601,22 @@
      /// call (no separate /schema fetch needed). Keep in sync with what the server
      /// actually implements.
      static let capabilityTags: [String] = [
@@ -124,6 +137,7 @@
 +        "necrogold_native_v13", // bounded reacquisition and independently timed visual confirmation
 +        "necrogold_native_v14", // up to eight same-input visual assessments within the original deadline
 +        "necrogold_native_v15", // opt-in paged evidence profile retains every bounded restart decision
++        "necrogold_native_cycle_v1", // independent bounded native classification and durable negative cycles
          "envelope_v1",         // /pair + encrypted /rpc envelopes (HMAC-SHA256)
          "stream_ticket",       // stream_ticket RPC → single-use ?ticket= for /stream + /logs
          "video_stream",        // GET /stream (framed H.264, docs/remote-control.md)
@@ -137,7 +151,7 @@
 +
 +// NG-G2 BEGIN authenticated owner projection (tested verbatim).
 +enum NG2AuthenticatedOwner {
-+    static let methods: Set<String> = ["necro_native_start", "necro_native_status", "necro_native_cancel", "necro_native_results"]
++    static let methods: Set<String> = ["necro_native_start", "necro_native_status", "necro_native_cancel", "necro_native_results", "necro_native_cycle"]
 +    static func inject(method: String, params: [String: JSONValue]?, owner: String) -> [String: JSONValue]? {
 +        var projected = params
 +        if methods.contains(method) {
@@ -273,21 +287,33 @@
          });
 --- a/project.yml
 +++ b/project.yml
-@@ -115,6 +115,13 @@
+@@ -115,6 +115,25 @@
      platform: iOS
      sources:
        - path: LoopCtrlUITests
 +        excludes:
 +          - NG2Perception.c
 +          - NG2Navigation.c
++          - NG2Ring.c
++          - NG2RingKernel/observe.c
++          - NG2RingKernel/icon.c
++          - NG2RingKernel/word.c
 +      - path: LoopCtrlUITests/NG2Perception.c
 +        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
 +      - path: LoopCtrlUITests/NG2Navigation.c
 +        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
++      - path: LoopCtrlUITests/NG2Ring.c
++        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
++      - path: LoopCtrlUITests/NG2RingKernel/observe.c
++        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
++      - path: LoopCtrlUITests/NG2RingKernel/icon.c
++        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
++      - path: LoopCtrlUITests/NG2RingKernel/word.c
++        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
        - path: LoopCtrlKit
        # The operating manual, bundled so GET /skill can serve it at runtime.
        - path: SKILL.md
-@@ -227,6 +234,11 @@
+@@ -227,6 +246,11 @@
      platform: macOS
      deploymentTarget: "13.0"
      sources:

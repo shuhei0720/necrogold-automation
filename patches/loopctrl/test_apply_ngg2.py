@@ -2,6 +2,7 @@
 import difflib
 import hashlib
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -154,6 +155,158 @@ class NGG2ApplyTests(unittest.TestCase):
             'source': 'NG2CaptureBridge.m', 'sha256': sha(raw)}
         self.apply()
         self.assertEqual((self.root / 'LoopCtrlUITests/NG2CaptureBridge.m').read_bytes(), raw)
+
+    def ring_sources(self):
+        directory = Path(self.temp.name) / 'ring_native'
+        directory.mkdir()
+        names = ('ring.h', 'features.h', 'word_features.h', 'feature_sha.h',
+                 'observe.c', 'icon.c', 'word.c')
+        sources = {}
+        for name in names:
+            raw = ('/* canonical shared source: ' + name + ' */\n').encode()
+            (directory / name).write_bytes(raw)
+            destination = 'LoopCtrlUITests/NG2RingKernel/' + name
+            self.manifest['additions'][destination] = {
+                'source': name, 'source_root': 'ring_native', 'sha256': sha(raw)}
+            sources[destination] = raw
+        return directory, sources
+
+    def test_shared_ring_sources_install_exact_canonical_bytes(self):
+        directory, sources = self.ring_sources()
+        installed = False
+        # A valid pre-existing installation path rejects the new source-root
+        # contract; record that behavior as an assertion, not an import error.
+        with patch.object(applier, 'RING_ASSETS_ROOT', directory, create=True):
+            try:
+                self.apply()
+                installed = True
+            except (ValueError, OSError):
+                pass
+        self.assertTrue(installed, 'shared_ring_canonical_source_root_is_supported')
+        for destination, raw in sources.items():
+            self.assertEqual(raw, (self.root / destination).read_bytes())
+        self.assertEqual(self.new, (self.root / self.name).read_bytes())
+        self.assertEqual(self.extra, (self.root / self.added).read_bytes())
+
+    def test_shared_ring_source_hash_and_full_inventory_are_required(self):
+        directory, _ = self.ring_sources()
+        name = 'LoopCtrlUITests/NG2RingKernel/word.c'
+        with patch.object(applier, 'RING_ASSETS_ROOT', directory, create=True):
+            raw = (directory / 'word.c').read_bytes()
+            (directory / 'word.c').write_bytes(raw + b'changed')
+            self.rejected('asset_hash_mismatch')
+            (directory / 'word.c').write_bytes(raw)
+            self.manifest['additions'].pop(name)
+            self.rejected('ring_asset_inventory_mismatch')
+
+    def test_shared_ring_root_names_and_destinations_are_closed(self):
+        directory, _ = self.ring_sources()
+        name = 'LoopCtrlUITests/NG2RingKernel/word.c'
+        spec = self.manifest['additions'][name]
+        with patch.object(applier, 'RING_ASSETS_ROOT', directory, create=True):
+            for root in ('outside', '../ring_native'):
+                spec['source_root'] = root
+                self.rejected('unsafe_addition')
+            spec['source_root'] = 'ring_native'
+            spec['source'] = 'main.c'
+            self.rejected('unsafe_addition')
+            spec['source'] = 'word.c'
+            self.manifest['additions']['LoopCtrlUITests/word.c'] = self.manifest['additions'].pop(name)
+            self.rejected('unsafe_addition')
+
+    def test_shared_ring_symlink_source_and_root_are_rejected(self):
+        directory, _ = self.ring_sources()
+        with patch.object(applier, 'RING_ASSETS_ROOT', directory, create=True):
+            source = directory / 'word.c'
+            outside = directory.parent / 'outside.c'
+            source.rename(outside)
+            source.symlink_to(outside)
+            self.rejected('symlink_source')
+            source.unlink()
+            outside.rename(source)
+        alias = directory.parent / 'ring_alias'
+        alias.symlink_to(directory, target_is_directory=True)
+        with patch.object(applier, 'RING_ASSETS_ROOT', alias, create=True):
+            self.rejected('invalid_source_root')
+
+    def test_concurrent_shared_ring_edit_is_rejected_before_install(self):
+        directory, _ = self.ring_sources()
+        run_patch = applier.run_patch
+        def change_source(stage, raw):
+            run_patch(stage, raw)
+            (directory / 'icon.c').write_bytes(b'concurrent source change\n')
+        with patch.object(applier, 'RING_ASSETS_ROOT', directory, create=True), \
+                patch.object(applier, 'run_patch', side_effect=change_source):
+            self.rejected('asset_changed_during_staging')
+
+    def test_failed_nested_ring_install_restores_files_and_new_directories(self):
+        directory, _ = self.ring_sources()
+        original = applier.os.replace
+        calls = 0
+        def replace(src, dst):
+            nonlocal calls
+            calls += 1
+            if calls == 4:
+                raise OSError('injected failure after first shared source')
+            return original(src, dst)
+        before = self.snapshot()
+        with patch.object(applier, 'RING_ASSETS_ROOT', directory, create=True), \
+                patch.object(applier.os, 'replace', side_effect=replace):
+            with self.assertRaises(OSError):
+                self.apply()
+        self.assertEqual(before, self.snapshot())
+        self.assertFalse((self.root / 'LoopCtrlUITests/NG2RingKernel').exists())
+
+    def test_package_provenance_records_every_shared_ring_source(self):
+        directory, sources = self.ring_sources()
+        with patch.object(applier, 'RING_ASSETS_ROOT', directory, create=True):
+            driver = self.native_report_fixture()
+        report = verifier.inspect_native_sources(self.root, driver)
+        expected = {self.name: sha(self.new), self.added: sha(self.extra)}
+        expected.update({name: sha(raw) for name, raw in sources.items()})
+        self.assertEqual(expected, report['native_source_sha256'])
+
+    def seal_fixture(self, directory):
+        here = Path(self.temp.name) / 'seal-tool'
+        here.mkdir()
+        (here / 'source-manifest.json').write_text(json.dumps({
+            'files': {self.name: {'patched_sha256': sha(self.old)}}}))
+        output = here / 'ngg2-manifest.json'
+        def git_output(args, **kwargs):
+            self.assertEqual(['git', 'rev-parse', 'HEAD'], args)
+            value = applier.UPSTREAM_COMMIT + '\n'
+            return value if kwargs.get('text') else value.encode()
+        from contextlib import ExitStack
+        stack = ExitStack()
+        stack.enter_context(patch.object(applier, 'HERE', here))
+        stack.enter_context(patch.object(applier, 'ASSETS_ROOT', self.assets))
+        stack.enter_context(patch.object(applier, 'RING_ASSETS_ROOT', directory))
+        stack.enter_context(patch.object(applier, 'PATCH_PATH', self.patch_path))
+        stack.enter_context(patch.object(applier, 'MANIFEST_PATH', output))
+        stack.enter_context(patch.object(applier.subprocess, 'check_output', side_effect=git_output))
+        return stack, output
+
+    def test_seal_pins_each_canonical_shared_source_without_repository_copies(self):
+        directory, sources = self.ring_sources()
+        stack, output = self.seal_fixture(directory)
+        with stack:
+            sealed = applier.seal(self.root)
+        self.assertEqual(sealed, json.loads(output.read_text()))
+        shared = {name: spec for name, spec in sealed['additions'].items()
+                  if spec.get('source_root') == 'ring_native'}
+        self.assertEqual(set(sources), set(shared))
+        for name, raw in sources.items():
+            self.assertEqual(sha(raw), shared[name]['sha256'])
+            self.assertEqual(Path(name).name, shared[name]['source'])
+        self.assertEqual({'NG2Runtime.swift'}, {path.name for path in self.assets.iterdir()})
+
+    def test_seal_still_rejects_empty_native_assets_despite_shared_kernel(self):
+        directory, _ = self.ring_sources()
+        (self.assets / 'NG2Runtime.swift').unlink()
+        stack, output = self.seal_fixture(directory)
+        with stack, self.assertRaisesRegex(ValueError, 'no_native_sources'):
+            applier.seal(self.root)
+        self.assertFalse(output.exists())
 
     def test_rpc_contract_overlay_is_installed_only_in_logic_tests(self):
         raw = b'// real RPC XCTest fixture\n'

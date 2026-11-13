@@ -327,7 +327,7 @@ jobs:
           python3 driver/patches/loopctrl/apply_ngg2.py upstream
           NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test061_host.py
           if [ "${{ inputs.native_lane }}" = device ]; then
-            NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test093_host.py
+            NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test094_host.py
           fi
           "$RUNNER_TEMP/test061-host-venv/bin/python" "$NATIVE_HOST_RUNNER" driver upstream "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/host-command.txt"
       - name: Save selected host evidence and explicit test inventory
@@ -365,6 +365,27 @@ jobs:
           rustup target add aarch64-apple-ios
           xcodebuild -version
           rustc --version
+      - name: Install TEST094 focused Swift fixture image decoder
+        if: inputs.native_lane == 'device'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/test094-mac-venv"
+          "$RUNNER_TEMP/test094-mac-venv/bin/pip" install Pillow==11.3.0
+      - name: Verify TEST094 actual authenticated owner and public cycle schema
+        if: inputs.native_lane == 'device'
+        run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_api094.py upstream "$RUNNER_TEMP/test094-api" --fault-red'
+      - name: Verify TEST094 immutable spool and actual filesystem fault boundaries
+        if: inputs.native_lane == 'device'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/test094-spool"
+          "$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_spool094.py --fault-red 2>&1 | tee "$RUNNER_TEMP/test094-spool/spool-command.txt"
+      - name: Verify TEST094 immutable terminal export and exact image roundtrip
+        if: inputs.native_lane == 'device'
+        run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_export094.py upstream "$RUNNER_TEMP/test094-export" --fault-red'
+      - name: Verify TEST094 selected actual Runtime cycle callbacks
+        if: inputs.native_lane == 'device'
+        run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_runtime_cycle094.py upstream "$RUNNER_TEMP/test094-runtime" --fault-red'
       - name: Generate and inspect actual source-specific project configuration
         run: |
           (cd upstream && xcodegen generate --spec project.yml)
@@ -466,6 +487,7 @@ jobs:
             upstream/LoopCtrlUITests/ObjCException.m
             upstream/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
             upstream/LoopCtrlUITests/NG2*
+            upstream/LoopCtrlUITests/NG2RingKernel/**
             upstream/Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift
             upstream/project.yml
             upstream/LoopCtrlKit/JSONRPCServer.swift
@@ -486,6 +508,10 @@ jobs:
             ${{ runner.temp }}/test058-shop/
             ${{ runner.temp }}/test070-runtime/
             ${{ runner.temp }}/test081-retention/
+            ${{ runner.temp }}/test094-api/
+            ${{ runner.temp }}/test094-spool/
+            ${{ runner.temp }}/test094-export/
+            ${{ runner.temp }}/test094-runtime/
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt
             ${{ runner.temp }}/ngg2/perception-build/
@@ -629,6 +655,7 @@ jobs:
             upstream/LoopCtrlUITests/ObjCException.m
             upstream/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
             upstream/LoopCtrlUITests/NG2*
+            upstream/LoopCtrlUITests/NG2RingKernel/**
             upstream/Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift
             upstream/project.yml
             upstream/LoopCtrlKit/JSONRPCServer.swift

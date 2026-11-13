@@ -4,7 +4,7 @@
   "api_version": "1.98.16-ngg2",
   "capability": "necrogold_native_v1",
   "client_capability": "necrogold_native_v15",
-  "patch_sha256": "1268b72bb914a8ae9782abf9e5120ed01b3a8043f6646cec7d5a95bb01d531f2",
+  "patch_sha256": "e6e764ae5e920ab8bd9e7b5527056ee52a68349f77afc1367524919509458438",
   "files": {
     "LoopCtrlUITests/ActionHandler.swift": {
       "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
@@ -19,12 +19,12 @@
     "LoopCtrlKit/RPCMethod.swift": {
       "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
       "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
-      "patched_sha256": "75fb7b51e3a1a666512f1c0c3a1e5a6c6fb6922ec22796c5a5e34cfc68c18189"
+      "patched_sha256": "86d665bc01c3118d4174805229e65bda00ce48e22231ac7c09fcb3d07319c234"
     },
     "LoopCtrlKit/JSONRPCServer.swift": {
       "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
       "blob": "6356eda98113f4ed5728a01e360440207ad3bb25",
-      "patched_sha256": "426f1d8a46900e8e11aa3feb406d3b55b234902ec648b3b9cbe5cd61dcb98949"
+      "patched_sha256": "cf70ae2d0583eebe96ae79910c281d00950eeca0d5e2e2ee74fa433dfb920467"
     },
     "LoopCtrlKit/RemoteSession.swift": {
       "sha256": "dc4e5c34aefa98b1cf5ad0d495fd84be4d7cd66c91909e4c699104297d3f7ad7",
@@ -49,7 +49,7 @@
     "project.yml": {
       "sha256": "40e609c6f1ace07e4a7500e404e70d3e1f5aab4714d9e1f672f633e5442a613b",
       "blob": "bbfaad425fb9f6f81fd5dd1a60bd377e16db0a46",
-      "patched_sha256": "99bf0cafc561175957cc8d3e5e5593e331f2253ea8de447bc086b3e329d7ad49"
+      "patched_sha256": "e9f499a3258e80fb4721866a094393bc5544027f5f3ad0ec4f7fd16506b34fd5"
     }
   },
   "additions": {
@@ -67,19 +67,31 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "ab3fe447f8d3718792c557cd17dec86847b515aa73d854dea9c777cdef4d2065"
+      "sha256": "c29838b122e09c7e5cd7b47cee6bec9b27dd3992b1076777fdd57f4d0c7e87e8"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
-      "sha256": "a17ffefcf30932097d4308928a3b746c62908b0b44932429dbb243e0a8012b1e"
+      "sha256": "8509c52635a8490c83a69b3d786a4a9ff71dbcaf4c7d5a27a3943f8796a0d568"
     },
     "LoopCtrlUITests/NG2Core.h": {
       "source": "NG2Core.h",
       "sha256": "77f7abf7db10db58468a3723f39aaaa0f1cbd6afc454c06b4589aa99e64c8ef1"
     },
+    "LoopCtrlUITests/NG2CycleExport.swift": {
+      "source": "NG2CycleExport.swift",
+      "sha256": "1372e4c42b7d86110182426ebe0f40cea57e0e09a610714a315e37a999cf5a9d"
+    },
+    "LoopCtrlUITests/NG2CycleSpool.swift": {
+      "source": "NG2CycleSpool.swift",
+      "sha256": "02c2d39db8cb62070dcff2deea3443ef2994dad3e2916f9d2bf2da7b55f7e9c3"
+    },
+    "LoopCtrlUITests/NG2CycleWire.swift": {
+      "source": "NG2CycleWire.swift",
+      "sha256": "401b371fac584a32153d8fec03fac86f9c6ba7bd4d64db91995e62d9aa252a39"
+    },
     "LoopCtrlUITests/NG2Navigation.c": {
       "source": "NG2Navigation.c",
-      "sha256": "8c8809ec9f725f5ddf1c1652b1a92b92d787e5b3e7fce92d29940ee1420e31aa"
+      "sha256": "072fa967028b67fe8d5f031b5ff50b876c029af386d3acbb0b199de7310d2b0e"
     },
     "LoopCtrlUITests/NG2Perception.c": {
       "source": "NG2Perception.c",
@@ -93,9 +105,25 @@
       "source": "NG2Raster.swift",
       "sha256": "5b7f937903f468b4284d9c9b4bbdd460f87329414d649f7ba0d255401b07ba67"
     },
+    "LoopCtrlUITests/NG2Ring.c": {
+      "source": "NG2Ring.c",
+      "sha256": "2effe1d888b7f64685927ab0a556efcd5f1326c7e62b2dca1b38195babe4f92f"
+    },
+    "LoopCtrlUITests/NG2Ring.h": {
+      "source": "NG2Ring.h",
+      "sha256": "34f5cdf3cc258b89f38037cb54cbdf225302c7b9171306bc5461e957d8142095"
+    },
+    "LoopCtrlUITests/NG2RingBank.h": {
+      "source": "NG2RingBank.h",
+      "sha256": "f243a6a0f501bd004175689909ccc9972252e33b78f737c367f2eb261a154c8c"
+    },
+    "LoopCtrlUITests/NG2RingCoverage.h": {
+      "source": "NG2RingCoverage.h",
+      "sha256": "5276d847dc8e6892e12a8e9c83bfc5f0b7a7dec0b8f8b3d0c0e22666f89c1f40"
+    },
     "LoopCtrlUITests/NG2Runtime.swift": {
       "source": "NG2Runtime.swift",
-      "sha256": "d18e74419ab557d86a9514ced3de5dc5aaa3f8efcfa9fac2e71208b01fa0ff0a"
+      "sha256": "24be27481a9ad3485eae469ebbeb9071bd169da35353396bddeeae8b4bb38ba5"
     },
     "LoopCtrlUITests/NG2Templates.h": {
       "source": "NG2Templates.h",
@@ -104,6 +132,41 @@
     "LoopCtrlUITests/NG2Ticket.swift": {
       "source": "NG2Ticket.swift",
       "sha256": "d7b5dcd55558f780f6dff72d23622de40785255439c1c323b32a315a08c7375a"
+    },
+    "LoopCtrlUITests/NG2RingKernel/feature_sha.h": {
+      "source": "feature_sha.h",
+      "source_root": "ring_native",
+      "sha256": "838f08c8085927572e19ff6f9094ad66c3d0e1db5037719f2d01dc51dda3bb4a"
+    },
+    "LoopCtrlUITests/NG2RingKernel/features.h": {
+      "source": "features.h",
+      "source_root": "ring_native",
+      "sha256": "9ee9dccd400c1038bd4ff77ae5d0191c962c4de9dfd5ac1e9011aed19e0665b9"
+    },
+    "LoopCtrlUITests/NG2RingKernel/icon.c": {
+      "source": "icon.c",
+      "source_root": "ring_native",
+      "sha256": "ffc276f6e02bb0b12c6445e26b68b0212595dcb32645ef367ff4e30c664ad7c1"
+    },
+    "LoopCtrlUITests/NG2RingKernel/observe.c": {
+      "source": "observe.c",
+      "source_root": "ring_native",
+      "sha256": "d49d1cd5b9ca26375bd5d52938a7fadc8d0dbaeae2741c806a0cf2cf80bf7f27"
+    },
+    "LoopCtrlUITests/NG2RingKernel/ring.h": {
+      "source": "ring.h",
+      "source_root": "ring_native",
+      "sha256": "db91570652dacf750b1f1a6286dcf4f8af7f0dc8b0ab779adb2f561fadcb4e4e"
+    },
+    "LoopCtrlUITests/NG2RingKernel/word.c": {
+      "source": "word.c",
+      "source_root": "ring_native",
+      "sha256": "9625c2e1e37a68065b5574b3006e1129293b259d7eacf64559441001927db581"
+    },
+    "LoopCtrlUITests/NG2RingKernel/word_features.h": {
+      "source": "word_features.h",
+      "source_root": "ring_native",
+      "sha256": "b612eca3b2e8723ce30868fdc4543ff6a0e9431b60a585f7cc2fa2267b981556"
     }
   }
 }

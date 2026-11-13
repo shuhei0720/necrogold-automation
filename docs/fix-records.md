@@ -162,3 +162,23 @@
 ## 未整理・未確定の扱い
 
 初期版の全件と、各対策後の同原因発生回数は未整理。複数の似た停止、未収録原画、単体だけで確認した変化を、根拠なく「同原因再発」や「改善完了」に寄せない。特に旧081実5の金1→2、旧086実4の最初の拒否、未観測商品/候補見逃しの未確定は、それぞれのレビューで追う。
+
+
+## TEST094の対策（実装中・実機改善未確認）
+
+FR-088-CPU/089-KERNEL/089-EARLY/090-RING-COST/090-UNKNOWN-TEXT、候補見逃しのFR-084/085、初期画像のFR-081/091、FRESH/UNKNOWN/開扉後の旧対策を照合した。旧canonical kernel15 source・ELF・Perception閾値・旧profileを維持し、新profileの接続不足と従来の失敗を区別する。下表の「作成中」は配布前に検出した不一致で、実機改善確認ではない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-094-NATIVE-CYCLE | 2026-11-13 | 商品確認後の判定が本番周回へ接続しない | 旧nativeはgoodsでterminal、iSH後処理はtarget/candidate/unknownだけ | 専用cap/profileで直接RGBA分類、完全な陰性証明だけ耐久保存→再開 | [計画](plans/test094-native-goods-cycle.md)、新Controller/Runtime実callbackと実機で陰性→次商店を確認。iPhone未確認 | 未確認（旧後処理の構造不足、新経路は未配布） |
+| FR-094-SHADOW-MOUTH | 2026-11-13 | 093原156の上左通路候補を見送り | 長い左壁と暗い上口が旧候補の観測床支持に入らない | 元UNKNOWNを保持し、既観測床3歩へ限定した仮説bitを追加 | [別計画](plans/test094-shadow-passage.md)、新6＋旧19のO0/strictO2。未観測先の店を推定しない、実機未確認 | 0（追加後の実機再観測なし） |
+| FR-094-FAST-PROBE | 2026-11-13 | native直接化だけでは分類100msを超え得る | 低い対象scoreでも旧色差探索を全実行 | 旧kernel不変、安全上界が候補閾値未満の場合だけ新probeで省略、非exact/上界を明示 | 新数値/境界・4実画像の全23上界対照。host11〜44msはiPhone速度の合格ではない | 0（新probeの実機未確認） |
+| FR-094-CLOSED-CHEST | 2026-11-13 | 宝箱も中身不明として保持する設計 | 最新対象範囲が未反映 | 閉じた宝箱を独立sprite/形状で正に識別しignored_containerへ。開封/購入/中身判定0 | 黒/紫2poseと対象/別ring交差、破損形状拒否。最新ユーザー指示に対応し、宝箱の中身をnon_targetへしない | 0（新policyの実機未確認） |
+| FR-094-CERT-JOIN | 2026-11-13 | 証明rowの不一致、余剰SHOPやfull iconを誤扱い | 選択row未結合、全画面外物未列挙、brightness帯とfull template extent混同 | exact row/独立余剰列挙・全候補veto。既探索pose/全footprint/非重複/stripをControllerと共通化 | 新単体の各Red→Green、原225の実RGBA完全coverageを校正。原326/151は未判定を維持 | 作成中3件（同じrow/幾何接続段階で検出、実機未配布） |
+| FR-094-SEARCH-RESTART | 2026-11-13 | 最初の見送りrestartが進まず、次floorの商品可視でもACKしない | SEARCHを陰性用保存へ接続、ACKにgoods UNKNOWNを必須化 | 陰性state/commandだけintent gate、通常SEARCHを旧経路へ。変化したFLOORのPARTIAL/VISIBLEを耐久outcome後に別levelで保持 | Cの2境界Red→GreenとRuntimeの3CLEAR見送り→候補fixture。実機未確認 | 作成中2件（新profileの別接続不一致） |
+| FR-094-DECISION-EVIDENCE | 2026-11-13 | cycle profileで初期見送り/未送信拒否画像を落とす | 旧evidence profileだけを保持対象にした | 新profileにも元12判断/20terminal pinの条件と上限を適用 | Runtime fixtureで初/末判断がrecent4から退役後も残ることを確認。実機未確認 | 作成中1件（配布前レビュー） |
+| FR-094-READONLY-UNKNOWN | 2026-11-13 | UNKNOWN/frozenの終了を回収できず、回復時はinput0と誤表示 | clientが入力解放と診断回収を混同、danglingintentの再構成不足 | terminal/drained/no-inflight下だけstate4も回収。未解決intentはUNKNOWN/frozenで明示し入力再開0 | 新3.9回収Red→Green、Runtime別owner回復fixture。実機未確認 | 作成中2件（parserとnative証拠再構成） |
+| FR-094-JOURNAL-RENAME | 2026-11-13 | 二つのjournal更新の中断で永久回復不能 | 個別atomic write二回を一体のtransactionとして全bytes一致要求 | per-run fsync済journalを正本、activeをUUID選択mirrorとして回復 | 中断注入assert Red→Green、開始POST前の耐久intent/取消guardは維持。実機未確認 | 作成中1件（配布前レビュー） |
+| FR-094-EXPORT-IDENTITY | 2026-11-13 | PNG再生成によるexport変化、壊れた回復ledger再選択、不正rangeによる全回収poison | encoded bytes未固定/弱い回復再利用/要求誤りと保存破損を同じ全体故障へ | PNGを一度耐久固定、回復は別ledgerと全hash検証。不正rangeは要求単位で拒否し全体を壊さない | 実FS/全PNG・record・ZIP・receipt、同owner/別owner再回復・壊れた旧ledger保持のMac限定fixture。実行結果は[検証](reviews/test094.md)へ | 作成中3件（別境界で検出、実機未配布） |
+| FR-094-RETURN-ZIP | 2026-11-13 | stored PNG回復で返却ZIPが肥大 | ZIP_STORED固定で画像を再圧縮しない | 終了後にC zlib deflate6でstream作成、全member bytes/CRC/hash照合 | 3.9の圧縮方式/全bytes assertion Red→Green、既完成ZIPは上書き0。高entropy最大量の添付サイズ保証ではない | 作成中1件（配布前レビュー） |
+| FR-094-BUILD-DEPENDENCY | 2026-11-13 | shared feature header不足・patch contextの行数不整合 | canonical feature_sha.hの依存漏れ、blank contextを再集計しない補助編集 | canonical7件をpin、固定upstream+G1へ実patch check。Ring profile3/専用API・Callback checkerを追加 | installer46 Greenと実patch check。compile失敗/構文検査を製品の意味Redには数えない。IPA実検証は別 | 作成中2件（配布前、実機問題ではない） |
