@@ -1,6 +1,6 @@
 # TEST095: 候補見逃しと商品観測の継続
 
-2026-11-13（日本時間）。基準2af68f63ee14a4523374bf563ae0b15afefdfdb2。実機主導の通常修正。[要件](../requirements/necrogold.md)・[制御契約](../contracts/native-control.md)・[修正表](../fix-records.md)を維持する。実機改善は未確認。
+2026-11-13（日本時間）。基準2af68f63ee14a4523374bf563ae0b15afefdfdb2。CI/配布物照合済みの実機主導修正。[要件](../requirements/necrogold.md)・[制御契約](../contracts/native-control.md)・[修正表](../fix-records.md)を維持する。実機改善は未確認。
 
 ## 受領と原因
 

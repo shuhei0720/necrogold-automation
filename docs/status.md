@@ -1,21 +1,21 @@
 # 最新状態
 
-更新: 2026-11-13（日本時間）。TEST095を実装中（094の4回受領）。[今回の計画](plans/test095-device-stops.md)・[受領](reviews/test095.md)。配布済みはTEST094 build165。**実機改善・受入は未確認**。[計画](plans/test094-native-goods-cycle.md)・[検証と未受入](reviews/test094.md)・[修正表](fix-records.md)。過去の対策や単体合格を実機改善完了と扱わない。
+更新: 2026-11-13（日本時間）。TEST095 build168のCI/配布物検証済み。**実機改善・受入は未確認**。[計画](plans/test095-device-stops.md)・[対象だけの判定](plans/test095-target-only.md)・[受領と検証](reviews/test095.md)・[修正表](fix-records.md)。過去の対策や単体合格を実機改善完了と扱わない。
 
 ## 変更
 
-093の3ZIP/60PNGは全回収照合済み。商品可視2回、restart上限1回。旧個別判定は実施済みだが対象なし確定経路はなかった。見逃し156は観測床3歩の上左通路仮説を追加し、UNKNOWNを床へ変えない。
+全商品登録の追加案を撤回。native mode2で「のろいのゆびわ」だけを探し、通常金商店の商品帯を完全に観測した対象なしだけ次周回へ進む。対象/候補/見切れ/故障は保持、宝箱開封・購入0。旧mode0/1・商品bank・canonical判定資産は保存。
 
-094の専用cap/profileは同じiPhoneのRGBAから直接指輪を判定する。全商品を確認した証明済み対象外だけ、PAUSE→耐久intent→RESTART→新floor確認へ進む。画像回収/iSH判定を周回間に挟まない。宝箱は開けず対象外。対象/候補/未判定/故障は保持、自動購入0。16方向入力/12restart/45秒walk/180秒sessionは累積、4商店までの有限試験。
+094の候補146見逃しへ上左の有限仮説を追加。PARTIAL後の経路外DIRT変化を厳密な静止/同判断で確認し、未送信で退役した通路入力には旧STONE1個の限定静止証明を追加。UNKNOWN無再送・元期限・累積16入力/12restart/45秒walk/180秒sessionを維持。今回は最大4商店の有限試験。
 
 ## 検証と配布
 
-code `60284ae188d3e5bec4981256c1baa6110609ea4b`、run43390253276/build165。変更部と関連host144件/16scope、Macの実API・FS spool・Export6・Runtime新11＋旧3が成功。模擬時計/地形/判定を使うcallback試験で、実ゲームや実機到達率ではない。IPA実物5検査・実C8/Swift5のcompiler設定・9Mach-O・旧canonical15source/56,088B ELF・G1/R12・全source bytesを照合した。過程のCI失敗原因は検証記録に保存。
+code `288e1e7a470a7ac34e90813a763725c51408b07b`、run43409363287/build168。host205件/24scope、Macの実API/FS spool/Export6、旧Runtime14、新対象判定Runtime4と意味mutation2、実Cの5入力が成功。画素/時計/一部判定の注入を使う接続試験で、実ゲームやiPhone精度/速度ではない。36seal/6変更、実compiler・9Mach-O・旧判定15source/56,088B ELF・G1/R12全40・完全sourceを照合。CI167のfixture誤期待は記録し、製品条件を変えず訂正した。
 
-[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test094-build165/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test094-build165/source.zip)。固定Release assetへ配布し、hashは同ReleaseのSHA256SUMS.txt。新API/判定経路のためIPA更新が必要。
+[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test095-build168/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test095-build168/source.zip)。固定Release asset、hashは同ReleaseのSHA256SUMS.txt。新判定経路のためIPA更新が必要。
 
 ## 次の実機
 
-IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。sourceを展開しtest_094.shのあるフォルダをiSHへ選ぶ。通常1-1ポーズから一回開始し、候補までrestart→金壁/通路候補→商店→全商品判定→確定対象外なら次周回を確認する。途中の陰性PAUSEでアプリを切り替えず、停止通知後にiSHへ戻り全画像/記録/ZIP照合の終了を待つ。表示されたruntime/test-094-<UUID>.zip全体を返却。入力UNKNOWN表示時は次回前にLoopCtrlを完全再起動する。
+IPA更新→LoopCtrl完全終了/起動→Start Server/通知許可/通常VPN。sourceを展開しtest_095.shのあるフォルダをiSHへ選ぶ。通常1-1ポーズから、候補までrestart→金壁/通路候補→商店→対象判定→対象なしなら次周回を確認する。途中の陰性PAUSEでは切り替えず、停止通知後にiSHへ戻り全画像/記録/ZIP照合の終了を待つ。表示されたruntime/test-095-<UUID>.zip全体を返却。入力UNKNOWN表示時は次回前にLoopCtrlを完全再起動する。
 
-iPhone到達率/毎拍・人超え速度/未知対象精度/長期耐久は未受入。bank外やlayout不足は未確定保持。遅延positiveの専用通知P1、session/回復ledgerの保持上限と自動整理なしP2を残す。[索引](context.md)。
+iPhone到達率/毎拍・人超え速度/未知対象精度/長期耐久は未受入。対応外layoutは保持。遅延positive通知P1・保持ledgerの自動整理なしP2は旧記録を維持。[索引](context.md)。

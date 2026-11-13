@@ -3150,3 +3150,9 @@ Controllerだけに、同じ安全な開通済み床の別FRESHと、元親horiz
 code60284ae188d3e5bec4981256c1baa6110609ea4b/run43390253276/build165。限定host144/16scope、Mac API/spool/Export6/Runtime新11＋旧3/二mutationが成功。161〜164で判明したlink依存/試験時計/PAUSE画像/停止検査同期/新地形不足は記録し、製品の期限/条件を緩めなかった。実物5gate各1回PASS、36seal・実C8/Swift5/profile3・9Mach-O/536marker・旧canonical15/ELF・G1/R12・完全sourceを照合。
 
 [IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test094-build165/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test094-build165/source.zip)。IPA17,992,906B/SHAdf7093784a89712791f66e6277ec10e8d3d26562abb804fd0d0f1db30f21eaee。新IPA更新/完全再起動/Start Server/通常VPN、test_094.shで通常1-1ポーズからまず一回。候補までrestart→商店→全品判定→確定対象外なら次周回を確認し、停止通知後にiSHの全照合完了まで待ち、表示run ZIP全体を依頼する。到達率/毎拍/人超え速度/稀な対象精度/長期耐久は未受入。
+
+## TEST094受領とTEST095: 対象だけの判定・観測継続
+
+2026-11-13（日本時間）。[計画](../plans/test095-device-stops.md)・[対象だけの判定](../plans/test095-target-only.md)・[受領/検証](../reviews/test095.md)。094の4ZIP/82PNGを照合。候補146・遠方DIRTのPARTIAL継続・確実未送信の旧STONE1静止を限定修正。全商品登録案を撤回し、完全な通常商品帯に対するのろいのゆびわの有無だけをnative mode2で判断する。候補/未観測/故障は保持、購入/宝箱開封0。
+
+code288e1e7a470a7ac34e90813a763725c51408b07b/run43409363287/build168。host205、Macの現API/spool/Export6/旧Runtime14/新Runtime4・意味mutation2/実C5が成功。36seal/6変更・実compiler/profile3/9Mach-O・旧資産・完全sourceを照合。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test095-build168/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test095-build168/source.zip)。新IPA更新/完全再起動/Start Server/通知許可/通常VPN、test_095.shで通常1-1ポーズから一連を実施し、停止通知後に全照合済みのrun ZIPを返却してもらう。実機の到達率/速度/精度は未受入。

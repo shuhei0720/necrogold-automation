@@ -195,7 +195,7 @@ FR-088-CPU/089-KERNEL/089-EARLY/090-RING-COST/090-UNKNOWN-TEXT、候補見逃し
 
 TEST094最終確認: build165の限定host144・Mac Runtime新11＋旧3/API/spool/Exportと実物5検査は成功。上表のCI前の記録を履歴として残し、各対策の実機改善・再発率を確認済みへ変更しない。
 
-## TEST095の対策（実装中・実機改善未確認）
+## TEST095の対策（配布版・実機改善未確認）
 
 094の4 ZIP/82 PNGを全照合し、FR-094-SHADOW、FR-083-LOWER-GOODS、FR-081-REFRESH、FR-085-CLEAR-STATIC、FR-090/091/092静止/移動証明、FR-094-CERT-JOINと照合した。旧対策を改善完了と扱わず、同じ症状でも適用外/別原因を区別する。
 
@@ -204,7 +204,10 @@ TEST094最終確認: build165の限定host144・Mac Runtime新11＋旧3/API/spoo
 | FR-095-SPLIT-SHADOW | 2026-11-13 | 094実1原146の上左通路候補を見送り | 旧094長壁と異なる、分断された屋根/暗い曲がり口の条件がない | 観測支持と安全床3歩を必要とするbit0の有限仮説 | 新6＋旧25のO0/strictO2、原Sceneのmaskだけ変更。店の存在/実機到達は未確認 | 初観測1（旧長壁条件の同原因再発ではない） |
 | FR-095-PARTIAL-DIRT | 2026-11-13 | 094実2/4で開扉・商品一部可視後に停止 | 正常判定後の継続で遠方DIRT変化まで全地図一致を要求 | 同判断/全保護/strict0を保持し、経路3×3外のDIRT→FLOOR/UNKNOWNだけ確認 | 意味Red2→新5＋旧29 Green、保持Sceneでfalse→true。未収録先の全商品/実機改善は未確認 | 同原因2（095対策後の実機は未実施） |
 | FR-095-SINGLETON-ZERO | 2026-11-13 | 094実3で2歩後の未送信UPを再取得できず終了 | 固定元129の旧STONE1個は旧2STONE/2GOLD静止証明の適用外 | 確実未送信通路待機だけ、旧STONE1＋非共線DIRT9/unique9＋全強画素条件で別zero証明 | [限定計画](plans/test095-device-stops.md)。既知Motion/UNKNOWN/保護/各期限の拒否と作者Red→Green、実機未確認 | 初観測1（旧090/091unit・092GOLDzeroの同原因再発ではない） |
-| FR-095-TARGET-ONLY | 2026-11-13 | 対象外の未登録品で周回が止まり、商品辞書の追加が必要になる | のろいのゆびわだけを探す要件に対し全商品識別を陰性の前提にした | 追加catalogを撤回。有限商品帯の主画像全探索と候補保持のpolicy2へ変更 | [計画](plans/test095-target-only.md)。新判定/証明/Controller/Runtime境界のRed→Greenと関連回帰を実施中、実機未確認 | 初観測1（設計の変更。実機改善済みとはしない） |
+| FR-095-TARGET-ONLY | 2026-11-13 | 対象外の未登録品で周回が止まり、商品辞書の追加が必要になる | のろいのゆびわだけを探す要件に対し全商品識別を陰性の前提にした | 追加catalogを撤回。有限商品帯の主画像全探索と候補保持のpolicy2へ変更 | [計画](plans/test095-target-only.md)。新判定13/Controller5・関連回帰・Mac4と意味mutationが成功、実機未確認 | 初観測1（設計の変更。実機改善済みとはしない） |
 | FR-095-RETURN-LABEL | 2026-11-13 | 新試験の保存/ZIP名が094のまま | 旧専用entryとprefixの固定文字列 | 095 entryと専用spool、厳格test-数字3桁のみラベル採用。旧default/回復は保持 | 意味assert Red1→実Python3.9の新3＋旧34 Green、通信とnative入力は不変 | 0（配布前のラベル対応、実機未確認） |
-| FR-095-TARGET-WORD-VETO | 2026-11-13 | 作成中の対象だけ判定で、強い対象名が別の文字候補やpartial置換に隠れ得る | IoU最大とcoverage条件の順序、旧partial内の同じ順序を保持した | mode2の完全観測文字は両閾値を満たす配置を先に選び、元row/partialの対象情報を置換前に保持 | 交差する二文字候補・旧partialを合わせたassert Red→Greenと独立レビュー。実機未確認 | 作成中の対策後に同系統の残存1件を検出（実機未配布） |
-| FR-095-FIXTURE-SHOP-COUNT | 2026-11-13 | CI167の新しい周回fixtureが商店数で失敗 | 陰性店だけを数える期待1にしたが、既契約は次の候補店も数え2 | 旧094同等fixture/Controllerと照合して期待2へ修正。他の入力/耐久/保持条件は維持 | CI167ログと独立レビューで確認、次の同一source Macで実行。製品変更なし | 0（新fixtureの誤期待。実機改善とは数えない） |
+| FR-095-TARGET-WORD-VETO | 2026-11-13 | 作成中の対象だけ判定で、強い対象名が別の文字候補やpartial置換に隠れ得る | IoU最大とcoverage条件の順序、旧partial内の同じ順序を保持した | mode2の完全観測文字は両閾値を満たす配置を先に選び、元row/partialの対象情報を置換前に保持 | 交差する二文字候補・旧partialを合わせたassert Red→Greenと独立レビュー。実機未確認 | 作成中の対策後に同系統の残存1件を検出し修正（対策後実機未確認） |
+| FR-095-FIXTURE-SHOP-COUNT | 2026-11-13 | CI167の新しい周回fixtureが商店数で失敗 | 陰性店だけを数える期待1にしたが、既契約は次の候補店も数え2 | 旧094同等fixture/Controllerと照合して期待2へ修正。他の入力/耐久/保持条件は維持 | CI167ログと独立レビューで確認、CI168の同一source Macで成功。製品変更なし | 0（新fixtureの誤期待。実機改善とは数えない） |
+| FR-095-READER-WORKER | 2026-11-13 | 私有Mach-O検査が正常なIPAを拒否 | worker専用の新2文字列をmain hostにも必須とした | 実compileの所属に合わせ、基本7は両方、新2はworkerへ限定。9バイナリ/672禁止markerは維持 | 独立レビュー後、Mach-Oだけ第2試行。製品・IPA・合格済み3検査は不変 | 0（配布検査の初回誤り。製品不具合ではない） |
+
+TEST095最終確認: build168の選択host205・現sourceのMac接続試験・実物5検査は成功。対策後の実機改善や再発率を確認済みへ変更しない。

@@ -1,6 +1,6 @@
 # TEST095: 受領と限定修正の確認
 
-2026-11-13（日本時間）。実装中・未配布。実機改善は未確認。[計画](../plans/test095-device-stops.md)・[修正記録](../fix-records.md)。
+2026-11-13（日本時間）。CI/配布物検証済み。実機改善は未確認。[計画](../plans/test095-device-stops.md)・[修正記録](../fix-records.md)。
 
 ## 094の受領
 
@@ -52,3 +52,11 @@ Controllerのpolicy2新5＋旧cycle29も同一sourceでGreen。新しいSwiftの
 ## CI167で確認したfixtureの誤期待
 
 18467cd/run43408419539のhost205件と旧Mac境界、実Cの5入力、policy2 Wireは成功。新Runtimeの陰性→restart1回→候補保持はlevel2/taps3/drainまで到達したが、商店数の期待1に対し実際2で試験が失敗した。Controllerは陰性と候補の両方を数え、旧094の同等試験も2を要求する。独立レビュー後、専用fixtureだけを2へ訂正。他の連言・耐久checkpoint/intent/outcomeを維持する。製品の36source/sealは不変で、Swift全Green/IPA作成成功とは数えない。
+
+## 最終CIと配布物
+
+code `288e1e7a470a7ac34e90813a763725c51408b07b`、run43409363287/build168。host200＋selector5の205件/24scopeが成功。MacのAPI owner/schema・実FS spool・Export6・旧Runtime14を現sourceで実行し、新mode2のRuntime4/二つの意味mutation・実C5入力も成功した。新Runtimeの時計/画素/周回用判定注入と、別の実C producer試験を区別する。実ゲーム操作や未知配置精度を証明したとは扱わない。
+
+rootの実物5種類の検査は合格。初回のMach-O検査は新文字列をmain hostにも要求する誤りで失敗したため、実compileの所属を照合してworkerだけの要件へ訂正し、その検査だけ再確認した。合格済み3検査は繰り返さず、compilerは初回、計6試行。36seal/6変更、実C8/Swift5/profile3・RSP/FileList、9Mach-Oの旧536＋新136 marker、canonical15source/56,088B ELF・旧bank/生成器・G1/R12全40、build source800ファイルの全bytes/CRCを照合した。IPA 18,003,447B、SHA `6c3718763bc2898cd337dbd49644de6bcc08918ea55f26ababc4caf2b967d9a1`。作者Redの一部は変更対象の元source/testだけを保存した記録であり、完全な元compiler束とは呼ばない。最終CIが現sourceの全選択methodを結合する。
+
+closingは文書だけを変更し、製品/試験/sealは不変。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test095-build168/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test095-build168/source.zip)を固定Releaseへ保存する。公開後に匿名全GET、SHA、実tagとclosing source全bytesを照合する。次の実機は通常1-1ポーズから候補探索→商店→のろいのゆびわ判定→対象なしなら次周回まで。停止通知後、iSHの全保存・ZIP照合終了を待ち、表示ZIP全体を返却してもらう。到達率・毎拍・人超え速度・未知精度の実機受入は未確認。
