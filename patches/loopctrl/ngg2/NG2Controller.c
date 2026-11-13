@@ -111,6 +111,7 @@ struct NG2Controller {
     /* New-profile state is appended; no old public layout or latch changes. */
     int cycle_enabled,cycle_pause_attempted,cycle_storage_error,cycle_partial_credit;
     int cycle_queued_valid,cycle_choice_valid;
+    int cycle_search_restart,cycle_restart_unproved;
     uint64_t cycle_credit_prefix,cycle_consumed_prefix,cycle_sync_deadline;
     NG2ControllerCycleStatus cycle;
     NG2Scene cycle_anchor,cycle_queued_scene;
@@ -2186,16 +2187,22 @@ static void cycle_bind(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint64
 static void cycle_latch(NG2Controller *p,const NG2Scene *scene,uint64_t now){
     uint64_t level=p->cycle.level_id,job=p->cycle.job_id+1;
     int completed=p->cycle.completed_shops,sticky=p->cycle.candidate_latched;
+    int search_restart=p->cycle.state==NG2_CYCLE_SEARCH&&p->command.kind==NG2_ACTION_RESTART
+        &&(p->s.input_state==2||p->s.input_state==3);
     memset(&p->cycle,0,sizeof(p->cycle));p->cycle.abi_version=1;p->cycle.struct_size=sizeof(p->cycle);
     p->cycle.level_id=level;p->cycle.job_id=job;p->cycle.completed_shops=completed;
     p->cycle.candidate_latched=sticky;p->cycle.state=NG2_CYCLE_HOLD;p->cycle.pending=1;
     p->cycle.partial=scene->goods==NG2_GOODS_PARTIAL;p->cycle.full_seen=scene->goods==NG2_GOODS_VISIBLE;
     p->cycle.hold_started_ns=now;p->cycle_pause_attempted=p->cycle_storage_error=0;
     p->cycle_partial_credit=p->cycle_queued_valid=p->cycle_choice_valid=0;
+    p->cycle_search_restart=search_restart;p->cycle_restart_unproved=0;
     not_sent(p,now,NG2_REASON_GOODS);clear_slots(p);
     clear_stationary_wait(p);p->gate_refresh_state=NG2_GATE_REFRESH_NONE;
     p->terrain_refresh_active=p->observation_refresh_active=0;
-    p->passage_wait_kind=0;p->restart_intent=p->restart_pending=0;p->restart_baseline_valid=0;
+    p->passage_wait_kind=0;p->restart_intent=0;
+    /* A first goods frame may also be the first visual RESTART response.
+     * Keep that original baseline until the current ACK prefix is admitted. */
+    if(!search_restart)p->restart_pending=p->restart_baseline_valid=0;
     p->proof_deadline=p->proof_capture_id=0;p->proof_reacquire=p->visual_phase_failed=0;
     p->s.phase=NG2_PHASE_FINISH;p->s.reason=NG2_REASON_GOODS;
     if(p->cycle.full_seen)p->s.goods=1;
@@ -2222,6 +2229,19 @@ static int cycle_observe_hold(NG2Controller *p,const NG2Scene *scene,uint64_t id
             &&ng2_fingerprint_changed(p->restart_fingerprint,scene->fingerprint)){
             event(p)->observed_capture_id=id;end_visual_wait(p);p->restart_pending=0;
             ++p->s.restarts;p->cycle.next_floor_capture_id=id;
+        }else if(p->command.kind==NG2_ACTION_RESTART&&scene->state==NG2_FLOOR&&p->cycle_search_restart){
+            int changed=p->restart_pending&&p->restart_baseline_valid
+                &&commit-p->ack_ns<TRANSITION
+                &&ng2_fingerprint_changed(p->restart_fingerprint,scene->fingerprint);
+            event(p)->observed_capture_id=id;end_visual_wait(p);p->cycle_search_restart=0;
+            p->restart_pending=0;
+            if(changed){
+                ++p->s.restarts;++p->cycle.level_id;reset_level(p,end);
+            }else{
+                /* Closing a known synth's UI wait is not new-level credit.
+                 * Protect the visible goods, without retrying that restart. */
+                p->cycle_restart_unproved=1;p->restart_baseline_valid=0;p->s.reason=NG2_REASON_RESTART;
+            }
         }
     }
     if(p->finish_requested)return 1;
@@ -2297,10 +2317,11 @@ int ng2_controller_cycle_assess(NG2Controller *p,uint64_t job,uint64_t capture,u
     p->cycle.coverage=(int)result->coverage;p->cycle.assessment_ns=now;
     if(result->outcome==NG2_RING_TARGET||result->outcome==NG2_RING_CANDIDATE){
         p->cycle.candidate_latched=1;p->cycle_queued_valid=0;
+        p->s.reason=NG2_REASON_GOODS;
         p->cycle.state=NG2_CYCLE_HELD;++p->cycle.completed_shops;return 1;
     }
     if(p->cycle.partial&&result->outcome==NG2_RING_UNKNOWN&&result->partial_safe_no_positive==1
-        &&result->coverage==NG2_RING_COVERAGE_INCOMPLETE&&!p->cycle.candidate_latched){
+        &&result->coverage==NG2_RING_COVERAGE_INCOMPLETE&&!p->cycle.candidate_latched&&!p->cycle_restart_unproved){
         int r,s,observed=result->row_count>0||result->partial_count>0;
         for(r=0;r<result->row_count;++r)for(s=0;s<3;++s)observed&=cycle_no_candidate(&result->rows[r].slots[s]);
         for(s=0;s<result->partial_count;++s)observed&=cycle_no_candidate(&result->partial[s]);
@@ -2317,7 +2338,9 @@ int ng2_controller_cycle_assess(NG2Controller *p,uint64_t job,uint64_t capture,u
         }else p->cycle.state=NG2_CYCLE_HELD;
         return 1;
     }
-    p->cycle.state=result->outcome==NG2_RING_NEGATIVE?NG2_CYCLE_NEGATIVE_PAUSE:NG2_CYCLE_HELD;
+    p->cycle.state=result->outcome==NG2_RING_NEGATIVE&&!p->cycle_restart_unproved?
+        NG2_CYCLE_NEGATIVE_PAUSE:NG2_CYCLE_HELD;
+    if(p->cycle_restart_unproved)p->s.reason=NG2_REASON_RESTART;
     ++p->cycle.completed_shops;
     return 1;
 }
@@ -2327,14 +2350,14 @@ int ng2_controller_cycle_durable(NG2Controller *p,uint64_t job,uint64_t capture,
         ||p->s.input_state||p->scene.state!=NG2_PAUSE||!fresh(p,now)
         ||p->last_observed_prefix!=p->s.last_completed_id)return 0;
     p->last_now=now;p->cycle.durable_ns=now;
-    if(p->cycle.outcome==NG2_RING_NEGATIVE)p->cycle.state=NG2_CYCLE_NEGATIVE_PERSIST;
+    if(p->cycle.outcome==NG2_RING_NEGATIVE&&!p->cycle_restart_unproved)p->cycle.state=NG2_CYCLE_NEGATIVE_PERSIST;
     return 1;
 }
 int ng2_controller_cycle_intent_commit(NG2Controller *p,uint64_t job,uint64_t command,
     uint64_t source,uint64_t prefix,uint64_t now){
     if(!cycle_current(p,job,now)||p->cycle.state!=NG2_CYCLE_NEGATIVE_RESTART
         ||p->cycle.outcome!=NG2_RING_NEGATIVE||p->cycle.status!=NG2_RING_OK
-        ||!p->cycle.durable_ns||p->cycle.intent_ns||p->cycle_storage_error
+        ||!p->cycle.durable_ns||p->cycle.intent_ns||p->cycle_storage_error||p->cycle_restart_unproved
         ||p->s.input_state!=1||command!=p->command.id||command!=p->cycle.restart_command_id
         ||p->command.kind!=NG2_ACTION_RESTART||source!=p->command.source_capture_id
         ||prefix!=p->s.last_completed_id||prefix!=p->last_observed_prefix
@@ -2942,7 +2965,7 @@ static int cycle_tick(NG2Controller *p,uint64_t now,NG2Command *out){
     if(p->have_scene&&p->scene.state==NG2_PAUSE&&fresh(p,now)&&p->cycle.pause_capture_id){
         p->s.paused=1;
         if(p->cycle.outcome==NG2_RING_NEGATIVE&&p->cycle.status==NG2_RING_OK
-            &&p->cycle.durable_ns&&!p->cycle_storage_error){
+            &&p->cycle.durable_ns&&!p->cycle_storage_error&&!p->cycle_restart_unproved){
             int result;
             if(p->cycle.completed_shops>=4||p->s.restarts>=12){terminal(p,now,NG2_REASON_LIMIT);return 0;}
             if(!p->scene.restart_label||now<p->ack_ns||now-p->ack_ns<UI_SETTLE_NS)return 0;

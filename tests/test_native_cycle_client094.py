@@ -58,6 +58,8 @@ class Server:
         self.base = base
         self.calls = []
         self.fail_start = False
+        self.reject_start = False
+        self.reject_shape = True
         self.fail_ack = False
         self.pending = {}
         self.ready = True
@@ -102,6 +104,8 @@ class Server:
             if self.base:
                 current = cycle.load_journal(self.base)
                 assert current['start_intent'] and current['run_id'] == params['run_id']
+            if self.reject_start:
+                raise RemoteRpcError(-32095, 'unclassified', self.reject_shape)
             self.run_id = params['run_id']
             self.manifest['run_id'] = self.run_id
             for seq, data in list(self.records.items()):
@@ -197,6 +201,59 @@ class CycleClient094Tests(unittest.TestCase):
             accepted = False
         self.assertTrue(accepted, 'the explicitly requested native cycle profile must be admitted')
 
+    def test_notification_preflight_failure_can_start_on_next_explicit_invocation(self):
+        self.server.ready = False
+        self.server.authorization = 'denied'
+        first, archive = self.invoke()
+        self.assertFalse(first['start_intent'])
+        self.assertIsNone(archive)
+        self.server.ready = True
+        self.server.authorization = 'authorized'
+        second, archive = self.invoke()
+        self.assertTrue(second['published'])
+        self.assertEqual(first['run_id'], second['run_id'])
+        self.assertEqual(1, sum(method == 'necro_native_start' for method, _ in self.server.calls))
+
+    def test_authenticated_definitive_not_started_is_distinct_from_unknown_start(self):
+        self.server.reject_start = True
+        first, archive = self.invoke()
+        self.assertFalse(first['start_intent'])
+        self.assertIsNone(archive)
+        self.assertFalse(any(method == 'necro_native_cancel' for method, _ in self.server.calls))
+        self.server.reject_start = False
+        second, archive = self.invoke()
+        self.assertTrue(second['published'])
+        self.assertEqual(first['run_id'], second['run_id'])
+        # Two explicit invocations; the first was authenticated as unstarted.
+        self.assertEqual(2, sum(method == 'necro_native_start' for method, _ in self.server.calls))
+
+    def test_malformed_not_started_error_cannot_clear_uncertain_input_intent(self):
+        self.server.reject_start = True
+        self.server.reject_shape = False
+        record, archive = self.invoke()
+        self.assertTrue(record['start_intent'])
+        self.assertEqual('unknown', record['state'])
+        self.assertIsNone(archive)
+        self.assertEqual(1, sum(method == 'necro_native_start' for method, _ in self.server.calls))
+
+    def test_late_terminal_assessment_is_reported_as_unadopted_not_unexecuted_or_negative(self):
+        from necroprobe import test094 as entry
+        folder = self.base/('cycle-'+RUN)/'records'
+        folder.mkdir(parents=True)
+        terminal = dict(sequence=2, kind='terminal', cycle=1)
+        body = {'payload': {'assessment': {'outcome':'negative', 'status':'ok'},
+                'assessment_adopted':False, 'cycle':{'level_id':1, 'job_id':1, 'capture_id':7}}}
+        (folder/cycle.record_name(terminal)).write_bytes(cycle.canonical(body))
+        record = {'run_id':RUN, 'records':[terminal]}
+        self.assertEqual([(1,'negative','not_adopted')], entry._assessments(self.base, record))
+        checkpoint = dict(sequence=1, kind='checkpoint', cycle=1)
+        body['payload']['assessment_adopted'] = True
+        for item in (checkpoint, terminal):
+            (folder/cycle.record_name(item)).write_bytes(cycle.canonical(body))
+        record['records'] = [checkpoint, terminal]
+        self.assertEqual([(1,'negative','ok')], entry._assessments(self.base, record),
+                         'the same adopted shop must not be counted twice')
+
     def test_started_unknown_frozen_terminal_remains_exportable_without_new_input(self):
         self.server.status_queue = [self.server.status(state='stopped', input_state=4, ui_frozen=True)]
         self.server.manifest.update(input_state=4, ui_frozen=True)
@@ -281,6 +338,13 @@ class CycleClient094Tests(unittest.TestCase):
             with self.assertRaisesRegex(ProbeError, 'response_mac_mismatch'):
                 cycle._call(client, 'necro_native_cycle', {'run_id':RUN,'mode':'status','keepalive':False})
             self.assertEqual(3, len(calls))
+            def unavailable(body, timeout):
+                calls.append(1)
+                return sealed_reply(body, result={'code':-32096, 'message':'evidence unavailable'}, rpc_error=True)
+            client.transport = unavailable
+            with self.assertRaisesRegex(ProbeError, 'cycle_evidence_storage_unavailable'):
+                cycle._call(client, 'necro_native_cycle', {'run_id':RUN,'mode':'manifest'}, sleep=lambda _:None)
+            self.assertEqual(4, len(calls), 'permanent evidence error is never automatically polled')
 
     def test_start_admission_guard_runs_after_crypto_before_transport(self):
         calls = []

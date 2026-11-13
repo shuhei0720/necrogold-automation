@@ -40,6 +40,13 @@ class DeviceHostSelection094Tests(unittest.TestCase):
                       'Run independent actual Runtime shop world16 endpoint'):
             block = build.split('- name: ' + title + '\n', 1)[1].split('      - ', 1)[0]
             self.assertIn("        if: inputs.native_lane != 'device'\n", block)
+        for title in ('Verify TEST094 actual authenticated owner and public cycle schema',
+                      'Verify TEST094 immutable spool and actual filesystem fault boundaries',
+                      'Verify TEST094 immutable terminal export and exact image roundtrip',
+                      'Verify TEST094 selected actual Runtime cycle callbacks'):
+            block = build.split('- name: ' + title + '\n', 1)[1].split('      - ', 1)[0]
+            self.assertIn("        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success'\n", block)
+            self.assertNotIn('continue-on-error:', block)
         for path in ('test094-api/', 'test094-spool/', 'test094-export/', 'test094-runtime/'):
             self.assertIn(path, build)
         self.assertIn('upstream/LoopCtrlUITests/NG2RingKernel/**', build)
@@ -52,9 +59,9 @@ class DeviceHostSelection094Tests(unittest.TestCase):
         runner = runner_module()
         self.assertTrue(runner.SCOPE_FINALIZED)
         counts = {row[2]: len(row[3]) for row in runner.CASES}
-        self.assertEqual([14, 20, 25, 6, 30], [counts[name] for name in
+        self.assertEqual([14, 20, 29, 6, 34], [counts[name] for name in
             ('test094-ring', 'test094-bank', 'test094-cycle', 'test094-shadow', 'test094-client')])
-        self.assertEqual(131, sum(counts.values()))
+        self.assertEqual(139, sum(counts.values()))
         self.assertEqual(21, len(runner.EXPECTED_NATIVE_CHANGES))
         with patch.object(runner, 'SCOPE_FINALIZED', False), self.assertRaises(ValueError):
             runner.ensure_scope()

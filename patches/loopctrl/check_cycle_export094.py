@@ -31,7 +31,7 @@ def main():
         (stage / 'Bridge.h').write_text('#include "NG2Controller.h"\n#include "NG2Ring.h"\n')
         shutil.copyfile(HERE / 'ngg2_cycle_export094_tests.swift', stage / 'main.swift')
         objects = []
-        for relative in ('NG2Ring.c', 'NG2RingKernel/observe.c', 'NG2RingKernel/icon.c', 'NG2RingKernel/word.c'):
+        for relative in ('NG2Perception.c', 'NG2Ring.c', 'NG2RingKernel/observe.c', 'NG2RingKernel/icon.c', 'NG2RingKernel/word.c'):
             obj = stage / (Path(relative).stem + '.o')
             subprocess.run(['clang', '-std=c11', '-O2', '-fno-fast-math', '-ffp-contract=off',
                             '-I', str(native), '-c', str(native / relative), '-o', str(obj)], check=True)

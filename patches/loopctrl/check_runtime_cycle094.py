@@ -109,11 +109,19 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             expected = 'FAIL cycle094_cancel_holds_lease_until_worker_and_main_return'
             if red.returncode != 1 or expected not in red.stdout:
                 raise SystemExit('meaningful cycle drain Red missing:\n' + red.stdout + red.stderr)
+            projection = '"native_inflight": .bool(run.inFlight && !drained)'
+            if runtime.count(projection) != 1:
+                raise ValueError('cycle UNKNOWN projection mutation boundary')
+            red = execute(runtime.replace(projection, '"native_inflight": .bool(run.inFlight)', 1),
+                          'cycle-unknown-projection-red')
+            expected = 'FAIL cycle094_unknown_synth_actual_drain_projection'
+            if red.returncode != 1 or expected not in red.stdout:
+                raise SystemExit('meaningful UNKNOWN projection Red missing:\n' + red.stdout + red.stderr)
         green = execute(runtime, 'cycle-production-green')
         print(green.stdout, end='')
         if green.returncode:
             raise SystemExit(green.stderr or green.returncode)
-        expected = 'PASS TEST094 production Runtime selected cycle worker/cancel/deadline/storage/intent/two-shop/search callbacks; procedural clock/pixels/classifier'
+        expected = 'PASS TEST094 production Runtime selected eleven cycle worker/cancel/deadline/storage/recovery/intent/two-shop/search/unknown callbacks; procedural clock/pixels/classifier'
         if not green.stdout.strip().endswith(expected):
             raise SystemExit('selected Runtime fixture inventory differs')
         (output / 'runtime-cycle094-evidence.json').write_text(json.dumps({
@@ -121,7 +129,9 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             'native_commands': commands, 'swift_optimization': '-Onone', 'fixture_sha256': hashlib.sha256(fixture_source().encode()).hexdigest(),
             'runtime_sha256': hashlib.sha256(runtime.encode()).hexdigest(), 'mutation_red': args.fault_red,
             'old_cases': ['preparation identity', 'prefix', 'cancel'],
-            'new_cases': ['worker cancel/drain', 'candidate one shot', 'late result', 'storage fault', 'intent cancel', 'two shops', 'search restart']}, indent=2) + '\n')
+            'new_cases': ['worker cancel/drain', 'initial storage recovery', 'candidate one shot', 'late result', 'storage fault',
+                          'intent cancel', 'two shops', 'search restart', 'search first partial', 'search first visible',
+                          'started unknown completion']}, indent=2) + '\n')
 
 
 if __name__ == '__main__':

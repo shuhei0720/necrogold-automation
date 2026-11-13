@@ -366,25 +366,26 @@ jobs:
           xcodebuild -version
           rustc --version
       - name: Install TEST094 focused Swift fixture image decoder
+        id: cycle_fixture_env
         if: inputs.native_lane == 'device'
         run: |
           python3 -m venv "$RUNNER_TEMP/test094-mac-venv"
           "$RUNNER_TEMP/test094-mac-venv/bin/pip" install Pillow==11.3.0
       - name: Verify TEST094 actual authenticated owner and public cycle schema
-        if: inputs.native_lane == 'device'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_api094.py upstream "$RUNNER_TEMP/test094-api" --fault-red'
       - name: Verify TEST094 immutable spool and actual filesystem fault boundaries
-        if: inputs.native_lane == 'device'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success'
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/test094-spool"
           "$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_spool094.py --fault-red 2>&1 | tee "$RUNNER_TEMP/test094-spool/spool-command.txt"
       - name: Verify TEST094 immutable terminal export and exact image roundtrip
-        if: inputs.native_lane == 'device'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_export094.py upstream "$RUNNER_TEMP/test094-export" --fault-red'
       - name: Verify TEST094 selected actual Runtime cycle callbacks
-        if: inputs.native_lane == 'device'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_runtime_cycle094.py upstream "$RUNNER_TEMP/test094-runtime" --fault-red'
       - name: Generate and inspect actual source-specific project configuration
         run: |

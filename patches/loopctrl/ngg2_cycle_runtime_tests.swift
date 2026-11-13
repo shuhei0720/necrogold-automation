@@ -55,7 +55,8 @@ func resetCycleFixture(_ root: URL) -> CycleFixtureClock {
     }
     return clock
 }
-func publishFixtureClaim(_ id: String, diagnostic: Bool = false, requiredCaptureIDs: Set<Int> = [], checkBounds: Bool = false) {
+func publishFixtureClaim(_ id: String, diagnostic: Bool = false, requiredCaptureIDs: Set<Int> = [],
+                         checkBounds: Bool = false, expectedInputState: Int? = nil) {
     var payload: [String: JSONValue]?
     pump("cycle094_manifest_ready", timeout: 30) {
         let reply = cycleCall(id, "manifest")
@@ -72,6 +73,10 @@ func publishFixtureClaim(_ id: String, diagnostic: Bool = false, requiredCapture
     require(NG2CycleWire.hash(bytes) == manifestSHA && manifest["terminal"]?.boolValue == true &&
         manifest["workers_drained"]?.boolValue == true, "cycle094_frozen_manifest_identity")
     if diagnostic { require(manifest["complete"]?.boolValue == false, "cycle094_storage_fault_never_normal_certificate") }
+    if let expectedInputState {
+        require(manifest["input_state"]?.intValue == expectedInputState && manifest["ui_frozen"]?.boolValue == true,
+            "cycle094_unknown_manifest_preserves_input_state_and_freeze")
+    }
     let imageIDs = Set((manifest["images"]?.arrayValue ?? []).compactMap { $0.objectValue?["capture_id"]?.intValue })
     require(requiredCaptureIDs.isSubset(of: imageIDs), "cycle094_first_last_skip_sources_survive_recent_eviction_and_shop")
     if checkBounds, let capture = imageIDs.first {
@@ -165,7 +170,7 @@ func testCycle094LateAndStorageHold(_ root: URL, storage: Bool) {
 
 func testCycle094TwoShopsAndIntentCancel(_ root: URL, cancelIntent: Bool) {
     let clock = resetCycleFixture(root), id = identity(), gate = NSLock()
-    var level = 1, expose = true, settleAdvanced = false, writerEntered = false
+    var level = 1, expose = true, settleAdvanced = false, nextSettleAdvanced = false, writerEntered = false
     let first = cyclePixels(), nextEmpty = cyclePixels(worldX: 36, goods: false), nextGoods = cyclePixels(worldX: 36)
     NG2RuntimeCycleTestHooks.rgba = { original in
         NG2Fake.lock.lock(); let paused = NG2Fake.walkPaused; NG2Fake.lock.unlock()
@@ -189,8 +194,12 @@ func testCycle094TwoShopsAndIntentCancel(_ root: URL, cancelIntent: Bool) {
         let advance = !settleAdvanced && (state["pause_capture_id"]?.intValue ?? 0) > 0
         if advance { settleAdvanced = true }
         if (state["level_id"]?.intValue ?? 0) >= 2 { expose = true }
+        let advanceNext = !nextSettleAdvanced && (state["level_id"]?.intValue ?? 0) >= 2
+            && state["pending"]?.boolValue == false && state["outcome"]?.stringValue == "candidate"
+        if advanceNext { nextSettleAdvanced = true }
         gate.unlock()
         if advance { clock.advance(220_000_000) }
+        if advanceNext { clock.advance(220_000_000) }
     }
     let release = DispatchSemaphore(value: 0)
     if cancelIntent {
@@ -230,9 +239,9 @@ func testCycle094TwoShopsAndIntentCancel(_ root: URL, cancelIntent: Bool) {
     publishFixtureClaim(id)
 }
 
-func testCycle094SearchRestart(_ root: URL) {
+func testCycle094SearchRestart(_ root: URL, firstGoods: Int = 0) {
     let clock = resetCycleFixture(root), id = identity(), gate = NSLock()
-    var exposed = false
+    var exposed = false, settled = false
     let clear: [Data] = [Int32(0), 36, 72].map { world in
         var image = cyclePixels(worldX: world, goods: false)
         image.withUnsafeMutableBytes { raw in
@@ -246,6 +255,14 @@ func testCycle094SearchRestart(_ root: URL) {
         return image
     }
     let empty = cyclePixels(worldX: 108, goods: false), goods = cyclePixels(worldX: 108)
+    var partial = goods
+    partial.withUnsafeMutableBytes { raw in
+        let pixels = raw.bindMemory(to: UInt8.self)
+        for y in 132..<170 { for x in 250..<286 {
+            let at = (y * 896 + x) * 4
+            pixels[at] = 26; pixels[at + 1] = 16; pixels[at + 2] = 16
+        } }
+    }
     var restarts = 0
     NG2Fake.cycleTap = { x, y in
         if x == 144 && y == 448 {
@@ -257,12 +274,21 @@ func testCycle094SearchRestart(_ root: URL) {
         NG2Fake.lock.lock(); let paused = NG2Fake.walkPaused; NG2Fake.lock.unlock()
         if paused { return original }
         gate.lock(); let count = restarts, show = exposed; gate.unlock()
-        return count >= 3 ? (show ? goods : empty) : clear[count]
+        if count < 3 { return clear[count] }
+        if firstGoods == 1 { return partial }
+        if firstGoods == 2 { return goods }
+        return show ? goods : empty
     }
     NG2RuntimeTestHooks.beforeControlTick = {
         let state = cycleCompanion(id)
         if (state["level_id"]?.intValue ?? 0) >= 4 { gate.lock(); exposed = true; gate.unlock() }
         else { clock.advance(20_000_000) }
+        gate.lock()
+        let advance = !settled && (state["job_id"]?.intValue ?? 0) > 0
+            && state["pending"]?.boolValue == false && state["outcome"]?.stringValue == "candidate"
+        if advance { settled = true }
+        gate.unlock()
+        if advance { clock.advance(220_000_000) }
     }
     cycleProof(1); cycleStart(id)
     pump("cycle094_search_skip_restart_drained", timeout: 30) { cycleDrained(id) }
@@ -277,6 +303,52 @@ func testCycle094SearchRestart(_ root: URL) {
     publishFixtureClaim(id, requiredCaptureIDs: Set(pauseSources))
 }
 
+func testCycle094InitialStorageRecovery(_ root: URL) {
+    _ = resetCycleFixture(root)
+    let id = identity(), gate = NSLock()
+    var failed = false
+    NG2CycleSpoolTestHooks.beforeBoundary = { boundary in
+        gate.lock(); defer { gate.unlock() }
+        if boundary == "file_sync" && !failed { failed = true; return false }; return true
+    }
+    cycleStart(id)
+    pump("cycle094_initial_header_fault_readonly_recovery", timeout: 20) { cycleDrained(id) }
+    NG2CycleSpoolTestHooks.beforeBoundary = nil
+    require(cyclePayload(id)["terminal"]?.boolValue == true && NG2Fake.countTouches() == 0 &&
+        NG2Fake.countActivations() == 0 && cycleCompanion(id)["completed_shops"]?.intValue == 0,
+        "cycle094_initial_storage_failure_never_launches_or_invents_assessment")
+    require(cyclePayload(id)["input_state"]?.intValue == 4 && cyclePayload(id)["ui_frozen"]?.boolValue == true,
+        "cycle094_missing_terminal_recovers_unknown_without_inventing_input_zero")
+    publishFixtureClaim(id, diagnostic: true)
+}
+
+func testCycle094StartedUnknownCompletion(_ root: URL) {
+    _ = resetCycleFixture(root); cycleProof(0)
+    let id = identity(), gate = NSLock()
+    var notices = 0, noticeAfterDrain = false
+    NG2RuntimeCycleTestHooks.afterNotification = { _ in
+        let drained = cycleDrained(id)
+        gate.lock(); notices += 1; noticeAfterDrain = drained; gate.unlock()
+    }
+    NG2Fake.lock.lock(); NG2Fake.failTouch = true; NG2Fake.lock.unlock()
+    cycleStart(id)
+    pump("cycle094_started_unknown_actual_drain", timeout: 30) { cycleDrained(id) }
+    let value = cyclePayload(id)
+    require(value["input_state"]?.intValue == 4 && value["ui_frozen"]?.boolValue == true &&
+        value["native_inflight"]?.boolValue == false && report(id)["native_inflight"]?.boolValue == true,
+        "cycle094_unknown_synth_actual_drain_projection")
+    pump("cycle094_unknown_completion_requested") { gate.lock(); defer { gate.unlock() }; return notices == 1 }
+    gate.lock(); let count = notices, afterDrain = noticeAfterDrain; gate.unlock()
+    require(count == 1 && afterDrain && cycleCompanion(id)["outcome"]?.stringValue == "unknown" &&
+        NG2Fake.countTouches() == 1 && NG2Fake.paths().isEmpty,
+        "cycle094_unknown_completion_notice_once_after_all_workers_return")
+    publishFixtureClaim(id, expectedInputState: 4)
+    let blocked = runtime.handle(method: "necro_native_start", params: ["run_id": .string(identity()),
+        "profile": .string("normal-1-1-cycle-v1"), "_necro_owner": .string("fixture-owner")])
+    require(blocked.1 != nil && runtime.hasLease && NG2Fake.countTouches() == 1,
+        "cycle094_publication_does_not_clear_unknown_global_poison")
+}
+
 let cycleRoot = FileManager.default.temporaryDirectory.appendingPathComponent("runtime-cycle094-" + UUID().uuidString)
 try FileManager.default.createDirectory(at: cycleRoot, withIntermediateDirectories: true,
     attributes: [.posixPermissions: NSNumber(value: 0o700)])
@@ -285,10 +357,14 @@ NG2RuntimeCycleTestHooks.spoolRoot = cycleRoot
 NG2RuntimeCycleTestHooks.notificationAuthorization = "authorized"
 pump("cycle094_prepare_ready") { cycleCall(identity(), "prepare").0?["payload"]?.objectValue?["ready"]?.boolValue == true }
 testCycle094WorkerCancelAndDrain(cycleRoot)
+testCycle094InitialStorageRecovery(cycleRoot)
 testCycle094CandidateOneShot(cycleRoot)
 testCycle094LateAndStorageHold(cycleRoot, storage: false)
 testCycle094LateAndStorageHold(cycleRoot, storage: true)
 testCycle094TwoShopsAndIntentCancel(cycleRoot, cancelIntent: true)
 testCycle094TwoShopsAndIntentCancel(cycleRoot, cancelIntent: false)
 testCycle094SearchRestart(cycleRoot)
-print("PASS TEST094 production Runtime selected cycle worker/cancel/deadline/storage/intent/two-shop/search callbacks; procedural clock/pixels/classifier")
+testCycle094SearchRestart(cycleRoot, firstGoods: 1)
+testCycle094SearchRestart(cycleRoot, firstGoods: 2)
+testCycle094StartedUnknownCompletion(cycleRoot)
+print("PASS TEST094 production Runtime selected eleven cycle worker/cancel/deadline/storage/recovery/intent/two-shop/search/unknown callbacks; procedural clock/pixels/classifier")

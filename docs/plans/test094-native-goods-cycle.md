@@ -120,3 +120,5 @@ native変更なので `macos-26` / `ubuntu-latest` の既標準runnerで新IPA�
 実装時の独立レビューで、SEARCHの通常RESTARTと陰性RESTARTの分離、初期判断画像保持、次floorのPARTIAL/VISIBLE、full templateとbrightness帯の区別、UNKNOWN/frozenの診断回収、journal二重rename中断、回復ledgerの同一性、request-local不正rangeの非poison化を確認する。新clientのper-run journalを耐久正本としactiveは選択mirrorとして扱う。保存済みraw/全PNGの確認前に完了を表示しない。
 
 094の未受入: iPhoneのp95/人比較・長期耐久・未知配置精度、有限bank外の品、原326/151のlayout不成立は未判定保持。採用期限後の有効positive証拠は捨てず保存し入力0で保持するが、timely判定とは別の遅延positive専用通知は未実装P1。保存済みsessionは128件/回復ledger128件の有限上限があり、自動削除は今回追加しないP2。
+
+SEARCHの通常restart直後に最初のFLOORがPARTIAL/VISIBLEである場合も、元のACK/prefix/指紋/4秒を先に処理してから新しい商品jobを結合する。新指紋の証明がない場合はrestart/level creditを増やさず、保持ポーズと個別観測だけに限定し、OBSERVE_MOREと陰性restartを禁止する。未開始journal/認証済み-32095と不明な開始は区別し、後者は再送しない。保存不能-32096をpendingとして回し続けない。

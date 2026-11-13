@@ -14,8 +14,9 @@ from .validation import ProbeError
 
 def _assessments(base, record):
     results = []
+    positions = {}
     for item in record['records']:
-        if item['kind'] not in ('assessment', 'checkpoint'):
+        if item['kind'] not in ('assessment', 'checkpoint', 'terminal'):
             continue
         raw = cycle._read(base/('cycle-'+record['run_id'])/'records'/cycle.record_name(item), cycle.MAX_RECORD)
         body = cycle.json_object(raw, cycle.MAX_RECORD)
@@ -25,7 +26,19 @@ def _assessments(base, record):
             status = assessment.get('status', 'ok')
             if status not in ('ok', 'cancelled', 'deadline', 'invalid', 'allocation', 'kernel'):
                 status = 'invalid'
-            results.append((item['cycle'], assessment['outcome'], status))
+            if status == 'ok' and payload.get('assessment_adopted') is not True:
+                status = 'not_adopted'
+            source = payload.get('cycle', {})
+            source = source if type(source) is dict else {}
+            key = tuple(source.get(name) for name in ('level_id', 'job_id', 'capture_id'))
+            if not all(type(value) is int for value in key):
+                key = ('cycle', item['cycle'])
+            value = (item['cycle'], assessment['outcome'], status)
+            if key in positions:
+                results[positions[key]] = value
+            else:
+                positions[key] = len(results)
+                results.append(value)
     return results
 
 
@@ -55,6 +68,10 @@ def main(argv=None):
             notice('TEST-094: 未完了 / '+reason+'。同じ実行IDを保持しています。')
             if reason == 'cycle_notification_permission':
                 notice('ゲームは開始していません。LoopCtrlを開き、通知を許可してから実行してください。')
+            elif reason == 'cycle_evidence_storage_unavailable':
+                notice('端末内の保存を利用できません。空き容量を確認しLoopCtrlを開き直してから、同じコマンドで回収してください。記録は消さないでください。')
+            elif reason == 'cycle_start_not_admitted':
+                notice('ゲームは開始していません。準備を確認した後、同じコマンドで再実行できます。')
             else:
                 notice('このフォルダの記録を残してください。未回収のまま新しいゲームは開始しません。')
             return 2
@@ -65,10 +82,14 @@ def main(argv=None):
             text = {'target':'のろいのゆびわを確認', 'candidate':'のろいのゆびわ候補を保持',
                 'negative':'陳列品に対象なしを確認（宝箱は対象外）',
                 'unknown':'判定実施・未確定のため保持'}[outcome]
-            if status != 'ok':
+            if status == 'not_adopted':
+                text = '判定結果は制御に未採用。対象なしとは扱わず保持しました。'
+            elif status != 'ok':
                 text = '判定未完了 / '+status+'。対象なしとは扱いません。'
             notice('商店判定 '+str(cycle_id)+': '+text)
         manifest = cycle.verify_evidence(base, record)
+        if manifest['input_state'] == 4 or manifest['ui_frozen']:
+            notice('自動操作: 入力結果が不明なため凍結。次の実行前にLoopCtrlを再起動してください。')
         if manifest['interrupted'] or not manifest['complete']:
             notice('TEST-094: 中断・不完全な実行の診断記録です。正常な商品確認完了には数えません。')
         notice('TEST-094: 終了。全画像・実行記録とZIPの保存・照合が完了しました。')

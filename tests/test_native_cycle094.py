@@ -666,6 +666,106 @@ class NativeCycle094Tests(unittest.TestCase):
                 self.assertEqual((1, 2), (h.tick()[0], h.events()[-1].command.kind))
                 self.assertEqual(1, len([event for event in h.events() if event.command.kind == 4]))
 
+    def search_restart_first_goods(self, goods=2, changed=True, stable=1, prefix=None, delay_ns=200_000_000):
+        h = self.h
+        self.assertEqual(1, h.observe(h.scene(state=2, gold=1)))
+        ready, pause = h.tick()
+        self.assertEqual((1, 2), (ready, pause.kind))
+        h.ack(pause)
+        h.now += 200_000_000
+        h.observe(h.scene(state=1))
+        ready, restart = h.tick()
+        self.assertEqual((1, 3), (ready, restart.kind))
+        h.ack(restart)
+        h.now += delay_ns
+        first = h.scene(state=2, gold=2, terrain=native.textured() if goods == 1 else None)
+        first.goods = goods
+        if goods == 2:
+            first.tiles[3 * 23 + 8] = 2
+        if changed:
+            for index in (0, 1, 2, 8, 9, 10):
+                first.fingerprint[index] = 12
+        h.observe(first, stable=stable, prefix=h.prefix if prefix is None else prefix)
+        return first, restart
+
+    def changed_search_goods(self, goods):
+        first, restart = self.search_restart_first_goods(goods)
+        h = self.h
+        source = self.cycle()
+        self.assertEqual((0, 1, 2, h.number, restart.id),
+                         (h.status().input_state, h.status().restarts, source.level_id,
+                          source.capture_id, source.prefix),
+                         "first goods FLOOR must drain the search RESTART and bind the new-level job")
+        observed = next(event for event in h.events() if event.command.id == restart.id)
+        self.assertEqual(h.number, observed.observed_capture_id)
+        self.assess(1)
+        # The UI settle interval uses capture start, so obtain another frame
+        # beyond ACK+200ms rather than rebasing the original goods evidence.
+        h.now += 4
+        h.observe(first)
+        self.pause_observed()
+        self.assertEqual(1, self.durable())
+        self.assertEqual(0, h.tick()[0])
+        self.assertEqual((1, 1, 1), (h.status().terminal, h.status().paused, h.status().restarts))
+
+    def test_search_restart_first_visible_goods_drains_and_binds_new_level(self):
+        self.changed_search_goods(2)
+
+    def test_search_restart_first_partial_goods_drains_and_binds_new_level(self):
+        self.changed_search_goods(1)
+
+    def test_search_restart_unchanged_goods_holds_without_new_level_or_retry(self):
+        for goods in (1, 2):
+            with self.subTest(goods=goods):
+                self.setUp()
+                first, _ = self.search_restart_first_goods(goods, changed=False)
+                h = self.h
+                source = self.cycle()
+                self.assertEqual((0, 0, 1, h.number),
+                    (h.status().input_state, h.status().restarts, source.level_id, source.capture_id))
+                if goods == 2:
+                    self.assess(3, 2)
+                else:
+                    def safe(value):
+                        value.partial_safe_no_positive = value.partial_count = 1
+                        value.partial[0].icon_score = value.partial[0].icon_upper_bound = .1
+                        value.partial[0].icon_score_exact = 1
+                    self.assess(0, 1, safe)
+                self.assertEqual(7, self.cycle().state, "unconfirmed search RESTART grants no continuation")
+                h.now += 4
+                h.observe(first)
+                self.pause_observed()
+                self.assertEqual(1, self.durable())
+                self.assertEqual(0, h.tick()[0], "a negative cannot retry an unproved RESTART")
+                self.assertEqual((1, 1, 0, 1),
+                    (h.status().terminal, h.status().paused, h.status().restarts, self.cycle().level_id))
+
+    def test_search_restart_crossed_first_goods_waits_for_current_stable_prefix(self):
+        for fault in ("inflight_capture", "old_prefix"):
+            with self.subTest(fault=fault):
+                self.setUp()
+                first, restart = self.search_restart_first_goods(2, stable=int(fault != "inflight_capture"),
+                    prefix=0 if fault == "old_prefix" else None)
+                h = self.h
+                before = self.cycle()
+                self.assertEqual((3, 0, 1, 0),
+                    (h.status().input_state, h.status().restarts, before.level_id, before.capture_id))
+                self.assertEqual(0, h.tick()[0])
+                h.now += 10_000_000
+                h.observe(first)
+                current = self.cycle()
+                self.assertEqual((0, 1, 2, h.number, restart.id),
+                    (h.status().input_state, h.status().restarts, current.level_id,
+                     current.capture_id, current.prefix))
+        for delay, credit in ((4 * SECOND - 1, 1), (4 * SECOND, 0)):
+            with self.subTest(transition_delay_ns=delay):
+                self.setUp()
+                self.search_restart_first_goods(2, delay_ns=delay)
+                self.assertEqual((0, credit, 1 + credit, self.h.number),
+                    (self.h.status().input_state, self.h.status().restarts,
+                     self.cycle().level_id, self.cycle().capture_id),
+                    "a late goods hold cannot extend the original RESTART transition window")
+
 
 if __name__ == "__main__":
     unittest.main()

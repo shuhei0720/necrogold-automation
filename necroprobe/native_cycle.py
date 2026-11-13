@@ -15,6 +15,7 @@ import zlib
 
 from .native_walk import _atomic, device_lock
 from .protocol import Client, HttpTransport
+from .rpc_diagnostics import RemoteRpcError
 from .validation import ProbeError, b64, json_object, number
 
 REVISION = 'native-cycle-v1'
@@ -374,6 +375,9 @@ def _call(client, method, params, *, deadline=None, clock=time.monotonic_ns, sle
             result = client.call(method, params)
             return result.result if hasattr(result, 'result') else result
         except ProbeError as exc:
+            if (method == 'necro_native_cycle' and getattr(exc, 'rpc_code', None) == -32096
+                    and getattr(exc, 'error_shape_valid', False) is True):
+                raise ProbeError('cycle_evidence_storage_unavailable') from None
             if not (method == 'necro_native_cycle' and params.get('mode') in
                     ('status', 'manifest', 'chunk', 'batch', 'record')
                     and getattr(exc, 'rpc_code', None) == -32094
@@ -605,10 +609,10 @@ def run_session(client, base, *, cancelled=lambda: False, clock=time.monotonic_n
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
     require(not base.is_symlink(), 'cycle_local_symlink')
     record = load_journal(base)
-    recovering = record is not None and not record['published']
-    if not recovering:
+    if record is None or record['published']:
         record = fresh_record()
         _journal(base, record)
+    recovering = record['start_intent'] and not record['published']
     run_id = record['run_id']
     if recovering:
         notice('前回の結果の回収のみ行います。今回はゲームを起動しません。')
@@ -640,6 +644,7 @@ def run_session(client, base, *, cancelled=lambda: False, clock=time.monotonic_n
             if not recovering:
                 _checked(cancelled, clock, ready_deadline)
                 record['start_intent'] = True
+                record['last_error'] = None
                 _journal(base, record)  # durable before the only start POST
                 def start_guard():
                     try:
@@ -656,7 +661,14 @@ def run_session(client, base, *, cancelled=lambda: False, clock=time.monotonic_n
                     record.update(start_intent=False, state='stopped')
                     _journal(base, record)
                     raise
-                except ProbeError:
+                except ProbeError as failure:
+                    # This dedicated code is emitted only before native
+                    # admission/seen-ID consumption. Other errors stay UNKNOWN.
+                    if (isinstance(failure, RemoteRpcError) and failure.error_shape_valid is True
+                            and failure.rpc_code == -32095):
+                        record.update(start_intent=False, state='stopped', last_error='cycle_start_not_admitted')
+                        _journal(base, record)
+                        raise _StartNotSent('cycle_start_not_admitted') from None
                     record.update(state='unknown', last_error='cycle_start_uncertain')
                     _journal(base, record)
                     raise

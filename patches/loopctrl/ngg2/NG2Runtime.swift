@@ -389,6 +389,7 @@ final class NG2Runtime {
     private var notificationPreparationStarted = false
     private var recoveredCycles: [String: NG2Run] = [:]
     private var cycleRecoveryPending = Set<String>()
+    private var cycleRecoveryFailures: [String: String] = [:]
     private let runtimeInstanceID = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     private var current: NG2Run?
     private var seen = Set<String>()
@@ -1092,10 +1093,12 @@ final class NG2Runtime {
     private func notifyCycleIfNeeded(_ run: NG2Run) {
         guard let cycle = run.cycle else { return }
         let outcome: Int32? = run.lock.ng2Locked {
-            guard !cycle.notificationRequested, run.controllerSnapshot?.status.paused == 1,
-                  cycle.companion.outcome == 1 || cycle.companion.outcome == 2,
-                  run.cancelReason == 0, ownerActive(run) else { return nil }
-            cycle.notificationRequested = true; cycle.notificationState = "pending"; return cycle.companion.outcome
+            guard !cycle.recovered, !cycle.notificationRequested, ownerActive(run) else { return nil }
+            let positive = run.controllerSnapshot?.status.paused == 1 && run.cancelReason == 0
+                && (cycle.companion.outcome == 1 || cycle.companion.outcome == 2)
+            guard positive || (run.terminal && cycleWorkersDrainedLocked(run, cycle)) else { return nil }
+            cycle.notificationRequested = true; cycle.notificationState = "pending"
+            return positive ? cycle.companion.outcome : -1
         }
         guard let outcome else { return }
         #if NG2_RUNTIME_HOST_TEST
@@ -1103,8 +1106,13 @@ final class NG2Runtime {
         NG2RuntimeCycleTestHooks.afterNotification?(run.id)
         #else
         let content = UNMutableNotificationContent()
-        content.title = outcome == 2 ? "のろいのゆびわを確認" : "のろいのゆびわの候補を保持"
-        content.body = "ゲームをポーズしました。商品を確認してください。"
+        if outcome < 0 {
+            content.title = "自動操作を停止しました"
+            content.body = "iSHで保存を確認してください。"
+        } else {
+            content.title = outcome == 2 ? "のろいのゆびわを確認" : "のろいのゆびわの候補を保持"
+            content.body = "ゲームをポーズしました。商品を確認してください。"
+        }
         content.sound = .default
         let request = UNNotificationRequest(identifier: "necro-cycle-" + run.id, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request) { error in
@@ -1227,12 +1235,19 @@ final class NG2Runtime {
         return run.lock.ng2Locked {
             let status = run.controllerSnapshot?.status
             let cycle = run.cycle!
+            let drained = cycleWorkersDrainedLocked(run, cycle)
             return ["state": .string(run.terminal ? (run.lease ? "draining" : "stopped") : "running"),
-                "terminal": .bool(run.terminal), "workers_drained": .bool(!run.lease && !cycle.workerBusy),
+                "terminal": .bool(run.terminal), "workers_drained": .bool(drained),
                 "input_state": .int(Int(status?.input_state ?? cycle.recoveredInputState)), "ui_frozen": .bool(run.uiFrozen),
-                "native_inflight": .bool(run.inFlight), "cycle": .object(NG2CycleWire.companion(cycle.companion)),
+                "native_inflight": .bool(run.inFlight && !drained), "cycle": .object(NG2CycleWire.companion(cycle.companion)),
                 "notification": .object(["authorization": .string(permission), "state": .string(cycle.notificationState)])]
         }
+    }
+
+    // Caller holds run.lock. Historical UNKNOWN remains input_state4/frozen;
+    // it is distinct from an actual native callback that is still executing.
+    private func cycleWorkersDrainedLocked(_ run: NG2Run, _ cycle: NG2CycleRun) -> Bool {
+        !run.lease && !cycle.workerBusy && run.captureWorkerDone && !run.captureOutstanding && !run.mainOutstanding
     }
 
     private func beginCycleRecovery(owner: String, id: String) {
@@ -1278,7 +1293,8 @@ final class NG2Runtime {
                     let controller = record.payload["controller"] as? [String: Any]
                     return (controller?["input_state"] as? NSNumber)?.intValue == 4
                 }
-                if dangling || unknown { cycle.recoveredInputState = 4; run.uiFrozen = true }
+                let noTerminal = !records.contains(where: { $0.kind == "terminal" })
+                if noTerminal || dangling || unknown { cycle.recoveredInputState = 4; run.uiFrozen = true }
                 if let payload = records.last(where: { $0.payload["cycle"] != nil })?.payload,
                    let value = payload["cycle"] as? [String: Any] {
                     func n(_ key: String) -> UInt64 { (value[key] as? NSNumber)?.uint64Value ?? 0 }
@@ -1289,7 +1305,9 @@ final class NG2Runtime {
                     cycle.companion.coverage = Int32(["unknown", "incomplete", "complete"].firstIndex(of: value["coverage"] as? String ?? "unknown") ?? 0)
                 }
                 self.lock.ng2Locked { self.recoveredCycles[id] = run }
-            } catch { /* The explicit query remains read only and retryable. */ }
+            } catch {
+                self.lock.ng2Locked { self.cycleRecoveryFailures[id] = "evidence_storage_unavailable" }
+            }
         }
     }
 
@@ -1346,6 +1364,7 @@ final class NG2Runtime {
             if let existing, existing.id == id, existing.cycle != nil, existing.lock.ng2Locked({ existing.lease }) {
                 existing.cancel(5); return failure("Previous cycle workers must drain before read-only recovery.")
             }
+            if let reason = lock.ng2Locked({ cycleRecoveryFailures[id] }) { return failure(reason, -32096) }
             beginCycleRecovery(owner: owner, id: id)
             return failure("Native cycle read-only recovery is pending.", -32094)
         }
@@ -1376,7 +1395,12 @@ final class NG2Runtime {
             answer = exporter.published(exportID: exportID, manifestSHA: manifestSHA, archiveSHA: archiveSHA)
             if answer.0?["accepted"]?.boolValue == true {
                 run.lock.ng2Locked { cycle.published = true }
-                lock.ng2Locked { unpublishedCycles.removeAll(where: { $0 == run.id }) }
+                lock.ng2Locked {
+                    if let previous = current, previous.id == run.id {
+                        previous.lock.ng2Locked { if !previous.lease { previous.cycle?.published = true } }
+                    }
+                    unpublishedCycles.removeAll(where: { $0 == run.id })
+                }
             }
         } else {
             guard let exportID = params["export_id"]?.stringValue, lowerHexIdentity(exportID),
@@ -2100,6 +2124,7 @@ final class NG2Runtime {
                 run.controlTimer?.cancel(); run.controlTimer = nil
                 run.watchdog?.cancel(); run.watchdog = nil
                 run.lock.ng2Locked { run.lease = false }
+                notifyCycleIfNeeded(run)
                 var snapshot = response(run)
                 let retained = run.lock.ng2Locked { Set(run.pinned.keys).union(run.images.map { $0.id }).count }
                 snapshot["retained_images"] = .int(retained)
