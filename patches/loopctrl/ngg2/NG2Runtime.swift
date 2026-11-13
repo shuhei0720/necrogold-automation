@@ -2046,6 +2046,34 @@ final class NG2Runtime {
         }
     }
 
+    // A synchronous PAUSE occupies controlQueue until main's synth returns.
+    // Give this already running, bounded full-goods job its original adoption
+    // window before asking C to mint that PAUSE. No command is reserved here.
+    private func waitForCycleAssessmentBeforePause(_ run: NG2Run, status: NG2ControllerStatus) -> Bool {
+        run.lock.ng2Locked {
+            guard let cycle = run.cycle, cycle.classificationOutstanding,
+                  cycle.companion.pending == 1, cycle.companion.state == Int32(NG2_CYCLE_ASSESS),
+                  cycle.companion.full_seen == 1, cycle.companion.worker_started_ns != 0,
+                  cycle.companion.capture_id != 0, run.mainCommandID == 0, !run.bootstrapOutstanding,
+                  run.cancelReason == 0, !run.stopped, run.foreground, self.ownerActive(run),
+                  !LockStateMonitor.shared().isLocked, status.input_state == 0,
+                  status.current_command_id == 0, status.terminal == 0, status.goods == 1,
+                  status.paused == 0, status.phase == Int32(NG2_PHASE_FINISH),
+                  status.last_completed_id == cycle.companion.prefix,
+                  let frame = cycle.frames[cycle.companion.capture_id],
+                  frame.generation == run.generation, frame.start == cycle.companion.capture_start_ns,
+                  frame.startPrefix == cycle.companion.prefix, frame.prefix == cycle.companion.prefix,
+                  frame.stable, !frame.startInFlight, !frame.endInFlight else { return false }
+            let now = Self.now()
+            guard now >= cycle.companion.worker_started_ns, now >= status.started_ns,
+                  now - status.started_ns < 180_000_000_000,
+                  status.last_capture_end_ns <= now, now <= cycle.companion.deadline_ns else { return false }
+            if status.walk_started_ns != 0 &&
+                (now < status.walk_started_ns || now - status.walk_started_ns >= 45_000_000_000) { return false }
+            return true
+        }
+    }
+
     private func cycle(_ run: NG2Run) {
         guard let core = run.core else { return }
         let now = Self.now()
@@ -2156,18 +2184,20 @@ final class NG2Runtime {
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.beforeControlTick?()
             #endif
-            var command = NG2Command()
-            let ticket = ng2_controller_tick(core, Self.now(), run.foreground ? 1 : 0,
-                LockStateMonitor.shared().isLocked ? 1 : 0, ownerActive(run) ? 1 : 0, &command)
-            if ticket == 1 {
-                if run.cycle != nil && command.kind == 3 {
-                    refreshCycleEvidence(run)
+            if !waitForCycleAssessmentBeforePause(run, status: status) {
+                var command = NG2Command()
+                let ticket = ng2_controller_tick(core, Self.now(), run.foreground ? 1 : 0,
+                    LockStateMonitor.shared().isLocked ? 1 : 0, ownerActive(run) ? 1 : 0, &command)
+                if ticket == 1 {
+                    if run.cycle != nil && command.kind == 3 {
+                        refreshCycleEvidence(run)
+                    }
+                    if let cycle = run.cycle, command.kind == 3, cycle.companion.state == 6,
+                       cycle.companion.restart_command_id == command.id {
+                        persistCycleIntent(run, command: command); return
+                    }
+                    if dispatchReserved(run, command: command, core: core) { return }
                 }
-                if let cycle = run.cycle, command.kind == 3, cycle.companion.state == 6,
-                   cycle.companion.restart_command_id == command.id {
-                    persistCycleIntent(run, command: command); return
-                }
-                if dispatchReserved(run, command: command, core: core) { return }
             }
         }
         if now - min(now, run.lastCache) >= 50_000_000 { ng2_controller_status(core, &status); cache(run, status) }

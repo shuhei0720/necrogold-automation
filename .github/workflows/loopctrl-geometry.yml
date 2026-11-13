@@ -337,6 +337,10 @@ jobs:
               NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test095_host.py
               DEVICE_PROFILE=095
             fi
+            if [ -f driver/patches/loopctrl/run_test096_host.py ]; then
+              NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test096_host.py
+              DEVICE_PROFILE=096
+            fi
           fi
           "$RUNNER_TEMP/test061-host-venv/bin/python" "$NATIVE_HOST_RUNNER" driver upstream "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/host-command.txt"
           echo "device_profile=$DEVICE_PROFILE" >> "$GITHUB_OUTPUT"
@@ -395,11 +399,16 @@ jobs:
         if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_export094.py upstream "$RUNNER_TEMP/test094-export" --fault-red'
       - name: Verify TEST094 selected actual Runtime cycle callbacks
-        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success'
+        # TEST096 replaces the obsolete PAUSE-before-classifier release fixture.
+        # The replacement retains the old intent/cancellation assertions.
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '096'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_runtime_cycle094.py upstream "$RUNNER_TEMP/test094-runtime" --fault-red'
       - name: Verify TEST095 target-only Runtime and policy wire callbacks
         if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile == '095'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_runtime_target_only095.py upstream "$RUNNER_TEMP/test095-runtime" --fault-red'
+      - name: Verify TEST096 bounded pre-PAUSE Runtime adoption callbacks
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile == '096'
+        run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_runtime_pause096.py upstream "$RUNNER_TEMP/test096-runtime" --fault-red'
       - name: Generate and inspect actual source-specific project configuration
         run: |
           (cd upstream && xcodegen generate --spec project.yml)
@@ -527,6 +536,7 @@ jobs:
             ${{ runner.temp }}/test094-export/
             ${{ runner.temp }}/test094-runtime/
             ${{ runner.temp }}/test095-runtime/
+            ${{ runner.temp }}/test096-runtime/
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt
             ${{ runner.temp }}/ngg2/perception-build/

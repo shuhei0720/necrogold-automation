@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-13（日本時間）。TEST095 build168のCI/配布物検証済み。**実機改善・受入は未確認**。[計画](plans/test095-device-stops.md)・[対象だけの判定](plans/test095-target-only.md)・[受領と検証](reviews/test095.md)・[修正表](fix-records.md)。過去の対策や単体合格を実機改善完了と扱わない。
+更新: 2026-11-13（日本時間）。TEST096を実装中。095実機3回は途中停止2・商品可視後停止1。[今回計画](plans/test096-walk-cycle-repair.md)・[受領](reviews/test096.md)・[修正表](fix-records.md)。配布済みはTEST095 build168。**実機改善・受入は未確認**。過去の対策や単体合格を改善完了と扱わない。
 
 ## 変更
 

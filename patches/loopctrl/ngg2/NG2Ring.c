@@ -971,12 +971,114 @@ static int binary_coverage(const unsigned char *rgba,const RingObservation *obse
     if(complete){result->coverage=NG2_RING_COVERAGE_COMPLETE;result->selected_row=selected;result->selected_partial=-1;}
     return checkpoint(options,result);
 }
+/* Policy3 is a separate finite normal-shop layout proof. Pixel identities of
+ * SHOP or the singer are not authority here. All target pixels remain intact;
+ * the exact policy2 dense sweep and word veto are used without a text mask. */
+static int structural_cell(int pixel,int origin,int *cell) {
+    int delta=pixel-origin,whole=delta/36,remainder=delta%36;
+    if(remainder==18||remainder==-18)return 0;
+    if(remainder>18)whole++;else if(remainder<-18)whole--;
+    *cell=whole;return 1;
+}
+static int structural_row_cells(int left,int sy,int *ax,int *ay) {
+    return left>=54&&left<=RING_W-126&&sy>=0&&sy<=RING_HH-91
+        &&structural_cell(left,448,ax)&&structural_cell(sy+48,207,ay)
+        &&*ax-2>=-11&&*ax+4<=11&&*ay-1>=-5&&*ay+3<=4;
+}
+static int structural_tile(const NG2Scene *scene,int x,int y) {
+    return x>=-11&&x<=11&&y>=-5&&y<=4?scene->tiles[(y+5)*23+x+11]:NG2_TILE_UNKNOWN;
+}
+static int structural_scene_row(const NG2Scene *scene,int left,int sy) {
+    int ax,ay,gold=0;
+    if(!scene||scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene)
+       ||scene->state!=NG2_FLOOR||scene->goods!=NG2_GOODS_VISIBLE
+       ||(scene->gold_state!=NG2_GOLD_CANDIDATE&&scene->gold_state!=NG2_GOLD_EDGE_DOWN)
+       ||!structural_row_cells(left,sy,&ax,&ay))return 0;
+    for(int i=0;i<NG2_TILE_COUNT;i++)gold+=scene->tiles[i]==NG2_TILE_GOLD;
+    if(gold<12)return 0;
+    for(int x=ax;x<=ax+2;x++)if(structural_tile(scene,x,ay)!=NG2_TILE_ITEM)return 0;
+    if(structural_tile(scene,ax-1,ay)!=NG2_TILE_FLOOR||structural_tile(scene,ax+3,ay)!=NG2_TILE_FLOOR)return 0;
+    for(int mirror=0;mirror<2;mirror++) {
+        int wall=mirror?ax+4:ax-2,gate=mirror?ax-2:ax+4,valid=1;
+        for(int y=ay-1;y<=ay+3;y++)valid&=structural_tile(scene,wall,y)==NG2_TILE_GOLD;
+        for(int x=ax-2+mirror;x<=ax+3+mirror;x++)valid&=structural_tile(scene,x,ay+3)==NG2_TILE_GOLD;
+        valid&=structural_tile(scene,gate,ay)==NG2_TILE_GOLD;
+        valid&=structural_tile(scene,gate,ay+2)==NG2_TILE_GOLD;
+        int opening=structural_tile(scene,gate,ay+1);
+        valid&=opening==NG2_TILE_FLOOR||opening==NG2_TILE_DOOR;
+        if(valid)return 1;
+    }
+    return 0;
+}
+static int structural_face(const NG2RingSign *face,int cx,int sy) {
+    int32_t roi[4]={cx-18,sy-20,36,40};
+    int32_t box[4]={face->x0,face->y0,face->x1-face->x0,face->y1-face->y0};
+    return box_valid(roi)&&box_valid(box)&&box[2]>=18&&box[2]<=36&&box[3]>=16&&box[3]<=40
+        &&face->count>=150&&face->count<=box[2]*box[3]
+        &&box[0]>=roi[0]&&box[1]>=roi[1]&&box[0]+box[2]<=roi[0]+36&&box[1]+box[3]<=roi[1]+40
+        &&abs(face->cx-cx)<=2&&abs(face->sy-sy)<=2
+        &&abs(box[0]+box[2]/2-cx)<=2&&abs(box[1]+box[3]/2-sy)<=2;
+}
+static int structural_coverage(const unsigned char *rgba,const RingObservation *observation,
+                               const NG2RingSign signs[12],int sign_count,
+                               const NG2RingOptions *options,NG2RingResult *result,int *handled) {
+    *handled=0;
+    if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY)return NG2_RING_OK;
+    int selected=-1,selected_pair[2]={-1,-1},accepted=0;
+    for(int r=0;r<result->row_count;r++) {
+        const NG2RingRow *row=&result->rows[r];int pair[2]={-1,-1},hits[2]={0,0};
+        if(!structural_scene_row(options->scene,row->left,row->sy))continue;
+        for(int side=0;side<2;side++)for(int i=0;i<sign_count;i++)
+            if(structural_face(&signs[i],row->left+72*side,row->sy)){pair[side]=i;hits[side]++;}
+        if(hits[0]!=1||hits[1]!=1||pair[0]==pair[1]
+           ||abs(signs[pair[1]].cx-signs[pair[0]].cx-72)>2||abs(signs[pair[1]].sy-signs[pair[0]].sy)>2)continue;
+        accepted++;
+        if(selected<0){selected=r;selected_pair[0]=pair[0];selected_pair[1]=pair[1];}
+    }
+    if(!accepted)return NG2_RING_OK; /* Exact old policy2 fallback remains below. */
+    *handled=1;
+    NG2RingCoverage *out=&result->certificate;NG2RingRow *row=&result->rows[selected];
+    memset(out,0,sizeof(*out));out->layout_version=1;out->policy_version=3;out->board_mode=3;
+    out->accepted_rows=accepted;out->row_index=selected;out->row[0]=row->left;out->row[1]=row->sy;
+    out->scene_state=options->scene->state;out->scene_goods=options->scene->goods;
+    for(int i=0;i<NG2_TILE_COUNT;i++)out->actual_gold_cells+=options->scene->tiles[i]==NG2_TILE_GOLD;
+    result->coverage=NG2_RING_COVERAGE_INCOMPLETE;
+    for(int side=0;side<2;side++) {
+        const NG2RingSign *face=&signs[selected_pair[side]];
+        int32_t box[4]={face->x0,face->y0,face->x1-face->x0,face->y1-face->y0};
+        memcpy(out->board_boxes[side],box,sizeof(box));out->board_counts[side]=face->count;
+    }
+    /* The canonical observation stage already admits 18..48px SIGN faces.
+     * Only the selected pair uses the narrower complete 36px pose ROI. */
+    for(int i=0;i<sign_count;i++)if(i!=selected_pair[0]&&i!=selected_pair[1])out->unmatched_boards++;
+    if(accepted!=1){out->failure_flags|=NG2_RING_COV_ROWS;return NG2_RING_OK;}
+    if(out->unmatched_boards){out->failure_flags|=NG2_RING_COV_EXTRA_BOARD;return NG2_RING_OK;}
+    int32_t strip[4]={row->left-54,row->sy+24,180,67};memcpy(out->strip_box,strip,sizeof(strip));
+    if(!box_valid(strip)){out->failure_flags|=NG2_RING_COV_BOUNDS;return NG2_RING_OK;}
+    int status=binary_primary(rgba,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
+    status=binary_word_veto(observation,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
+    int complete=endcap_witness(rgba,observation,row->left-36,row->sy,&out->endcaps[0]);
+    complete&=endcap_witness(rgba,observation,row->left+108,row->sy,&out->endcaps[1]);
+    if(!complete)out->failure_flags|=NG2_RING_COV_ENDCAP;
+    price_witness(observation,row,out);
+    if(out->observed_prices!=3||out->unmatched_prices){complete=0;out->failure_flags|=NG2_RING_COV_PRICE;}
+    for(int s=0;s<3;s++)memcpy(out->item_boxes[s],row->slots[s].non_target_icon_box,sizeof(out->item_boxes[s]));
+    item_witness(rgba,row,out);
+    /* This raw diagnostic is not an object/word classifier. The finite three
+     * offer premise plus the unmasked all-position target sweep is authority. */
+    if(out->observed_items!=3){complete=0;out->failure_flags|=NG2_RING_COV_ITEM;}
+    out->non_target_items=3;
+    if(complete){result->coverage=NG2_RING_COVERAGE_COMPLETE;result->selected_row=selected;result->selected_partial=-1;}
+    return checkpoint(options,result);
+}
 /* Coverage and item identity are separate witnesses. Neither a low target
  * score nor the legacy three-price row alone can authorize NEGATIVE. */
 static int coverage_witness(const unsigned char *rgba,const RingObservation *observation,
                             const NG2RingSign signs[12],int sign_count,
                             const NG2RingOptions *options,NG2RingResult *result) {
     if(!options||!options->scene)return NG2_RING_OK;
+    int handled=0,structural=structural_coverage(rgba,observation,signs,sign_count,options,result,&handled);
+    if(structural||handled)return structural;
     const NG2Scene *scene=options->scene;NG2RingCoverage *out=&result->certificate;
     if(scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene))return NG2_RING_INVALID;
     out->scene_state=scene->state;out->scene_goods=scene->goods;out->layout_version=1;
@@ -1160,7 +1262,53 @@ static int binary_cell_certificate(const NG2RingSlot *slot,int cx,int sy,int ind
     for(int k=0;k<4;k++)if(slot->non_target_name_box[k]||slot->ignored_icon_box[k])return 0;
     return 1;
 }
+static int structural_negative_certificate(const NG2RingResult *result) {
+    if(result->abi!=NG2_RING_ABI||result->size!=sizeof(*result)||result->status!=NG2_RING_OK
+       ||(result->outcome!=NG2_RING_UNKNOWN&&result->outcome!=NG2_RING_NEGATIVE)
+       ||result->coverage!=NG2_RING_COVERAGE_COMPLETE||result->row_count<1||result->row_count>4
+       ||result->partial_count!=2||result->selected_row<0||result->selected_row>=result->row_count
+       ||result->selected_partial!=-1||result->partial_safe_no_positive)return 0;
+    const NG2RingCoverage *w=&result->certificate;const NG2RingRow *row=&result->rows[result->selected_row];int ax,ay;
+    if(!structural_row_cells(row->left,row->sy,&ax,&ay)||w->layout_version!=1||w->policy_version!=3
+       ||w->board_mode!=3||w->failure_flags||w->accepted_rows!=1||w->row_index!=result->selected_row
+       ||w->row[0]!=row->left||w->row[1]!=row->sy||w->scene_state!=NG2_FLOOR
+       ||w->scene_goods!=NG2_GOODS_VISIBLE||w->actual_gold_cells<12||w->actual_gold_cells>NG2_TILE_COUNT
+       ||w->observed_items!=3||w->observed_prices!=3||w->unmatched_prices||w->unmatched_boards
+       ||w->unmatched_items<0||w->unmatched_items>(180*67)/24||w->non_target_items!=3||w->ignored_containers
+       ||!box_valid(w->strip_box)||w->strip_box[0]!=row->left-54||w->strip_box[1]!=row->sy+24
+       ||w->strip_box[2]!=180||w->strip_box[3]!=67||w->merchant_score||w->merchant_coverage)return 0;
+    for(int k=0;k<4;k++)if(w->merchant_box[k])return 0;
+    for(int side=0;side<2;side++) {
+        int cx=row->left+72*side;const int32_t *board=w->board_boxes[side];const NG2RingEndcap *end=&w->endcaps[side];
+        int32_t roi[4]={cx-18,row->sy-20,36,40};
+        if(!box_valid(roi)||!box_valid(board)||board[2]<18||board[2]>36||board[3]<16||board[3]>40
+           ||w->board_counts[side]<150||w->board_counts[side]>board[2]*board[3]
+           ||board[0]<roi[0]||board[1]<roi[1]||board[0]+board[2]>roi[0]+36||board[1]+board[3]>roi[1]+40
+           ||abs(board[0]+board[2]/2-cx)>2||abs(board[1]+board[3]/2-row->sy)>2
+           ||w->sign_iou[side]||w->sign_coverage[side]||w->board_exterior_count[side]
+           ||!box_valid(end->box)||end->box[0]!=row->left+(side?96:-48)||end->box[1]!=row->sy+36
+           ||end->box[2]!=25||end->box[3]!=25||end->count!=625||end->black_count<0||end->black_count>62
+           ||end->bright_count<0||end->bright_count>=24||end->price_ink_count<0||end->price_ink_count>=18
+           ||end->r<0||end->r>255||end->g<0||end->g>255||end->b<0||end->b>255||end->spread!=1
+           ||end->floor_full!=1||end->floor_upper!=1||end->floor_lower!=1||!material_floor(*end))return 0;
+        for(int k=0;k<4;k++)if(w->sign_boxes[side][k]||w->board_edge_counts[side][k]||w->board_corner_counts[side][k])return 0;
+    }
+    if(abs(w->board_boxes[1][0]+w->board_boxes[1][2]/2-w->board_boxes[0][0]-w->board_boxes[0][2]/2-72)>2
+       ||abs(w->board_boxes[1][1]+w->board_boxes[1][3]/2-w->board_boxes[0][1]-w->board_boxes[0][3]/2)>2)return 0;
+    for(int r=0;r<result->row_count;r++)for(int s=0;s<3;s++)if(!binary_no_candidate(&result->rows[r].slots[s]))return 0;
+    for(int s=0;s<3;s++) {
+        if(!binary_cell_certificate(&row->slots[s],row->left+36*s,row->sy,s,w->strip_box)
+           ||memcmp(w->item_boxes[s],row->slots[s].non_target_icon_box,sizeof(w->item_boxes[s]))
+           ||!box_valid(w->price_boxes[s])||w->price_boxes[s][0]<row->left+36*s-11
+           ||w->price_boxes[s][0]+w->price_boxes[s][2]>row->left+36*s+12
+           ||w->price_boxes[s][1]<row->sy+69||w->price_boxes[s][1]+w->price_boxes[s][3]>row->sy+89)return 0;
+        for(int k=0;k<4;k++)if(w->name_boxes[s][k])return 0;
+    }
+    return binary_cell_certificate(&result->partial[0],row->left-36,row->sy,0,w->strip_box)
+        &&binary_cell_certificate(&result->partial[1],row->left+108,row->sy,0,w->strip_box);
+}
 int ng2_ring_negative_certificate(const NG2RingResult *result) {
+    if(result&&result->certificate.policy_version==3)return structural_negative_certificate(result);
     if(!result||result->abi!=NG2_RING_ABI||result->size!=sizeof(*result)||result->status!=NG2_RING_OK
        ||(result->outcome!=NG2_RING_UNKNOWN&&result->outcome!=NG2_RING_NEGATIVE)
        ||result->coverage!=NG2_RING_COVERAGE_COMPLETE||result->row_count<1||result->row_count>4
