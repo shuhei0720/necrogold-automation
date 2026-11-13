@@ -1,5 +1,25 @@
 #include "ngg2_cycle_runtime_fixture.h"
+#include "ngg2_runtime_scene_fixtures.h"
 #include <string.h>
+int ng2_fixture_cycle_search_rgba(uint8_t *out,size_t length,int32_t world_x,int32_t variant,int32_t goods){
+    size_t at;int x,y,col,row;
+    if(!out||length!=896u*414u*4u||variant<0||variant>1||goods<0||goods>2)return 0;
+    if(!ng2_fixture_floor_pixels_rgba(out,length,world_x,0,.5,goods?1:0))return 0;
+    if(!goods)for(at=0;at<length;at+=4)
+        if(out[at]>=180&&out[at+1]>=140&&out[at+2]<=90){out[at]=26;out[at+1]=16;out[at+2]=16;}
+    if(variant)for(row=2;row<=3;++row)for(col=0;col<8;++col){
+        if(col!=0&&col!=6&&col!=7)continue;
+        for(y=70+row*48;y<118+row*48;++y)for(x=224+col*56;x<280+col*56;++x){
+            int shade;at=((size_t)y*896+(size_t)x)*4;
+            if(out[at]<22||out[at]>30||out[at+1]<12||out[at+1]>20||out[at+2]<12||out[at+2]>20)continue;
+            shade=80+(int)out[at]-26;out[at]=out[at+1]=out[at+2]=(uint8_t)shade;
+        }
+    }
+    if(goods==2)for(y=132;y<170;++y)for(x=250;x<286;++x){
+        at=((size_t)y*896+(size_t)x)*4;out[at]=26;out[at+1]=16;out[at+2]=16;
+    }
+    return 1;
+}
 static void box(int32_t out[4],int x,int y,int w,int h){out[0]=x;out[1]=y;out[2]=w;out[3]=h;}
 void ng2_fixture_cycle_result(const NG2Scene *scene,uint64_t started,uint64_t finished,
     int outcome,NG2RingResult *out){

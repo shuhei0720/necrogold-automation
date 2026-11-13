@@ -52,3 +52,9 @@ codefa9ea92f3b32183438f9e355b62edb7c7b5d3670/run43385422970/build162。host新10
 ## CI163の停止検査の同期不足
 
 codebc0182c5146b904813b94827819834839e42dea6/run43387220437/build163。host144、Mac API/spool/Exportは成功、Runtimeのlease mutationが期待Redを返さず停止した。tests出力0 bytes、returncode未保存のため終了0/信号は旧artifactから確定しない。単独mutation選択により、main/capture終了を見た直後・terminal drain判定の前にleaseを検査し得る同期不足を特定。HOST限定のterminal処理終了observerを加え、分類workerをparkしたまま実際の処理後のleaseを確認する。製品の解放条件は不変、次CIで実行確認する。
+
+## CI164の見送りrestart用マップ
+
+code1f2b18f0ba2074e27990e4198db4177ae6429f55/run43388444326/build164。host144・Mac API/spool/Exportに加え、lease/UNKNOWNの二つの意味mutation Redは通過。Greenは旧3と先行する停止・保存・陰性二商店のassertを通り、通常SEARCH restartの検査で失敗した。実diagnosticはPAUSE/RESTART各一件ACK、26stable capture後もobserved_capture_id0・level1/restarts0/input3、元4秒のreason16。GOLD除去後の旧試験画像は小STONE二点とnoise平行移動だけで、restartの6cell/3col/2row/差12を証明できる新地形になっていない。専用HOST C generatorと同じ画像をSwift/実C probeで使い、clear/partial/full・指紋差を事前assertする。製品の指紋閾値/4秒を緩めない。全Green/IPAは未達。
+
+実C probeは旧clear0→36→72→108の指紋変化0/0/0（差12のcell4/1/1）を確認し、公開Cで元4.42秒のreason16を再現した。新しい共通HOST generatorは周辺STONE六区画だけを交互に変更し、変化1/1/1（cell8/6/7）。全clearはFLOOR/CLEAR/goodsUNKNOWN/mask0/beat1、最終fullはgoodsVISIBLE、knockoutはPARTIAL、いずれも最終clearから指紋変化1。公開Cで三SEARCHケースともrestart3/level4/新しいpending jobへ到達。Swiftは同じC generatorを使う。これらは試験入力の整合性であり、実機性能/到達率ではない。

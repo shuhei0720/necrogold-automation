@@ -39,6 +39,15 @@ func cyclePixels(worldX: Int32 = 0, goods: Bool = true) -> Data {
     }
     return bytes
 }
+func cycleSearchPixels(worldX: Int32, variant: Int32, goods: Int32 = 0) -> Data {
+    var bytes = Data(count: 896 * 414 * 4)
+    let count = bytes.count
+    bytes.withUnsafeMutableBytes { raw in
+        require(ng2_fixture_cycle_search_rgba(raw.bindMemory(to: UInt8.self).baseAddress, count,
+            worldX, variant, goods) == 1, "cycle094_procedural_search_pixels")
+    }
+    return bytes
+}
 func resetCycleFixture(_ root: URL) -> CycleFixtureClock {
     NG2Fake.reset(.walk)
     let clock = CycleFixtureClock()
@@ -278,27 +287,14 @@ func testCycle094TwoShopsAndIntentCancel(_ root: URL, cancelIntent: Bool) {
 func testCycle094SearchRestart(_ root: URL, firstGoods: Int = 0) {
     let clock = resetCycleFixture(root), id = identity(), gate = NSLock()
     var exposed = false, settled = false
-    let clear: [Data] = [Int32(0), 36, 72].map { world in
-        var image = cyclePixels(worldX: world, goods: false)
-        image.withUnsafeMutableBytes { raw in
-            let pixels = raw.bindMemory(to: UInt8.self)
-            for at in stride(from: 0, to: pixels.count, by: 4) {
-                if pixels[at] >= 180 && pixels[at + 1] >= 140 && pixels[at + 2] <= 90 {
-                    pixels[at] = 26; pixels[at + 1] = 16; pixels[at + 2] = 16
-                }
-            }
-        }
-        return image
+    // Distinct observed terrain must satisfy the real restart fingerprint;
+    // translating nearly uniform floor noise does not prove a new floor.
+    let clear: [Data] = [Int32(0), 36, 72].enumerated().map { entry in
+        cycleSearchPixels(worldX: entry.element, variant: Int32(entry.offset % 2))
     }
-    let empty = cyclePixels(worldX: 108, goods: false), goods = cyclePixels(worldX: 108)
-    var partial = goods
-    partial.withUnsafeMutableBytes { raw in
-        let pixels = raw.bindMemory(to: UInt8.self)
-        for y in 132..<170 { for x in 250..<286 {
-            let at = (y * 896 + x) * 4
-            pixels[at] = 26; pixels[at + 1] = 16; pixels[at + 2] = 16
-        } }
-    }
+    let empty = cycleSearchPixels(worldX: 108, variant: 1)
+    let goods = cycleSearchPixels(worldX: 108, variant: 1, goods: 1)
+    let partial = cycleSearchPixels(worldX: 108, variant: 1, goods: 2)
     var restarts = 0
     NG2Fake.cycleTap = { x, y in
         if x == 144 && y == 448 {
