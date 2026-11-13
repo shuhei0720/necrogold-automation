@@ -389,7 +389,7 @@ jobs:
       - name: Generate and inspect actual source-specific project configuration
         run: |
           (cd upstream && xcodegen generate --spec project.yml)
-          python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
+          python3 driver/patches/loopctrl/check_perception_build.py --project --profile-version 3 upstream "$RUNNER_TEMP/ngg2/perception-build"
       - name: Verify TEST070 Runtime dispatch Red and Green
         if: inputs.native_lane != 'device'
         run: python3 driver/patches/loopctrl/check_ngg2.py --test070-public-only upstream "$RUNNER_TEMP/test070-runtime"
@@ -463,7 +463,7 @@ jobs:
           (output/'snapshot.json').write_text(json.dumps(snapshot, indent=2)+'\n')
           PYPROOF
       - name: Verify actual source-specific Perception compiler profile
-        run: python3 driver/patches/loopctrl/check_perception_build.py --compile-profile upstream "$RUNNER_TEMP/ngg2/ios-build.txt" "$RUNNER_TEMP/ngg2/perception-build"
+        run: python3 driver/patches/loopctrl/check_perception_build.py --compile-profile --profile-version 3 upstream "$RUNNER_TEMP/ngg2/ios-build.txt" "$RUNNER_TEMP/ngg2/perception-build"
       - name: Verify package and record provenance
         run: python3 driver/patches/loopctrl/verify_package.py upstream driver upstream/release/LoopCtrl.ipa
       - name: Save unsigned IPA
@@ -549,7 +549,7 @@ jobs:
           python3 driver/patches/loopctrl/apply_ngg2.py upstream
           brew install xcodegen
           (cd upstream && xcodegen generate --spec project.yml)
-          python3 driver/patches/loopctrl/check_perception_build.py --project upstream "$RUNNER_TEMP/ngg2/perception-build"
+          python3 driver/patches/loopctrl/check_perception_build.py --project --profile-version 3 upstream "$RUNNER_TEMP/ngg2/perception-build"
       - name: Observe fixed TEST057 dispatch preparation assertion Red
         run: python3 driver/patches/loopctrl/check_ngg2.py --test058-red-only upstream "$RUNNER_TEMP/test058-baseline"
       - name: Run actual Runtime TEST061 public integration fixtures
@@ -631,7 +631,7 @@ jobs:
           (output/'snapshot.json').write_text(json.dumps(snapshot, indent=2)+'\n')
           PYPROOF
       - name: Verify actual source-specific Perception compiler profile
-        run: python3 driver/patches/loopctrl/check_perception_build.py --compile-profile upstream "$RUNNER_TEMP/ngg2/ios-build.txt" "$RUNNER_TEMP/ngg2/perception-build"
+        run: python3 driver/patches/loopctrl/check_perception_build.py --compile-profile --profile-version 3 upstream "$RUNNER_TEMP/ngg2/ios-build.txt" "$RUNNER_TEMP/ngg2/perception-build"
       - name: Verify package and record provenance
         run: python3 driver/patches/loopctrl/verify_package.py upstream driver upstream/release/LoopCtrl.ipa
       - name: Save unsigned IPA

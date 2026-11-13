@@ -168,5 +168,8 @@
       "source_root": "ring_native",
       "sha256": "b612eca3b2e8723ce30868fdc4543ff6a0e9431b60a585f7cc2fa2267b981556"
     }
-  }
+  },
+  "cycle_capability": "necrogold_native_cycle_v1",
+  "cycle_profile": "normal-1-1-cycle-v1",
+  "compiler_profile_version": 3
 }

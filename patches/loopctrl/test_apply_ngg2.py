@@ -26,6 +26,10 @@ def blob(raw):
 
 
 class NGG2ApplyTests(unittest.TestCase):
+    def test_native_cycle_requires_strict_ring_profile_three_without_changing_legacy_cap(self):
+        self.assertEqual(3, verifier.required_native_profile('necrogold_native_cycle_v1'))
+        self.assertEqual(2, verifier.required_native_profile('necrogold_native_v15'))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

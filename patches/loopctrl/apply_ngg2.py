@@ -261,6 +261,9 @@ def seal(root):
         'api_version': '1.98.16-ngg2', 'capability': 'necrogold_native_v1',
         'client_capability': 'necrogold_native_v15',
         'patch_sha256': digest(raw_patch), 'files': files, 'additions': additions}
+    if 'LoopCtrlUITests/NG2CycleWire.swift' in additions:
+        manifest.update(cycle_capability='necrogold_native_cycle_v1',
+                        cycle_profile='normal-1-1-cycle-v1', compiler_profile_version=3)
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2) + '\n')
     return manifest
 

@@ -24,7 +24,7 @@
 - native fast4: host分類326=43.9ms/151=24.1ms/309=10.8ms/225=27.2ms。既23 slotの安全上界が全て旧exact以上、対象309を保持した。iPhone/p95ではない。
 - feature bank: named8品、closed chest2 poseを分離。閾値を先に固定し8×8交差・対象/別ring/2containerを校正。未知配置の正解率へ数えない。
 - 原225の元RGBAと実Perceptionでcomplete coverage2、raw board mode1、唯一row、known IDs6/7/8・3価格・余剰0を確認。merchant .99984809/coverage1、SHOP全文1/1、両endcapが成立。aggregate有効化前のhost分類28.2msで、実機成功ではない。
-- installer46 Green、固定upstream+G1に実patch check。Swift実行・実compiler/IPA/配布物・完全sourceは次工程で結果を追記する。
+- installer当初46、cycle専用のprofile3 binding Red→Green追加後47 Green。固定upstream+G1に実patch check。Swift実行・実compiler/IPA/配布物・完全sourceは次工程で結果を追記する。
 
 ## 未受入・残事項
 

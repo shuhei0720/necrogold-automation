@@ -90,13 +90,22 @@ def inspect_native_sources(upstream, driver):
         if runtime not in expected:
             raise ValueError('native_runtime_response_api')
         require_runtime_response_api((upstream / runtime).read_text(), manifest['api_version'])
-    return {'api_version': manifest['api_version'], 'capability': manifest['capability'],
+    cycle_fields = {}
+    if 'LoopCtrlUITests/NG2CycleWire.swift' in expected:
+        if (manifest.get('cycle_capability') != 'necrogold_native_cycle_v1'
+                or manifest.get('cycle_profile') != 'normal-1-1-cycle-v1'
+                or manifest.get('compiler_profile_version') != 3):
+            raise ValueError('native_cycle_compiler_identity')
+        cycle_fields = {key: manifest[key] for key in ('cycle_capability', 'cycle_profile', 'compiler_profile_version')}
+    return {**cycle_fields, 'api_version': manifest['api_version'], 'capability': manifest['capability'],
         'client_capability': manifest.get('client_capability', 'necrogold_native_v1'),
         'native_manifest_sha256': hashlib.sha256(manifest_raw).hexdigest(),
         'native_source_sha256': expected}
 
 
 def required_native_profile(capability):
+    if capability == 'necrogold_native_cycle_v1':
+        return 3
     if capability == 'necrogold_native_v6':
         return 1
     if capability in ('necrogold_native_v7', 'necrogold_native_v8', 'necrogold_native_v9', 'necrogold_native_v10', 'necrogold_native_v11', 'necrogold_native_v12', 'necrogold_native_v13', 'necrogold_native_v14', 'necrogold_native_v15'):
@@ -108,7 +117,7 @@ def main():
     upstream, driver, ipa = map(Path, sys.argv[1:])
     report = inspect_ipa(ipa)
     report.update(inspect_native_sources(upstream, driver))
-    required_version = required_native_profile(report['client_capability'])
+    required_version = required_native_profile(report.get('cycle_capability', report['client_capability']))
     if required_version is not None:
         from check_perception_build import read_compile_profile
         report['perception_build_profile'] = read_compile_profile(
