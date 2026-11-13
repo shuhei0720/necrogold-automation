@@ -1,6 +1,6 @@
 # TEST096: 095の受領と残存停止
 
-2026-11-13（日本時間）。調査/実装中、未配布。[計画](../plans/test096-walk-cycle-repair.md)・[修正表](../fix-records.md)。
+2026-11-13（日本時間）。CI/配布物照合済み、実機改善未確認。[計画](../plans/test096-walk-cycle-repair.md)・[修正表](../fix-records.md)。
 
 3 ZIP/61 PNG、ZIP計14,247,136B。全CRC/SHA・専用manifest/record chain・全画像metadata・登録集合・archive inventoryを照合。全complete/terminal/drained、回収不足0。
 
@@ -29,3 +29,11 @@ Runtimeは旧sourceへの戻しを全bytesで確認できる有限のticket発�
 独立担当は4製品差分と選択CIを確認し、修正済み余剰看板指摘以外に未解決のP0/P1なし。Macro faultの全組合せではなく、選択境界の証明と実機未確認を分ける。最終CI/IPA照合はこの後に記録する。
 
 CI170は選択host134/API/spool/Exportが成功。Runtimeの旧sourceは指定assertで意味Red、現sourceの275ms PAUSE候補は成功した。次の陰性ケースは陰性採用→1回RESTART→次候補採用まで成功したが、試験時計がRESTART後34msしか進まず、既存200ms UI待機のため最終PAUSEへ進めなかった。元ログを保存し、独立レビュー後、095 helperと同じ次候補採用後220msの一度だけの進行を追加。製品・期限・assertは不変で、試験側の不整合として記録する。修正後の全12callbackとIPAは次CIで確認する。
+
+## 最終CIと配布物
+
+code `c12e66667de54ea69180c0b6629cf11e7498a1af`、run43427316593/build171。現sourceのhost129＋selector5=134件/13scopeが成功。Macの認証API・実FS spool・Exportと元sourceの意味Red、現Runtime新4＋関連8の12callbackが成功。次候補のUI待機時計を直したCI170の失敗は履歴に残す。旧094 Runtime14を実行済みとは扱わず、新096の置換caseと選択範囲を明示した。別の実C producer5入力は既policy2であり、証明3全体のMac実callbackやiPhone判定精度を証明しない。
+
+root実物5種類を照合、計5試行/5種類。36seal/4変更、実C8/Swift5/profile3のRSP/FileList・9Mach-Oと禁止748marker・旧canonical15source/56,088B ELF・bank/生成器・G1/R12全40、build source811ファイルの全bytes/CRCが一致。IPA 18,012,560B、SHA `b185b36a7a3b6efce5bba2b3e5a0e6b5aff32608607a1cac489c00e6e840d3a2`。作者Redの一部は元source/test保存の記録で、完全な元compiler束とは呼ばない。原288の保持Scene/判定bytes/時刻を変えない制御側の限定校正でも対象なしを採用したが、実PAUSE未観測のため耐久完了とはしない。
+
+closingは文書だけを変更し製品/試験/sealは不変。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test096-build171/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test096-build171/source.zip)を固定Releaseへ保存する。公開後の匿名全GET/SHA/実tag/closing全source照合は私有配布記録へ残す。次の実機は通常1-1ポーズから候補探索→商店→対象だけ判定→対象なしなら次周回まで。停止通知後、全画像/記録/ZIP照合の終了を待って表示ZIP全体を返却してもらう。到達率・毎拍・人超え速度・未知精度の実機受入は未確認。
