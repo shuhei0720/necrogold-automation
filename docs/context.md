@@ -6,7 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
-| TEST092の起動/静止/未局在候補/表示 | [計画](plans/test092-startup-stationary-status.md)・[受領/検証](reviews/test092.md) | 新092試験・旧関連を今回計画から選ぶ。091結果は受領節へ集約 |
+| TEST093の開扉後の入店 | [計画](plans/test093-opened-entry.md)・[受領/検証](reviews/test093.md) | 新CのFRESH/未送信回復と旧関連だけ。Runtime092は不変bytes/過去証跡 |
 | 現在の不具合・今回の計画 | statusの結果と計画リンク | [検証の区分](testing.md)、該当する受領記録 |
 | 修正前の過去対策・再発照合 | [修正記録表](fix-records.md) | 同じ事象/原因を検索。過去の対策を改善完了と扱わない |
 | 入力予約・初歩・再予約・motion | `patches/loopctrl/ngg2/NG2Controller.c` の `reserve`、`ng2_controller_observe_at/tick/begin/complete`、`resolve_move`、`reference_*` | `tests/test_native_closed_mouth080.py`・`tests/test_native_dirt_ticket079.py`・`tests/test_native_passage_palette077.py`・`tests/test_native_open_entry077.py`・`tests/test_native_stationary_wait076.py`・`tests/test_native_passage_unsent076.py`・`tests/test_native_view074.py`・`tests/test_native_ui073.py`・`tests/test_native_observation072.py`・`tests/test_native_passage072.py`・`tests/test_native_shop071.py`・`tests/test_native_terrain071.py`・`tests/test_native_cadence070.py`・`tests/test_native_gate069.py`・`tests/test_native_edge068.py`・`tests/test_native_blocked067.py`・`test_native_cadence067.py`・`tests/test_native_device066.py`・`test_native_shop066.py`・`test_native_device065.py`・`test_native_device064.py`・`test_native_gate064.py`・`test_native_unsent_continuous.py`・`test_native_device061.py`・`test_native_motion_cadence.py`、旧回帰は`test_native_controller.py`・`test_native_recovery.py`、[制御契約](contracts/native-control.md) |
