@@ -62,3 +62,5 @@ code7f3fdc1/run43349912952/build154のhostは、GOLD4後の新mode7でctypes Rec
 codeff7188a/run43350940123/build155で限定host30件は合格。Macで旧Runtimeのnamed assertion Redを確認し、現Runtimeは縦画像の後に正常896×414/EXIF1を解析した。しかしfixtureが正常画像を根拠にした正規PAUSEまで入力0を要求し、最初のcaseで失敗した。IPA作成前の試験条件の誤りである。
 
 正常画像を受ける3caseだけ、最初のC observe直前にprefix0/入力0/起動1回を確認し、以後のbegin済み操作は正常accepted capture由来・portrait source除外を要求する。取消/権限/timeout等の入力0、named Red、新9＋旧1の集合は維持。最終fixture30873b95はCI155後の訂正版で、製品Runtime/checker/sealは不変。同じ独立担当の静的レビューでP0/P1なし。修正後のMac試験は次CIで確認する。
+
+CI156（codea9fd4b2/run43352603681）もhost30合格、Macの正常回復case合格。次の64回上限試験は、論理時計57ms/57取得の時点でHOST側8秒が先に切れた。実処理時間と模擬時計のbudgetを混同したfixtureの不足で、製品の3秒期限失敗ではない。このHOST待機だけ30秒に増やし、取得64回/最終failure64/入力0を維持する。他の新caseを同じ担当がFakeの時刻更新順・取消・lease・hook resetまで静的再確認し、別の具体的欠陥は見つからなかった。製品/通常timeout/runnerは不変、修正後のMacは次CIで確認する。

@@ -116,7 +116,7 @@ func test092StartupBounds() {
     let portrait = test092Portrait()
     _ = test092Configure(portrait)
     var id = identity(); test092Start(id)
-    pump("test092_finite_portrait_count_drains", timeout: 8) { drained(id) }
+    pump("test092_finite_portrait_count_drains", timeout: 30) { drained(id) }
     require(NG2Fake.countRequests() == 64 && NG2Fake.countTouches() == 0 &&
         report(id)["reason"]?.intValue == 20 && report(id)["analyzed_capture_count"]?.intValue == 0 &&
         test092Failure(id)?["capture_id"]?.intValue == 64,
