@@ -45,7 +45,7 @@ GOLD静止の新4methodはO0/strict O2で有効assertion Red→Green。新block/
 
 最終coreはC f5dc9713/Nav8c8809ecと不変Perception等の8sourceに結合。原Sceneをcacheから再利用し、125→127/152・127→152はBLOCKED/0歩、原280はCANDIDATE158/GOLD0を保ったままmask1/上左口/LEFT-FLOORになる。追加compile/原PNG再分析/Controller呼出0の校正で、未収録279や未来の店内画像は作っていない。別の旧Controllerによる手続きfixture設計調査は最終現Cの試験とは分ける。
 
-同一独立担当が計画とUI/Nav/C/Runtimeを静的に1回レビューしP0/P1なし。GOLDexact2・positive-only全保護/ITEMguard・旧CLEAR不整合拒否のP2を解消。初期2枚/固定mouth、後CLEAR/goal/再取得でのnegative-veto、actualGold/finish/levelでの撤回、元期限/UNKNOWN無再送を確認した。Runtimeはd18e7441、新fixture/checkerを製品編集前に凍結し、Swift不在による事前意味Redの時系列制限はそのまま明示する。限定Macの旧Runtime Red1/現新9＋旧091pin1はまだ未実行。独立したcompile/意味/分類の再実行は0。
+同一独立担当が計画とUI/Nav/C/Runtimeを静的にレビューしP0/P1なし。GOLDexact2・positive-only全保護/ITEMguard・旧CLEAR不整合拒否のP2を解消。初期2枚/固定mouth、後CLEAR/goal/再取得でのnegative-veto、actualGold/finish/levelでの撤回、元期限/UNKNOWN無再送を確認した。Runtimeはd18e7441。製品編集前のfixture凍結は初版4c75035dだけで、最終版は下記CI155後の訂正を含む。Swift不在による事前意味Redの時系列制限を保持する。独立したcompile/意味/分類の再実行は0。
 
 最終CIは新Nav4＋新C7＋関連Nav2/C7＋UI6＋selector4の30件を選び、旧38件/全Runtime/worldは再実行しない。公開分の新IPA/実source/実compiler/全Mach-O/source照合はこれから行い、実機改善を未確認のまま保持する。
 
@@ -56,3 +56,9 @@ code7f3fdc1/run43349912952/build154のhostは、GOLD4後の新mode7でctypes Rec
 新試験のrecovery aliasだけを署名設定と同型確保を行う既fixture helperへ統一し、typed pointer検査/全8拒否assert/旧ファイルを維持した。実production runnerのimport順で新class7を同processへ並べ、errors8の再現後にGreen7/errors0/skips0。製品/C8source/native manifestと各作者校正は不変、新fixtureだけcccee0427f49bf057d6128da3939169bd258e7154e72693e3b2f6deebeaabebeへ更新した。同じ独立担当が差分・receiptを静的確認しP0/P1なし、再試験0でtest-only commit GO。新CODEの限定CIを開始して全30件を同じ配布sourceへ結合する。
 
 補助selectorの旧参照とexecutorの旧basenameは実物検査前に訂正し、ASTで092参照/固定hashを確認。最初のdraft/失敗出力を保持、これらを実物5gate成功や製品動作確認に数えない。
+
+## CI155と起動fixtureの訂正
+
+codeff7188a/run43350940123/build155で限定host30件は合格。Macで旧Runtimeのnamed assertion Redを確認し、現Runtimeは縦画像の後に正常896×414/EXIF1を解析した。しかしfixtureが正常画像を根拠にした正規PAUSEまで入力0を要求し、最初のcaseで失敗した。IPA作成前の試験条件の誤りである。
+
+正常画像を受ける3caseだけ、最初のC observe直前にprefix0/入力0/起動1回を確認し、以後のbegin済み操作は正常accepted capture由来・portrait source除外を要求する。取消/権限/timeout等の入力0、named Red、新9＋旧1の集合は維持。最終fixture30873b95はCI155後の訂正版で、製品Runtime/checker/sealは不変。同じ独立担当の静的レビューでP0/P1なし。修正後のMac試験は次CIで確認する。

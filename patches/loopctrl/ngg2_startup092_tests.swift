@@ -63,11 +63,35 @@ func test092Clean(_ id: String) {
     NG2Fake.lock.lock(); NG2Fake.beforeForegroundQuery = nil; NG2Fake.lock.unlock()
     fixtureFailureSnapshot = nil
 }
+// The no-input requirement ends at the first independently normal raster.
+// Its controller may legitimately pause after observing that raster. Observe
+// the boundary before C receives it instead of forbidding every later input.
+func test092FirstNormalFence(minimumCaptureID: UInt64) -> Test092Flag {
+    let seen = Test092Flag()
+    NG2RuntimeTestHooks.beforeAnalysisFrameCommit = { capture, start, end, prefix, stable in
+        guard !seen.get() else { return }
+        require(capture >= minimumCaptureID && start < end && prefix == 0 && stable &&
+            NG2Fake.countTouches() == 0 && NG2Fake.countActivations() == 1,
+            "test092_portrait_wait_has_no_input_before_first_normal_raster_reaches_C")
+        seen.set()
+    }
+    return seen
+}
+func test092NormalSources(_ id: String, excluding rejected: Set<Int>) -> Bool {
+    let value = report(id)
+    let captures = (value["captures"]?.arrayValue ?? []).compactMap { $0.objectValue?["id"]?.intValue }
+    let events = (value["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    return events.filter { ($0["begin_ns"]?.intValue ?? 0) > 0 }.allSatisfy {
+        guard let source = $0["source_capture_id"]?.intValue else { return false }
+        return captures.contains(source) && !rejected.contains(source)
+    }
+}
 func test092FirstPortraitWaitsForLandscape() {
     for orientation in [Int?(1), nil] { for scale in [1, 2] {
         let portrait = test092Portrait(width: 414*scale, height: 896*scale, orientation: orientation)
         _ = test092Configure(portrait)
         let id = identity()
+        let normal = test092FirstNormalFence(minimumCaptureID: 2)
         NG2RuntimeTestHooks.beforeCaptureAdmission = {
             if NG2Fake.countRequests() > 0 {
                 NG2Fake.lock.lock(); NG2Fake.replyData = test092Landscape; NG2Fake.lock.unlock()
@@ -77,9 +101,12 @@ func test092FirstPortraitWaitsForLandscape() {
         pump("test092_first_portrait_reaches_terminal_or_normal_raster") {
             (report(id)["analyzed_capture_count"]?.intValue ?? 0) > 0 || drained(id)
         }
-        require((report(id)["analyzed_capture_count"]?.intValue ?? 0) > 0 &&
-            test092Failure(id) == nil && NG2Fake.countRequests() >= 2 && NG2Fake.countTouches() == 0 &&
-            NG2Fake.countActivations() == 1,
+        let raster = report(id)["raster_samples"]?.arrayValue?.first?.objectValue
+        require(normal.get() && (report(id)["analyzed_capture_count"]?.intValue ?? 0) > 0 &&
+            test092Failure(id) == nil && NG2Fake.countRequests() >= 2 && NG2Fake.countActivations() == 1 &&
+            raster?["source_width"]?.intValue == 896 && raster?["source_height"]?.intValue == 414 &&
+            raster?["orientation"]?.intValue == 1 &&
+            test092NormalSources(id, excluding: [1]),
             "test092_first_portrait_waits_for_landscape_without_rotation_input_or_relaunch")
         test092Clean(id)
     } }
@@ -124,6 +151,7 @@ func test092StartupBounds() {
 func test092LateAdmittedNormalKeepsCaptureContract() {
     let clock = test092Configure(test092Portrait())
     let id = identity()
+    let normal = test092FirstNormalFence(minimumCaptureID: 2)
     NG2RuntimeTestHooks.beforeCaptureAdmission = {
         if NG2Fake.countRequests() == 1 {
             clock.advance(2_998_000_000)
@@ -140,8 +168,8 @@ func test092LateAdmittedNormalKeepsCaptureContract() {
     pump("test092_admitted_normal_raster_finishes_after_startup_deadline") {
         (report(id)["analyzed_capture_count"]?.intValue ?? 0) > 0 || drained(id)
     }
-    require((report(id)["analyzed_capture_count"]?.intValue ?? 0) > 0 && test092Failure(id) == nil &&
-        NG2Fake.countRequests() >= 2 && NG2Fake.countTouches() == 0,
+    require(normal.get() && (report(id)["analyzed_capture_count"]?.intValue ?? 0) > 0 && test092Failure(id) == nil &&
+        NG2Fake.countRequests() >= 2 && test092NormalSources(id, excluding: [1]),
         "test092_normal_reply_already_admitted_before_deadline_retains_original_capture_contract")
     test092Clean(id)
     print("PASS TEST092 already admitted normal reply retains original capture completion contract")
@@ -169,6 +197,7 @@ func test092NormalAndAnalysisFailuresEndWait() {
     _ = test092Configure(test092Landscape)
     let portrait = test092Portrait()
     var id = identity()
+    let normal = test092FirstNormalFence(minimumCaptureID: 1)
     NG2RuntimeTestHooks.beforeCaptureAdmission = {
         if NG2Fake.countRequests() > 0 {
             let deadline = Date().addingTimeInterval(2)
@@ -180,9 +209,9 @@ func test092NormalAndAnalysisFailuresEndWait() {
     }
     test092Start(id)
     pump("test092_portrait_after_normal_raster_drains") { drained(id) }
-    require(NG2Fake.countRequests() == 2 && report(id)["analyzed_capture_count"]?.intValue == 1 &&
+    require(normal.get() && NG2Fake.countRequests() == 2 && report(id)["analyzed_capture_count"]?.intValue == 1 &&
         report(id)["reason"]?.intValue == 20 && test092Failure(id)?["capture_id"]?.intValue == 2 &&
-        NG2Fake.countTouches() == 0, "test092_first_normal_raster_permanently_ends_startup_wait")
+        test092NormalSources(id, excluding: [2]), "test092_first_normal_raster_permanently_ends_startup_wait")
     test092Clean(id)
     _ = test092Configure(test092Landscape)
     id = identity(); NG2RuntimeTestHooks.analysisRGBA = { _ in Data() }

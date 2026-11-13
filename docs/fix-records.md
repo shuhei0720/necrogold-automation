@@ -147,6 +147,7 @@
 | FR-092-RING-STATUS | 2026-11-13 | 商品到達時と未到達停止時の判定ログが同じ | outcome unknownだけを表示し、sourcesあり/なしを区別しない | 暫定/正式の共通formatterで実施済み・一致未確認と未実施を分離。判定/authority/schema/ELF不変 | [新表示単体](../tests/test_ring_status092.py)5＋旧表示1が実3.9でGreen。有効Red先行、旧assert維持/不足mock metadata補足。関連progressのhost i386非対応は失敗と明記。旧FR-090-UNKNOWN-TEXTに継続1を記録 | 0（092表示後の実機再観測なし。判定精度の合格ではない） |
 | FR-092-HARNESS-RECOVERY-TYPE | 2026-11-13 | CI154の新class7同時実行でRecoveryStatus型エラー8件 | GOLD窓試験が共有CDLLのargtypesを別の同layout型へ設定し、後続の借用helperが他型を確保。作者6＋1の別実行では順序依存を検出できなかった | 新試験だけ、署名設定と同じ型の確保を一組にする既helperへ統一。void cast/型検査緩和/旧試験変更なし | 実runnerのimport順・同processの新7件を再現しerrors8→Green7/skips0、全8拒否assertを維持。製品/8core/manifest不変、CI154はMac/IPA作成前に停止。次の同source-bound CIで全30件を確認する | 0（試験修正後の再観測なし。製品の意味Red/実機改善とは別） |
 | FR-092-DELIVERY-REFERENCES | 2026-11-13 | 新selector自己試験2件とexecutor静的確認で旧版参照を検出 | 091から092の補助コード作成時に旧entry/reader名が残存 | 092 entry/step/BASE/READER/SPEC/LEDGER/schema/hashのAST照合を追加し、全assertを維持して訂正 | selector自己4Green、executor静的レビューP0/P1なし、実artifact読取/gate試行前に訂正。製品変更なし。過去FR-090/091のreader記録と照合 | 1（selector訂正後にexecutorでも旧版参照を配布前検出。製品とは別） |
+| FR-092-HARNESS-STARTUP-PHASE | 2026-11-13 | CI155の起動fixtureが正常画像解析後に失敗 | 縦画像待機中の入力禁止を、正常画像からの正規PAUSEにも要求した | 正常3caseで最初のC observe直前の無入力を確認し、その後はaccepted正常sourceだけの操作を要求。禁止系の入力0は維持 | host30合格/旧Runtimeのnamed Red/現Runtimeの正常raster解析を確認。fixture30873b95を独立静的レビュー、修正後Macは次CI。製品/seal不変、初版だけ事前凍結であることを明記 | 0（修正後の再観測なし。実機停止とは別） |
 
 ## 未整理・未確定の扱い
 
