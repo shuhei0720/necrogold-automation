@@ -14,7 +14,7 @@ NATIVE = ('NG2Beat.c', 'NG2Controller.c', 'NG2Navigation.c', 'NG2Perception.c', 
           'NG2RingKernel/observe.c', 'NG2RingKernel/icon.c', 'NG2RingKernel/word.c')
 
 
-def fixture_source():
+def fixture_source(selected=None):
     original = (HERE / 'ngg2_runtime_tests.swift').read_text()
     boundary = '// This public request is intentionally runnable'
     if original.count(boundary) != 1:
@@ -23,12 +23,21 @@ def fixture_source():
     call = '\ntest058PreparedContinuousDeadlinePublic()\n'
     if prior.count(call) != 1:
         raise ValueError('old selected declaration boundary')
-    return (original.split(boundary)[0] + prior.split(call)[0] +
-            '\ntest058EveryPreparationIdentityField()\n'
+    fixture = (HERE / 'ngg2_cycle_runtime_tests.swift').read_text()
+    cases = '// TEST094 CASE CALLS BEGIN.\n'
+    if fixture.count(cases) != 1:
+        raise ValueError('cycle selected mutation fixture boundary')
+    prefix = original.split(boundary)[0] + prior.split(call)[0]
+    if selected is not None:
+        calls = {'lease': 'testCycle094WorkerCancelAndDrain(cycleRoot)\n',
+                 'unknown': 'testCycle094StartedUnknownCompletion(cycleRoot)\n'}
+        if selected not in calls:
+            raise ValueError('cycle mutation selection')
+        return prefix + fixture.split(cases)[0] + calls[selected]
+    return (prefix + '\ntest058EveryPreparationIdentityField()\n'
             'test058PreparedContinuousCase("prefix")\n'
             'test058PreparedContinuousCase("cancel")\n'
-            'print("PASS TEST094 selected old preparation identity/prefix/cancel callbacks")\n' +
-            (HERE / 'ngg2_cycle_runtime_tests.swift').read_text())
+            'print("PASS TEST094 selected old preparation identity/prefix/cancel callbacks")\n' + fixture)
 
 
 def main():
@@ -58,15 +67,17 @@ def main():
 #include "NG2Templates.h"
 #include <string.h>
 void ng2_test_pause(uint8_t *out,size_t length) {
-    const NG2Template *t=&ng2_template_continue; int x,y;
+    const NG2Template *templates[2]={&ng2_template_continue,&ng2_template_restart}; int x,y,index;
     if(!out||length!=896u*414u*4u)return;
     memset(out,0,length);
     for(size_t i=3;i<length;i+=4)out[i]=255;
-    for(y=0;y<t->h;++y)for(x=0;x<t->w;++x)
-        if((t->mask[y*((t->w+7)/8)+x/8]>>(7-x%8))&1) {
-            size_t p=((t->y+y)*896u+t->x+x)*4u;
-            out[p]=out[p+1]=out[p+2]=255;
-        }
+    for(index=0;index<2;++index){const NG2Template *t=templates[index];
+        for(y=0;y<t->h;++y)for(x=0;x<t->w;++x)
+            if((t->mask[y*((t->w+7)/8)+x/8]>>(7-x%8))&1) {
+                size_t p=((t->y+y)*896u+t->x+x)*4u;
+                out[p]=out[p+1]=out[p+2]=255;
+            }
+    }
 }
 ''')
         objects, commands = [], []
@@ -88,8 +99,9 @@ void ng2_test_pause(uint8_t *out,size_t length) {
         sources = [stage / 'RPCTypes.swift', native / 'NG2Ticket.swift', native / 'NG2Raster.swift',
             *(native / name for name in HELPERS), HERE / 'ngg2_runtime_fakes.swift', runtime_path, stage / 'main.swift']
 
-        def execute(source, name):
+        def execute(source, name, selected=None):
             runtime_path.write_text(source)
+            (stage / 'main.swift').write_text(fixture_source(selected))
             command = ['swiftc', '-Onone', '-D', 'NG2_RUNTIME_HOST_TEST', '-D', 'NG2_CYCLE_TEST094', '-D', 'NG2_PREPARATION_TEST058_GREEN',
                 '-Xcc', '-I' + str(native), '-Xcc', '-I' + str(HERE), '-import-objc-header', str(stage / 'Bridge.h'),
                 *map(str, sources), *map(str, objects), '-o', str(stage / name)]
@@ -105,7 +117,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             marker = ('                    && !(run.cycle?.workerBusy ?? false) && (run.cycle == nil || run.cycle!.terminalPersisted)')
             if runtime.count(marker) != 1:
                 raise ValueError('cycle drain mutation boundary')
-            red = execute(runtime.replace(marker, '', 1), 'cycle-drain-fault-red')
+            red = execute(runtime.replace(marker, '', 1), 'cycle-drain-fault-red', 'lease')
             expected = 'FAIL cycle094_cancel_holds_lease_until_worker_and_main_return'
             if red.returncode != 1 or expected not in red.stdout:
                 raise SystemExit('meaningful cycle drain Red missing:\n' + red.stdout + red.stderr)
@@ -113,7 +125,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             if runtime.count(projection) != 1:
                 raise ValueError('cycle UNKNOWN projection mutation boundary')
             red = execute(runtime.replace(projection, '"native_inflight": .bool(run.inFlight)', 1),
-                          'cycle-unknown-projection-red')
+                          'cycle-unknown-projection-red', 'unknown')
             expected = 'FAIL cycle094_unknown_synth_actual_drain_projection'
             if red.returncode != 1 or expected not in red.stdout:
                 raise SystemExit('meaningful UNKNOWN projection Red missing:\n' + red.stdout + red.stderr)

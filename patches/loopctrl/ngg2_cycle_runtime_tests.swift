@@ -15,6 +15,11 @@ func cyclePayload(_ id: String) -> [String: JSONValue] { cycleCall(id).0?["paylo
 func cycleCompanion(_ id: String) -> [String: JSONValue] { cyclePayload(id)["cycle"]?.objectValue ?? [:] }
 func cycleDrained(_ id: String) -> Bool { cyclePayload(id)["workers_drained"]?.boolValue == true }
 func cycleStart(_ id: String) {
+    fixtureFailureSnapshot = {
+        ["cycle_status": .object(cyclePayload(id)), "controller_report": .object(report(id)),
+         "touch_count": .int(NG2Fake.countTouches()), "capture_requests": .int(NG2Fake.countRequests()),
+         "tap_count": .int(NG2Fake.taps().count)]
+    }
     let answer = runtime.handle(method: "necro_native_start", params: ["run_id": .string(id),
         "profile": .string("normal-1-1-cycle-v1"), "_necro_owner": .string("fixture-owner")])
     require(answer.1 == nil, "cycle094_start_accepted")
@@ -171,6 +176,8 @@ func testCycle094LateAndStorageHold(_ root: URL, storage: Bool) {
 func testCycle094TwoShopsAndIntentCancel(_ root: URL, cancelIntent: Bool) {
     let clock = resetCycleFixture(root), id = identity(), gate = NSLock()
     var level = 1, expose = true, settleAdvanced = false, nextSettleAdvanced = false, writerEntered = false
+    var classifierReleased = false, pauseBeforeClassifier = false
+    let classificationRelease = DispatchSemaphore(value: 0)
     let first = cyclePixels(), nextEmpty = cyclePixels(worldX: 36, goods: false), nextGoods = cyclePixels(worldX: 36)
     NG2RuntimeCycleTestHooks.rgba = { original in
         NG2Fake.lock.lock(); let paused = NG2Fake.walkPaused; NG2Fake.lock.unlock()
@@ -182,6 +189,12 @@ func testCycle094TwoShopsAndIntentCancel(_ root: URL, cancelIntent: Bool) {
         gate.lock(); let current = level; gate.unlock()
         ng2_fixture_cycle_result(scene, result.started_ns, NG2Runtime.now(), current == 1 ? 3 : 1, &result)
     }
+    if cancelIntent {
+        // Exercise the CI162 ordering deliberately: the PAUSE image reaches
+        // control while the classifier is still pending. Settling the UI may
+        // not advance this procedural clock past the worker's adoption bound.
+        NG2RuntimeCycleTestHooks.beforeClassification = { _ in classificationRelease.wait() }
+    }
     NG2Fake.cycleTap = { x, y in
         if x == 144 && y == 448 {
             gate.lock(); level = 2; expose = false; gate.unlock()
@@ -191,13 +204,19 @@ func testCycle094TwoShopsAndIntentCancel(_ root: URL, cancelIntent: Bool) {
     NG2RuntimeTestHooks.beforeControlTick = {
         let state = cycleCompanion(id)
         gate.lock()
-        let advance = !settleAdvanced && (state["pause_capture_id"]?.intValue ?? 0) > 0
+        let paused = (state["pause_capture_id"]?.intValue ?? 0) > 0
+        let releaseClassifier = cancelIntent && !classifierReleased && paused && state["pending"]?.boolValue == true
+        if releaseClassifier { classifierReleased = true; pauseBeforeClassifier = true }
+        let advance = !settleAdvanced && paused && state["pending"]?.boolValue == false
+            && state["assessment_status"]?.stringValue == "ok" && state["outcome"]?.stringValue == "negative"
+            && (state["durable_ns"]?.intValue ?? 0) > 0
         if advance { settleAdvanced = true }
         if (state["level_id"]?.intValue ?? 0) >= 2 { expose = true }
         let advanceNext = !nextSettleAdvanced && (state["level_id"]?.intValue ?? 0) >= 2
             && state["pending"]?.boolValue == false && state["outcome"]?.stringValue == "candidate"
         if advanceNext { nextSettleAdvanced = true }
         gate.unlock()
+        if releaseClassifier { classificationRelease.signal() }
         if advance { clock.advance(220_000_000) }
         if advanceNext { clock.advance(220_000_000) }
     }
@@ -210,6 +229,8 @@ func testCycle094TwoShopsAndIntentCancel(_ root: URL, cancelIntent: Bool) {
     cycleStart(id)
     if cancelIntent {
         pump("cycle094_exact_intent_writer_entered", timeout: 20) { gate.lock(); defer { gate.unlock() }; return writerEntered }
+        gate.lock(); let observedPendingPause = pauseBeforeClassifier; gate.unlock()
+        require(observedPendingPause, "cycle094_pause_before_classifier_does_not_spend_adoption_deadline")
         require(NG2Fake.taps().count == 1, "cycle094_uncommitted_intent_restart_zero")
         _ = call("necro_native_cancel", id)
         require(!cycleDrained(id), "cycle094_cancel_does_not_fake_writer_drain")
@@ -349,6 +370,16 @@ func testCycle094StartedUnknownCompletion(_ root: URL) {
         "cycle094_publication_does_not_clear_unknown_global_poison")
 }
 
+// TEST094 ENTRYPOINTS BEGIN.
+var pauseProbeRGBA = Data(count: 896 * 414 * 4)
+let pauseProbeBytes = pauseProbeRGBA.count
+pauseProbeRGBA.withUnsafeMutableBytes { ng2_test_pause($0.bindMemory(to: UInt8.self).baseAddress, pauseProbeBytes) }
+var pauseProbeScene = NG2Scene()
+let pauseProbeStatus = pauseProbeRGBA.withUnsafeBytes {
+    ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress, pauseProbeBytes, 896 * 4, &pauseProbeScene)
+}
+require(pauseProbeStatus == 0 && pauseProbeScene.state == 1 && pauseProbeScene.restart_label == 1,
+    "cycle094_procedural_pause_has_continue_and_restart_observed_by_real_C")
 let cycleRoot = FileManager.default.temporaryDirectory.appendingPathComponent("runtime-cycle094-" + UUID().uuidString)
 try FileManager.default.createDirectory(at: cycleRoot, withIntermediateDirectories: true,
     attributes: [.posixPermissions: NSNumber(value: 0o700)])
@@ -356,6 +387,7 @@ defer { try? FileManager.default.removeItem(at: cycleRoot) }
 NG2RuntimeCycleTestHooks.spoolRoot = cycleRoot
 NG2RuntimeCycleTestHooks.notificationAuthorization = "authorized"
 pump("cycle094_prepare_ready") { cycleCall(identity(), "prepare").0?["payload"]?.objectValue?["ready"]?.boolValue == true }
+// TEST094 CASE CALLS BEGIN.
 testCycle094WorkerCancelAndDrain(cycleRoot)
 testCycle094InitialStorageRecovery(cycleRoot)
 testCycle094CandidateOneShot(cycleRoot)
