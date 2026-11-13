@@ -120,7 +120,7 @@
 | FR-090-REVEALED-ROUTE | 2026-11-13 | 実089-3で同じ次LEFTを未送信拒否 | 新bracket扉/金と遠方DIRT→FLOORで元monotone不成立、reason8→7へ変化 | 同方向/同目標/FLOOR・厳密静止と元未送信票の全期限/予算下だけ既FRESHへ移す | [新3単体](../tests/test_native_revealed_route090.py)の4方向/拒否12/予算2、関連3。FR-055-FRESH・FR-081-REFRESHと照合しglobal monotoneは保持。実時計model未保存のため合成時計、実機改善未確認 | 0（今回記録開始後の再観測なし。実機未確認） |
 | FR-090-THIN-IRON | 2026-11-13 | 実089-4で開扉をBLOCKEDとして入口停止 | 薄い鉄閉扉が中央値でFLOORとなり、旧DOOR→FLOOR条件へ入らない | 金bracket内の限定縦線をDOORへ回復し、既開扉0歩経路へ渡す | [新3単体](../tests/test_native_thin_gate090.py)・原108の1byte型訂正/原115不変と公開DOOR_OPENED。FR-072-NARROW-OPEN・FR-074-OPEN-GRADIENTはDOOR型を前提とする別段階。進入/下商品と実機改善は未確認 | 0（今回記録開始後の再観測なし。実機未確認） |
 | FR-090-RING-COST | 2026-11-13 | 指輪先行判定までの待ちが残る | icon内の同じ浮動積/64bit累積が冗長。実5.276秒区間の全内訳は未確定 | 安全上界内のint32累積/同じ256値の積を再利用する意味不変整理 | [計画](plans/test090-device-stops.md)、原309/235/204のmode0/1全6packet同値・実3.9 backend1・異cwd再build同一。FR-088-CPU・FR-089-KERNELと照合。開発単発約18%を実iSH/人超えにしない。実機改善未確認 | 未集計（待ち全体の原因内訳は未確定） |
-| FR-090-UNKNOWN-TEXT | 2026-11-13 | 実089-1の「不明」が商品判定失敗と受け取られた | のろい一致未確認と全商品名識別/対象なし確定の区別が伝わりにくい表示 | 「のろいのゆびわとの一致は未確認（対象なしとは未確定）」へ表示literalだけ訂正 | [既表示試験](../tests/test_target_publication087.py)と進捗2を実3.9で確認。2sourceを旧literalへ逆変換すると元全bytes一致。[旧対象判定契約](contracts/target-assessment.md)と照合、schema/閾値/陰性判定は不変。実機表示未確認 | 0（今回記録開始後の再観測なし。実機未確認） |
+| FR-090-UNKNOWN-TEXT | 2026-11-13 | 実089-1の「不明」が商品判定失敗と受け取られた | のろい一致未確認と全商品名識別/対象なし確定の区別が伝わりにくい表示 | 「のろいのゆびわとの一致は未確認（対象なしとは未確定）」へ表示literalだけ訂正 | [既表示試験](../tests/test_target_publication087.py)と進捗2を実3.9で確認。2sourceを旧literalへ逆変換すると元全bytes一致。[旧対象判定契約](contracts/target-assessment.md)と照合、schema/閾値/陰性判定は不変。091実機で表示は確認したが、実施状態の区別は未解決 | 1（091で実施済み/未実施の区別がつかないとの再指摘。表示集約の継続、判定精度の再発ではない） |
 | FR-090-CI-SCOPE | 2026-11-13 | 旧087 host selectorが089のclient変更を拒否する条件が残る | 旧版の不変pin/対象集合を現在版にも要求する | 新090 selectorで実patched source/22sealと変更部・関連だけを固定、旧Runtimeは不変bytesへ結合して今回未実行と明示 | [selector自己4試験](../patches/loopctrl/test_device_ci090.py)で旧pin/省略/重複を拒否するRed→Green。実CI/IPAの照合は別に記録し、過去のGreenを今回実行へ流用しない | 0（今回記録開始後の再観測なし） |
 | FR-090-READER-PATH | 2026-11-13 | 実物検査がR12を38件と誤集計して停止 | Git name-onlyの引用された日本語2pathを改行分割のprefix判定で落とした | 列挙を-z/NUL/UTF8へ訂正し実40pathと全bytesを照合 | [検証記録](reviews/test090.md)。過去のパス/JSON/CI行を参照し別原因と確認。Unicode単体Red→Green、retainedだけ明示再実行してPASS、既PASS2は再実行0。IPA/製品変更なしの補助検査で、実機改善を示さない | 0（今回記録開始後の再観測なし） |
 
@@ -135,6 +135,16 @@
 | FR-091-TERRAIN-AXIS | 2026-11-13 | 090実2の実UP1後に8UNKNOWN | 全旧STONEは保存されるが、旧有限左右raw帯/blur競合条件が不成立 | 旧17段を保ち、全旧STONE2/非共線DIRT9・unique9・有限raw全73/差・world95%・axis75%/旧15ppの別証明 | [091受領](reviews/test091.md)。旧FR-074-CLEAR-UNITに今回継続1を記録。HUD喪失0でFR-090-HUD-STONE適用外。新4単体/保存pair校正と現CI38件を確認。未来到達の確認ではない | 0（091新証明の実機再観測なし。旧通路問題の継続は上記に記録） |
 | FR-091-OPEN-BLUR | 2026-11-13 | 090実3で開扉しても2商品だけで停止 | 型DOORは正しいが、rawzero .45546/旧detail95%/gradient支持の不足で開通0変位がUNKNOWN | 旧証明不変、有限rawzero/runner差・unique bracket・detail75%/二帯/旧競合比較・blurzero絶対品質の別AND | [091受領](reviews/test091.md)。FR-074-OPEN-GRADIENTへ継続1を記録。FR-090-THIN-IRONと異なる段階。新5単体/原pair校正と現CI38件を確認。開扉0歩、全3商品不可視を完了/対象なしにしない。実機改善未確認 | 0（091新証明の実機再観測なし。旧開通問題の継続は上記に記録） |
 | FR-091-PUBLICATION-NAME | 2026-11-13 | 公開後の補助検査がasset名の集合比較で停止 | root作成の補助scriptがチェックサム名をSHA256SUMSと仮定。既publisher正本はSHA256SUMS.txtで配布物の破損ではない | 過去の配布検査/既workflow FILESを照合し実名へ訂正。3asset/全bytesの検査は維持 | [固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test091-build152)の実tagと全3assetの匿名GET200/全bytes/SHA一致を確認。初回は原asset読取前に失敗、実物5gate再実行0/製品・配布物変更0。公開後の文書追記のみ、固定tag/source731は維持 | 0（今回記録開始後の再観測なし。実機とは別の補助検査） |
+
+
+## TEST092の対策（実機改善未確認）
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-092-STARTUP-PORTRAIT | 2026-11-13 | 091初回d503でゲーム表示前にgeometry停止 | 最初の828×1792/EXIF1の縦画像を約426msでaspect拒否。前面PIDと描画向き完了を分けない。raw未保持で画像内容未確定 | 既3秒の新取得期限/64回/50ms内だけ初期portraitを再観測、既2秒reply/drain・Raster・正常後failfastは維持 | [計画](plans/test092-startup-stationary-status.md)・[受領](reviews/test092.md)。旧FR-044接続/FR-047向き処理とは別段階。次実行で起動した実績と、恒久改善未確認を分ける。限定Mac公開fixtureで確認する | 0（新対策後の実機再観測なし。実機未確認） |
+| FR-092-GOLD-STATIC | 2026-11-13 | 091実2で未送信静止拒否後BEAT停止 | 同位置の光/遠方材質差で旧raw/static95%証明が不成立、元anchorへ静止を証明できず再同期へ | 旧19段/旧条件不変、同GOLD2/全旧STONE/非共線DIRT・有限rawzero/world95/axis75/競合の別zero証明 | [受領](reviews/test092.md)。旧FR-076待機/FR-085静止/FR-082の競合条件を照合。旧CLR静止と異なるGOLD条件、旧対策削除による回帰は未確定。新4単体と元ticketの窓/ID/0credit単体がGreen。開通/移動creditへしない。実機改善未確認 | 0（新GOLD証明後の実機再観測なし。旧問題の適用外条件が継続） |
+| FR-092-UNLOCALIZED-GOLD | 2026-11-13 | 091実4で候補を見て0歩SCREEN停止 | 原280は上端金/CANDIDATE/peak158/GOLD tile0、通常店経路なし・通路がCLEAR専用。最初拒否279未保持で全predicate未確定 | 正の未局在候補のまま既観測mouth/床経路へ2独立画像で接近。CLEAR偽装/地図外GOLD/未知床/陰性restartへ変換しない | [計画](plans/test092-startup-stationary-status.md)。旧FR-074描画待ち/FR-091未送信初歩を照合、今回はMOVE未発行で後者scope前。新mode6＋窓1/旧関連7がGreen。原280校正/新制御単体は未収録未来の到達証明ではない | 0（新mode後の実機再観測なし。実機未確認） |
+| FR-092-RING-STATUS | 2026-11-13 | 商品到達時と未到達停止時の判定ログが同じ | outcome unknownだけを表示し、sourcesあり/なしを区別しない | 暫定/正式の共通formatterで実施済み・一致未確認と未実施を分離。判定/authority/schema/ELF不変 | [新表示単体](../tests/test_ring_status092.py)5＋旧表示1が実3.9でGreen。有効Red先行、旧assert維持/不足mock metadata補足。関連progressのhost i386非対応は失敗と明記。旧FR-090-UNKNOWN-TEXTに継続1を記録 | 0（092表示後の実機再観測なし。判定精度の合格ではない） |
 
 ## 未整理・未確定の扱い
 

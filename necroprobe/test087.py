@@ -3,6 +3,7 @@ import time
 
 from .test069 import main as device_main
 from .target_assessment import AssessmentError, prepare_assessment
+from .ring_status import assessment_label
 
 
 _ENGINE_FAILURES = frozenset((
@@ -16,7 +17,7 @@ _ENGINE_FAILURES = frozenset((
 def _prepare(base, record, report_sha, cancelled, *, classify=None, before=None):
     started = time.monotonic()
     next_notice = [started+5]
-    print('指輪判定中。保存済みの画像を確認しています。', flush=True)
+    print('指輪判定中。商品画像の有無と保存状態を確認しています。', flush=True)
     def checked_cancel():
         stopped = cancelled()
         if not stopped:
@@ -37,9 +38,7 @@ def _prepare(base, record, report_sha, cancelled, *, classify=None, before=None)
         if reason in _ENGINE_FAILURES:
             print('指輪判定を完了できませんでした（'+reason+'）。元データを保持します。', flush=True)
         raise
-    label = {'target': 'のろいのゆびわ（アイコンと名前が一致）',
-             'candidate': '指輪候補（保持して目視確認してください）',
-             'unknown': 'のろいのゆびわとの一致は未確認（対象なしとは未確定）'}[value['outcome']]
+    label = assessment_label(value['outcome'], has_sources=bool(value['sources']))
     print('対象判定: '+label, flush=True)
     return value
 

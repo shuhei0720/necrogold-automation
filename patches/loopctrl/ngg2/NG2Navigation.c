@@ -222,8 +222,15 @@ int ng2_choose(const NG2Scene *source,int32_t x,int32_t y,const uint16_t *visits
     return 0;
 }
 
+static int unlocalized_passage_view(const NG2Scene *s) {
+    int i;
+    if(s->gold_state!=NG2_GOLD_CANDIDATE||s->gold_peak<135)return 0;
+    for(i=0;i<CELLS;++i)
+        if(s->protected_cells[i]||s->tiles[i]==NG2_TILE_ITEM)return 0;
+    return 1;
+}
 static int passage_scene(const NG2Scene *s) {
-    return valid_scene(s) && s->gold_state==NG2_GOLD_CLEAR &&
+    return valid_scene(s) && (s->gold_state==NG2_GOLD_CLEAR || unlocalized_passage_view(s)) &&
         s->goods==NG2_GOODS_UNKNOWN && !gold_count(s) &&
         tile(s,0,0)==NG2_TILE_FLOOR && passage_clear(s,0,0);
 }
@@ -1735,6 +1742,53 @@ static void opening_blur_quality_motion(const NG2Scene *before,const NG2Scene *a
     out->kind=NG2_DOOR_OPENED;out->dx=out->dy=0;
 }
 
+/* A confirmed gold view can change illumination without camera movement.
+ * Preserve exact old gold and all visible old terrain, then separate blurred
+ * quality from signed-axis competition. A blurred one-pixel alias is never
+ * counted as a winning margin. This additional proof is strictly zero-only. */
+static int unique_gold_zero_translation(const NG2Scene *a,const NG2Scene *b) {
+    int amount,d,matches=0,tx=0,ty=0;
+    if(gold_count(a)!=2||gold_count(b)!=2)return 0;
+    for(amount=0;amount<=2;++amount)for(d=1;d<=(amount?4:1);++d){
+        int x=amount*ddx[d],y=amount*ddy[d];
+        if(translated_gold(a,b,x,y,1)){++matches;tx=x;ty=y;}
+    }
+    return matches==1&&!tx&&!ty;
+}
+static void stationary_gold_axis_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                        const View views[2],const Candidate candidates[73],NG2Motion *out) {
+    ClosedGateAxisCache *cache;int dx,dy,i,x,y,center,support,bad,regions[2];
+    if(out->kind!=NG2_MOTION_UNKNOWN||direction<1||direction>4)return;
+    dx=ddx[direction];dy=ddy[direction];
+    if(before->state!=NG2_FLOOR||after->state!=NG2_FLOOR
+        ||before->gold_state!=NG2_GOLD_CANDIDATE||after->gold_state!=NG2_GOLD_CANDIDATE
+        ||before->goods!=NG2_GOODS_UNKNOWN||after->goods!=NG2_GOODS_UNKNOWN
+        ||tile(before,0,0)!=NG2_TILE_FLOOR||tile(after,0,0)!=NG2_TILE_FLOOR
+        ||tile(before,dx,dy)!=NG2_TILE_FLOOR||tile(after,dx,dy)!=NG2_TILE_FLOOR)return;
+    for(i=0;i<CELLS;++i)if(before->protected_cells[i]||after->protected_cells[i]
+        ||before->tiles[i]==NG2_TILE_DOOR||after->tiles[i]==NG2_TILE_DOOR
+        ||before->tiles[i]==NG2_TILE_ITEM||after->tiles[i]==NG2_TILE_ITEM)return;
+    if(!unique_gold_zero_translation(before,after)
+        ||!unique_visible_terrain_translation(before,after,0,0))return;
+    for(center=0;center<2;++center)for(y=-1;y<=1;++y)for(x=-1;x<=1;++x)
+        if(tile(before,x+center*dx,y+center*dy)!=tile(after,x+center*dx,y+center*dy))return;
+    for(i=0;i<73;++i)if(!isfinite(candidates[i].score))return;
+    if(candidates[0].sx||candidates[0].sy||!(candidates[0].score>.45)
+        ||!(candidates[1].score-candidates[0].score>=.08))return;
+    world_blur_texture(before,after,views,0,0,&support,&bad,regions);
+    if(!texture_strength(support,bad,95)||regions[0]<100||regions[1]<100)return;
+    cache=(ClosedGateAxisCache*)calloc(1,sizeof(*cache));if(!cache)return;
+    closed_gate_axis_features(before,cache->before,cache->indices,&cache->count);
+    closed_gate_axis_features(after,cache->after,NULL,NULL);
+    closed_gate_axis_texture(cache,0,0,&support,&bad,regions);
+    if(!texture_strength(support,bad,75)||regions[0]<100||regions[1]<100){free(cache);return;}
+    for(i=1;i<73;++i){
+        int count,opposite;
+        closed_gate_axis_texture(cache,candidates[i].sx,candidates[i].sy,&count,&opposite,NULL);
+        if(!texture_lead(support,bad,count,opposite)){free(cache);return;}
+    }
+    free(cache);out->kind=NG2_BLOCKED;out->dx=out->dy=0;
+}
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -1769,6 +1823,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     hud_occluded_terrain_blur_motion(before,after,direction,views,candidates,out);
     terrain_axis_unit_motion(before,after,direction,views,candidates,out);
     opening_blur_quality_motion(before,after,direction,views,candidates,out);
+    stationary_gold_axis_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,

@@ -3122,3 +3122,11 @@ code e7d9f42c4085316542fea864c9ba4e17a9e4acec、run43252794927/build150。実pat
 091は初歩0入力下の有限2画像再観測・拒否raw1pin、通路全旧STONEunit、木扉blur絶対品質の別zero証明を追加する。旧17段/期限/予算/UNKNOWN無再送・既critical7/map12・API16/cap15/ABIは維持。classifier/56,088B ELF/G1/R12は不変。作者単体/保存pair校正は未来の実機到達ではなく、新実機改善未確認。最終code `f355a1dd2c37ecdb04fafa0aa853b0e26f71c0ac`、run43265221701/build152。host38/11全Green、Mac固定c9 Red1/現新5＋旧081関連6も成功。実物5gate各1回PASS、実C4/Swift5/RSP6・9Mach-O342禁止marker・731source/IPA全照合。22seal3変更19不変。IPA17,636,448B/SHA `cfb5cbe037bf2b8bbfaefd41d81010d65e041381b627e873f58276874a04973e`。
 
 [IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test091-build152/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test091-build152/source.zip)。closingは文書4件だけ、公開後匿名全GET/actualtagを照合する。更新/LoopCtrl完全再起動/Start Server/通常VPN、新test_091.shで通常1-1ポーズから一連4回、表示されたruntime/test-091-<run_id>.zip全回分を依頼。稀な対象待ち周回は不要。実機到達率/毎拍/人超え/未知陽性精度は未受入。
+
+## TEST091受領とTEST092: 起動・静止・未局在金と指輪表示
+
+2026-11-13（日本時間）。[計画](../plans/test092-startup-stationary-status.md)・[受領/検証](../reviews/test092.md)・[修正記録](../fix-records.md)。初回d503は最初の縦828×1792/EXIF1を約426msでaspect拒否、正常PNG0。新規startのgeometry停止と、後の未公開結果ZIP保存再開を分ける。次の実行では起動できた。
+
+追加4ZIP/77PNG、実時刻順7702 goods6歩→7a8d beat2歩→56df goods7歩→6d60 screen0歩を全CRC/SHA/strict load/certificate/canonical sidecar/登録集合へ照合。7a8dは17枚が全公開対象で回収不足ではない。商品到達2/4。goods2回は絵・文字判定実行済みunknown/no_target_evidence、停止2回はno_authority未実施。新原画の再分類0。
+
+092は初期portraitだけの元期限内再観測、同GOLD2の別静止zero証明、CANDIDATE/GOLD0を陽性の未局在候補として既観測通路へ接近するmode、実施済み/未実施の表示を追加する。Raster/未知入力無再送/全期限予算/候補保持/自動購入0/旧API16/cap15/ABIを維持。最初拒否279未保持は原280で代用しない。調光/idleTimerは変更しない。新C/Runtimeの限定試験・CI/配布物の結果は完了後に追記し、実機改善は未確認のまま次の一連4回を依頼する。

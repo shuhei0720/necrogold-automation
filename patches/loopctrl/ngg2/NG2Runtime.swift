@@ -237,6 +237,9 @@ private final class NG2Run {
     var uiFrozen = false
     var captureTimedOut = false
     var bootstrapUIStarted = false
+    var startupRasterDeadline: UInt64 = 0
+    var startupRasterReady = false
+    var startupPortraitFailures = 0
     var core: OpaquePointer?
     var expectedPID: pid_t = 0
     var foreground = false
@@ -726,6 +729,66 @@ final class NG2Runtime {
             run.preparation = nil
         }
     }
+    // The original activation deadline bounds new requests after a portrait,
+    // never an extension or input authority. Called only under run.lock.
+    private func startupPortraitGateLocked(_ run: NG2Run, generation: UInt64, now: UInt64) -> Bool {
+        guard run.generation == generation, run.cancelReason == 0, !run.stopped else { return false }
+        let lost: Int32 = !ownerActive(run) ? 5 : (LockStateMonitor.shared().isLocked ? 4 : 0)
+        if lost != 0 {
+            run.cancelReason = lost; run.generation &+= 1; run.stopped = true
+            run.latest = nil; run.preparation = nil
+            return false
+        }
+        return now >= run.acceptedStarted && !run.startupRasterReady && run.startupRasterDeadline > now && run.startupPortraitFailures < 64
+            && run.bootstrapUIStarted && run.prefix == 0 && !run.inFlight
+            && run.initial == nil && run.latest == nil && run.analyzedFrames == 0 && run.captures.isEmpty
+            && run.mainCommandID == 0 && run.mainCallbacks.isEmpty && run.expectedPID > 0
+            && !run.captureOutstanding && run.captureFailure == nil
+    }
+    private func waitForStartupPortrait(_ run: NG2Run, generation: UInt64,
+        startPrefix: UInt64, endPrefix: UInt64, startInFlight: Bool, endInFlight: Bool,
+        failure: NG2Raster.Failure) -> Bool {
+        guard failure.stage == .metadata, failure.code == .aspect,
+              failure.orientation == nil || failure.orientation == 1,
+              let width = failure.sourceWidth, let height = failure.sourceHeight,
+              width > 0, height > width, height <= 4096, width*height <= 8_000_000,
+              width*NG2Raster.width == height*NG2Raster.height,
+              startPrefix == 0, endPrefix == 0, !startInFlight, !endInFlight else { return false }
+        let expected: pid_t? = run.lock.ng2Locked {
+            guard !run.bootstrapOutstanding,
+                  self.startupPortraitGateLocked(run, generation: generation, now: Self.now()) else { return nil }
+            // This queued callback owns the main lease until it really returns,
+            // including when cancellation wins before main gets to execute it.
+            run.bootstrapOutstanding = true
+            return run.expectedPID
+        }
+        guard let expected else { return false }
+        var retry = false
+        DispatchQueue.main.sync {
+            guard run.lock.ng2Locked({
+                self.startupPortraitGateLocked(run, generation: generation, now: Self.now())
+                    && run.expectedPID == expected
+            }) else { return }
+            let queryStart = Self.now()
+            let foreground = ForegroundApp.frontmostPID() == expected
+            let queryEnd = Self.now()
+            retry = run.lock.ng2Locked {
+                let now = Self.now()
+                guard self.startupPortraitGateLocked(run, generation: generation, now: now),
+                      run.expectedPID == expected else { return false }
+                if !foreground {
+                    run.cancelReason = 3; run.generation &+= 1; run.stopped = true
+                    run.latest = nil; run.preparation = nil
+                    return false
+                }
+                guard NG2TicketGuard.authoritySampleIsFresh(start: queryStart, end: queryEnd, now: now) else { return false }
+                run.startupPortraitFailures += 1
+                return run.startupPortraitFailures < 64
+            }
+        }
+        run.lock.ng2Locked { run.bootstrapOutstanding = false }
+        return retry
+    }
     #if NG2_RUNTIME_HOST_TEST
     // TEST056 HOST METHOD BEGIN.
     // Configure retained rasters and a diagnostic snapshot only after actual
@@ -1064,6 +1127,7 @@ final class NG2Runtime {
         }
         run.lock.ng2Locked { run.bootstrapOutstanding = false }
         let activationDeadline = Self.now() + 3_000_000_000
+        run.lock.ng2Locked { run.startupRasterDeadline = activationDeadline }
         while !run.foreground && !run.lock.ng2Locked({ run.stopped }) && Self.now() < activationDeadline {
             Thread.sleep(forTimeInterval: 0.05)
             run.lock.ng2Locked { run.bootstrapOutstanding = true }
@@ -1085,6 +1149,9 @@ final class NG2Runtime {
     }
 
     private func capture(_ run: NG2Run) {
+        // Only the final failure enters the existing closed wire record. A
+        // recovered portrait is never published as a failed game raster.
+        var startupPortrait: (generation: UInt64, id: UInt64, start: UInt64, end: UInt64, failure: NG2Raster.Failure)?
         defer {
             run.lock.ng2Locked { run.captureWorkerDone = true }
             controlQueue.async {
@@ -1107,12 +1174,25 @@ final class NG2Runtime {
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.beforeCaptureAdmission?()
             #endif
+            var startupDenied = false
             let admission: (UInt64, UInt64, Bool, UInt64, UInt64)? = run.lock.ng2Locked {
                 guard !run.stopped, run.cancelReason == 0, self.ownerActive(run) else { return nil }
+                if let prior = startupPortrait, !run.startupRasterReady,
+                   !self.startupPortraitGateLocked(run, generation: prior.generation, now: Self.now()) {
+                    startupDenied = run.generation == prior.generation && run.cancelReason == 0 && !run.stopped
+                    return nil
+                }
                 run.captureID += 1; run.captureOutstanding = true
                 return (run.captureID, run.prefix, run.inFlight, run.generation, Self.now())
             }
-            guard let before = admission else { return }
+            guard let before = admission else {
+                if startupDenied, let prior = startupPortrait {
+                    commitCaptureFailure(run, generation: prior.generation, id: prior.id,
+                        start: prior.start, end: prior.end, failure: prior.failure)
+                    cancelCaptureFailure(run, generation: prior.generation)
+                }
+                return
+            }
             let start = before.4
             NG2CaptureBridge.requestJPEG { data, error in
                 let first = replyLock.ng2Locked { () -> Bool in
@@ -1146,8 +1226,20 @@ final class NG2Runtime {
             }
             let decoded: NG2Raster.ProfiledResult
             switch decoding {
-            case .success(let value): decoded = value
+            case .success(let value):
+                decoded = value
+                run.lock.ng2Locked {
+                    if run.generation == before.3 && run.cancelReason == 0 && !run.stopped && self.ownerActive(run) {
+                        run.startupRasterReady = true
+                    }
+                }
             case .failure(let failure):
+                if waitForStartupPortrait(run, generation: before.3, startPrefix: before.1,
+                    endPrefix: endPrefix, startInFlight: before.2, endInFlight: endInFlight, failure: failure) {
+                    startupPortrait = (before.3, before.0, start, captureEnd, failure)
+                    Thread.sleep(forTimeInterval: 0.05)
+                    continue
+                }
                 commitCaptureFailure(run, generation: before.3, id: before.0, start: start, end: captureEnd, failure: failure)
                 cancelCaptureFailure(run, generation: before.3); return
             }

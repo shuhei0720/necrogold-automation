@@ -88,6 +88,8 @@ RecoveryTrace192B/RecoveryStatus456Bの別getterで消去前model/raw samples≤
 
 ## 12. 起動/旧client回復
 
+092は最初の正常decode前だけ、既activation3秒内の新取得/64回/50msで厳密portrait反転aspectを再観測する。既発行captureの2秒reply/drainは維持、正常後/他failure/Raster/EXIFは不変。世代/owner/取消/lock/前面を再検査し再launch/入力しない。[限定計画](../plans/test092-startup-stationary-status.md)。
+
 新規v16/API1.98.16-ngg2/cap15、cap14互換。081計画§5のrevision対応。v1〜15=profile1、v16=profile2。全応答APIはv1〜13=.14、v14=.15、v15/16=.16。v12〜16はmotion_references、v14〜16はrecovery必須。旧診断不在可/存在時同閉schema。motion_wait≤8はAPI.16/v15・16のみ、旧版≤3。v10〜16は4chunk、v9は1、v1〜8はlegacy。started回復は元UUID/clock/owner・GET0/start0、新cap不要。未開始旧journalは同UUIDでv16へ移行。unknown start無再送。fresh preflight許可transientは最大4試行/計8秒/各2秒。
 
 ## 13. Export

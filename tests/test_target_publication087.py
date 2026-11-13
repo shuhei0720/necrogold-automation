@@ -189,9 +189,14 @@ class TargetPublication087Tests(unittest.TestCase):
         for outcome, expected in (('target', 'のろいのゆびわ'), ('candidate', '候補'),
                                   ('unknown', 'のろいのゆびわとの一致は未確認（対象なしとは未確定）')):
             output = io.StringIO()
-            with patch.object(test087, 'prepare_assessment', return_value=dict(outcome=outcome)) as assess:
+            reason = {'target': 'icon_and_name', 'candidate': 'icon_only', 'unknown': 'no_target_evidence'}[outcome]
+            # The display fixture represents an evaluated source, as an actual
+            # sidecar does; outcome alone did not describe execution status.
+            value = dict(outcome=outcome, reason=reason, sources=[dict(outcome=outcome, reason=reason)])
+            with patch.object(test087, 'prepare_assessment', return_value=value) as assess:
                 with patch('sys.stdout', output): result = prepare(self.base, {}, 'a'*64, lambda: False)
             self.assertEqual(outcome, result['outcome'])
+            self.assertIn('実施済み', output.getvalue())
             self.assertIn(expected, output.getvalue())
             # Permit only the explicit statement that absence is unconfirmed;
             # any separate assertion of absence remains forbidden.

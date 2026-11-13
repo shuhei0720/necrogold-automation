@@ -59,3 +59,8 @@ TEST079の[限定計画](../plans/test079-gold-reveal-dirt.md)は旧判定後UNK
 
 
 TEST080の[狭い閉金扉unit証明](../plans/test080-sparse-gate-closed-mouth.md)は、全旧Nav後UNKNOWNかつ元73phaseがすべて正INFの場合だけ追加。有限/NaN/負INFは対象外。両FLOOR/CANDIDATE/GOODS_UNKNOWN・全ITEM/保護0・旧origin/実nextと最新origin床、閉DOOR2ahead→adjacent/同法線・GOLDexact2/unique9・保持旧STONE2点と旧門中心の非共線を要する。新phaseは固定openingmaskの全実3×3依存が両frame既知同材質・非DOOR/ITEM/保護である点だけを元normalized intensity算術/支持300/mean6/contrast2.5/gain.65..1.55で全73採点し、元unit/score≤.45/gap≥.08を要求。固定65帯各100（両frame64/65中心除外）で独立2領域をphase側に課し、さらに078固定H→V3feature/camera52の総300/95%/全73元15ppを併用する。旧strong52帯100と全旧関数は変更せず、この新結合だけへ限定。unit以外や開通/入口credit、元期限/予算/未知入力再送は追加しない。
+
+
+## TEST092の正の未局在金候補
+
+[092計画](../plans/test092-startup-stationary-status.md)のFLOOR/CANDIDATE/peak≥135/商品UNKNOWN/GOLD0/原点FLOOR/全ITEM・保護0だけ、既観測mouthと床経路へ接近できる。独立2枚の同分類/mask/口脇支持が必要で、SceneをCLEARへ変えず地図外GOLDを作らない。入力は現在Sceneの既safe_step/完全Decision/静止/prefix/元期限で証明し、mouth/world原点を移動後に再検出しない。private positive意図は陰性restartを拒むだけで、actualGOLD/商品/finish/level切替で撤回。候補mask0やlocalgoalで金未局在なら未判定保持し、旧CLEAR通路の局所見送りとは分ける。UNKNOWN送信の再送/未知床/掘削/新enum・ABI・予算拡大はない。
