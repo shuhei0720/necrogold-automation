@@ -67,7 +67,7 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "1c165cc350739dc36f6bcafcba648b60695a954203b2f9bc6f84e21711cc6932"
+      "sha256": "309a1659e2413cdc3a756f069f7c9116d900b834c7152cf867c89a1caaaebac4"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
@@ -87,11 +87,11 @@
     },
     "LoopCtrlUITests/NG2CycleWire.swift": {
       "source": "NG2CycleWire.swift",
-      "sha256": "401b371fac584a32153d8fec03fac86f9c6ba7bd4d64db91995e62d9aa252a39"
+      "sha256": "ab848ba94bdc01cc7c1965211903a0b3e179a9f21f227725530e240fa1c62983"
     },
     "LoopCtrlUITests/NG2Navigation.c": {
       "source": "NG2Navigation.c",
-      "sha256": "072fa967028b67fe8d5f031b5ff50b876c029af386d3acbb0b199de7310d2b0e"
+      "sha256": "692338e2a15b6bb42a1de4eeabc87e072e83935c388a7a876a29039e0c1eefa5"
     },
     "LoopCtrlUITests/NG2Perception.c": {
       "source": "NG2Perception.c",
@@ -107,11 +107,11 @@
     },
     "LoopCtrlUITests/NG2Ring.c": {
       "source": "NG2Ring.c",
-      "sha256": "2effe1d888b7f64685927ab0a556efcd5f1326c7e62b2dca1b38195babe4f92f"
+      "sha256": "b19083122ddf296719113daf35ea4e636766ed5bf5b33b191f376fddb15068d5"
     },
     "LoopCtrlUITests/NG2Ring.h": {
       "source": "NG2Ring.h",
-      "sha256": "34f5cdf3cc258b89f38037cb54cbdf225302c7b9171306bc5461e957d8142095"
+      "sha256": "02a04dac3d916ac4616ec4ad8c278f626345961b33e4ac10d3ee6ca8be51d44a"
     },
     "LoopCtrlUITests/NG2RingBank.h": {
       "source": "NG2RingBank.h",
@@ -123,7 +123,7 @@
     },
     "LoopCtrlUITests/NG2Runtime.swift": {
       "source": "NG2Runtime.swift",
-      "sha256": "14b104ea107de79599f1a4b419eb823bd51ef0634dbf4beaca2be300cff0fd11"
+      "sha256": "a4a0f54182cb70850a5bd22cb6a5c60763b024acbd49567ad0734155cc424bd0"
     },
     "LoopCtrlUITests/NG2Templates.h": {
       "source": "NG2Templates.h",

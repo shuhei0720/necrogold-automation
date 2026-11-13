@@ -12,6 +12,8 @@
 enum { NG2_RING_UNKNOWN=0, NG2_RING_CANDIDATE=1, NG2_RING_TARGET=2, NG2_RING_NEGATIVE=3 };
 #define NG2_RING_NON_TARGET 3u
 #define NG2_RING_IGNORED_CONTAINER 4u
+#define NG2_RING_GENERIC_NON_TARGET 3u
+enum { NG2_RING_MODE_LEGACY=0, NG2_RING_MODE_COMPENSATED=1, NG2_RING_MODE_TARGET_ONLY=2 };
 enum { NG2_RING_OK=0, NG2_RING_CANCELLED=1, NG2_RING_DEADLINE=2,
        NG2_RING_INVALID=3, NG2_RING_ALLOCATION=4, NG2_RING_KERNEL=5 };
 enum { NG2_RING_COVERAGE_UNKNOWN=0, NG2_RING_COVERAGE_INCOMPLETE=1,
@@ -96,6 +98,7 @@ const char *ng2_ring_bank_sha256(void);
 const char *ng2_ring_coverage_sha256(void);
 const char *ng2_ring_coverage_version(void);
 const char *ng2_ring_policy_version(void);
+const char *ng2_ring_target_only_policy_version(void);
 
 /* Pure bounded raw-row aggregation, also used by the pixel entry point.
  * Input fields must be finite; outputs use Python's binary64 round(...,9). */

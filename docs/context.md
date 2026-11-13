@@ -6,7 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
-| TEST094の端末内判定・周回 | [計画](plans/test094-native-goods-cycle.md)・[候補補足](plans/test094-shadow-passage.md)・[検証](reviews/test094.md) | NG2Ring/Controller cycle/Runtime・CycleSpool/Wire/Export、native_cycle/test094。新profile専用、旧API維持 |
+| TEST095の実機停止・対象判定 | [今回計画](plans/test095-device-stops.md)・[受領/検証](reviews/test095.md) | Nav/Controllerの候補・PARTIAL継続・未送信静止、[対象だけの判定](plans/test095-target-only.md)、095起動。基準と旧周回契約は[094](plans/test094-native-goods-cycle.md) |
 | TEST093の開扉後の入店 | [計画](plans/test093-opened-entry.md)・[受領/検証](reviews/test093.md) | 新CのFRESH/未送信回復と旧関連だけ。Runtime092は不変bytes/過去証跡 |
 | 現在の不具合・今回の計画 | statusの結果と計画リンク | [検証の区分](testing.md)、該当する受領記録 |
 | 修正前の過去対策・再発照合 | [修正記録表](fix-records.md) | 同じ事象/原因を検索。過去の対策を改善完了と扱わない |

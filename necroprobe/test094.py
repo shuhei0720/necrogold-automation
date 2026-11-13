@@ -42,8 +42,11 @@ def _assessments(base, record):
     return results
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description='TEST094: 端末内の商品判定と自動周回')
+def main(argv=None, *, test_number='094'):
+    if type(test_number) is not str or len(test_number) != 3 or any(char not in '0123456789' for char in test_number):
+        raise ValueError('invalid test number')
+    prefix = 'TEST-'+test_number
+    parser = argparse.ArgumentParser(description='TEST'+test_number+': 端末内の商品判定と自動周回')
     parser.add_argument('--python-crypto', action='store_true')
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args(argv)
@@ -55,7 +58,7 @@ def main(argv=None):
         cancelled[0] = True
     previous = {sig:signal.signal(sig, stop) for sig in (signal.SIGINT, signal.SIGTERM)}
     notice = lambda message: print(message, flush=True)
-    base = Path.home()/'.necroprobe'/'runtime'/'test-094'
+    base = Path.home()/'.necroprobe'/'runtime'/('test-'+test_number)
     try:
         key, tok = load_pairing(Path.home()/'.loopctrl'/'token.json')
         with OwnedRpcTimer() as timer:
@@ -65,7 +68,7 @@ def main(argv=None):
                 cancelled=lambda:cancelled[0], notice=notice)
         if archive is None:
             reason = record['last_error'] or 'native_result_pending'
-            notice('TEST-094: 未完了 / '+reason+'。同じ実行IDを保持しています。')
+            notice(prefix+': 未完了 / '+reason+'。同じ実行IDを保持しています。')
             if reason == 'cycle_notification_permission':
                 notice('ゲームは開始していません。LoopCtrlを開き、通知を許可してから実行してください。')
             elif reason == 'cycle_evidence_storage_unavailable':
@@ -91,13 +94,13 @@ def main(argv=None):
         if manifest['input_state'] == 4 or manifest['ui_frozen']:
             notice('自動操作: 入力結果が不明なため凍結。次の実行前にLoopCtrlを再起動してください。')
         if manifest['interrupted'] or not manifest['complete']:
-            notice('TEST-094: 中断・不完全な実行の診断記録です。正常な商品確認完了には数えません。')
-        notice('TEST-094: 終了。全画像・実行記録とZIPの保存・照合が完了しました。')
+            notice(prefix+': 中断・不完全な実行の診断記録です。正常な商品確認完了には数えません。')
+        notice(prefix+': 終了。全画像・実行記録とZIPの保存・照合が完了しました。')
         notice('このZIPを返してください: '+str(archive))
         return 0
     except (ProbeError, OSError, ValueError, zipfile.BadZipFile) as exc:
         reason = exc.code if isinstance(exc, ProbeError) else 'local_storage_failed'
-        notice('TEST-094: 保存は未完了 / '+reason+'。端末内の同じ実行IDと記録を保持しました。')
+        notice(prefix+': 保存は未完了 / '+reason+'。端末内の同じ実行IDと記録を保持しました。')
         notice('全画像・ZIPの照合前に完了とは扱いません。')
         return 2
     finally:

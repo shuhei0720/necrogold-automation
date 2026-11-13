@@ -1,11 +1,17 @@
 """Publish TEST094's immutable complete session, then acknowledge its hash."""
 import hashlib
 from pathlib import Path
+import re
 import zipfile
 
 from . import native_cycle as cycle
 from .native_walk import _atomic
 from .test069 import _copy, _digest, _sync_directory
+
+
+def _label(base):
+    name = Path(base).name
+    return name if re.fullmatch(r'test-[0-9]{3}', name) else 'test-094'
 
 
 def _inventory(base, record, cancelled):
@@ -25,7 +31,7 @@ def _inventory(base, record, cancelled):
     paths += [folder/'images'/item['name'] for item in manifest['images']]
     # The inventory is derived only from the immutable native registry, never
     # an unbounded rglob that could admit a private or unrelated file.
-    return [(('test-094/'+path.relative_to(base).as_posix()), path,
+    return [((_label(base)+'/'+path.relative_to(base).as_posix()), path,
              *_digest(path, cancelled)) for path in paths]
 
 
@@ -98,7 +104,7 @@ def publish(client, base, destination, record, *, cancelled=lambda: False,
     output = destination/'runtime'
     output.mkdir(parents=True, exist_ok=True)
     cycle.require(not output.is_symlink(), 'cycle_local_symlink')
-    final = output/('test-094-'+record['run_id']+'.zip')
+    final = output/(_label(base)+'-'+record['run_id']+'.zip')
     if not final.exists():
         part = final.with_name(final.name+'.part')
         _copy(source, part, cancelled)

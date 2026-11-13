@@ -300,6 +300,8 @@ jobs:
     needs: native-source-ready
     if: inputs.native_lane == 'device' || inputs.native_lane == 'focused' || (inputs.native_lane == 'full' && needs.native-source-ready.outputs.ready == 'true')
     runs-on: ubuntu-latest
+    outputs:
+      device_profile: ${{ steps.host_contracts.outputs.device_profile }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -318,6 +320,7 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/test061-host-venv"
           "$RUNNER_TEMP/test061-host-venv/bin/pip" install Pillow==11.3.0
       - name: Apply exact sealed native source and run selected host contracts
+        id: host_contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -326,10 +329,17 @@ jobs:
           python3 driver/patches/loopctrl/apply_patch.py upstream
           python3 driver/patches/loopctrl/apply_ngg2.py upstream
           NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test061_host.py
+          DEVICE_PROFILE=legacy
           if [ "${{ inputs.native_lane }}" = device ]; then
             NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test094_host.py
+            DEVICE_PROFILE=094
+            if [ -f driver/patches/loopctrl/run_test095_host.py ]; then
+              NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test095_host.py
+              DEVICE_PROFILE=095
+            fi
           fi
           "$RUNNER_TEMP/test061-host-venv/bin/python" "$NATIVE_HOST_RUNNER" driver upstream "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/host-command.txt"
+          echo "device_profile=$DEVICE_PROFILE" >> "$GITHUB_OUTPUT"
       - name: Save selected host evidence and explicit test inventory
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -387,6 +397,9 @@ jobs:
       - name: Verify TEST094 selected actual Runtime cycle callbacks
         if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_runtime_cycle094.py upstream "$RUNNER_TEMP/test094-runtime" --fault-red'
+      - name: Verify TEST095 target-only Runtime and policy wire callbacks
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile == '095'
+        run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_runtime_target_only095.py upstream "$RUNNER_TEMP/test095-runtime" --fault-red'
       - name: Generate and inspect actual source-specific project configuration
         run: |
           (cd upstream && xcodegen generate --spec project.yml)
@@ -513,6 +526,7 @@ jobs:
             ${{ runner.temp }}/test094-spool/
             ${{ runner.temp }}/test094-export/
             ${{ runner.temp }}/test094-runtime/
+            ${{ runner.temp }}/test095-runtime/
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt
             ${{ runner.temp }}/ngg2/perception-build/

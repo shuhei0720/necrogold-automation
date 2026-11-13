@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-13（日本時間）。TEST094 build165はCI/配布物の検証済み版。**実機改善・受入は未確認**。[計画](plans/test094-native-goods-cycle.md)・[検証と未受入](reviews/test094.md)・[修正表](fix-records.md)。過去の対策や単体合格を実機改善完了と扱わない。
+更新: 2026-11-13（日本時間）。TEST095を実装中（094の4回受領）。[今回の計画](plans/test095-device-stops.md)・[受領](reviews/test095.md)。配布済みはTEST094 build165。**実機改善・受入は未確認**。[計画](plans/test094-native-goods-cycle.md)・[検証と未受入](reviews/test094.md)・[修正表](fix-records.md)。過去の対策や単体合格を実機改善完了と扱わない。
 
 ## 変更
 

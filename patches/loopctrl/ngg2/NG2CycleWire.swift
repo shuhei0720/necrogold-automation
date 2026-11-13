@@ -80,13 +80,13 @@ enum NG2CycleWire {
             "queued_capture_id": number(value.queued_capture_id), "queued_capture_start_ns": number(value.queued_capture_start_ns),
             "queued_prefix": number(value.queued_prefix)]
     }
-    private static func slot(_ value: NG2RingSlot) throws -> JSONValue {
+    private static func slot(_ value: NG2RingSlot, targetOnly: Bool) throws -> JSONValue {
         let scores = [value.icon_score, value.icon_upper_bound, value.word_iou, value.word_coverage,
                       value.non_target_icon_score, value.non_target_name_iou, value.non_target_name_coverage,
                       value.ignored_icon_score, value.ignored_gold_iou, value.ignored_gold_coverage,
                       value.ignored_dark_iou, value.ignored_dark_coverage]
         guard scores.allSatisfy({ $0.isFinite && $0 >= 0 && $0 <= 1.000001 }),
-              value.outcome <= 4, value.kind <= 2, value.non_target_conflict <= 1, value.icon_score_exact <= 1,
+              value.outcome <= 4, value.kind <= (targetOnly ? 3 : 2), value.non_target_conflict <= 1, value.icon_score_exact <= 1,
               value.word_present == 0 || value.word_present == 1 else { throw Failure.invalidAssessment }
         return .object(["cx": integer(value.cx), "sy": integer(value.sy), "slot": integer(value.slot),
             "word_present": .bool(value.word_present == 1), "icon_score": .double(value.icon_score),
@@ -101,7 +101,7 @@ enum NG2CycleWire {
             "non_target_icon_box": .array(ints(value.non_target_icon_box, count: 4)),
             "non_target_name_box": .array(ints(value.non_target_name_box, count: 4)),
             "non_target_conflict": .bool(value.non_target_conflict == 1),
-            "kind": .string(["unknown", "known_non_target", "ignored_closed_container"][Int(value.kind)]),
+            "kind": .string(["unknown", "known_non_target", "ignored_closed_container", "generic_non_target"][Int(value.kind)]),
             "ignored_container_id": .int(Int(value.ignored_container_id)),
             "ignored_icon_score": .double(value.ignored_icon_score),
             "ignored_gold_iou": .double(value.ignored_gold_iou),
@@ -141,7 +141,8 @@ enum NG2CycleWire {
             "board_corner_counts": boxes(value.board_corner_counts, count: 2),
             "board_exterior_count": .array(ints(value.board_exterior_count, count: 2))])
     }
-    static func assessment(_ original: NG2RingResult) throws -> [String: JSONValue] {
+    static func assessment(_ original: NG2RingResult, mode: Int32 = 0) throws -> [String: JSONValue] {
+        let targetOnly = mode == Int32(NG2_RING_MODE_TARGET_ONLY)
         var value = original
         guard value.abi == 1, Int(value.size) == MemoryLayout<NG2RingResult>.size,
               value.status <= 5, value.outcome <= 3, value.coverage <= 2,
@@ -161,13 +162,14 @@ enum NG2CycleWire {
                     return .object(["left": integer(row.left), "sy": integer(row.sy),
                         "word_slot": integer(row.word_slot), "outcome": .string(outcome(row.outcome)),
                         "reason": .int(Int(row.reason)),
-                        "slots": .array(try [slot(row.slots.0), slot(row.slots.1), slot(row.slots.2)])])
+                        "slots": .array(try [slot(row.slots.0, targetOnly: targetOnly), slot(row.slots.1, targetOnly: targetOnly),
+                                              slot(row.slots.2, targetOnly: targetOnly)])])
                 }
             }
         }
         let partial: [JSONValue] = try withUnsafePointer(to: &value.partial) { pointer in
             try pointer.withMemoryRebound(to: NG2RingSlot.self, capacity: 12) { items in
-                try (0..<partialCount).map { try slot(items[$0]) }
+                try (0..<partialCount).map { try slot(items[$0], targetOnly: targetOnly) }
             }
         }
         return ["status": .string(assessmentStatus(value.status)), "outcome": .string(outcome(value.outcome)),
@@ -183,6 +185,7 @@ enum NG2CycleWire {
             "bank_sha256": .string(String(cString: ng2_ring_bank_sha256())),
             "coverage_sha256": .string(String(cString: ng2_ring_coverage_sha256())),
             "coverage_version": .string(String(cString: ng2_ring_coverage_version())),
-            "policy_version": .string(String(cString: ng2_ring_policy_version()))]
+            "policy_version": .string(targetOnly ? String(cString: ng2_ring_target_only_policy_version())
+                                                : String(cString: ng2_ring_policy_version()))]
     }
 }

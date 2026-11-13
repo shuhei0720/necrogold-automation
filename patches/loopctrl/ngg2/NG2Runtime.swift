@@ -115,6 +115,7 @@ enum NG2RuntimeCycleTestHooks {
     static var notificationAuthorization = "authorized"
     static var beforeClassification: ((UInt64) -> Void)?
     static var classificationResult: ((UInt64, UnsafePointer<NG2Scene>, inout NG2RingResult) -> Void)?
+    static var afterClassificationCall: ((Int32, Int32, UInt32) -> Void)?
     static var beforeClassificationCommit: ((UInt64) -> Void)?
     static var beforeCheckpointWrite: ((UInt64) -> Void)?
     static var beforeIntentWrite: ((UInt64) -> Void)?
@@ -820,7 +821,7 @@ final class NG2Runtime {
                 let digest = NG2CycleWire.hash(job.frame.rgba)
                 var options = NG2RingOptions()
                 options.abi = 1; options.size = UInt32(MemoryLayout<NG2RingOptions>.size)
-                options.mode = 0; options.fast = 1; options.deadline_ns = job.deadline
+                options.mode = Int32(NG2_RING_MODE_TARGET_ONLY); options.fast = 1; options.deadline_ns = job.deadline
                 options.scene = UnsafePointer(job.frame.analysis.scene)
                 options.context = Unmanaged.passUnretained(job).toOpaque()
                 options.now_ns = { _ in NG2Runtime.now() }
@@ -833,12 +834,13 @@ final class NG2Runtime {
                     ng2_ring_assess_rgba(raw.bindMemory(to: UInt8.self).baseAddress, raw.count, 896 * 4, &options, &result)
                 }
                 #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeCycleTestHooks.afterClassificationCall?(options.mode, returned, result.outcome)
                 if let fixture = NG2RuntimeCycleTestHooks.classificationResult {
                     fixture(job.job, UnsafePointer(job.frame.analysis.scene), &result)
                     returned = Int32(result.status)
                 }
                 #endif
-                let encoded = try? NG2CycleWire.assessment(result)
+                let encoded = try? NG2CycleWire.assessment(result, mode: options.mode)
                 self.controlQueue.async {
                     #if NG2_RUNTIME_HOST_TEST
                     NG2RuntimeCycleTestHooks.beforeClassificationCommit?(job.job)

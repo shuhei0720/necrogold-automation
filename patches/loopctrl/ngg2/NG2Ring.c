@@ -4,9 +4,11 @@
 #if __has_include("NG2RingKernel/ring.h")
 #include "NG2RingKernel/ring.h"
 #include "NG2RingKernel/features.h"
+#include "NG2RingKernel/word_features.h"
 #else
 #include "../../../tools/ring_native/ring.h"
 #include "../../../tools/ring_native/features.h"
+#include "../../../tools/ring_native/word_features.h"
 #endif
 #include <string.h>
 #include <math.h>
@@ -20,7 +22,7 @@
 #define NG2_HAS_RING_BANK 0
 #endif
 
-const char *ng2_ring_classifier_version(void) { return "ngg2-ring-assessment-094-v3"; }
+const char *ng2_ring_classifier_version(void) { return "ngg2-ring-assessment-095-v1"; }
 const char *ng2_ring_feature_sha256(void) { return ring_feature_sha256(); }
 const char *ng2_ring_bank_sha256(void) {
 #if NG2_HAS_RING_BANK
@@ -37,6 +39,7 @@ const char *ng2_ring_coverage_sha256(void) {
 #endif
 }
 const char *ng2_ring_policy_version(void){return "exposed_cursering_v1";}
+const char *ng2_ring_target_only_policy_version(void){return "exposed_cursering_target_only_v2";}
 const char *ng2_ring_coverage_version(void){return R94_COVERAGE_AUTHORITY_VERSION;}
 /* Python round(x,9) rounds the exact binary64 input to a decimal quantum.
  * Multiplying by 1e9 first loses the threshold's low bits. 5^9 fits in 21
@@ -213,6 +216,10 @@ static int candidate_probe(const unsigned char *rgba,int cx,int sy,const NG2Ring
     }
     return checkpoint(options,result);
 }
+#if NG2_HAS_RING_BANK
+static int binary_slot_word(const RingObservation *observation,int cx,int sy,
+                            const NG2RingOptions *options,NG2RingResult *result,NG2RingSlot *slot);
+#endif
 static int score_slot(const unsigned char *rgba,const RingObservation *observation,
                       int cx,int sy,int index,const NG2RingOptions *options,
                       NG2RingResult *result,NG2RingSlot *slot) {
@@ -223,7 +230,7 @@ static int score_slot(const unsigned char *rgba,const RingObservation *observati
         if(status)return status;
     }
     if(potential) {
-        status=ring_icon(rgba,RING_RGBA,cx,sy,options?options->mode:0,NULL,&score,box);
+        status=ring_icon(rgba,RING_RGBA,cx,sy,options&&options->mode==1?1:0,NULL,&score,box);
         if(status)return NG2_RING_KERNEL;
         if(!(options&&options->fast))upper=score;
     } else score=upper;
@@ -231,6 +238,10 @@ static int score_slot(const unsigned char *rgba,const RingObservation *observati
     slot->cx=cx;slot->sy=sy;slot->slot=index;slot->icon_score=score;
     slot->icon_score_exact=(uint32_t)potential;slot->icon_upper_bound=upper;
     for(int k=0;k<4;k++)slot->icon_box[k]=box[k];
+#if NG2_HAS_RING_BANK
+    if(options&&options->mode==NG2_RING_MODE_TARGET_ONLY)
+        return binary_slot_word(observation,cx,sy,options,result,slot);
+#endif
     /* Raw word work is intentionally unconditional, even below .80 icon.
      * A geometrically empty name window remains an explicit null. */
     status=ring_word(observation,cx,sy,index,&word);
@@ -773,6 +784,193 @@ static void item_witness(const unsigned char *rgba,const NG2RingRow *row,NG2Ring
     }
     if(local_item&&!out->unmatched_items)out->unmatched_items=1;
 }
+/* Policy2 searches only the requested target. The supported normal 1-1 shop
+ * has three 36px offer cells; one cell of observed floor on each side forms
+ * B=[left-54,sy+24,180,67]. Every integer top-left of EVERY canonical primary
+ * template wholly contained in B is visited. This is not arbitrary-world
+ * absence, and no product name/catalog identity is needed for a negative. */
+static double binary_pose_bound(const unsigned char *rgba,const Sprite *sp,int x,int y) {
+    double count=sp->count,dark=sp->dark_count;
+    int32_t total=0,square=0,cross=0,dot=0;
+    uint16_t sums[344];unsigned char greens[344];
+    for(int k=0;k<sp->count;k++) {
+        const Bright *p=&sp->bright[k];const unsigned char *q=rgba+4*((size_t)(y+p->dy)*RING_W+x+p->dx);
+        int v=q[0]+q[1]+q[2];sums[k]=(uint16_t)v;greens[k]=q[1];
+        dot+=q[0]*p->r+q[1]*p->g+q[2]*p->b;
+        total+=v;square+=v*v;cross+=v*(p->r+p->g+p->b);
+    }
+    double product=probe_mul(probe_sub(square,probe_div((double)((int64_t)total*total),count)),sp->target_var);
+    double norm=probe_sqrt(product>0.0?product:0.0);
+    double shape=probe_div(probe_sub(cross,probe_div((double)((int64_t)total*sp->target_sum),count)),norm>9.0?norm:9.0);
+    if(shape<0.0)shape=0.0;
+    double value=probe_mul(probe_add(probe_div(probe_mul(.55,count),count),probe_mul(.45,shape)),
+                           probe_add(.80,probe_div(probe_mul(.20,dark),dark)));
+    if(value>=.799999999) {
+        int outline=0,possible=0;
+        for(int k=0;k<sp->dark_count;k++) {
+            const Dark *p=&sp->dark[k];const unsigned char *q=rgba+4*((size_t)(y+p->dy)*RING_W+x+p->dx);
+            outline+=q[0]+q[1]+q[2]<144;
+        }
+        double gain=probe_div(dot,sp->energy);if(gain<.37)gain=.37;if(gain>1.3)gain=1.3;
+        double limit=probe_add(probe_mul(3.0,probe_add(13.0,probe_mul(15.0,gain))),1e-9);
+        for(int k=0;k<sp->count;k++) {
+            const Bright *p=&sp->bright[k];
+            possible+=fabs(probe_sub(sums[k],probe_mul(gain,p->r+p->g+p->b)))<limit
+                &&fabs(probe_sub(greens[k],probe_mul(gain,p->g)))<limit;
+        }
+        value=probe_mul(probe_add(probe_div(probe_mul(.55,possible),count),probe_mul(.45,shape)),
+                         probe_add(.80,probe_div(probe_mul(.20,outline),dark)));
+    }
+    value=probe_add(value,1e-12);return ng2_ring_round9(value<1.0?value:1.0);
+}
+typedef struct {int cx,sy,ready;double maximum;int32_t pose[4];} NG2BinaryProbe;
+static int binary_primary(const unsigned char *rgba,const NG2RingOptions *options,
+                          NG2RingResult *result,NG2RingRow *row) {
+    NG2BinaryProbe probes[30];NG2RingSlot cells[5];int count=0,status;
+    memset(cells,0,sizeof(cells));
+    for(int cell=0;cell<5;cell++) {
+        int cx=row->left+36*(cell-1);NG2RingSlot *slot=&cells[cell];
+        slot->cx=cx;slot->sy=row->sy;slot->slot=cell>0&&cell<4?cell-1:0;
+        slot->kind=NG2_RING_GENERIC_NON_TARGET;slot->outcome=NG2_RING_NON_TARGET;
+        int32_t box[4]={cx-18,row->sy+24,36,67};memcpy(slot->non_target_icon_box,box,sizeof(box));
+        for(int dy=0;dy<=6;dy+=6)for(int dx=-16;dx<=16;dx+=16)
+            probes[count++]=(NG2BinaryProbe){cx+dx,row->sy+dy,0,0.0,{0}};
+    }
+    for(size_t s=0;s<sizeof(sprites)/sizeof(sprites[0]);s++) {
+        const Sprite *sp=&sprites[s];
+        for(int y=row->sy+24;y<=row->sy+91-sp->height;y++) {
+            if((status=checkpoint(options,result)))return status;
+            for(int x=row->left-54;x<=row->left+126-sp->width;x++) {
+                int cell=(x+sp->width/2-(row->left-54))/36;
+                if(cell<0||cell>=5)return NG2_RING_KERNEL;
+                double bound=binary_pose_bound(rgba,sp,x,y);int cached=-1;
+                for(int p=0;p<30;p++)if(x>=probes[p].cx-sp->width/2-8
+                    &&x<=probes[p].cx-sp->width/2+8&&y>=probes[p].sy+24&&y<=probes[p].sy+57) {
+                    if(cached<0||probes[p].ready)cached=p;
+                    if(probes[p].ready)break;
+                }
+                if(cached<0)return NG2_RING_KERNEL;
+                NG2BinaryProbe *probe=&probes[cached];
+                if(bound>=.80&&!probe->ready) {
+                    if((status=checkpoint(options,result)))return status;
+                    if(ring_icon(rgba,RING_RGBA,probe->cx,probe->sy,0,NULL,&probe->maximum,probe->pose))return NG2_RING_KERNEL;
+                    probe->maximum=ng2_ring_round9(probe->maximum<1.0?probe->maximum:1.0);probe->ready=1;
+                    if((status=checkpoint(options,result)))return status;
+                }
+                if(probe->ready&&probe->maximum<bound)bound=probe->maximum;
+                if(bound>=.80) {
+                    int at=result->partial_count<NG2_RING_MAX_PARTIAL?result->partial_count++:0;
+                    NG2RingSlot *evidence=&result->partial[at];memset(evidence,0,sizeof(*evidence));
+                    evidence->cx=probe->cx;evidence->sy=probe->sy;evidence->icon_score=probe->maximum;
+                    evidence->icon_upper_bound=probe->maximum;evidence->icon_score_exact=1;
+                    evidence->outcome=NG2_RING_CANDIDATE;memcpy(evidence->icon_box,probe->pose,sizeof(probe->pose));
+                    result->selected_partial=at;result->selected_row=-1;
+                    result->outcome=NG2_RING_CANDIDATE;result->reason=NG2_RING_ICON_ONLY;
+                    result->coverage=NG2_RING_COVERAGE_INCOMPLETE;return NG2_RING_OK;
+                }
+                NG2RingSlot *slot=&cells[cell];
+                if(bound>slot->icon_upper_bound||!slot->icon_box[2]) {
+                    slot->icon_score=slot->icon_upper_bound=bound;
+                    int32_t pose[4]={x,y,sp->width,sp->height};memcpy(slot->icon_box,pose,sizeof(pose));
+                }
+            }
+        }
+    }
+    for(int s=0;s<3;s++)row->slots[s]=cells[s+1];
+    result->partial_count=2;result->partial[0]=cells[0];result->partial[1]=cells[4];
+    return checkpoint(options,result);
+}
+static int binary_word_window(const RingObservation *observation,int x0,int x1,int y0,int y1,
+                              const NG2RingOptions *options,NG2RingResult *result,NG2RingSlot *slot) {
+    double best=0.0,coverage=0.0;int32_t best_box[4]={0};int status,found=0;
+    /* Both every original partial window and the complete-strip name union
+     * filter full visibility and qualifying thresholds BEFORE maximization. */
+    for(int y=y0;y<=y1;y++) {
+        if((status=checkpoint(options,result)))return status;
+        for(int x=x0;x<=x1;x++) {
+            int32_t box[4]={x,y,84,11};if(!box_valid(box))continue;
+            unsigned intersection=0,total_union=0;
+            for(int dy=0;dy<11;dy++) {
+                uint64_t observed[2];bank_window(observation->white[y+dy],x,84,observed);
+                for(int k=0;k<2;k++) {
+                    intersection+=bank_pop(word_reference[dy][k]&observed[k]);
+                    total_union+=bank_pop(word_reference[dy][k]|observed[k]);
+                }
+            }
+            double iou=ng2_ring_round9(bank_div(intersection,total_union?total_union:1));
+            double cov=ng2_ring_round9(bank_div(intersection,239));
+            int qualifies=iou>=.82&&cov>=.90,old=best>=.82&&coverage>=.90;
+            if(!found||((qualifies!=old)?qualifies:(iou>best||(iou==best&&cov>coverage)))) {
+                found=1;best=iou;coverage=cov;memcpy(best_box,box,sizeof(box));
+            }
+        }
+    }
+    if(found) {
+        slot->word_present=1;slot->word_iou=best;slot->word_coverage=coverage;
+        memcpy(slot->word_box,best_box,sizeof(best_box));
+    }
+    return checkpoint(options,result);
+}
+static int binary_slot_word(const RingObservation *observation,int cx,int sy,
+                            const NG2RingOptions *options,NG2RingResult *result,NG2RingSlot *slot) {
+    return binary_word_window(observation,cx-60,cx-24,sy-20,sy+35,options,result,slot);
+}
+static int binary_word_veto(const RingObservation *observation,const NG2RingOptions *options,
+                            NG2RingResult *result,NG2RingRow *row) {
+    NG2RingSlot word={0};
+    int status=binary_word_window(observation,row->left-112,row->left+100,row->sy-20,row->sy+41,
+                                  options,result,&word);
+    if(status)return status;
+    if(word.word_present&&word.word_iou>=.82&&word.word_coverage>=.90) {
+        NG2RingSlot *slot=&row->slots[0];slot->word_present=1;slot->word_iou=word.word_iou;slot->word_coverage=word.word_coverage;
+        memcpy(slot->word_box,word.word_box,sizeof(word.word_box));slot->outcome=NG2_RING_CANDIDATE;
+        result->outcome=NG2_RING_CANDIDATE;result->reason=NG2_RING_ICON_ONLY;
+    }
+    return checkpoint(options,result);
+}
+static void binary_preserve_observed_words(NG2RingResult *result) {
+    if(result->outcome!=NG2_RING_UNKNOWN)return;
+    for(int r=0;r<result->row_count;r++)for(int s=0;s<3;s++) {
+        NG2RingSlot *slot=&result->rows[r].slots[s];
+        if(slot->word_present&&slot->word_iou>=.82&&slot->word_coverage>=.90&&box_valid(slot->word_box)) {
+            slot->outcome=NG2_RING_CANDIDATE;result->outcome=NG2_RING_CANDIDATE;
+            result->reason=NG2_RING_ICON_ONLY;result->selected_row=r;result->selected_partial=-1;return;
+        }
+    }
+    for(int s=0;s<result->partial_count;s++) {
+        NG2RingSlot *slot=&result->partial[s];
+        if(slot->word_present&&slot->word_iou>=.82&&slot->word_coverage>=.90&&box_valid(slot->word_box)) {
+            slot->outcome=NG2_RING_CANDIDATE;result->outcome=NG2_RING_CANDIDATE;
+            result->reason=NG2_RING_ICON_ONLY;result->selected_row=-1;result->selected_partial=s;return;
+        }
+    }
+}
+static int binary_coverage(const unsigned char *rgba,const RingObservation *observation,
+                           const NG2RingOptions *options,NG2RingResult *result,int selected) {
+    NG2RingCoverage *out=&result->certificate;NG2RingRow *row=&result->rows[selected];
+    int32_t strip[4]={row->left-54,row->sy+24,180,67};memcpy(out->strip_box,strip,sizeof(strip));
+    out->policy_version=2;
+    if(!box_valid(strip)){out->failure_flags|=NG2_RING_COV_BOUNDS;return NG2_RING_OK;}
+    int status=binary_primary(rgba,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
+    status=binary_word_veto(observation,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
+    int complete=endcap_witness(rgba,observation,row->left-36,row->sy,&out->endcaps[0]);
+    complete&=endcap_witness(rgba,observation,row->left+108,row->sy,&out->endcaps[1]);
+    if(!complete)out->failure_flags|=NG2_RING_COV_ENDCAP;
+    /* Raw prices are read before the primary coverage cell boxes are stored:
+     * a detector union is never used as a price/extraneous-object mask. */
+    price_witness(observation,row,out);
+    if(out->observed_prices!=3||out->unmatched_prices){complete=0;out->failure_flags|=NG2_RING_COV_PRICE;}
+    for(int s=0;s<3;s++) {
+        memcpy(out->item_boxes[s],row->slots[s].non_target_icon_box,sizeof(out->item_boxes[s]));
+        memset(out->name_boxes[s],0,sizeof(out->name_boxes[s]));
+    }
+    item_witness(rgba,row,out);
+    if(out->observed_items!=3||out->unmatched_items){complete=0;out->failure_flags|=NG2_RING_COV_ITEM;}
+    if(out->unmatched_boards){complete=0;out->failure_flags|=NG2_RING_COV_EXTRA_BOARD;}
+    out->non_target_items=3;out->ignored_containers=0;
+    if(complete){result->coverage=NG2_RING_COVERAGE_COMPLETE;result->selected_row=selected;result->selected_partial=-1;}
+    return checkpoint(options,result);
+}
 /* Coverage and item identity are separate witnesses. Neither a low target
  * score nor the legacy three-price row alone can authorize NEGATIVE. */
 static int coverage_witness(const unsigned char *rgba,const RingObservation *observation,
@@ -782,7 +980,7 @@ static int coverage_witness(const unsigned char *rgba,const RingObservation *obs
     const NG2Scene *scene=options->scene;NG2RingCoverage *out=&result->certificate;
     if(scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene))return NG2_RING_INVALID;
     out->scene_state=scene->state;out->scene_goods=scene->goods;out->layout_version=1;
-    out->policy_version=1;out->row_index=-1;
+    out->policy_version=options->mode==NG2_RING_MODE_TARGET_ONLY?2:1;out->row_index=-1;
     for(int k=0;k<NG2_TILE_COUNT;k++)out->actual_gold_cells+=scene->tiles[k]==NG2_TILE_GOLD;
     if(scene->state!=NG2_FLOOR||scene->goods!=NG2_GOODS_VISIBLE||!out->actual_gold_cells) {
         out->failure_flags=NG2_RING_COV_SCENE;return NG2_RING_OK;
@@ -883,6 +1081,7 @@ static int coverage_witness(const unsigned char *rgba,const RingObservation *obs
     if(out->accepted_rows!=1){out->failure_flags|=NG2_RING_COV_ROWS;return NG2_RING_OK;}
     out->failure_flags=0;
     NG2RingRow *row=&result->rows[selected];
+    if(options->mode==NG2_RING_MODE_TARGET_ONLY)return binary_coverage(rgba,observation,options,result,selected);
     int has_container=0;for(int s=0;s<3;s++)has_container|=row->slots[s].kind==R94_BANK_IGNORED_CONTAINER;
     int32_t strip[4]={row->left-54,row->sy+24,180,has_container?67:65};memcpy(out->strip_box,strip,sizeof(strip));
     if(!box_valid(strip)){out->failure_flags|=NG2_RING_COV_BOUNDS;return NG2_RING_OK;}
@@ -942,6 +1141,25 @@ static int proof_no_candidate(const NG2RingSlot *slot) {
     if(slot->icon_score_exact)return slot->icon_score<.80;
     return slot->icon_upper_bound<.80&&slot->icon_score<=slot->icon_upper_bound;
 }
+static int binary_no_candidate(const NG2RingSlot *slot) {
+    return proof_no_candidate(slot)&&!(slot->word_present&&slot->word_iou>=.82&&slot->word_coverage>=.90);
+}
+static int binary_cell_certificate(const NG2RingSlot *slot,int cx,int sy,int index,const int32_t strip[4]) {
+    if(slot->cx!=cx||slot->sy!=sy||slot->slot!=index||slot->kind!=NG2_RING_GENERIC_NON_TARGET
+       ||slot->outcome!=NG2_RING_NON_TARGET||slot->icon_score_exact||!binary_no_candidate(slot)
+       ||slot->icon_score!=slot->icon_upper_bound||slot->non_target_id||slot->ignored_container_id
+       ||slot->non_target_conflict||slot->non_target_icon_score||slot->non_target_name_iou
+       ||slot->non_target_name_coverage||slot->ignored_icon_score||slot->ignored_gold_iou
+       ||slot->ignored_gold_coverage||slot->ignored_dark_iou||slot->ignored_dark_coverage)return 0;
+    const int32_t *pose=slot->icon_box,*cell=slot->non_target_icon_box;
+    if(!box_valid(pose)||!((pose[2]==32&&pose[3]==28)||(pose[2]==33&&pose[3]==28)
+       ||(pose[2]==34&&pose[3]==29))||pose[0]<strip[0]||pose[1]<strip[1]
+       ||pose[0]+pose[2]>strip[0]+strip[2]||pose[1]+pose[3]>strip[1]+strip[3]
+       ||pose[0]+pose[2]/2<cx-18||pose[0]+pose[2]/2>=cx+18
+       ||cell[0]!=cx-18||cell[1]!=sy+24||cell[2]!=36||cell[3]!=67)return 0;
+    for(int k=0;k<4;k++)if(slot->non_target_name_box[k]||slot->ignored_icon_box[k])return 0;
+    return 1;
+}
 int ng2_ring_negative_certificate(const NG2RingResult *result) {
     if(!result||result->abi!=NG2_RING_ABI||result->size!=sizeof(*result)||result->status!=NG2_RING_OK
        ||(result->outcome!=NG2_RING_UNKNOWN&&result->outcome!=NG2_RING_NEGATIVE)
@@ -949,8 +1167,9 @@ int ng2_ring_negative_certificate(const NG2RingResult *result) {
        ||result->partial_count<0||result->partial_count>12||result->selected_row<0
        ||result->selected_row>=result->row_count||result->selected_partial!=-1||result->partial_safe_no_positive)return 0;
     const NG2RingCoverage *w=&result->certificate;const NG2RingRow *row=&result->rows[result->selected_row];
+    int binary=w->policy_version==2;
     if(row->left<54||row->left>RING_W-126||row->sy<0||row->sy>RING_HH-91
-       ||w->layout_version!=1||w->policy_version!=1||w->failure_flags||w->accepted_rows!=1
+       ||w->layout_version!=1||(w->policy_version!=1&&!binary)||w->failure_flags||w->accepted_rows!=1
        ||w->row_index!=result->selected_row||w->row[0]!=row->left||w->row[1]!=row->sy
        ||w->observed_items!=3||w->observed_prices!=3||w->unmatched_items||w->unmatched_prices||w->unmatched_boards
        ||w->non_target_items<0||w->non_target_items>3||w->ignored_containers<0||w->ignored_containers>3
@@ -958,7 +1177,7 @@ int ng2_ring_negative_certificate(const NG2RingResult *result) {
        ||w->scene_state!=NG2_FLOOR||w->scene_goods!=NG2_GOODS_VISIBLE||w->actual_gold_cells<1
        ||w->actual_gold_cells>NG2_TILE_COUNT||(w->board_mode!=1&&w->board_mode!=2)
        ||!box_valid(w->strip_box)||w->strip_box[0]!=row->left-54||w->strip_box[1]!=row->sy+24
-       ||w->strip_box[2]!=180||w->strip_box[3]!=(w->ignored_containers?67:65)
+       ||w->strip_box[2]!=180||w->strip_box[3]!=(binary||w->ignored_containers?67:65)
        ||!box_valid(w->merchant_box)||!proof_score(w->merchant_score,.94)||!proof_score(w->merchant_coverage,.95))return 0;
     int shop=0;
     for(int side=0;side<2;side++) {
@@ -986,6 +1205,20 @@ int ng2_ring_negative_certificate(const NG2RingResult *result) {
        ||abs(w->board_boxes[1][1]+w->board_boxes[1][3]/2-w->board_boxes[0][1]-w->board_boxes[0][3]/2)>2)return 0;
     for(int r=0;r<result->row_count;r++)for(int s=0;s<3;s++)if(!proof_no_candidate(&result->rows[r].slots[s]))return 0;
     for(int s=0;s<result->partial_count;s++)if(!proof_no_candidate(&result->partial[s]))return 0;
+    if(binary) {
+        if(w->non_target_items!=3||w->ignored_containers||result->partial_count!=2)return 0;
+        for(int r=0;r<result->row_count;r++)for(int s=0;s<3;s++)if(!binary_no_candidate(&result->rows[r].slots[s]))return 0;
+        for(int s=0;s<3;s++) {
+            if(!binary_cell_certificate(&row->slots[s],row->left+36*s,row->sy,s,w->strip_box)
+               ||memcmp(w->item_boxes[s],row->slots[s].non_target_icon_box,sizeof(w->item_boxes[s]))
+               ||!box_valid(w->price_boxes[s])||w->price_boxes[s][0]<row->left+36*s-11
+               ||w->price_boxes[s][0]+w->price_boxes[s][2]>row->left+36*s+12
+               ||w->price_boxes[s][1]<row->sy+69||w->price_boxes[s][1]+w->price_boxes[s][3]>row->sy+89)return 0;
+            for(int k=0;k<4;k++)if(w->name_boxes[s][k])return 0;
+        }
+        return binary_cell_certificate(&result->partial[0],row->left-36,row->sy,0,w->strip_box)
+            &&binary_cell_certificate(&result->partial[1],row->left+108,row->sy,0,w->strip_box);
+    }
     int named=0,ignored=0;
     for(int s=0;s<3;s++) {
         const NG2RingSlot *slot=&row->slots[s];const int32_t *pose;
@@ -1032,7 +1265,7 @@ int ng2_ring_assess_rgba(const unsigned char *rgba,size_t bytes,size_t stride,
     result->status=NG2_RING_INVALID;result->selected_row=-1;result->selected_partial=-1;
     if(!rgba||bytes!=RING_RGBA||stride!=RING_W*4||fegetround()!=FE_TONEAREST
        ||(options&&(options->abi!=NG2_RING_ABI||options->size!=sizeof(*options)
-            ||options->reserved||options->mode<0||options->mode>1||options->fast>1
+            ||options->reserved||options->mode<0||options->mode>NG2_RING_MODE_TARGET_ONLY||options->fast>1
             ||(options->deadline_ns&&!options->now_ns))))return result->status;
     if(options&&options->now_ns)result->started_ns=options->now_ns(options->context);
     result->finished_ns=result->started_ns;
@@ -1062,9 +1295,10 @@ int ng2_ring_assess_rgba(const unsigned char *rgba,size_t bytes,size_t stride,
     if(status)goto done;
     status=ng2_ring_aggregate(result);
 #if NG2_HAS_RING_BANK
+    if(!status&&options&&options->mode==NG2_RING_MODE_TARGET_ONLY)binary_preserve_observed_words(result);
     NG2ContainerMasks containers;
-    if(!status&&result->outcome==NG2_RING_UNKNOWN)status=container_masks(rgba,options,result,&containers);
-    if(!status&&result->outcome==NG2_RING_UNKNOWN)for(int r=0;r<result->row_count;r++) {
+    if(!status&&result->outcome==NG2_RING_UNKNOWN&&(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY))status=container_masks(rgba,options,result,&containers);
+    if(!status&&result->outcome==NG2_RING_UNKNOWN&&(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY))for(int r=0;r<result->row_count;r++) {
         for(int s=0;s<3;s++) {
             status=bank_slot(rgba,&observation,&containers,options,result,&result->rows[r].slots[s]);
             if(status)goto done;

@@ -273,11 +273,30 @@ static int passage_shadow_vantage(const NG2Scene *s,const Path route[CELLS]) {
         if(tile(s,x,y)!=NG2_TILE_FLOOR)return 0;
     return route[vantage].cost!=INF_COST&&route[vantage].length==3;
 }
+/* The marked split upper-left roof has a dark bend between independently
+ * observed wall segments. Only the current three-step FLOOR vantage is
+ * authorized; the six hidden cells remain UNKNOWN and no shop is inferred. */
+static int passage_split_shadow_vantage(const NG2Scene *s,const Path route[CELLS]) {
+    static const int dark[][2]={{-2,-4},{-2,-3},{-1,-3},{-3,-2},{-2,-2},{-1,-2}};
+    static const int walls[][2]={{-4,-3},{-3,-3},{0,-3},{1,-3},{2,-3},{-3,-1},{-3,0}};
+    int i,x,y,vantage=index_of(-2,-1);
+    if(s->gold_state!=NG2_GOLD_CLEAR)return 0;
+    for(i=0;i<CELLS;++i)
+        if(s->protected_cells[i]||s->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(i=0;i<(int)(sizeof(dark)/sizeof(dark[0]));++i)
+        if(tile(s,dark[i][0],dark[i][1])!=NG2_TILE_UNKNOWN)return 0;
+    for(i=0;i<(int)(sizeof(walls)/sizeof(walls[0]));++i)
+        if(!passage_wall(s,walls[i][0],walls[i][1]))return 0;
+    for(y=-1;y<=0;++y)for(x=-2;x<=0;++x)
+        if(tile(s,x,y)!=NG2_TILE_FLOOR)return 0;
+    if(tile(s,0,-2)!=NG2_TILE_FLOOR||tile(s,1,-2)!=NG2_TILE_FLOOR)return 0;
+    return route[vantage].cost!=INF_COST&&route[vantage].length==3;
+}
 uint32_t ng2_passage_candidates(const NG2Scene *s) {
     Path route[CELLS];uint32_t result=0;int side,k;
     if (!passage_scene(s)) return 0;
     path_search(s,0,1,route);
-    if(passage_shadow_vantage(s,route))result|=UINT32_C(1);
+    if(passage_shadow_vantage(s,route)||passage_split_shadow_vantage(s,route))result|=UINT32_C(1);
     for (side=0;side<2;++side) for (k=-2;k<=2;++k) {
         int mx=side ? -3 : k,my=side ? k : -3,dx=side ? -1 : 0,dy=side ? 0 : -1;
         int inboard=index_of(mx-dx,my-dy),mouth=tile(s,mx,my);
@@ -1805,6 +1824,105 @@ static void stationary_gold_axis_motion(const NG2Scene *before,const NG2Scene *a
         if(!texture_lead(support,bad,count,opposite)){free(cache);return;}
     }
     free(cache);out->kind=NG2_BLOCKED;out->dx=out->dy=0;
+}
+/* A caller-owned, definitely-unsent stationary wait may need a zero-only
+ * qualification when exactly one old STONE and independent 2D DIRT survive.
+ * This private helper never changes the global Motion stages or any Scene. */
+typedef struct {
+    double blur_zero,blur_other[72];
+    int world_support,world_bad,world_regions[2];
+    int axis_support,axis_bad,axis_regions[2];
+    int axis_other_support[72],axis_other_bad[72];
+} ClearSingletonZeroEvidence;
+static int clear_singleton_translation(const NG2Scene *a,const NG2Scene *b,int tx,int ty) {
+    int i,stone=-1,stones=0,first=-1,dirt=0,noncollinear=0;
+    for(i=0;i<CELLS;++i)if(a->tiles[i]==NG2_TILE_STONE){
+        int x=px(i),y=py(i);
+        if(hud_sample_hidden(x,y)||hud_sample_hidden(x+tx,y+ty)
+            ||tile(b,x+tx,y+ty)!=NG2_TILE_STONE)return 0;
+        stone=i;++stones;
+    }
+    if(stones!=1)return 0;
+    for(i=0;i<CELLS;++i)if(a->tiles[i]==NG2_TILE_DIRT
+        &&!hud_sample_hidden(px(i),py(i))&&!hud_sample_hidden(px(i)+tx,py(i)+ty)
+        &&tile(b,px(i)+tx,py(i)+ty)==NG2_TILE_DIRT){
+        ++dirt;
+        if(first<0)first=i;
+        else if((px(first)-px(stone))*(py(i)-py(stone))
+            !=(py(first)-py(stone))*(px(i)-px(stone)))noncollinear=1;
+    }
+    return dirt>=9&&noncollinear;
+}
+static int clear_singleton_zero_scene(const NG2Scene *a,const NG2Scene *b,int direction) {
+    int i,x,y,center,dx,dy,amount,d,matches=0,zx=0,zy=0;
+    if(!valid_scene(a)||!valid_scene(b)||direction<1||direction>4
+        ||a->gold_state!=NG2_GOLD_CLEAR||b->gold_state!=NG2_GOLD_CLEAR
+        ||a->goods!=NG2_GOODS_UNKNOWN||b->goods!=NG2_GOODS_UNKNOWN)return 0;
+    dx=ddx[direction];dy=ddy[direction];
+    if(tile(a,0,0)!=NG2_TILE_FLOOR||tile(b,0,0)!=NG2_TILE_FLOOR
+        ||tile(a,dx,dy)!=NG2_TILE_FLOOR||tile(b,dx,dy)!=NG2_TILE_FLOOR)return 0;
+    for(i=0;i<CELLS;++i)if(a->protected_cells[i]||b->protected_cells[i]
+        ||a->tiles[i]==NG2_TILE_GOLD||b->tiles[i]==NG2_TILE_GOLD
+        ||a->tiles[i]==NG2_TILE_DOOR||b->tiles[i]==NG2_TILE_DOOR
+        ||a->tiles[i]==NG2_TILE_ITEM||b->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(center=0;center<2;++center)for(y=-1;y<=1;++y)for(x=-1;x<=1;++x)
+        if(tile(a,x+center*dx,y+center*dy)!=tile(b,x+center*dx,y+center*dy))return 0;
+    for(amount=0;amount<=2;++amount)for(d=1;d<=(amount?4:1);++d){
+        int tx=amount*ddx[d],ty=amount*ddy[d];
+        if(clear_singleton_translation(a,b,tx,ty)){++matches;zx=tx;zy=ty;}
+    }
+    return matches==1&&!zx&&!zy;
+}
+static int clear_singleton_zero_raw(const Candidate candidates[73]) {
+    int i;
+    for(i=0;i<73;++i)if(!isfinite(candidates[i].score))return 0;
+    return !candidates[0].sx&&!candidates[0].sy&&candidates[0].score>.45
+        &&candidates[1].score-candidates[0].score>=.08;
+}
+static int clear_singleton_zero_numeric(const ClearSingletonZeroEvidence *e) {
+    int i;
+    if(!isfinite(e->blur_zero)||e->blur_zero>.45)return 0;
+    for(i=0;i<72;++i)if(!isfinite(e->blur_other[i])||!(e->blur_other[i]>e->blur_zero))return 0;
+    if(!texture_strength(e->world_support,e->world_bad,95)
+        ||e->world_regions[0]<100||e->world_regions[1]<100
+        ||!texture_strength(e->axis_support,e->axis_bad,75)
+        ||e->axis_regions[0]<100||e->axis_regions[1]<100)return 0;
+    for(i=0;i<72;++i)if(!texture_lead(e->axis_support,e->axis_bad,
+        e->axis_other_support[i],e->axis_other_bad[i]))return 0;
+    return 1;
+}
+static int clear_singleton_zero_evidence(const NG2Scene *a,const NG2Scene *b,const View views[2],
+                                          const Candidate candidates[73],ClearSingletonZeroEvidence *e) {
+    ClosedGateAxisCache *cache;unsigned char included[N];int i;
+    memset(e,0,sizeof(*e));stationary_blur_mask(included);
+    e->blur_zero=stationary_blur_phase(views,views+1,0,0,included);
+    for(i=1;i<73;++i)e->blur_other[i-1]=stationary_blur_phase(views,views+1,
+        candidates[i].sx,candidates[i].sy,included);
+    world_blur_texture(a,b,views,0,0,&e->world_support,&e->world_bad,e->world_regions);
+    cache=(ClosedGateAxisCache*)calloc(1,sizeof(*cache));if(!cache)return 0;
+    closed_gate_axis_features(a,cache->before,cache->indices,&cache->count);
+    closed_gate_axis_features(b,cache->after,NULL,NULL);
+    closed_gate_axis_texture(cache,0,0,&e->axis_support,&e->axis_bad,e->axis_regions);
+    for(i=1;i<73;++i)closed_gate_axis_texture(cache,candidates[i].sx,candidates[i].sy,
+        e->axis_other_support+i-1,e->axis_other_bad+i-1,NULL);
+    free(cache);return 1;
+}
+int ng2_clear_singleton_stationary_zero(const NG2Scene *a,const NG2Scene *b,int32_t direction) {
+    View *views;Candidate candidates[73];ClearSingletonZeroEvidence evidence;
+    int amount,d,n=1,result;
+    if(!clear_singleton_zero_scene(a,b,direction))return 0;
+    views=(View*)malloc(2*sizeof(*views));if(!views)return 0;
+    view(a->signature,views);view(b->signature,views+1);
+    candidates[0].sx=candidates[0].sy=0;candidates[0].score=intensity(views,views+1,0,0);
+    for(amount=1;amount<=18;++amount)for(d=1;d<=4;++d){
+        candidates[n].sx=amount*ddx[d];candidates[n].sy=amount*ddy[d];
+        candidates[n].score=intensity(views,views+1,candidates[n].sx,candidates[n].sy);++n;
+    }
+    qsort(candidates,73,sizeof(*candidates),ranked);
+    result=clear_singleton_zero_raw(candidates)
+        &&clear_singleton_zero_evidence(a,b,views,candidates,&evidence)
+        &&clear_singleton_zero_numeric(&evidence);
+    free(views);return result;
 }
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;

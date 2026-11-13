@@ -4,6 +4,8 @@
 
 ## TEST094専用の端末内判定・周回
 
+TEST095では[対象だけの判定](../plans/test095-target-only.md)のmode2をnative周回に採用する。全商品の名称登録を必要とせず、通常金商店の商品帯の主画像を全被覆した対象なし証明だけ次周回へ進める。旧mode0/1と以下の094有限bank証明は互換として保存する。対象/候補・未観測・故障の保持、各入力権限と期限は変えない。
+
 `necrogold_native_cycle_v1` / `normal-1-1-cycle-v1` だけ、同じiPhoneのnative workerで直接RGBAを分類する。[限定契約と閾値・保存・回復・通知](../plans/test094-native-goods-cycle.md)を適用する。全3商品/余剰なし/独立layout・各品identityの証明が揃ったnegativeだけ、耐久checkpoint/intent・新しいPAUSE資格・実ACK/変化したfloorを経て次周回へ進む。宝箱は中身を判定せず、正に識別した閉容器だけ対象外。対象/候補/不明/故障は保持し購入しない。PARTIALの限定OBSERVE_MOREとUNKNOWN無再送、元期限/累積予算を守る。
 
 iSHは終了後の全画像/記録/ZIP照合を担当し、判定を再実行しない。通知のrequestedはOSへの受付で、実配信の証明ではない。iPhone速度/未知精度は未受入。以下は既存profileの後処理契約で、新profileへ無断fallbackしない。

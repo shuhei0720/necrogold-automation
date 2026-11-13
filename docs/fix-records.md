@@ -170,8 +170,8 @@ FR-088-CPU/089-KERNEL/089-EARLY/090-RING-COST/090-UNKNOWN-TEXT、候補見逃し
 
 | ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
 | --- | --- | --- | --- | --- | --- | --- |
-| FR-094-NATIVE-CYCLE | 2026-11-13 | 商品確認後の判定が本番周回へ接続しない | 旧nativeはgoodsでterminal、iSH後処理はtarget/candidate/unknownだけ | 専用cap/profileで直接RGBA分類、完全な陰性証明だけ耐久保存→再開 | [計画](plans/test094-native-goods-cycle.md)、新Controller/Runtime実callbackと実機で陰性→次商店を確認。iPhone未確認 | 未確認（旧後処理の構造不足、新経路は未配布） |
-| FR-094-SHADOW-MOUTH | 2026-11-13 | 093原156の上左通路候補を見送り | 長い左壁と暗い上口が旧候補の観測床支持に入らない | 元UNKNOWNを保持し、既観測床3歩へ限定した仮説bitを追加 | [別計画](plans/test094-shadow-passage.md)、新6＋旧19のO0/strictO2。未観測先の店を推定しない、実機未確認 | 0（追加後の実機再観測なし） |
+| FR-094-NATIVE-CYCLE | 2026-11-13 | 商品確認後の判定が本番周回へ接続しない | 旧nativeはgoodsでterminal、iSH後処理はtarget/candidate/unknownだけ | 専用cap/profileで直接RGBA分類、完全な陰性証明だけ耐久保存→再開 | [計画](plans/test094-native-goods-cycle.md)、新Controller/Runtime実callbackと実機で陰性→次商店を確認。iPhone未確認 | 未集計（094実機4回で陰性次周回未到達。FR-095-PARTIAL-DIRT等の接続段階を修正中） |
+| FR-094-SHADOW-MOUTH | 2026-11-13 | 093原156の上左通路候補を見送り | 長い左壁と暗い上口が旧候補の観測床支持に入らない | 元UNKNOWNを保持し、既観測床3歩へ限定した仮説bitを追加 | [別計画](plans/test094-shadow-passage.md)、新6＋旧19のO0/strictO2。未観測先の店を推定しない、実機未確認 | 0（同原因確認0。094原146の別shape見逃しはFR-095-SPLIT-SHADOW） |
 | FR-094-FAST-PROBE | 2026-11-13 | native直接化だけでは分類100msを超え得る | 低い対象scoreでも旧色差探索を全実行 | 旧kernel不変、安全上界が候補閾値未満の場合だけ新probeで省略、非exact/上界を明示 | 新数値/境界・4実画像の全23上界対照。host11〜44msはiPhone速度の合格ではない | 0（新probeの実機未確認） |
 | FR-094-CLOSED-CHEST | 2026-11-13 | 宝箱も中身不明として保持する設計 | 最新対象範囲が未反映 | 閉じた宝箱を独立sprite/形状で正に識別しignored_containerへ。開封/購入/中身判定0 | 黒/紫2poseと対象/別ring交差、破損形状拒否。最新ユーザー指示に対応し、宝箱の中身をnon_targetへしない | 0（新policyの実機未確認） |
 | FR-094-CERT-JOIN | 2026-11-13 | 証明rowの不一致、余剰SHOPやfull iconを誤扱い | 選択row未結合、全画面外物未列挙、brightness帯とfull template extent混同 | exact row/独立余剰列挙・全候補veto。既探索pose/全footprint/非重複/stripをControllerと共通化 | 新単体の各Red→Green、原225の実RGBA完全coverageを校正。原326/151は未判定を維持 | 作成中3件（同じrow/幾何接続段階で検出、実機未配布） |
@@ -194,3 +194,17 @@ FR-088-CPU/089-KERNEL/089-EARLY/090-RING-COST/090-UNKNOWN-TEXT、候補見逃し
 | FR-094-FIXTURE-RESTART-MAP | 2026-11-13 | CI164のSEARCH restartが4秒で未確認終了 | GOLD除去後の試験地形は二小STONEとnoise平行移動だけで、新地形の指紋差条件を満たさない | 専用HOST generatorをSwift/実C probeで共通使用し、clear/partial/fullと指紋差を事前検査。製品の指紋/期限は維持 | CI164の26stable画像・UI ACK・指紋待ちのdiagnosticを確認。実C probe/次Macで確認し、実機成功と数えない | 未確認（新専用fixtureの地形不足、対策後CI未実行） |
 
 TEST094最終確認: build165の限定host144・Mac Runtime新11＋旧3/API/spool/Exportと実物5検査は成功。上表のCI前の記録を履歴として残し、各対策の実機改善・再発率を確認済みへ変更しない。
+
+## TEST095の対策（実装中・実機改善未確認）
+
+094の4 ZIP/82 PNGを全照合し、FR-094-SHADOW、FR-083-LOWER-GOODS、FR-081-REFRESH、FR-085-CLEAR-STATIC、FR-090/091/092静止/移動証明、FR-094-CERT-JOINと照合した。旧対策を改善完了と扱わず、同じ症状でも適用外/別原因を区別する。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-095-SPLIT-SHADOW | 2026-11-13 | 094実1原146の上左通路候補を見送り | 旧094長壁と異なる、分断された屋根/暗い曲がり口の条件がない | 観測支持と安全床3歩を必要とするbit0の有限仮説 | 新6＋旧25のO0/strictO2、原Sceneのmaskだけ変更。店の存在/実機到達は未確認 | 初観測1（旧長壁条件の同原因再発ではない） |
+| FR-095-PARTIAL-DIRT | 2026-11-13 | 094実2/4で開扉・商品一部可視後に停止 | 正常判定後の継続で遠方DIRT変化まで全地図一致を要求 | 同判断/全保護/strict0を保持し、経路3×3外のDIRT→FLOOR/UNKNOWNだけ確認 | 意味Red2→新5＋旧29 Green、保持Sceneでfalse→true。未収録先の全商品/実機改善は未確認 | 同原因2（095対策後の実機は未実施） |
+| FR-095-SINGLETON-ZERO | 2026-11-13 | 094実3で2歩後の未送信UPを再取得できず終了 | 固定元129の旧STONE1個は旧2STONE/2GOLD静止証明の適用外 | 確実未送信通路待機だけ、旧STONE1＋非共線DIRT9/unique9＋全強画素条件で別zero証明 | [限定計画](plans/test095-device-stops.md)。既知Motion/UNKNOWN/保護/各期限の拒否と作者Red→Green、実機未確認 | 初観測1（旧090/091unit・092GOLDzeroの同原因再発ではない） |
+| FR-095-TARGET-ONLY | 2026-11-13 | 対象外の未登録品で周回が止まり、商品辞書の追加が必要になる | のろいのゆびわだけを探す要件に対し全商品識別を陰性の前提にした | 追加catalogを撤回。有限商品帯の主画像全探索と候補保持のpolicy2へ変更 | [計画](plans/test095-target-only.md)。新判定/証明/Controller/Runtime境界のRed→Greenと関連回帰を実施中、実機未確認 | 初観測1（設計の変更。実機改善済みとはしない） |
+| FR-095-RETURN-LABEL | 2026-11-13 | 新試験の保存/ZIP名が094のまま | 旧専用entryとprefixの固定文字列 | 095 entryと専用spool、厳格test-数字3桁のみラベル採用。旧default/回復は保持 | 意味assert Red1→実Python3.9の新3＋旧34 Green、通信とnative入力は不変 | 0（配布前のラベル対応、実機未確認） |
+
+| FR-095-TARGET-WORD-VETO | 2026-11-13 | 作成中の対象だけ判定で、強い対象名が別の文字候補やpartial置換に隠れ得る | IoU最大とcoverage条件の順序、旧partial内の同じ順序を保持した | mode2の完全観測文字は両閾値を満たす配置を先に選び、元row/partialの対象情報を置換前に保持 | 交差する二文字候補・旧partialを合わせたassert Red→Greenと独立レビュー。実機未確認 | 作成中の対策後に同系統の残存1件を検出（実機未配布） |
