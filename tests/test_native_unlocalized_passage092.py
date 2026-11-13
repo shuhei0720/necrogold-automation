@@ -45,7 +45,9 @@ class NativeUnlocalizedPassage092Tests(unittest.TestCase):
     ack = view.NativeView074Tests.ack
     fresh_engine = view.NativeView074Tests.fresh_engine
     all_public_bytes = view.NativeView074Tests.all_public_bytes
-    recovery = view.NativeView074Tests.recovery
+    # The shared public-controller fixture also queries this CDLL. Bind the
+    # status pointer and allocate it through that same typed ABI on each call.
+    recovery = fixture.NativeControllerTests.recovery
     recovery_samples = view.NativeView074Tests.recovery_samples
     reject_old_callbacks_without_mutation = view.NativeView074Tests.reject_old_callbacks_without_mutation
     observe = view.NativeView074Tests.observe

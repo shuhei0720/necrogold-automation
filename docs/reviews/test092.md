@@ -48,3 +48,11 @@ GOLD静止の新4methodはO0/strict O2で有効assertion Red→Green。新block/
 同一独立担当が計画とUI/Nav/C/Runtimeを静的に1回レビューしP0/P1なし。GOLDexact2・positive-only全保護/ITEMguard・旧CLEAR不整合拒否のP2を解消。初期2枚/固定mouth、後CLEAR/goal/再取得でのnegative-veto、actualGold/finish/levelでの撤回、元期限/UNKNOWN無再送を確認した。Runtimeはd18e7441、新fixture/checkerを製品編集前に凍結し、Swift不在による事前意味Redの時系列制限はそのまま明示する。限定Macの旧Runtime Red1/現新9＋旧091pin1はまだ未実行。独立したcompile/意味/分類の再実行は0。
 
 最終CIは新Nav4＋新C7＋関連Nav2/C7＋UI6＋selector4の30件を選び、旧38件/全Runtime/worldは再実行しない。公開分の新IPA/実source/実compiler/全Mach-O/source照合はこれから行い、実機改善を未確認のまま保持する。
+
+## 初回CI154と試験ハーネスの訂正
+
+code7f3fdc1/run43349912952/build154のhostは、GOLD4後の新mode7でctypes RecoveryStatusの型エラー8件となり停止した。GOLD窓methodが共有CDLLのargtypesをfixture側の型へ設定し、後続の借用helperが別classの同layout型を渡したため。作者がmode6と窓1を別に実行した順序依存の見落としであり、実機の新停止や製品の意味Redではない。Mac/IPA jobは未開始。
+
+新試験のrecovery aliasだけを署名設定と同型確保を行う既fixture helperへ統一し、typed pointer検査/全8拒否assert/旧ファイルを維持した。実production runnerのimport順で新class7を同processへ並べ、errors8の再現後にGreen7/errors0/skips0。製品/C8source/native manifestと各作者校正は不変、新fixtureだけcccee0427f49bf057d6128da3939169bd258e7154e72693e3b2f6deebeaabebeへ更新した。同じ独立担当が差分・receiptを静的確認しP0/P1なし、再試験0でtest-only commit GO。新CODEの限定CIを開始して全30件を同じ配布sourceへ結合する。
+
+補助selectorの旧参照とexecutorの旧basenameは実物検査前に訂正し、ASTで092参照/固定hashを確認。最初のdraft/失敗出力を保持、これらを実物5gate成功や製品動作確認に数えない。
