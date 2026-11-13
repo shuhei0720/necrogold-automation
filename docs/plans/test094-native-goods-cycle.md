@@ -1,6 +1,6 @@
 # TEST094: native内の商品判定と陰性周回
 
-2026-11-13（日本時間）。実装中・実機未検証。基準 `3e79c460840bf05fef0f49f5a10f39e09f2815cd`。[要件](../requirements/necrogold.md)、[商品coverage](rebuild.md)、[native契約](../contracts/native-control.md)、[対象判定契約](../contracts/target-assessment.md)を正本とする。同じ094へ組み込む上左通路のNav限定変更は[別計画](test094-shadow-passage.md)で根拠と試験を管理し、本計画の商品陰性・継続権限へ流用しない。
+2026-11-13（日本時間）。CI/配布物検証済み・実機未検証。基準 `3e79c460840bf05fef0f49f5a10f39e09f2815cd`。[要件](../requirements/necrogold.md)、[商品coverage](rebuild.md)、[native契約](../contracts/native-control.md)、[対象判定契約](../contracts/target-assessment.md)を正本とする。同じ094へ組み込む上左通路のNav限定変更は[別計画](test094-shadow-passage.md)で根拠と試験を管理し、本計画の商品陰性・継続権限へ流用しない。
 
 ## 1. 概要
 

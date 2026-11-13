@@ -164,7 +164,7 @@
 初期版の全件と、各対策後の同原因発生回数は未整理。複数の似た停止、未収録原画、単体だけで確認した変化を、根拠なく「同原因再発」や「改善完了」に寄せない。特に旧081実5の金1→2、旧086実4の最初の拒否、未観測商品/候補見逃しの未確定は、それぞれのレビューで追う。
 
 
-## TEST094の対策（実装中・実機改善未確認）
+## TEST094の対策（配布版・実機改善未確認）
 
 FR-088-CPU/089-KERNEL/089-EARLY/090-RING-COST/090-UNKNOWN-TEXT、候補見逃しのFR-084/085、初期画像のFR-081/091、FRESH/UNKNOWN/開扉後の旧対策を照合した。旧canonical kernel15 source・ELF・Perception閾値・旧profileを維持し、新profileの接続不足と従来の失敗を区別する。下表の「作成中」は配布前に検出した不一致で、実機改善確認ではない。
 
@@ -192,3 +192,5 @@ FR-088-CPU/089-KERNEL/089-EARLY/090-RING-COST/090-UNKNOWN-TEXT、候補見逃し
 | FR-094-FIXTURE-PAUSE | 2026-11-13 | CI162で陰性restartのintentに一度も到達しない | 専用HOST PAUSE描画がCONTINUEだけでRESTART文字を持たず、実parserはpause1/restart_label0 | 既RESTART maskも描く実UI相当の試験入力へ訂正し、実C parserで1/1を事前assert | 実Cの1/0→必要1/1 assertion Redを確認。Mac11＋旧3は次CI、製品閾値/条件は不変 | 0（新専用fixtureの入力不足、修正後未実行） |
 | FR-094-FIXTURE-DRAIN-SAMPLE | 2026-11-13 | CI163のlease故障mutationが期待Redを検出しない | main/capture終了とterminal解放処理の終了を区別せず、後者より早く状態を検査し得る | HOST限定のterminal処理終了observerで同期し、park中workerと処理後leaseを検査。子returncodeも保存 | CI163の0-byteログとstatic順序を確認、旧returncodeは未確定。次Macで実行確認、製品の解放条件は不変 | 未確認（専用fixtureの同期不足。対策後CI未実行） |
 | FR-094-FIXTURE-RESTART-MAP | 2026-11-13 | CI164のSEARCH restartが4秒で未確認終了 | GOLD除去後の試験地形は二小STONEとnoise平行移動だけで、新地形の指紋差条件を満たさない | 専用HOST generatorをSwift/実C probeで共通使用し、clear/partial/fullと指紋差を事前検査。製品の指紋/期限は維持 | CI164の26stable画像・UI ACK・指紋待ちのdiagnosticを確認。実C probe/次Macで確認し、実機成功と数えない | 未確認（新専用fixtureの地形不足、対策後CI未実行） |
+
+TEST094最終確認: build165の限定host144・Mac Runtime新11＋旧3/API/spool/Exportと実物5検査は成功。上表のCI前の記録を履歴として残し、各対策の実機改善・再発率を確認済みへ変更しない。

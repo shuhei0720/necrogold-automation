@@ -2,6 +2,10 @@
 
 [要件](../requirements/necrogold.md)・[通路と限定変更](passage-approach.md)。[087](../plans/test087-target-pause.md)・[090限定差分](../plans/test090-device-stops.md)以外は維持。
 
+## TEST094の専用profile拡張
+
+旧API/cap15・profile1/2・Status/Event/Scene ABIは維持。専用cap/profileの端末内判定・陰性周回は[限定計画](../plans/test094-native-goods-cycle.md)、上左の観測床候補は[Nav計画](../plans/test094-shadow-passage.md)を適用する。companion ABIと閉schemaを分離し、正常な完全陰性証明/耐久保存/新規UI資格/実ACKと新floorだけ次levelへ進める。候補保持・UNKNOWN凍結/無再送・全worker実drain・元期限と累積予算は解除しない。診断回収の許可を入力解放と同一視しない。
+
 ## 2. 保存
 
 `legacy/r12/`40ファイルは[元manifest](../r12-source-manifest.json)とbyte一致。scope外G1/保護資産不変。raw/端末設定/pairing/秘密値はGit外。

@@ -2,7 +2,13 @@
 
 [要件GOODS-01/02](../requirements/necrogold.md)・[TEST087計画](../plans/test087-target-pause.md)。対象は「のろいのゆびわ」。native `goods` は商品可視性であり個別種類ではない。
 
-## データと判定
+## TEST094専用の端末内判定・周回
+
+`necrogold_native_cycle_v1` / `normal-1-1-cycle-v1` だけ、同じiPhoneのnative workerで直接RGBAを分類する。[限定契約と閾値・保存・回復・通知](../plans/test094-native-goods-cycle.md)を適用する。全3商品/余剰なし/独立layout・各品identityの証明が揃ったnegativeだけ、耐久checkpoint/intent・新しいPAUSE資格・実ACK/変化したfloorを経て次周回へ進む。宝箱は中身を判定せず、正に識別した閉容器だけ対象外。対象/候補/不明/故障は保持し購入しない。PARTIALの限定OBSERVE_MOREとUNKNOWN無再送、元期限/累積予算を守る。
+
+iSHは終了後の全画像/記録/ZIP照合を担当し、判定を再実行しない。通知のrequestedはOSへの受付で、実配信の証明ではない。iPhone速度/未知精度は未受入。以下は既存profileの後処理契約で、新profileへ無断fallbackしない。
+
+## 既存profileのデータと判定
 
 既nativeの全商品可視/ポーズ・入力drain後、同iPhoneのiSH内で判定する。外部へ画像を送らず、新しいゲーム入力を出さない。入力は同runの最終ACK PAUSE authorityを先に、必要時だけ同prefix/stable/非inflight/非交差の保持proof1枚を使う。画像上限2、896×414の原寸と有限3slot/scale/探索範囲・取消を維持し、正式sidecarは全画像certificate後に確定する。
 

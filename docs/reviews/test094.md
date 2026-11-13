@@ -1,6 +1,6 @@
 # TEST094 受領・実装・検証
 
-2026-11-13（日本時間）。実装中・未配布。iPhone受入は未確認。[計画](../plans/test094-native-goods-cycle.md)・[Nav限定](../plans/test094-shadow-passage.md)・[修正表](../fix-records.md)。
+2026-11-13（日本時間）。CI/配布物検証済み。iPhone受入は未確認。[計画](../plans/test094-native-goods-cycle.md)・[Nav限定](../plans/test094-shadow-passage.md)・[修正表](../fix-records.md)。
 
 ## 093の受領
 
@@ -19,7 +19,7 @@
 ## 現在の証拠
 
 - 新clientの有効Red: 旧profile拒否1、開始前取消1。独立review後の3 assertionはfail3/errors0→実Python3.9の全30 Green。UNKNOWNの診断回収は入力再開を許可しない。
-- Controller: 新25＋旧goods/restart/UNKNOWN5＋093入店6の36 Green。旧Status192/Event128/Scene23864 byte layoutを維持し、companion216を別ABIへ追加。合成Scene/時計であり実機到達率ではない。
+- Controller: 新29＋旧goods/restart/UNKNOWN5＋093入店6の40 Green。旧Status192/Event128/Scene23864 byte layoutを維持し、companion216を別ABIへ追加。合成Scene/時計であり実機到達率ではない。
 - Nav: 新6＋関連19をO0/strictO2でGreen、原156は一度だけ現在Perceptionで校正。観測床3歩の仮説で、未知セルを変えない。
 - native fast4: host分類326=43.9ms/151=24.1ms/309=10.8ms/225=27.2ms。既23 slotの安全上界が全て旧exact以上、対象309を保持した。iPhone/p95ではない。
 - feature bank: named8品、closed chest2 poseを分離。閾値を先に固定し8×8交差・対象/別ring/2containerを校正。未知配置の正解率へ数えない。
@@ -58,3 +58,11 @@ codebc0182c5146b904813b94827819834839e42dea6/run43387220437/build163。host144�
 code1f2b18f0ba2074e27990e4198db4177ae6429f55/run43388444326/build164。host144・Mac API/spool/Exportに加え、lease/UNKNOWNの二つの意味mutation Redは通過。Greenは旧3と先行する停止・保存・陰性二商店のassertを通り、通常SEARCH restartの検査で失敗した。実diagnosticはPAUSE/RESTART各一件ACK、26stable capture後もobserved_capture_id0・level1/restarts0/input3、元4秒のreason16。GOLD除去後の旧試験画像は小STONE二点とnoise平行移動だけで、restartの6cell/3col/2row/差12を証明できる新地形になっていない。専用HOST C generatorと同じ画像をSwift/実C probeで使い、clear/partial/full・指紋差を事前assertする。製品の指紋閾値/4秒を緩めない。全Green/IPAは未達。
 
 実C probeは旧clear0→36→72→108の指紋変化0/0/0（差12のcell4/1/1）を確認し、公開Cで元4.42秒のreason16を再現した。新しい共通HOST generatorは周辺STONE六区画だけを交互に変更し、変化1/1/1（cell8/6/7）。全clearはFLOOR/CLEAR/goodsUNKNOWN/mask0/beat1、最終fullはgoodsVISIBLE、knockoutはPARTIAL、いずれも最終clearから指紋変化1。公開Cで三SEARCHケースともrestart3/level4/新しいpending jobへ到達。Swiftは同じC generatorを使う。これらは試験入力の整合性であり、実機性能/到達率ではない。
+
+## 最終CIと配布物
+
+code `60284ae188d3e5bec4981256c1baa6110609ea4b`、run43390253276/build165。host新103＋関連36＋selector5の144件/16scopeが全Green。Macの実API owner/schema/意味mutation、実FS spool/故障mutation/全pixel PNG、Export6/不正range mutation、Runtime新11＋旧3およびlease/UNKNOWNの二mutationが成功。Runtimeの画素/時計/分類結果はproceduralで、実ゲーム操作・iPhone精度や速度の受入ではない。
+
+rootの実物5gateは各一回PASS、意味試験/追加compile/画像分類の再実行0。36seal（旧22を保存し7変更/14追加）、実C8/Swift5/profile3/RSP/FileList、9Mach-Oの旧398＋新138 marker、旧canonical15source/56,088B ELF・G1/R12全40を照合。完全build sourceは784ファイルの全bytes/CRC/path一致。IPA 17,992,906B、SHA `df7093784a89712791f66e6277ec10e8d3d26562abb804fd0d0f1db30f21eaee`。古い作者Redの一部は会話tool出力の逐語転記で、元compiler束/fixture未封印をreceiptで明示し、再生可能な原ビルドと呼ばない。最終CIは現source全methodを結合する。
+
+closingは文書のみ、製品/試験/source sealを変えない。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test094-build165/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test094-build165/source.zip)を固定Releaseへ配布する。公開後の匿名全GETと実tag/closing source全bytesを照合する。新IPA更新/LoopCtrl完全再起動/Start Server/通常VPN、通常1-1ポーズから一連をまず一回実施し、停止通知後にiSHの全照合終了まで待って表示ZIP全体を返却してもらう。陰性の途中PAUSEで切り替えない。未受入・残P1/P2は上記を維持する。

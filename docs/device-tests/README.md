@@ -3142,3 +3142,11 @@ code `78faae482fe4c44ca9329c6514e32a0267308f9d`、run43353378401/build157。限�
 Controllerだけに、同じ安全な開通済み床の別FRESHと、元親horizon内のPARTIAL未送信期限切れ回復を追加。投影保護/次床/金bracket/完全判断/strict0・旧ID不活性/全予算を維持。旧081mask0保持との衝突は配布前に既存assertのRedで検出し1行修正、元assertは保持した。code7e6b9ba70711512145dfbc7a275287d56234aa97/run43362104103/build159の限定18/6scopeが全Green。新Runtime/world/UI再試験は行わず、旧Runtime092を過去証跡として結合。
 
 実物5gate各1回PASS、22seal1変更21同一・実compiler・9Mach-O/398marker・R12全40・source750件を照合。IPA 17,645,407B/SHA `e52219b40d2d075a87d3354dd8ecd2e7f38c170adf5edd1c9f0ba7096aa6f128`。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test093-build159/LoopCtrl.ipa)・[全コードZIP](https://github.com/shuhei0720/necrogold-automation/releases/download/test093-build159/source.zip)。公開後匿名全GET/実tagも照合する。更新/完全再起動/Start Server/通常VPN、test_093.shで通常1-1ポーズから一連4回・全表示run ZIPを依頼。実機改善は未確認。
+
+## TEST093受領とTEST094: 端末内の対象判定・有限周回
+
+2026-11-13（日本時間）。[計画](../plans/test094-native-goods-cycle.md)・[受領/検証](../reviews/test094.md)・[修正表](../fix-records.md)。093の3ZIP/60PNGは全回収照合済み。商品可視2、restart上限1。旧判定は実施済みunknownで、確定陰性ではない。見逃し156へ観測床3歩の上左通路仮説を追加。新profileで同iPhoneのRGBA判定→証明済み対象外だけ耐久PAUSE/restart→新floorへ接続し、宝箱は開けず対象外。候補/対象/未確定は保持・購入0。
+
+code60284ae188d3e5bec4981256c1baa6110609ea4b/run43390253276/build165。限定host144/16scope、Mac API/spool/Export6/Runtime新11＋旧3/二mutationが成功。161〜164で判明したlink依存/試験時計/PAUSE画像/停止検査同期/新地形不足は記録し、製品の期限/条件を緩めなかった。実物5gate各1回PASS、36seal・実C8/Swift5/profile3・9Mach-O/536marker・旧canonical15/ELF・G1/R12・完全sourceを照合。
+
+[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test094-build165/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test094-build165/source.zip)。IPA17,992,906B/SHAdf7093784a89712791f66e6277ec10e8d3d26562abb804fd0d0f1db30f21eaee。新IPA更新/完全再起動/Start Server/通常VPN、test_094.shで通常1-1ポーズからまず一回。候補までrestart→商店→全品判定→確定対象外なら次周回を確認し、停止通知後にiSHの全照合完了まで待ち、表示run ZIP全体を依頼する。到達率/毎拍/人超え速度/稀な対象精度/長期耐久は未受入。

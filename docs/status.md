@@ -1,19 +1,21 @@
 # 最新状態
 
-更新: 2026-11-13（日本時間）。TEST094を実装中、未配布・実機未確認。[計画](plans/test094-native-goods-cycle.md)・[通路修正](plans/test094-shadow-passage.md)・[修正表](fix-records.md)。単体合格や過去の対策を実機改善完了と扱わない。
+更新: 2026-11-13（日本時間）。TEST094 build165はCI/配布物の検証済み版。**実機改善・受入は未確認**。[計画](plans/test094-native-goods-cycle.md)・[検証と未受入](reviews/test094.md)・[修正表](fix-records.md)。過去の対策や単体合格を実機改善完了と扱わない。
 
-## 093受領と094の変更
+## 変更
 
-093の3ZIP/60PNGを全CRC/SHA・strict schema・certificate・sidecar・登録集合へ照合済み。実順4de4→ee2a→70cd。商品可視2回、restart上限1回。原326はコンパス/スピア/あかるいトーチ、原151はトーチ/ブラストヘルム/閉じた宝箱。旧個別判定は2回とも実施済みだが対象なし確定経路はなかった。見逃し156は上左の壁に沿う通路で、観測床3歩の接近候補を追加しUNKNOWNを床へ塗り替えない。
+093の3ZIP/60PNGは全回収照合済み。商品可視2回、restart上限1回。旧個別判定は実施済みだが対象なし確定経路はなかった。見逃し156は観測床3歩の上左通路仮説を追加し、UNKNOWNを床へ変えない。
 
-094は専用cap/profileで、同じiPhoneのRGBAから直接指輪を判定し、証明済み対象外だけPAUSE→耐久intent→RESTART→新floor確認へ戻す。画像回収/iSH判定を各周回へ挟まない。最新指示どおり宝箱は開けず対象外。候補/対象/未判定/故障は保持・自動購入0。16方向入力/12restart/45秒walk/180秒sessionは累積し、4商店までの有限試験とする。
+094の専用cap/profileは同じiPhoneのRGBAから直接指輪を判定する。全商品を確認した証明済み対象外だけ、PAUSE→耐久intent→RESTART→新floor確認へ進む。画像回収/iSH判定を周回間に挟まない。宝箱は開けず対象外。対象/候補/未判定/故障は保持、自動購入0。16方向入力/12restart/45秒walk/180秒sessionは累積、4商店までの有限試験。
 
-## 検証状態
+## 検証と配布
 
-新C/回収単体・独立差分レビューを進行中。開発hostの実画像4件は分類11〜44ms、実対象の保持を確認したがiPhone速度ではない。原225の元画像で完全coverageの条件成立、原326/151はlayout不足の未判定を維持。有限bank外の品や未知配置の精度は未受入。Swift/Mac実callback・IPA実build・実物/完全source照合はこれから実行する。現在の配布物は093のまま。
+code `60284ae188d3e5bec4981256c1baa6110609ea4b`、run43390253276/build165。変更部と関連host144件/16scope、Macの実API・FS spool・Export6・Runtime新11＋旧3が成功。模擬時計/地形/判定を使うcallback試験で、実ゲームや実機到達率ではない。IPA実物5検査・実C8/Swift5のcompiler設定・9Mach-O・旧canonical15source/56,088B ELF・G1/R12・全source bytesを照合した。過程のCI失敗原因は検証記録に保存。
 
-[前版IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test093-build159/LoopCtrl.ipa)・[前版全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test093-build159/source.zip)。code7e6b9ba、run43362104103/build159の来歴は[093記録](reviews/test093.md)。094完成として使わない。
+[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test094-build165/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test094-build165/source.zip)。固定Release assetへ配布し、hashは同ReleaseのSHA256SUMS.txt。新API/判定経路のためIPA更新が必要。
 
 ## 次の実機
 
-094の新IPA/完全sourceを固定Releaseへ検証・公開してから依頼する。通常1-1ポーズから一回開始し、候補までrestart→金壁/通路候補→商店→個別判定→証明済み対象外なら次周回、を同じnative sessionで確認する。終了後に全画像・全記録・ZIP照合と出版ACKを完了し、表示ZIP全体を返却してもらう。回収済み093の再回収や稀な対象待ち周回は不要。[索引](context.md)。
+IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。sourceを展開しtest_094.shのあるフォルダをiSHへ選ぶ。通常1-1ポーズから一回開始し、候補までrestart→金壁/通路候補→商店→全商品判定→確定対象外なら次周回を確認する。途中の陰性PAUSEでアプリを切り替えず、停止通知後にiSHへ戻り全画像/記録/ZIP照合の終了を待つ。表示されたruntime/test-094-<UUID>.zip全体を返却。入力UNKNOWN表示時は次回前にLoopCtrlを完全再起動する。
+
+iPhone到達率/毎拍・人超え速度/未知対象精度/長期耐久は未受入。bank外やlayout不足は未確定保持。遅延positiveの専用通知P1、session/回復ledgerの保持上限と自動整理なしP2を残す。[索引](context.md)。
