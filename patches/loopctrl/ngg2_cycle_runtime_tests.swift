@@ -52,6 +52,7 @@ func resetCycleFixture(_ root: URL) -> CycleFixtureClock {
     NG2RuntimeCycleTestHooks.beforeIntentWrite = nil
     NG2RuntimeCycleTestHooks.beforePersistenceCommit = nil
     NG2RuntimeCycleTestHooks.afterNotification = nil
+    NG2RuntimeCycleTestHooks.afterTerminalDrainPass = nil
     NG2CycleSpoolTestHooks.beforeBoundary = nil
     let full = cyclePixels()
     NG2RuntimeCycleTestHooks.rgba = { original in
@@ -110,9 +111,15 @@ func publishFixtureClaim(_ id: String, diagnostic: Bool = false, requiredCapture
 func testCycle094WorkerCancelAndDrain(_ root: URL) {
     _ = resetCycleFixture(root); cycleProof(1)
     let id = identity(), signal = DispatchSemaphore(value: 0), gate = NSLock()
-    var entered = false
+    var entered = false, terminalPassObserved = false, leaseAfterTerminalPass = false
     NG2RuntimeCycleTestHooks.beforeClassification = { _ in gate.lock(); entered = true; gate.unlock(); signal.wait() }
     NG2RuntimeTestHooks.scheduleTicket = { command, callback in NG2Fake.holdTicket(command, callback); return true }
+    NG2RuntimeCycleTestHooks.afterTerminalDrainPass = { observedID, captureDone, captureOutstanding, mainOutstanding in
+        guard observedID == id, captureDone, !captureOutstanding, !mainOutstanding,
+              NG2CaptureBridge.pendingRequests == 0 else { return }
+        let held = runtime.hasLease
+        gate.lock(); terminalPassObserved = true; leaseAfterTerminalPass = held; gate.unlock()
+    }
     cycleStart(id)
     pump("cycle094_worker_entered") { gate.lock(); defer { gate.unlock() }; return entered }
     _ = call("necro_native_cancel", id)
@@ -123,7 +130,15 @@ func testCycle094WorkerCancelAndDrain(_ root: URL) {
         let value = report(id)
         return value["main_ticket_outstanding"]?.boolValue == false && value["capture_outstanding"]?.boolValue == false
     }
-    require(!cycleDrained(id) && runtime.hasLease && NG2Fake.countTouches() == 0,
+    // Main/capture reporting can precede the terminal lease-release decision.
+    // Observe the completed real pass while the classification worker remains
+    // parked; the lease mutation must be visible before that worker is freed.
+    pump("cycle094_cancel_terminal_drain_pass_observed") {
+        gate.lock(); defer { gate.unlock() }; return terminalPassObserved
+    }
+    gate.lock(); let heldAfterPass = leaseAfterTerminalPass; gate.unlock()
+    NG2RuntimeCycleTestHooks.afterTerminalDrainPass = nil
+    require(heldAfterPass && !cycleDrained(id) && runtime.hasLease && NG2Fake.countTouches() == 0,
         "cycle094_cancel_holds_lease_until_worker_and_main_return")
     signal.signal()
     pump("cycle094_cancel_actual_drain", timeout: 20) { cycleDrained(id) }

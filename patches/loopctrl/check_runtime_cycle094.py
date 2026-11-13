@@ -101,7 +101,9 @@ void ng2_test_pause(uint8_t *out,size_t length) {
 
         def execute(source, name, selected=None):
             runtime_path.write_text(source)
-            (stage / 'main.swift').write_text(fixture_source(selected))
+            fixture = fixture_source(selected)
+            (stage / 'main.swift').write_text(fixture)
+            (output / (name + '-fixture.swift')).write_text(fixture)
             command = ['swiftc', '-Onone', '-D', 'NG2_RUNTIME_HOST_TEST', '-D', 'NG2_CYCLE_TEST094', '-D', 'NG2_PREPARATION_TEST058_GREEN',
                 '-Xcc', '-I' + str(native), '-Xcc', '-I' + str(HERE), '-import-objc-header', str(stage / 'Bridge.h'),
                 *map(str, sources), *map(str, objects), '-o', str(stage / name)]
@@ -111,6 +113,11 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                 raise SystemExit(result.stdout + result.stderr)
             result = subprocess.run([str(stage / name)], capture_output=True, text=True, timeout=180)
             (output / (name + '-tests.txt')).write_text(result.stdout + result.stderr)
+            (output / (name + '-result.json')).write_text(json.dumps({
+                'returncode': result.returncode, 'selected': selected,
+                'stdout_bytes': len(result.stdout.encode()), 'stderr_bytes': len(result.stderr.encode()),
+                'fixture_sha256': hashlib.sha256(fixture.encode()).hexdigest(),
+                'runtime_sha256': hashlib.sha256(source.encode()).hexdigest()}, indent=2) + '\n')
             return result
 
         if args.fault_red:
@@ -120,7 +127,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
             red = execute(runtime.replace(marker, '', 1), 'cycle-drain-fault-red', 'lease')
             expected = 'FAIL cycle094_cancel_holds_lease_until_worker_and_main_return'
             if red.returncode != 1 or expected not in red.stdout:
-                raise SystemExit('meaningful cycle drain Red missing:\n' + red.stdout + red.stderr)
+                raise SystemExit('meaningful cycle drain Red missing (returncode=' + str(red.returncode) + '):\n' + red.stdout + red.stderr)
             projection = '"native_inflight": .bool(run.inFlight && !drained)'
             if runtime.count(projection) != 1:
                 raise ValueError('cycle UNKNOWN projection mutation boundary')
@@ -128,7 +135,7 @@ void ng2_test_pause(uint8_t *out,size_t length) {
                           'cycle-unknown-projection-red', 'unknown')
             expected = 'FAIL cycle094_unknown_synth_actual_drain_projection'
             if red.returncode != 1 or expected not in red.stdout:
-                raise SystemExit('meaningful UNKNOWN projection Red missing:\n' + red.stdout + red.stderr)
+                raise SystemExit('meaningful UNKNOWN projection Red missing (returncode=' + str(red.returncode) + '):\n' + red.stdout + red.stderr)
         green = execute(runtime, 'cycle-production-green')
         print(green.stdout, end='')
         if green.returncode:

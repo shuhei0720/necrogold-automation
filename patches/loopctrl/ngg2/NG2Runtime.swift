@@ -120,6 +120,7 @@ enum NG2RuntimeCycleTestHooks {
     static var beforeIntentWrite: ((UInt64) -> Void)?
     static var beforePersistenceCommit: ((UInt64) -> Void)?
     static var afterNotification: ((String) -> Void)?
+    static var afterTerminalDrainPass: ((String, Bool, Bool, Bool) -> Void)?
 }
 #endif
 
@@ -2136,6 +2137,12 @@ final class NG2Runtime {
                     if historyOrder.count > 64 { history.removeValue(forKey: historyOrder.removeFirst()) }
                 }
             }
+            #if NG2_RUNTIME_HOST_TEST
+            let workerState = run.lock.ng2Locked {
+                (run.captureWorkerDone, run.captureOutstanding, run.mainOutstanding)
+            }
+            NG2RuntimeCycleTestHooks.afterTerminalDrainPass?(run.id, workerState.0, workerState.1, workerState.2)
+            #endif
             return
         }
         // The live ticket and its actual queued callback have separate lives.
