@@ -292,11 +292,43 @@ static int passage_split_shadow_vantage(const NG2Scene *s,const Path route[CELLS
     if(tile(s,0,-2)!=NG2_TILE_FLOOR||tile(s,1,-2)!=NG2_TILE_FLOOR)return 0;
     return route[vantage].cost!=INF_COST&&route[vantage].length==3;
 }
+/* Observed upper-left boundary ends can support a closer FLOOR view when
+ * the portal remains dark or its outside floor appears around a corner.
+ * Keep both fixed mouths and every UNKNOWN cell; this is not a shop proof. */
+static uint32_t passage_occluded_corner_vantage(const NG2Scene *s,const Path route[CELLS]) {
+    static const int inside[][2]={{-2,-2},{-2,-1},{-1,-2}};
+    int i,x,y,roof=0,left=0,upper=index_of(-1,-2),side=index_of(-2,-1);
+    uint32_t result=0;
+    if(s->gold_state!=NG2_GOLD_CLEAR)return 0;
+    for(i=0;i<CELLS;++i)
+        if(s->protected_cells[i]||s->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(y=-1;y<=0;++y)for(x=-1;x<=0;++x)
+        if(tile(s,x,y)!=NG2_TILE_FLOOR)return 0;
+    if(!((route[upper].cost!=INF_COST&&route[upper].length==3)
+        ||(route[side].cost!=INF_COST&&route[side].length==3)))return 0;
+    if(tile(s,-2,-3)==NG2_TILE_UNKNOWN&&tile(s,-2,-4)==NG2_TILE_UNKNOWN
+        &&passage_wall(s,-3,-4)) {
+        for(x=-1;x<=2;++x)roof+=passage_wall(s,x,-3);
+        for(y=-3;y<=3;++y)left+=passage_wall(s,-3,y);
+        for(i=0;i<(int)(sizeof(inside)/sizeof(inside[0]));++i) {
+            int kind=tile(s,inside[i][0],inside[i][1]);
+            if(kind!=NG2_TILE_UNKNOWN&&kind!=NG2_TILE_FLOOR)break;
+        }
+        if(roof>=2&&left>=2&&(passage_wall(s,1,-3)||passage_wall(s,2,-3))
+            &&i==(int)(sizeof(inside)/sizeof(inside[0])))result|=UINT32_C(1);
+    }
+    if(tile(s,-3,-2)==NG2_TILE_FLOOR&&tile(s,-4,-2)==NG2_TILE_UNKNOWN
+        &&tile(s,-4,-3)==NG2_TILE_FLOOR&&tile(s,-3,-1)==NG2_TILE_UNKNOWN
+        &&tile(s,-2,-2)==NG2_TILE_FLOOR&&passage_wall(s,-3,-3)
+        &&passage_wall(s,-2,-3)&&passage_wall(s,-1,-3))result|=UINT32_C(1)<<5;
+    return result;
+}
 uint32_t ng2_passage_candidates(const NG2Scene *s) {
     Path route[CELLS];uint32_t result=0;int side,k;
     if (!passage_scene(s)) return 0;
     path_search(s,0,1,route);
     if(passage_shadow_vantage(s,route)||passage_split_shadow_vantage(s,route))result|=UINT32_C(1);
+    result|=passage_occluded_corner_vantage(s,route);
     for (side=0;side<2;++side) for (k=-2;k<=2;++k) {
         int mx=side ? -3 : k,my=side ? k : -3,dx=side ? -1 : 0,dy=side ? 0 : -1;
         int inboard=index_of(mx-dx,my-dy),mouth=tile(s,mx,my);
@@ -2051,6 +2083,51 @@ static void revealed_singleton_motion(const NG2Scene *a,const NG2Scene *b,int di
     out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
 }
 
+/* A preserved old singleton may be approached through a sparse corridor.
+ * Complete old terrain anchors and two dependency-closed image planes must
+ * agree with the finite raw winner; unsupported candidates supply no margin.
+ * This is a unit-only proof after every original stage remains UNKNOWN. */
+static void preserved_singleton_sparse_motion(const NG2Scene *a,const NG2Scene *b,int direction,
+                                               const View views[2],const Candidate raw[73],NG2Motion *out) {
+    Candidate phase[73];ClosedGateAxisCache *cache;
+    int dx,dy,i,n=1,amount,d,support,regions[2];
+    if(out->kind!=NG2_MOTION_UNKNOWN||direction<1||direction>4||!valid_scene(a)||!valid_scene(b))return;
+    dx=ddx[direction];dy=ddy[direction];
+    if(a->gold_state!=NG2_GOLD_CANDIDATE||b->gold_state!=NG2_GOLD_CANDIDATE
+       ||a->goods!=NG2_GOODS_UNKNOWN||b->goods!=NG2_GOODS_UNKNOWN
+       ||gold_count(a)!=1||gold_count(b)!=1||tile(a,0,0)!=NG2_TILE_FLOOR
+       ||tile(a,dx,dy)!=NG2_TILE_FLOOR||tile(b,0,0)!=NG2_TILE_FLOOR
+       ||revealed_singleton_raw_domain(raw,direction)!=1)return;
+    for(i=0;i<CELLS;++i){
+        int old=a->tiles[i],latest=b->tiles[i];
+        if(a->protected_cells[i]||b->protected_cells[i]||old==NG2_TILE_ITEM||latest==NG2_TILE_ITEM
+           ||old==NG2_TILE_DOOR||latest==NG2_TILE_DOOR)return;
+        if(old==NG2_TILE_GOLD&&(tile(b,px(i)-dx,py(i)-dy)!=NG2_TILE_GOLD
+           ||hud_sample_hidden(px(i),py(i))||hud_sample_hidden(px(i)-dx,py(i)-dy)))return;
+    }
+    /* This old-terrain predicate requires every old STONE, at least two,
+     * noncollinear old DIRT >=9 and a unique zero/axis +/-1,+/-2 projection.
+     * Every source and projected witness has its full sampling ROI off HUD. */
+    if(!unique_visible_terrain_translation(a,b,raw[0].sx,raw[0].sy))return;
+    phase[0].sx=phase[0].sy=0;
+    phase[0].score=sparse_gate_intensity(a,b,&views[0],&views[1],0,0,NULL,NULL);
+    for(amount=1;amount<=18;++amount)for(d=1;d<=4;++d){
+        phase[n].sx=amount*ddx[d];phase[n].sy=amount*ddy[d];
+        phase[n].score=sparse_gate_intensity(a,b,&views[0],&views[1],phase[n].sx,phase[n].sy,NULL,NULL);++n;
+    }
+    qsort(phase,73,sizeof(*phase),ranked);
+    sparse_gate_intensity(a,b,&views[0],&views[1],phase[0].sx,phase[0].sy,&support,regions);
+    if(revealed_singleton_raw_domain(phase,direction)!=1
+       ||!sparse_gate_phase_valid(phase,direction,support,regions))return;
+    cache=(ClosedGateAxisCache*)calloc(1,sizeof(*cache));if(!cache)return;
+    closed_gate_axis_features(a,cache->before,cache->indices,&cache->count);
+    closed_gate_axis_features(b,cache->after,NULL,NULL);
+    if(closed_gate_axis_strong(cache,raw)){
+        out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+    }
+    free(cache);
+}
+
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -2087,6 +2164,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     opening_blur_quality_motion(before,after,direction,views,candidates,out);
     stationary_gold_axis_motion(before,after,direction,views,candidates,out);
     revealed_singleton_motion(before,after,direction,views,candidates,out);
+    preserved_singleton_sparse_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,

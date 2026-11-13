@@ -112,7 +112,7 @@ struct NG2Controller {
     uint32_t stationary_wait_pending,stationary_wait_inspected,stationary_wait_unresolved,stationary_wait_closed;
     /* New-profile state is appended; no old public layout or latch changes. */
     int cycle_enabled,cycle_pause_attempted,cycle_storage_error,cycle_partial_credit;
-    int cycle_queued_valid,cycle_choice_valid;
+    int cycle_queued_valid,cycle_choice_valid,cycle_framing_credit;
     int cycle_search_restart,cycle_restart_unproved;
     uint64_t cycle_credit_prefix,cycle_consumed_prefix,cycle_sync_deadline;
     NG2ControllerCycleStatus cycle;
@@ -147,6 +147,7 @@ static void clear_stationary_wait(NG2Controller *p){
 }
 static void terminal(NG2Controller *p,uint64_t now,int reason){
     p->preparation_epoch=0;
+    p->cycle_framing_credit=0;
     p->opened_entry_parent=p->opened_entry_recovery_ns=0;
     p->passage_unlocalized_gold=p->initial_candidate_unlocalized=0;
     clear_stationary_wait(p);
@@ -165,6 +166,7 @@ static void end_visual_wait(NG2Controller *p){
 }
 static void finish(NG2Controller *p,uint64_t now,int reason){
     p->preparation_epoch=0;
+    p->cycle_framing_credit=0;
     p->opened_entry_parent=p->opened_entry_recovery_ns=0;
     p->passage_unlocalized_gold=p->initial_candidate_unlocalized=0;
     clear_stationary_wait(p);
@@ -2040,7 +2042,7 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
 static void cycle_failure(NG2Controller *p,uint64_t now,int status,int reason){
     if(p->s.input_state==1&&(p->command.kind==NG2_ACTION_MOVE||p->command.kind==NG2_ACTION_RESTART))
         not_sent(p,now,reason);
-    p->cycle_partial_credit=0;p->cycle.pending=0;p->cycle.status=status;
+    p->cycle_partial_credit=p->cycle_framing_credit=0;p->cycle.pending=0;p->cycle.status=status;
     if(!p->cycle.candidate_latched)p->cycle.outcome=NG2_RING_UNKNOWN;
     p->cycle.state=NG2_CYCLE_HELD;p->cycle.assessment_ns=now;
     p->s.reason=reason;p->preparation_epoch=0;
@@ -2323,26 +2325,89 @@ static int cycle_partial_choice(const NG2Controller *p,const NG2Scene *scene,NG2
             ||protected_route_cell(scene,scene,dx[d]+dx[i],dy[d]+dy[i]))return 0;
     return 1;
 }
-/* Distant DIRT can fade to UNKNOWN or resolve to FLOOR as light animates.
- * This is observation of material only: keep the frozen source, every protected
- * cell and the origin/next-cell neighborhoods, and still require the identical
- * complete route decision plus independent strict zero motion below. */
-static int cycle_partial_distant_dirt(const NG2Scene *source,const NG2Scene *scene,int d){
-    int i;
+/* Bounding extrema of the existing icon/price/partial-name search union,
+ * including +/-18px ITEM quantization. No slot anchor or absence is inferred. */
+static void cycle_framing_bounds(int x,int y,int *left,int *right,int *bottom){
+    int cx=448+36*x,cy=207+36*y;
+    if(cx-78<*left)*left=cx-78;
+    if(cx+78>*right)*right=cx+78;
+    if(cy+59>*bottom)*bottom=cy+59;
+}
+static int cycle_framing_scene(const NG2Scene *scene){
+    int i,d,top=0,left=896,right=0,bottom=0;
+    if(scene->state!=NG2_FLOOR||scene->goods!=NG2_GOODS_PARTIAL
+        ||scene->gold_state!=NG2_GOLD_CANDIDATE||!actual_gold(scene))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int x=i%23-11,y=i/23-5;
+        if(scene->tiles[i]==NG2_TILE_ITEM){
+            if(!scene->protected_cells[i]||y> -4)return 0;
+            if(y== -5)top=1;
+            cycle_framing_bounds(x,y,&left,&right,&bottom);
+        }
+        if(scene->protected_cells[i]){
+            if(y> -3)return 0;
+            /* A protected edge cell may originate from an ITEM outside the
+             * finite array. Include self and all four possible origins,
+             * without adding any hypothetical ITEM to the observed Scene.
+             * The self bound also contains the protected36x36 rectangle. */
+            for(d=0;d<5;++d)cycle_framing_bounds(x+dx[d],y+dy[d],&left,&right,&bottom);
+        }
+    }
+    /* Only old observable pixels are preserved. In this central/top domain,
+     * the sole possible destination HUD is pause[429,0,465,45); its UP
+     * preimage inside the old viewport was already in that same old HUD.
+     * Offscreen/old-HUD potential pixels remain unknown, never complete. */
+    return top&&left>=143&&right<=663&&bottom>0&&bottom+36<=315;
+}
+static int cycle_framing_admit(const NG2Controller *p,const NG2RingResult *result){
+    const NG2Decision *choice=&p->cycle_choice;
+    return p->cycle.partial&&!p->cycle.full_seen&&!p->cycle.candidate_latched
+        &&!p->cycle_restart_unproved&&!p->cycle_pause_attempted&&!p->cycle_storage_error
+        &&!p->s.input_state&&p->s.lead_confirmed&&level_moves(p)>0
+        &&p->s.last_completed_id==p->cycle.prefix&&p->last_observed_prefix==p->cycle.prefix
+        &&p->cycle_choice_valid&&choice->direction==NG2_UP&&choice->reason==5
+        &&!choice->target_x&&choice->target_y== -1&&choice->obstacle==NG2_TILE_FLOOR
+        &&last_ack_opened_gate(p,NG2_UP)&&cycle_framing_scene(&p->cycle_anchor)
+        &&result->outcome==NG2_RING_UNKNOWN&&result->coverage==NG2_RING_COVERAGE_INCOMPLETE
+        &&!result->row_count&&!result->partial_count&&!result->partial_safe_no_positive
+        &&result->selected_row== -1&&result->selected_partial== -1;
+}
+/* Keep the frozen source and the old DIRT rule. An acknowledged opened entry
+ * also retains the exact GOLD-shielded diagonal already admitted by the old
+ * quiet gate path. Remote STONE may resolve to DIRT, never to unknown/floor.
+ * Full choice/protection and independent strict zero remain required below. */
+static int cycle_partial_distant_dirt(const NG2Controller *p,const NG2Scene *source,
+                                     const NG2Scene *scene,int d){
+    int i,opened=p->cycle_choice.reason==5&&p->cycle_choice.obstacle==NG2_TILE_FLOOR
+        &&p->cycle_choice.target_x==dx[d]&&p->cycle_choice.target_y==dy[d]
+        &&last_ack_opened_gate(p,d);
     for(i=0;i<NG2_TILE_COUNT;++i){
         int old=source->tiles[i],latest=scene->tiles[i],x=i%23-11,y=i/23-5;
+        int shielded=opened&&x*dx[d]+y*dy[d]==2&&abs(x*dy[d]-y*dx[d])==1
+            &&((old==NG2_TILE_FLOOR&&latest==NG2_TILE_DIRT)
+                ||(old==NG2_TILE_DIRT&&latest==NG2_TILE_FLOOR))
+            &&tile(source,x-dx[d],y-dy[d])==NG2_TILE_GOLD
+            &&tile(scene,x-dx[d],y-dy[d])==NG2_TILE_GOLD;
         if(old==latest)continue;
-        if(old!=NG2_TILE_DIRT||(latest!=NG2_TILE_UNKNOWN&&latest!=NG2_TILE_FLOOR)
-            ||source->protected_cells[i]||scene->protected_cells[i]
-            ||(abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1))return 0;
+        if(source->protected_cells[i]||scene->protected_cells[i])return 0;
+        if(shielded)continue;
+        if((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)
+            ||!((old==NG2_TILE_DIRT&&(latest==NG2_TILE_UNKNOWN||latest==NG2_TILE_FLOOR))
+                ||(old==NG2_TILE_STONE&&latest==NG2_TILE_DIRT)))return 0;
     }
     return 1;
 }
 static int cycle_partial_relation(const NG2Controller *p,const NG2Scene *scene){
-    NG2Decision latest;NG2Motion still;
+    NG2Decision latest;NG2Motion still;int i;
+    if(p->cycle_framing_credit){
+        if(!last_ack_opened_gate(p,NG2_UP)||!cycle_framing_scene(&p->cycle_anchor)
+            ||!cycle_framing_scene(scene))return 0;
+        for(i=0;i<NG2_TILE_COUNT;++i)
+            if((p->cycle_anchor.tiles[i]==NG2_TILE_ITEM)!=(scene->tiles[i]==NG2_TILE_ITEM))return 0;
+    }
     if(!p->cycle_choice_valid||!cycle_partial_choice(p,scene,&latest)
         ||!same_choice(&p->cycle_choice,&latest)
-        ||!cycle_partial_distant_dirt(&p->cycle_anchor,scene,latest.direction)
+        ||!cycle_partial_distant_dirt(p,&p->cycle_anchor,scene,latest.direction)
         ||memcmp(p->cycle_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT)
         ||!ng2_motion(&p->cycle_anchor,scene,latest.direction,&still))return 0;
     return still.kind==NG2_BLOCKED&&!still.dx&&!still.dy;
@@ -2375,7 +2440,7 @@ static void cycle_latch(NG2Controller *p,const NG2Scene *scene,uint64_t now){
     p->cycle.candidate_latched=sticky;p->cycle.state=NG2_CYCLE_HOLD;p->cycle.pending=1;
     p->cycle.partial=scene->goods==NG2_GOODS_PARTIAL;p->cycle.full_seen=scene->goods==NG2_GOODS_VISIBLE;
     p->cycle.hold_started_ns=now;p->cycle_pause_attempted=p->cycle_storage_error=0;
-    p->cycle_partial_credit=p->cycle_queued_valid=p->cycle_choice_valid=0;
+    p->cycle_partial_credit=p->cycle_framing_credit=p->cycle_queued_valid=p->cycle_choice_valid=0;
     p->cycle_search_restart=search_restart;p->cycle_restart_unproved=0;
     not_sent(p,now,NG2_REASON_GOODS);clear_slots(p);
     clear_stationary_wait(p);p->gate_refresh_state=NG2_GATE_REFRESH_NONE;
@@ -2391,6 +2456,15 @@ static void cycle_latch(NG2Controller *p,const NG2Scene *scene,uint64_t now){
 static int cycle_observe_hold(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t prefix,uint64_t commit){
     cycle_scene(p,scene,id,start,end,prefix);
+    if(p->cycle_framing_credit&&p->cycle.state==NG2_CYCLE_OBSERVE_MORE
+        &&!p->s.input_state&&!p->cycle.candidate_latched&&!p->cycle_restart_unproved
+        &&scene->state==NG2_FLOOR&&scene->goods==NG2_GOODS_VISIBLE&&id>p->cycle.capture_id
+        &&start>=p->cycle.release_after_ns&&prefix==p->cycle.prefix){
+        /* A new, qualified FULL observation replaces empty framing evidence.
+         * Normal binding revokes the old credit and starts classification of
+         * this source; no old MOVE or input horizon is restored. */
+        cycle_latch(p,scene,commit);cycle_bind(p,scene,id,start,prefix);return 1;
+    }
     if(p->s.input_state==3&&p->command.kind==NG2_ACTION_MOVE){
         if(scene->state!=NG2_FLOOR){end_visual_wait(p);cycle_failure(p,commit,NG2_RING_KERNEL,NG2_REASON_SCREEN);}
         else{
@@ -2501,6 +2575,14 @@ int ng2_controller_cycle_assess(NG2Controller *p,uint64_t job,uint64_t capture,u
         p->s.reason=NG2_REASON_GOODS;
         p->cycle.state=NG2_CYCLE_HELD;++p->cycle.completed_shops;return 1;
     }
+    if(cycle_framing_admit(p,result)){
+        /* Empty remains UNKNOWN/INCOMPLETE. This separate, one-input credit
+         * needs a later independent stationary frame and a new future ticket;
+         * it never certifies target absence or a completed shop. */
+        p->cycle_framing_credit=1;p->cycle_queued_valid=0;
+        p->cycle.queued_capture_id=p->cycle.queued_capture_start_ns=p->cycle.queued_prefix=0;
+        p->cycle.state=NG2_CYCLE_OBSERVE_MORE;p->cycle.release_after_ns=now;return 1;
+    }
     if(p->cycle.partial&&result->outcome==NG2_RING_UNKNOWN&&result->partial_safe_no_positive==1
         &&result->coverage==NG2_RING_COVERAGE_INCOMPLETE&&!p->cycle.candidate_latched&&!p->cycle_restart_unproved){
         int r,s,observed=result->row_count>0||result->partial_count>0;
@@ -2558,7 +2640,7 @@ int ng2_controller_cycle_outcome_commit(NG2Controller *p,uint64_t job,uint64_t c
         ||(p->s.walk_started_ns&&now-p->s.walk_started_ns>=45*SECOND))return 0;
     p->last_now=now;p->cycle.outcome_ns=now;++p->cycle.level_id;
     p->cycle.state=NG2_CYCLE_SEARCH;p->cycle.candidate_latched=0;
-    p->cycle_pause_attempted=p->cycle_storage_error=p->cycle_partial_credit=p->cycle_queued_valid=0;
+    p->cycle_pause_attempted=p->cycle_storage_error=p->cycle_partial_credit=p->cycle_framing_credit=p->cycle_queued_valid=0;
     p->s.goods=0;p->s.reason=NG2_REASON_NONE;reset_level(p,now);
     if(p->scene.goods!=NG2_GOODS_UNKNOWN){
         cycle_latch(p,&p->scene,now);
@@ -3491,7 +3573,7 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
     if(p->command.kind==NG2_ACTION_MOVE&&p->motion_reference_valid&&!reference_time_valid(p,now,0))
         p->motion_reference_valid=0;
     if(p->command.kind==NG2_ACTION_MOVE&&p->cycle_partial_credit){
-        p->cycle_partial_credit=0;p->cycle_consumed_prefix=p->s.last_completed_id;
+        p->cycle_partial_credit=p->cycle_framing_credit=0;p->cycle_consumed_prefix=p->s.last_completed_id;
     }
     p->preparation_epoch=0;
     if(p->command.kind==NG2_ACTION_MOVE)p->passage_release_proof_id=0;

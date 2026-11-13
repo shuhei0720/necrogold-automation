@@ -6,7 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
-| TEST096の実機停止・判定遅延 | [今回計画](plans/test096-walk-cycle-repair.md)・[受領](reviews/test096.md) | 曲がる実送信後のUNKNOWN、同期PAUSEによる採用遅延、金商店認証。[前版の対象判定](plans/test095-target-only.md) |
+| TEST097の到達継続・候補見逃し | [今回計画](plans/test097-arrival-continuation.md)・[受領](reviews/test097.md) | 移動UNKNOWN、開扉後の部分表示/継続、候補4枚。[前版](plans/test096-walk-cycle-repair.md) |
 | TEST093の開扉後の入店 | [計画](plans/test093-opened-entry.md)・[受領/検証](reviews/test093.md) | 新CのFRESH/未送信回復と旧関連だけ。Runtime092は不変bytes/過去証跡 |
 | 現在の不具合・今回の計画 | statusの結果と計画リンク | [検証の区分](testing.md)、該当する受領記録 |
 | 修正前の過去対策・再発照合 | [修正記録表](fix-records.md) | 同じ事象/原因を検索。過去の対策を改善完了と扱わない |
