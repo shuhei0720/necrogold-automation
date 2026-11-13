@@ -47,7 +47,7 @@ GOLD静止の新4methodはO0/strict O2で有効assertion Red→Green。新block/
 
 同一独立担当が計画とUI/Nav/C/Runtimeを静的にレビューしP0/P1なし。GOLDexact2・positive-only全保護/ITEMguard・旧CLEAR不整合拒否のP2を解消。初期2枚/固定mouth、後CLEAR/goal/再取得でのnegative-veto、actualGold/finish/levelでの撤回、元期限/UNKNOWN無再送を確認した。Runtimeはd18e7441。製品編集前のfixture凍結は初版4c75035dだけで、最終版は下記CI155後の訂正を含む。Swift不在による事前意味Redの時系列制限を保持する。独立したcompile/意味/分類の再実行は0。
 
-最終CIは新Nav4＋新C7＋関連Nav2/C7＋UI6＋selector4の30件を選び、旧38件/全Runtime/worldは再実行しない。公開分の新IPA/実source/実compiler/全Mach-O/source照合はこれから行い、実機改善を未確認のまま保持する。
+実行前の計画では新Nav4＋新C7＋関連Nav2/C7＋UI6＋selector4の30件を選び、旧38件/全Runtime/worldを対象外とした。この時点では新IPA/実source/実compiler/全Mach-O照合は未実施で、最終結果は末尾に記す。実機改善は未確認のまま保持する。
 
 ## 初回CI154と試験ハーネスの訂正
 
@@ -61,6 +61,16 @@ code7f3fdc1/run43349912952/build154のhostは、GOLD4後の新mode7でctypes Rec
 
 codeff7188a/run43350940123/build155で限定host30件は合格。Macで旧Runtimeのnamed assertion Redを確認し、現Runtimeは縦画像の後に正常896×414/EXIF1を解析した。しかしfixtureが正常画像を根拠にした正規PAUSEまで入力0を要求し、最初のcaseで失敗した。IPA作成前の試験条件の誤りである。
 
-正常画像を受ける3caseだけ、最初のC observe直前にprefix0/入力0/起動1回を確認し、以後のbegin済み操作は正常accepted capture由来・portrait source除外を要求する。取消/権限/timeout等の入力0、named Red、新9＋旧1の集合は維持。最終fixture30873b95はCI155後の訂正版で、製品Runtime/checker/sealは不変。同じ独立担当の静的レビューでP0/P1なし。修正後のMac試験は次CIで確認する。
+正常画像を受ける3caseだけ、最初のC observe直前にprefix0/入力0/起動1回を確認し、以後のbegin済み操作は正常accepted capture由来・portrait source除外を要求する。取消/権限/timeout等の入力0、named Red、新9＋旧1の集合は維持。この時点のfixture30873b95はCI155後の訂正版で、製品Runtime/checker/sealは不変。同じ独立担当の静的レビューでP0/P1なし。修正後のMac試験は次CIで確認する。
 
 CI156（codea9fd4b2/run43352603681）もhost30合格、Macの正常回復case合格。次の64回上限試験は、論理時計57ms/57取得の時点でHOST側8秒が先に切れた。実処理時間と模擬時計のbudgetを混同したfixtureの不足で、製品の3秒期限失敗ではない。このHOST待機だけ30秒に増やし、取得64回/最終failure64/入力0を維持する。他の新caseを同じ担当がFakeの時刻更新順・取消・lease・hook resetまで静的再確認し、別の具体的欠陥は見つからなかった。製品/通常timeout/runnerは不変、修正後のMacは次CIで確認する。
+
+## 最終CI・実物確認
+
+製品code `78faae482fe4c44ca9329c6514e32a0267308f9d`、標準Mac/Ubuntuのrun43353378401/build157。現sourceの新Nav4＋新C7＋関連Nav2/C7＋UI6＋selector4＝30methods/10scopeが全Green。限定Macは固定5ddb Runtimeのnamed assertion Red1と、現Runtimeの新9＋旧091保存1が成功した。旧38件・全Runtime/worldは未実行で、過去の成功を今回の実行へ読み替えない。
+
+CI154のctypes型衝突は新class7を同process・実runner順序で再現して修正した。CI155は正常raster後の正規PAUSEまで禁止した期待を、正常前の無入力と正常source限定の入力へ訂正。CI156は模擬時計とHOST実時間を分離し、64回試験のHOST待機だけ8秒から30秒へ訂正した。失敗時のログ・基準Red・旧fixtureを保持し、全assert/製品3秒・64回・50ms/通常2秒reply・drainを維持した。154/155/156はいずれもIPA作成前で、製品/seal変更なし。最終fixtureは017d064aで、事前凍結の記録は初版4c75035dにだけ適用する。
+
+実物5gateは各1回で全PASS（追加compile・意味試験・分類0）。IPA0.3.4/build157/min16は17643859B/SHA `f5d213ff6d702e945d5436eef2c06971a9b7f822b3fb8b51502189813124349f`。22seal中Controller/Nav/Runtime3変更・19不変、実C/Swift/RSP・全9Mach-O/旧342＋新46の388禁止marker・R12全40・完全source743ファイルを同じCODE/runへ結合した。追加のcompile/意味/分類は行わず、公開固定assetの匿名全GETと実tagを確認して返す。実機改善・速度・未知陽性精度は未確認。
+
+closingはstatus/本review/実機台帳/修正表だけとし、製品・試験・IPAはbuild codeのまま保持する。通常1-1ポーズからrestart→候補→商店→全商品確認を4回依頼し、完了表示後の全run ZIPを返してもらう。

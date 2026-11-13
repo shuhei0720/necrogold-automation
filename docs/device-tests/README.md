@@ -3130,3 +3130,7 @@ code e7d9f42c4085316542fea864c9ba4e17a9e4acec、run43252794927/build150。実pat
 追加4ZIP/77PNG、実時刻順7702 goods6歩→7a8d beat2歩→56df goods7歩→6d60 screen0歩を全CRC/SHA/strict load/certificate/canonical sidecar/登録集合へ照合。7a8dは17枚が全公開対象で回収不足ではない。商品到達2/4。goods2回は絵・文字判定実行済みunknown/no_target_evidence、停止2回はno_authority未実施。新原画の再分類0。
 
 092は初期portraitだけの元期限内再観測、同GOLD2の別静止zero証明、CANDIDATE/GOLD0を陽性の未局在候補として既観測通路へ接近するmode、実施済み/未実施の表示を追加する。Raster/未知入力無再送/全期限予算/候補保持/自動購入0/旧API16/cap15/ABIを維持。最初拒否279未保持は原280で代用しない。調光/idleTimerは変更しない。新C/Runtimeの限定試験・CI/配布物の結果は完了後に追記し、実機改善は未確認のまま次の一連4回を依頼する。
+
+code `78faae482fe4c44ca9329c6514e32a0267308f9d`、run43353378401/build157。限定host30/10scope、Macの基準Red1・現新9＋旧091保存1が成功。154は型を共有するテストhelper、155は正常画像後の入力期待、156はHOST待機時間の誤りでIPA作成前に停止した。試験のみ訂正し製品seal5f315a21は維持、最終fixture017d064aを初版の事前凍結と混同しない。
+
+5実物検査各1回で全PASS（追加compile・意味試験・分類0）、IPA 17643859B/SHA `f5d213ff6d702e945d5436eef2c06971a9b7f822b3fb8b51502189813124349f`、完全source743件を照合。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test092-build157/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test092-build157/source.zip)へ保存し、公開後の匿名GET/実tagを確認する。IPA更新/完全再起動/Start Server/通常VPN、新test_092.shで通常1-1ポーズから一連4回と全表示ZIPを依頼。今回受領の到達2/4を全配置の改善完了にせず、新版の実機改善/毎拍/人超え/未知陽性精度は未受入。
