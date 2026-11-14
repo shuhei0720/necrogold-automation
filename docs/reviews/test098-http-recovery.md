@@ -25,3 +25,5 @@ IPA交換・LoopCtrl再起動・元フォルダ/記録削除をせず、回収�
 全ソースは製品/試験commit e509f45b0dbd7dca0c34678a4973e6baa1f0b3f4の835ファイル、8,797,592B、SHA68cf16d953e2c3d54802c650a91ea02dc33d1a24063869f49ab2d0a7ecebe1e3を全bytes/CRC照合して凍結した。クラウドからの直接asset uploadは401で失敗し、draft445321774/asset0を確認した。通常API保存の成功をupload先認証の成功へ読み替えない。
 
 固定source/hash/release ID/tagだけを扱うdispatch専用の標準ubuntu workflowで公開する。新しい配布workflowと本補足は凍結製品commitの後に保存し、source assetは検証済みe509の完全アーカイブを保つ。製品/試験/IPAは変更しない。公開後、匿名全GET/hash/実tagで確認する。
+
+新規workflowは既定branch未登録で初回dispatchが404になったため、既存source-stageと同じ承認branch/当該workflowファイルだけのpushトリガを追加した。公開済みassetへの上書き権限は追加せず、固定draft/空assets検査は維持する。
