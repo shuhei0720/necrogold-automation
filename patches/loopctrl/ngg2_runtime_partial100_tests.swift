@@ -28,6 +28,16 @@ func partial100Pixels(_ marker: Int32) -> Data {
 func partial100Hash(_ data: Data) -> UInt64 {
     data.reduce(UInt64(14_695_981_039_346_656_037)) { ($0 ^ UInt64($1)) &* 1_099_511_628_211 }
 }
+func partial100StartupDiagnostic(_ stage: String, _ answer: ([String: JSONValue]?, JSONRPCError?)) {
+    let value: [String: JSONValue] = ["stage": .string(stage),
+        "error_code": answer.1.map { .int($0.code) } ?? .null,
+        "error_message": answer.1.map { .string($0.message) } ?? .null,
+        "error_data": answer.1?.data.map { .object($0) } ?? .null,
+        "response": answer.0.map { .object($0) } ?? .null]
+    if let bytes = try? JSONEncoder().encode(value), let line = String(data: bytes, encoding: .utf8) {
+        print("DIAGNOSTIC partial100_startup " + line)
+    }
+}
 let runtime = NG2Runtime.shared
 let partial100Root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ngg2-partial100-" + UUID().uuidString)
 try FileManager.default.createDirectory(at: partial100Root, withIntermediateDirectories: true)
@@ -84,8 +94,18 @@ NG2RuntimeTestHooks.beforeControlTick = {
     if advance { advanced = true }; gate.unlock()
     if advance { clock.advance(220_000_000) }
 }
+pump("partial100_normal_prepare_ready") {
+    let answer = runtime.handle(method: "necro_native_cycle", params: ["run_id": .string(runID),
+        "mode": .string("prepare"), "_necro_owner": .string("fixture-owner")])
+    if answer.1 != nil {
+        partial100StartupDiagnostic("prepare", answer)
+        require(false, "partial100_normal_prepare_request")
+    }
+    return answer.0?["payload"]?.objectValue?["ready"]?.boolValue == true
+}
 let started = runtime.handle(method: "necro_native_start", params: ["run_id": .string(runID),
     "profile": .string("normal-1-1-cycle-v1"), "_necro_owner": .string("fixture-owner")])
+if started.1 != nil { partial100StartupDiagnostic("start", started) }
 require(started.1 == nil, "partial100_actual_runtime_start")
 pump("partial100_old_worker_reached_observe_more_and_compared_b") { partial100Proof().compared_b == 1 }
 let bound = partial100Proof()
