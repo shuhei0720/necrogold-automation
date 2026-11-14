@@ -26,6 +26,8 @@ handoffは後からLIMITと残存outcomeを推定せず、以下の正常区切�
 
 campaignはrun ID/結果/回数/採用状態/原ZIP hashを小さな索引へ残し、各runの全ZIPはiSH原本/展開先へ保存して消さない。終了時は索引と最後のrun全ZIPをまとめた返却用ZIPを作り、障害の直接根拠を一度で返せるようにする。前runが必要な場合は索引から特定して追加返却を依頼する。全履歴の巨大ZIPを毎回転送せず、未観測/未知を陰性へ丸めない。
 
+既Runtimeの128IDはprocess全体の上限で、campaignの128run上限より先に過去の単発実行で到達し得る。既generic拒否は未開始確定へ読み替えず、曖昧なstartとして同UUIDの回収だけに留める。今回この旧拒否schemaは変更しない。新IPA更新後の完全再起動から試す。有限runごとの通知はcampaign全体の終了とは限らず、iSHのcampaign終了・保存完了表示を終了条件とする。
+
 ## 5. Redと選択検証
 
 新診断の初回固定/各stage・通路待機・source画像、handoff正常A/Bと全拒否、旧ABI/元予算不変をC公開単体で意味Red→Green。campaignは安全handoff後だけ次UUID、target/候補/unknown/障害停止、回収中断/公開前後のcrash、取消/同ID/索引/返却ZIPを実Python3.9で意味Red→Green。Runtimeは新snapshot/画像保持/実run終端→公開ACK→次startの該当callbackだけMacで選ぶ。全world/全Runtime故障は追加しない。

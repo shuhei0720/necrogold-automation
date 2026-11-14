@@ -213,13 +213,17 @@ private final class NG2ControllerSnapshot {
     let motionReferences: [NG2ControllerMotionReference]
     let recovery: NG2ControllerRecoveryStatus
     let recoveryRecords: [NG2RecoveryRecord]
+    let stopDetail: NG2ControllerStopDetail
+    let handoff: NG2ControllerHandoff
     init(status: NG2ControllerStatus, events: [NG2ControllerEvent], changes: [NG2ControllerSceneChange],
          details: [NG2ControllerSceneDetail], motionWait: NG2ControllerMotionWait,
          motionReferences: [NG2ControllerMotionReference], recovery: NG2ControllerRecoveryStatus,
-         recoveryRecords: [NG2RecoveryRecord]) {
+         recoveryRecords: [NG2RecoveryRecord], stopDetail: NG2ControllerStopDetail,
+         handoff: NG2ControllerHandoff) {
         self.status = status; self.events = events; self.changes = changes; self.details = details
         self.motionWait = motionWait; self.motionReferences = motionReferences
         self.recovery = recovery; self.recoveryRecords = recoveryRecords
+        self.stopDetail = stopDetail; self.handoff = handoff
     }
 }
 
@@ -272,6 +276,9 @@ private final class NG2Run {
     var pinned: [UInt64: NG2Frame] = [:]
     // Cached on controlQueue with the C snapshot. Results never query C.
     var diagnosticCaptureIDs: [UInt64] = []
+    // Cycle-only readonly wait/first-failure evidence. IDs are replaced from
+    // each coherent snapshot; rasters share the bounded existing pin store.
+    var cycleDiagnosticCaptureIDs: [UInt64] = []
     // Profile2 uses its existing twentieth slot for one original initial
     // rejection raster. Replacements do not grow the pin/export budgets.
     var initialRejectedCaptureID: UInt64?
@@ -378,6 +385,7 @@ final class NG2Runtime {
     static let profile = "normal-1-1-v1"
     static let evidenceProfile = "normal-1-1-evidence-v2"
     static let cycleProfile = "normal-1-1-cycle-v1"
+    private static let cycleEvidencePinLimit = 24
     private static let game = "jp.co.spike-chunsoft.necrodancerjp"
     private let lock = NSLock()
     private let controlQueue = DispatchQueue(label: "necro.native.control", qos: .userInteractive)
@@ -396,7 +404,7 @@ final class NG2Runtime {
     private var current: NG2Run?
     private var seen = Set<String>()
     // Metadata for at most 64 drained runs. Only the current run retains raw
-    // rasters (at most 20 x 896x414x4 bytes plus capture/analysis handoff).
+    // rasters (legacy20/cycle24 pins plus recent/capture/analysis handoff).
     private var history: [String: (owner: String, response: [String: JSONValue])] = [:]
     private var historyOrder: [String] = []
     private var streamCaptures = 0
@@ -625,6 +633,10 @@ final class NG2Runtime {
         return allowed && (generation == nil || generation == run.generation)
     }
 
+    private func evidencePinLimit(_ run: NG2Run) -> Int {
+        run.profile == Self.cycleProfile ? Self.cycleEvidencePinLimit : 20
+    }
+
     private func priorityCaptureIDs(_ run: NG2Run) -> [UInt64] {
         var ids: [UInt64] = []
         let decisions = run.restartDecisionCaptureIDs.keys.sorted().compactMap { run.restartDecisionCaptureIDs[$0] }
@@ -632,7 +644,8 @@ final class NG2Runtime {
         // Existing stop/goods/comparison evidence stays ahead of the bounded
         // per-restart set. Its initial strong frame is already in that set.
         for id in [run.terminalCaptureID, run.found?.id].compactMap({ $0 }) + initial
-            + run.diagnosticCaptureIDs + [run.initialRejectedCaptureID].compactMap({ $0 }) + decisions {
+            + run.diagnosticCaptureIDs + [run.initialRejectedCaptureID].compactMap({ $0 }) + decisions
+            + run.cycleDiagnosticCaptureIDs {
             if id != 0 && !ids.contains(id) { ids.append(id) }
         }
         return ids
@@ -647,7 +660,7 @@ final class NG2Runtime {
             + run.pinned.values.sorted(by: { $0.id > $1.id }) + Array(run.images.reversed()) {
             if !frames.contains(where: { $0.id == frame.id }) { frames.append(frame) }
         }
-        return Array(frames.prefix(20))
+        return Array(frames.prefix(evidencePinLimit(run)))
     }
 
     private func imageMetadata(_ frame: NG2Frame, hash: String, length: Int) -> [String: JSONValue] {
@@ -1030,7 +1043,7 @@ final class NG2Runtime {
                     "assessment_adopted": .bool(adopted),
                     "raw_sha256": rawSHA.map { .string($0) } ?? .null,
                     "capture_ids": .array(ids.sorted().map { NG2CycleWire.number($0) })]
-                payload["controller"] = snapshot.map { .object(self.encodeSnapshot($0, origin: "cycle_checkpoint")) } ?? .null
+                payload["controller"] = snapshot.map { .object(self.encodeCycleSnapshot($0, origin: "cycle_checkpoint")) } ?? .null
                 _ = try spool.commitRecord(kind: "checkpoint", cycle: UInt64(state.completed_shops), payload: NG2CycleWire.object(payload))
                 success = true
             } catch { }
@@ -1079,7 +1092,7 @@ final class NG2Runtime {
                 }
                 let body: [String: JSONValue] = ["cycle": .object(NG2CycleWire.companion(state)),
                     "assessment": assessment.map { .object($0) } ?? .null, "assessment_adopted": .bool(adopted),
-                    "controller": snapshot.map { .object(self.encodeSnapshot($0, origin: "cycle_terminal")) } ?? .null]
+                    "controller": snapshot.map { .object(self.encodeCycleSnapshot($0, origin: "cycle_terminal")) } ?? .null]
                 _ = try spool.commitRecord(kind: "terminal", cycle: UInt64(max(state.completed_shops, 0)), payload: NG2CycleWire.object(body))
             } catch { failure = "terminal_commit_failed" }
             self.controlQueue.async {
@@ -1330,6 +1343,7 @@ final class NG2Runtime {
         let base: Set<String> = ["run_id", "mode", Self.ownerParam]
         let extra: Set<String>
         switch mode {
+        case "trial_support": extra = []
         case "prepare": extra = ["request_authorization"]
         case "status": extra = ["keepalive"]
         case "manifest": extra = []
@@ -1342,6 +1356,12 @@ final class NG2Runtime {
         guard Set(params.keys).isSubset(of: base.union(extra)),
               AuthManager.shared.clientName(forTokenId: owner) != nil, !RemoteSession.shared.paused else {
             return failure("Invalid or inactive cycle request.", -32602)
+        }
+        if mode == "trial_support" {
+            let payload: [String: JSONValue] = ["stop_detail_schema": .string("ngg2-stop-detail-v1"),
+                "handoff_schema": .string("ngg2-trial-handoff-v1"), "maximum_run_ids": .int(128),
+                "pin_limit": .int(Self.cycleEvidencePinLimit)]
+            return (NG2CycleWire.envelope(runID: id, mode: mode, payload: payload), nil)
         }
         if mode == "prepare" {
             guard params["request_authorization"] == nil || params["request_authorization"]?.boolValue != nil else {
@@ -2439,6 +2459,9 @@ final class NG2Runtime {
             }
             return NG2RecoveryRecord(trace: traces[index], samples: Array(samples.prefix(min(count, samples.count))))
         }
+        var stopDetail = NG2ControllerStopDetail(), handoff = NG2ControllerHandoff()
+        ng2_controller_stop_detail(core, &stopDetail)
+        ng2_controller_handoff(core, &handoff)
         // TEST056 HOST SNAPSHOT BEGIN.
         #if NG2_RUNTIME_HOST_TEST
         if let fixture = NG2RuntimeEvidenceTestHooks.snapshot {
@@ -2452,7 +2475,7 @@ final class NG2Runtime {
             changes: Array(changes.prefix(min(changeCount, changes.count))),
             details: Array(details.prefix(min(detailCount, details.count))), motionWait: motionWait,
             motionReferences: Array(motionReferences.prefix(min(motionReferenceCount, motionReferences.count))),
-            recovery: recovery, recoveryRecords: recoveryRecords)
+            recovery: recovery, recoveryRecords: recoveryRecords, stopDetail: stopDetail, handoff: handoff)
         if retainEvidence {
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.beforeEvidenceRetention?(s.current_command_id)
@@ -2558,10 +2581,11 @@ final class NG2Runtime {
               let frame = (run.images + [run.initial, run.found].compactMap({ $0 }))
                 .first(where: { $0.id == source }) else { return }
         let protected = Set(priorityCaptureIDs(run) + [source])
-        if run.pinned.count == 20, let evicted = run.pinned.keys.sorted().first(where: { !protected.contains($0) }) {
+        let limit = evidencePinLimit(run)
+        if run.pinned.count == limit, let evicted = run.pinned.keys.sorted().first(where: { !protected.contains($0) }) {
             run.pinned.removeValue(forKey: evicted); run.evictedFrames += 1
         }
-        if run.pinned.count < 20 { run.pinned[source] = frame }
+        if run.pinned.count < limit { run.pinned[source] = frame }
     }
 
     private func retainEvidence(_ run: NG2Run, _ snapshot: NG2ControllerSnapshot) {
@@ -2592,6 +2616,15 @@ final class NG2Runtime {
             if let source = events.last(where: { $0.command.kind == 4 })?.command.source_capture_id,
                source != 0 && !diagnosticIDs.contains(source) { diagnosticIDs.append(source) }
             run.diagnosticCaptureIDs = diagnosticIDs
+            if run.profile == Self.cycleProfile {
+                let stop = snapshot.stopDetail, handoff = snapshot.handoff
+                var cycleIDs: [UInt64] = []
+                for id in [stop.source_capture_id, stop.observed_capture_id, stop.anchor_capture_id,
+                           stop.last_comparison_capture_id, handoff.source_capture_id, handoff.pause_capture_id]
+                    where id != 0 && !cycleIDs.contains(id) { cycleIDs.append(id) }
+                run.cycleDiagnosticCaptureIDs = cycleIDs
+                required.formUnion(cycleIDs)
+            }
             run.terminalCaptureID = s.terminal != 0 && s.last_capture_id != 0 ? s.last_capture_id : nil
             for event in events {
                 if event.command.source_capture_id != 0 { required.insert(event.command.source_capture_id) }
@@ -2613,15 +2646,16 @@ final class NG2Runtime {
             for frame in run.images + [run.initial, run.found].compactMap({ $0 }) { available[frame.id] = frame }
             let priority = priorityCaptureIDs(run)
             let protected = Set(priority)
+            let limit = evidencePinLimit(run)
             for id in priority where run.pinned[id] == nil {
                 guard let frame = available[id] else { continue }
-                if run.pinned.count == 20, let evicted = run.pinned.keys.sorted().first(where: { !protected.contains($0) }) {
+                if run.pinned.count == limit, let evicted = run.pinned.keys.sorted().first(where: { !protected.contains($0) }) {
                     run.pinned.removeValue(forKey: evicted); run.evictedFrames += 1
                 }
-                if run.pinned.count < 20 { run.pinned[id] = frame }
+                if run.pinned.count < limit { run.pinned[id] = frame }
             }
             for id in required.sorted() where run.pinned[id] == nil {
-                if run.pinned.count < 20, let frame = available[id] { run.pinned[id] = frame }
+                if run.pinned.count < limit, let frame = available[id] { run.pinned[id] = frame }
             }
     }
 
@@ -2644,6 +2678,34 @@ final class NG2Runtime {
     private func flushReport(_ run: NG2Run) {
         let projection = run.lock.ng2Locked { NG2ResponseProjection(run) }
         _ = controllerReport(run, projection: projection, origin: "flush")
+    }
+
+    // Only durable cycle records receive the separate readonly proof schemas.
+    // HTTP/controller reports retain their existing closed shape. No live C
+    // getter is queried by an asynchronous writer or response encoder.
+    private func encodeCycleSnapshot(_ snapshot: NG2ControllerSnapshot, origin: String) -> [String: JSONValue] {
+        var result = encodeSnapshot(snapshot, origin: origin)
+        let stop = snapshot.stopDetail, handoff = snapshot.handoff
+        let stages = ["none", "generic", "passage_wait", "cycle_observe", "cycle_credit"]
+        let kinds = ["none", "negative_limit", "clear_search_limit"]
+        let stage = Int(stop.stage), kind = Int(handoff.kind)
+        result["stop_detail"] = .object(["schema": .string("ngg2-stop-detail-v1"), "valid": .bool(stop.valid == 1),
+            "stage": .string(stages.indices.contains(stage) ? stages[stage] : "none"), "reason": integer(stop.reason),
+            "at_ns": number(stop.at_ns), "source_capture_id": number(stop.source_capture_id),
+            "observed_capture_id": number(stop.observed_capture_id), "anchor_capture_id": number(stop.anchor_capture_id),
+            "prefix": number(stop.prefix), "deadline_ns": number(stop.deadline_ns), "wait_kind": integer(stop.wait_kind),
+            "passage_bit": integer(stop.passage_bit), "passage_pending": number(UInt64(stop.passage_pending)),
+            "passage_unresolved": number(UInt64(stop.passage_unresolved)),
+            "passage_unlocalized_gold": .bool(stop.passage_unlocalized_gold == 1), "x": integer(stop.x), "y": integer(stop.y),
+            "validation": integer(stop.validation), "motion_kind": integer(stop.motion_kind),
+            "motion_dx": integer(stop.motion_dx), "motion_dy": integer(stop.motion_dy),
+            "last_comparison_capture_id": number(stop.last_comparison_capture_id)])
+        result["handoff"] = .object(["schema": .string("ngg2-trial-handoff-v1"),
+            "kind": .string(kinds.indices.contains(kind) ? kinds[kind] : "none"), "allowed": .bool(handoff.allowed == 1),
+            "reason": integer(handoff.reason), "qualified_ns": number(handoff.qualified_ns),
+            "source_capture_id": number(handoff.source_capture_id), "source_prefix": number(handoff.source_prefix),
+            "pause_capture_id": number(handoff.pause_capture_id), "completed_prefix": number(handoff.completed_prefix)])
+        return result
     }
 
     private func encodeSnapshot(_ snapshot: NG2ControllerSnapshot, origin: String) -> [String: JSONValue] {

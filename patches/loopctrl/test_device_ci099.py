@@ -8,10 +8,10 @@ from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 WORKFLOW = HERE.parents[1]/'.github/workflows/loopctrl-geometry.yml'
-# These author-dependent values must be frozen before the other selector cases run.
-EXPECTED_HOST_SCOPES = None
-EXPECTED_HOST_METHODS = None
-EXPECTED_NEW_METHODS = None
+# Author inventories are source-bound; fixture dependencies do not add test scopes.
+EXPECTED_HOST_SCOPES = 11
+EXPECTED_HOST_METHODS = 79
+EXPECTED_NEW_METHODS = 36
 
 
 def runner_module():

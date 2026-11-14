@@ -10,6 +10,6 @@
 
 campaignは原子的な索引と各run全ZIPを保持し、終了時に索引＋最後のrunを返却ZIPへまとめる。published journalも先に回収専用で照合し、crash/曖昧なstartで旧runを飛ばさない。--recoveryは新startなし、099spoolは098と分ける。
 
-設計の独立レビューGO。C/実3.9の意味Red→Green、該当RuntimeだけMacの旧source意味Redを先に確認し、新Runtime→選択CI/新IPAへ進む。現行配布は[IPA175](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-build175/LoopCtrl.ipa)・[098回収修正版](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-http-recovery/source.zip)。099は未配布。
+設計/C/Runtime/clientの独立レビューGO。C新14、実3.9新19＋関連4、レビュー指摘2境界の追加3が成功。旧RuntimeのMac意味Redをrun43610021272/build177で確認後に新実装へ。次は最終同sourceの限定CI/新IPA。現行は[IPA175](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-build175/LoopCtrl.ipa)・[098回収修正版](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-http-recovery/source.zip)。099未配布。
 
 実機到達率/毎拍・人超え速度/未知対象精度/長期耐久は未受入。購入/宝箱開封/全商品登録は追加しない。Ring/Bank/判定資産/G1/R12全40は不変。遅延positive通知P1・native旧ledger整理なしP2は旧記録を維持。[索引](context.md)。

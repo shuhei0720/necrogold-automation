@@ -1,0 +1,35 @@
+# TEST099: 通常試験・停止診断・連続試運転
+
+2026-11-15（日本時間）。[計画](../plans/test099-continuous-trial.md)・[修正表](../fix-records.md)。開発中、未配布。実機改善未確認。
+
+## 受領と分かっていること
+
+098run97afbff7edc347e7a9b8ddbb7d135040は1ZIP3,567,522B、18PNG/20record。全CRC/SHA/manifest/record chain/画像metadata/全inventoryを照合した。回収の全件保存は確認できた。archive-journalのpublished=falseは公開前snapshot、complete=false/interrupted=trueは回復exportでも立つため、回収欠損の根拠にはしない。
+
+元実行は11.595秒、restart1/3歩後のNO_PATH(12)、商品判定/job/captureは0。最後のMOVE7はUP/source66→72でMOVED、PAUSE8は後のsource89→94。SceneChange/Detailは空。
+
+原49/66/71/72/89は各1回だけPerceptionで校正し、以後は不変Sceneを利用した（5回、Ring0）。当初mask32/bit5だけ、world(-2,-1)の最後にも同候補のUP/FLOOR経路がある。停止時刻と2beat待機期限の対応は4.717ms差だが、待機kind/anchor/途中73..88の画像・私的状態が未保持なので内側の失敗条件は未確定。最後の89を最初の失敗画像と呼ばない。原097実1も初回継続許可後の再検査で止まり、098の待機/記録は手前の分岐だけだった。どちらも挙動修正済みとはしない。
+
+## 設計とC検証
+
+正常な2種類の区切りだけをCが凍結して証明し、全回収/公開ACK後に別UUIDの通常startへ進む連続試運転を設計した。候補/実商品判定UNKNOWN/障害/他LIMITで再開しない。旧native予算・UNKNOWN無再送・Status/Event/Scene/Cycle ABIは維持する。回収時間と128run上限があり、最終性能/耐久受入とは区別する。
+
+独立設計レビューGO。C診断6＋handoff8の意味Red→最小実装を確認。独立差分レビューで、cleanup中の矛盾後にCLEARへ戻ると継続資格が復活し得るP1を検出。現Cのfocused assert Red2方法/11失敗・エラー0→読み取り専用のsticky失効だけ修正→最終同sourceの新14 Greenで閉じた。元歩行/PAUSE条件や期限は変えない。旧39を含む53 Greenはその狭い訂正前の結果として保持し、最終同sourceは配布CIで確認する。
+
+新StopDetail120B/Handoff64Bは別getter。最初の停止情報とlive通路anchorを保存し、cleanupで上書きしない。handoffは残存outcomeやgeneric LIMITから推定しない。Aは分類capture/job/完全陰性/durable、Bは当該levelの実restart後の0入力/原点/最新CLEAR/候補0を必要とし、実PAUSEまでの失格を復活させない。旧6 ABIは不変。
+
+## Runtime変更前のMac意味Red
+
+stage1 code b67587066bdf21972cf7819f92dc8f4049f29a2d、run43610021272/build177。標準macos-26のtest099-runtime-redだけとubuntuのmanifest読取checkが成功、IPA/全world/旧96全体はこのstageで実行していない。
+
+旧Runtime bd5edaa/SHA9c05faba2a5d0d6c030c709df75e9c144004670eb6e4d332f44cf2597812d2ccを、現C b562f8d0/header e679a6d9と新fixtureで実compileした。compile成功後、実行return1・指定assert「FAIL cycle099_terminal_has_frozen_stop_and_handoff」を確認。fixtureSHA9114542fe237c1dadf42670648dcb298dedc76db72e9771459d14313065248b1。artifact14119766901、ZIP67,538B/SHA16bd97904a8dd638dc01602d85d80b13e3c21dd57eb7e7212d8c6beed8652fa8、全CRCを確認した。環境/compile失敗をRedに数えない。
+
+この実測後に新Runtimeの実装を開始した。旧Redは保存し、最終device CIは新sourceの限定Greenだけを行う。補助試験は手続き的なclock/pixels/resultsであり、実ゲームや原runの再現ではない。
+
+## 実装レビューと残る境界
+
+新Runtimeの独立差分レビューはP0/P1なし。最初の停止snapshotとlive anchorを同じC cacheから読み、cycleだけ24枚/旧profile20枚、旧優先度とspool44を保持する。読み取り専用trial_supportは旧IPAで099の新startをさせない。
+
+clientの独立レビューで、handoff参照画像がframe recordにあるだけでmanifestのPNG登録を必要としない点、および既索引runの回復成功後にpending印が消えない点をP1として検出した。実Python3.9で追加3方法/5assert失敗・エラー0のRed後、登録PNG/raw SHA・3画像の同世代と、同一row/ZIP/証明照合後のpending解除だけを訂正し、同3方法Green。回復専用の次start0も維持する。狭い独立差分レビューPASS、C/Runtime/clientに残るP0/P1なし。旧19＋関連4Greenは訂正前sourceの履歴とし、最終source22は配布CIへ結合する。
+
+既Runtimeのprocess全体128ID到達がgeneric start拒否になる点は残るP2。clientは未開始と断定せず同UUID回収のみ、自動再送/別UUID/LoopCtrl再起動を行わない。新IPA完全再起動後の試運転を案内する。各有限runの通知とcampaign全体の終了は別で、iSHの全保存・campaign終了まで待つ。

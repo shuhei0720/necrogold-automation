@@ -25,9 +25,9 @@ retained_identity, addition_identity = shared.retained_identity, shared.addition
 selected_cases, method_cases = shared.selected_cases, shared.method_cases
 NATIVE_BASELINE = 'bd5edaa0e2b721926775d75b1004193e5c0e0a85'
 RUNTIME_BASELINE = 'c071f41d4a38b4b513d342ea3f3c68f5db8ec067'
-SCOPE_FINALIZED = False
+SCOPE_FINALIZED = True
 EXPECTED_NATIVE_CHANGES = frozenset({'LoopCtrlUITests/NG2Controller.c', 'LoopCtrlUITests/NG2Controller.h', 'LoopCtrlUITests/NG2Runtime.swift'})
-# The explicit inventory is reviewed; execution stays disabled until source freeze.
+# This exact author inventory is frozen; only the selected methods execute.
 CASES = (
     ('tests.test_native_stop099', 'NativeStop099Tests', 'test099-stop',
      frozenset({
@@ -109,6 +109,38 @@ CASES = (
          'test_original_two_beat_and_walk_session_deadlines_are_not_extended',
          'test_unknown_changed_or_unsupported_mouth_never_becomes_a_closed_inspection',
      }), False),
+    ('tests.test_campaign099', 'Campaign099Tests', 'test099-campaign',
+     frozenset({
+         'test_cancel_after_publication_keeps_last_zip_and_issues_no_next_start',
+         'test_clean_search_after_earlier_resolved_negative_uses_current_handoff',
+         'test_clean_search_limit_default_unknown_is_distinct_from_unknown_assessment',
+         'test_collection_interruption_recovers_same_uuid_without_new_start',
+         'test_completed_run_before_index_crash_is_reconciled_before_next_start',
+         'test_controller_fault_or_unadopted_negative_does_not_restart_campaign',
+         'test_handoff_denies_pause_command_source_from_other_generation',
+         'test_handoff_denies_referenced_frame_without_manifest_image',
+         'test_handoff_requires_matching_registered_stable_source_and_pause_prefix',
+         'test_indexed_published_run_clears_pending_markers_after_recovery',
+         'test_missing_malformed_or_denied_handoff_does_not_repeat_limit',
+         'test_negative_handoff_publishes_before_new_uuid_and_stops_at_target',
+         'test_next_intent_crash_never_skips_or_restarts_the_previous_uuid',
+         'test_prepared_next_journal_cannot_skip_revalidation_of_prior_proof',
+         'test_publication_ack_failure_returns_incomplete_fault_bundle_and_same_id_recovery',
+         'test_recovery_only_restores_last_bundle_without_start_or_new_campaign',
+         'test_single_mode_returns_a_checked_index_and_last_full_run_zip',
+         'test_target_candidate_and_real_unknown_never_start_another_run',
+         'test_trial_client_reads_feature_every_preflight_and_rejects_old_or_malformed',
+         'test_trial_run_limit_stops_before_an_additional_native_start',
+         'test_uncertain_start_response_is_only_recovered_under_original_uuid',
+         'test_unsupported_trial_feature_stops_before_any_native_start',
+     }), True),
+    ('tests.test_native_cycle_client094', 'CycleClient094Tests', 'test099-related-client094',
+     frozenset({
+         'test_durable_per_run_journal_survives_interruption_before_active_mirror',
+         'test_method_admission_rejects_oldprofile_unknownfields_and_arbitrary_input',
+         'test_published_ack_occurs_only_after_full_crc_sha_zip_and_destination_copy',
+         'test_uncertain_start_is_sent_once_and_next_invocation_only_recovers_same_id',
+     }), False),
 )
 REQUIRED_NEW_SCOPES = frozenset({
     'tests.test_native_stop099',
@@ -137,6 +169,7 @@ CORE_MODULES = (
 )
 DEPENDENCY_FIXTURES = (
     'tests/test_native_paged_results.py',
+    'tests/test_native_results.py',
     'tests/test_native_passage072.py',
     'tests/test_native_passage_unsent076.py',
     'tests/test_native_recovery_results.py',
