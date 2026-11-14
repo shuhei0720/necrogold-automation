@@ -254,3 +254,12 @@ TEST097最終確認: build173の選択137件/17scope、現Mac API/spool/Export�
 | FR-098-DIAGNOSTIC-ZERO | 2026-11-14 | 新診断の材質差0を回収clientが拒否。レビューで非MOTIONの0行も検出 | 既schemaはmask1..15。新producerとparserの限定条件が不一致 | 現API rootの同ID/MOTION detail・全変化0・権限0だけ認める。非MOTION/mask0は記録せずfirst印を残す。legacy/再帰は厳格 | 実Python3.9の意味Red→新2＋旧3 Green。非MOTION反例Red→新9＋既C診断3 Green、独立レビューGO | 配布前2境界を検出。実機再発ではない |
 
 TEST098最終確認: build175の現source選択116件/21scope、現Mac API/spool/Export・Runtime096の12callbackと旧source意味Red、実物5種類が成功。旧作者の側方22は訂正前C版、最終版は今回CIの新8＋旧14を根拠にする。保持Sceneの候補/側方/部分関係は成立。実1最初の停止原因は未確定。実機到達・見逃し率・速度・未知精度/各対策の再発率を確認済みへ変更しない。
+
+## TEST098のiSH回収修正（実機回収改善未確認）
+
+FR094の回収/出版/未開始回復、旧HTTP transport上限と照合。画像の撮影・歩行停止とは別の、回収時のエラーを扱う。IPA175/native・ゲーム挙動・指輪判定は不変。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-098-HTTP-BULK | 2026-11-14 | 前run回収0/18枚の後にhttp_body_limit終了 | batch/manifestのHTTP512KiB制限が、内側base64のJSONスラッシュescapeと暗号化base64の増大を含めない。実機で超過したmode/応答本体は未取得 | batch/manifestだけ有限1MiBへ。single256KiB/他512KiB・MAC/ID/schema/hash/同run/prefix/期限を維持 | 実3.9の正常PNG4chunk暗号応答933,627Bで同エラーをassert Red2→Green。ヘッダでの上限拒否/MAC失敗も確認。全選択46件成功、実機の同run回収は未確認 | 今回1。同原因の旧版通算未集計 |
+| FR-098-RECOVERY-ONLY | 2026-11-14 | 回収を明示しても、元runが公開済み/記録なしなら通常実行が新UUIDを開始し得る | 既run()は通常試験として次runへ進む仕様で、回収専用の入力経路がない | --recoveryは既device lock内で開始済みjournalを要求。未完了は同UUID/keepalive=false、公開済みは元receipt/ZIP検証後に同ZIPだけ再保存 | 実3.9の新5でassert Red3→Green、旧3関連も成功。元記録なし/未開始/公開済み/receipt欠落を確認。実機未確認 | 配布前の安全境界追加。実機再発数ではない |

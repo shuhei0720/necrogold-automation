@@ -1,0 +1,13 @@
+# TEST098: iSHのHTTP上限と同run回収
+
+2026-11-14（日本時間）。基準1c9b7a0。ユーザー画面は前run回収0/18枚の後にhttp_body_limitで終了。実機の超過応答本体/どのmodeかは未取得であり断定しない。
+
+確認した境界不整合: CycleClientは暗号化HTTPをbatch/manifestも512KiBへ制限するが、実サーバーは64KiB×4のbase64をJSONEncoderでスラッシュescapeし、そのJSONを暗号化/base64化する。正常な応答でも512KiBを超える。旧回収試験の大画像は暗号化transportを迂回していた。FR094の回収/回復/全画像検証・既有限batchと照合した。
+
+batch/manifestだけ上限1MiBを追加する。4×64KiBのbase64・最大スラッシュescape・封筒を含む上界内とし、chunk/recordの256KiB、status/start等512KiB、認証/MAC/ID/schema/hash/元UUID/export/保存prefix/取消/期限/有限registryは維持する。HTTP最大を超す応答は復号前に拒否する。単純な全モード上限緩和やnativeのchunk数/量変更はしない。
+
+同じ098の永続spoolから回収できるsourceだけを固定Releaseへ配布する。--recoveryを明示し、既device lock内で開始済みjournalがなければRPC前に停止する。未回収は同UUID/keepalive=falseで既回収へ。公開済みは既receipt/ZIP検証後、同UUIDのZIPを再保存するだけで新規run_sessionへ進まない。通常実行は既動作を維持する。
+
+実Python3.9の暗号化4chunk大画像回収の意味Red→最小Green、過大wire/MAC不正/無関係mode上限の拒否と同run回収専用のRed→Green、該当094/095回収/出版の関連試験を選ぶ。iPhone実応答や未知画像精度の再現とは呼ばない。独立差分レビュー1回。native/IPA175/ゲーム挙動/指輪判定は不変なので新IPAやMacビルドは不要。完全sourceの全bytes/CRCと固定公開URLを照合する。
+
+次の実機はIPA交換・LoopCtrl再起動・記録削除をせず、test_098.sh --recoveryで止まっている同runの全画像/ZIPを回収する。新ゲームの実機試験ではない。終了後、表示されたrun ZIP全体の返却を依頼する。先の1回目の歩行停止は未解決のまま区別する。

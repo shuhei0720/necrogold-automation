@@ -141,11 +141,14 @@ def publish(client, base, destination, record, *, cancelled=lambda: False,
 
 
 def run(client, destination, *, spool, cancelled=lambda: False, notice=print,
-        clock=cycle.time.monotonic_ns, sleep=cycle.time.sleep):
+        clock=cycle.time.monotonic_ns, sleep=cycle.time.sleep, recovery_only=False):
     base = Path(spool)
     base.mkdir(parents=True, mode=0o700, exist_ok=True)
     with cycle.device_lock():
         previous = cycle.load_journal(base)
+        if recovery_only:
+            cycle.require(previous is not None and previous['start_intent'],
+                          'cycle_recovery_record_missing')
         if previous is not None and previous['published']:
             # A Boolean in the active journal is not a replacement for the
             # durable archive and receipt that originally authorized it.
@@ -163,7 +166,8 @@ def run(client, destination, *, spool, cancelled=lambda: False, notice=print,
             previous_archive = build_archive(base, previous, storage, cancelled=cancelled)
             cycle.require(_digest(previous_archive, cancelled) ==
                 (receipt['archive_bytes'], receipt['archive_sha256']), 'cycle_archive_changed')
-        record = cycle.run_session(client, base, cancelled=cancelled, notice=notice, clock=clock, sleep=sleep)
+        record = previous if recovery_only and previous['published'] else cycle.run_session(
+            client, base, cancelled=cancelled, notice=notice, clock=clock, sleep=sleep)
         if not record['resolved']:
             return record, None
         archive = publish(client, base, destination, record, cancelled=cancelled,

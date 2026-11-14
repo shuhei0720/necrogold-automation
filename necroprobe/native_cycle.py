@@ -25,6 +25,10 @@ PROFILE = 'normal-1-1-cycle-v1'
 SCHEMA = 'ngg2-cycle-v1'
 MAX_WIRE = 512 * 1024
 MAX_SINGLE_WIRE = 256 * 1024
+# Bulk replies include escaped inner base64 plus the sealed ciphertext's
+# base64. Four 64KiB chunks can exceed 512KiB on the HTTP wire; the native
+# chunk/manifest bounds fit 1MiB even with maximum slash escaping.
+MAX_BULK_WIRE = 1024 * 1024
 CHUNK_BYTES = 64 * 1024
 MAX_IMAGE = 2 * 1024 * 1024
 MAX_IMAGES = 44
@@ -109,7 +113,8 @@ class CycleClient(Client):
         mode = params.get('mode') if type(params) is dict else None
         ceiling = min(self.timeout, 8 if mode in ('manifest', 'chunk', 'batch', 'record', 'published') else 2)
         timeout = ceiling if timeout is None else number(timeout, .001, ceiling)
-        maximum = MAX_SINGLE_WIRE if mode in ('chunk', 'record') else MAX_WIRE
+        maximum = (MAX_BULK_WIRE if mode in ('batch', 'manifest') else
+                   MAX_SINGLE_WIRE if mode in ('chunk', 'record') else MAX_WIRE)
         transport = self.transport
         def bounded(body, seconds):
             guard = getattr(self, '_before_start_post', None)

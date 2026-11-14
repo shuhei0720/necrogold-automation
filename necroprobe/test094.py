@@ -49,6 +49,7 @@ def main(argv=None, *, test_number='094'):
     parser = argparse.ArgumentParser(description='TEST'+test_number+': 端末内の商品判定と自動周回')
     parser.add_argument('--python-crypto', action='store_true')
     parser.add_argument('--check', action='store_true')
+    parser.add_argument('--recovery', action='store_true', help='前回の開始済みrunだけを回収し、新しいゲームを開始しない')
     args = parser.parse_args(argv)
     if args.check:
         print(cycle.REVISION+' / '+cycle.API_VERSION)
@@ -65,7 +66,7 @@ def main(argv=None, *, test_number='094'):
             client = cycle.CycleClient(HttpTransport(), key, tok, timeout=8,
                 crypto=Crypto(native=not args.python_crypto), deadline_owner=timer)
             record, archive = run(client, Path.cwd(), spool=base,
-                cancelled=lambda:cancelled[0], notice=notice)
+                cancelled=lambda:cancelled[0], notice=notice, recovery_only=args.recovery)
         if archive is None:
             reason = record['last_error'] or 'native_result_pending'
             notice(prefix+': 未完了 / '+reason+'。同じ実行IDを保持しています。')
@@ -100,6 +101,9 @@ def main(argv=None, *, test_number='094'):
         return 0
     except (ProbeError, OSError, ValueError, zipfile.BadZipFile) as exc:
         reason = exc.code if isinstance(exc, ProbeError) else 'local_storage_failed'
+        if reason == 'cycle_recovery_record_missing':
+            notice(prefix+': 前回の開始済み記録が見つかりません。ゲームは開始していません。元の記録を削除せず確認してください。')
+            return 2
         notice(prefix+': 保存は未完了 / '+reason+'。端末内の同じ実行IDと記録を保持しました。')
         notice('全画像・ZIPの照合前に完了とは扱いません。')
         return 2
