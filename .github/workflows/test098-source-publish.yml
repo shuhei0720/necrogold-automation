@@ -1,0 +1,99 @@
+name: Publish verified TEST098 HTTP recovery source
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-source:
+    if: github.repository == 'shuhei0720/necrogold-automation' && github.ref == 'refs/heads/work/p1-capture-probe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Publish the exact verified source to its fixed draft
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path, PurePosixPath
+          import stat
+          import subprocess
+          import zipfile
+
+          repo = 'shuhei0720/necrogold-automation'
+          code = 'e509f45b0dbd7dca0c34678a4973e6baa1f0b3f4'
+          expected_sha = '68cf16d953e2c3d54802c650a91ea02dc33d1a24063869f49ab2d0a7ecebe1e3'
+          tag = 'test098-http-recovery'
+          release_id = 445321774
+          out = Path(os.environ['RUNNER_TEMP'])/'test098-http-source'
+          out.mkdir()
+          source = out/'source.zip'
+          subprocess.run(['curl', '--fail', '--silent', '--show-error', '--location',
+              'https://codeload.github.com/'+repo+'/zip/'+code, '--output', str(source)], check=True)
+          if hashlib.sha256(source.read_bytes()).hexdigest() != expected_sha:
+              raise ValueError('source SHA differs from root-verified complete archive')
+          with zipfile.ZipFile(source) as archive:
+              rows = archive.infolist()
+              if archive.testzip() is not None or len(rows) != len({r.filename for r in rows}):
+                  raise ValueError('source ZIP integrity')
+              files = [r for r in rows if not r.is_dir()]
+              if len(files) != 835:
+                  raise ValueError('source file inventory')
+              for row in rows:
+                  path = PurePosixPath(row.filename)
+                  if (path.is_absolute() or '..' in path.parts or '\\' in row.filename
+                      or not row.filename.startswith('necrogold-automation-'+code+'/')
+                      or stat.S_ISLNK(row.external_attr >> 16)):
+                      raise ValueError('source ZIP path')
+          checksum = out/'SHA256SUMS.txt'
+          checksum.write_text(expected_sha+'  source.zip\n')
+          expected = {p.name: 'sha256:'+hashlib.sha256(p.read_bytes()).hexdigest()
+                      for p in (source, checksum)}
+
+          def release():
+              return json.loads(subprocess.check_output(['gh', 'api',
+                  'repos/'+repo+'/releases/'+str(release_id)]))
+
+          def identity(value):
+              if (value['id'], value['tag_name'], value['target_commitish'], value['prerelease']) != (release_id, tag, code, True):
+                  raise ValueError('release identity')
+
+          def verify_tag():
+              value = json.loads(subprocess.check_output(['gh', 'api',
+                  'repos/'+repo+'/git/ref/tags/'+tag]))
+              if (value['object']['type'], value['object']['sha']) != ('commit', code):
+                  raise ValueError('fixed tag does not resolve to verified source')
+
+          before = release()
+          identity(before)
+          if before['draft'] is not True or before['assets']:
+              raise ValueError('expected empty fixed draft')
+          # The root creates this exact lightweight tag before dispatch.
+          # Never publish over a tag that names a different source commit.
+          verify_tag()
+          subprocess.run(['gh', 'release', 'upload', tag, str(source), str(checksum), '--repo', repo], check=True)
+          uploaded = release()
+          identity(uploaded)
+          if (uploaded['draft'] is not True or len(uploaded['assets']) != 2
+              or {r['name']: r.get('digest') for r in uploaded['assets']} != expected):
+              raise ValueError('uploaded asset identity')
+          verify_tag()
+          subprocess.run(['gh', 'release', 'edit', tag, '--draft=false', '--prerelease',
+              '--latest=false', '--repo', repo], check=True)
+          final = release()
+          identity(final)
+          if final['draft'] is not False:
+              raise ValueError('release is still draft')
+          verify_tag()
+          print(json.dumps({'release_id': release_id, 'tag': tag, 'source_commit': code,
+              'source_sha256': expected_sha, 'assets': expected, 'new_ipa_build': 0}))
+          PY
