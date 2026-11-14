@@ -245,7 +245,18 @@ func testCycle099ClearSearchHandoff(_ root: URL) {
         if paused { return original }
         gate.lock(); let index = restarts % 2; gate.unlock(); return images[index]
     }
-    NG2RuntimeTestHooks.beforeControlTick = { clock.advance(20_000_000) }
+    var lastKeepalive = clock.now()
+    NG2RuntimeTestHooks.beforeControlTick = {
+        let now = clock.now()
+        if now >= lastKeepalive && now - lastKeepalive >= 1_000_000_000 {
+            // Model the authenticated client's existing explicit heartbeat;
+            // a long search must not silently waive the real 5s guard.
+            require(cycleCall(id, "status", extra: ["keepalive": .bool(true)]).1 == nil,
+                "cycle099_clear_search_authenticated_keepalive")
+            lastKeepalive = now
+        }
+        clock.advance(20_000_000)
+    }
     cycleStart(id); pump("cycle099_clear_search_limit_drained", timeout: 45) { cycleDrained(id) }
     let (_, handoff) = cycle099Projection(cycle099Terminal(root, id))
     require(handoff["allowed"]?.boolValue == true && handoff["kind"]?.stringValue == "clear_search_limit" &&
