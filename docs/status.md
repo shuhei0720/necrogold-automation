@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-15（日本時間）。TEST099配布版・実機未確認。[計画](plans/test099-continuous-trial.md)・[検証](reviews/test099.md)・[修正表](fix-records.md)。最新指示は「対象まで本番に近く連続運転し、障害をログから特定して修正」。
+更新: 2026-11-15（日本時間）。TEST100開発中。[今回計画](plans/test100-observed-shop-stops.md)・[前版検証](reviews/test099.md)・[修正表](fix-records.md)。099実機3回の停止と候補59の見逃しを、確認した別原因ごとに修正中。
 
 [IPA183](https://github.com/shuhei0720/necrogold-automation/releases/download/test099-build183/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test099-build183/source.zip)。通常1-1ポーズから`sh test_099.sh --until-target`。IPA更新後LoopCtrlを完全終了/起動・Start Server/通知/通常VPN。終了時はiSHの全保存・ZIP照合完了を待ち、表示されたcampaign返却ZIP（索引＋最後のrun全ZIP）を返す。全run原本は端末に保持する。通常単発はオプションなし、未回収だけ`--recovery`、099spoolは098と別。
 

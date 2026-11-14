@@ -17,8 +17,11 @@ REASONS = ('none','goods','cancelled','foreground','locked','owner_paused','capt
            'restart','screen','generation','heartbeat','geometry')
 
 
-def main(argv=None):
-    parser=argparse.ArgumentParser(description='TEST099: 通常試験と安全な有限run連続試運転')
+def main(argv=None, *, test_number='099'):
+    if type(test_number) is not str or len(test_number)!=3 or any(char not in '0123456789' for char in test_number):
+        raise ValueError('invalid test number')
+    prefix='TEST-'+test_number
+    parser=argparse.ArgumentParser(description='TEST'+test_number+': 通常試験と安全な有限run連続試運転')
     mode=parser.add_mutually_exclusive_group()
     mode.add_argument('--until-target',action='store_true',help='正常な区切りだけ自動で次runへ進む')
     mode.add_argument('--recovery',action='store_true',help='前runの回収だけを行い新startを禁止する')
@@ -37,12 +40,12 @@ def main(argv=None):
         with OwnedRpcTimer() as timer:
             client=TrialClient099(HttpTransport(),key,tok,timeout=8,
                 crypto=Crypto(native=not args.python_crypto),deadline_owner=timer)
-            result=campaign.run(client,Path.cwd(),spool=Path.home()/'.necroprobe'/'runtime'/'test-099',
+            result=campaign.run(client,Path.cwd(),spool=Path.home()/'.necroprobe'/'runtime'/('test-'+test_number),
                 until_target=args.until_target,recovery_only=args.recovery,
                 cancelled=lambda:cancelled[0],notice=notice)
         ledger=result['ledger'];reason=result['stop_reason']
         if reason=='trial_support_missing':
-            notice('TEST-099: 新IPAの試運転機能を確認できません。IPAを更新してください。ゲームは開始していません。')
+            notice(prefix+': 新IPAの試運転機能を確認できません。IPAを更新してください。ゲームは開始していません。')
         elif reason in ('target','candidate'):
             last=ledger['runs'][-1]
             text='のろいのゆびわを確認' if reason=='target' and last['assessment_adopted'] else 'のろいのゆびわの候補を保持'
@@ -53,19 +56,19 @@ def main(argv=None):
             notice('自動操作の停止: '+label+' / '+reason+'。対象なしの確認とは区別します。')
         if ledger['state']=='pending':
             if result['record'] is not None and result['record']['start_intent']:
-                notice('TEST-099: 回収は未完了です。同じrunと記録を保持しています。--recoveryで回収してください。')
+                notice(prefix+': 回収は未完了です。同じrunと記録を保持しています。--recoveryで回収してください。')
             else:
-                notice('TEST-099: ゲームは開始していません。準備を確認して通常コマンドを再実行してください。')
+                notice(prefix+': ゲームは開始していません。準備を確認して通常コマンドを再実行してください。')
         else:
-            notice('TEST-099: 停止後の全画像・実行記録・run ZIPの保存と照合が完了しました。')
+            notice(prefix+': 停止後の全画像・実行記録・run ZIPの保存と照合が完了しました。')
         if result['campaign_archive'] is not None:
             notice('この返却用ZIPを送ってください: '+str(result['campaign_archive']))
         else:
-            notice('TEST-099: 全run ZIP未検証のため返却用ZIPはまだ作成していません。記録を保持しています。')
+            notice(prefix+': 全run ZIP未検証のため返却用ZIPはまだ作成していません。記録を保持しています。')
         return 2 if ledger['state']=='pending' else 0
     except (ProbeError,OSError,ValueError,zipfile.BadZipFile) as error:
         reason=error.code if isinstance(error,ProbeError) else 'local_storage_failed'
-        notice('TEST-099: 未完了 / '+reason+'。元の記録は削除せず、新しいゲームを開始しないでください。')
+        notice(prefix+': 未完了 / '+reason+'。元の記録は削除せず、新しいゲームを開始しないでください。')
         return 2
     finally:
         for sig,handler in previous.items():signal.signal(sig,handler)

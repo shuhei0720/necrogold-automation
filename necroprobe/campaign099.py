@@ -16,7 +16,8 @@ ROW_KEYS = frozenset(('run_id','archive_name','archive_sha256','archive_bytes','
     'assessment_adopted','stop_reason','handoff','controller_reason','restarts','moves'))
 
 
-def _validate(value):
+def _validate(value, label='test-099'):
+    cycle.require(type(label) is str and re.fullmatch(r'test-[0-9]{3}',label),'campaign_ledger_invalid')
     cycle.closed(value,LEDGER_KEYS,'campaign_ledger_invalid')
     cycle.require(value['schema']=='necroprobe-campaign099-v1' and cycle.identifier(value['campaign_id'])
         and type(value['revision']) is int and 0 <= value['revision'] < 2**63
@@ -30,7 +31,7 @@ def _validate(value):
     for row in value['runs']:
         cycle.closed(row,ROW_KEYS,'campaign_ledger_invalid')
         cycle.require(cycle.identifier(row['run_id']) and row['run_id'] not in ids
-            and row['archive_name']=='test-099-'+row['run_id']+'.zip' and cycle.digest(row['archive_sha256'])
+            and row['archive_name']==label+'-'+row['run_id']+'.zip' and cycle.digest(row['archive_sha256'])
             and type(row['archive_bytes']) is int and 0 < row['archive_bytes'] <= 100*1024*1024
             and row['outcome'] in ('target','candidate','negative','unknown','unassessed')
             and type(row['assessment_adopted']) is bool and type(row['stop_reason']) is str
@@ -42,7 +43,7 @@ def _validate(value):
     if pending is not None:
         cycle.closed(pending,('run_id','archive_name','archive_sha256','archive_bytes'),'campaign_ledger_invalid')
         cycle.require(pending['run_id']==value['pending_run_id'] and cycle.identifier(pending['run_id'])
-            and pending['archive_name']=='test-099-'+pending['run_id']+'.zip'
+            and pending['archive_name']==label+'-'+pending['run_id']+'.zip'
             and cycle.digest(pending['archive_sha256']) and type(pending['archive_bytes']) is int
             and 0 < pending['archive_bytes'] <= 100*1024*1024,'campaign_ledger_invalid')
     intent=value['intent']
@@ -57,7 +58,7 @@ def _validate(value):
 
 
 def _save(base,ledger):
-    _validate(ledger)
+    _validate(ledger,publication._label(base))
     history=Path(base)/'campaigns';history.mkdir(mode=0o700,exist_ok=True)
     cycle.require(not history.is_symlink(),'cycle_local_symlink')
     ledger['revision']+=1
@@ -69,9 +70,10 @@ def _save(base,ledger):
 def _load(base):
     active=Path(base)/'campaign.json'
     if not active.exists():return None
-    selector=_validate(cycle.json_object(cycle._read(active,512*1024),512*1024))
+    label=publication._label(base)
+    selector=_validate(cycle.json_object(cycle._read(active,512*1024),512*1024),label)
     path=Path(base)/'campaigns'/(selector['campaign_id']+'.json')
-    ledger=_validate(cycle.json_object(cycle._read(path,512*1024),512*1024))
+    ledger=_validate(cycle.json_object(cycle._read(path,512*1024),512*1024),label)
     cycle.require(ledger['campaign_id']==selector['campaign_id']
         and ledger['revision']>=selector['revision'],'campaign_ledger_invalid')
     return ledger
@@ -87,7 +89,7 @@ def _row(base,record,archive):
     evidence=inspect_run(base,record)
     count,digest=_digest(Path(archive),lambda:False)
     cycle.require(digest==record['archive_sha256'],'campaign_archive_changed')
-    return dict(run_id=record['run_id'],archive_name='test-099-'+record['run_id']+'.zip',
+    return dict(run_id=record['run_id'],archive_name=publication._label(base)+'-'+record['run_id']+'.zip',
                 archive_sha256=digest,archive_bytes=count,**evidence)
 
 
@@ -135,7 +137,7 @@ def _result(base,destination,ledger,record,archive,reason,*,pending=False):
     if ledger['state']!=state or ledger['stop_reason']!=reason or ledger['complete']!=complete:
         ledger.update(state=state,stop_reason=reason,complete=complete)
         _save(base,ledger)
-    final=(bundle(destination,ledger,_last_archive(base,ledger))
+    final=(bundle(destination,ledger,_last_archive(base,ledger),label=publication._label(base))
            if not pending or ledger['pending_archive'] is not None else None)
     return dict(record=record,archive=archive,campaign_archive=final,ledger=ledger,stop_reason=reason)
 
@@ -161,7 +163,7 @@ def _pending(base,destination,ledger,record,error):
             cycle.require(not path.is_symlink(),'cycle_local_symlink')
             size,digest=_digest(path,lambda:False)
             if digest==record['archive_sha256']:
-                descriptor=dict(run_id=record['run_id'],archive_name='test-099-'+record['run_id']+'.zip',
+                descriptor=dict(run_id=record['run_id'],archive_name=publication._label(base)+'-'+record['run_id']+'.zip',
                     archive_sha256=digest,archive_bytes=size)
         except (OSError,ProbeError):pass
     ledger.update(pending_run_id=record['run_id'],pending_archive=descriptor,

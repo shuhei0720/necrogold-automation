@@ -1,6 +1,7 @@
 """Read-only TEST099 feature/handoff evidence and small return archives."""
 import hashlib
 from pathlib import Path
+import re
 import uuid
 import zipfile
 
@@ -189,13 +190,14 @@ def inspect_run(base, record):
         restarts=controller.get('restarts',0),moves=controller.get('moves',0))
 
 
-def bundle(destination, ledger, last_archive):
+def bundle(destination, ledger, last_archive, *, label='test-099'):
     """Stream an index and the last run ZIP; never load all run images in RAM."""
     from .test069 import _sync_directory
+    cycle.require(type(label) is str and re.fullmatch(r'test-[0-9]{3}',label),'campaign_ledger_invalid')
     output=Path(destination)/'runtime';output.mkdir(parents=True,exist_ok=True)
     cycle.require(not output.is_symlink(),'cycle_local_symlink')
     index=cycle.canonical(ledger)
-    name='test-099-campaign-'+ledger['campaign_id']+'-r'+str(ledger['revision'])+'.zip'
+    name=label+'-campaign-'+ledger['campaign_id']+'-r'+str(ledger['revision'])+'.zip'
     target=output/name;temporary=output/(name+'.part')
     last=ledger['pending_archive'] or (ledger['runs'][-1] if ledger['runs'] else None)
     member='last-run/'+last['archive_name'] if last else None

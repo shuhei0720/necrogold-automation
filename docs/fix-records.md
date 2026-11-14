@@ -267,13 +267,13 @@ FR094の回収/出版/未開始回復、旧HTTP transport上限と照合。画�
 
 TEST098回収修正の公開確認: 元IPA175/nativeは不変。実Python3.9の46件、固定source835ファイルの全bytes/CRC、公開run43601345465、固定tag/匿名HTTP200/両asset hash一致を確認。実機での回収改善・元の歩行停止解消は未確認。
 
-## TEST099の対策（開発中・実機改善未確認）
+## TEST099の対策（配布済み・実機改善未確認）
 
 098の全回収1runを確認した。FR098のHTTP回収はこの18PNG/20recordで完了を確認し、普遍的な改善完了とはしない。原097/098の停止は内側の拒否条件が未確定で、推測による許可条件/期限の緩和は行わない。
 
 | ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
 | --- | --- | --- | --- | --- | --- | --- |
-| FR-099-STOP-EVIDENCE | 2026-11-15 | 098の通路停止、097実1の継続許可後の停止で判断条件と原画像を特定できない | 既診断は途中分岐に届かず、cleanup後の画像だけが残る。待機kind/anchor/直近比較の情報がない | 別getterの初回停止snapshot/live待機anchorとcycle限定の有限画像保持。post-creditも内側の失敗条件を残す。歩行条件/旧停止は変えない | 新Cの意味Red→Green/旧ABI、Macの旧Runtime意味Red→新snapshot/画像保持を確認予定。原停止の改善は未確認 | 採証不足2経路を確認。停止根因の同原因再発数は不明 |
+| FR-099-STOP-EVIDENCE | 2026-11-15 | 098の通路停止、097実1の継続許可後の停止で判断条件と原画像を特定できない | 既診断は途中分岐に届かず、cleanup後の画像だけが残る。待機kind/anchor/直近比較の情報がない | 別getterの初回停止snapshot/live待機anchorとcycle限定の有限画像保持。post-creditも内側の失敗条件を残す。歩行条件/旧停止は変えない | build183の新C/Mac成功、099実機3runで初回snapshot/全参照画像を照合し100の原因分析に使用。診断の3例成立と原停止改善を区別する | 採証不足2経路を確認。停止根因の同原因再発数は不明 |
 | FR-099-HANDOFF | 2026-11-15 | 本番に近い周回を望むが旧試験は4商店/12restart等で終了する | 有限runの上限だけを外すと、残存NEGATIVEや別LIMITから危険な再開を作り得る | 元予算を保ち、正常陰性/確認済み新level見送りの2分岐だけで資格を凍結。実PAUSE/全drain/全回収/公開ACK後に通常の新UUIDへ | C正常A/B・過去陰性・新候補/UNKNOWN/取消/他LIMITの拒否、該当Mac接続を確認予定。実機未確認 | 対象範囲の拡張。実機再発ではない |
 | FR-099-CAMPAIGN | 2026-11-15 | 複数runを手動で開始/返却する負担、crash後の公開済みjournalから新runを飛ばす危険 | 通常publication.runは公開済みjournalなら新UUIDを作る。campaignの索引/次intentがない | publishedでも先にrecovery_onlyで照合し、原子的な索引/次intentと元UUIDを突き合わせる。各run原本を保持し、索引＋最後のrunを返却ZIPにする | 実3.9の開始/停止/採用/中断/再回収/ZIPの意味Red→Green予定。入力不明は無再送。実機未確認 | 新機能の安全境界。実機再発ではない |
 | FR-099-REVIEW-PROOF | 2026-11-15 | 配布前レビューでPNG未登録のhandoff参照と回復後pending残留を検出 | frame集合とmanifest画像集合の非対称、既索引rowの早期returnでpending解除を省略 | handoff参照を登録PNG/raw SHA/3画像同世代へ限定し、既row/ZIP/証明の一致後にpending印だけ解除 | 実3.9の追加3方法/5assert Red・エラー0→同3 Green、狭い差分レビューPASS。回復専用で次start0。最終22は配布CIへ、実機未確認 | 配布前2境界。実機再発ではない |
@@ -282,3 +282,14 @@ TEST098回収修正の公開確認: 元IPA175/nativeは不変。実Python3.9の4
 | FR-099-FIXTURE-HEARTBEAT | 2026-11-15 | CI181のclear-search試験がrestart7で停止 | 模擬時計を進めるがclientの接続維持を送らず、旧5秒watchdogが正しく停止 | 既認証status keepalive:trueを模擬時計1秒ごとに成功確認。製品/watchdog/期限は不変 | 原diagnosticで経過約5秒/heartbeat19を確認。negative callbackは実PASS、残り3を限定再確認 | 1（新fixtureのclientモデル不足、実機不具合ではない） |
 
 TEST099最終確認: build182の残り3、同codeのbuild183でhost85・現Mac API/spool/export・Runtime096の12・099の7とIPA/実物5種類が成功。fixtureの誤想定/模擬時計/keepaliveは元assertと製品を保持して訂正した。配布readerの2つのrepo保持path不一致は狭く訂正し、package既PASSを再利用、5検査6attempt。各対策の実機改善・到達率・速度・未知対象精度・原停止の原因確定には読み替えない。
+
+## TEST100の対策（開発中・実機改善未確認）
+
+099の3run/73PNG/81recordは全照合。実順13e3→3444→9c66、campaignと個別ZIPは同じ3実行。FR-093/095/097/098の開扉・partial関係、FR-096構造証明、FR-084/086/094/095/097/098候補を照合した。旧対策の削除・回帰と断定せず、原因が分かった境界を限定修正する。[計画](plans/test100-observed-shop-stops.md)。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-100-OPENED-GOLD | 2026-11-15 | 実1が開扉後、商品全部を見ず停止 | 232→233の遠方DOOR→GOLDが既opened-entry関係外。同Decision/静止/期限内でもFLOOR拒否 | cycle限定・実同方向開扉ACK・両3×3外・非保護・金bracketだけ正の壁再観測を追加。旧profile/旧期限保持 | 公開Cの意味Red→新7、旧拒否/元画像校正/関連回帰を最終同sourceで確認。実機未確認 | 新材質差1。旧開扉停止系列の同原因通算不明 |
+| FR-100-PARTIAL-REBIND | 2026-11-15 | 実3が新商品露出後に停止 | 223→225の新ITEM/保護増加を旧partial静止関係で拒否。旧結果は新商品を覆わない | 旧証明/票を撤回し、strict零・同prefix/位置・safe床・単調remote新商品だけ最新sourceの新jobへ。元horizon/一度限り維持 | 意味Red→新6、新job/旧結果拒否・候補保持/元期限。限定Macで最新RGBAの通常worker受渡しを確認。実機未確認 | 同症状1。FR098未確定停止との同原因は断定不可 |
+| FR-100-SIDE-SHOP | 2026-11-15 | 実2は3商品可視でもUNKNOWN停止 | glyph証明不成立、既policy3は下側金構造を要求し、側面入口下の7金形に非対応。剣先1pixelも旧価格群へ入る | 別policy4/board4で7位置/3ITEM/cap/faceと独立C再検証、共通価格baselineと真の4群拒否。旧1〜3/対象全探索は保持 | 原456旧/新各1回・UNKNOWN→完全陰性、host40.9ms/元100ms。新9/関連25・C偽造拒否を確認、実機の完全経路速度未確認 | 確認した新形1。過去UNKNOWN全部と同原因にはしない |
+| FR-100-LOWER-FRINGE | 2026-11-15 | 実2の候補59を見送り | 左下口DIRTにより旧mouth候補から除外。外側床と短い内床経路は観測済み | 固定bit9の別fringe仮説だけ追加、DIRT/UNKNOWN維持・観測床vantageで再確認 | 意味Red→新6/関連45、保持Scene59 mask512/既床4歩。外床接続fixtureは旧bit7=128を保つ期待へ訂正、旧assert削除なし。実機未確認 | 同系列1。旧上左候補とは別の固定口 |

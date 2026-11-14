@@ -115,6 +115,9 @@ struct NG2Controller {
     int cycle_enabled,cycle_pause_attempted,cycle_storage_error,cycle_partial_credit;
     int cycle_queued_valid,cycle_choice_valid,cycle_framing_credit,cycle_rejection_recorded;
     int cycle_search_restart,cycle_restart_unproved;
+    /* One new exposure may be classified while the observer stays still.
+     * Only verified displacement or a proven new level restores this bound. */
+    int cycle_partial_rebind_used;
     uint64_t cycle_credit_prefix,cycle_consumed_prefix,cycle_sync_deadline;
     NG2ControllerCycleStatus cycle;
     NG2Scene cycle_anchor,cycle_queued_scene;
@@ -648,6 +651,7 @@ static void reset_level(NG2Controller *p,uint64_t end){
     /* Session counters, all used allowances, trace history, IDs, ordinal and
      * the first walk horizon survive a proven new game level. */
     p->level_input_base=p->s.inputs;p->level_move_base=p->s.moves;
+    p->cycle_partial_rebind_used=0;
     p->last_level_restart_id=p->last_level_restart_capture=p->last_level_restart_prefix=0;
     p->last_level_restart_count=0;
     if(!p->first_stop.valid){
@@ -1303,7 +1307,7 @@ static int opened_entry_floor(const NG2Controller *p,const NG2Scene *scene){
 }
 static int opened_entry_relation(const NG2Controller *p,const NG2Scene *scene){
     const NG2Scene *a=&p->before;
-    int d=p->command.direction,i,x,y,left=12,right=-12,items=0,inner=0,clipped;
+    int d=p->command.direction,i,x,y,left=12,right=-12,items=0,inner=0,remote_wall=0,clipped;
     if(!opened_entry_floor(p,scene))return 0;
     clipped=a->goods==NG2_GOODS_PARTIAL;
     if(clipped){
@@ -1335,6 +1339,12 @@ static int opened_entry_relation(const NG2Controller *p,const NG2Scene *scene){
             ||(p->scene.tiles[i]==NG2_TILE_GOLD&&latest!=NG2_TILE_GOLD))return 0;
         if(old==latest)continue;
         if(a->protected_cells[i]||scene->protected_cells[i])return 0;
+        /* A remote bracketed door can resolve to its solid GOLD wall while
+         * this already acknowledged entrance stays fixed. This adds no door
+         * or traversable surface; old profiles retain their original rule. */
+        if(p->cycle_enabled&&old==NG2_TILE_DOOR&&latest==NG2_TILE_GOLD
+            &&(abs(x)>1||abs(y)>1)&&(abs(x-dx[d])>1||abs(y-dy[d])>1)
+            &&gate_at(a,x,y)&&gate_at(scene,x,y)){remote_wall=1;continue;}
         if(!clipped&&x==2*dx[d]&&y==2*dy[d]&&old==NG2_TILE_DIRT&&latest==NG2_TILE_FLOOR){
             inner=1;continue;
         }
@@ -1342,7 +1352,7 @@ static int opened_entry_relation(const NG2Controller *p,const NG2Scene *scene){
             ||(old!=NG2_TILE_UNKNOWN&&old!=NG2_TILE_FLOOR&&old!=NG2_TILE_DIRT&&old!=NG2_TILE_STONE)
             ||(latest!=NG2_TILE_UNKNOWN&&latest!=NG2_TILE_FLOOR&&latest!=NG2_TILE_DIRT&&latest!=NG2_TILE_STONE))return 0;
     }
-    return clipped||inner||p->opened_entry_parent;
+    return clipped||inner||remote_wall||p->opened_entry_parent;
 }
 /* The closed door is beyond the unchanged dig cell. Its observed GOLD pair
  * must be perpendicular to the input axis, in both source and latest frame. */
@@ -2198,6 +2208,7 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
         p->opened_entry_parent=p->opened_entry_recovery_ns=0;
         if(ng2_entered_gate(&p->before,scene,direction,p->s.x,p->s.y,motion.kind,&entered))p->entrance=entered;
         p->s.x+=motion.dx;p->s.y+=motion.dy;++p->s.moves;
+        p->cycle_partial_rebind_used=0;
         if(p->s.x < -16||p->s.x>16||p->s.y < -16||p->s.y>16){finish(p,end,NG2_REASON_LIMIT);return;}
         if(p->visits[(p->s.y+16)*33+p->s.x+16]<UINT16_MAX)++p->visits[(p->s.y+16)*33+p->s.x+16];
         p->s.lead_confirmed=1;
@@ -2379,14 +2390,33 @@ static int cycle_structural_scene(const NG2Scene *scene,const NG2RingRow *row){
     if(tile(scene,ax-1,ay)!=NG2_TILE_FLOOR||tile(scene,ax+3,ay)!=NG2_TILE_FLOOR)return 0;
     return cycle_structural_shape(scene,ax,ay,0)||cycle_structural_shape(scene,ax,ay,1);
 }
+/* Policy4 observes the same three offer cells below a five-cell solid side
+ * and a separate two-cell doorway. It does not infer an unseen bottom wall. */
+static int cycle_side_shop_shape(const NG2Scene *scene,int ax,int ay,int mirror){
+    int y,solid=ax+(mirror?4:-2),opening=ax+(mirror?-2:4),middle;
+    for(y=ay-3;y<=ay+1;++y)if(tile(scene,solid,y)!=NG2_TILE_GOLD)return 0;
+    if(tile(scene,opening,ay-2)!=NG2_TILE_GOLD||tile(scene,opening,ay)!=NG2_TILE_GOLD)return 0;
+    middle=tile(scene,opening,ay-1);return middle==NG2_TILE_FLOOR||middle==NG2_TILE_DOOR;
+}
+static int cycle_side_shop_scene(const NG2Scene *scene,const NG2RingRow *row){
+    int ax,ay,x;
+    if(scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene)
+        ||scene->state!=NG2_FLOOR||scene->goods!=NG2_GOODS_VISIBLE
+        ||(scene->gold_state!=NG2_GOLD_CANDIDATE&&scene->gold_state!=NG2_GOLD_EDGE_DOWN)
+        ||!cycle_structural_cell(row->left,448,&ax)||!cycle_structural_cell(row->sy+48,207,&ay)
+        ||ax-2 < -11||ax+4>11||ay-3 < -5||ay+1>4)return 0;
+    for(x=ax;x<=ax+2;++x)if(tile(scene,x,ay)!=NG2_TILE_ITEM)return 0;
+    if(tile(scene,ax-1,ay)!=NG2_TILE_FLOOR||tile(scene,ax+3,ay)!=NG2_TILE_FLOOR)return 0;
+    return cycle_side_shop_shape(scene,ax,ay,0)||cycle_side_shop_shape(scene,ax,ay,1);
+}
 static int cycle_structural_witness(const NG2Controller *p,const NG2RingResult *result){
-    const NG2RingCoverage *w=&result->certificate;const NG2RingRow *row;int i,j,gold=0;
+    const NG2RingCoverage *w=&result->certificate;const NG2RingRow *row;int i,j,gold=0,side=w->policy_version==4;
     if(p->cycle.partial||p->cycle.candidate_latched||!p->cycle.full_seen
         ||result->status!=NG2_RING_OK||result->outcome!=NG2_RING_NEGATIVE
         ||result->coverage!=NG2_RING_COVERAGE_COMPLETE||result->row_count<1||result->row_count>4
         ||result->selected_row<0||result->selected_row>=result->row_count||result->selected_partial!=-1
         ||result->partial_safe_no_positive||result->partial_count!=2
-        ||w->layout_version!=1||w->policy_version!=3||w->board_mode!=3||w->failure_flags||w->accepted_rows!=1
+        ||w->layout_version!=1||(w->policy_version!=3&&!side)||w->board_mode!=w->policy_version||w->failure_flags||w->accepted_rows!=1
         ||w->row_index!=result->selected_row||w->observed_items!=3||w->observed_prices!=3
         ||w->non_target_items!=3||w->ignored_containers
         ||w->unmatched_items<0||w->unmatched_items>(180*67)/24||w->unmatched_prices||w->unmatched_boards
@@ -2396,9 +2426,10 @@ static int cycle_structural_witness(const NG2Controller *p,const NG2RingResult *
     if(row->left<54||row->left>770||row->sy<0||row->sy>325
         ||row->left!=w->row[0]||row->sy!=w->row[1]
         ||!cycle_box(w->strip_box)||w->strip_box[0]!=row->left-54||w->strip_box[1]!=row->sy+24
-        ||w->strip_box[2]!=180||w->strip_box[3]!=67||!cycle_structural_scene(&p->cycle_anchor,row))return 0;
+        ||w->strip_box[2]!=180||w->strip_box[3]!=67
+        ||!(side?cycle_side_shop_scene(&p->cycle_anchor,row):cycle_structural_scene(&p->cycle_anchor,row)))return 0;
     for(i=0;i<NG2_TILE_COUNT;++i)gold+=p->cycle_anchor.tiles[i]==NG2_TILE_GOLD;
-    if(gold<12||w->actual_gold_cells!=gold)return 0;
+    if(gold<(side?7:12)||w->actual_gold_cells!=gold)return 0;
     for(i=0;i<2;++i){
         const NG2RingEndcap *end=&w->endcaps[i];const int32_t *board=w->board_boxes[i];
         int32_t roi[4]={row->left+72*i-18,row->sy-20,36,40};
@@ -2431,12 +2462,20 @@ static int cycle_structural_witness(const NG2Controller *p,const NG2RingResult *
             ||price[1]<row->sy+69||price[1]+price[3]>row->sy+89)return 0;
         for(j=0;j<i;++j)if(!memcmp(price,w->price_boxes[j],sizeof(w->price_boxes[i])))return 0;
     }
+    if(side){
+        int top=w->price_boxes[0][1],bottom=top+w->price_boxes[0][3];
+        for(i=1;i<3;++i){
+            if(w->price_boxes[i][1]<top)top=w->price_boxes[i][1];
+            if(w->price_boxes[i][1]+w->price_boxes[i][3]>bottom)bottom=w->price_boxes[i][1]+w->price_boxes[i][3];
+        }
+        if(bottom-top>9)return 0;
+    }
     return cycle_binary_cell(&result->partial[0],row->left-36,row->sy,0,w->strip_box)
         &&cycle_binary_cell(&result->partial[1],row->left+108,row->sy,0,w->strip_box);
 }
 static int cycle_negative_witness(const NG2Controller *p,const NG2RingResult *result){
     const NG2RingCoverage *w=&result->certificate;const NG2RingRow *row;int i,j,gold=0,named=0,ignored=0;
-    if(w->policy_version==3)return cycle_structural_witness(p,result);
+    if(w->policy_version==3||w->policy_version==4)return cycle_structural_witness(p,result);
     if(p->cycle.partial||p->cycle.candidate_latched||!p->cycle.full_seen
         ||result->coverage!=NG2_RING_COVERAGE_COMPLETE||result->row_count<1||result->row_count>4
         ||result->selected_row<0||result->selected_row>=result->row_count||result->selected_partial!=-1
@@ -2699,6 +2738,50 @@ static void cycle_latch(NG2Controller *p,const NG2Scene *scene,uint64_t now){
     p->s.phase=NG2_PHASE_FINISH;p->s.reason=NG2_REASON_GOODS;
     if(p->cycle.full_seen)p->s.goods=1;
 }
+static int cycle_new_item_protects(const NG2Scene *before,const NG2Scene *after,int x,int y){
+    int d;
+    for(d=0;d<5;++d)
+        if(tile(before,x+dx[d],y+dy[d])!=NG2_TILE_ITEM
+            &&tile(after,x+dx[d],y+dy[d])==NG2_TILE_ITEM)return 1;
+    return 0;
+}
+/* Newly exposed merchandise invalidates the old partial result. A strict
+ * stationary proof may bind a fresh data job, never continue the old MOVE.
+ * The old observation horizon and one-use allowance survive every bind. */
+static int cycle_rebind_exposed_partial(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    uint64_t start,uint64_t prefix,uint64_t commit){
+    const NG2Scene *a=&p->cycle_anchor;NG2Decision latest;NG2Motion still;int i,d,new_items=0;
+    uint64_t horizon=p->cycle.continuation_deadline_ns;
+    if(p->cycle_partial_rebind_used||p->cycle.state!=NG2_CYCLE_OBSERVE_MORE||p->cycle.pending
+        ||p->s.input_state||p->cycle_partial_credit||p->cycle_framing_credit||p->cycle.candidate_latched
+        ||p->finish_requested||p->s.terminal||!p->cycle.capture_id||id<=p->cycle.capture_id
+        ||prefix!=p->cycle.prefix||prefix!=p->s.last_completed_id||commit>horizon
+        ||a->state!=NG2_FLOOR||a->goods!=NG2_GOODS_PARTIAL
+        ||scene->state!=NG2_FLOOR||scene->goods!=NG2_GOODS_PARTIAL||!p->cycle_choice_valid
+        ||!cycle_partial_choice(p,scene,&latest)||!same_choice(&p->cycle_choice,&latest))return 0;
+    d=latest.direction;
+    if(!cycle_opened_partial(p,d))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int old=a->tiles[i],next=scene->tiles[i],x=i%23-11,y=i/23-5;
+        int protection=a->protected_cells[i]!=scene->protected_cells[i];
+        if(old==NG2_TILE_ITEM&&next!=NG2_TILE_ITEM)return 0;
+        if(a->protected_cells[i]&&!scene->protected_cells[i])return 0;
+        if(old!=next){
+            if(next!=NG2_TILE_ITEM||(old!=NG2_TILE_FLOOR&&old!=NG2_TILE_GOLD)
+                ||!scene->protected_cells[i])return 0;
+            ++new_items;
+        }
+        if(old!=next||protection){
+            if((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1))return 0;
+            if(protection&&!cycle_new_item_protects(a,scene,x,y))return 0;
+        }
+    }
+    if(!new_items||!ng2_motion(a,scene,d,&still)||still.kind!=NG2_BLOCKED||still.dx||still.dy)return 0;
+    p->cycle_partial_rebind_used=1;
+    cycle_latch(p,scene,commit);cycle_bind(p,scene,id,start,prefix);
+    p->cycle.continuation_deadline_ns=minimum(p->cycle.continuation_deadline_ns,horizon);
+    return 1;
+}
 static int cycle_observe_hold(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t prefix,uint64_t commit){
     cycle_scene(p,scene,id,start,end,prefix);
@@ -2772,7 +2855,10 @@ static int cycle_observe_hold(NG2Controller *p,const NG2Scene *scene,uint64_t id
             cycle_record_rejection(p,scene,id,validation);
             /* Only an unproved zero with every fixed static guard intact may
              * wait. No sample, source, horizon, credit or input is refreshed. */
-            if(!wait)cycle_failure(p,commit,NG2_RING_KERNEL,NG2_REASON_SCREEN);
+            if(!wait){
+                if(cycle_rebind_exposed_partial(p,scene,id,start,prefix,commit))return 1;
+                cycle_failure(p,commit,NG2_RING_KERNEL,NG2_REASON_SCREEN);
+            }
         }else{
             diagnostic_comparison(p,id,NG2_REVALIDATE_NONE,&motion);
             clear_slots(p);p->cycle_partial_credit=1;p->cycle_credit_prefix=prefix;

@@ -330,12 +330,31 @@ static uint32_t passage_occluded_corner_vantage(const NG2Scene *s,const Path rou
         &&tile(s,-2,-2)==NG2_TILE_FLOOR)result|=UINT32_C(1)<<5;
     return result;
 }
+/* The lower-left exterior FLOOR can be visible beyond an opaque boundary.
+ * Keep that disconnected floor and the mouth's wall unchanged; only the
+ * current short inside FLOOR approach gains this fixed-world hypothesis. */
+static int passage_lower_fringe_vantage(const NG2Scene *s,const Path route[CELLS]) {
+    static const int walls[][2]={{-3,1},{-3,2},{-3,3},{-4,3},{-2,3}};
+    static const int floors[][2]={{-4,2},{-2,2},{-1,0},{0,0},{-1,1},{0,1}};
+    int i,vantage=index_of(-2,1),inboard=index_of(-2,2),outside=index_of(-4,2);
+    if(s->gold_state!=NG2_GOLD_CLEAR)return 0;
+    for(i=0;i<CELLS;++i)
+        if(s->protected_cells[i]||s->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(i=0;i<(int)(sizeof(walls)/sizeof(walls[0]));++i)
+        if(!passage_wall(s,walls[i][0],walls[i][1]))return 0;
+    for(i=0;i<(int)(sizeof(floors)/sizeof(floors[0]));++i)
+        if(tile(s,floors[i][0],floors[i][1])!=NG2_TILE_FLOOR)return 0;
+    return route[vantage].cost!=INF_COST&&route[vantage].length<=3
+        &&route[inboard].cost!=INF_COST&&route[inboard].length<=4
+        &&route[outside].cost==INF_COST;
+}
 uint32_t ng2_passage_candidates(const NG2Scene *s) {
     Path route[CELLS];uint32_t result=0;int side,k;
     if (!passage_scene(s)) return 0;
     path_search(s,0,1,route);
     if(passage_shadow_vantage(s,route)||passage_split_shadow_vantage(s,route))result|=UINT32_C(1);
     result|=passage_occluded_corner_vantage(s,route);
+    if(passage_lower_fringe_vantage(s,route))result|=UINT32_C(1)<<9;
     for (side=0;side<2;++side) for (k=-2;k<=2;++k) {
         int mx=side ? -3 : k,my=side ? k : -3,dx=side ? -1 : 0,dy=side ? 0 : -1;
         int inboard=index_of(mx-dx,my-dy),mouth=tile(s,mx,my);
