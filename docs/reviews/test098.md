@@ -33,3 +33,13 @@ code `7b7d7515cd1a394d1215f1c619c4e41bf7b9fe16`、run43537002612/build175。最�
 保持Sceneで候補135のmask32/既床4歩、実3の221→223の限定admission、実2の297→299の部分関係が成立。実1の234→242は修正前から成立するため、最初の停止原因は未確定のまま。再観測待機や診断追加が実際の根因を解消すると断定せず、全拒否画像の保存も保証しない。校正済みSceneや模擬clock/pixels/classifierを未知画像精度・実ゲーム到達・速度の受入へ数えない。
 
 closingはstatus/本レビュー/修正表/device-tests索引だけを変更し、製品/試験/seal不変。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-build175/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-build175/source.zip)を固定Releaseへ保存する。公開後の匿名全GET/SHA/実tag/closing source全bytesは別途照合する。次の実機は通常1-1ポーズから候補までrestart→接近/入店→3商品可視→対象だけ判定→対象なしなら次周回。停止通知後iSHの全保存/ZIP照合終了を待ち、表示run ZIP全体を返却してもらう。実機到達・速度・未知精度は未確認。
+
+## 配布後の再解析: 実1の停止段階の訂正
+
+2026-11-14（日本時間）。ユーザーから原因未確定のまま修正するのかと指摘を受け、旧097のCと原checkpoint/terminalを読み直した。追加の製品変更・試験・Perception/Ring再実行なし。
+
+実1は最初のOBSERVE_MORE判定に成功した後、SEARCH/partial credit中の再検査で停止している。根拠はpost_move_reacquisitions=2/episode_id=2、initial=0、record_count=1/dropped=0。旧097の各増加箇所を照合すると、回復記録を増やさないのはOBSERVE_MORE成功分岐だけで、唯一の回復記録は前のcmd7。MOVE14の予約はmodeをNORMALへ戻しており、以後のMOVEはなく、15は停止後のPAUSEである。
+
+job1/source234/full_seen=falseのまま、prefix14は継続資格と一致し、停止時刻は元continuation期限内。このため旧C2699–2703の継続許可後のcycle_partial_relation失敗へ絞れる。Runtimeからの直接失敗はreason6であり、今回のSCREEN17とは異なる。独立した静的確認でも同じ結論となった。
+
+ただし、内側の経路・材質差・保護・動き判定のどれが失敗したかは、未保持の判断画像/Sceneがなければ特定できない。後の保存242を失敗画像と見なさない。098のUNKNOWN待機と拒否画像記録はOBSERVE_MOREだけにあり、今回特定した継続許可後の分岐には入っていない。したがって098が実1の停止を修正/採証するという根拠はない。前の解析は停止段階の確認が不足していた。原因未確定のまま許可条件を緩めず、追加修正を行っていないことを明記する。

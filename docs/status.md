@@ -12,4 +12,4 @@ code `7b7d7515cd1a394d1215f1c619c4e41bf7b9fe16`、run43537002612/build175。最�
 
 [新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-build175/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-build175/source.zip)。固定Release asset、hashはSHA256SUMS.txt。IPA更新→LoopCtrl完全終了/起動→Start Server/通知許可/通常VPN。test_098.shで通常1-1ポーズから候補までrestart→接近/入店→3商品可視→のろいのゆびわ判定→対象なしなら次周回、最大4商店。停止通知後iSHへ戻り全保存/ZIP照合終了を待ち、表示run ZIP全体を返却。
 
-実1最初の原因は未確定、実機改善/長期耐久は未受入。対応外layout/対象候補は保持。遅延positive通知P1・ledger整理なしP2は旧記録を維持。[索引](context.md)。
+再解析: 実1は継続許可後の再検査で停止。098の待機/診断は手前だけで、この分岐は未修正。失敗画像未保持で内側の拒否条件は未確定。実機改善/長期耐久は未受入。対応外layout/対象候補は保持。遅延positive通知P1・ledger整理なしP2は旧記録を維持。[索引](context.md)。
