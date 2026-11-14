@@ -10,4 +10,6 @@
 
 設計/C/Runtime/client独立レビューGO。build183/run43614403456、code ade7d047のhost85、現Mac API/spool/export・Runtime096の12・099の新6＋関連1、実物5検査を確認。新Runtimeの旧source意味Redは別run177。途中のfixture誤りを実Mac診断で訂正し、製品不具合/実機成功と混同しない。
 
+固定Releaseは公開済み。IPA/全コード/SHAの匿名全GET・hash・tag一致を確認した。
+
 実機到達率/毎拍・人超え速度/未知対象精度/長期耐久は未受入。購入/宝箱開封/全商品登録は追加しない。Ring/Bank/判定資産/G1/R12全40は不変。遅延positive通知P1・native旧ledger整理なしP2は継続。[索引](context.md)。

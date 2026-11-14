@@ -59,3 +59,5 @@ code ade7d047224b8ee789a5110b626b9df052cb2518のrun43614276577/build182で残り
 封印native36の変更はController.c/header/Runtimeの3つだけ。旧6 ABI、別StopDetail120/Handoff64、canonical Ring15/56,088B ELF・Bank/Coverage・G1/R12全40・旧client/Navigation等の全bytesを保持。全9 Mach-Oを検査し、保持1075＋新297のfixture専用marker不在、実compiler profile3/C8/Swift5と保存response6を照合した。
 
 実機は新IPA更新・LoopCtrl完全再起動/Start Server・通知/通常VPN、通常1-1ポーズから`sh test_099.sh --until-target`。対象なしだけ次周回へ進み、対象/候補/不明/障害/上限で止まる。途中通知はrunの区切りで、iSHのcampaign終了/全保存・ZIP照合完了まで待つ。返却ZIPは索引＋最後のrun全ZIP、過去全ZIPは端末に残す。原097/098の停止解消や人超え速度、未知対象精度、到達率、長期耐久は未確認。
+
+公開確認: source保存commit ddea3e54b707271e2a06c150971f1886c481e876はbuild codeから資料3ファイルだけ変更、全851 source ZIPは8,866,702B/SHAe28fb2a6b262b2faaa60c2457543dfbd2aba8042edd3fa77d6ae2eab92ab5753でGit全bytes/CRC一致。publisher run43616240726/build184でrelease445432297/tag test099-build183を公開した。IPA/source/SHA256SUMSの匿名全GET HTTP200、全bytes/asset digestと軽量tagのcommit一致を確認済み。この追記は公開証跡だけで製品/配布assetを変更しない。
