@@ -4,6 +4,8 @@
 --red-only executes frozen old Runtime with current C/getters and expects the
 named missing-record assertion, never a compile/environment failure. Default
 runs current Green only, so an already-passed stage1 Red need not be repeated.
+--pin-diagnostic runs the corrected single pin/snapshot callback with its
+persisted diagnostic values and requires its Green result.
 """
 import argparse
 import hashlib
@@ -26,6 +28,7 @@ CASES = ['cycle-only frozen terminal diagnostic schema', 'readonly trial support
 RELATED_CASES = ['legacy20 critical pin/export retention']
 RED_ASSERTION = 'FAIL cycle099_terminal_has_frozen_stop_and_handoff'
 PIN_ASSERTION = 'FAIL cycle099_writer_owns_old_immutable_snapshot_not_later_getter'
+PIN_PASS = 'PASS TEST099 readonly POD live anchor and first failure survive recent eviction'
 PASS = 'PASS TEST099 six cycle diagnostic/handoff callbacks and legacy20 evidence retention; procedural clock/pixels/results'
 HOST_GETTER_ALIAS = 'ng2_controller_stop_detail_real'
 FIXTURE_CONTROLS = ('ng2_fixture099_stop_override', 'fixture099_override_enabled', 'fixture099_override', 'fixture099_gate')
@@ -76,7 +79,7 @@ def main():
     selection.add_argument('--red-only', action='store_true')
     selection.add_argument('--fault-red', action='store_true')
     selection.add_argument('--pin-diagnostic', action='store_true',
-        help='current-source pin/snapshot case only; preserve and record its original named failed assertion')
+        help='current-source pin/snapshot case only, recording persisted values and requiring Green')
     args = parser.parse_args()
     if not shutil.which('swiftc'):
         raise SystemExit('Swift unavailable; no TEST099 semantic Red or Runtime Green executed')
@@ -139,7 +142,7 @@ def main():
             (output/(name+'-tests.txt')).write_text(result.stdout+result.stderr)
             proof = dict(returncode=result.returncode, selected=selected, fixture_sha256=digest(fixture.encode()),
                 runtime_sha256=digest(raw), swift_command=command,
-                expected_assertion=RED_ASSERTION if selected == 'projection' else PIN_ASSERTION if selected == 'pin-snapshot' else None)
+                expected_assertion=RED_ASSERTION if selected == 'projection' else None)
             (output/(name+'-result.json')).write_text(json.dumps(proof, indent=2)+'\n'); proofs[name] = proof
             return result
         if args.red_only or args.fault_red:
@@ -149,8 +152,8 @@ def main():
             print(RED_ASSERTION+' (expected old Runtime assertion; not a build failure)')
         if args.pin_diagnostic:
             diagnostic = execute((native/'NG2Runtime.swift').read_bytes(), 'runtime099-pin-diagnostic', 'pin-snapshot')
-            if diagnostic.returncode != 1 or PIN_ASSERTION not in diagnostic.stdout or 'DIAGNOSTIC cycle099_pin_snapshot ' not in diagnostic.stdout:
-                raise SystemExit('TEST099 original pin assertion diagnostic missing (returncode='+str(diagnostic.returncode)+'):\n'+
+            if diagnostic.returncode or not diagnostic.stdout.strip().endswith(PIN_PASS) or 'DIAGNOSTIC cycle099_pin_snapshot ' not in diagnostic.stdout:
+                raise SystemExit('TEST099 corrected pin diagnostic Green missing (returncode='+str(diagnostic.returncode)+'):\n'+
                     diagnostic.stdout+diagnostic.stderr)
             print(diagnostic.stdout, end='')
         elif not args.red_only:

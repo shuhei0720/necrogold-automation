@@ -116,7 +116,11 @@ func testCycle099PinAndSnapshot(_ root: URL) {
     NG2RuntimeTestHooks.beforeAnalysisFrameCommit = nil
     let rows = cycle099Records(root, id)
     let final = cycle099Terminal(root, id), (stop, _) = cycle099Projection(final)
-    let before = rows.last(where: { $0.0 == "checkpoint" })?.1["controller"]?.objectValue?["stop_detail"]?.objectValue ?? [:]
+    let checkpointRecord = rows.last(where: { $0.0 == "checkpoint" })?.1 ?? [:]
+    let before = checkpointRecord["controller"]?.objectValue?["stop_detail"]?.objectValue ?? [:]
+    let checkpointCycle = checkpointRecord["cycle"]?.objectValue ?? [:]
+    let pauseCapture = checkpointCycle["pause_capture_id"]?.intValue ?? 0
+    let checkpointJob = checkpointCycle["job_id"]?.intValue ?? 0
     gate.lock(); let source = anchor, comparison = observed; gate.unlock()
     let conditions: [String: JSONValue] = ["source_nonzero": .bool(source > 0),
         "comparison_after_source": .bool(comparison > source),
@@ -124,7 +128,9 @@ func testCycle099PinAndSnapshot(_ root: URL) {
         "terminal_observed_matches_comparison": .bool(stop["observed_capture_id"]?.intValue == Int(comparison)),
         "terminal_at_matches_override": .bool(stop["at_ns"]?.intValue == 1_234_567),
         "checkpoint_valid_false": .bool(before["valid"]?.boolValue == false),
-        "checkpoint_observed_zero": .bool(before["observed_capture_id"]?.intValue == 0)]
+        "checkpoint_observed_matches_bound_pause": .bool(pauseCapture > 0 && checkpointJob > 0 &&
+            checkpointJob == cycleCompanion(id)["job_id"]?.intValue &&
+            before["observed_capture_id"]?.intValue == pauseCapture && pauseCapture != Int(comparison))]
     let checkpoints: [JSONValue] = rows.filter { $0.0 == "checkpoint" }.map { row in
         .object(["job_id": row.1["cycle"]?.objectValue?["job_id"] ?? .null,
             "stop_detail": row.1["controller"]?.objectValue?["stop_detail"] ?? .null])
