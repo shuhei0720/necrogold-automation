@@ -421,13 +421,13 @@ def _load(base):
         raise ProbeError('native_journal_invalid') from None
 
 
-def _scene_changes(value):
+def _scene_changes(value, *, allow_motion_zero=False):
     keys = ('command_id', 'source_capture_id', 'observed_capture_id', 'change_mask',
         'changed_tiles', 'changed_protected', 'state_before', 'state_after',
         'goods_before', 'goods_after', 'replan_count', 'replan_allowed', 'target_ns', 'deadline_ns')
     _require(type(value) is list and len(value) <= 3, 'invalid_native_report')
     rows = []
-    limits = {'change_mask':(1,15), 'changed_tiles':(0,230), 'changed_protected':(0,230),
+    limits = {'change_mask':(0 if allow_motion_zero else 1,15), 'changed_tiles':(0,230), 'changed_protected':(0,230),
         'state_before':(0,2), 'state_after':(0,2), 'goods_before':(0,2),
         'goods_after':(0,2), 'replan_count':(0,2)}
     for row in value:
@@ -441,6 +441,11 @@ def _scene_changes(value):
                 low, high = limits.get(key, (0,2**63-1))
                 _require(type(item) is int and low <= item <= high, 'invalid_native_report')
             clean[key] = item
+        if clean['change_mask'] == 0:
+            _require(not clean['replan_allowed'] and not clean['replan_count']
+                     and not clean['changed_tiles'] and not clean['changed_protected']
+                     and clean['state_before'] == clean['state_after']
+                     and clean['goods_before'] == clean['goods_after'], 'invalid_native_report')
         rows.append(clean)
     return rows
 
@@ -725,7 +730,7 @@ def _report(value, depth=0, *, require_motion_references=False, require_recovery
             _require(type(item) is list and len(item) <= limit, 'invalid_native_report')
             result[key] = [_report(event, depth+1, api_version=api_version) for event in item]
         elif key == 'scene_changes':
-            result[key] = _scene_changes(item)
+            result[key] = _scene_changes(item, allow_motion_zero=depth == 0 and api_version == API_VERSION)
         elif key == 'scene_change_details':
             result[key] = _scene_change_details(item)
         elif key == 'motion_wait':
@@ -769,6 +774,15 @@ def _report(value, depth=0, *, require_motion_references=False, require_recovery
             _require([[row[key] for key in ids] for row in result['scene_changes']]
                      == [[row[key] for key in ids] for row in result['scene_change_details']],
                      'invalid_native_report')
+        for index, change in enumerate(result.get('scene_changes', [])):
+            if change['change_mask'] != 0:
+                continue
+            details = result.get('scene_change_details', [])
+            _require(index < len(details), 'invalid_native_report')
+            detail = details[index]
+            _require(detail['validation'] == 11 and not detail['continuous_count']
+                     and not detail['chain_count'] and not detail['cell_count']
+                     and not detail['omitted_cells'], 'invalid_native_report')
     return result
 
 

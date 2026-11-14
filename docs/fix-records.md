@@ -240,3 +240,15 @@ TEST096最終確認: build171の限定host134、現Mac API/spool/Export・Runtim
 | FR-097-FRAMING-FULL | 2026-11-13 | 作成中framing待機中に新FULLが来ても旧空結果のまま保持 | OBSERVE_MOREのfull_seen guardが、新しい正常な分類jobへの引継ぎを欠く。初期案にはFLOOR条件も不足 | privateframing・入力0・独立した新FULL/FLOOR・current prefixだけ既cycle_latch/bindへ。旧移動権限は撤回し、新sourceの分類だけ開始 | 引継ぎの意味Red1→Green9。レビューで非FLOOR/FULL反例も追加。元ticket/旧jobの拒否、既予約後FULLの旧経路は維持 | 作成中2（引継ぎとFLOOR条件、実機再発ではない） |
 
 TEST097最終確認: build173の選択137件/17scope、現Mac API/spool/Export・Runtime096の12callbackと旧source意味Red、実物5種類が成功。保持SceneのNav/Controller校正も成立。実機到達・見逃し率・未知対象精度は未確認で、各対策の実機改善や再発率を確認済みへ変更しない。
+
+## TEST098の対策（配布前・実機改善未確認）
+
+097の3ZIP/64PNGを全照合。実順は添付1→3→2。FR-095-PARTIAL-DIRT、FR-097-PARTIAL-RELATION/FRAMING-FULL、FR-079/081/090/093の未送信回復、FR-084/086/094/095/097候補を照合。旧条件の削除・PAUSE採用遅延の再発とは断定しない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-098-SOLID-CORNER | 2026-11-14 | 実2の候補135を見送り | 旧口は5壁で塞がる上左角の外床を扱わない | 5壁/外床/中央床/既3歩vantageを必要とするbit5仮説。壁/UNKNOWNの意味は不変 | 意味Red→新6＋旧39 Green、原Sceneでmask32/既床4歩。未来到達・未知精度は未確認 | 同系列1。旧対策削除なし、通算未集計 |
+| FR-098-SIDE-OPENING | 2026-11-14 | 実3が6歩後、新しい側方床を前に停止 | 一セルDIRT→FLOORで未送信DOWNからLEFTへ完全判断変更。旧monotone/同判断refreshの適用外 | 厳密零/同GOLD/保護なし/直交reason8だけ別refresh。旧票撤回、新判断anchor固定、新IDと独立画像、元期限維持 | 意味Red→新8＋旧14 Green。保持221→223の新admission成立。最後の診断guard後の全同sourceはCI確認予定、実機未確認 | 今回1。移動UNKNOWNや旧未送信回復の同原因再発と未確定 |
+| FR-098-OPENED-FADE | 2026-11-14 | 実2が開扉後、下の商品へ進めず停止 | 遠方(5,4)FLOOR→UNKNOWNが旧材質関係外 | 実ACK済み同方向開扉/reason5/両3×3外・非保護だけ追加。同判断/厳密零/元期限維持 | 意味Red→部分新9と関連、原297→299で関係成立。未収録先の商品/実機は未確認 | 開扉後材質拒否系列1が残存。通算未集計 |
+| FR-098-PARTIAL-REACQUIRE | 2026-11-14 | 実1が商品一部表示後に停止し次周回へ進まない | 最初の拒否画像は未保持で根因未確定。判定は期限内UNKNOWN、後の234→242は旧条件でも成立 | 静的条件全成立・実開扉後の動きUNKNOWNだけ入力0で独立画像待機。新FULL/FLOORは新分類。表現可能な最初の拒否を既画像保持へ接続 | UNKNOWN/期限/取消/新FULL/診断の意味Red→Green。原因の断定や対象なし化はしない。実機未確認 | 同症状1、同原因再発数は不明（0にしない） |
+| FR-098-DIAGNOSTIC-ZERO | 2026-11-14 | 新診断の材質差0を回収clientが拒否。レビューで非MOTIONの0行も検出 | 既schemaはmask1..15。新producerとparserの限定条件が不一致 | 現API rootの同ID/MOTION detail・全変化0・権限0だけ認める。非MOTION/mask0は記録せずfirst印を残す。legacy/再帰は厳格 | 実Python3.9の意味Red→新2＋旧3 Green。非MOTION反例Red→新9＋既C診断3 Green、独立レビューGO | 配布前2境界を検出。実機再発ではない |

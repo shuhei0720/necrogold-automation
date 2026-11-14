@@ -321,6 +321,13 @@ static uint32_t passage_occluded_corner_vantage(const NG2Scene *s,const Path rou
         &&tile(s,-4,-3)==NG2_TILE_FLOOR&&tile(s,-3,-1)==NG2_TILE_UNKNOWN
         &&tile(s,-2,-2)==NG2_TILE_FLOOR&&passage_wall(s,-3,-3)
         &&passage_wall(s,-2,-3)&&passage_wall(s,-1,-3))result|=UINT32_C(1)<<5;
+    /* The exterior fringe can remain visible above a completely opaque
+     * corner. Approach only the existing inside FLOOR; keep that wall and
+     * its direct outside UNKNOWN rather than inferring a connected route. */
+    if(tile(s,-4,-3)==NG2_TILE_FLOOR&&tile(s,-4,-2)==NG2_TILE_UNKNOWN
+        &&passage_wall(s,-3,-3)&&passage_wall(s,-2,-3)&&passage_wall(s,-1,-3)
+        &&passage_wall(s,-3,-2)&&passage_wall(s,-3,-1)
+        &&tile(s,-2,-2)==NG2_TILE_FLOOR)result|=UINT32_C(1)<<5;
     return result;
 }
 uint32_t ng2_passage_candidates(const NG2Scene *s) {

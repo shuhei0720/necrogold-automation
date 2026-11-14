@@ -27,6 +27,7 @@ enum { NG2_CONTINUOUS_NONE=0, NG2_CONTINUOUS_SAME=1, NG2_CONTINUOUS_FRESH=2 };
 enum { NG2_GATE_RETRY_NONE=0, NG2_GATE_RETRY_REFIT=1, NG2_GATE_RETRY_ISSUED=2 };
 enum { NG2_GATE_REFRESH_NONE=0, NG2_GATE_REFRESH_OBSERVE=1,
        NG2_GATE_REFRESH_READY=2, NG2_GATE_REFRESH_ISSUED=3 };
+enum { NG2_OBSERVATION_REFRESH_SIDE_OPENING=2 };
 struct NG2Controller {
     NG2ControllerStatus s;
     NG2Scene scene,before,retune_anchor,initial_scene_previous;
@@ -112,7 +113,7 @@ struct NG2Controller {
     uint32_t stationary_wait_pending,stationary_wait_inspected,stationary_wait_unresolved,stationary_wait_closed;
     /* New-profile state is appended; no old public layout or latch changes. */
     int cycle_enabled,cycle_pause_attempted,cycle_storage_error,cycle_partial_credit;
-    int cycle_queued_valid,cycle_choice_valid,cycle_framing_credit;
+    int cycle_queued_valid,cycle_choice_valid,cycle_framing_credit,cycle_rejection_recorded;
     int cycle_search_restart,cycle_restart_unproved;
     uint64_t cycle_credit_prefix,cycle_consumed_prefix,cycle_sync_deadline;
     NG2ControllerCycleStatus cycle;
@@ -1434,7 +1435,8 @@ static int closed_approach_refresh(const NG2Controller *p,const NG2Scene *scene)
     }
     return gold==2;
 }
-static int observation_refresh_scene(const NG2Controller *p,const NG2Scene *scene){
+static int observation_refresh_scene(const NG2Controller *p,const NG2Scene *scene,
+    NG2Decision *changed_choice){
     const NG2Scene *a=&p->gate_refresh_anchor;
     const NG2Decision *choice=&p->gate_refresh_choice;
     NG2Decision before,latest;NG2Motion still;int i,stone_change=0,d=choice->direction;
@@ -1459,19 +1461,50 @@ static int observation_refresh_scene(const NG2Controller *p,const NG2Scene *scen
             stone_change=1;
         }
     }
-    return choose_step(p,a,&before)
-        &&choose_step(p,scene,&latest)
-        &&same_choice(&before,choice)&&same_choice(&before,&latest)
-        &&(!stone_change||(closed_approach_refresh(p,scene)
-            &&ng2_motion(a,scene,d,&still)&&still.kind==NG2_BLOCKED&&!still.dx&&!still.dy));
+    if(p->observation_refresh_active==NG2_OBSERVATION_REFRESH_SIDE_OPENING
+        &&(!ng2_motion(a,scene,d,&still)||still.kind!=NG2_BLOCKED||still.dx||still.dy))return 0;
+    if(!choose_step(p,a,&before)||!choose_step(p,scene,&latest)||!same_choice(&before,choice))return 0;
+    if(!same_choice(&before,&latest)){
+        /* A failed cached-source proof never supplies a replacement choice.
+         * Both real chooser results are evaluated once, without rescue. */
+        if(changed_choice)*changed_choice=latest;
+        return 0;
+    }
+    return !stone_change||(closed_approach_refresh(p,scene)
+        &&ng2_motion(a,scene,d,&still)&&still.kind==NG2_BLOCKED&&!still.dx&&!still.dy);
+}
+/* A single newly lit side floor can shorten a known-gold approach before
+ * begin. This is a new observation route, never a dig or movement credit. */
+static int side_opening_refresh_scene(const NG2Controller *p,const NG2Scene *scene,
+    const NG2Decision *latest){
+    const NG2Scene *a=&p->before;const NG2Decision *old=&p->command_choice;
+    int i,changed=0,d=old->direction,n=latest->direction;
+    if(p->passage_active||p->entrance.valid||d<1||d>4||n<1||n>4
+        ||d!=p->command.direction||dx[d]*dx[n]+dy[d]*dy[n]
+        ||old->reason!=8||latest->reason!=8
+        ||old->obstacle!=NG2_TILE_FLOOR||latest->obstacle!=NG2_TILE_FLOOR
+        ||a->state!=NG2_FLOOR||scene->state!=NG2_FLOOR
+        ||a->gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
+        ||a->goods!=NG2_GOODS_UNKNOWN||scene->goods!=NG2_GOODS_UNKNOWN
+        ||!actual_gold(a)||!same_gold(a,scene)
+        ||!safe_floor(a,d)||!safe_floor(scene,d)||!safe_floor(scene,n)
+        ||tile(a,dx[n],dy[n])!=NG2_TILE_DIRT||tile(scene,dx[n],dy[n])!=NG2_TILE_FLOOR)return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        if(a->protected_cells[i]||scene->protected_cells[i]
+            ||a->tiles[i]==NG2_TILE_ITEM||scene->tiles[i]==NG2_TILE_ITEM)return 0;
+        if(a->tiles[i]==scene->tiles[i])continue;
+        if(i!=tile_index(dx[n],dy[n]))return 0;
+        ++changed;
+    }
+    return changed==1;
 }
 /* An exhausted logical ticket need not end a stationary, known-floor walk.
  * Withdraw it first. A later independent pair and future preparation window
  * authorize a different ID; no old timing, epoch or input credit survives. */
 static int start_observation_refresh(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t now){
-    NG2ControllerEvent *e=event(p);NG2Motion still,texture;uint64_t budget,aligned;
-    int d=p->command.direction;
+    NG2ControllerEvent *e=event(p);NG2Motion still,texture;NG2Decision latest={0};uint64_t budget,aligned;
+    int d=p->command.direction,side=0;
     if(p->observation_refresh_count>=8||p->observation_refresh_verified==p->latest_verified_ns
         ||p->gate_refresh_state||p->stationary_gate_retry_waiting
         ||p->s.input_state!=1||p->command.kind!=NG2_ACTION_MOVE||d<1||d>4||!p->command.id
@@ -1490,11 +1523,15 @@ static int start_observation_refresh(NG2Controller *p,const NG2Scene *scene,uint
     if(p->command_sync_deadline)budget=minimum(budget,p->command_sync_deadline);
     if(now>=budget)return 0;
     p->gate_refresh_anchor=p->before;p->gate_refresh_choice=p->command_choice;
-    if(!observation_refresh_scene(p,scene)
-        ||!ng2_motion(&p->before,scene,d,&still)||still.kind!=NG2_BLOCKED||still.dx||still.dy
+    if(!observation_refresh_scene(p,scene,&latest)){
+        if(!side_opening_refresh_scene(p,scene,&latest))return 0;
+        side=1;
+    }
+    if(!ng2_motion(&p->before,scene,d,&still)||still.kind!=NG2_BLOCKED||still.dx||still.dy
         ||!ng2_motion(scene,scene,d,&texture)||texture.kind!=NG2_BLOCKED||texture.dx||texture.dy)return 0;
     ++p->observation_refresh_count;p->observation_refresh_verified=p->latest_verified_ns;
-    p->observation_refresh_active=1;p->gate_refresh_anchor=*scene;
+    p->observation_refresh_active=side?NG2_OBSERVATION_REFRESH_SIDE_OPENING:1;
+    p->gate_refresh_anchor=*scene;if(side)p->gate_refresh_choice=latest;
     p->gate_refresh_state=NG2_GATE_REFRESH_OBSERVE;p->gate_refresh_proof_id=0;
     p->gate_refresh_deadline=budget;p->gate_refresh_prefix=p->s.last_completed_id;
     p->gate_refresh_previous=*scene;p->gate_refresh_previous_start=start;p->gate_refresh_previous_end=end;
@@ -1688,7 +1725,7 @@ static int update_gate_refresh(NG2Controller *p,const NG2Scene *scene,uint64_t i
     if(p->s.last_completed_id!=p->gate_refresh_prefix
         ||(opened&&(memcmp(p->gate_refresh_anchor.tiles,scene->tiles,NG2_TILE_COUNT)
             ||memcmp(p->gate_refresh_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT)))
-        ||!(p->observation_refresh_active?observation_refresh_scene(p,scene):
+        ||!(p->observation_refresh_active?observation_refresh_scene(p,scene,NULL):
             p->terrain_refresh_active?terrain_refresh_scene(p,scene):gate_refresh_scene(p,scene))
         ||start<p->gate_refresh_previous_end||now<p->gate_refresh_previous_start
         ||now-p->gate_refresh_previous_start>FRESH
@@ -1833,34 +1870,41 @@ static NG2ControllerMotionReference *motion_reference_row(NG2Controller *p){
     NG2ControllerMotionReference *row=p->motion_reference_count?&p->motion_references[p->motion_reference_count-1]:NULL;
     return row&&row->command_id==p->command.id?row:NULL;
 }
-static void record_change(NG2Controller *p,const NG2Scene *scene,uint64_t id,
-    int mask,int changed_tiles,int changed_protected,int allowed,int validation){
+static void record_change_basis(NG2Controller *p,const NG2Scene *source,uint64_t source_id,
+    uint64_t command_id,const NG2Scene *scene,uint64_t id,int mask,int changed_tiles,
+    int changed_protected,int allowed,int validation,int cycle){
     NG2ControllerSceneChange *change;NG2ControllerSceneDetail *detail;size_t at;int k,total=0;
     if(p->scene_change_count<3)at=p->scene_change_count++;
     else {p->scene_changes[1]=p->scene_changes[2];p->scene_details[1]=p->scene_details[2];at=2;}
     change=&p->scene_changes[at];detail=&p->scene_details[at];
     memset(change,0,sizeof(*change));memset(detail,0,sizeof(*detail));
-    change->command_id=p->command.id;
-    change->source_capture_id=(p->replan_pending||p->continuous_pending)?p->s.last_capture_id:p->command.source_capture_id;
+    change->command_id=command_id;
+    change->source_capture_id=source_id;
     change->observed_capture_id=id;change->target_ns=p->command.target_ns;
     change->deadline_ns=p->command.deadline_ns;
     change->change_mask=mask;change->changed_tiles=changed_tiles;change->changed_protected=changed_protected;
-    change->state_before=p->before.state;change->state_after=scene->state;
-    change->goods_before=p->before.goods;change->goods_after=scene->goods;
-    change->replan_count=p->replan_count+(validation==NG2_REVALIDATE_INITIAL_ALLOWED);
+    change->state_before=source->state;change->state_after=scene->state;
+    change->goods_before=source->goods;change->goods_after=scene->goods;
+    change->replan_count=cycle?0:p->replan_count+(validation==NG2_REVALIDATE_INITIAL_ALLOWED);
     change->replan_allowed=allowed;
     detail->command_id=change->command_id;detail->source_capture_id=change->source_capture_id;
     detail->observed_capture_id=id;detail->validation=validation;
-    detail->continuous_count=p->continuous_count+continuous_allowed(validation);
-    detail->chain_count=p->continuous_chain_count+continuous_allowed(validation);
-    for(k=0;k<NG2_TILE_COUNT;++k)if(p->before.tiles[k]!=scene->tiles[k]
-        ||p->before.protected_cells[k]!=scene->protected_cells[k]){
+    detail->continuous_count=cycle?0:p->continuous_count+continuous_allowed(validation);
+    detail->chain_count=cycle?0:p->continuous_chain_count+continuous_allowed(validation);
+    for(k=0;k<NG2_TILE_COUNT;++k)if(source->tiles[k]!=scene->tiles[k]
+        ||source->protected_cells[k]!=scene->protected_cells[k]){
         if(total<4){NG2ControllerCellChange *cell=&detail->cells[total];
-            cell->x=k%23-11;cell->y=k/23-5;cell->tile_before=p->before.tiles[k];cell->tile_after=scene->tiles[k];
-            cell->protected_before=p->before.protected_cells[k];cell->protected_after=scene->protected_cells[k];}
+            cell->x=k%23-11;cell->y=k/23-5;cell->tile_before=source->tiles[k];cell->tile_after=scene->tiles[k];
+            cell->protected_before=source->protected_cells[k];cell->protected_after=scene->protected_cells[k];}
         ++total;
     }
     detail->cell_count=total<4?total:4;detail->omitted_cells=total-detail->cell_count;
+}
+static void record_change(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    int mask,int changed_tiles,int changed_protected,int allowed,int validation){
+    uint64_t source=(p->replan_pending||p->continuous_pending)?p->s.last_capture_id:p->command.source_capture_id;
+    record_change_basis(p,&p->before,source,p->command.id,scene,id,mask,changed_tiles,
+        changed_protected,allowed,validation,0);
 }
 /* Same-ACK state3 cannot replace before. Journal the rejected state without
  * claiming a motion assessment or changing the existing SCREEN stop. */
@@ -2372,15 +2416,19 @@ static int cycle_framing_admit(const NG2Controller *p,const NG2RingResult *resul
         &&!result->row_count&&!result->partial_count&&!result->partial_safe_no_positive
         &&result->selected_row== -1&&result->selected_partial== -1;
 }
+static int cycle_opened_partial(const NG2Controller *p,int d){
+    return d>=1&&d<=4&&p->cycle_choice_valid&&p->cycle_choice.direction==d&&p->cycle_choice.reason==5
+        &&p->cycle_choice.obstacle==NG2_TILE_FLOOR
+        &&p->cycle_choice.target_x==dx[d]&&p->cycle_choice.target_y==dy[d]
+        &&last_ack_opened_gate(p,d);
+}
 /* Keep the frozen source and the old DIRT rule. An acknowledged opened entry
  * also retains the exact GOLD-shielded diagonal already admitted by the old
  * quiet gate path. Remote STONE may resolve to DIRT, never to unknown/floor.
  * Full choice/protection and independent strict zero remain required below. */
 static int cycle_partial_distant_dirt(const NG2Controller *p,const NG2Scene *source,
                                      const NG2Scene *scene,int d){
-    int i,opened=p->cycle_choice.reason==5&&p->cycle_choice.obstacle==NG2_TILE_FLOOR
-        &&p->cycle_choice.target_x==dx[d]&&p->cycle_choice.target_y==dy[d]
-        &&last_ack_opened_gate(p,d);
+    int i,opened=cycle_opened_partial(p,d);
     for(i=0;i<NG2_TILE_COUNT;++i){
         int old=source->tiles[i],latest=scene->tiles[i],x=i%23-11,y=i/23-5;
         int shielded=opened&&x*dx[d]+y*dy[d]==2&&abs(x*dy[d]-y*dx[d])==1
@@ -2393,29 +2441,56 @@ static int cycle_partial_distant_dirt(const NG2Controller *p,const NG2Scene *sou
         if(shielded)continue;
         if((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)
             ||!((old==NG2_TILE_DIRT&&(latest==NG2_TILE_UNKNOWN||latest==NG2_TILE_FLOOR))
-                ||(old==NG2_TILE_STONE&&latest==NG2_TILE_DIRT)))return 0;
+                ||(old==NG2_TILE_STONE&&latest==NG2_TILE_DIRT)
+                ||(opened&&old==NG2_TILE_FLOOR&&latest==NG2_TILE_UNKNOWN)))return 0;
     }
     return 1;
 }
-static int cycle_partial_relation(const NG2Controller *p,const NG2Scene *scene){
-    NG2Decision latest;NG2Motion still;int i;
+/* A static failure is never converted into a motion wait. The anchor remains
+ * the classified source, including every ITEM/GOLD/protected cell. */
+static int cycle_partial_static(const NG2Controller *p,const NG2Scene *scene,NG2Decision *latest){
+    int i;
     if(p->cycle_framing_credit){
         if(!last_ack_opened_gate(p,NG2_UP)||!cycle_framing_scene(&p->cycle_anchor)
-            ||!cycle_framing_scene(scene))return 0;
+            ||!cycle_framing_scene(scene))return NG2_REVALIDATE_FLOOR;
         for(i=0;i<NG2_TILE_COUNT;++i)
-            if((p->cycle_anchor.tiles[i]==NG2_TILE_ITEM)!=(scene->tiles[i]==NG2_TILE_ITEM))return 0;
+            if((p->cycle_anchor.tiles[i]==NG2_TILE_ITEM)!=(scene->tiles[i]==NG2_TILE_ITEM))return NG2_REVALIDATE_PROTECTED;
     }
-    if(!p->cycle_choice_valid||!cycle_partial_choice(p,scene,&latest)
-        ||!same_choice(&p->cycle_choice,&latest)
-        ||!cycle_partial_distant_dirt(p,&p->cycle_anchor,scene,latest.direction)
-        ||memcmp(p->cycle_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT)
-        ||!ng2_motion(&p->cycle_anchor,scene,latest.direction,&still))return 0;
-    return still.kind==NG2_BLOCKED&&!still.dx&&!still.dy;
+    if(!p->cycle_choice_valid||!cycle_partial_choice(p,scene,latest)
+        ||!same_choice(&p->cycle_choice,latest))return NG2_REVALIDATE_ROUTE;
+    if(!cycle_partial_distant_dirt(p,&p->cycle_anchor,scene,latest->direction))return NG2_REVALIDATE_ROUTE;
+    if(memcmp(p->cycle_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT))return NG2_REVALIDATE_PROTECTED;
+    return NG2_REVALIDATE_NONE;
+}
+static int cycle_partial_comparison(const NG2Controller *p,const NG2Scene *scene,int *wait){
+    NG2Decision latest;NG2Motion still;int validation=cycle_partial_static(p,scene,&latest);
+    if(wait)*wait=0;
+    if(validation)return validation;
+    if(!ng2_motion(&p->cycle_anchor,scene,latest.direction,&still))return NG2_REVALIDATE_MOTION;
+    if(still.kind==NG2_BLOCKED&&!still.dx&&!still.dy)return NG2_REVALIDATE_NONE;
+    if(wait&&still.kind==NG2_MOTION_UNKNOWN&&cycle_opened_partial(p,latest.direction))*wait=1;
+    return NG2_REVALIDATE_MOTION;
+}
+static int cycle_partial_relation(const NG2Controller *p,const NG2Scene *scene){
+    return cycle_partial_comparison(p,scene,NULL)==NG2_REVALIDATE_NONE;
+}
+/* Record only the first independent rejected comparison per bound job. This
+ * diagnostic uses the classified source, never the pre-opening MOVE source.
+ * A zero change mask is meaningful when only the motion proof is missing. */
+static void cycle_record_rejection(NG2Controller *p,const NG2Scene *scene,uint64_t id,int validation){
+    int mask,tiles,protected_cells;
+    if(p->cycle_rejection_recorded||!p->cycle.capture_id||id<=p->cycle.capture_id)return;
+    mask=scene_change(&p->cycle_anchor,scene,&tiles,&protected_cells);
+    if(!mask&&validation!=NG2_REVALIDATE_MOTION)return;
+    record_change_basis(p,&p->cycle_anchor,p->cycle.capture_id,p->cycle.prefix,
+        scene,id,mask,tiles,protected_cells,0,validation,1);
+    p->cycle_rejection_recorded=1;
 }
 static void cycle_bind(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint64_t start,uint64_t prefix){
     uint64_t horizon=start+FRESH,sync=p->sync_ns+12*SECOND;
     p->cycle.capture_id=id;p->cycle.capture_start_ns=start;p->cycle.prefix=prefix;
     p->cycle.deadline_ns=start+CYCLE_CAPTURE_BUDGET;p->cycle_anchor=*scene;
+    p->cycle_rejection_recorded=0;
     p->cycle.partial=scene->goods==NG2_GOODS_PARTIAL;
     p->cycle_choice_valid=cycle_partial_choice(p,scene,&p->cycle_choice);
     if(p->s.lead_confirmed&&p->latest_verified_ns&&p->recovery.mode!=NG2_RECOVERY_POST_MOVE)
@@ -2441,6 +2516,7 @@ static void cycle_latch(NG2Controller *p,const NG2Scene *scene,uint64_t now){
     p->cycle.partial=scene->goods==NG2_GOODS_PARTIAL;p->cycle.full_seen=scene->goods==NG2_GOODS_VISIBLE;
     p->cycle.hold_started_ns=now;p->cycle_pause_attempted=p->cycle_storage_error=0;
     p->cycle_partial_credit=p->cycle_framing_credit=p->cycle_queued_valid=p->cycle_choice_valid=0;
+    p->cycle_rejection_recorded=0;
     p->cycle_search_restart=search_restart;p->cycle_restart_unproved=0;
     not_sent(p,now,NG2_REASON_GOODS);clear_slots(p);
     clear_stationary_wait(p);p->gate_refresh_state=NG2_GATE_REFRESH_NONE;
@@ -2456,11 +2532,11 @@ static void cycle_latch(NG2Controller *p,const NG2Scene *scene,uint64_t now){
 static int cycle_observe_hold(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t prefix,uint64_t commit){
     cycle_scene(p,scene,id,start,end,prefix);
-    if(p->cycle_framing_credit&&p->cycle.state==NG2_CYCLE_OBSERVE_MORE
+    if(p->cycle.state==NG2_CYCLE_OBSERVE_MORE
         &&!p->s.input_state&&!p->cycle.candidate_latched&&!p->cycle_restart_unproved
         &&scene->state==NG2_FLOOR&&scene->goods==NG2_GOODS_VISIBLE&&id>p->cycle.capture_id
         &&start>=p->cycle.release_after_ns&&prefix==p->cycle.prefix){
-        /* A new, qualified FULL observation replaces empty framing evidence.
+        /* A new, qualified FULL observation replaces partial evidence.
          * Normal binding revokes the old credit and starts classification of
          * this source; no old MOVE or input horizon is restored. */
         cycle_latch(p,scene,commit);cycle_bind(p,scene,id,start,prefix);return 1;
@@ -2514,10 +2590,16 @@ static int cycle_observe_hold(NG2Controller *p,const NG2Scene *scene,uint64_t id
         cycle_bind(p,scene,id,start,prefix);
     }
     if(p->cycle.state==NG2_CYCLE_OBSERVE_MORE&&start>=p->cycle.release_after_ns){
+        int wait=0,validation;
         if(p->s.input_state||p->cycle.full_seen||p->cycle.candidate_latched
-            ||commit>p->cycle.continuation_deadline_ns||!cycle_partial_relation(p,scene)
+            ||commit>p->cycle.continuation_deadline_ns
             ||(!p->s.lead_confirmed&&level_inputs(p))){
             cycle_failure(p,commit,NG2_RING_KERNEL,NG2_REASON_SCREEN);
+        }else if((validation=cycle_partial_comparison(p,scene,&wait))!=NG2_REVALIDATE_NONE){
+            cycle_record_rejection(p,scene,id,validation);
+            /* Only an unproved zero with every fixed static guard intact may
+             * wait. No sample, source, horizon, credit or input is refreshed. */
+            if(!wait)cycle_failure(p,commit,NG2_RING_KERNEL,NG2_REASON_SCREEN);
         }else{
             clear_slots(p);p->cycle_partial_credit=1;p->cycle_credit_prefix=prefix;
             p->cycle.state=NG2_CYCLE_SEARCH;p->s.reason=NG2_REASON_NONE;p->s.goods=0;
