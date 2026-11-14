@@ -6,7 +6,7 @@
 
 build187/run43623716812、code4ba361d3ca3ec12d4e068294c245546a4b4c1c6d。変更部＋関連host121件/21scope、別Mac186の単一callbackで旧Cのnamed assertion Red/現C Green、IPA実物5検査が各1回成功。実物検査で試験/compile/分類の追加実行0。製品native36中の変更はController/Navigation/Ringの3ファイルだけ。Runtime/header/旧ABI/Bank/Coverage/canonical15と56,088B ELF/G1/R12全40/通信・回収は保持。旧Mac183の広い試験は不変sourceの履歴扱いで、今回の実行にしない。
 
-[IPA187](https://github.com/shuhei0720/necrogold-automation/releases/download/test100-build187/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test100-build187/source.zip)。固定Releaseの公開工程へ進む。匿名全GET/hash/tagの結果は公開後に追記する。
+[IPA187](https://github.com/shuhei0720/necrogold-automation/releases/download/test100-build187/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test100-build187/source.zip)。固定Release公開済み。publisher188/run43625480323、Release445493721。IPA/全コード/SHAの匿名全GET200・全bytes/hash・tag一致を確認。公開sourceはdocsだけ更新したclosing e74f8ebで、全非docsはbuild CODEと同一。
 
 IPA更新後LoopCtrlを完全終了/起動、Start Server・通知・通常VPN。通常1-1ポーズから`sh test_100.sh --until-target`。候補探索/restart→商店→全商品確認→対象なしと確定した場合だけ次周回。対象/候補/実判定UNKNOWN/障害/資格のない上限では停止。区切りごとに画像回収が入る有限試運転で、最終PERF受入ではない。既入力/時間/restart上限とUNKNOWN無再送は維持する。
 

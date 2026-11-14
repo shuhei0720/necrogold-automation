@@ -45,3 +45,9 @@ package/host/retained/Mach-O/compilerの実物5検査が初回の各1回で全PA
 IPAは18,026,453B/SHAbf6828a19bdd4d65228c8416cb1bb1b1a19c9da9a97475b2cb80a8ba910c637c。unsigned artifact14125262813は18,446,821B/SHAafeedce56c02c3e8a8bffdeaf404f38eafb935a8e6f22a786b341bc27bc573f0。validation14125397202/host14125590825もAPI digest・CRC・安全path・全来歴を照合。build CODEのsourceは867 tracked files/8,922,326B/SHA66d97aac9b332b574c47e7693efb155f0da91da53ceb8843e9da2054dfe1ee29、全bytes一致。公開sourceはこの検証結果だけのdocs closing commitへ結合し、非docs差0/全source bytes/固定Releaseの匿名全GET/hash/tagを公開後に追記する。
 
 実機は`sh test_100.sh --until-target`で探索→商店→全商品確認→完全陰性の次周回を依頼する。対象/候補/UNKNOWN/障害では保持、終了後は全画像保存・ZIP照合完了したcampaign返却ZIP。商品到達率・毎拍・未知対象精度・長期耐久は未受入。
+
+## 固定配布
+
+publisher188/run43625480323が成功し、Release445493721/tag `test100-build187`を公開。closing e74f8eb6e60a050032088c4c55ecbc0406f587f5の変更はdocs5pathだけ（renameを含めず差を列挙）、製品/試験/workflow等の全非docsはbuild CODEと同一。公開全sourceは867ファイル/8,923,843B/SHAce242ae6706e84e3ac927362e95a017c49b855c2bff978dd8ae173ca267f4db0、全tracked bytes/CRC一致。
+
+[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test100-build187/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test100-build187/source.zip)・[SHA](https://github.com/shuhei0720/necrogold-automation/releases/download/test100-build187/SHA256SUMS.txt)を匿名で全GET200し、原本の全bytes・SHA・Release digest・tag commitを照合した。IPA SHAは上記のbf6828a1のまま。公開後のこの記録追記はdocsのみで、固定asset/tag/ビルド済み製品は変更しない。
