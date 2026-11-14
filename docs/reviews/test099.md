@@ -1,6 +1,6 @@
 # TEST099: 通常試験・停止診断・連続試運転
 
-2026-11-15（日本時間）。[計画](../plans/test099-continuous-trial.md)・[修正表](../fix-records.md)。開発中、未配布。実機改善未確認。
+2026-11-15（日本時間）。[計画](../plans/test099-continuous-trial.md)・[修正表](../fix-records.md)。TEST099配布版、実機改善未確認。[IPA183](https://github.com/shuhei0720/necrogold-automation/releases/download/test099-build183/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test099-build183/source.zip)。
 
 ## 受領と分かっていること
 
@@ -47,3 +47,15 @@ fixtureはcheckpoint自身のcycle.pause_capture_idと登録画像へ結び、�
 同callbackの次runも、局所fakeにRESUME応答がなく、採用後200msの時計進行を消していたことをsourceで確認した。旧fakeファイル/製品には触れず、この試験内だけ実RESUME応答と同ACK/sourceへ結ぶ一度のcandidate待機進行を補った。4店/公開前拒否/新規PAUSE→RESUME/移動0/候補で継続拒否のassertは保持。独立した狭い差分レビューGO、default7の選択は不変。
 
 code99b3607/run43613902936/build181のremaining3はnegative全callbackを通過した。次のclear-searchは模擬時刻169754007458→174754987458の約5秒でheartbeat(19)、restart7で正しく停止した。試験が20msずつ時計を進める一方、実clientのkeepaliveをモデル化していなかったためで、watchdogを緩めない。既認証status keepalive:trueを模擬時計1秒ごとに成功確認して送るfixtureだけへ訂正する。artifact14121267679、67,540B/SHA a9d9981d53bdd7967aec832882e69d6f2f367f406d03ec6c7f66b5ec2e8853bf、CRC確認済み。残り3だけで再確認する。
+
+## 最終検証と配布物
+
+code ade7d047224b8ee789a5110b626b9df052cb2518のrun43614276577/build182で残り3caseすべてPASS。artifact14121044205、67,180B/SHA bebe44809eba8e72481bb57d6bab8120afdda3dcfa92e71ca35d1d8b20b495feを原取得/CRC照合した。同じcodeのrun43614403456/build183は限定host85（新36/関連43/selector6）、現Mac API/spool/export、Runtime096の12、099の新6＋legacy20関連1、IPA/実compiler/来歴が成功。全world/旧094のobsolete Runtime/全故障群/原画像Ring再実行は行っていない。
+
+未署名IPAは18,024,616B、SHA2027f91f0d941e4f1e4ca4f0ed4f262d2bf3a212a65056704364dfc4bc0a3a2d。unsigned artifact14122186495は18,443,545B/SHA795cdeba9e6dae324700ad27104798e3091811fcb482a9f2f9cfe984e9ac79c3、validation14121942310は321,673B/SHAe1482c9feead25a1f60dd6dd736a0171453b7ce608385fbffc74aa1c321a8931、host14121009567は23,652B/SHA9bbde66c35e5ce89259f492db5c4db347fe62e852b2648003435562fecf4d0e7。全CRC/安全path/重複0・同run/codeを確認した。build sourceの全851ファイルはGit blobと全bytes一致、ZIP8,865,183B/SHAdcd662739fb692d2e0d88f9daaac388135523a63d4e43f267b754ae0c9d642a1。
+
+独立レビュー済みread-only readerでpackage/host/保持資産/Mach-O/実compilerの5検査PASS。初回hostで、2つの保持test sourceがrepo内にあるのに私的pathだけを許すhelper不一致を検出。2つの正規pathだけをlocal SHA＋凍結Git SHAの両方で照合する狭い訂正をレビューし、同specの明示resumeで通過済みpackageを再利用した。5種類/計6attempt、製品試験・compiler・classifierの追加実行は0。最終readerSHAaa2b808c77f15a09ad9c5944af38af6fae2d61989ef72fbe71e5852891f73f21、crossbindingは全5receiptを束ねる。
+
+封印native36の変更はController.c/header/Runtimeの3つだけ。旧6 ABI、別StopDetail120/Handoff64、canonical Ring15/56,088B ELF・Bank/Coverage・G1/R12全40・旧client/Navigation等の全bytesを保持。全9 Mach-Oを検査し、保持1075＋新297のfixture専用marker不在、実compiler profile3/C8/Swift5と保存response6を照合した。
+
+実機は新IPA更新・LoopCtrl完全再起動/Start Server・通知/通常VPN、通常1-1ポーズから`sh test_099.sh --until-target`。対象なしだけ次周回へ進み、対象/候補/不明/障害/上限で止まる。途中通知はrunの区切りで、iSHのcampaign終了/全保存・ZIP照合完了まで待つ。返却ZIPは索引＋最後のrun全ZIP、過去全ZIPは端末に残す。原097/098の停止解消や人超え速度、未知対象精度、到達率、長期耐久は未確認。
