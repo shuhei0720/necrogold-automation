@@ -25,6 +25,7 @@ CASES = ['cycle-only frozen terminal diagnostic schema', 'readonly trial support
          'actual four-negative limit and publish-ACK-before-next-start', 'actual clear-search limit handoff']
 RELATED_CASES = ['legacy20 critical pin/export retention']
 RED_ASSERTION = 'FAIL cycle099_terminal_has_frozen_stop_and_handoff'
+PIN_ASSERTION = 'FAIL cycle099_writer_owns_old_immutable_snapshot_not_later_getter'
 PASS = 'PASS TEST099 six cycle diagnostic/handoff callbacks and legacy20 evidence retention; procedural clock/pixels/results'
 HOST_GETTER_ALIAS = 'ng2_controller_stop_detail_real'
 FIXTURE_CONTROLS = ('ng2_fixture099_stop_override', 'fixture099_override_enabled', 'fixture099_override', 'fixture099_gate')
@@ -41,7 +42,7 @@ def digest(raw):
 
 
 def fixture_source(selected=None):
-    if selected not in (None, 'projection'):
+    if selected not in (None, 'projection', 'pin-snapshot'):
         raise ValueError('TEST099 fixture selection')
     inherited = target_prior.fixture_source()
     boundary = '// TEST095 ENTRYPOINTS BEGIN.\n'
@@ -62,6 +63,8 @@ def fixture_source(selected=None):
         raise ValueError('TEST099 selected calls boundary')
     if selected == 'projection':
         own = own.split(calls)[0] + 'testCycle099TerminalProjection(cycle099Root)\n'
+    elif selected == 'pin-snapshot':
+        own = own.split(calls)[0] + 'testCycle099PinAndSnapshot(cycle099Root)\n'
     return inherited.split(boundary)[0] + export_helpers + evidence_helpers + own
 
 
@@ -72,6 +75,8 @@ def main():
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument('--red-only', action='store_true')
     selection.add_argument('--fault-red', action='store_true')
+    selection.add_argument('--pin-diagnostic', action='store_true',
+        help='current-source pin/snapshot case only; preserve and record its original named failed assertion')
     args = parser.parse_args()
     if not shutil.which('swiftc'):
         raise SystemExit('Swift unavailable; no TEST099 semantic Red or Runtime Green executed')
@@ -134,7 +139,7 @@ def main():
             (output/(name+'-tests.txt')).write_text(result.stdout+result.stderr)
             proof = dict(returncode=result.returncode, selected=selected, fixture_sha256=digest(fixture.encode()),
                 runtime_sha256=digest(raw), swift_command=command,
-                expected_assertion=RED_ASSERTION if selected is not None else None)
+                expected_assertion=RED_ASSERTION if selected == 'projection' else PIN_ASSERTION if selected == 'pin-snapshot' else None)
             (output/(name+'-result.json')).write_text(json.dumps(proof, indent=2)+'\n'); proofs[name] = proof
             return result
         if args.red_only or args.fault_red:
@@ -142,7 +147,13 @@ def main():
             if red.returncode != 1 or RED_ASSERTION not in red.stdout:
                 raise SystemExit('TEST099 named baseline assertion Red missing (returncode='+str(red.returncode)+'):\n'+red.stdout+red.stderr)
             print(RED_ASSERTION+' (expected old Runtime assertion; not a build failure)')
-        if not args.red_only:
+        if args.pin_diagnostic:
+            diagnostic = execute((native/'NG2Runtime.swift').read_bytes(), 'runtime099-pin-diagnostic', 'pin-snapshot')
+            if diagnostic.returncode != 1 or PIN_ASSERTION not in diagnostic.stdout or 'DIAGNOSTIC cycle099_pin_snapshot ' not in diagnostic.stdout:
+                raise SystemExit('TEST099 original pin assertion diagnostic missing (returncode='+str(diagnostic.returncode)+'):\n'+
+                    diagnostic.stdout+diagnostic.stderr)
+            print(diagnostic.stdout, end='')
+        elif not args.red_only:
             green = execute((native/'NG2Runtime.swift').read_bytes(), 'runtime099-production-green')
             if green.returncode or not green.stdout.strip().endswith(PASS):
                 failed = [line for line in green.stdout.splitlines() if line.startswith('FAIL ')]
@@ -154,7 +165,7 @@ def main():
                 raise ValueError('installed source changed during selected callbacks: '+destination)
         value = dict(schema='test099-runtime-evidence-v1',
             scope='actual Runtime/C callbacks with procedural pixels/clock/classifier; readonly getter POD override only for pin/snapshot case, no game/iPhone acceptance',
-            mode='red-only' if args.red_only else 'red-and-green' if args.fault_red else 'green-only',
+            mode='pin-diagnostic' if args.pin_diagnostic else 'red-only' if args.red_only else 'red-and-green' if args.fault_red else 'green-only',
             new_cases=CASES, old_cases=RELATED_CASES, expected_red=RED_ASSERTION, pass_line=PASS,
             baseline_code=BASELINE_CODE, baseline_runtime_sha256=BASELINE_RUNTIME_SHA,
             installed_source_sha256=installed, fixture_source_sha256=fixture_identity,

@@ -118,9 +118,24 @@ func testCycle099PinAndSnapshot(_ root: URL) {
     let final = cycle099Terminal(root, id), (stop, _) = cycle099Projection(final)
     let before = rows.last(where: { $0.0 == "checkpoint" })?.1["controller"]?.objectValue?["stop_detail"]?.objectValue ?? [:]
     gate.lock(); let source = anchor, comparison = observed; gate.unlock()
-    require(source > 0 && comparison > source && stop["anchor_capture_id"]?.intValue == Int(source) &&
-        stop["observed_capture_id"]?.intValue == Int(comparison) && stop["at_ns"]?.intValue == 1_234_567 &&
-        before["valid"]?.boolValue == false && before["observed_capture_id"]?.intValue == 0,
+    let conditions: [String: JSONValue] = ["source_nonzero": .bool(source > 0),
+        "comparison_after_source": .bool(comparison > source),
+        "terminal_anchor_matches_source": .bool(stop["anchor_capture_id"]?.intValue == Int(source)),
+        "terminal_observed_matches_comparison": .bool(stop["observed_capture_id"]?.intValue == Int(comparison)),
+        "terminal_at_matches_override": .bool(stop["at_ns"]?.intValue == 1_234_567),
+        "checkpoint_valid_false": .bool(before["valid"]?.boolValue == false),
+        "checkpoint_observed_zero": .bool(before["observed_capture_id"]?.intValue == 0)]
+    let checkpoints: [JSONValue] = rows.filter { $0.0 == "checkpoint" }.map { row in
+        .object(["job_id": row.1["cycle"]?.objectValue?["job_id"] ?? .null,
+            "stop_detail": row.1["controller"]?.objectValue?["stop_detail"] ?? .null])
+    }
+    let diagnostic: [String: JSONValue] = ["source_capture_id": .int(Int(source)),
+        "comparison_capture_id": .int(Int(comparison)), "conditions": .object(conditions),
+        "checkpoints": .array(checkpoints), "terminal_stop_detail": .object(stop)]
+    if let bytes = try? JSONEncoder().encode(diagnostic), let line = String(data: bytes, encoding: .utf8) {
+        print("DIAGNOSTIC cycle099_pin_snapshot " + line)
+    }
+    require(conditions.values.allSatisfy { $0.boolValue == true },
         "cycle099_writer_owns_old_immutable_snapshot_not_later_getter")
     publishFixtureClaim(id, requiredCaptureIDs: [Int(source), Int(comparison)])
     ng2_fixture099_stop_override(0, nil)
