@@ -283,7 +283,7 @@ TEST098回収修正の公開確認: 元IPA175/nativeは不変。実Python3.9の4
 
 TEST099最終確認: build182の残り3、同codeのbuild183でhost85・現Mac API/spool/export・Runtime096の12・099の7とIPA/実物5種類が成功。fixtureの誤想定/模擬時計/keepaliveは元assertと製品を保持して訂正した。配布readerの2つのrepo保持path不一致は狭く訂正し、package既PASSを再利用、5検査6attempt。各対策の実機改善・到達率・速度・未知対象精度・原停止の原因確定には読み替えない。
 
-## TEST100の対策（開発中・実機改善未確認）
+## TEST100の対策（配布版・実機改善未確認）
 
 099の3run/73PNG/81recordは全照合。実順13e3→3444→9c66、campaignと個別ZIPは同じ3実行。FR-093/095/097/098の開扉・partial関係、FR-096構造証明、FR-084/086/094/095/097/098候補を照合した。旧対策の削除・回帰と断定せず、原因が分かった境界を限定修正する。[計画](plans/test100-observed-shop-stops.md)。
 
@@ -293,4 +293,4 @@ TEST099最終確認: build182の残り3、同codeのbuild183でhost85・現Mac A
 | FR-100-PARTIAL-REBIND | 2026-11-15 | 実3が新商品露出後に停止 | 223→225の新ITEM/保護増加を旧partial静止関係で拒否。旧結果は新商品を覆わない | 旧証明/票を撤回し、strict零・同prefix/位置・safe床・単調remote新商品だけ最新sourceの新jobへ。元horizon/一度限り維持 | 意味Red→新6、新job/旧結果拒否・候補保持/元期限。限定Macで最新RGBAの通常worker受渡しを確認。実機未確認 | 同症状1。FR098未確定停止との同原因は断定不可 |
 | FR-100-SIDE-SHOP | 2026-11-15 | 実2は3商品可視でもUNKNOWN停止 | glyph証明不成立、既policy3は下側金構造を要求し、側面入口下の7金形に非対応。剣先1pixelも旧価格群へ入る | 別policy4/board4で7位置/3ITEM/cap/faceと独立C再検証、共通価格baselineと真の4群拒否。旧1〜3/対象全探索は保持 | 原456旧/新各1回・UNKNOWN→完全陰性、host40.9ms/元100ms。新9/関連25・C偽造拒否を確認、実機の完全経路速度未確認 | 確認した新形1。過去UNKNOWN全部と同原因にはしない |
 | FR-100-LOWER-FRINGE | 2026-11-15 | 実2の候補59を見送り | 左下口DIRTにより旧mouth候補から除外。外側床と短い内床経路は観測済み | 固定bit9の別fringe仮説だけ追加、DIRT/UNKNOWN維持・観測床vantageで再確認 | 意味Red→新6/関連45、保持Scene59 mask512/既床4歩。外床接続fixtureは旧bit7=128を保つ期待へ訂正、旧assert削除なし。実機未確認 | 同系列1。旧上左候補とは別の固定口 |
-| FR-100-MAC-PREPARE | 2026-11-15 | Mac185が対象callback前の起動で拒否 | fixtureに通常prepare/ready待ちがない。通知準備前guardはsourceで確認、元error本体は未収録 | fixtureだけ通常prepare待ちとRPC error診断を追加。元assert/製品guard保持 | 185はcompile成功/対象意味Redなしと記録し、限定caseだけ再確認 | 新fixture1。実機不具合や製品Redではない |
+| FR-100-MAC-PREPARE | 2026-11-15 | Mac185が対象callback前の起動で拒否 | fixtureに通常prepare/ready待ちがない。通知準備前guardはsourceで確認、元error本体は未収録 | fixtureだけ通常prepare待ちとRPC error診断を追加。元assert/製品guard保持 | 185は対象意味Redなし。186で同じ限定caseの旧C named assertion Red/現C Greenが成功。通常workerへ最新画像Bが渡り旧job採用拒否/候補保持/input0/元horizon保持を確認 | 新fixture1。実機不具合や製品Redではない |

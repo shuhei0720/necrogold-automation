@@ -1,6 +1,6 @@
 # TEST100: 入店停止・商品判定・左下候補
 
-2026-11-15（日本時間）。[計画](../plans/test100-observed-shop-stops.md)・[修正表](../fix-records.md)。開発中、実機改善未確認。
+2026-11-15（日本時間）。[計画](../plans/test100-observed-shop-stops.md)・[修正表](../fix-records.md)。build187、実機改善未確認。
 
 ## 受領と原因
 
@@ -31,3 +31,17 @@ Cの最終同source単体/関連、限定Mac callback、実IPA/配布物・全so
 Controller最終C ac437fdb9c4c200bf34e4848173c971c3e443c51ed87db8d9db6d0eeb36cbdc1で新18＋関連8が全合格。保持Sceneの実1はopened-entry関係が成立し、実3の旧partial関係はROUTE10を維持しながら、新helperでjob2/source225/pending1へ移り、旧horizon4503739067166を厳密に保持した。これは復元した限定preconditionでのhelper校正で、完全な実機replayではない。独立C差分レビューGO、元Runtime/headerは不変。
 
 最初の限定Mac run43622545811/build185/code62a2ffcはC/Swift compile成功後、対象case前のactual_runtime_startで拒否された。artifact14125110516、50,487B/SHA13e88e102c529e0ffd421af537ed7ea17f74f37d5bf971511e59ce8fae07d68a、CRC照合済み。起動error本体が未出力なのでrawcodeは未確認。fixtureが通常のcycle prepare/ready待ちを省いており、source上の通知準備前拒否条件を満たすため、fixtureだけに通常prepareと起動error診断を追加した。元start/job2 assertionと製品guardは保持する。この失敗は意味Redに数えず、限定caseだけ再実行する。全fixtureの再実行は行わない。
+
+## 現CI・実物
+
+最終CODE4ba361d3ca3ec12d4e068294c245546a4b4c1c6d。Mac186/run43623513420は同CODEで通常prepare後、旧Controller39851a4の`partial100_latest_item_exposure_binds_job2_before_new_worker`だけがassertion Red、現ControllerはGreen。artifact14125700027、55,549B/SHAd8f6628a2375348e7d41faa63874806732f1e9c7e697e9cf5382ad24325eea94。17:54:04Z完了はdevice187の17:55:25Z作成より前。source/通常worker/最新immutable B・旧job拒否・候補保持/追加方向入力0・元horizonを結合した。歴史的歩行/開扉だけHOST seed、Scene/RGBA/resultは手続き的で、実画像456のproducer→Controller完全校正や分類精度/実機E2Eの証明にはしない。
+
+device187/run43623716812は変更37＋関連78＋selector6の121件/21scope、実IPA compile、compiler profile3/C8/Swift5、パッケージ来歴が成功。旧Mac API/spool/export/Runtime096/099の広い試験は今回は未実行、不変sourceに結合した183の履歴を保持した。
+
+package/host/retained/Mach-O/compilerの実物5検査が初回の各1回で全PASS、追加試験/compile/分類0。独立helperレビューGOのreaderSHAf977f3986de25f916751933c9307e5b8bbda4461d33f4699f8e6f39fe4ec1109へ固定し、全9 Mach-Oから旧1372＋今回100のfixture/HOST markerを排除した。native36中の変更3、旧ABI6と別StopDetail120/Handoff64、Runtime/header、Bank/Coverage/canonical15/ELF/G1/R12を照合した。
+
+作者6scopeのRedには私的凍結sourceがあるものと限定receiptのみのものがある。Nav/Ring/B/Dの実行時source未保持を後のfinal sourceで置換せず、最終同sourceのGreenは今回CIで別に結合した。テスト名衝突の復元とfixture訂正も保持し、compile/環境失敗を意味Redへ数えていない。
+
+IPAは18,026,453B/SHAbf6828a19bdd4d65228c8416cb1bb1b1a19c9da9a97475b2cb80a8ba910c637c。unsigned artifact14125262813は18,446,821B/SHAafeedce56c02c3e8a8bffdeaf404f38eafb935a8e6f22a786b341bc27bc573f0。validation14125397202/host14125590825もAPI digest・CRC・安全path・全来歴を照合。build CODEのsourceは867 tracked files/8,922,326B/SHA66d97aac9b332b574c47e7693efb155f0da91da53ceb8843e9da2054dfe1ee29、全bytes一致。公開sourceはこの検証結果だけのdocs closing commitへ結合し、非docs差0/全source bytes/固定Releaseの匿名全GET/hash/tagを公開後に追記する。
+
+実機は`sh test_100.sh --until-target`で探索→商店→全商品確認→完全陰性の次周回を依頼する。対象/候補/UNKNOWN/障害では保持、終了後は全画像保存・ZIP照合完了したcampaign返却ZIP。商品到達率・毎拍・未知対象精度・長期耐久は未受入。

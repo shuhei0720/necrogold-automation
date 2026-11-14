@@ -1,6 +1,6 @@
 # TEST100: 実測した入店停止・商品証明・候補見逃し
 
-2026-11-15（日本時間）。基準39851a4、配布nativeはbuild183。[要件](../requirements/necrogold.md)・[契約](../contracts/native-control.md)・[修正表](../fix-records.md)。通常反復を維持し、今回の新しい部分商品bind/証明だけ8観点で確認する。実機成功を保証しない。
+2026-11-15（日本時間）。基準39851a4、修正版nativeはbuild187/code4ba361d。[要件](../requirements/necrogold.md)・[契約](../contracts/native-control.md)・[修正表](../fix-records.md)。通常反復を維持し、今回の新しい部分商品bind/証明だけ8観点で確認する。実機成功を保証しない。実施結果は[検証](../reviews/test100.md)へ記録した。
 
 ## 1. 背景と受領
 
