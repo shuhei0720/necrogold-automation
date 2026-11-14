@@ -8,7 +8,7 @@ on:
         type: choice
         required: true
         default: device
-        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red]
+        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red]
       artifact_id:
         type: string
         required: false
@@ -68,6 +68,36 @@ jobs:
         with:
           name: loopctrl-ngg2-baseline
           path: ${{ runner.temp }}/ngg2-baseline/
+          if-no-files-found: error
+          retention-days: 30
+  test099-runtime-red:
+    if: inputs.native_lane == 'test099-runtime-red'
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Apply sealed C companions for the Runtime099 semantic Red
+        run: |
+          python3 driver/patches/loopctrl/apply_patch.py upstream
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream
+      - name: Verify only the named old Runtime099 record assertion Red
+        run: python3 driver/patches/loopctrl/check_runtime099.py upstream "$RUNNER_TEMP/test099-runtime-red" --red-only
+      - name: Save original Runtime099 semantic assertion Red evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-test099-runtime-red
+          path: ${{ runner.temp }}/test099-runtime-red/
           if-no-files-found: error
           retention-days: 30
   test058-dispatch-red:

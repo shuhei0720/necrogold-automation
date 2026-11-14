@@ -145,6 +145,27 @@ typedef struct {
     uint64_t queued_capture_id, queued_capture_start_ns, queued_prefix;
 } NG2ControllerCycleStatus;
 
+/* TEST099 read-only companions. No existing public layout or input contract
+ * changes. A live stop snapshot may name a wait anchor before valid becomes1. */
+enum { NG2_STOP_NONE=0, NG2_STOP_GENERIC=1, NG2_STOP_PASSAGE_WAIT=2,
+       NG2_STOP_CYCLE_OBSERVE=3, NG2_STOP_CYCLE_CREDIT=4 };
+typedef struct {
+    uint32_t abi_version, struct_size;
+    int32_t valid, stage, reason, wait_kind, passage_bit, passage_unlocalized_gold;
+    int32_t x, y, validation, motion_kind, motion_dx, motion_dy;
+    uint32_t passage_pending, passage_unresolved;
+    uint64_t at_ns, source_capture_id, observed_capture_id, anchor_capture_id;
+    uint64_t prefix, deadline_ns, last_comparison_capture_id;
+} NG2ControllerStopDetail;
+enum { NG2_HANDOFF_NONE=0, NG2_HANDOFF_NEGATIVE_LIMIT=1, NG2_HANDOFF_CLEAR_SEARCH_LIMIT=2 };
+typedef struct {
+    uint32_t abi_version, struct_size;
+    int32_t kind, allowed, reason, reserved;
+    uint64_t qualified_ns, source_capture_id, source_prefix, pause_capture_id, completed_prefix;
+} NG2ControllerHandoff;
+void ng2_controller_stop_detail(const NG2Controller *, NG2ControllerStopDetail *out);
+void ng2_controller_handoff(const NG2Controller *, NG2ControllerHandoff *out);
+
 /* Defaults: 16 directions, 12 restarts, 45s walking, 180s session. */
 NG2Controller *ng2_controller_create(uint64_t now);
 NG2Controller *ng2_controller_create_cycle(uint64_t now);

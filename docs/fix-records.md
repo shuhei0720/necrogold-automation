@@ -266,3 +266,13 @@ FR094の回収/出版/未開始回復、旧HTTP transport上限と照合。画�
 | FR-098-SOURCE-UPLOAD | 2026-11-14 | 検証済みsourceの直接asset uploadが401で失敗 | 通常GitHub APIの保存は成功するがupload先の認証は成立していない。認証不成立の詳細は未取得 | 固定source/hash/空draft/tagだけを扱うGitHub側dispatch jobのcontents:write認証で配布。新IPA/製品変更なし | 凍結source835ファイル全照合、workflow YAML/Python構文・独立静的レビューと、公開後の匿名全GET/hash/tagを確認 | 今回1（配布経路のみ、実機の製品不具合と別） |
 
 TEST098回収修正の公開確認: 元IPA175/nativeは不変。実Python3.9の46件、固定source835ファイルの全bytes/CRC、公開run43601345465、固定tag/匿名HTTP200/両asset hash一致を確認。実機での回収改善・元の歩行停止解消は未確認。
+
+## TEST099の対策（開発中・実機改善未確認）
+
+098の全回収1runを確認した。FR098のHTTP回収はこの18PNG/20recordで完了を確認し、普遍的な改善完了とはしない。原097/098の停止は内側の拒否条件が未確定で、推測による許可条件/期限の緩和は行わない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-099-STOP-EVIDENCE | 2026-11-15 | 098の通路停止、097実1の継続許可後の停止で判断条件と原画像を特定できない | 既診断は途中分岐に届かず、cleanup後の画像だけが残る。待機kind/anchor/直近比較の情報がない | 別getterの初回停止snapshot/live待機anchorとcycle限定の有限画像保持。post-creditも内側の失敗条件を残す。歩行条件/旧停止は変えない | 新Cの意味Red→Green/旧ABI、Macの旧Runtime意味Red→新snapshot/画像保持を確認予定。原停止の改善は未確認 | 採証不足2経路を確認。停止根因の同原因再発数は不明 |
+| FR-099-HANDOFF | 2026-11-15 | 本番に近い周回を望むが旧試験は4商店/12restart等で終了する | 有限runの上限だけを外すと、残存NEGATIVEや別LIMITから危険な再開を作り得る | 元予算を保ち、正常陰性/確認済み新level見送りの2分岐だけで資格を凍結。実PAUSE/全drain/全回収/公開ACK後に通常の新UUIDへ | C正常A/B・過去陰性・新候補/UNKNOWN/取消/他LIMITの拒否、該当Mac接続を確認予定。実機未確認 | 対象範囲の拡張。実機再発ではない |
+| FR-099-CAMPAIGN | 2026-11-15 | 複数runを手動で開始/返却する負担、crash後の公開済みjournalから新runを飛ばす危険 | 通常publication.runは公開済みjournalなら新UUIDを作る。campaignの索引/次intentがない | publishedでも先にrecovery_onlyで照合し、原子的な索引/次intentと元UUIDを突き合わせる。各run原本を保持し、索引＋最後のrunを返却ZIPにする | 実3.9の開始/停止/採用/中断/再回収/ZIPの意味Red→Green予定。入力不明は無再送。実機未確認 | 新機能の安全境界。実機再発ではない |

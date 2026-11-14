@@ -119,7 +119,52 @@ struct NG2Controller {
     NG2ControllerCycleStatus cycle;
     NG2Scene cycle_anchor,cycle_queued_scene;
     NG2Decision cycle_choice;
+    NG2ControllerStopDetail first_stop;
+    NG2ControllerHandoff handoff;
+    NG2Motion diagnostic_motion;
+    int diagnostic_validation,handoff_fault,handoff_pause_bound;
+    uint64_t diagnostic_capture_id,diagnostic_observed_id;
+    uint64_t handoff_initial_ns,handoff_initial_source,handoff_initial_prefix;
+    uint64_t handoff_pause_command,last_level_restart_id,last_level_restart_capture;
+    uint64_t last_level_restart_prefix;
+    int last_level_restart_count;
 };
+static void live_stop_detail(const NG2Controller *p,NG2ControllerStopDetail *out){
+    memset(out,0,sizeof(*out));out->abi_version=1;out->struct_size=sizeof(*out);
+    out->passage_bit=p->passage_bit;out->wait_kind=p->passage_wait_kind;
+    out->passage_pending=p->passage_pending;out->passage_unresolved=p->passage_unresolved;
+    out->passage_unlocalized_gold=p->passage_unlocalized_gold;
+    out->x=p->s.x;out->y=p->s.y;out->prefix=p->s.last_completed_id;
+    out->source_capture_id=p->command.source_capture_id;
+    out->observed_capture_id=p->diagnostic_observed_id?p->diagnostic_observed_id:p->s.last_capture_id;
+    out->last_comparison_capture_id=p->diagnostic_capture_id;out->validation=p->diagnostic_validation;
+    out->motion_kind=p->diagnostic_motion.kind;out->motion_dx=p->diagnostic_motion.dx;out->motion_dy=p->diagnostic_motion.dy;
+    out->deadline_ns=p->command.deadline_ns;
+    if(p->cycle_partial_credit||p->cycle.state==NG2_CYCLE_OBSERVE_MORE){
+        out->stage=p->cycle_partial_credit?NG2_STOP_CYCLE_CREDIT:NG2_STOP_CYCLE_OBSERVE;
+        out->source_capture_id=out->anchor_capture_id=p->cycle.capture_id;
+        out->deadline_ns=p->cycle.continuation_deadline_ns;
+    }else if(p->passage_wait_kind){
+        out->stage=NG2_STOP_PASSAGE_WAIT;out->anchor_capture_id=p->passage_anchor_id;
+        out->deadline_ns=p->passage_wait_deadline?p->passage_wait_deadline:p->passage_wait_horizon;
+    }
+}
+static void freeze_stop_detail(NG2Controller *p,uint64_t now,int reason,const NG2ControllerStopDetail *basis){
+    if(p->first_stop.valid)return;
+    if(basis)p->first_stop=*basis;else live_stop_detail(p,&p->first_stop);
+    p->first_stop.valid=1;p->first_stop.reason=reason;p->first_stop.at_ns=now;
+    if(!p->first_stop.stage)p->first_stop.stage=NG2_STOP_GENERIC;
+}
+static void diagnostic_comparison(NG2Controller *p,uint64_t id,int validation,const NG2Motion *motion){
+    if(p->first_stop.valid)return;
+    p->diagnostic_capture_id=id;p->diagnostic_validation=validation;
+    if(motion)p->diagnostic_motion=*motion;else memset(&p->diagnostic_motion,0,sizeof(p->diagnostic_motion));
+}
+void ng2_controller_stop_detail(const NG2Controller *p,NG2ControllerStopDetail *out){
+    if(!out)return;
+    if(!p){memset(out,0,sizeof(*out));return;}
+    if(p->first_stop.valid)*out=p->first_stop;else live_stop_detail(p,out);
+}
 static int cycle_holding(const NG2Controller *p){
     return p->cycle_enabled&&p->cycle.state!=NG2_CYCLE_SEARCH&&p->cycle.state!=NG2_CYCLE_DONE;
 }
@@ -147,6 +192,10 @@ static void clear_stationary_wait(NG2Controller *p){
     p->stationary_wait_active=0;p->stationary_wait_parent=0;p->stationary_wait_trigger_id=0;
 }
 static void terminal(NG2Controller *p,uint64_t now,int reason){
+    if(!p->s.terminal){
+        freeze_stop_detail(p,now,reason,NULL);
+        if(reason!=NG2_REASON_LIMIT||!p->handoff.kind)p->handoff_fault=1;
+    }
     p->preparation_epoch=0;
     p->cycle_framing_credit=0;
     p->opened_entry_parent=p->opened_entry_recovery_ns=0;
@@ -166,6 +215,10 @@ static void end_visual_wait(NG2Controller *p){
     p->motion_wait.active=0;p->s.input_state=0;p->s.current_command_id=0;
 }
 static void finish(NG2Controller *p,uint64_t now,int reason){
+    if(!p->s.terminal&&(reason!=NG2_REASON_LIMIT||!p->handoff.kind))p->handoff_fault=1;
+    if(!p->s.terminal&&!p->finish_requested){
+        freeze_stop_detail(p,now,reason,NULL);
+    }
     p->preparation_epoch=0;
     p->cycle_framing_credit=0;
     p->opened_entry_parent=p->opened_entry_recovery_ns=0;
@@ -327,6 +380,98 @@ static int actual_gold(const NG2Scene *s){
 static int clear_gold_floor(const NG2Scene *s){
     return s->state==NG2_FLOOR&&s->gold_state==NG2_GOLD_CLEAR
         &&s->goods==NG2_GOODS_UNKNOWN&&!has_gold_tiles(s);
+}
+/* This qualifies a current clear source only after this controller observed
+ * an actual RESTART into the current level. It never creates skip authority. */
+static int clear_handoff_scene(const NG2Scene *scene){
+    int i;
+    if(!clear_gold_floor(scene)||tile(scene,0,0)!=NG2_TILE_FLOOR||ng2_passage_candidates(scene))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i)
+        if(scene->protected_cells[i]||scene->tiles[i]==NG2_TILE_ITEM)return 0;
+    return 1;
+}
+static int handoff_original_bounds(const NG2Controller *p,uint64_t now){
+    return now<p->s.started_ns+180*SECOND
+        &&(!p->s.walk_started_ns||now<p->s.walk_started_ns+45*SECOND);
+}
+/* Qualification can only be revoked here. A later clear frame never restores
+ * a B marker contradicted before or after its cleanup PAUSE was published. */
+static void revoke_clear_handoff(NG2Controller *p,const NG2Scene *accepted,uint64_t now){
+    if(p->handoff.kind==NG2_HANDOFF_CLEAR_SEARCH_LIMIT&&!p->s.terminal
+        &&(!handoff_original_bounds(p,now)
+            ||(accepted&&accepted->state==NG2_FLOOR&&!clear_handoff_scene(accepted))))p->handoff_fault=1;
+}
+static int clear_handoff_source(NG2Controller *p,uint64_t now){
+    if(!p->cycle_enabled||p->handoff_fault||p->cycle.state!=NG2_CYCLE_SEARCH
+        ||p->cycle.pending||p->cycle.candidate_latched||p->cycle_storage_error||p->cycle_restart_unproved
+        ||p->s.input_state||p->s.x||p->s.y||p->s.lead_confirmed||level_inputs(p)||level_moves(p)
+        ||p->s.restarts<12||!p->restart_intent||p->restart_pending
+        ||p->initial_view_pending||p->initial_candidate_waiting||p->initial_scene_reacquiring
+        ||p->passage_active||p->passage_pending||p->passage_wait_kind||p->passage_unresolved
+        ||p->passage_unlocalized_gold||p->initial_candidate_unlocalized||p->passage_inspected||p->passage_closed
+        ||p->stationary_wait_active||p->gate_refresh_state||p->replan_pending||p->continuous_pending
+        ||!p->last_level_restart_id||!p->last_level_restart_capture
+        ||p->last_level_restart_count!=p->s.restarts
+        ||p->last_level_restart_prefix!=p->s.last_completed_id
+        ||p->last_level_restart_id!=p->s.last_completed_id
+        ||p->s.last_capture_id<p->last_level_restart_capture
+        ||p->last_observed_prefix!=p->s.last_completed_id||!fresh(p,now)
+        ||!handoff_original_bounds(p,now)||!clear_handoff_scene(&p->scene))return 0;
+    /* A completed earlier negative can remain in SEARCH. It is never enough
+     * alone: the new-level/current-source proof above is still mandatory. */
+    if(p->cycle.job_id&&(p->cycle.status!=NG2_RING_OK||p->cycle.outcome!=NG2_RING_NEGATIVE
+        ||p->cycle.coverage!=NG2_RING_COVERAGE_COMPLETE||!p->cycle.durable_ns
+        ||!p->cycle.outcome_ns||p->cycle.partial))return 0;
+    return 1;
+}
+static void remember_level_restart(NG2Controller *p,uint64_t command,uint64_t capture,uint64_t prefix){
+    p->last_level_restart_id=command;p->last_level_restart_capture=capture;
+    p->last_level_restart_prefix=prefix;p->last_level_restart_count=p->s.restarts;
+}
+static void mint_clear_handoff(NG2Controller *p,uint64_t now){
+    NG2ControllerStopDetail basis;
+    if(p->handoff.kind||!clear_handoff_source(p,now))return;
+    p->handoff.kind=NG2_HANDOFF_CLEAR_SEARCH_LIMIT;p->handoff.reason=NG2_REASON_LIMIT;
+    p->handoff_initial_ns=now;p->handoff_initial_source=p->s.last_capture_id;
+    p->handoff_initial_prefix=p->s.last_completed_id;
+    live_stop_detail(p,&basis);basis.source_capture_id=p->s.last_capture_id;
+    basis.observed_capture_id=p->s.last_capture_id;basis.validation=NG2_REVALIDATE_BUDGET;
+    freeze_stop_detail(p,now,NG2_REASON_LIMIT,&basis);
+}
+static void bind_clear_handoff_pause(NG2Controller *p,uint64_t now){
+    if(p->handoff.kind!=NG2_HANDOFF_CLEAR_SEARCH_LIMIT||p->handoff_pause_bound||p->handoff_fault)return;
+    if(!clear_handoff_source(p,now)){p->handoff_fault=1;return;}
+    p->handoff_pause_bound=1;p->handoff_pause_command=p->command.id;
+    p->handoff.qualified_ns=now;p->handoff.source_capture_id=p->command.source_capture_id;
+    p->handoff.source_prefix=p->s.last_completed_id;p->handoff.completed_prefix=p->command.id;
+}
+static void mint_negative_handoff(NG2Controller *p,uint64_t now){
+    if(!p->cycle_enabled||p->handoff.kind||p->handoff_fault||p->cycle_storage_error
+        ||p->cycle_restart_unproved||p->cycle.pending||p->cycle.candidate_latched
+        ||p->cycle.status!=NG2_RING_OK||p->cycle.outcome!=NG2_RING_NEGATIVE
+        ||p->cycle.coverage!=NG2_RING_COVERAGE_COMPLETE||p->cycle.partial
+        ||!p->cycle.durable_ns||!p->cycle.pause_capture_id||p->s.input_state)return;
+    p->handoff.kind=NG2_HANDOFF_NEGATIVE_LIMIT;p->handoff.reason=NG2_REASON_LIMIT;
+    p->handoff.qualified_ns=now;p->handoff.source_capture_id=p->cycle.capture_id;
+    p->handoff.source_prefix=p->cycle.prefix;p->handoff.pause_capture_id=p->cycle.pause_capture_id;
+    p->handoff.completed_prefix=p->s.last_completed_id;
+    p->handoff_pause_command=p->s.last_completed_id;p->handoff_pause_bound=1;
+}
+void ng2_controller_handoff(const NG2Controller *p,NG2ControllerHandoff *out){
+    size_t i;const NG2ControllerEvent *pause=NULL;
+    if(!out)return;
+    if(!p){memset(out,0,sizeof(*out));return;}
+    *out=p->handoff;out->abi_version=1;out->struct_size=sizeof(*out);out->allowed=0;
+    if(!p->handoff.kind||p->handoff_fault||!p->handoff_pause_bound||!p->s.terminal
+        ||p->s.reason!=NG2_REASON_LIMIT||p->s.input_state||!p->s.paused
+        ||p->scene.state!=NG2_PAUSE||p->last_observed_prefix!=p->s.last_completed_id
+        ||p->s.last_completed_id!=p->handoff_pause_command)return;
+    for(i=p->event_count;i>0;--i)if(p->events[i-1].command.id==p->handoff_pause_command){pause=&p->events[i-1];break;}
+    if(!pause||pause->command.kind!=NG2_ACTION_PAUSE||pause->outcome!=2
+        ||!pause->begin_ns||pause->end_ns<pause->begin_ns||!pause->observed_capture_id
+        ||p->s.last_capture_start_ns<pause->end_ns)return;
+    out->pause_capture_id=pause->observed_capture_id;out->completed_prefix=pause->command.id;
+    out->allowed=1;
 }
 static int passage_goods_protected(const NG2Scene *s){
     int i;
@@ -503,6 +648,12 @@ static void reset_level(NG2Controller *p,uint64_t end){
     /* Session counters, all used allowances, trace history, IDs, ordinal and
      * the first walk horizon survive a proven new game level. */
     p->level_input_base=p->s.inputs;p->level_move_base=p->s.moves;
+    p->last_level_restart_id=p->last_level_restart_capture=p->last_level_restart_prefix=0;
+    p->last_level_restart_count=0;
+    if(!p->first_stop.valid){
+        p->diagnostic_capture_id=0;p->diagnostic_validation=0;
+        memset(&p->diagnostic_motion,0,sizeof(p->diagnostic_motion));
+    }
     p->s.x=p->s.y=0;p->s.lead_confirmed=0;p->s.lead_ns=leads[0];p->lead_index=0;
     memset(p->visits,0,sizeof(p->visits));p->visits[16*33+16]=1;
     memset(&p->entrance,0,sizeof(p->entrance));
@@ -786,6 +937,7 @@ static void begin_passage_wait(NG2Controller *p,const NG2Scene *scene,uint64_t i
     p->passage_wait_deadline=ng2_beat_model_valid(&p->model)?minimum(now+2*p->model.period_ns,horizon):0;
     p->passage_anchor=*scene;p->passage_anchor_id=id;
     p->passage_anchor_start=start;p->passage_anchor_end=end;
+    diagnostic_comparison(p,0,NG2_REVALIDATE_NONE,NULL);
     p->proof_deadline=0;p->proof_reacquire=0;p->proof_capture_id=id;p->motion_wait.active=0;
 }
 /* A closed mouth is a local route rejection, not an inspection beyond it.
@@ -828,6 +980,8 @@ static int closed_passage_mouth(const NG2Controller *p,const NG2Scene *scene){
 }
 static void passage_next_candidate(NG2Controller *p,const NG2Scene *scene,uint64_t now,int inspection){
     uint32_t bit=1u<<p->passage_bit;
+    NG2ControllerStopDetail previous;
+    live_stop_detail(p,&previous);
     if(p->passage_unlocalized_gold)inspection=0;
     p->passage_pending&=~bit;
     if(inspection==1)p->passage_inspected|=bit;
@@ -836,14 +990,18 @@ static void passage_next_candidate(NG2Controller *p,const NG2Scene *scene,uint64
     p->passage_wait_kind=0;p->passage_wait_deadline=0;
     if(select_passage(p,scene))return;
     p->passage_active=0;
-    if(p->passage_unresolved||p->passage_unlocalized_gold){finish(p,now,NG2_REASON_NO_PATH);return;}
+    if(p->passage_unresolved||p->passage_unlocalized_gold){
+        previous.passage_unresolved=p->passage_unresolved;
+        freeze_stop_detail(p,now,NG2_REASON_NO_PATH,&previous);
+        finish(p,now,NG2_REASON_NO_PATH);return;
+    }
     /* Every fixed candidate was independently inspected or locally closed. */
     clear_slots(p);p->proof_deadline=0;p->recovery.mode=NG2_RECOVERY_NORMAL;
     p->restart_intent=1;p->s.phase=NG2_PHASE_FLOOR;
 }
 static void update_passage_wait(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t now){
-    NG2Motion still;NG2Decision a,b;int kind=p->passage_wait_kind,x,y,d=p->command.direction;
+    NG2Motion still={0};NG2Decision a,b;int kind=p->passage_wait_kind,x,y,d=p->command.direction;
     if(!kind||p->finish_requested)return;
     if(scene->state!=NG2_FLOOR){finish(p,now,NG2_REASON_SCREEN);return;}
     if((scene->goods==NG2_GOODS_PARTIAL||passage_goods_protected(scene))&&!actual_gold(scene)){
@@ -862,12 +1020,19 @@ static void update_passage_wait(NG2Controller *p,const NG2Scene *scene,uint64_t 
         p->passage_wait_kind=PASSAGE_WAIT_GOLD;p->passage_anchor=*scene;
         p->passage_anchor_id=id;p->passage_anchor_start=start;p->passage_anchor_end=end;return;
     }
-    if(start<p->passage_anchor_end||id<=p->passage_anchor_id
-        ||!ng2_motion(&p->passage_anchor,scene,d,&still)
-        ||still.kind!=NG2_BLOCKED||still.dx||still.dy)return;
+    if(start<p->passage_anchor_end||id<=p->passage_anchor_id){
+        diagnostic_comparison(p,id,NG2_REVALIDATE_STATE,NULL);return;
+    }
+    if(!ng2_motion(&p->passage_anchor,scene,d,&still)
+        ||still.kind!=NG2_BLOCKED||still.dx||still.dy){
+        diagnostic_comparison(p,id,NG2_REVALIDATE_MOTION,&still);return;
+    }
+    diagnostic_comparison(p,id,NG2_REVALIDATE_NONE,&still);
     if(kind==PASSAGE_WAIT_GOLD){
         if(!actual_gold(scene)||!same_gold(&p->passage_anchor,scene)
-            ||tile(scene,0,0)!=NG2_TILE_FLOOR)return;
+            ||tile(scene,0,0)!=NG2_TILE_FLOOR){
+            diagnostic_comparison(p,id,NG2_REVALIDATE_GOLD,&still);return;
+        }
         p->passage_active=0;p->passage_wait_kind=0;p->proof_capture_id=id;p->passage_release_proof_id=id;
         p->passage_unlocalized_gold=0;
         clear_recovery_slot(p);p->s.phase=NG2_PHASE_SYNC;return;
@@ -885,9 +1050,10 @@ static void update_passage_wait(NG2Controller *p,const NG2Scene *scene,uint64_t 
             &&!memcmp(p->passage_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT)){
             p->passage_wait_kind=0;p->proof_capture_id=id;p->passage_release_proof_id=id;return;
         }
+        diagnostic_comparison(p,id,NG2_REVALIDATE_ROUTE,&still);
         p->passage_wait_kind=PASSAGE_WAIT_ROUTE;p->passage_anchor=*scene;
         p->passage_anchor_id=id;p->passage_anchor_start=start;p->passage_anchor_end=end;
-    }
+    }else diagnostic_comparison(p,id,NG2_REVALIDATE_ROUTE,&still);
 }
 static void update_passage_progress(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t now){
@@ -2084,6 +2250,7 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
 /* Cycle evidence never becomes a UI source. Only observe() installs current
  * stable-prefix authority; the worker/writer methods below consume identities. */
 static void cycle_failure(NG2Controller *p,uint64_t now,int status,int reason){
+    freeze_stop_detail(p,now,reason,NULL);p->handoff_fault=1;
     if(p->s.input_state==1&&(p->command.kind==NG2_ACTION_MOVE||p->command.kind==NG2_ACTION_RESTART))
         not_sent(p,now,reason);
     p->cycle_partial_credit=p->cycle_framing_credit=0;p->cycle.pending=0;p->cycle.status=status;
@@ -2462,17 +2629,19 @@ static int cycle_partial_static(const NG2Controller *p,const NG2Scene *scene,NG2
     if(memcmp(p->cycle_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT))return NG2_REVALIDATE_PROTECTED;
     return NG2_REVALIDATE_NONE;
 }
-static int cycle_partial_comparison(const NG2Controller *p,const NG2Scene *scene,int *wait){
-    NG2Decision latest;NG2Motion still;int validation=cycle_partial_static(p,scene,&latest);
+static int cycle_partial_comparison(const NG2Controller *p,const NG2Scene *scene,int *wait,NG2Motion *motion){
+    NG2Decision latest;NG2Motion still={0};int validation=cycle_partial_static(p,scene,&latest);
     if(wait)*wait=0;
+    if(motion)memset(motion,0,sizeof(*motion));
     if(validation)return validation;
     if(!ng2_motion(&p->cycle_anchor,scene,latest.direction,&still))return NG2_REVALIDATE_MOTION;
+    if(motion)*motion=still;
     if(still.kind==NG2_BLOCKED&&!still.dx&&!still.dy)return NG2_REVALIDATE_NONE;
     if(wait&&still.kind==NG2_MOTION_UNKNOWN&&cycle_opened_partial(p,latest.direction))*wait=1;
     return NG2_REVALIDATE_MOTION;
 }
 static int cycle_partial_relation(const NG2Controller *p,const NG2Scene *scene){
-    return cycle_partial_comparison(p,scene,NULL)==NG2_REVALIDATE_NONE;
+    return cycle_partial_comparison(p,scene,NULL,NULL)==NG2_REVALIDATE_NONE;
 }
 /* Record only the first independent rejected comparison per bound job. This
  * diagnostic uses the classified source, never the pre-opening MOVE source.
@@ -2490,6 +2659,7 @@ static void cycle_bind(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint64
     uint64_t horizon=start+FRESH,sync=p->sync_ns+12*SECOND;
     p->cycle.capture_id=id;p->cycle.capture_start_ns=start;p->cycle.prefix=prefix;
     p->cycle.deadline_ns=start+CYCLE_CAPTURE_BUDGET;p->cycle_anchor=*scene;
+    diagnostic_comparison(p,0,NG2_REVALIDATE_NONE,NULL);
     p->cycle_rejection_recorded=0;
     p->cycle.partial=scene->goods==NG2_GOODS_PARTIAL;
     p->cycle_choice_valid=cycle_partial_choice(p,scene,&p->cycle_choice);
@@ -2590,17 +2760,21 @@ static int cycle_observe_hold(NG2Controller *p,const NG2Scene *scene,uint64_t id
         cycle_bind(p,scene,id,start,prefix);
     }
     if(p->cycle.state==NG2_CYCLE_OBSERVE_MORE&&start>=p->cycle.release_after_ns){
-        int wait=0,validation;
+        NG2Motion motion;int wait=0,validation;
         if(p->s.input_state||p->cycle.full_seen||p->cycle.candidate_latched
             ||commit>p->cycle.continuation_deadline_ns
             ||(!p->s.lead_confirmed&&level_inputs(p))){
+            diagnostic_comparison(p,id,commit>p->cycle.continuation_deadline_ns?
+                NG2_REVALIDATE_TIMING:NG2_REVALIDATE_STATE,NULL);
             cycle_failure(p,commit,NG2_RING_KERNEL,NG2_REASON_SCREEN);
-        }else if((validation=cycle_partial_comparison(p,scene,&wait))!=NG2_REVALIDATE_NONE){
+        }else if((validation=cycle_partial_comparison(p,scene,&wait,&motion))!=NG2_REVALIDATE_NONE){
+            diagnostic_comparison(p,id,validation,&motion);
             cycle_record_rejection(p,scene,id,validation);
             /* Only an unproved zero with every fixed static guard intact may
              * wait. No sample, source, horizon, credit or input is refreshed. */
             if(!wait)cycle_failure(p,commit,NG2_RING_KERNEL,NG2_REASON_SCREEN);
         }else{
+            diagnostic_comparison(p,id,NG2_REVALIDATE_NONE,&motion);
             clear_slots(p);p->cycle_partial_credit=1;p->cycle_credit_prefix=prefix;
             p->cycle.state=NG2_CYCLE_SEARCH;p->s.reason=NG2_REASON_NONE;p->s.goods=0;
             p->s.phase=NG2_PHASE_SYNC;p->s.next_target_ns=0;
@@ -2724,6 +2898,7 @@ int ng2_controller_cycle_outcome_commit(NG2Controller *p,uint64_t job,uint64_t c
     p->cycle.state=NG2_CYCLE_SEARCH;p->cycle.candidate_latched=0;
     p->cycle_pause_attempted=p->cycle_storage_error=p->cycle_partial_credit=p->cycle_framing_credit=p->cycle_queued_valid=0;
     p->s.goods=0;p->s.reason=NG2_REASON_NONE;reset_level(p,now);
+    remember_level_restart(p,p->cycle.restart_command_id,capture,prefix);
     if(p->scene.goods!=NG2_GOODS_UNKNOWN){
         cycle_latch(p,&p->scene,now);
         cycle_bind(p,&p->scene,p->s.last_capture_id,p->s.last_capture_start_ns,prefix);
@@ -2756,7 +2931,10 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
     if(!id||!valid_time(start)||!valid_time(end)||end<=start||start<p->s.started_ns||(start<p->last_now&&p->last_now-start>FRESH)||id<=p->seen_id
         ||(p->seen_id&&(start<=p->seen_start||end<=p->seen_end))){++p->s.discarded_frames;return 0;}
     p->seen_id=id;p->seen_start=start;p->seen_end=end;
-    if(!valid_scene(scene)||stable<0||stable>1){++p->s.discarded_frames;terminal(p,end,NG2_REASON_GEOMETRY);return 0;}
+    if(!valid_scene(scene)||stable<0||stable>1){
+        p->diagnostic_observed_id=id;
+        ++p->s.discarded_frames;terminal(p,end,NG2_REASON_GEOMETRY);return 0;
+    }
     p->last_now=commit;
     if(p->cycle_enabled&&!p->finish_requested){
         int partial=scene->goods==NG2_GOODS_PARTIAL;
@@ -2776,11 +2954,17 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
     }
     if(!stable||prefix!=p->s.last_completed_id||p->s.input_state==2||p->s.input_state==4){
         ++p->s.discarded_frames;return 0;}
+    p->diagnostic_observed_id=id;
+    revoke_clear_handoff(p,scene,commit);
     if(cycle_holding(p)&&!p->finish_requested)
         return cycle_observe_hold(p,scene,id,start,end,prefix,commit);
     if(p->cycle_enabled&&p->cycle_partial_credit&&!p->finish_requested){
-        if(prefix!=p->cycle_credit_prefix||commit>p->cycle.continuation_deadline_ns
-            ||!cycle_partial_relation(p,scene)){
+        NG2Motion motion={0};int validation;
+        if(prefix!=p->cycle_credit_prefix)validation=NG2_REVALIDATE_STATE;
+        else if(commit>p->cycle.continuation_deadline_ns)validation=NG2_REVALIDATE_TIMING;
+        else validation=cycle_partial_comparison(p,scene,NULL,&motion);
+        diagnostic_comparison(p,id,validation,&motion);
+        if(validation!=NG2_REVALIDATE_NONE){
             cycle_failure(p,commit,NG2_RING_KERNEL,NG2_REASON_SCREEN);
             return cycle_observe_hold(p,scene,id,start,end,prefix,commit);
         }
@@ -2966,7 +3150,9 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
                 event(p)->observed_capture_id=id;
                 p->s.input_state=0;p->s.current_command_id=0;p->restart_pending=0;++p->s.restarts;
                 if(p->cycle_enabled)++p->cycle.level_id;
-                reset_level(p,end);begin_initial_view(p,scene,id,start,end);start_floor(p,scene,id,end);
+                {uint64_t restart_id=p->command.id;
+                    reset_level(p,end);remember_level_restart(p,restart_id,id,prefix);}
+                begin_initial_view(p,scene,id,start,end);start_floor(p,scene,id,end);
             }
         }
     }else if(!p->finish_requested){
@@ -3102,6 +3288,7 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
     if(kind==NG2_ACTION_MOVE&&p->s.lead_confirmed&&p->s.moves>0){
         if(!reissuing)p->preparation_epoch=p->command.id;
     }else p->preparation_epoch=0;
+    if(kind==NG2_ACTION_PAUSE)bind_clear_handoff_pause(p,now);
     p->s.input_state=1;p->s.current_command_id=p->command.id;
     e=&p->events[p->event_count++];memset(e,0,sizeof(*e));e->command=p->command;
     if(kind==NG2_ACTION_MOVE){
@@ -3312,7 +3499,9 @@ static int cycle_tick(NG2Controller *p,uint64_t now,NG2Command *out){
         if(p->cycle.outcome==NG2_RING_NEGATIVE&&p->cycle.status==NG2_RING_OK
             &&p->cycle.durable_ns&&!p->cycle_storage_error&&!p->cycle_restart_unproved){
             int result;
-            if(p->cycle.completed_shops>=4||p->s.restarts>=12){terminal(p,now,NG2_REASON_LIMIT);return 0;}
+            if(p->cycle.completed_shops>=4||p->s.restarts>=12){
+                mint_negative_handoff(p,now);terminal(p,now,NG2_REASON_LIMIT);return 0;
+            }
             if(!p->scene.restart_label||now<p->ack_ns||now-p->ack_ns<UI_SETTLE_NS)return 0;
             p->restart_pending=1;result=reserve(p,now,NG2_ACTION_RESTART,0,0,out);
             if(result==1){p->cycle.restart_command_id=out->id;p->cycle.state=NG2_CYCLE_NEGATIVE_RESTART;}
@@ -3341,6 +3530,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
     if(!p||!out||!valid_time(now)||now<p->last_now)return -1;
     p->last_now=now;
     if(p->s.terminal)return 0;
+    revoke_clear_handoff(p,NULL,now);
     guard=guards(front,locked,owner);
     if(guard){ng2_controller_cancel(p,now,guard);return 0;}
     if(now-p->s.started_ns>=180*SECOND){ng2_controller_cancel(p,now,NG2_REASON_SESSION);return 0;}
@@ -3440,7 +3630,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
         if(p->passage_unlocalized_gold){finish(p,now,NG2_REASON_NO_PATH);return 0;}
         if(p->scene.goods!=NG2_GOODS_UNKNOWN){finish(p,now,NG2_REASON_PARTIAL_GOODS);return 0;}
         if(!clear_gold_floor(&p->scene)){finish(p,now,NG2_REASON_SCREEN);return 0;}
-        if(p->s.restarts>=12){finish(p,now,NG2_REASON_LIMIT);return 0;}
+        if(p->s.restarts>=12){mint_clear_handoff(p,now);finish(p,now,NG2_REASON_LIMIT);return 0;}
         if(!pause_ui_ready(p,now))return 0;
         memcpy(p->restart_fingerprint,p->scene.fingerprint,48);p->restart_baseline_valid=1;p->restart_intent=1;
         return reserve(p,now,NG2_ACTION_PAUSE,0,0,out);
@@ -3571,6 +3761,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
 int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front,int32_t locked,int32_t owner){
     int reason;NG2ControllerEvent *e;uint64_t tail,horizon,aligned;
     if(!p||!valid_time(now)||p->s.terminal||p->s.input_state!=1||id!=p->command.id)return 0;
+    revoke_clear_handoff(p,NULL,now);
     if(p->cycle_enabled&&p->cycle.state==NG2_CYCLE_NEGATIVE_RESTART
         &&p->command.kind==NG2_ACTION_RESTART&&!p->cycle.intent_ns)return 0;
     reason=guards(front,locked,owner);

@@ -1,15 +1,15 @@
 # 最新状態
 
-更新: 2026-11-14（日本時間）。TEST098 build175のCI/配布物照合済み。iSH回収修正は実Python3.9の46件・独立レビュー済み。**実機改善・受入は未確認**。[計画](plans/test098-route-observation.md)・[受領/検証](reviews/test098.md)・[修正表](fix-records.md)。
+更新: 2026-11-15（日本時間）。TEST099を開発中。[計画](plans/test099-continuous-trial.md)・[修正表](fix-records.md)。ユーザーの最新指示は「通常に試験できる版」「のろいのゆびわまで本番に近く連続運転し、障害はログから特定して修正」。原停止を推測で直さず、正常な区切りだけを連結する。
 
-097の3ZIP/64PNGを照合。実1の判定は期限内UNKNOWN、最初の拒否画像は未保持で原因未確定。実2は開扉後の遠方FLOOR消失、実3は新しい側方床で未送信DOWN→LEFTへ判断が変わり停止。候補135も見送り。
+098run97afbの回収ZIPは18PNG/20record、全CRC/SHA/manifest/連鎖/画像metadata/登録集合を照合済み。この1runのHTTP修正後の全回収は確認できた。complete=false/interrupted=trueは回復exportでも立ち、画像欠損とは扱わない。元実行は1restart/3歩後NO_PATH、商品判定は未実施。
 
-5壁と外床を根拠にした上左角候補を追加。未送信票を撤回し、固定anchor/独立静止/新IDから直交側方へ進路を更新する。実ACK済み同方向開扉後だけ遠方FLOOR消失を許容し、静的条件成立・動きだけUNKNOWNなら入力0のまま元期限内で再観測。新FULL/FLOORは旧票を捨て新分類へ渡す。最初の表現可能な拒否を既画像保持へ接続。
+保存Scene5枚は各1回だけ校正し、当初はbit5の候補、最後にもUP/FLOOR経路。通路待機の2beat期限との時刻対応はあるが、待機kind/anchor/途中画像が未保持で内側の失敗条件は未確定。097実1も継続許可後の再検査が原因箇所で、098の待機/診断は手前だけだった。両方を修正完了と呼ばない。
 
-現API rootの材質差0/MOTION診断だけ回収対応。Ring/Runtime/Wire/公開ABI・旧資産/G1/R12、UNKNOWN無再送・元期限/累積予算は維持。全商品登録・購入・宝箱開封0。
+099は別getterによる最初の停止/通路待機のsnapshotと画像保持を追加する。元Status/Event/Scene ABI・入力条件/期限・UNKNOWN無再送は保つ。連続試運転は、完全陰性か確認済み開幕見送りの正常上限分岐でCが凍結するhandoff証明と、同runの全回収/ZIP/公開ACKが揃った時だけ新UUIDの通常startへ進む。候補/実判定UNKNOWN/障害/他のLIMITは停止。各run16入力/12restart/45秒/180秒/4商店・Runtime128ID上限は解除しない。区切りごとの回収時間があり、最終PERF受入とはしない。
 
-code `7b7d7515cd1a394d1215f1c619c4e41bf7b9fe16`、run43537002612/build175。最終同sourceのhost111/20scope＋selector5＝116/21scope、現Mac API/spool/Export・Runtime096の12callback/旧source意味Redを確認。実物5種類、36seal/2変更、実compiler/profile3・9Mach-O・全source831ファイルを照合。模擬時計/画素の契約試験で、実機到達率/毎拍・人超え速度/未知精度の受入ではない。
+campaignは原子的な索引と各run全ZIPを保持し、終了時に索引＋最後のrunを返却ZIPへまとめる。published journalも先に回収専用で照合し、crash/曖昧なstartで旧runを飛ばさない。--recoveryは新startなし、099spoolは098と分ける。
 
-[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-build175/LoopCtrl.ipa)・[回収修正版コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-http-recovery/source.zip)。固定Release asset、hashはSHA256SUMS.txt。今回のhttp_body_limitはiSHだけ更新し、元LoopCtrl/記録を保持してtest_098.sh --recovery。新規試験は通常1-1ポーズから候補までrestart→接近/入店→3商品可視→のろいのゆびわ判定→対象なしなら次周回、最大4商店。停止通知後iSHへ戻り全保存/ZIP照合終了を待ち、表示run ZIP全体を返却。
+設計の独立レビューGO。C/実3.9の意味Red→Green、該当RuntimeだけMacの旧source意味Redを先に確認し、新Runtime→選択CI/新IPAへ進む。現行配布は[IPA175](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-build175/LoopCtrl.ipa)・[098回収修正版](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-http-recovery/source.zip)。099は未配布。
 
-再解析: 実1は継続許可後の再検査で停止。098の待機/診断は手前だけで、この分岐は未修正。失敗画像未保持で内側の拒否条件は未確定。実機改善/長期耐久は未受入。対応外layout/対象候補は保持。遅延positive通知P1・ledger整理なしP2は旧記録を維持。[索引](context.md)。
+実機到達率/毎拍・人超え速度/未知対象精度/長期耐久は未受入。購入/宝箱開封/全商品登録は追加しない。Ring/Bank/判定資産/G1/R12全40は不変。遅延positive通知P1・native旧ledger整理なしP2は旧記録を維持。[索引](context.md)。

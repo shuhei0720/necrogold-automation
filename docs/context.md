@@ -6,7 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
-| TEST098の新床への進路変更・部分再観測 | [今回計画](plans/test098-route-observation.md)・[受領](reviews/test098.md) | 未送信直交側方開口、開扉後の遠方FLOOR消失/UNKNOWN待機、新FULL分類、候補135、root限定診断。[前版](plans/test097-arrival-continuation.md) |
+| TEST099の停止診断・連続試運転 | [今回計画](plans/test099-continuous-trial.md) | 最初の停止/通路待機snapshot、正常区切りだけのhandoff、campaign回復/索引。原098停止は未解決。[前版](plans/test098-route-observation.md) |
 | TEST093の開扉後の入店 | [計画](plans/test093-opened-entry.md)・[受領/検証](reviews/test093.md) | 新CのFRESH/未送信回復と旧関連だけ。Runtime092は不変bytes/過去証跡 |
 | 現在の不具合・今回の計画 | statusの結果と計画リンク | [検証の区分](testing.md)、該当する受領記録 |
 | 修正前の過去対策・再発照合 | [修正記録表](fix-records.md) | 同じ事象/原因を検索。過去の対策を改善完了と扱わない |
