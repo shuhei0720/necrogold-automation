@@ -150,7 +150,7 @@ func testCycle099PinAndSnapshot(_ root: URL) {
 func testCycle099NegativeHandoff(_ root: URL) {
     let clock = resetCycleFixture(root); ng2_fixture099_stop_override(0, nil)
     let id = identity(), gate = NSLock()
-    var restartCount = 0, advanced: Set<Int> = []
+    var restartCount = 0, advanced: Set<Int> = [], settledAfterRestart: Set<Int> = []
     let images = [cycleSearchPixels(worldX: 0, variant: 0, goods: 1),
                   cycleSearchPixels(worldX: 36, variant: 1, goods: 1)]
     NG2RuntimeCycleTestHooks.rgba = { original in
@@ -162,18 +162,36 @@ func testCycle099NegativeHandoff(_ root: URL) {
         if x == 144 && y == 448 {
             gate.lock(); restartCount += 1; gate.unlock()
             NG2Fake.lock.lock(); NG2Fake.walkPaused = false; NG2Fake.lock.unlock()
+        } else if x == 297 && y == 448 {
+            // This callback also exercises a fresh ordinary start from the
+            // previous run's PAUSE. Model its actual RESUME response locally.
+            NG2Fake.lock.lock(); NG2Fake.walkPaused = false; NG2Fake.lock.unlock()
         }
     }
     NG2RuntimeCycleTestHooks.classificationResult = { _, scene, result in
         result = cycle095Negative(scene, result.started_ns, NG2Runtime.now())
     }
     NG2RuntimeTestHooks.beforeControlTick = {
-        let state = cycleCompanion(id), job = stateInt(cycleCompanion(id), "job_id")
+        let state = cycleCompanion(id), job = stateInt(state, "job_id")
+        let restart = report(id)["events"]?.arrayValue?.compactMap { $0.objectValue }.last(where: {
+            $0["kind"]?.intValue == 3 && $0["outcome"]?.intValue == 2
+        }) ?? [:]
+        let restartID = restart["id"]?.intValue ?? 0, restartEnd = restart["end_ns"]?.intValue ?? 0
         gate.lock()
         let advance = job > 0 && !advanced.contains(job) && state["pending"]?.boolValue == false &&
             (state["durable_ns"]?.intValue ?? 0) > 0 && (state["pause_capture_id"]?.intValue ?? 0) > 0
         if advance { advanced.insert(job) }
-        gate.unlock(); if advance { clock.advance(220_000_000) }
+        // The finite fixture clock must also cross the existing 200ms UI
+        // settle after a real RESTART ACK, before that next job can PAUSE.
+        // As in the095/096 helper, advance once only after successful adoption;
+        // the actual ACK/prefix/source bind this to the post-restart level.
+        let settleNext = job > 0 && !settledAfterRestart.contains(job) &&
+            stateInt(state, "level_id") >= 2 && state["pending"]?.boolValue == false &&
+            state["outcome"]?.stringValue == "negative" && state["assessment_status"]?.stringValue == "ok" &&
+            stateInt(state, "pause_capture_id") == 0 && restartID > 0 && restartEnd > 0 &&
+            stateInt(state, "prefix") == restartID && stateInt(state, "capture_start_ns") >= restartEnd
+        if settleNext { settledAfterRestart.insert(job) }
+        gate.unlock(); if advance || settleNext { clock.advance(220_000_000) }
     }
     cycleStart(id); pump("cycle099_negative_four_drained", timeout: 40) { cycleDrained(id) }
     let (_, handoff) = cycle099Projection(cycle099Terminal(root, id))
@@ -187,7 +205,20 @@ func testCycle099NegativeHandoff(_ root: URL) {
     require(denied.0 == nil, "cycle099_next_start_blocked_before_publication_ack")
     let required = Set([handoff["source_capture_id"]?.intValue, handoff["pause_capture_id"]?.intValue].compactMap { $0 })
     publishFixtureClaim(id, requiredCaptureIDs: required)
-    NG2RuntimeTestHooks.beforeControlTick = nil; cycleProof(1)
+    cycleProof(1)
+    var settledAfterResume = false
+    NG2RuntimeTestHooks.beforeControlTick = {
+        let state = cycleCompanion(next)
+        let resume = report(next)["events"]?.arrayValue?.compactMap { $0.objectValue }.last(where: {
+            $0["kind"]?.intValue == 1 && $0["outcome"]?.intValue == 2
+        }) ?? [:]
+        let resumeID = resume["id"]?.intValue ?? 0, resumeEnd = resume["end_ns"]?.intValue ?? 0
+        let settle = !settledAfterResume && state["pending"]?.boolValue == false &&
+            state["outcome"]?.stringValue == "candidate" && state["assessment_status"]?.stringValue == "ok" &&
+            stateInt(state, "pause_capture_id") == 0 && resumeID > 0 && resumeEnd > 0 &&
+            stateInt(state, "prefix") == resumeID && stateInt(state, "capture_start_ns") >= resumeEnd
+        if settle { settledAfterResume = true; clock.advance(220_000_000) }
+    }
     cycleStart(next); pump("cycle099_fresh_next_run_candidate_drained", timeout: 30) { cycleDrained(next) }
     require(cycleCompanion(next)["outcome"]?.stringValue == "candidate" && NG2Fake.paths().isEmpty &&
         cycle099Terminal(root, next)["moves"]?.intValue == 0,
@@ -195,6 +226,7 @@ func testCycle099NegativeHandoff(_ root: URL) {
     let (_, nextHandoff) = cycle099Projection(cycle099Terminal(root, next))
     require(nextHandoff["allowed"]?.boolValue == false, "cycle099_new_candidate_never_continues")
     publishFixtureClaim(next)
+    NG2RuntimeTestHooks.beforeControlTick = nil
     print("PASS TEST099 clean negative limit publishes before a fresh candidate run")
 }
 func stateInt(_ value: [String: JSONValue], _ key: String) -> Int { value[key]?.intValue ?? 0 }

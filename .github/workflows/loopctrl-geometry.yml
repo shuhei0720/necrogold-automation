@@ -8,7 +8,7 @@ on:
         type: choice
         required: true
         default: device
-        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic]
+        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic, test099-runtime-remaining]
       artifact_id:
         type: string
         required: false
@@ -71,7 +71,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   test099-runtime-red:
-    if: inputs.native_lane == 'test099-runtime-red' || inputs.native_lane == 'test099-runtime-diagnostic'
+    if: inputs.native_lane == 'test099-runtime-red' || inputs.native_lane == 'test099-runtime-diagnostic' || inputs.native_lane == 'test099-runtime-remaining'
     runs-on: macos-26
     timeout-minutes: 15
     steps:
@@ -96,6 +96,9 @@ jobs:
       - name: Diagnose only the current Runtime099 immutable snapshot callback
         if: inputs.native_lane == 'test099-runtime-diagnostic'
         run: python3 driver/patches/loopctrl/check_runtime099.py upstream "$RUNNER_TEMP/test099-runtime-diagnostic" --pin-diagnostic
+      - name: Verify only the three remaining Runtime099 callbacks
+        if: inputs.native_lane == 'test099-runtime-remaining'
+        run: python3 driver/patches/loopctrl/check_runtime099.py upstream "$RUNNER_TEMP/test099-runtime-remaining" --remaining
       - name: Save original Runtime099 semantic assertion Red evidence
         if: always() && inputs.native_lane == 'test099-runtime-red'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -110,6 +113,14 @@ jobs:
         with:
           name: loopctrl-test099-runtime-diagnostic
           path: ${{ runner.temp }}/test099-runtime-diagnostic/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Save the three remaining Runtime099 callback results
+        if: always() && inputs.native_lane == 'test099-runtime-remaining'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-test099-runtime-remaining
+          path: ${{ runner.temp }}/test099-runtime-remaining/
           if-no-files-found: error
           retention-days: 30
   test058-dispatch-red:

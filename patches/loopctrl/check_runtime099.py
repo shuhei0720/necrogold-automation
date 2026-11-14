@@ -26,9 +26,11 @@ CASES = ['cycle-only frozen terminal diagnostic schema', 'readonly trial support
          'actual deadline failure snapshot and no handoff', 'readonly diagnostic live anchor and snapshot retention',
          'actual four-negative limit and publish-ACK-before-next-start', 'actual clear-search limit handoff']
 RELATED_CASES = ['legacy20 critical pin/export retention']
+REMAINING_CASES = CASES[-2:]
 RED_ASSERTION = 'FAIL cycle099_terminal_has_frozen_stop_and_handoff'
 PIN_ASSERTION = 'FAIL cycle099_writer_owns_old_immutable_snapshot_not_later_getter'
 PIN_PASS = 'PASS TEST099 readonly POD live anchor and first failure survive recent eviction'
+REMAINING_PASS = 'PASS TEST099 remaining qualified handoff and legacy20 callbacks'
 PASS = 'PASS TEST099 six cycle diagnostic/handoff callbacks and legacy20 evidence retention; procedural clock/pixels/results'
 HOST_GETTER_ALIAS = 'ng2_controller_stop_detail_real'
 FIXTURE_CONTROLS = ('ng2_fixture099_stop_override', 'fixture099_override_enabled', 'fixture099_override', 'fixture099_gate')
@@ -45,7 +47,7 @@ def digest(raw):
 
 
 def fixture_source(selected=None):
-    if selected not in (None, 'projection', 'pin-snapshot'):
+    if selected not in (None, 'projection', 'pin-snapshot', 'remaining'):
         raise ValueError('TEST099 fixture selection')
     inherited = target_prior.fixture_source()
     boundary = '// TEST095 ENTRYPOINTS BEGIN.\n'
@@ -68,6 +70,10 @@ def fixture_source(selected=None):
         own = own.split(calls)[0] + 'testCycle099TerminalProjection(cycle099Root)\n'
     elif selected == 'pin-snapshot':
         own = own.split(calls)[0] + 'testCycle099PinAndSnapshot(cycle099Root)\n'
+    elif selected == 'remaining':
+        own = own.split(calls)[0] + ('testCycle099NegativeHandoff(cycle099Root)\n'
+            'testCycle099ClearSearchHandoff(cycle099Root)\ntestStopEvidenceRetentionPublic()\n'
+            'print("'+REMAINING_PASS+'")\n')
     return inherited.split(boundary)[0] + export_helpers + evidence_helpers + own
 
 
@@ -80,6 +86,8 @@ def main():
     selection.add_argument('--fault-red', action='store_true')
     selection.add_argument('--pin-diagnostic', action='store_true',
         help='current-source pin/snapshot case only, recording persisted values and requiring Green')
+    selection.add_argument('--remaining', action='store_true',
+        help='current negative/clear-search handoff and legacy20 callbacks only')
     args = parser.parse_args()
     if not shutil.which('swiftc'):
         raise SystemExit('Swift unavailable; no TEST099 semantic Red or Runtime Green executed')
@@ -156,6 +164,12 @@ def main():
                 raise SystemExit('TEST099 corrected pin diagnostic Green missing (returncode='+str(diagnostic.returncode)+'):\n'+
                     diagnostic.stdout+diagnostic.stderr)
             print(diagnostic.stdout, end='')
+        elif args.remaining:
+            remaining = execute((native/'NG2Runtime.swift').read_bytes(), 'runtime099-remaining-green', 'remaining')
+            if remaining.returncode or not remaining.stdout.strip().endswith(REMAINING_PASS):
+                raise SystemExit('TEST099 remaining Runtime Green failed (returncode='+str(remaining.returncode)+'):\n'+
+                    remaining.stdout+remaining.stderr)
+            print(remaining.stdout, end='')
         elif not args.red_only:
             green = execute((native/'NG2Runtime.swift').read_bytes(), 'runtime099-production-green')
             if green.returncode or not green.stdout.strip().endswith(PASS):
@@ -168,8 +182,9 @@ def main():
                 raise ValueError('installed source changed during selected callbacks: '+destination)
         value = dict(schema='test099-runtime-evidence-v1',
             scope='actual Runtime/C callbacks with procedural pixels/clock/classifier; readonly getter POD override only for pin/snapshot case, no game/iPhone acceptance',
-            mode='pin-diagnostic' if args.pin_diagnostic else 'red-only' if args.red_only else 'red-and-green' if args.fault_red else 'green-only',
-            new_cases=CASES, old_cases=RELATED_CASES, expected_red=RED_ASSERTION, pass_line=PASS,
+            mode='remaining' if args.remaining else 'pin-diagnostic' if args.pin_diagnostic else 'red-only' if args.red_only else 'red-and-green' if args.fault_red else 'green-only',
+            new_cases=REMAINING_CASES if args.remaining else CASES, old_cases=RELATED_CASES,
+            expected_red=RED_ASSERTION, pass_line=REMAINING_PASS if args.remaining else PASS,
             baseline_code=BASELINE_CODE, baseline_runtime_sha256=BASELINE_RUNTIME_SHA,
             installed_source_sha256=installed, fixture_source_sha256=fixture_identity,
             fixture_sha256=digest(fixture_source().encode()),
