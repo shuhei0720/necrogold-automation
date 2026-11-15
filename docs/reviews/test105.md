@@ -32,4 +32,8 @@ Ring新7＋直接旧61＝68件成功。公開Cは新4＋直接旧15、MOVEDま�
 
 元3artifactをAPI ID/サイズ/hash・CRC・安全パスと結合し、package/host/retained/macho/compileのread-only実物5gateが初回5attemptで全て成功。追加のnative/分類/コンパイル実行0。CODE sourceは933tracked全bytes/CRC一致、SHA97d0825d61f95efe70448367126f5441d6481e1fbe77b3e2d2f8cc9895b1ea5f。配布IPA200は18058712B、SHAf92b83165465bd581274618505bcbbeea57845f81a4447c726c93cbab316c730。
 
-公開sourceはこの後のdocs-only閉鎖commitへ対応させ、全product/native bytesがCODEと同一の完全ZIPを検証する。固定Releaseと匿名全GET/hash/tagの結果は公開後に追記する。実機の商品確認/自動次周回・毎拍/人超え速度・稀な対象の未知精度は未受入。
+公開sourceはdocs-only閉鎖commit f3699b01ff903880871bff2b2364be4ae1e96753に対応。CODEとの差は本レビュー/status/修正表の3pathだけで、全product/native bytesは同一。933tracked/全bytes/CRC一致、9206370B、SHA1aa642617a1e774fa96423145715f91c28929d8ca6ab529b77fdaed677f68333。
+
+[公開CI201](https://github.com/shuhei0720/necrogold-automation/actions/runs/43707832153)成功。[固定Release test105-build200](https://github.com/shuhei0720/necrogold-automation/releases/tag/test105-build200) ID445998479、IPA/source/SHA一覧の3assetを匿名全GET200・全bytes/SHA/API digest/tag/target commitで照合した。公開確認は1回、native/分類/5gateの追加実行0。この後の公開記録追記もdocs-only。
+
+実機は新IPAへ更新しLoopCtrl完全再起動・Start Server/通知/通常VPN、通常1-1ポーズから `sh test_105.sh --until-target`。候補探索→開扉/入店→下側を含む3商品確認→のろいのゆびわ以外なら次周回を依頼する。全画像/ZIP照合後の表示campaign ZIPを返却、全run原本を保持。実機の商品確認/自動次周回・毎拍/人超え速度・稀な対象の未知精度は未受入。
