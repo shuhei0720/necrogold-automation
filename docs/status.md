@@ -1,5 +1,7 @@
 # 最新状態
 
+新環境への移行は[全体引き継ぎ](handover-2026-11-16.md)。私有資料の移送完了とは区別する。
+
 更新: 2026-11-16（日本時間）。TEST106の4実行/5商店遭遇の停止を修正し、TEST107/build204の実物照合まで完了。[計画](plans/test107-partial-composition.md)・[受領/検証](reviews/test107.md)・[修正表](fix-records.md)。
 
 実1/2/4後半の正常PARTIAL後ROUTE10は、上端商品投影と既地形関係を分離・合成して修正。新ITEM/上端dataは一用再判定へ。実3の初歩前フェード固定は元D内の最新2画像から再取得し、既知MOVEDはsticky拒否。実4前半は原記録で正常完全陰性→実RESTART ACK15→新floor225まで成立を確認した。

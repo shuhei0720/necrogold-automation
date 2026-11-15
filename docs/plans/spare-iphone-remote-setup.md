@@ -1,6 +1,6 @@
 # サブiPhoneによる遠隔実機試験の引き継ぎ
 
-2026-11-16（日本時間）。接続準備の記録であり、実機試験の成功記録ではない。最初に `AGENTS.md`・`docs/status.md`・`docs/context.md` を読む。
+2026-11-16（日本時間）。接続準備の記録であり、実機試験の成功記録ではない。最初に `AGENTS.md`・`docs/status.md`・`docs/context.md` と[開発全体の引き継ぎ](../handover-2026-11-16.md)を読む。
 
 ## 目的と製品の状態
 
@@ -18,7 +18,7 @@
 | アカウント | iCloudは両端末で同じ。署名専用には新しい別Apple Accountを作成済み。iCloudからのサインアウトは不要 |
 | サブのアプリ | 日本版ゲーム・iSH導入済み。iloaderでSideStore導入、信頼・開発者モード・ログインまで進んだ。LoopCtrlの導入成功は未確認 |
 | Windows | iTunes導入、USB接続・信頼・認識、iloader使用済み。Tailscaleのインストール・ログイン・端末登録は画面で確認。OpenSSH設定とCloudからの実接続は未実施 |
-| Cloud | 現環境はVPN未設定、設定変更用ツールは提供されていない。設定のCodex Cloud一覧も「保存されている環境はありません」。新規環境はR12中心の準備まで進んだが、最新branchとTailscale接続の設定は未確認 |
+| Cloud | 旧環境はVPN未設定。ユーザーは新環境のキー登録・公開を報告し、新規チャットの環境名 `necrogold-automation` の選択を画像で確認。新環境のVPN実接続とSSHは未確認。新担当は最新branchと全体引き継ぎを先に読む |
 
 SideStoreは `DeviceEndpointNotInitialized` で停止。LocalDevVPN表示はTunnel IP `10.7.1.1/32`、Device IP `10.7.0.1/32`。SideStore自動検出はN/A。Use Local VPN＝ON＋手動Device IP、OFF＋Remote Endpointへの直接指定の両方で改善しなかった。同じ設定変更を成功扱いして繰り返さない。[iOS16の継続報告](https://github.com/SideStore/SideStore/issues/1466)もあるが、今回の根本原因は未確定。
 
