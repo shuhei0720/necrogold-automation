@@ -294,3 +294,15 @@ TEST099最終確認: build182の残り3、同codeのbuild183でhost85・現Mac A
 | FR-100-SIDE-SHOP | 2026-11-15 | 実2は3商品可視でもUNKNOWN停止 | glyph証明不成立、既policy3は下側金構造を要求し、側面入口下の7金形に非対応。剣先1pixelも旧価格群へ入る | 別policy4/board4で7位置/3ITEM/cap/faceと独立C再検証、共通価格baselineと真の4群拒否。旧1〜3/対象全探索は保持 | 原456旧/新各1回・UNKNOWN→完全陰性、host40.9ms/元100ms。新9/関連25・C偽造拒否を確認、実機の完全経路速度未確認 | 確認した新形1。過去UNKNOWN全部と同原因にはしない |
 | FR-100-LOWER-FRINGE | 2026-11-15 | 実2の候補59を見送り | 左下口DIRTにより旧mouth候補から除外。外側床と短い内床経路は観測済み | 固定bit9の別fringe仮説だけ追加、DIRT/UNKNOWN維持・観測床vantageで再確認 | 意味Red→新6/関連45、保持Scene59 mask512/既床4歩。外床接続fixtureは旧bit7=128を保つ期待へ訂正、旧assert削除なし。実機未確認 | 同系列1。旧上左候補とは別の固定口 |
 | FR-100-MAC-PREPARE | 2026-11-15 | Mac185が対象callback前の起動で拒否 | fixtureに通常prepare/ready待ちがない。通知準備前guardはsourceで確認、元error本体は未収録 | fixtureだけ通常prepare待ちとRPC error診断を追加。元assert/製品guard保持 | 185は対象意味Redなし。186で同じ限定caseの旧C named assertion Red/現C Greenが成功。通常workerへ最新画像Bが渡り旧job採用拒否/候補保持/input0/元horizon保持を確認 | 新fixture1。実機不具合や製品Redではない |
+
+## TEST101の対策（開発中・実機改善未確認）
+
+FR-083のfirst-gold、FR-093の上端投影、FR-095/097/098のpartial継続、FR-099採証、FR-100増加時再分類/側面形を修正前に照合。似た停止を同原因と決めず、100で過去成功を破壊したとの証明も未確認。単体/CIの成功で実機改善完了にしない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-101-TOP-ALIAS | 2026-11-15 | 100実2で部分判定後に商品可視のまま停止 | 546→549の上端代替ITEM投影縮退がcycle creditの同一材質条件外。下段実商品/近傍/判断/strict零は保持 | 下段と重複した上端別名の限定縮退関係。旧新商品増加/空framingは保持 | [計画](plans/test101-observation-continuation.md)A。許可後の後続画像から将来票まで、元期限/反例を新公開Cで確認予定。実機未確認 | 確認した縮退1。旧上端系列のcycle未接続、通算未集計 |
+| FR-101-FIRST-GOLD-PHASE | 2026-11-15 | 100実1が金壁露出直後、実ACK後に停止 | 528→553でraw次点が片phase帯135画素となり旧first-goldのfinite guardを拒否。他の正の一意移動証明は成立 | 旧段不変の別supported-phase証明、有限zero/単位支持/全raw/world競合を要求 | 計画BのRed/4方向・拒否・旧関連・保存pair校正を予定。閾値/時刻緩和0、実機未確認 | 今回1。099から同motion bytesで継続した別支持条件 |
+| FR-101-FULL-OBSERVE | 2026-11-15 | 100実3は商品可視でもUNKNOWN停止 | 右cap実遮蔽と2セル下の側面開口で完全陰性未成立、FULL後に追加観測する権限がない | 候補なし/新static/観測床/全potential ROI保存下だけ新しい局所MOVE1回。旧ACK17無加点、実MOVED後だけ最新job | 計画Cの全flow・期限/候補/UNKNOWN/一度限り/partial後保持、限定Macを予定。元217は陰性不可。実機未確認 | 確認した未対応形1。旧開扉停止と同原因にはしない |
+| FR-101-LOWER-GATE | 2026-11-15 | 同商店の開口offsetが旧3/4の形に入らない | 商品列より2セル下の側面開口。右capはまだUNKNOWN | 別policy5の12正GOLD位置と両cap/全pixelの完全証明。Controllerが独立再検証 | 計画DのRed/欠落・同金数偽装/遮蔽・対象優先/旧3-4を予定。元217のUNKNOWN保持。実機未確認 | 確認した別形1。未知配置精度は未受入 |
+| FR-101-UNSENT-SOURCE | 2026-11-15 | 100実1の最初の再取得で元436がなく空拍の内側原因を特定できない | 既coherent helperは原pairを照合するがobserved437だけ優先保持 | cycleだけ原sourceを任意1枚追加、旧priorityが満杯なら任意sourceを退役、24上限保持 | 計画EのMac実保持/export/hashと後着旧priority反例を予定。採証を歩行改善としない | 元436不足1。後続462/488/502も欠損、個別根因未確定 |

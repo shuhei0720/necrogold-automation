@@ -282,6 +282,9 @@ private final class NG2Run {
     // Profile2 uses its existing twentieth slot for one original initial
     // rejection raster. Replacements do not grow the pin/export budgets.
     var initialRejectedCaptureID: UInt64?
+    // Cycle-only optional partner of that coherent rejection. Existing
+    // critical/restart/dispatch evidence keeps the bounded store's priority.
+    var initialRejectedSourceCaptureID: UInt64?
     var terminalCaptureID: UInt64?
     var references = Set<UInt64>()
     var analyzedFrames: UInt64 = 0
@@ -637,7 +640,7 @@ final class NG2Runtime {
         run.profile == Self.cycleProfile ? Self.cycleEvidencePinLimit : 20
     }
 
-    private func priorityCaptureIDs(_ run: NG2Run) -> [UInt64] {
+    private func priorityCaptureIDs(_ run: NG2Run, includingInitialSource: Bool = true) -> [UInt64] {
         var ids: [UInt64] = []
         let decisions = run.restartDecisionCaptureIDs.keys.sorted().compactMap { run.restartDecisionCaptureIDs[$0] }
         let initial = decisions.isEmpty ? [run.initial?.id].compactMap({ $0 }) : []
@@ -648,6 +651,8 @@ final class NG2Runtime {
             + run.cycleDiagnosticCaptureIDs {
             if id != 0 && !ids.contains(id) { ids.append(id) }
         }
+        if includingInitialSource, run.profile == Self.cycleProfile,
+           let source = run.initialRejectedSourceCaptureID, source != 0, !ids.contains(source) { ids.append(source) }
         return ids
     }
 
@@ -2542,9 +2547,14 @@ final class NG2Runtime {
               source.analysis.scene.pointee.goods == 0 else { return }
         run.initialRejectedCaptureID = frame.id
         run.references.insert(frame.id)
+        if run.profile == Self.cycleProfile {
+            run.initialRejectedSourceCaptureID = source.id
+            run.references.insert(source.id)
+        }
         // Reserve the one existing slot even when the rest of pin work is
         // deferred until after dispatch. The previous snapshot is not reused.
         pinDispatchSourceLocked(run, frame.id)
+        if run.profile == Self.cycleProfile { pinDispatchSourceLocked(run, source.id) }
     }
 
     // Call under run.lock, before a dispatch snapshot can defer pin work.
@@ -2574,6 +2584,14 @@ final class NG2Runtime {
 
     // Call under run.lock. The source is already in recent/pinned immutable
     // frames; this reserves its existing slot before AX preparation can wait.
+    private func pinVictimLocked(_ run: NG2Run, incoming: UInt64, protected: Set<UInt64>) -> UInt64? {
+        if let ordinary = run.pinned.keys.sorted().first(where: { !protected.contains($0) }) { return ordinary }
+        guard run.profile == Self.cycleProfile, let optional = run.initialRejectedSourceCaptureID,
+              optional != incoming, run.pinned[optional] != nil,
+              !priorityCaptureIDs(run, includingInitialSource: false).contains(optional) else { return nil }
+        return optional
+    }
+
     private func pinDispatchSourceLocked(_ run: NG2Run, _ source: UInt64) {
         guard source != 0 else { return }
         run.references.insert(source)
@@ -2582,7 +2600,7 @@ final class NG2Runtime {
                 .first(where: { $0.id == source }) else { return }
         let protected = Set(priorityCaptureIDs(run) + [source])
         let limit = evidencePinLimit(run)
-        if run.pinned.count == limit, let evicted = run.pinned.keys.sorted().first(where: { !protected.contains($0) }) {
+        if run.pinned.count == limit, let evicted = pinVictimLocked(run, incoming: source, protected: protected) {
             run.pinned.removeValue(forKey: evicted); run.evictedFrames += 1
         }
         if run.pinned.count < limit { run.pinned[source] = frame }
@@ -2649,7 +2667,7 @@ final class NG2Runtime {
             let limit = evidencePinLimit(run)
             for id in priority where run.pinned[id] == nil {
                 guard let frame = available[id] else { continue }
-                if run.pinned.count == limit, let evicted = run.pinned.keys.sorted().first(where: { !protected.contains($0) }) {
+                if run.pinned.count == limit, let evicted = pinVictimLocked(run, incoming: id, protected: protected) {
                     run.pinned.removeValue(forKey: evicted); run.evictedFrames += 1
                 }
                 if run.pinned.count < limit { run.pinned[id] = frame }

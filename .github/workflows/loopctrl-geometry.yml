@@ -8,7 +8,7 @@ on:
         type: choice
         required: true
         default: device
-        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic, test099-runtime-remaining, test100-runtime-partial]
+        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic, test099-runtime-remaining, test100-runtime-partial, test101-runtime-observation]
       artifact_id:
         type: string
         required: false
@@ -151,6 +151,36 @@ jobs:
         with:
           name: loopctrl-test100-runtime-partial
           path: ${{ runner.temp }}/test100-runtime-partial/
+          if-no-files-found: error
+          retention-days: 30
+  test101-runtime-observation:
+    if: inputs.native_lane == 'test101-runtime-observation'
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Apply sealed sources for the two TEST101 observation callbacks
+        run: |
+          python3 driver/patches/loopctrl/apply_patch.py upstream
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream
+      - name: Verify TEST101 retention and framing callbacks with two semantic baselines and current Green
+        run: python3 driver/patches/loopctrl/check_runtime_observation101.py upstream "$RUNNER_TEMP/test101-runtime-observation"
+      - name: Save the TEST101 two-case three-execution callback evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-test101-runtime-observation
+          path: ${{ runner.temp }}/test101-runtime-observation/
           if-no-files-found: error
           retention-days: 30
   test058-dispatch-red:
@@ -440,6 +470,10 @@ jobs:
               NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test100_host.py
               DEVICE_PROFILE=100
             fi
+            if [ -f driver/patches/loopctrl/run_test101_host.py ]; then
+              NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test101_host.py
+              DEVICE_PROFILE=101
+            fi
           fi
           "$RUNNER_TEMP/test061-host-venv/bin/python" "$NATIVE_HOST_RUNNER" driver upstream "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/host-command.txt"
           echo "device_profile=$DEVICE_PROFILE" >> "$GITHUB_OUTPUT"
@@ -480,27 +514,27 @@ jobs:
           rustc --version
       - name: Install TEST094 focused Swift fixture image decoder
         id: cycle_fixture_env
-        if: inputs.native_lane == 'device' && needs.test061-host-contracts.outputs.device_profile != '100'
+        if: inputs.native_lane == 'device' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101'
         run: |
           python3 -m venv "$RUNNER_TEMP/test094-mac-venv"
           "$RUNNER_TEMP/test094-mac-venv/bin/pip" install Pillow==11.3.0
       - name: Verify TEST094 actual authenticated owner and public cycle schema
-        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_api094.py upstream "$RUNNER_TEMP/test094-api" --fault-red'
       - name: Verify TEST094 immutable spool and actual filesystem fault boundaries
-        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101'
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/test094-spool"
           "$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_spool094.py --fault-red 2>&1 | tee "$RUNNER_TEMP/test094-spool/spool-command.txt"
       - name: Verify TEST094 immutable terminal export and exact image roundtrip
-        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_export094.py upstream "$RUNNER_TEMP/test094-export" --fault-red'
       - name: Verify TEST094 selected actual Runtime cycle callbacks
         # TEST096/097/098 replace the obsolete PAUSE-before-classifier release fixture.
         # The replacement retains the old intent/cancellation assertions.
-        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '096' && needs.test061-host-contracts.outputs.device_profile != '097' && needs.test061-host-contracts.outputs.device_profile != '098' && needs.test061-host-contracts.outputs.device_profile != '099' && needs.test061-host-contracts.outputs.device_profile != '100'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '096' && needs.test061-host-contracts.outputs.device_profile != '097' && needs.test061-host-contracts.outputs.device_profile != '098' && needs.test061-host-contracts.outputs.device_profile != '099' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_runtime_cycle094.py upstream "$RUNNER_TEMP/test094-runtime" --fault-red'
       - name: Verify TEST095 target-only Runtime and policy wire callbacks
         if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile == '095'

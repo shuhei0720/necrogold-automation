@@ -1,0 +1,39 @@
+# TEST101: 観測継続と移動確認
+
+2026-11-15（日本時間）。[計画](../plans/test101-observation-continuation.md)・[修正表](../fix-records.md)。開発中、実機改善未確認。
+
+## 受領と原因
+
+6ZIPは3runと同じ内容のcampaign、全73PNG/81record/160原本をCRC/SHA/連鎖/画像登録/decoded RGBAまで照合。実順144d/70d5/06f9、全て次周回未到達。5recordのfloat表記をPythonで再serializeして差し替えず元bytesを保持した。全回収をゲーム成功にしない。
+
+実1の実MOVE開始間隔は1046.453/1570.358/520.422ms、period522.063ms。未送信SCREENの取り直しで2〜3拍間隔になる。実dispatchはnotBeforeの0.407〜4.381ms後、10ms窓内。最終ACK29は528→553をUNKNOWN8回で停止、visual期限は約1998ms残る。旧first-goldのraw次点(-18,0)が片phase帯で135画素<300となりINFのため、finite guardが拒否。全raw73は有限、winner(+9,0) .53272265/runner .91270931、旧6STONE保存の一意(+1,0)、両phaseの有限競合差.49664/.40756、world646/16bad・273/373region・全競合差が成立。現motion suffixは099と全bytes一致。一般NG2Motionと現private診断を各1回だけ校正、Perception追加0/Ring0。
+
+未送信22/24/26/27の元436/462/488/502は未保持。scene_changes/detailsは空、recoveryのVISUAL_SCHEDULEと旧ROUTE/GOLD待機の分岐までは分かるが、quietの内側predicateは未確定。新しい最後の移動証明で全空拍解消とは書かず、最初の原pairの保持を補う。
+
+実2は原546の部分判定6.536msを正常採用。その後creditで546→549の上端代替投影が縮退しROUTE拒否。両Sceneの同UP/reason5/床判断、実開扉ACK、strict BLOCKED、下段ITEM7個と両3×3の不変を私的C helperで確認。ITEM/保護の差は上端row-5の代替投影だけ。終端assessment_nsはcycle_failureで更新されるため、元の判定遅延へ誤読しない。
+
+実3は14.576ms/0.963ms後採用でUNKNOWN、flags258=BOARD|ROWS。商品3個は可視だが右capは467/625画素が黒い実遮蔽、既保持画像でも解消しない。旧3/新4とは違う商品列の2セル下の側面開口。元217を新geometryだけで陰性にせず、追加観測と別の完全証明へ分ける。直前17のACKはvisual UNKNOWN、旧16は実開扉。旧17の移動creditは復活させない。
+
+## 計画レビュー
+
+独立review101は実装GO、P0/P1なし。P2「MacのRed基準を分ける」を§5へ反映し、保持は旧Runtime/現C、framingは現Runtime/旧100C、Greenは現両方の計3実行とした。全world/旧API等を形式的に再実行しない。
+
+Runtime追加sourceのpriority末尾だけでは、23旧pin＋追加sourceで24が埋まると後着旧criticalを入れられない設計不足を実装前のsource確認で検出。両pin経路で任意追加sourceだけ退役できる条件と容量反例を計画へ追加した。旧priority・24pin/44spool・旧profileを維持する。
+
+今回3件に100が以前の成功を壊した証拠は未確認だが、回帰なしを保証しない。特に「部分判定→許可→後続再検査」が従来試験の不足。元assertを保持して一連の試験を追加する。実機の到達・次周回・毎拍・未知精度は未確認。
+
+## 作者試験と差分レビュー
+
+Controller最終4101c6e4fa06d488aead1bad01b338f30afee328e99d66281c997ad643a8c63eで新19＋直接関連9が成功。Aの外端保護喪失が、別の保持済み下段ITEMの投影と重なる境界漏れをレビューで検出。具体的な1subcaseを追加して166910版で意味Redを確認し、両frameの下段ITEMを検査して拒否した。狭い差分確認でP1解消、元実546にはこの追加ITEMがないため適用は維持する。実A pairの新関係成立、元217の局所観測admitとcap UNKNOWN/陰性拒否も各1回だけ私的校正した。後続の実ゲーム画像を再現したとは呼ばない。
+
+Nav最終4b73df260af0d085c3bfe38ac839e4db697aaf8d89dbb5446d513b91006493bdで新8、関連083の5件が成功。086/091は古いfixtureが8sourceを要求し現12sourceでsetup error2となったため、既存の現8source snapshotを同Nav/Coreで使い、失敗した086の5＋091の4だけ再確認して成功。083の既PASSを再実行しない。後に有限raw次点の新proof拒否を同じmethodへ追加し、その1件だけ成功。全8の作者Greenと最終fixtureの1件Greenを分け、最終全体は選択CIへ結合する。原528→553の新public motionは1回だけ校正しMOVED(-1,0)、旧22段はUNKNOWN。host41.15msをiPhone速度の合格にしない。
+
+Ring最終51eb3dcd5ae3f12f2ac8f39465efaa6b1da93ec516302fd9526a4e812f69e0d1で新6＋関連34、計40成功。旧policy3/4・価格/endcap/対象全探索の16関数は全bytes不変。元217相当のUNKNOWN capは保持。原Ringの再分類0。入口は新wrapper/shellだけ、実3.9の新2件がRed→Green、旧099/100とshared engineは全bytes不変。
+
+独立差分レビューはController/Nav/Ring/入口を各閉じたscopeでGO、残P0/P1なし。Runtime42f2f88634357083e82be64e56e6ba0806f26454e278b74782caee763c5bb3e8も製品差分GO。P2「任意pin優先退役」の曖昧な文言は、従来の非優先pin退役順を先に維持し、候補がないとき任意sourceだけをfallback退役する意図へ明確化した。旧priorityの保護と旧非優先pinの保存保証を混同しない。
+
+新Mac retention fixtureは旧priorityのFrameが実availableに存在せず、ゼロsnapshotが手動優先IDも消すというP1を実行前に検出。製品は変えずfixtureの実Frame配置/immutable snapshot根拠を修正し、元の23/24枚・後着旧priorityのassertを維持した。compile/意味Red/現Greenはまだ未実行。scopeは診断の手続き的seedと歴史的seedを明示した部品試験で、実ゲームE2Eにはしない。
+
+Macの狭い修正確認でP1解消、alias/control列挙漏れP2も修正し静的GO。保存用部品spoolと通常起動のframingを別subdirectoryへ分け、未公開spoolが次試験の通常prepareを正しく拒否する交差を避けた。通常の起動/回収guardは維持。8source/2case/独立3実行を固定し、実行時の失敗を意味Redへ丸めない。
+
+選択CIは92 host methods/18scope（新35/関連57）＋selector6の98/19へ固定。source-fenceの意味Red1を先に保存し、最終metadata selector6が成功。Nav086/091は現8source snapshot、helper closure47を全hashへ結合。これを製品試験の追加実行やMac合格とは呼ばない。現native36の変更はController/Navigation/Ring/Runtimeだけで封印し、header/旧ABI・保護資産・旧shared clientを保持した。

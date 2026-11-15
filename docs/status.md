@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-15（日本時間）。TEST100配布版、実機改善未確認。[計画](plans/test100-observed-shop-stops.md)・[受領/検証](reviews/test100.md)・[修正表](fix-records.md)。099の6添付は3runと同一内容のcampaign。全73PNG/81record/160原本を照合した。
+更新: 2026-11-15（日本時間）。TEST101開発中。TEST100実機3回は全て次周回へ未到達。実1は空拍/移動確認UNKNOWN、実2は継続credit後のROUTE拒否、実3は商品判定UNKNOWN。6添付=3run、全73PNG/81record/160原本を照合。[計画](plans/test101-observation-continuation.md)・[検証](reviews/test101.md)・[修正表](fix-records.md)。
 
 修正は開扉後の遠方DOOR→GOLDによる拒否、新ITEM出現時の最新画像への再分類、側面入口下の3商品を確認する別policy4、左下口DIRTの候補bit9。旧partial結果で新商品を陰性にしない。対象はのろいのゆびわだけ、全商品登録/購入/宝箱開封は追加しない。
 

@@ -1187,6 +1187,79 @@ static int side_coverage(const unsigned char *rgba,const RingObservation *observ
     if(complete){result->coverage=NG2_RING_COVERAGE_COMPLETE;result->selected_row=selected;result->selected_partial=-1;}
     return checkpoint(options,result);
 }
+/* Policy5 observes a lower side opening two cells below the offer row.
+ * Its twelve positive cells do not assert an unseen top/right offer-row wall.
+ * Both Scene FLOOR caps and the independent complete raw endcaps are still
+ * required; an actually shadowed cap can never certify target absence. */
+static int lower_side_scene_row(const NG2Scene *scene,int left,int sy) {
+    int ax,ay,gold=0;
+    if(!scene||scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene)
+       ||scene->state!=NG2_FLOOR||scene->goods!=NG2_GOODS_VISIBLE
+       ||(scene->gold_state!=NG2_GOLD_CANDIDATE&&scene->gold_state!=NG2_GOLD_EDGE_DOWN)
+       ||!structural_row_cells(left,sy,&ax,&ay))return 0;
+    for(int i=0;i<NG2_TILE_COUNT;i++)gold+=scene->tiles[i]==NG2_TILE_GOLD;
+    if(gold<12)return 0;
+    for(int x=ax;x<=ax+2;x++)if(structural_tile(scene,x,ay)!=NG2_TILE_ITEM)return 0;
+    if(structural_tile(scene,ax-1,ay)!=NG2_TILE_FLOOR||structural_tile(scene,ax+3,ay)!=NG2_TILE_FLOOR)return 0;
+    for(int mirror=0;mirror<2;mirror++) {
+        int solid=mirror?ax+4:ax-2,gate=mirror?ax-2:ax+4,valid=1;
+        for(int y=ay-1;y<=ay+3;y++)valid&=structural_tile(scene,solid,y)==NG2_TILE_GOLD;
+        for(int x=ax-2;x<=ax+4;x++)valid&=structural_tile(scene,x,ay+3)==NG2_TILE_GOLD;
+        valid&=structural_tile(scene,gate,ay+1)==NG2_TILE_GOLD;
+        int opening=structural_tile(scene,gate,ay+2);
+        valid&=opening==NG2_TILE_FLOOR||opening==NG2_TILE_DOOR;
+        if(valid)return 1;
+    }
+    return 0;
+}
+static int lower_side_coverage(const unsigned char *rgba,const RingObservation *observation,
+                               const NG2RingSign signs[12],int sign_count,
+                               const NG2RingOptions *options,NG2RingResult *result,int *handled) {
+    *handled=0;
+    if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY)return NG2_RING_OK;
+    int selected=-1,selected_pair[2]={-1,-1},accepted=0;
+    for(int r=0;r<result->row_count;r++) {
+        const NG2RingRow *row=&result->rows[r];int pair[2]={-1,-1},hits[2]={0,0};
+        if(!lower_side_scene_row(options->scene,row->left,row->sy))continue;
+        for(int side=0;side<2;side++)for(int i=0;i<sign_count;i++)
+            if(structural_face(&signs[i],row->left+72*side,row->sy)){pair[side]=i;hits[side]++;}
+        if(hits[0]!=1||hits[1]!=1||pair[0]==pair[1]
+           ||abs(signs[pair[1]].cx-signs[pair[0]].cx-72)>2||abs(signs[pair[1]].sy-signs[pair[0]].sy)>2)continue;
+        accepted++;
+        if(selected<0){selected=r;selected_pair[0]=pair[0];selected_pair[1]=pair[1];}
+    }
+    if(!accepted)return NG2_RING_OK;
+    *handled=1;
+    NG2RingCoverage *out=&result->certificate;NG2RingRow *row=&result->rows[selected];
+    memset(out,0,sizeof(*out));out->layout_version=1;out->policy_version=5;out->board_mode=5;
+    out->accepted_rows=accepted;out->row_index=selected;out->row[0]=row->left;out->row[1]=row->sy;
+    out->scene_state=options->scene->state;out->scene_goods=options->scene->goods;
+    for(int i=0;i<NG2_TILE_COUNT;i++)out->actual_gold_cells+=options->scene->tiles[i]==NG2_TILE_GOLD;
+    result->coverage=NG2_RING_COVERAGE_INCOMPLETE;
+    for(int side=0;side<2;side++) {
+        const NG2RingSign *face=&signs[selected_pair[side]];
+        int32_t box[4]={face->x0,face->y0,face->x1-face->x0,face->y1-face->y0};
+        memcpy(out->board_boxes[side],box,sizeof(box));out->board_counts[side]=face->count;
+    }
+    for(int i=0;i<sign_count;i++)if(i!=selected_pair[0]&&i!=selected_pair[1])out->unmatched_boards++;
+    if(accepted!=1){out->failure_flags|=NG2_RING_COV_ROWS;return NG2_RING_OK;}
+    if(out->unmatched_boards){out->failure_flags|=NG2_RING_COV_EXTRA_BOARD;return NG2_RING_OK;}
+    int32_t strip[4]={row->left-54,row->sy+24,180,67};memcpy(out->strip_box,strip,sizeof(strip));
+    if(!box_valid(strip)){out->failure_flags|=NG2_RING_COV_BOUNDS;return NG2_RING_OK;}
+    int status=binary_primary(rgba,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
+    status=binary_word_veto(observation,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
+    int complete=endcap_witness(rgba,observation,row->left-36,row->sy,&out->endcaps[0]);
+    complete&=endcap_witness(rgba,observation,row->left+108,row->sy,&out->endcaps[1]);
+    if(!complete)out->failure_flags|=NG2_RING_COV_ENDCAP;
+    price_witness(observation,row,out);
+    if(out->observed_prices!=3||out->unmatched_prices){complete=0;out->failure_flags|=NG2_RING_COV_PRICE;}
+    for(int s=0;s<3;s++)memcpy(out->item_boxes[s],row->slots[s].non_target_icon_box,sizeof(out->item_boxes[s]));
+    item_witness(rgba,row,out);
+    if(out->observed_items!=3){complete=0;out->failure_flags|=NG2_RING_COV_ITEM;}
+    out->non_target_items=3;
+    if(complete){result->coverage=NG2_RING_COVERAGE_COMPLETE;result->selected_row=selected;result->selected_partial=-1;}
+    return checkpoint(options,result);
+}
 /* Coverage and item identity are separate witnesses. Neither a low target
  * score nor the legacy three-price row alone can authorize NEGATIVE. */
 static int coverage_witness(const unsigned char *rgba,const RingObservation *observation,
@@ -1197,6 +1270,8 @@ static int coverage_witness(const unsigned char *rgba,const RingObservation *obs
     if(structural||handled)return structural;
     int side=side_coverage(rgba,observation,signs,sign_count,options,result,&handled);
     if(side||handled)return side;
+    int lower=lower_side_coverage(rgba,observation,signs,sign_count,options,result,&handled);
+    if(lower||handled)return lower;
     const NG2Scene *scene=options->scene;NG2RingCoverage *out=&result->certificate;
     if(scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene))return NG2_RING_INVALID;
     out->scene_state=scene->state;out->scene_goods=scene->goods;out->layout_version=1;
@@ -1387,10 +1462,10 @@ static int structural_negative_certificate(const NG2RingResult *result) {
        ||result->partial_count!=2||result->selected_row<0||result->selected_row>=result->row_count
        ||result->selected_partial!=-1||result->partial_safe_no_positive)return 0;
     const NG2RingCoverage *w=&result->certificate;const NG2RingRow *row=&result->rows[result->selected_row];int ax,ay;
-    int side=w->policy_version==4;
+    int side=w->policy_version==4,lower=w->policy_version==5;
     if(!(side?side_row_cells(row->left,row->sy,&ax,&ay):structural_row_cells(row->left,row->sy,&ax,&ay))
-       ||w->layout_version!=1||(w->policy_version!=3&&!side)
-       ||w->board_mode!=(side?4u:3u)||w->failure_flags||w->accepted_rows!=1||w->row_index!=result->selected_row
+       ||w->layout_version!=1||(w->policy_version!=3&&!side&&!lower)
+       ||w->board_mode!=(lower?5u:(side?4u:3u))||w->failure_flags||w->accepted_rows!=1||w->row_index!=result->selected_row
        ||w->row[0]!=row->left||w->row[1]!=row->sy||w->scene_state!=NG2_FLOOR
        ||w->scene_goods!=NG2_GOODS_VISIBLE||w->actual_gold_cells<(side?7:12)||w->actual_gold_cells>NG2_TILE_COUNT
        ||w->observed_items!=3||w->observed_prices!=3||w->unmatched_prices||w->unmatched_boards
@@ -1437,7 +1512,8 @@ static int structural_negative_certificate(const NG2RingResult *result) {
         &&binary_cell_certificate(&result->partial[1],row->left+108,row->sy,0,w->strip_box);
 }
 int ng2_ring_negative_certificate(const NG2RingResult *result) {
-    if(result&&(result->certificate.policy_version==3||result->certificate.policy_version==4))return structural_negative_certificate(result);
+    if(result&&(result->certificate.policy_version==3||result->certificate.policy_version==4
+        ||result->certificate.policy_version==5))return structural_negative_certificate(result);
     if(!result||result->abi!=NG2_RING_ABI||result->size!=sizeof(*result)||result->status!=NG2_RING_OK
        ||(result->outcome!=NG2_RING_UNKNOWN&&result->outcome!=NG2_RING_NEGATIVE)
        ||result->coverage!=NG2_RING_COVERAGE_COMPLETE||result->row_count<1||result->row_count>4

@@ -2154,6 +2154,62 @@ static void preserved_singleton_sparse_motion(const NG2Scene *a,const NG2Scene *
     free(cache);
 }
 
+/* The global raw runner may lack 300 samples in one narrower phase band.
+ * Full finite raw competition still excludes that displacement; each band
+ * supplies a finite winner, zero and finite margins of its own. Unavailable
+ * phase scores never supply a positive margin, and signed unit alternatives
+ * must each have affirmative support in at least one of the two bands. */
+static void first_gold_supported_phase_motion(const NG2Scene *before,const NG2Scene *after,int direction,
+                                             const View views[2],const Candidate candidates[73],NG2Motion *out) {
+    int dx,dy,i,band,d,golds=0,gx=0,gy=0,units=0,missing_runner=0,support,bad,regions[2];
+    if(out->kind!=NG2_MOTION_UNKNOWN||direction<1||direction>4)return;
+    dx=ddx[direction];dy=ddy[direction];
+    if(before->state!=NG2_FLOOR||after->state!=NG2_FLOOR
+        ||before->goods!=NG2_GOODS_UNKNOWN||after->goods!=NG2_GOODS_UNKNOWN
+        ||before->gold_state!=NG2_GOLD_CLEAR||after->gold_state!=NG2_GOLD_CANDIDATE
+        ||tile(before,0,0)!=NG2_TILE_FLOOR||tile(before,dx,dy)!=NG2_TILE_FLOOR
+        ||tile(after,0,0)!=NG2_TILE_FLOOR||!isfinite(candidates[0].score)
+        ||candidates[0].score<=.45||!isfinite(candidates[1].score)
+        ||!(candidates[1].score-candidates[0].score>=.08)
+        ||candidates[0].sx!=-9*dx||candidates[0].sy!=-9*dy)return;
+    for(i=0;i<CELLS;++i){
+        if(before->protected_cells[i]||after->protected_cells[i]
+            ||before->tiles[i]==NG2_TILE_GOLD||before->tiles[i]==NG2_TILE_ITEM
+            ||after->tiles[i]==NG2_TILE_ITEM)return;
+        if(after->tiles[i]==NG2_TILE_GOLD){++golds;gx=px(i);gy=py(i);}
+    }
+    if(golds!=1||index_of(gx+dx,gy+dy)<0||tile(before,gx+dx,gy+dy)!=NG2_TILE_UNKNOWN
+        ||!unique_terrain_translation(before,after,candidates[0].sx,candidates[0].sy))return;
+    for(i=0;i<73;++i)if(!isfinite(candidates[i].score)||candidates[i].score<0)return;
+    for(band=0;band<2;++band){
+        double best=phase_band_intensity(&views[0],&views[1],candidates[0].sx,candidates[0].sy,band);
+        int zero=0;
+        if(!isfinite(best)||best<0)return;
+        for(i=0;i<73;++i){
+            double score=i?phase_band_intensity(&views[0],&views[1],candidates[i].sx,candidates[i].sy,band):best;
+            if(!isfinite(score)){
+                if(score!=INFINITY)return;
+                if(i==1)missing_runner=1;
+                continue;
+            }
+            if(score<0||(i&&!(score-best>=.08)))return;
+            if(!candidates[i].sx&&!candidates[i].sy)zero=1;
+            for(d=1;d<=4;++d)
+                if(candidates[i].sx==9*ddx[d]&&candidates[i].sy==9*ddy[d])units|=1<<(d-1);
+        }
+        if(!zero)return;
+    }
+    if(!missing_runner||units!=15)return;
+    world_blur_texture(before,after,views,candidates[0].sx,candidates[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,95)||regions[0]<100||regions[1]<100)return;
+    for(i=1;i<73;++i){
+        int count,opposite;
+        world_blur_texture(before,after,views,candidates[i].sx,candidates[i].sy,&count,&opposite,NULL);
+        if(!texture_lead(support,bad,count,opposite))return;
+    }
+    out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+}
+
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
     View *views;
     Candidate candidates[73];
@@ -2191,6 +2247,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     stationary_gold_axis_motion(before,after,direction,views,candidates,out);
     revealed_singleton_motion(before,after,direction,views,candidates,out);
     preserved_singleton_sparse_motion(before,after,direction,views,candidates,out);
+    first_gold_supported_phase_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,
