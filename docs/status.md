@@ -4,7 +4,7 @@
 
 実1/2/4後半の正常PARTIAL後ROUTE10は、上端商品投影と既地形関係を分離・合成して修正。新ITEM/上端dataは一用再判定へ。実3の初歩前フェード固定は元D内の最新2画像から再取得し、既知MOVEDはsticky拒否。実4前半は原記録で正常完全陰性→実RESTART ACK15→新floor225まで成立を確認した。
 
-CODE cfdb690の[CI204](https://github.com/shuhei0720/necrogold-automation/actions/runs/43732679433)は52件/12scopeが失敗・skipなしで成功。同source IPA/完全source955files、実compiler等5gate/5attemptを照合済み。独立レビューは未解決P0/P1なし。原3pairの役割と再判定原184/440も校正。[TEST107/build204固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test107-build204)の公開・匿名GETは次工程。
+CODE cfdb690の[CI204](https://github.com/shuhei0720/necrogold-automation/actions/runs/43732679433)は52件/12scopeが失敗・skipなしで成功。同source IPA/完全source955files、実compiler等5gate/5attemptを照合済み。独立レビューは未解決P0/P1なし。原3pairの役割と再判定原184/440も校正。[TEST107/build204固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test107-build204)を公開済み。IPA/source/SHAの匿名GET200・全bytes/hash・tagを照合した。公開CI205成功、配布sourceはaeee520でCODEとの差はdocs3filesだけ。
 
 Cだけ変更し、他35 native/公開ABI/cap/既feature/canonical15/ELF/G1/R12・元予算/対象保持/UNKNOWN無再送を維持。無関係な全Runtime/合成world/実ゲームE2Eは未実施。
 

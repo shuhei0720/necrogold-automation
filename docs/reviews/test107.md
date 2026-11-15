@@ -45,4 +45,4 @@ CODE `cfdb690ee143447fa0260769fd973db81d8ef921` の[device CI204](https://github
 
 取得した3artifactとbuild204 IPAを、封印36source・最終CI・全保持source・Mach-O・実compilerの5gate/5attemptで照合済み。追加の製品試験/compile/classifier実行は0。IPAは18,060,538 bytes、SHA256 `1631870d242165cf52db98f3476a0f89e9fa7779e09b631fb34e99d681ec2582`。CODEの完全source ZIPは955 tracked filesの全bytes/CRC/安全pathが一致した。
 
-固定Releaseへの公開と匿名GETは次工程。修正後の実機到達率・未知精度・毎拍/人超え速度・耐久は未確認のまま保持する。
+固定Release [test107-build204](https://github.com/shuhei0720/necrogold-automation/releases/tag/test107-build204)（ID446184687）を[公開CI205](https://github.com/shuhei0720/necrogold-automation/actions/runs/43734240235)で公開した。配布sourceはclosing `aeee520a673019098e65ac862602be6944030c50` で、CODEとの差はstatus/review/fix-recordsの3文書だけ。source.zipは9,287,940 bytes、SHA256 `338aae3cf7cb086f57bf2dda26d93463c48cbeb0be65a379ec9c06e6137b2151`。IPA/source/SHA256SUMSを固定URLへ匿名GETし、全3件HTTP200・全bytes/hash・Release digest・tagのcommitを照合済み。修正後の実機到達率・未知精度・毎拍/人超え速度・耐久は未確認のまま保持する。
