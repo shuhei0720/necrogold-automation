@@ -26,4 +26,10 @@ Ring新7＋直接旧61＝68件成功。公開Cは新4＋直接旧15、MOVEDま�
 
 独立差分レビュー1回は合格、未解消P0/P1なし。数値証明で範囲確認前に加算する条件と、配布helperのselector104誤参照を配布前に修正した。Ring Redの実行時fixture未保存は監査範囲の制限として残す。最終C/Ring/manifest、生成feature一致、104件/15scopeと配布helperの結合を確認済み。
 
-CI・IPA・配布物照合はこの後の工程。実機の商品確認/自動次周回・毎拍/人超え速度・稀な対象の未知精度は未受入。
+## ビルドと実物照合
+
+[CI200](https://github.com/shuhei0720/necrogold-automation/actions/runs/43706249547)、CODE3a5042d22170fcc9d16dd784de55e07245f9b1b7で選択104件/15scope・unsigned IPA・実compiler/source/package検証が成功。標準Mac/Ubuntu、13jobの3success/10skip、必要Mac4工程と旧Runtime8skipを照合した。全Runtime再実行やMac実ゲームは行っていない。
+
+元3artifactをAPI ID/サイズ/hash・CRC・安全パスと結合し、package/host/retained/macho/compileのread-only実物5gateが初回5attemptで全て成功。追加のnative/分類/コンパイル実行0。CODE sourceは933tracked全bytes/CRC一致、SHA97d0825d61f95efe70448367126f5441d6481e1fbe77b3e2d2f8cc9895b1ea5f。配布IPA200は18058712B、SHAf92b83165465bd581274618505bcbbeea57845f81a4447c726c93cbab316c730。
+
+公開sourceはこの後のdocs-only閉鎖commitへ対応させ、全product/native bytesがCODEと同一の完全ZIPを検証する。固定Releaseと匿名全GET/hash/tagの結果は公開後に追記する。実機の商品確認/自動次周回・毎拍/人超え速度・稀な対象の未知精度は未受入。
