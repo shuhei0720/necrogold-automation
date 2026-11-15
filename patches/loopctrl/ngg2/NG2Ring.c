@@ -22,6 +22,20 @@
 #define NG2_HAS_RING_BANK 0
 #endif
 
+#if NG2_HAS_RING_BANK
+/* BEGIN native-only closed red container105 generated numeric features */
+#define R105_CLOSED_RED_SHA256 "d3d50c3668af86a057f37a0f32cadf92f0356b7a9d5a555bcb1460fe72915d68"
+static const R94BankBright r105_red_closed_0_bright[] = {{6,3,89,41,24},{7,4,230,105,20},{19,4,112,40,19},{22,4,237,201,74},{5,5,203,107,35},{8,5,201,78,3},{14,5,210,95,28},{17,5,207,94,27},{20,5,232,94,7},{23,5,230,171,48},{26,5,202,83,17},{3,6,119,53,36},{6,6,240,93,7},{9,6,201,109,6},{12,6,244,179,77},{15,6,236,97,0},{18,6,242,94,0},{21,6,216,85,7},{24,6,243,224,108},{27,6,228,90,23},{4,7,241,96,3},{7,7,244,92,3},{10,7,209,138,17},{16,7,233,96,1},{19,7,245,88,6},{22,7,226,78,6},{28,7,207,91,20},{5,8,237,99,3},{8,8,226,94,13},{11,8,242,166,23},{14,8,219,86,0},{17,8,237,93,3},{20,8,236,92,1},{23,8,196,77,0},{29,8,203,96,25},{3,9,156,33,8},{6,9,239,90,3},{9,9,221,82,12},{12,9,242,222,101},{15,9,239,99,10},{18,9,238,93,2},{21,9,238,92,2},{24,9,216,98,4},{27,9,243,175,87},{4,10,169,33,6},{7,10,236,96,0},{10,10,211,84,12},{16,10,241,90,0},{19,10,241,92,0},{22,10,241,94,3},{25,10,204,143,27},{28,10,243,172,82},{5,11,158,23,3},{8,11,240,92,2},{11,11,184,86,0},{17,11,238,91,4},{20,11,238,90,4},{23,11,238,90,6},{26,11,245,241,52},{29,11,236,87,0},{3,12,124,18,14},{6,12,210,76,0},{9,12,251,107,4},{12,12,237,219,33},{15,12,247,118,14},{18,12,246,107,2},{21,12,246,107,2},{24,12,191,75,0},{30,12,242,115,20},{4,13,134,16,27},{7,13,220,84,6},{10,13,234,83,15},{13,13,248,227,113},{16,13,245,110,0},{19,13,245,112,2},{22,13,246,112,2},{25,13,203,135,21},{28,13,245,174,83},{5,14,132,19,12},{8,14,204,64,3},{11,14,147,30,0},{14,14,252,217,65},{17,14,203,60,2},{20,14,203,60,2},{23,14,194,59,6},{26,14,233,171,12},{29,14,195,55,0},{3,15,137,22,12},{6,15,136,13,16},{9,15,197,60,11},{12,15,229,141,0},{15,15,209,67,12},{18,15,204,53,2},{21,15,204,54,3},{24,15,138,18,11},{27,15,252,225,37},{30,15,200,60,19},{1,16,99,36,13},{4,16,135,23,14},{7,16,164,35,8},{10,16,165,42,21},{13,16,246,188,12},{16,16,200,53,2},{19,16,201,54,2},{22,16,210,52,7},{25,16,189,77,9},{28,16,226,149,44},{31,16,100,40,25},{2,17,196,84,16},{5,17,133,8,7},{8,17,207,60,2},{11,17,141,23,7},{14,17,250,221,40},{17,17,209,55,8},{20,17,201,48,0},{23,17,194,56,15},{26,17,252,159,10},{29,17,201,49,0},{3,18,204,66,4},{6,18,138,19,14},{9,18,169,31,6},{12,18,241,132,0},{15,18,213,66,10},{18,18,222,136,35},{21,18,226,154,42},{24,18,136,18,4},{27,18,255,217,49},{30,18,198,62,10},{4,19,198,68,6},{7,19,151,32,17},{10,19,138,41,37},{13,19,247,193,15},{16,19,171,53,20},{19,19,255,230,60},{22,19,228,156,55},{25,19,188,97,22},{28,19,230,153,47},{31,19,115,57,47},{5,20,214,80,8},{8,20,252,212,90},{14,20,251,233,36},{17,20,251,218,58},{20,20,255,234,20},{23,20,248,216,71},{26,20,254,242,112},{29,20,253,217,44},{6,21,218,101,0},{9,21,233,196,77},{12,21,253,214,30},{15,21,244,188,18},{18,21,249,210,21},{21,21,247,213,13},{24,21,242,189,89},{27,21,252,216,16},{30,21,246,189,16},{7,22,203,97,0},{10,22,220,154,7},{13,22,232,154,0},{16,22,224,136,2},{19,22,253,191,9},{22,22,237,168,13},{25,22,217,152,17},{28,22,231,155,13},{31,22,227,132,7},{5,23,98,30,28},{20,23,255,204,20},{18,24,110,78,26},{21,24,121,84,34},{7,25,131,23,16},{16,25,129,23,14},{8,26,145,18,11},{14,26,252,194,61},{17,26,136,22,21},{20,26,106,30,24},{23,26,117,28,33},{26,26,251,177,27},{29,26,136,12,14},{12,27,104,57,12},{27,27,124,79,25}};
+static const R94BankDark r105_red_closed_0_dark[] = {{0,0},{7,0},{14,0},{21,0},{28,0},{35,0},{5,1},{12,1},{19,1},{33,1},{3,2},{10,2},{17,2},{24,2},{31,2},{1,3},{15,3},{13,4},{27,4},{34,4},{2,6},{30,6},{0,7},{35,7},{33,8},{1,10},{34,11},{32,12},{2,13},{0,14},{35,14},{33,15},{34,18},{32,19},{2,20},{33,22},{10,23},{24,23},{31,23},{1,24},{20,25},{34,25},{4,26},{11,26},{32,26},{2,27},{0,28},{7,28},{14,28},{21,28},{28,28},{35,28},{5,29},{12,29},{19,29},{26,29},{33,29},{3,30},{10,30},{17,30},{24,30},{31,30},{1,31},{8,31},{15,31},{22,31},{29,31},{13,32},{20,32},{27,32},{34,32}};
+static const R94BankIcon r105_red_closed_icons[] = {{36,33,179,71,r105_red_closed_0_bright,r105_red_closed_0_dark,INT32_C(10915665),INT32_C(59587),0x1.1a32de1f76b40p+21}};
+static const uint64_t r105_red_closed_gold[][2] = {{UINT64_C(0x0000000000000000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000000000000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000000000000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000000000180),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000000600100),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000000c01220),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000017803e00),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000001000c00),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000003002800),UINT64_C(0x0000000000000000)},{UINT64_C(0x000000001e007800),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000016001000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000006003000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000006001000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000056003000),UINT64_C(0x0000000000000000)},{UINT64_C(0x000000001c007000),UINT64_C(0x0000000000000000)},{UINT64_C(0x000000001c007000),UINT64_C(0x0000000000000000)},{UINT64_C(0x000000001c007000),UINT64_C(0x0000000000000000)},{UINT64_C(0x000000001c007000),UINT64_C(0x0000000000000000)},{UINT64_C(0x000000001c7c7000),UINT64_C(0x0000000000000000)},{UINT64_C(0x000000001e7c7000),UINT64_C(0x0000000000000000)},{UINT64_C(0x000000007cfff1c0),UINT64_C(0x0000000000000000)},{UINT64_C(0x00000000ffffff80),UINT64_C(0x0000000000000000)},{UINT64_C(0x00000001ffffff00),UINT64_C(0x0000000000000000)},{UINT64_C(0x00000000007c0000),UINT64_C(0x0000000000000000)},{UINT64_C(0x00000000003c0000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000000000000),UINT64_C(0x0000000000000000)},{UINT64_C(0x000000000e007000),UINT64_C(0x0000000000000000)},{UINT64_C(0x000000000c007000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000000000000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000000000000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000000000000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000000000000),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000000000000),UINT64_C(0x0000000000000000)}};
+static const uint64_t r105_red_closed_dark[][2] = {{UINT64_C(0x0000000ffc3fffff),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000ff0bfffff),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000effffffff),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000edf07f83f),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000ffe07f817),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000c2000000e),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000fc0000006),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000fc0000007),UINT64_C(0x0000000000000000)},{UINT64_C(0x00000007c0000006),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f00000006),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f00000007),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f00000007),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f00000007),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f00000007),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f00000007),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f00000001),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f00000001),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f00000001),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f00000001),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f00000007),UINT64_C(0x0000000000000000)},{UINT64_C(0x000000060000000f),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000600000006),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000600000007),UINT64_C(0x0000000000000000)},{UINT64_C(0x00000007ff81ffc7),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f81000c07),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f013c080f),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f0100081f),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000f81000c3f),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000fffffffff),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000ffffffffd),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000ffffffffd),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000fffffffff),UINT64_C(0x0000000000000000)},{UINT64_C(0x0000000e3fffff0f),UINT64_C(0x0000000000000000)}};
+static const R94ContainerShape r105_red_closed_shape = {36,33,189,505,r105_red_closed_gold,r105_red_closed_dark};
+static const R94BankEntry r105_red_closed_entry = {11,"閉じた赤色宝箱",r105_red_closed_icons,1,0,0,0,0,R94_BANK_IGNORED_CONTAINER,&r105_red_closed_shape};
+/* END native-only closed red container105 generated numeric features */
+
+#endif
+
 const char *ng2_ring_classifier_version(void) { return "ngg2-ring-assessment-095-v1"; }
 const char *ng2_ring_feature_sha256(void) { return ring_feature_sha256(); }
 const char *ng2_ring_bank_sha256(void) {
@@ -1507,16 +1521,22 @@ static int offer_footprint_row_cells(int left,int sy,int *ax,int *ay) {
         &&structural_cell(left,448,ax)&&structural_cell(sy+48,207,ay)
         &&*ax-2>=-11&&*ax+4<=11&&*ay>=-5&&*ay+1<=4;
 }
-static int offer_footprint_scene_row(const NG2Scene *scene,int left,int sy) {
-    int ax,ay,gold=0;
+static int offer_footprint_scene_base(const NG2Scene *scene,int left,int sy,int *closed_slot) {
+    int ax,ay,gold=0,unknown=-1;
     if(!scene||scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene)
        ||scene->state!=NG2_FLOOR||scene->goods!=NG2_GOODS_VISIBLE
        ||(scene->gold_state!=NG2_GOLD_CANDIDATE&&scene->gold_state!=NG2_GOLD_EDGE_DOWN)
        ||!offer_footprint_row_cells(left,sy,&ax,&ay))return 0;
     for(int i=0;i<NG2_TILE_COUNT;i++)gold+=scene->tiles[i]==NG2_TILE_GOLD;
     if(!gold)return 0;
-    for(int x=ax;x<=ax+2;x++)
-        if(structural_tile(scene,x,ay)!=NG2_TILE_ITEM||structural_tile(scene,x,ay+1)!=NG2_TILE_FLOOR)return 0;
+    for(int x=ax;x<=ax+2;x++) {
+        int below=structural_tile(scene,x,ay+1);
+        if(structural_tile(scene,x,ay)!=NG2_TILE_ITEM)return 0;
+        if(below!=NG2_TILE_FLOOR) {
+            if(!closed_slot||below!=NG2_TILE_UNKNOWN||unknown>=0)return 0;
+            unknown=x-ax;
+        }
+    }
     for(int i=0;i<NG2_TILE_COUNT;i++) {
         int x=i%23-11,y=i/23-5;
         int item=y==ay&&x>=ax&&x<=ax+2;
@@ -1524,28 +1544,59 @@ static int offer_footprint_scene_row(const NG2Scene *scene,int left,int sy) {
             ||((y==ay-1||y==ay+1)&&x>=ax&&x<=ax+2);
         if((scene->tiles[i]==NG2_TILE_ITEM&&!item)||scene->protected_cells[i]!=protected)return 0;
     }
+    if(closed_slot)*closed_slot=unknown;
     return structural_tile(scene,ax-1,ay)==NG2_TILE_FLOOR&&structural_tile(scene,ax+3,ay)==NG2_TILE_FLOOR;
 }
-static int offer_footprint_coverage(const unsigned char *rgba,const RingObservation *observation,
+static int offer_footprint_scene_row(const NG2Scene *scene,int left,int sy) {
+    return offer_footprint_scene_base(scene,left,sy,NULL);
+}
+/* A name can split the other real face below its observed top. The full
+ * adjacent component anchors the row; a fragment's centroid cannot move it.
+ * This is positive paired geometry, not a wider center-y tolerance. */
+static int offer_footprint_pair(const NG2RingSign *a,const NG2RingSign *b,int left,int sy) {
+    const NG2RingSign *pair[2]={a,b};
+    if(abs(b->cx-a->cx-72)>2)return 0;
+    if(structural_face(a,left,sy)&&structural_face(b,left+72,sy)
+       &&abs(b->sy-a->sy)<=2)return 1;
+    for(int side=0;side<2;side++) {
+        const NG2RingSign *face=pair[side];int cx=left+72*side;
+        int32_t roi[4]={cx-18,sy-20,36,40};
+        int32_t box[4]={face->x0,face->y0,face->x1-face->x0,face->y1-face->y0};
+        if(!box_valid(roi)||!box_valid(box)||box[2]<18||box[2]>36||box[3]<16||box[3]>40
+           ||face->count<150||face->count>box[2]*box[3]
+           ||box[0]<roi[0]||box[1]<roi[1]||box[0]+box[2]>roi[0]+36||box[1]+box[3]>roi[1]+40
+           ||abs(face->cx-cx)>2||abs(box[0]+box[2]/2-cx)>2)return 0;
+    }
+    for(int anchor=0;anchor<2;anchor++) {
+        const NG2RingSign *full=pair[anchor],*fragment=pair[1-anchor];
+        if(structural_face(full,left+72*anchor,sy)&&fragment->y0==full->y0
+           &&fragment->y1<full->y1
+           &&abs((fragment->x1-fragment->x0)-(full->x1-full->x0))<=2)return 1;
+    }
+    return 0;
+}
+static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObservation *observation,
                                 const NG2RingSign signs[12],int sign_count,
-                                const NG2RingOptions *options,NG2RingResult *result,int *handled) {
+                                const NG2RingOptions *options,NG2RingResult *result,int *handled,int closed) {
     *handled=0;
     if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY||sign_count!=2)return NG2_RING_OK;
-    int selected=-1,selected_pair[2]={-1,-1},accepted=0;
+    int selected=-1,selected_pair[2]={-1,-1},selected_closed=-1,accepted=0;
     for(int r=0;r<result->row_count;r++) {
         const NG2RingRow *row=&result->rows[r];int pair[2]={-1,-1},hits[2]={0,0};
-        if(!offer_footprint_scene_row(options->scene,row->left,row->sy))continue;
+        int missing=-1;
+        if(closed?(!offer_footprint_scene_base(options->scene,row->left,row->sy,&missing)||missing<0)
+                 :!offer_footprint_scene_row(options->scene,row->left,row->sy))continue;
         for(int side=0;side<2;side++)for(int i=0;i<sign_count;i++)
-            if(structural_face(&signs[i],row->left+72*side,row->sy)){pair[side]=i;hits[side]++;}
+            if(abs(signs[i].cx-row->left-72*side)<=2){pair[side]=i;hits[side]++;}
         if(hits[0]!=1||hits[1]!=1||pair[0]==pair[1]
-           ||abs(signs[pair[1]].cx-signs[pair[0]].cx-72)>2||abs(signs[pair[1]].sy-signs[pair[0]].sy)>2)continue;
+           ||!offer_footprint_pair(&signs[pair[0]],&signs[pair[1]],row->left,row->sy))continue;
         accepted++;
-        if(selected<0){selected=r;selected_pair[0]=pair[0];selected_pair[1]=pair[1];}
+        if(selected<0){selected=r;selected_pair[0]=pair[0];selected_pair[1]=pair[1];selected_closed=missing;}
     }
     if(!accepted)return NG2_RING_OK;
     *handled=1;
     NG2RingCoverage *out=&result->certificate;NG2RingRow *row=&result->rows[selected];
-    memset(out,0,sizeof(*out));out->layout_version=1;out->policy_version=out->board_mode=9;
+    memset(out,0,sizeof(*out));out->layout_version=1;out->policy_version=out->board_mode=closed?10:9;
     out->accepted_rows=accepted;out->row_index=selected;out->row[0]=row->left;out->row[1]=row->sy;
     out->scene_state=options->scene->state;out->scene_goods=options->scene->goods;
     for(int i=0;i<NG2_TILE_COUNT;i++)out->actual_gold_cells+=options->scene->tiles[i]==NG2_TILE_GOLD;
@@ -1569,6 +1620,17 @@ static int offer_footprint_coverage(const unsigned char *rgba,const RingObservat
     item_witness(rgba,row,out);
     if(out->observed_items!=3){complete=0;out->failure_flags|=NG2_RING_COV_ITEM;}
     out->non_target_items=3;
+    if(closed) {
+        /* The complete exposed-target sweep and word veto above precede
+         * closed identity. The price observer keeps its ordinary bounds. */
+        NG2ContainerMasks containers;
+        status=container_masks(rgba,options,result,&containers);if(status)return status;
+        status=container_slot(rgba,&containers,&r105_red_closed_entry,options,result,&row->slots[selected_closed]);
+        if(status)return status;
+        if(row->slots[selected_closed].ignored_container_id!=11||row->slots[selected_closed].non_target_conflict) {
+            complete=0;out->failure_flags|=NG2_RING_COV_ITEM;
+        } else {out->non_target_items=2;out->ignored_containers=1;}
+    }
     if(complete){result->coverage=NG2_RING_COVERAGE_COMPLETE;result->selected_row=selected;result->selected_partial=-1;}
     return checkpoint(options,result);
 }
@@ -1591,8 +1653,10 @@ static int coverage_witness(const unsigned char *rgba,const RingObservation *obs
     if(single||handled)return single;
     int bottom_entry=bottom_entry_coverage(rgba,observation,signs,sign_count,options,result,&handled);
     if(bottom_entry||handled)return bottom_entry;
-    int footprint=offer_footprint_coverage(rgba,observation,signs,sign_count,options,result,&handled);
+    int footprint=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,0);
     if(footprint||handled)return footprint;
+    int closed_offer=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,1);
+    if(closed_offer||handled)return closed_offer;
     const NG2Scene *scene=options->scene;NG2RingCoverage *out=&result->certificate;
     if(scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene))return NG2_RING_INVALID;
     out->scene_state=scene->state;out->scene_goods=scene->goods;out->layout_version=1;
@@ -1963,7 +2027,7 @@ static int offer_footprint_negative_certificate(const NG2RingResult *result) {
         if(!box_valid(roi)||!box_valid(board)||board[2]<18||board[2]>36||board[3]<16||board[3]>40
            ||w->board_counts[side]<150||w->board_counts[side]>board[2]*board[3]
            ||board[0]<roi[0]||board[1]<roi[1]||board[0]+board[2]>roi[0]+36||board[1]+board[3]>roi[1]+40
-           ||abs(board[0]+board[2]/2-cx)>2||abs(board[1]+board[3]/2-row->sy)>2
+           ||abs(board[0]+board[2]/2-cx)>2
            ||w->sign_iou[side]||w->sign_coverage[side]||w->board_exterior_count[side]
            ||!box_valid(end->box)||end->box[0]!=row->left+(side?96:-48)||end->box[1]!=row->sy+36
            ||end->box[2]!=25||end->box[3]!=25||end->count!=625||end->black_count<0||end->black_count>62
@@ -1972,8 +2036,13 @@ static int offer_footprint_negative_certificate(const NG2RingResult *result) {
            ||end->floor_full!=1||end->floor_upper!=1||end->floor_lower!=1||!material_floor(*end))return 0;
         for(int k=0;k<4;k++)if(w->sign_boxes[side][k]||w->board_edge_counts[side][k]||w->board_corner_counts[side][k])return 0;
     }
-    if(abs(w->board_boxes[1][0]+w->board_boxes[1][2]/2-w->board_boxes[0][0]-w->board_boxes[0][2]/2-72)>2
-       ||abs(w->board_boxes[1][1]+w->board_boxes[1][3]/2-w->board_boxes[0][1]-w->board_boxes[0][3]/2)>2)return 0;
+    NG2RingSign faces[2];
+    for(int side=0;side<2;side++) {
+        const int32_t *board=w->board_boxes[side];
+        faces[side]=(NG2RingSign){w->board_counts[side],board[0]+board[2]/2,board[1]+board[3]/2,
+            board[0],board[1],board[0]+board[2],board[1]+board[3]};
+    }
+    if(!offer_footprint_pair(&faces[0],&faces[1],row->left,row->sy))return 0;
     for(int r=0;r<result->row_count;r++)for(int s=0;s<3;s++)if(!binary_no_candidate(&result->rows[r].slots[s]))return 0;
     for(int s=0;s<3;s++) {
         if(!binary_cell_certificate(&row->slots[s],row->left+36*s,row->sy,s,w->strip_box)
@@ -1987,7 +2056,50 @@ static int offer_footprint_negative_certificate(const NG2RingResult *result) {
     return binary_cell_certificate(&result->partial[0],row->left-36,row->sy,0,w->strip_box)
         &&binary_cell_certificate(&result->partial[1],row->left+108,row->sy,0,w->strip_box);
 }
+static int red_closed_slot_proof(const NG2RingSlot *slot,const int32_t strip[4]) {
+    const int32_t *pose=slot->ignored_icon_box;
+    return slot->kind==R94_BANK_IGNORED_CONTAINER&&slot->outcome==NG2_RING_IGNORED_CONTAINER
+        &&slot->ignored_container_id==11&&!slot->non_target_id&&!slot->non_target_conflict
+        &&slot->cx>=0&&slot->cx<RING_W&&slot->sy>=0&&slot->sy<RING_HH
+        &&proof_score(slot->ignored_icon_score,.94)&&proof_score(slot->ignored_gold_iou,.94)
+        &&proof_score(slot->ignored_gold_coverage,.95)&&proof_score(slot->ignored_dark_iou,.94)
+        &&proof_score(slot->ignored_dark_coverage,.95)
+        &&box_valid(pose)&&pose[2]==36&&pose[3]==33
+        &&pose[0]>=slot->cx-26&&pose[0]<=slot->cx-10
+        &&pose[1]>=slot->sy+24&&pose[1]<=slot->sy+57
+        &&pose[0]>=strip[0]&&pose[0]+36<=strip[0]+strip[2]
+        &&pose[1]>=strip[1]&&pose[1]+33<=strip[1]+strip[3];
+}
+static void red_closed_normalize(NG2RingSlot *slot) {
+    slot->kind=NG2_RING_GENERIC_NON_TARGET;slot->outcome=NG2_RING_NON_TARGET;
+    slot->ignored_container_id=0;slot->ignored_icon_score=slot->ignored_gold_iou=slot->ignored_gold_coverage=0.0;
+    slot->ignored_dark_iou=slot->ignored_dark_coverage=0.0;
+    memset(slot->ignored_icon_box,0,sizeof(slot->ignored_icon_box));
+}
+static int closed_offer_negative_certificate(const NG2RingResult *result) {
+    const NG2RingCoverage *w=&result->certificate;
+    if(result->abi!=NG2_RING_ABI||result->size!=sizeof(*result)||result->status!=NG2_RING_OK
+       ||(result->outcome!=NG2_RING_UNKNOWN&&result->outcome!=NG2_RING_NEGATIVE)
+       ||result->coverage!=NG2_RING_COVERAGE_COMPLETE||result->row_count<1||result->row_count>4
+       ||w->policy_version!=10||w->board_mode!=10||w->non_target_items!=2||w->ignored_containers!=1
+       ||result->selected_row<0||result->selected_row>=result->row_count||!box_valid(w->strip_box))return 0;
+    int ignored=-1;
+    for(int s=0;s<3;s++) {
+        const NG2RingSlot *slot=&result->rows[result->selected_row].slots[s];
+        if(slot->ignored_container_id) {
+            if(ignored>=0||!red_closed_slot_proof(slot,w->strip_box))return 0;
+            ignored=s;
+        }
+    }
+    if(ignored<0)return 0;
+    NG2RingResult normalized=*result;
+    red_closed_normalize(&normalized.rows[normalized.selected_row].slots[ignored]);
+    normalized.certificate.policy_version=normalized.certificate.board_mode=9;
+    normalized.certificate.non_target_items=3;normalized.certificate.ignored_containers=0;
+    return offer_footprint_negative_certificate(&normalized);
+}
 int ng2_ring_negative_certificate(const NG2RingResult *result) {
+    if(result&&result->certificate.policy_version==10)return closed_offer_negative_certificate(result);
     if(result&&result->certificate.policy_version==9)return offer_footprint_negative_certificate(result);
     if(result&&result->certificate.policy_version==8)return bottom_entry_negative_certificate(result);
     if(result&&result->certificate.policy_version==7)return single_sign_negative_certificate(result);

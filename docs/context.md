@@ -6,6 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
+| TEST105の商品判定・開扉後継続 | [計画](plans/test105-goods-and-continuation.md)・[検証](reviews/test105.md) | 看板上部成分、閉容器の正の識別、保護halo上の新GOLD再判定。元期限/対象探索を維持 |
 | TEST104の上部入口・商品被覆・候補 | [計画](plans/test104-shop-continuation.md)・[検証](reviews/test104.md) | 最新source再判定、policy9、観測口116。旧期限/候補保持を維持 |
 | TEST103の遮蔽・静止・商品coverage | [計画](plans/test103-observation-coverage.md)・[検証](reviews/test103.md) | ACK内UNKNOWN待機、plural資格、policy7/8、C独立証明 |
 | TEST102の入店継続・陰性周回 | [今回計画](plans/test102-shop-entry-cycle.md)・[検証](reviews/test102.md) | 実footprint/通路framing、policy6、正常分類→保存→再開。[前版101](reviews/test101.md) |

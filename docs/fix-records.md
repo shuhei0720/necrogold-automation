@@ -359,3 +359,11 @@ TEST103の4runを全照合。開扉後停止は3run、完全判定不成立は1r
 | FR-104-LOWER-BRIDGE | 2026-11-15 | 追加観測のレビューで、data-only FULL差替え後に位置資格を再獲得できる条件を検出 | 旧source→新FULLの零変位確認がなく、新source同士の零比較だけで元world offsetを維持 | 不明/非零bridgeで資格をsticky無効化。datajob/対象・候補/独立陰性は保持し、新UNKNOWNからMOVEへ戻さない。実MOVEDだけ進捗 | direct/queuedの意味Red 1method/2assert失敗・error0→開発3件成功。既StopDetailへ元pairを保存しUNKNOWN保持時だけ凍結。追加9＋直接13＝22件が最終同sourceで成功。実機未確認 | 配布前レビュー1。既entryと同型の資格不足で、過去対策を改善完了と扱わない |
 
 TEST104/build198最終確認: CODE47e695eの現Cを含む140件/29scope・IPA作成・実物5gate/5attemptが成功。初期C32(d886)と追加C22(e336)の作者履歴を区別し、最終CIで旧32も現Cへ結合した。単体/校正/CI/配布物の成功を実機改善完了へ変更せず、各行の実機未確認/再発数を維持する。
+
+## TEST105の対策（実機改善未確認）
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-105-PROTECTED-WALL | 2026-11-15 | TEST104実3で開扉後、全商品可視前に停止 | 正常PARTIAL後の178→180で、ITEM投影の保護と重なる遠方UNKNOWN/DOOR→GOLDを旧静的関係と104のdata refreshが拒否。strict零・同Decision・ITEM/全保護/既金・両3×3は維持 | 同方向開扉ACK・遠方・UNKNOWN/DOOR→GOLDだけ最新通常jobへ。旧credit/確実未送信票撤回、新結果＋別strict零・元prefix/親期限を保持 | [計画](plans/test105-partial-wall-refresh.md)。意味Red1→新4＋直接旧15の作者検証成功。原pairの通常Motion/choose校正と、公開Cの手続き的な再判定/独立零/実MOVED/最新jobを区別。次画像や実機到達は未確認 | 同材質系列の今回1。旧非保護金壁対策の削除回帰とは未確認、通算未集計 |
+| FR-105-SIGN-FRAGMENT | 2026-11-15 | TEST104実1で3商品が見えるが次周回へ進まない | 表示名の重なりで右SIGNが上端だけ残り、旧両中心y一致が不成立。通常UNKNOWNのためRESTART未発行 | 正常な片側看板と同じ上端・幅差2以内の実成分で商品行を固定する別の正の証明。既寸法/画素数・全商品帯の対象探索・価格/床/保護を維持し、Cも独立検査 | [計画](plans/test105-offer-proof.md)。Ring/Cの意味Red→正常producerから保存・intent・RESTART ACK・次floorまでの手続き的試験。最終統合と原画像校正は今回レビューへ記録、実機改善は未確認 | 今回この条件1。FR104商品不明の同症状継続、同一原因の通算は未集計 |
+| FR-105-CLOSED-PRICE-FLOOR | 2026-11-15 | TEST104実2で価格まで見えるが次周回へ進まない | 閉じた赤色宝箱の直下セルがUNKNOWNで旧3価格床証明が拒否。既灰黒/紫の容器featureとも不一致 | native限定の閉じた赤色容器の正の識別と別policy10を追加。識別された1容器だけ直下UNKNOWNを許し、通常商品の床/全対象探索/候補保持・既閾値を維持。元Sceneを補完せず開封/購入しない | Ring/Cの意味Red、3slotの正常producer接続、欠損/色/形状/価格/対象/候補/証明偽造の拒否。最終結果と原270の校正は今回レビューへ記録。1run校正で未知精度/実機改善は未確認 | 今回この条件1。旧床証明対策の削除回帰とは未確認、同症状の通算は未集計 |

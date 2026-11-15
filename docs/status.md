@@ -1,13 +1,11 @@
 # 最新状態
 
-更新: 2026-11-15（日本時間）。TEST104/build198は最終選択CI140件/29scope・IPA作成・実物5gate成功。修正後の実機改善は未確認。[計画](plans/test104-shop-continuation.md)・[受領/検証](reviews/test104.md)・[修正表](fix-records.md)。
+更新: 2026-11-15（日本時間）。TEST104の3実行・73PNGを全照合し、TEST105を修正中。[今回計画](plans/test105-goods-and-continuation.md)・[受領/検証](reviews/test105.md)・[修正表](fix-records.md)。
 
-TEST103の4run/99PNGを全照合。上部入口3停止は、遠方材質差で旧移動資格を撤回し最新画像へ再判定。下の商品・価格が見切れる場合は、全potentialから必要DOWN数と元親期限を固定し、各最新判定/独立零/実MOVEDを確認して進む。全商品帯のpolicy9と観測口116も修正。対象はのろいのゆびわだけ、候補/未観測は保持する。
+実1/2は正常な商品UNKNOWNを採用し、RESTART命令自体なし。実1は名前による看板成分の欠け、実2は閉容器の価格直下の粗いセルUNKNOWNが完全性証明を拒否。実3は開扉後、商品保護haloと重なる新GOLDでdata refreshが拒否。対象/候補や未観測を陰性にせず、各拒否条件とC独立証明を修正する。実機改善完了ではない。
 
-初期C32件(d886)と追加C22件(e336)、Ring61件、Nav23件の作者証跡を区別し、最終CIは現Cを含む140件が成功。3/7ITEM投影から全商品可視→通常判定→保存/リスタート/次floorの制御試験も成功。原205の通常分類は約41ms、そのResultの公開C採用はd886時点の校正。C9証明body不変、現Cの通常producer接続は最終CIで確認。実ゲーム再現・未知精度の証明とはしない。
+Controller/Ringの局所とnative限定derived feature・必要な選択CI/番号入口が今回scope。Perception/Navigation/Runtime/公開ABI・16入力/12restart・45秒walk/180秒session・UNKNOWN無再送・全画像/ZIP照合は維持。旧単体成功を改善完了と扱わない。
 
-native変更はController/Navigation/Ringの3、残33/Core ABI/Perception/Runtime/旧1..8・旧assert・canonical15/ELF/G1/R12/共有099は保持。16入力/12restart・45秒walk/180秒session・UNKNOWN無再送・全画像/ZIP照合を維持。毎拍/人超え速度・耐久・一部の過去停止は未確認。
+前配布TEST104/build198（CODE47e695e）は[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test104-build198/LoopCtrl.ipa)・[source](https://github.com/shuhei0720/necrogold-automation/releases/download/test104-build198/source.zip)。CI140件と5gate/匿名全GETは成功したが、今回3実行で未解消の停止を確認した。毎拍/人超え速度・未知精度・耐久は未受入。
 
-[新IPA198](https://github.com/shuhei0720/necrogold-automation/releases/download/test104-build198/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test104-build198/source.zip)・[SHA一覧](https://github.com/shuhei0720/necrogold-automation/releases/download/test104-build198/SHA256SUMS.txt)。固定公開済み。匿名全GET200/全bytes/hash/API digest/tag一致を確認。
-
-次はIPA更新・LoopCtrl完全再起動・Start Server/通知/通常VPN、通常1-1ポーズから sh test_104.sh --until-target。候補探索→入店→下側を含む3商品確認→対象なし次周回を確認し、全画像/ZIP照合後の表示campaign ZIPを返却、全run原本を保持。[索引](context.md)。
+TEST105は変更部の単体/直接回帰と独立レビュー・新IPA/同一性照合・固定Releaseの後、通常1-1ポーズから候補探索→入店→下側を含む3商品確認→対象なし次周回を実機依頼する。まだ配布前。[索引](context.md)。
