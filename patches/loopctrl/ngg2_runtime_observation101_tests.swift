@@ -77,6 +77,13 @@ func testFullFraming101(_ root: URL) throws {
         // The only 2.2s history setup precedes the first image/ticket, inside
         // the unchanged activation3s/no-Scene4s guards. No deadline is edited.
         if advance { clock.advance(2_200_000_000) }
+        let proof = framing101Proof()
+        if proof.ack_prefix == 4 {
+            // Capture admission also runs while C awaits this ACK's image.
+            // First cross target+80ms; after actual UNKNOWN leave 60ms for
+            // the next capture, beyond this fixture's 520ms-period/10 gate.
+            clock.reach(proof.target_ns+80_000_000+(proof.unknown_seen == 1 ? 60_000_000 : 0))
+        }
     }
     NG2RuntimeCycleTestHooks.rgba = { _ in
         ng2_framing101_clock(NG2Runtime.now())
@@ -119,8 +126,6 @@ func testFullFraming101(_ root: URL) throws {
             let paused = prefix == 2 && input == 0 && !pauseSettled
             if resume { resumeSettled = true }; if paused { pauseSettled = true }; gate.unlock()
             if resume || paused { clock.advance(220_000_000) }
-        } else if proof.ack_prefix == 4 && proof.unknown_seen == 0 {
-            clock.reach(proof.target_ns+80_000_000)
         } else if proof.move_id == 0 {
             let target = UInt64(max(0,value["next_target_ns"]?.intValue ?? 0))
             let lead = UInt64(max(0,value["lead_ns"]?.intValue ?? 0))
