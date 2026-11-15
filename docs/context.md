@@ -6,7 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
-| TEST101の観測継続・移動確認 | [今回計画](plans/test101-observation-continuation.md)・[検証](reviews/test101.md) | 上端投影/credit後再検査、first-gold、FULL追加観測、policy5、元画像保持。[前版100](reviews/test100.md) |
+| TEST102の入店継続・陰性周回 | [今回計画](plans/test102-shop-entry-cycle.md)・[検証](reviews/test102.md) | 実footprint/通路framing、policy6、正常分類→保存→再開。[前版101](reviews/test101.md) |
 | TEST093の開扉後の入店 | [計画](plans/test093-opened-entry.md)・[受領/検証](reviews/test093.md) | 新CのFRESH/未送信回復と旧関連だけ。Runtime092は不変bytes/過去証跡 |
 | 現在の不具合・今回の計画 | statusの結果と計画リンク | [検証の区分](testing.md)、該当する受領記録 |
 | 修正前の過去対策・再発照合 | [修正記録表](fix-records.md) | 同じ事象/原因を検索。過去の対策を改善完了と扱わない |

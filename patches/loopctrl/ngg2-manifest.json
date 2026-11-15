@@ -67,7 +67,7 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "4101c6e4fa06d488aead1bad01b338f30afee328e99d66281c997ad643a8c63e"
+      "sha256": "8c74aa3e931d732af3d88dc52c080ad7c04b2ba9bc1607258cbe9e5df1ea5b11"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
@@ -107,7 +107,7 @@
     },
     "LoopCtrlUITests/NG2Ring.c": {
       "source": "NG2Ring.c",
-      "sha256": "51eb3dcd5ae3f12f2ac8f39465efaa6b1da93ec516302fd9526a4e812f69e0d1"
+      "sha256": "96952d237fc84ad21be97ffbac7b02a70c35a3003d9dea6d4fe98d3c3fa38977"
     },
     "LoopCtrlUITests/NG2Ring.h": {
       "source": "NG2Ring.h",
