@@ -4,10 +4,10 @@
 
 停止原因はCLEAR通路の静止資格不足、ACK待機中のicon一時遮蔽、同列入口/片看板、遮蔽後に残る下入口商品のcoverage不足。元期限・確実未送信world保持下の別plural補助、UNKNOWNで新入力せず同ACK確認待ち、別policy7/8の固定壁/実看板/完全商品帯とC独立検査を追加した。候補/未観測は保持し、対象はのろいのゆびわだけ。
 
-C最終40件成功、Nav29件はO0/strict O2成功。Ring59fcの53成功後、numeric7半セル検査P2だけ修正して関連3件成功、独立確認GO。元商品画像494/281は通常判定で完全陰性約38ms、最終Cへも採用された。元時刻の正規化/prefix0を伴う校正で、実履歴や端末Runtimeの再現ではない。選択CI128件/23scope・IPA作成・実物5gate成功。固定公開は公開後に記録する。
+C最終40件成功、Nav29件はO0/strict O2成功。Ring59fcの53成功後、numeric7半セル検査P2だけ修正して関連3件成功、独立確認GO。元商品画像494/281は通常判定で完全陰性約38ms、最終Cへも採用された。元時刻の正規化/prefix0を伴う校正で、実履歴や端末Runtimeの再現ではない。選択CI128件/23scope・IPA作成・実物5gate成功。固定公開・匿名全GET200/全bytes/hash/tagも成功。
 
 native36の変更はController/Navigation/Core/Ringだけ。Coreはprototype追加、旧ABI構造/旧Motion/singleton/旧policy/旧assert、残32native/Perception/Runtime/canonical15/ELF/G1/R12/共有099は保持。Mac191は旧C4101の歴史的部品試験。新Runtime/Mac部品試験は追加しない。16入力/12restart・45秒walk/180秒session・UNKNOWN無再送・全画像/ZIP照合を維持。
 
-[新IPA196](https://github.com/shuhei0720/necrogold-automation/releases/download/test103-build196/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test103-build196/source.zip)・[SHA一覧](https://github.com/shuhei0720/necrogold-automation/releases/download/test103-build196/SHA256SUMS.txt)。固定公開と匿名全GET/hash/tagは公開後に記録する。
+[新IPA196](https://github.com/shuhei0720/necrogold-automation/releases/download/test103-build196/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test103-build196/source.zip)・[SHA一覧](https://github.com/shuhei0720/necrogold-automation/releases/download/test103-build196/SHA256SUMS.txt)。固定公開・匿名全GET200/全bytes/hash/tagも成功。
 
 次はIPA更新・LoopCtrl完全再起動・Start Server/通知/通常VPN、通常1-1ポーズから完全sourceの sh test_103.sh --until-target を実行。候補探索→入店→全商品確認→対象なしなら次周回を確認し、全画像/ZIP照合後の表示campaign ZIPを返却、全run原本を保持。毎拍/人超え速度/未知精度/耐久、旧097実1/098の未確定停止、遅延positive通知P1/native旧ledger整理P2は継続。[索引](context.md)。

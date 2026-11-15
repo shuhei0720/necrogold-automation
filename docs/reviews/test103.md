@@ -70,3 +70,11 @@ package/host/retained/macho/compileの五つの読取照合が成功。native36/
 | compile | `c08ad4af6581b71be0cc4cc7bfdc4b3a60b9ed141bf660580a9abf5a010b4311` |
 
 修正後実機の到達率・次周回・毎拍/人超え速度・未知精度/耐久は未確認。固定Release `test103-build196` の匿名全GET/全bytes/hash/tagは公開後に追記する。
+
+## 固定公開の完了
+
+公開197/run43686972671成功。Release445865434、固定tag `test103-build196` は終了資料だけを加えた `1a6903a30cee5022ce902bc72e405a2f10970db5` を指す軽量tagで、CODEec14との差分はdocsの3ファイルだけ。完全sourceは908ファイル/9,107,306 bytes、SHA256 `fe032d7e0828896c4c7a5f26181c067d2458b2b3ab073e41397d8911f5118f7f`、全Git bytes/CRC一致。
+
+[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test103-build196/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test103-build196/source.zip)・[SHA一覧](https://github.com/shuhei0720/necrogold-automation/releases/download/test103-build196/SHA256SUMS.txt)を匿名で全GET200、全bytes/サイズ/SHA/API asset digestとtag commitが一致。公開照合receipt SHA256 `61b32774f9c6c6b5f512aad41639aae2dd2746e78da5907a0ffb24e70e510d4b`。この追記はdocsだけで公開asset/tagを変更していない。
+
+次はIPA更新・LoopCtrl完全再起動後に、通常1-1ポーズから `sh test_103.sh --until-target` の実機テストを依頼する。候補探索→入店→全商品確認→対象なし次周回を確認し、全画像/ZIP照合完了後に表示campaign ZIPを返却、全run原本を端末に残す。修正後の実機改善は未確認のまま保持する。
