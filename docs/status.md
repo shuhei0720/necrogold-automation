@@ -8,6 +8,6 @@
 
 Runtime/Nav/Perception/header/旧ABI/保護資産/共有099 engineは不変。新しいRuntime/Mac部品試験は追加せず、Mac191は旧C4101の歴史的部品試験として扱う。16入力/12restart・45秒walk/180秒session、候補保持、UNKNOWN無再送、全画像/ZIP照合を維持する。対象はのろいのゆびわだけ。
 
-[新IPA194](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/source.zip)・[SHA](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/SHA256SUMS.txt)。固定公開と匿名全GET/hash/tagは公開後に確認記録を追記する。旧101の証跡は[101検証](reviews/test101.md)に保存する。
+[新IPA194](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/source.zip)・[SHA](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/SHA256SUMS.txt)。固定公開・匿名全GET200/全bytes/hash/tag照合も成功。旧101の証跡は[101検証](reviews/test101.md)に保存する。
 
 IPA更新・LoopCtrl完全再起動・Start Server/通知/通常VPN、通常1-1ポーズから完全sourceの sh test_102.sh --until-target を実行。候補探索→入店→全商品確認→対象なしなら次周回を確認し、全画像/ZIP照合後の表示campaign ZIPを返却、全run原本を保持。毎拍/人超え速度/未知精度/耐久、旧097実1/098の未確定停止、遅延positive通知P1/native旧ledger整理P2は継続。[索引](context.md)。

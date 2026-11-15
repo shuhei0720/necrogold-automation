@@ -80,3 +80,11 @@ IPAは18,039,374 bytes、build194、SHA256 `cf6a59a7aec231be04ce1328817a6f6585ae
 | compile | `ef0c8ba549aa7ce7f07c1c8bb34dda937c0d6e4643f4d32961bc433cb97544f1` |
 
 試験コードを固定後、終了資料だけのcommitを完全sourceへ含めて固定Release `test102-build194` に公開する。匿名全GET/hash/tagの成功は公開後に別記する。IPAの追加試験を未実施なのに成功扱いせず、実機では候補探索→入店→全商品確認→陰性なら次周回を依頼する。
+
+## 固定公開の確認
+
+公開195/run43677048032はdocs-only closing `44eceaed8a0b0c8b87fe6b5c5b1a4020e9bf5b9a`で成功。Release445809605/tag `test102-build194`、軽量tagのcommitとtargetを照合した。CODE0efからの差分は終了資料3ファイルだけ。完全sourceは895ファイル/9,051,528 bytes、SHA256 `6ebaba0e080035446d4edf0a3ffbbf60946250a14596559f1cea2e70ba3ba01a`、全Git bytes/CRC一致。
+
+[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/source.zip)・[SHA一覧](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/SHA256SUMS.txt)の3固定assetを匿名全GET200で取得し、全bytes/サイズ/SHA/API digestが一致。公開照合receipt SHA256 `6d4a45353c4f906a8395dd46d0f2e616dc6763baa41b65981bb367d6b4f1af3f`。この追記は終了資料だけで、公開asset/tagは変更していない。
+
+次はIPA更新・完全再起動後にTEST102 `--until-target` を実機で依頼する。修正後の到達・陰性次周回・速度・精度・耐久は未確認のまま、既存失敗と再発数を維持する。
