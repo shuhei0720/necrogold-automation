@@ -119,11 +119,18 @@ class NativeOfferCoverage104Tests(unittest.TestCase):
     def test_raw_caps_prices_extra_groups_and_lower_container_price_remain_observed(self):
         for kwargs in ({'missing_price':1},{'missing_wall':True},{'extra_object':True}):
             self.assertNotEqual(3,self.assess(self.pixels(**kwargs))[1].outcome)
-        # This public container sprite has white body trim wider than a price
-        # inside the price band; its extra group must remain uncertain.
+        # The registered gray body has known white trim and its complete
+        # actual price reaches y132 inside the already swept B strip. Version2
+        # positively explains both; the old version still cannot certify it.
         status,result=self.assess(self.pixels(closed_container=True))
-        self.assertEqual((0,0,9),(status,result.outcome,result.certificate.policy_version))
-        self.assertGreater(result.certificate.unmatched_prices,0)
+        self.assertEqual((0,3,9,2),(status,result.outcome,result.certificate.policy_version,
+            result.certificate.layout_version))
+        self.assertEqual(9,result.rows[result.selected_row].slots[2].ignored_container_id)
+        self.assertEqual((405,126,11,7),tuple(result.certificate.price_boxes[2]))
+        self.assertEqual(0,result.certificate.unmatched_prices)
+        self.assertEqual(1,self.lib.ng2_ring_negative_certificate(C.byref(result)))
+        previous=Result.from_buffer_copy(result);previous.certificate.layout_version=1
+        self.assertEqual(0,self.lib.ng2_ring_negative_certificate(C.byref(previous)))
         pixels=bytearray(self.pixels());white=[]
         for y in range(121,128):
             for x in range(405,416):

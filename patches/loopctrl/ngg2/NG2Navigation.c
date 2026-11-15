@@ -354,6 +354,33 @@ static int passage_observed_upper_vantage(const NG2Scene *s,const Path route[CEL
         &&passage_clear(s,-2,-4)&&passage_clear(s,-2,-2)
         &&route[vantage].cost!=INF_COST&&route[vantage].length==3;
 }
+/* Independent left boundary ends can support a nearer observed FLOOR view.
+ * All dark cells retain their meaning; the initial world mouth is fixed and
+ * the unchanged chooser must stop before unobserved terrain. */
+static int passage_left_view_support(const NG2Scene *s,const Path route[CELLS],
+    const int walls[][2],int wall_count,const int dark[][2],int dark_count,int vy) {
+    int i,x,y,vantage=index_of(-2,vy);
+    if(s->gold_state!=NG2_GOLD_CLEAR)return 0;
+    for(i=0;i<CELLS;++i)
+        if(s->protected_cells[i]||s->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(i=0;i<wall_count;++i)if(!passage_wall(s,walls[i][0],walls[i][1]))return 0;
+    for(i=0;i<dark_count;++i)if(tile(s,dark[i][0],dark[i][1])!=NG2_TILE_UNKNOWN)return 0;
+    for(y=-1;y<=0;++y)for(x=-1;x<=0;++x)
+        if(tile(s,x,y)!=NG2_TILE_FLOOR)return 0;
+    return tile(s,-2,0)==NG2_TILE_FLOOR&&tile(s,-2,vy)==NG2_TILE_FLOOR
+        &&route[vantage].cost!=INF_COST&&route[vantage].length==3;
+}
+static int passage_observed_left_vantage(const NG2Scene *s,const Path route[CELLS]) {
+    static const int walls[][2]={{-4,-3},{-3,-3},{-2,-3},{-3,-1},{-3,0},{-3,1},{-3,2}};
+    static const int dark[][2]={{-4,-2},{-2,-2}};
+    return tile(s,-3,-2)==NG2_TILE_FLOOR
+        &&passage_left_view_support(s,route,walls,7,dark,2,-1);
+}
+static int passage_split_left_vantage(const NG2Scene *s,const Path route[CELLS]) {
+    static const int walls[][2]={{-3,-3},{-3,-2},{-5,1},{-5,2},{-4,2},{-3,2},{-3,3}};
+    static const int dark[][2]={{-3,-1},{-3,0},{-3,1},{-4,1}};
+    return passage_left_view_support(s,route,walls,7,dark,4,1);
+}
 /* The lower-left exterior FLOOR can be visible beyond an opaque boundary.
  * Keep that disconnected floor and the mouth's wall unchanged; only the
  * current short inside FLOOR approach gains this fixed-world hypothesis. */
@@ -379,6 +406,8 @@ uint32_t ng2_passage_candidates(const NG2Scene *s) {
     if(passage_shadow_vantage(s,route)||passage_split_shadow_vantage(s,route))result|=UINT32_C(1);
     result|=passage_occluded_corner_vantage(s,route);
     if(passage_observed_upper_vantage(s,route))result|=UINT32_C(1);
+    if(passage_observed_left_vantage(s,route))result|=UINT32_C(1)<<5;
+    if(passage_split_left_vantage(s,route))result|=UINT32_C(1)<<8;
     if(passage_lower_fringe_vantage(s,route))result|=UINT32_C(1)<<9;
     for (side=0;side<2;++side) for (k=-2;k<=2;++k) {
         int mx=side ? -3 : k,my=side ? k : -3,dx=side ? -1 : 0,dy=side ? 0 : -1;
