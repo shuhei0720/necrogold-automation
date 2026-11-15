@@ -341,3 +341,7 @@ FR-076/082の未送信静止、FR-066/084のicon、FR-100/101/102の完全判定
 | FR-103-NUMERIC-MAPPING | 2026-11-15 | policy7の数値証明だけがproducer外の半セルrowを受ける条件をレビューで検出 | validatorでproducer/Cと同じ両軸mapping・支持範囲を再検査していない | 同じ有限条件を追加し、全座標+55の変造を拒否。producerと旧policyは不変 | 意味Red1→限定3Green、既2Result pure検証成功。C独立拒否がありUI解放には至らないP2、独立確認で解消 | レビュー検出1、実機再発ではない |
 
 TEST103確認追記: C最終40成功、Nav29はO0/strict O2成功。Ring59fcの53成功＋numeric7限定差分3成功を区別し、最終128件/23scopeをCIで確認する。元494/281の通常完全陰性とC公開採用は校正、元141149の新補助資格も校正で、各行の修正後実機改善は未確認のまま。再発数を0へ戻さない。
+
+| FR-103-DELIVERY-METADATA | 2026-11-15 | host照合が表示labelと正規license資料で終了 | root作者metadataが表示labelを持たず、readerの拡張子制限が2license名を想定していない | 検証済green_scope表示fallback、2basenameだけの文書許可。canonical path/SHA/上限/specは維持 | 独立静的確認後、package成功を再利用しhost/未実施だけ再開。5種類/7attempt成功、検査の追加実行0 | 今回の配布補助2条件。FR101のGreen行照合とは別原因、実機再発ではない |
+
+TEST103/build196確認: 最終同CODEの128件/23scope・IPA作成・実物5gate成功。修正後の実機改善は未確認のまま保持する。

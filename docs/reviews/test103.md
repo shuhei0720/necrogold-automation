@@ -52,3 +52,21 @@ C新24＋直接関連16の40件を最終同sourceで一度実行し成功（69.2
 証拠の限界: Nav Redの実行時Nav/Core/generated shimとbefore receiptは保存済みだが、編集前Python assertion moduleはhashのみで別copyを保存していなかった。完全なPython/compiler bundleと偽らず、named inputsの保持として記録する。旧Redの再測定やsource再構成は行わない。最終Python sourceとcompiler入力のhash/実行は別に結合する。
 
 TEST103の薄entryは番号だけ変更、共有099 engine不変。実Python3.9と開発Pythonで--check、shell構文が成功。選択CIは一意product122件/22scope（新46/関連76）とselector6＝128件/23scope。CI定義169保護sourceはbaselineと全bytes一致、native/source/成果物の確認を行う。新しいRuntime/Mac部品試験や全合成worldは変更範囲外なので再実行せず、Mac191/C4101は歴史的証拠だけとする。IPA作成・実物照合・固定公開はこれから。修正後の実機到達率/速度/精度/耐久は未確認。
+
+## DEVICE196と配布物の照合
+
+DEVICE196/run43685183886、CODE `ec14bbb5f7128e266039603476a00c2301bdca25` は成功。最終同CODEで一意128件/23scope（product122/新46・関連76＋selector6）すべて実行成功、skip/error0。新しいRuntime/Mac部品試験は追加せず、IPA自体はmacos-26で実ビルドした。
+
+未署名IPAはbuild196、18,045,643 bytes、SHA256 `55e554e191c5b728e3f4ed5a5b8a61e0d1e2ecd4b90af7cec3619e00ec858bf4`。原artifact IDはunsigned14150941276/validation14151025885/host14150675486。API digest・全ZIP bytes/CRC/path/重複/Info.plistを照合。CODE完全sourceは908ファイル/9,105,876 bytes、SHA256 `4151952d5a398f3b50dfe8c60c27e5a2f2314015998405715767ac1dcef4c503`、全Git bytes一致。公開sourceは終了資料だけを加えたcommitから作る。
+
+package/host/retained/macho/compileの五つの読取照合が成功。native36/変更4、1691 marker（旧1620＋新71）、9 Mach-O、実C8/Swift5とcompiler response/filelist/profile・seal来歴を照合した。照合時の追加semantic/compiler/classifier実行0。最初のhostはroot記録の表示label不足、次は凍結した正規Zig-LICENSE/musl-COPYRIGHTのsuffix外で拒否。表示labelに既検証green_scopeを使い、2ライセンス名だけを許可する狭いreader差分を独立確認後、passed packageを再利用して未完了だけ再開した。失敗履歴を保存し、5種類/7attemptを区別する。spec/source/CI/権限/元bytes条件は変えていない。
+
+| 照合 | receipt SHA256 |
+| --- | --- |
+| package | `7da6e61c28cd828b590f36f82cf62f4581c374608aa682f12a8f98fa4b77b6cc` |
+| host | `e4886a981168cc0fea06ef9826663790f963a85916019ce8b6b7670b9673a8e0` |
+| retained | `09518670b67a536d6b1bfda62e55618fa47d4eb6ce7782151345889a25cb7400` |
+| macho | `ee22d8ea0b8b1b8cf8aa2ffaf53df9049518bea507731c900b93dc3bfb5d7249` |
+| compile | `c08ad4af6581b71be0cc4cc7bfdc4b3a60b9ed141bf660580a9abf5a010b4311` |
+
+修正後実機の到達率・次周回・毎拍/人超え速度・未知精度/耐久は未確認。固定Release `test103-build196` の匿名全GET/全bytes/hash/tagは公開後に追記する。
