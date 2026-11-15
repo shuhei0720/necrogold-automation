@@ -25,3 +25,13 @@
 最終製品はC `d2471675` / Ring `c39f67f3` / Nav `498760ef`。C継続33件の作者成功は中間Cの履歴で、最終sourceのCIで再結合する。Ringの関連19件は18成功と、新しいfixture期待を修正した1件の再実行成功を合成した記録であり、19件一括成功とは書かない。新価格C16件とNav26件は最終sourceで成功。旧104灰色閉容器の1期待値のみ、新たな正の版2証明の成功と、同値の旧版1拒否を検査する形へ更新し、他の旧assert/メソッドは保持した。
 
 独立担当がbaseline4d084b55からC/Ring/Nav・5新試験・旧104の正当な1期待更新・選択CI156件/24scope・配布境界をsource-onlyで確認し、未解決P0/P1なし。FRESH/旧親期限一用、版2の正の閉容器識別と実価格、対象優先、候補の既知床3歩を確認した。Perception/Runtime/Wire/公開ABI・全既featureはbaselineと同一bytes。レビュー自身によるnative/compile/classify/Perception/input実行は0。選択CI・IPA/compiler/配布物の確認はこの後のrelease gateで行う。実機改善/未知精度/人超え速度は未受入。
+
+## 最終CIと実物照合
+
+CODE `c18427f7cf1111303c0f00a933434fa138ad0a67` の[device CI202](https://github.com/shuhei0720/necrogold-automation/actions/runs/43719819990)は選択156件/24scopeが失敗・skipなしで成功し、同sourceの未署名IPAを作成した。作者の中間成功を、この最終同sourceの実行へ結合した。無関係な全Runtime/合成world・実ゲームE2Eは実行していない。
+
+ダウンロードした3artifactとbuild202 IPAのCRC/安全path/hash・封印36source・実compiler・Mach-O・全保持source・最終CIを実物5gateで照合済み。IPAは18,059,193 bytes、SHA256 `a11937819625adfec81e4f7b46fd152c6c85debb45bad1b8de4f5ac62f691cc5`。CODEの完全source ZIPは947 tracked files、全bytes/CRC一致。
+
+照合helperのretained gateで、native辞書をファイルbytesで上書きするTypeErrorが1回発生した。loop内の変数名だけを改め独立差分確認し、成功したpackage/host gateは再利用、失敗retainedと未実施2gateだけを再開した。全5種類/6attemptが成功。製品/IPA/specは不変、追加のnative/test/compiler/classifier実行0。失敗履歴は保持した。これは配布前helperの不備で、実機再発数へ加えない。
+
+固定Releaseの公開と匿名GETは次工程。修正後の実機到達率・未知配置精度・毎拍/人超え速度は未確認のまま保持する。
