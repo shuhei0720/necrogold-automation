@@ -1982,6 +1982,65 @@ int ng2_clear_singleton_stationary_zero(const NG2Scene *a,const NG2Scene *b,int3
         &&clear_singleton_zero_numeric(&evidence);
     free(views);return result;
 }
+/* A definitely-unsent fixed-world wait can retain plural old terrain while
+ * smooth illumination changes phase by one signature pixel (four display
+ * pixels). Raw and supported signed axes must independently prefer zero.
+ * This caller-owned qualification never writes a Motion or grants a step. */
+static int clear_plural_zero_scene(const NG2Scene *a,const NG2Scene *b,int direction) {
+    int i,x,y,center,dx,dy;
+    if(!valid_scene(a)||!valid_scene(b)||direction<1||direction>4
+        ||a->gold_state!=NG2_GOLD_CLEAR||b->gold_state!=NG2_GOLD_CLEAR
+        ||a->goods!=NG2_GOODS_UNKNOWN||b->goods!=NG2_GOODS_UNKNOWN)return 0;
+    dx=ddx[direction];dy=ddy[direction];
+    if(tile(a,0,0)!=NG2_TILE_FLOOR||tile(b,0,0)!=NG2_TILE_FLOOR
+        ||tile(a,dx,dy)!=NG2_TILE_FLOOR||tile(b,dx,dy)!=NG2_TILE_FLOOR)return 0;
+    for(i=0;i<CELLS;++i)if(a->protected_cells[i]||b->protected_cells[i]
+        ||a->tiles[i]==NG2_TILE_GOLD||b->tiles[i]==NG2_TILE_GOLD
+        ||a->tiles[i]==NG2_TILE_DOOR||b->tiles[i]==NG2_TILE_DOOR
+        ||a->tiles[i]==NG2_TILE_ITEM||b->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(center=0;center<2;++center)for(y=-1;y<=1;++y)for(x=-1;x<=1;++x)
+        if(tile(a,x+center*dx,y+center*dy)!=tile(b,x+center*dx,y+center*dy))return 0;
+    return unique_visible_terrain_translation(a,b,0,0);
+}
+static int clear_plural_zero_numeric(const Candidate candidates[73],const ClearSingletonZeroEvidence *e) {
+    int i,unit=-1;
+    if(!isfinite(e->blur_zero)||e->blur_zero>.45)return 0;
+    for(i=1;i<73;++i){
+        double score=e->blur_other[i-1];
+        if(!isfinite(score))return 0;
+        if(score<=e->blur_zero){
+            if(unit>=0||abs(candidates[i].sx)+abs(candidates[i].sy)!=1)return 0;
+            unit=i-1;
+        }
+    }
+    /* texture_lead accepts unsupported competitors; this one must instead
+     * have positive support before its existing 15-point comparison. */
+    if(unit<0||e->axis_other_support[unit]<300)return 0;
+    if(!texture_strength(e->world_support,e->world_bad,95)
+        ||e->world_regions[0]<100||e->world_regions[1]<100
+        ||!texture_strength(e->axis_support,e->axis_bad,75)
+        ||e->axis_regions[0]<100||e->axis_regions[1]<100)return 0;
+    for(i=0;i<72;++i)if(!texture_lead(e->axis_support,e->axis_bad,
+        e->axis_other_support[i],e->axis_other_bad[i]))return 0;
+    return 1;
+}
+int ng2_clear_plural_stationary_zero(const NG2Scene *a,const NG2Scene *b,int32_t direction) {
+    View *views;Candidate candidates[73];ClearSingletonZeroEvidence evidence;
+    int amount,d,n=1,result;
+    if(!clear_plural_zero_scene(a,b,direction))return 0;
+    views=(View*)malloc(2*sizeof(*views));if(!views)return 0;
+    view(a->signature,views);view(b->signature,views+1);
+    candidates[0].sx=candidates[0].sy=0;candidates[0].score=intensity(views,views+1,0,0);
+    for(amount=1;amount<=18;++amount)for(d=1;d<=4;++d){
+        candidates[n].sx=amount*ddx[d];candidates[n].sy=amount*ddy[d];
+        candidates[n].score=intensity(views,views+1,candidates[n].sx,candidates[n].sy);++n;
+    }
+    qsort(candidates,73,sizeof(*candidates),ranked);
+    result=clear_singleton_zero_raw(candidates)
+        &&clear_singleton_zero_evidence(a,b,views,candidates,&evidence)
+        &&clear_plural_zero_numeric(candidates,&evidence);
+    free(views);return result;
+}
 /* A unit may reveal a side gate while only one old STONE remains observable.
  * Gold/stone/dirt identify the unique old-world placement; new cells never
  * supply anchors. This recognizes a past step, not another input or entry. */

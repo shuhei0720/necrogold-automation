@@ -63,6 +63,9 @@ uint32_t ng2_passage_candidates(const NG2Scene *scene);
 int ng2_choose_passage(const NG2Scene *scene, int32_t x, int32_t y,
                       int32_t mouth_x, int32_t mouth_y, NG2Decision *out);
 int ng2_motion(const NG2Scene *before, const NG2Scene *after, int32_t direction, NG2Motion *out);
+/* Read-only zero qualification for the caller's definitely-unsent fixed-world
+ * CLEAR passage wait. It grants no motion credit or input authority. */
+int ng2_clear_plural_stationary_zero(const NG2Scene *before, const NG2Scene *after, int32_t direction);
 int ng2_entered_gate(const NG2Scene *before, const NG2Scene *after, int32_t direction,
                      int32_t x, int32_t y, int32_t motion, NG2Entrance *out);
 int ng2_make_sample(double q, double spacing, double center, uint64_t start, uint64_t end, NG2BeatSample *out);

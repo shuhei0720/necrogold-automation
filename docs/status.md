@@ -1,13 +1,13 @@
 # 最新状態
 
-更新: 2026-11-15（日本時間）。TEST102/build194、CODE0efbbf31の選択86件/16scope、IPA作成、実物5gateが成功。修正後の実機改善は未確認。TEST101実機2回とも商品UNKNOWNを保持終了し、次周回未到達。全106原本/54記録/48PNGを照合。[今回計画](plans/test102-shop-entry-cycle.md)・[受領/検証](reviews/test102.md)・[修正表](fix-records.md)。
+更新: 2026-11-15（日本時間）。TEST103の修正と独立確認完了、IPAビルド準備中。TEST102は3runを照合し、3周目1店で完全陰性→次floor成功、残3停止を確認。修正後の実機改善は未確認。[計画](plans/test103-observation-coverage.md)・[受領/検証](reviews/test103.md)・[修正表](fix-records.md)。全171原本/88record/77PNGを照合済み。
 
-実1は鉄扉開扉後、row-4の商品だけでは旧最上端ITEM条件を満たさず追加観測を拒否。実2は非保護FLOORの周囲へITEM保護を重ねて拒否し、下壁DOOR/上側欠損看板も完全判定できなかった。同じ停止現象の実機不合格は継続し、原因別に記録する。
+停止原因はCLEAR通路の静止資格不足、ACK待機中のicon一時遮蔽、同列入口/片看板、遮蔽後に残る下入口商品のcoverage不足。元期限・確実未送信world保持下の別plural補助、UNKNOWNで新入力せず同ACK確認待ち、別policy7/8の固定壁/実看板/完全商品帯とC独立検査を追加した。候補/未観測は保持し、対象はのろいのゆびわだけ。
 
-102はController/Ringだけ変更。実footprint・全候補pixel保存・独立static/実MOVED/新job・元親期限、policy6の12固定GOLD/DOOR/看板底辺を独立再検証する。新通路だけ合計2入力まで。pending FULLのFIFO・旧候補優先・正常workerの元期限を保持し、親失効後UNKNOWNは追加観測しない。最終C41＋Ring39成功。通常Ring実結果→公開C→保存/intent/restartは手続き的UI結合で、実ゲーム成立ではない。
+C最終40件成功、Nav29件はO0/strict O2成功。Ring59fcの53成功後、numeric7半セル検査P2だけ修正して関連3件成功、独立確認GO。元商品画像494/281は通常判定で完全陰性約38ms、最終Cへも採用された。元時刻の正規化/prefix0を伴う校正で、実履歴や端末Runtimeの再現ではない。最終選択CIは128件/23scope、IPA作成/照合/固定公開はこれから。
 
-Runtime/Nav/Perception/header/旧ABI/保護資産/共有099 engineは不変。新しいRuntime/Mac部品試験は追加せず、Mac191は旧C4101の歴史的部品試験として扱う。16入力/12restart・45秒walk/180秒session、候補保持、UNKNOWN無再送、全画像/ZIP照合を維持する。対象はのろいのゆびわだけ。
+native36の変更はController/Navigation/Core/Ringだけ。Coreはprototype追加、旧ABI構造/旧Motion/singleton/旧policy/旧assert、残32native/Perception/Runtime/canonical15/ELF/G1/R12/共有099は保持。Mac191は旧C4101の歴史的部品試験。新Runtime/Mac部品試験は追加しない。16入力/12restart・45秒walk/180秒session・UNKNOWN無再送・全画像/ZIP照合を維持。
 
-[新IPA194](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/source.zip)・[SHA](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/SHA256SUMS.txt)。固定公開・匿名全GET200/全bytes/hash/tag照合も成功。旧101の証跡は[101検証](reviews/test101.md)に保存する。
+現配布は[旧IPA194](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/LoopCtrl.ipa)・[旧完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test102-build194/source.zip)。今回の修正版は検証後に固定Releaseへ保存する。
 
-IPA更新・LoopCtrl完全再起動・Start Server/通知/通常VPN、通常1-1ポーズから完全sourceの sh test_102.sh --until-target を実行。候補探索→入店→全商品確認→対象なしなら次周回を確認し、全画像/ZIP照合後の表示campaign ZIPを返却、全run原本を保持。毎拍/人超え速度/未知精度/耐久、旧097実1/098の未確定停止、遅延positive通知P1/native旧ledger整理P2は継続。[索引](context.md)。
+次はIPA更新・LoopCtrl完全再起動・Start Server/通知/通常VPN、通常1-1ポーズから完全sourceの sh test_103.sh --until-target を実行。候補探索→入店→全商品確認→対象なしなら次周回を確認し、全画像/ZIP照合後の表示campaign ZIPを返却、全run原本を保持。毎拍/人超え速度/未知精度/耐久、旧097実1/098の未確定停止、遅延positive通知P1/native旧ledger整理P2は継続。[索引](context.md)。

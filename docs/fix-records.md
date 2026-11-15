@@ -325,3 +325,19 @@ TEST101の2run全原本を照合し、FR-097/098/100/101を修正前に確認。
 | FR-102-ENTRY-PENDING | 2026-11-15 | 判定中FULLで旧対象結果を失う、入力親期限で正常workerも破棄する条件をレビューで検出 | 適格性検査前のjob/state更新と安全検査前のqueue再bind、MOVE親期限とworker期限の順序混同 | pendingのFIFO/旧候補優先、UNKNOWN全上界/強語検査、元worker期限保持。親失効は追加MOVE/再queueを禁止 | HOLD/ASSESS・対象/候補・不適格FULL・上界/強語・親失効の意味Red→限定修正→対象3 method成功。独立修正確認GO、最終41成功、実機未確認 | pending保全のレビュー検出1。実機再発ではない |
 
 TEST102検証追記: DEVICE194/run43675514954、CODE0efbbf31で選択86件/16scope・IPA作成・実物5gate成功。FR-102各行の実機改善は未確認のまま。実機の再発数を0へ戻さず、単体試験成功を改善完了にしない。
+
+## TEST103の対策（変更部確認済み・実機未確認）
+
+FR-076/082の未送信静止、FR-066/084のicon、FR-100/101/102の完全判定/観測継続/陰性再開を修正前に照合。同症状でも今回の原因を区別する。TEST102の1店目は実陰性→次floorまで成功したが、配置全体の改善完了にはしない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-103-CLEAR-STILL | 2026-11-15 | 左2歩後、未送信待機で停止 | 141→149静止のnormal motionがUNKNOWN、旧CLEAR補助はSTONE1個だけで原配置の2個に未対応。回復期限は未失効 | 旧proofを保持し、元anchor/world/期限内の未送信待機へ別plural資格。物理zero/raw/world/axisと唯一unit blur競合の支持≥300を全積要求 | 固定原Sceneの限定診断、意味Red/変更部と関連回帰。実機未確認 | 今回1。旧静止UNKNOWNと同根因通算は未集計 |
+| FR-103-ACK-OCCLUSION | 2026-11-15 | 商品表示後、判定前にscreen停止 | ACK済UP確認中のicon一時遮蔽でUNKNOWNとなり即終了。36.896ms後の原画は既floor条件成立 | 旧位相資格を撤回し同MOVE/元visualDの無入力待機を継続。次の通常FLOORだけ確認、閾値/ACK再送禁止を維持 | 状態全述語のpurepixel診断、public Cの待機/期限/取消/PAUSE/prefix/新入力0。実機未確認 | 今回1。FR066/084は同判定段階だが別遮蔽、同根因通算未確定 |
+| FR-103-SAME-ROW-SHOP | 2026-11-15 | 全商品可視でもUNKNOWN停止 | 商品と同列入口の7金壁が旧offset条件外、右SIGN自体なし。旧policy1〜6では完全陰性不可 | 別有限policyに7固定GOLD/実fullSIGN1枚/旧強merchant/完全cap・3価格3商品/全対象探索を要求、C独立検査。旧policy/閾値不変 | 原494の旧通常診断1回と各阻害証明、意味Red/通常Resultから再開結合。実機未確認 | 今回1。同じ症状の別形でFR102の同原因再発とは断定しない |
+
+| FR-103-LOWER-SHOP | 2026-11-15 | 2回目の遮蔽後、通常FLOORへ復帰しても完全判定できない | 後続281は2fullSIGN成立だがglyph不足、下入口10固定GOLD形が既構造外 | 別policy8で10固定位置/center床/実2fullSIGN/完全rawcap・価格・商品帯を証明しC独立検査、旧glyph閾値不変 | 原281の旧通常分類1回・pure幾何条件、意味Red/正常Result→保存再開結合。実機未確認 | 同じ実2に独立阻害1、実機run数へ二重計上しない |
+
+| FR-103-NUMERIC-MAPPING | 2026-11-15 | policy7の数値証明だけがproducer外の半セルrowを受ける条件をレビューで検出 | validatorでproducer/Cと同じ両軸mapping・支持範囲を再検査していない | 同じ有限条件を追加し、全座標+55の変造を拒否。producerと旧policyは不変 | 意味Red1→限定3Green、既2Result pure検証成功。C独立拒否がありUI解放には至らないP2、独立確認で解消 | レビュー検出1、実機再発ではない |
+
+TEST103確認追記: C最終40成功、Nav29はO0/strict O2成功。Ring59fcの53成功＋numeric7限定差分3成功を区別し、最終128件/23scopeをCIで確認する。元494/281の通常完全陰性とC公開採用は校正、元141149の新補助資格も校正で、各行の修正後実機改善は未確認のまま。再発数を0へ戻さない。
