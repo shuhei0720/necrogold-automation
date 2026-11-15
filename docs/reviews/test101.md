@@ -69,3 +69,11 @@ DEVICE192/run43664190943は2026-11-15T01:40:27Zに開始し01:53:27Zに成功。
 読み取り専用5gate（package/host/retained/9Mach-O/compiler）が成功。最初のretained照合は、元ソースが出す個別PASS2行＋全体PASS1行をreaderが全体1行だけと想定したため失敗した。実試験や製品の失敗へ丸めず、同じ凍結ソースの宣言から正確な3行と順序を検査する補助処理だけ訂正し、独立した狭い静的確認を受けた。passed package/hostのreceiptを再利用し、失敗/未実施だけをresumeした。
 
 最終gate ledgerは5種類/6attempt、製品試験/compile/classifierの追加実行はいずれも0。build CODE全884tracked fileのZIPも全bytes/CRCを照合。固定Release公開・匿名全GET/hash/tagの結果は公開後に別記する。実機の商品確認到達率・次周回、毎拍/拍精度・人超え速度、未知精度・耐久は未確認。
+
+## 固定配布の公開確認
+
+publisher193/run43665869636、Release445747804、tag `test101-build192` を公開した。配布全コードはclosing `4b7c6631b5b6cb208df695db71f8d0029822ab6d`、884file/8,996,020B、SHA9c69249836b49096f8afb97ffa248ccaa3edd1ced5822489a58a9e76eab06462。build CODEからの差分はstatus/review/修正表のdocs3ファイルだけで、全非docsは一致する。
+
+IPA/全コード/SHA256SUMS.txtを認証なしの全GETでHTTP200まで取得し、検証済み全bytes/hash・Release digest・固定URL・lightweight tagのcommit一致を確認した。IPAは18,033,203B、SHAbfe345a8e96a2fdc24fba2edd291c07cc1cb26545267c6a0cb3ec5b9602c5b89、SHA一覧は156B/SHA299869e649b833ee143e47d517079c19a92a4d38d155905dc4a7fccc494f6179。公開asset/tagを変更せず、本記録だけを後続docs commitへ保存する。
+
+実機には新IPA更新・LoopCtrl完全終了/起動・Start Server/通知/通常VPNの後、通常1-1ポーズから `sh test_101.sh --until-target` を依頼する。候補探索から全商品確認、完全陰性時の次周回までを確認し、全画像保存/ZIP照合完了後の表示campaign ZIPを返却する。全run原本は保持する。実機到達率/毎拍/未知精度/耐久は未確認のまま。

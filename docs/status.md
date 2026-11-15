@@ -8,7 +8,7 @@ TEST100の遠方DOOR→GOLD、新ITEM増加時の再分類、policy4、左下bit
 
 build192/run43664190943、CODE2c5afa96caa3944dc376ece148d274f913880500。Mac191/run43663964487は同CODEの独立2件named Red・現2case Green。189/190のfixture失敗は別記録。製品native36中の変更はController/Navigation/Ring/Runtimeの4ファイルだけ。保護資産・旧ABI・共有回収は保持。
 
-[IPA192](https://github.com/shuhei0720/necrogold-automation/releases/download/test101-build192/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test101-build192/source.zip)を固定Releaseへ保存する。公開前の照合は完了し、公開GET/hash/tagの結果は公開後に追記する。完全sourceのclosingではdocs以外をbuild CODEから変えない。
+[IPA192](https://github.com/shuhei0720/necrogold-automation/releases/download/test101-build192/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test101-build192/source.zip)を固定Release公開済み。publisher193/run43665869636、Release445747804。匿名全GET200・全bytes/hash/tag一致を確認。全コードclosing4b7c663はdocsだけの更新で、全非docsはbuild CODEと同一。
 
 IPA更新後LoopCtrlを完全終了/起動し、Start Server・通知・通常VPN。通常1-1ポーズから、展開した完全source内で`sh test_101.sh --until-target`。候補探索/restart→商店→追加観測→全商品確認→完全陰性のときだけ次周回。対象はのろいのゆびわだけで、自動購入/宝箱開封/全商品登録は追加しない。対象・候補・実判定UNKNOWN・障害・資格のない上限では停止する。有限試運転で最終PERF受入ではない。
 
