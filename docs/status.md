@@ -1,11 +1,11 @@
 # 最新状態
 
-更新: 2026-11-16（日本時間）。TEST106の4実行/5商店遭遇を受領し、TEST107を修正中。[今回計画](plans/test107-partial-composition.md)・[修正表](fix-records.md)。8ZIPは4実行の重複対で104 PNG/118記録/230 rawを全照合済み。
+更新: 2026-11-16（日本時間）。TEST106の4実行/5商店遭遇の停止を修正し、TEST107/build204の実物照合まで完了。[計画](plans/test107-partial-composition.md)・[受領/検証](reviews/test107.md)・[修正表](fix-records.md)。
 
-実1/2/4後半は正常PARTIAL UNKNOWN後のROUTE10停止。上端の商品投影と遠方/遮蔽地形の独立した許可条件を合成できない。実3は初歩前の暗い画像を静止基準へ固定したまま待機D到達。原87→88は元D内で厳密零、40→107はUNKNOWN。実4前半だけは通常完全陰性→保存/intent/RESTART ACK15→新floor225まで成立を確認した。
+実1/2/4後半の正常PARTIAL後ROUTE10は、上端商品投影と既地形関係を分離・合成して修正。新ITEM/上端dataは一用再判定へ。実3の初歩前フェード固定は元D内の最新2画像から再取得し、既知MOVEDはsticky拒否。実4前半は原記録で正常完全陰性→実RESTART ACK15→新floor225まで成立を確認した。
 
-今回はCだけ変更し、上端投影と既材質関係の分離・合成、新ITEM/dataは最新正常判定へ、初歩前だけ元D内の観測再取得を実装する。Ring/Nav/Perception/Runtime/Wire・公開ABI/cap/既feature/canonical15/ELF/G1/R12・元予算/対象保持/UNKNOWN無再送は維持する。
+CODE cfdb690の[CI204](https://github.com/shuhei0720/necrogold-automation/actions/runs/43732679433)は52件/12scopeが失敗・skipなしで成功。同source IPA/完全source955files、実compiler等5gate/5attemptを照合済み。独立レビューは未解決P0/P1なし。原3pairの役割と再判定原184/440も校正。[TEST107/build204固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test107-build204)の公開・匿名GETは次工程。
 
-[前配布TEST106/build202](https://github.com/shuhei0720/necrogold-automation/releases/tag/test106-build202)は選択156件・IPA/実物照合/固定公開GET成功だが、今回の実機停止が継続。単体/校正/過去対策を改善完了と扱わない。
+Cだけ変更し、他35 native/公開ABI/cap/既feature/canonical15/ELF/G1/R12・元予算/対象保持/UNKNOWN無再送を維持。無関係な全Runtime/合成world/実ゲームE2Eは未実施。
 
-次の試験版は変更部/直接回帰・必要な関連連鎖・独立レビュー・新IPA/source実物照合後に返す。通常1-1ポーズから候補探索→入店→全3商品確認→対象なし次周回を依頼し、照合完了後のcampaign ZIPを返却、全run原本を保持する。実機到達率・未知精度・毎拍/人超え速度・耐久は未受入。
+次の実機は新IPA更新・LoopCtrl完全再起動/Start Server後、通常1-1ポーズから test_107.sh --until-target。候補探索→入店→全3商品確認→対象なし次周回を確認する。全照合終了後のcampaign ZIPを返却し、全run原本を保持。実機到達率・未知精度・毎拍/人超え速度・耐久は未受入。

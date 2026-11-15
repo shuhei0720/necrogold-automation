@@ -38,3 +38,11 @@ Controller `fdbc142cb7366c686e16296168a668eb80e432467526817c7d8ce92395e78822` �
 独立source-onlyレビューは最終C/他35native保持・作者証跡125参照・原校正・旧101限定変更・CI52件/12scopeの選定・6配布helperと4pending fenceを確認し、未解決P0/P1なし。episode前MOVEDの不足は資格Redとsticky修正で閉じた。初期GOLD waitのactive0未dispatchという仮説は、既分岐がactive1を設定していることを確認し否定した。レビュー自身のnative/試験/compile/classify/Perception/入力/CI/公開実行は0。選択CI・新IPA/配布物照合は次工程とする。
 
 原Scene/Motion校正は条件を特定するための補助で、未知精度・実Runtime再演・実機改善・人より速い処理の証明ではない。
+
+## 最終CIと実物照合
+
+CODE `cfdb690ee143447fa0260769fd973db81d8ef921` の[device CI204](https://github.com/shuhei0720/necrogold-automation/actions/runs/43732679433)で、同じ最終Cの選択52件/12scopeがfailure/error/skip0で成功し、未署名IPAを作成した。初歩前とPARTIALの作者receiptを、配布する同sourceの実行へ結合した。無関係な全Runtime故障/合成world/実ゲームE2Eは実行していない。
+
+取得した3artifactとbuild204 IPAを、封印36source・最終CI・全保持source・Mach-O・実compilerの5gate/5attemptで照合済み。追加の製品試験/compile/classifier実行は0。IPAは18,060,538 bytes、SHA256 `1631870d242165cf52db98f3476a0f89e9fa7779e09b631fb34e99d681ec2582`。CODEの完全source ZIPは955 tracked filesの全bytes/CRC/安全pathが一致した。
+
+固定Releaseへの公開と匿名GETは次工程。修正後の実機到達率・未知精度・毎拍/人超え速度・耐久は未確認のまま保持する。
