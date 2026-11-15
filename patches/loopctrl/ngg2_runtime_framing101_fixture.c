@@ -158,7 +158,10 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
 }
 int ng2_controller_complete(NG2Controller *p,uint64_t id,uint64_t now,int32_t outcome){
     int result=ng2_framing101_complete_real(p,id,now,outcome);
-    if(p&&id==framing101_value.move_id&&outcome==2){
+    /* Public completion success is1; the resulting journal outcome is2. */
+    if(p&&result==1&&outcome==1&&id==framing101_value.move_id
+        &&p->s.last_completed_id==id&&p->s.input_state==3
+        &&event(p)&&event(p)->command.id==id&&event(p)->outcome==2){
         pthread_mutex_lock(&framing101_gate);framing101_value.ack_prefix=p->s.last_completed_id;
         framing101_value.ack_moves=p->s.moves;framing101_value.ack_job=(int32_t)p->cycle.job_id;
         pthread_mutex_unlock(&framing101_gate);

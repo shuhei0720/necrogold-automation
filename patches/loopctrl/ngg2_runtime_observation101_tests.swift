@@ -63,6 +63,7 @@ func testFullFraming101(_ root: URL) throws {
     }
     failure101 = {
         let p = framing101Proof()
+        print("DIAGNOSTIC framing101_ack prefix=\(p.ack_prefix) job=\(p.ack_job) moves=\(p.ack_moves) target=\(p.target_ns)")
         return ["cycle": .object(payload()),"report": .object(report()),"seed_error": .int(Int(p.seed_error)),
             "fit_ok": .int(Int(p.fit_ok)),"seed_count": .int(Int(p.seed_count)),"a_capture": .int(Int(p.a_capture)),
             "static_capture": .int(Int(p.static_capture)),"move_id": .int(Int(p.move_id)),"ack_prefix": .int(Int(p.ack_prefix)),

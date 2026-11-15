@@ -300,7 +300,7 @@ def source_identity(driver, sealed):
     paths = list(PRESERVED_REPOSITORY)
     paths += [name.replace('.', '/')+'.py' for name in CORE_MODULES if not name.endswith('101')]
     paths += [name.replace('.', '/')+'.py' for name,_,_,_,_ in CASES if not name.endswith('101')]
-    paths += ['patches/loopctrl/run_test100_host.py', 'patches/loopctrl/test_device_ci101.py']
+    paths += ['patches/loopctrl/run_test100_host.py', 'patches/loopctrl/test_device_ci100.py']
     paths += [p.decode() for p in git(driver,'ls-tree','-r','--name-only','-z',NATIVE_BASELINE,'legacy/r12').split(b'\0') if p]
     if sum(path.startswith('legacy/r12/') for path in paths) != 40:
         raise ValueError('R12 source inventory changed')
