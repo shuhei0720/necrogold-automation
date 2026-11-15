@@ -58,3 +58,13 @@ CへDOWN専用の有限観測を追加した。全ITEMとcoherentな全row/parti
 RingのHUD拒否が不足するとのレビュー前提は誤りだった。既box_valid/partial_hudが同じ7HUDを検査する。凍結f80普通producerのstrong-auth合成row339,231はglyph/merchant1.0でも正常UNKNOWN/INCOMPLETE・BOUNDS512となり、追加guardは不要。私的driverのビット定数誤記は保存値の純検証で訂正し、製品Redとしない。Ring/Nav/元205Resultの再分類や無関係な全体試験は追加していない。
 
 初期C32件はd886の証跡であり、追加観測を含む現Cの成功とは混同しない。追加C e336・新test d511は独立差分レビューGO/P0/P1なし。新9＋直接関連13＝22件は最終同sourceで成功（約38.99秒、全凍結入力不変）。旧C32も含む最終選択CI/IPA照合は配布時に追記する。
+
+## build198の配布前確認
+
+CODE `47e695e51cf5375e2fbdb7a6fd7170bb3362bc55`、device run `43698410145`、build198。現Cを含む134 product＋selector6＝140件/29scopeが成功し、MacでIPAを作成した。旧32件もこのCIでは現e336で実行済み。作者d886の履歴と混ぜない。Runtime本体の模擬全体・実ゲーム試験は追加していない。
+
+元3 artifactをGitHub APIのID/digest/サイズ・CRC・安全なパスと照合。未署名IPAは18,051,740 bytes、SHA256 `e400660249c107ee014967c50b431d98aaf0404fad9845426d8f7d2b1144a4b6`、bundle build198/0.3.4/minimum iOS16.0。CODE sourceは919 tracked filesが全Git bytesと一致した。
+
+同じCODE HEADでpackage/host/retained/Mach-O/実compilerの5種類を各一度照合し、全て成功。source/seal/実コンパイル入力/型・保護資産の同一性を確認した。新しい意味試験・compile・分類はこれらの実物検査で実行していない。元205 cachedconsumerはd886時点の校正であり、現e336で元画像を再実行したとはしない。C9独立証明のbody不変と、現e336の通常producer→UI接続を別に確認した。
+
+公開先は固定Release `test104-build198`。全sourceは配布説明のdocs-only closing commitへ結合し、IPAのCODEと製品bytesが同じことを確認する。匿名ダウンロード/全bytes/hash/API digest/tagは公開後の照合として記録する。実機での商品到達・再周回の改善は未確認のまま、通常1-1ポーズから `sh test_104.sh --until-target` の実機テストを依頼する。
