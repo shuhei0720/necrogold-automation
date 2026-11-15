@@ -68,3 +68,5 @@ CODE `47e695e51cf5375e2fbdb7a6fd7170bb3362bc55`、device run `43698410145`、bui
 同じCODE HEADでpackage/host/retained/Mach-O/実compilerの5種類を各一度照合し、全て成功。source/seal/実コンパイル入力/型・保護資産の同一性を確認した。新しい意味試験・compile・分類はこれらの実物検査で実行していない。元205 cachedconsumerはd886時点の校正であり、現e336で元画像を再実行したとはしない。C9独立証明のbody不変と、現e336の通常producer→UI接続を別に確認した。
 
 公開先は固定Release `test104-build198`。全sourceは配布説明のdocs-only closing commitへ結合し、IPAのCODEと製品bytesが同じことを確認する。匿名ダウンロード/全bytes/hash/API digest/tagは公開後の照合として記録する。実機での商品到達・再周回の改善は未確認のまま、通常1-1ポーズから `sh test_104.sh --until-target` の実機テストを依頼する。
+
+公開確認: publisher199/run43700214261が成功。Release445946844/tag test104-build198のIPA・source・SHA一覧を匿名GET200で全取得し、全bytes/hash/API asset digest/tagのclosing commit一致を確認した。closing sourceは全919 Git filesと一致し、ビルドCODEとの差は指定3文書だけ。固定assetはこの後変更しない。実機改善は未確認、下側を含む3商品確認→対象なし次周回の実機テストを依頼する。

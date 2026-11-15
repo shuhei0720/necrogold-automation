@@ -8,6 +8,6 @@ TEST103の4run/99PNGを全照合。上部入口3停止は、遠方材質差で�
 
 native変更はController/Navigation/Ringの3、残33/Core ABI/Perception/Runtime/旧1..8・旧assert・canonical15/ELF/G1/R12/共有099は保持。16入力/12restart・45秒walk/180秒session・UNKNOWN無再送・全画像/ZIP照合を維持。毎拍/人超え速度・耐久・一部の過去停止は未確認。
 
-[新IPA198](https://github.com/shuhei0720/necrogold-automation/releases/download/test104-build198/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test104-build198/source.zip)・[SHA一覧](https://github.com/shuhei0720/necrogold-automation/releases/download/test104-build198/SHA256SUMS.txt)。固定公開後に匿名全GET/全bytes/hash/tagを照合する。
+[新IPA198](https://github.com/shuhei0720/necrogold-automation/releases/download/test104-build198/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test104-build198/source.zip)・[SHA一覧](https://github.com/shuhei0720/necrogold-automation/releases/download/test104-build198/SHA256SUMS.txt)。固定公開済み。匿名全GET200/全bytes/hash/API digest/tag一致を確認。
 
 次はIPA更新・LoopCtrl完全再起動・Start Server/通知/通常VPN、通常1-1ポーズから sh test_104.sh --until-target。候補探索→入店→下側を含む3商品確認→対象なし次周回を確認し、全画像/ZIP照合後の表示campaign ZIPを返却、全run原本を保持。[索引](context.md)。
