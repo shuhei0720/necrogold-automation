@@ -384,3 +384,13 @@ TEST105/build200最終確認: CODE3a5042dの現C8167/Ring000961を含む選択CI
 | FR-106-DELIVERY-SHADOW | 2026-11-15 | 配布前の保持source検査がTypeErrorで終了 | private helperのloop内currentがnative辞書をsource bytesで上書き | bytes変数だけsource_rawへ改名。全検査/製品/IPA/spec不変 | 独立差分確認後、成功2gateを再利用し失敗・未実施だけ再開。全5種類/6attempt成功、追加製品試験0 | 配布前helper不備1。実機再発ではない |
 
 TEST106/build202確認: 最終CODEc18427fの選択156件/24scope、同source IPA作成、実物5gate/6attemptが成功。途中作者履歴と最終CIを区別し結合。原253の通常完全陰性50.040403msとC採用は校正で、各行の実機未確認/再発数は維持する。
+
+## TEST107の対策（実機改善未確認）
+
+修正前にFR104/105/106のPARTIAL/上端投影/初歩前再取得を照合した。TEST106の3停止は分類後のROUTE10であり、正常Ringを後の制御失敗がKERNEL表示へ上書きしていた。実4前半の正常完全陰性→RESTART ACK/新floor成立は、後半の停止と分ける。[今回計画](plans/test107-partial-composition.md)。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-107-PARTIAL-COMPOSITION | 2026-11-16 | 実1/2/4後半で開扉後、商品全体可視前に停止 | top ITEM投影と既許可の遠方/遮蔽材質変化を全Scene述語のORで検査し、同時変化を拒否。実4は支持された保護top材質だけで拒否 | 下段ITEM支持/旧新exactmask/安全な足元と同選択を要求し、top役割と残セルの既材質関係を分離・合成。新ITEM/保護top素材は元D内の一用data再判定、新正常結果/別静止まで入力しない | 凍結Red6/7fail→最終C新7/旧17の24成功、UP実MOVED後の通常producer→陰性/保存/実RESTART連鎖を確認。原3pairの役割・新source184/440の正常safe PARTIALも校正。実機未確認 | 今回条件3。FR106投影/関係対策の合成不足が継続、同症状通算は未集計 |
+| FR-107-INITIAL-FADE | 2026-11-16 | 実3で一歩も動かず待機期限で停止 | 初歩前の暗い原40へ静止基準を固定し、同prefixでも点灯後の画像とMotion不明が続く | 旧入力/候補経路の権限を撤回し、初歩前の限定条件で最新独立2画像の観測を再取得。元D/同期epoch/予算を維持し通常の新sourceへ | 原40→107だけUNKNOWN、元D内87→88は厳密零。元D確定の正本Red7/3fail→最終C新7成功＋旧15別成功。postRESTART→新source票/実MOVEDと拒否条件を確認。実機未確認 | 今回1。旧初歩前再取得は未送信MOVE用でpassage_waitを対象外、過去改善完了とは扱わない |
+| FR-107-INITIAL-MOVED | 2026-11-16 | 配布前の独立点検で、episode前の既知MOVED後にUNKNOWNから再取得し得る不足 | sticky失効をepisode開始後だけに限定していた | 初期GOLD waitの既知MOVED/非零をepisode前から失効させ、後のUNKNOWN/零で取り戻さない | 元D確定/MOVED/UNKNOWN入口を資格化したRed1/error0→最終新7/旧15へ結合。実機未確認 | 配布前レビュー1。新しい実機再発へ数えない |

@@ -81,8 +81,18 @@ class NativePartialFringe101Tests(unittest.TestCase):
                 elif fault == 'outside': changed.tiles[(8, 3)] = 'dirt'
                 elif fault == 'near': changed.tiles[(1, 0)] = 'dirt'
                 self.p.observe(changed)
-                self.assertEqual((old.job_id, 7), (self.q.cycle().job_id, self.q.cycle().state))
-                self.assertNotEqual(4, self.h.tick()[1].kind)
+                if fault == 'outside':
+                    # TEST107 composes the supported top alias with the
+                    # already admitted remote STONE->DIRT relation. Neither
+                    # the frozen job nor its original horizon is renewed.
+                    self.assertEqual((old.job_id, 0, old.continuation_deadline_ns),
+                        (self.q.cycle().job_id, self.q.cycle().state,
+                         self.q.cycle().continuation_deadline_ns))
+                    self.assertEqual((4, 3),
+                        (self.h.next_move(changed).kind, self.h.events()[-1].command.direction))
+                else:
+                    self.assertEqual((old.job_id, 7), (self.q.cycle().job_id, self.q.cycle().state))
+                    self.assertNotEqual(4, self.h.tick()[1].kind)
 
     def test_only_top_floor_dirt_unknown_or_item_with_explained_outer_margin_is_allowed(self):
         for fault in ('stone', 'gold', 'door', 'new_protection', 'outer_material', 'outer_other_row'):

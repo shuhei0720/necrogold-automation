@@ -6,6 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
+| TEST107の複合変化・初歩前フェード | [計画](plans/test107-partial-composition.md) | top商品投影と既地形関係の合成、元D内の最新2画像による再取得 |
 | TEST106の実機停止/候補見逃し | [計画](plans/test106-real-failures.md)・[検証](reviews/test106.md) | 共通閉容器/価格証明、開扉後の遠方金壁、最上段投影、左側の観測vantage |
 | TEST105の商品判定・開扉後継続 | [計画](plans/test105-goods-and-continuation.md)・[検証](reviews/test105.md) | 看板上部成分、閉容器の正の識別、保護halo上の新GOLD再判定。元期限/対象探索を維持 |
 | TEST104の上部入口・商品被覆・候補 | [計画](plans/test104-shop-continuation.md)・[検証](reviews/test104.md) | 最新source再判定、policy9、観測口116。旧期限/候補保持を維持 |
