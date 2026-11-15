@@ -34,4 +34,4 @@ CODE `c18427f7cf1111303c0f00a933434fa138ad0a67` の[device CI202](https://github
 
 照合helperのretained gateで、native辞書をファイルbytesで上書きするTypeErrorが1回発生した。loop内の変数名だけを改め独立差分確認し、成功したpackage/host gateは再利用、失敗retainedと未実施2gateだけを再開した。全5種類/6attemptが成功。製品/IPA/specは不変、追加のnative/test/compiler/classifier実行0。失敗履歴は保持した。これは配布前helperの不備で、実機再発数へ加えない。
 
-固定Releaseの公開と匿名GETは次工程。修正後の実機到達率・未知配置精度・毎拍/人超え速度は未確認のまま保持する。
+固定Release [test106-build202](https://github.com/shuhei0720/necrogold-automation/releases/tag/test106-build202)（ID446097417）を[公開CI203](https://github.com/shuhei0720/necrogold-automation/actions/runs/43721561533)で公開した。配布sourceはclosing `5b2aaa916d5cd1574ba736810a83f474e5b08627` で、CODEとの差はstatus/review/fix-recordsの3文書だけ。source.zipは9,256,304 bytes、SHA256 `acbb969a7e171dd5f64069da3da83fa2eae1bc2cdddac10f8f0a6a32cce535c5`。IPA/source/SHA256SUMSを固定URLへ匿名GETし、全3件HTTP200・全bytes/hash・Release digest・tagのcommitを照合済み。修正後の実機到達率・未知配置精度・毎拍/人超え速度は未確認のまま保持する。
