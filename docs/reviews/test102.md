@@ -63,3 +63,20 @@ cca0のAは一歩後もPARTIAL/UNKNOWNなら追加接近できない。row-4→r
 証跡の限界として、A2陰性joinのRedは実行前のC d060/Python/common-C44を直接凍結したが、Ring producerのC/header/dataはそのbefore.jsonに直接列挙していなかった。先行する不変のfinal29/sourceに残る同Ring96952の資産を補助来歴として明示し、完全な直接compiler-input bundleと偽らない。最終41の入力凍結はこれらを全て含む。過去Redの再実行や時点の書換えはしない。
 
 rootは最終native36を封印し、基準cb65755からの変更がController/Ringだけと確認。manifest SHA99b2cfe825f86ed888cc14d69097f66b4849978ce164686641984e760d336017。旧header/ABI/Runtime/Nav/Perception/Bank/Coverage/canonical15/ELF/G1/R12/共有099は保持。新しいRuntime/Mac実行は行わず、Cの公開worker/observe/assessと通常Ringの結合、変わらないRuntimeのjob/owner guardの静的対応を確認範囲とする。Mac191を現Cの実行とはしない。IPA実ビルド/実物検査/固定公開/実機はまだ未実施。
+
+## DEVICE194と実物照合の完了
+DEVICE194/run43675514954、CODE`0efbbf319425dd82a18c5241c3c432a683d51e66`が完了・成功。選択86件/16scope（C41＋Ring39＋selector6）と未署名IPA作成が成功した。今回変更scope内の残P0/P1なし。修正後の実機改善は未確認。
+IPAは18,039,374 bytes、build194、SHA256 `cf6a59a7aec231be04ce1328817a6f6585ae259c246461780b979a69ee020198`。元artifactはunsigned14146855385/validation14146702608/host14146331297で、API digestと全ZIP bytes/CRC/安全path/重複/IPA plistを照合した。
+実物package/host/retained/macho/compileの五つを各一度、読取専用で照合して成功。旧1561＋新59＝1620 marker、native36/変更2、実compiler記録とresponse/filelist、9 Mach-O、seal/来歴を確認。追加semantic/compile/classifier実行0。
+原254 Result→公開Cは時刻正規化を伴う校正であり、実prefix18全履歴・端末Runtime・実ゲームUIの再現ではない。新しいRuntime/Mac部品試験は追加せず、Mac191は旧C4101の歴史的証跡として区別する。
+五つの照合証跡SHA256:
+
+| gate | SHA256 |
+| --- | --- |
+| package | `c322bff0fbeb1512d783700c1473690164e937adb49034d86ba738c424208b25` |
+| host | `9b9fbfc32d72c3da2626ddd6f53476e565b026496da061493e9f0c3285b39797` |
+| retained | `c15a867f7ccd2d48072da5165ba847c50dbcc96778e8d149ea53c11b1ca19e56` |
+| macho | `bfd657a1c1cb781c42e4620445a652c11405cfaafbff7ee10b8ee8eb747668a2` |
+| compile | `ef0c8ba549aa7ce7f07c1c8bb34dda937c0d6e4643f4d32961bc433cb97544f1` |
+
+試験コードを固定後、終了資料だけのcommitを完全sourceへ含めて固定Release `test102-build194` に公開する。匿名全GET/hash/tagの成功は公開後に別記する。IPAの追加試験を未実施なのに成功扱いせず、実機では候補探索→入店→全商品確認→陰性なら次周回を依頼する。
