@@ -6,6 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
+| TEST104の上部入口・商品被覆・候補 | [計画](plans/test104-shop-continuation.md)・[検証](reviews/test104.md) | 最新source再判定、policy9、観測口116。旧期限/候補保持を維持 |
 | TEST103の遮蔽・静止・商品coverage | [計画](plans/test103-observation-coverage.md)・[検証](reviews/test103.md) | ACK内UNKNOWN待機、plural資格、policy7/8、C独立証明 |
 | TEST102の入店継続・陰性周回 | [今回計画](plans/test102-shop-entry-cycle.md)・[検証](reviews/test102.md) | 実footprint/通路framing、policy6、正常分類→保存→再開。[前版101](reviews/test101.md) |
 | TEST093の開扉後の入店 | [計画](plans/test093-opened-entry.md)・[受領/検証](reviews/test093.md) | 新CのFRESH/未送信回復と旧関連だけ。Runtime092は不変bytes/過去証跡 |

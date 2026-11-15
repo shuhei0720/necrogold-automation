@@ -345,3 +345,15 @@ TEST103確認追記: C最終40成功、Nav29はO0/strict O2成功。Ring59fcの5
 | FR-103-DELIVERY-METADATA | 2026-11-15 | host照合が表示labelと正規license資料で終了 | root作者metadataが表示labelを持たず、readerの拡張子制限が2license名を想定していない | 検証済green_scope表示fallback、2basenameだけの文書許可。canonical path/SHA/上限/specは維持 | 独立静的確認後、package成功を再利用しhost/未実施だけ再開。5種類/7attempt成功、検査の追加実行0 | 今回の配布補助2条件。FR101のGreen行照合とは別原因、実機再発ではない |
 
 TEST103/build196確認: 最終同CODEの128件/23scope・IPA作成・実物5gate成功。修正後の実機改善は未確認のまま保持する。
+
+## TEST104の対策（実機改善未確認）
+
+TEST103の4runを全照合。開扉後停止は3run、完全判定不成立は1run、通路候補見逃しは実4の別levelで1件。FR-095/097/098/100/101/102/103を修正前に確認し、旧対策の削除回帰と今回の適用条件不足を分ける。[計画](plans/test104-shop-continuation.md)・[受領/検証](reviews/test104.md)。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-104-PARTIAL-REFRESH | 2026-11-15 | 上部入口で開扉直後/一歩入店後、商品が十分見える前に停止 | 正常PARTIAL UNKNOWN後、遠方材質差/新GOLDで旧anchorの全セル関係が拒否。3pair全てstrict零変位で、ITEM/保護/同選択は維持 | 旧credit/確実未送信票を撤回して最新sourceの通常判定へ。既GOLD/近傍/保護/strict零/元prefix・親期限、新判定後の独立確認を要求 | 原3pairの通常Motionと全述語、意味Red→C新14＋直接18成功。繰り返しでも親期限不変/新候補保持/未送信撤回、LEFT→DOWNを確認。実機未確認 | 今回同原因系列3。FR098未確定停止と同原因かは未確定、通算未集計 |
+| FR-104-OFFER-COVERAGE | 2026-11-15 | 3商品が見えていても判定不明で次周回へ進まない | 商品帯の被覆と店外壁形状が結合。2full SIGN/両rawcap/3価格/3商品presenceは成立、旧3..8形状と固定glyph/merchantは不成立 | 別policy9で正の店観測と3商品の価格床/正確なITEM・保護/非HUD完全商品帯を分離。旧対象探索/veto/余剰検出/数値境界・C独立検査を維持 | 原205pure診断、意味Red→Ring新8＋旧53/C新14＋旧18成功。原205の通常分類1回が完全陰性約41ms、同Resultを公開Cも採用。校正であり実機未確認 | 今回1。旧完全陰性の削除とは確認されず、旧構造外の別形 |
+| FR-104-OBSERVED-MOUTH | 2026-11-15 | 通路候補capture116を見送りリスタート | 既上左occludedの口UNKNOWN条件が、観測FLOORの口を除外。他の元支持条件は成立 | 両flank壁/元壁支持/外側UNKNOWN/既床3歩を必要とする別guard。未知床へ進まず旧branch/旧assertを保持 | 意味Red→新7＋旧関連16がO0/strict O2成功。原116新Navはmask0→1、Scene不変。未来の到達と実機改善は未確認 | 今回1。同系列の見逃し通算は未集計 |
+| FR-104-LOWER-FRAMING | 2026-11-15 | 配布前の追加確認で、一歩DOWN後も下の商品が見切れたままUP票を発行 | Navのrow±2と全商品/価格ROIの可視境界が異なる。広い7ITEM投影では既保護の再膨張も安全な次床を拒否 | 入店実証/正確な投影/全potentialの幾何的必要DOWN数・元親期限を固定。各最新判定/独立零/実足元の既床/実MOVEDだけで進み、全商品帯へ到達後の不明は保持 | coherent公開連鎖の意味Red。3ITEM/原332相当7ITEM投影→FULL3/通常policy9→保存/intent/実RESTART ACK/次floorの開発3件成功。追加9＋直接13＝22件が最終同sourceで成功。実機未確認 | 配布前の新確認1。実機の新たな再現数へ数えず、今回3ROUTE停止とも分ける |
+| FR-104-LOWER-BRIDGE | 2026-11-15 | 追加観測のレビューで、data-only FULL差替え後に位置資格を再獲得できる条件を検出 | 旧source→新FULLの零変位確認がなく、新source同士の零比較だけで元world offsetを維持 | 不明/非零bridgeで資格をsticky無効化。datajob/対象・候補/独立陰性は保持し、新UNKNOWNからMOVEへ戻さない。実MOVEDだけ進捗 | direct/queuedの意味Red 1method/2assert失敗・error0→開発3件成功。既StopDetailへ元pairを保存しUNKNOWN保持時だけ凍結。追加9＋直接13＝22件が最終同sourceで成功。実機未確認 | 配布前レビュー1。既entryと同型の資格不足で、過去対策を改善完了と扱わない |

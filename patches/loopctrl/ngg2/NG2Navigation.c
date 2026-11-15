@@ -330,6 +330,30 @@ static uint32_t passage_occluded_corner_vantage(const NG2Scene *s,const Path rou
         &&tile(s,-2,-2)==NG2_TILE_FLOOR)result|=UINT32_C(1)<<5;
     return result;
 }
+/* An observed upper-left FLOOR mouth can remain disconnected by a dark
+ * inboard and outside. Its two observed flanks and the independent outer,
+ * opposite-roof and left boundary walls support only a closer FLOOR view. */
+static int passage_observed_upper_vantage(const NG2Scene *s,const Path route[CELLS]) {
+    static const int inside[][2]={{-2,-2},{-2,-1},{-1,-2}};
+    int i,x,y,roof=0,left=0,vantage=index_of(-1,-2);
+    if(s->gold_state!=NG2_GOLD_CLEAR
+        ||tile(s,-2,-3)!=NG2_TILE_FLOOR||tile(s,-2,-4)!=NG2_TILE_UNKNOWN
+        ||!passage_wall(s,-3,-4)||!passage_wall(s,-3,-3)||!passage_wall(s,-1,-3))return 0;
+    for(i=0;i<CELLS;++i)
+        if(s->protected_cells[i]||s->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(y=-1;y<=0;++y)for(x=-1;x<=0;++x)
+        if(tile(s,x,y)!=NG2_TILE_FLOOR)return 0;
+    for(i=0;i<(int)(sizeof(inside)/sizeof(inside[0]));++i){
+        int kind=tile(s,inside[i][0],inside[i][1]);
+        if(kind!=NG2_TILE_UNKNOWN&&kind!=NG2_TILE_FLOOR)return 0;
+    }
+    for(x=-1;x<=2;++x)roof+=passage_wall(s,x,-3);
+    for(y=-3;y<=3;++y)left+=passage_wall(s,-3,y);
+    return roof>=2&&left>=2&&(passage_wall(s,1,-3)||passage_wall(s,2,-3))
+        &&tile(s,-1,-2)==NG2_TILE_FLOOR&&passage_clear(s,-2,-3)
+        &&passage_clear(s,-2,-4)&&passage_clear(s,-2,-2)
+        &&route[vantage].cost!=INF_COST&&route[vantage].length==3;
+}
 /* The lower-left exterior FLOOR can be visible beyond an opaque boundary.
  * Keep that disconnected floor and the mouth's wall unchanged; only the
  * current short inside FLOOR approach gains this fixed-world hypothesis. */
@@ -354,6 +378,7 @@ uint32_t ng2_passage_candidates(const NG2Scene *s) {
     path_search(s,0,1,route);
     if(passage_shadow_vantage(s,route)||passage_split_shadow_vantage(s,route))result|=UINT32_C(1);
     result|=passage_occluded_corner_vantage(s,route);
+    if(passage_observed_upper_vantage(s,route))result|=UINT32_C(1);
     if(passage_lower_fringe_vantage(s,route))result|=UINT32_C(1)<<9;
     for (side=0;side<2;++side) for (k=-2;k<=2;++k) {
         int mx=side ? -3 : k,my=side ? k : -3,dx=side ? -1 : 0,dy=side ? 0 : -1;
