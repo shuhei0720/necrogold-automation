@@ -1,6 +1,6 @@
 # TEST101: 観測継続と移動確認
 
-2026-11-15（日本時間）。[計画](../plans/test101-observation-continuation.md)・[修正表](../fix-records.md)。開発中、実機改善未確認。
+2026-11-15（日本時間）。[計画](../plans/test101-observation-continuation.md)・[修正表](../fix-records.md)。配布前検証完了、実機改善未確認。
 
 ## 受領と原因
 
@@ -49,3 +49,23 @@ main Swiftだけをd09de04fa856d4ddc572892978fc34f445b71f1b93087a9d2911e34f4a4cd
 再確認190/run43663183108/code c223e1bも両named Red/現retentionは成立したが、framingは同じattempt0で失敗。artifact14141017865、106,877B/SHA76537b3fa8658961b4f840f201afa7e5c7a48db013708f6ca586c0f8ea05e777を照合。追加のsource確認で、fixtureのcomplete wrapperがAPI引数outcome==2を待つ誤りを特定した。製品APIは-1/0/1で正常ACKは1、eventの記録状態が2。実prefix4に進んでいても試験のack_prefixが更新されず、前回追加した時計条件も入らない。前回の原因説明はこの条件確認が不足していた。fixtureのAPI結果1と実完了状態を確認し、診断へack_prefixも加えて限定再確認する。製品のAPI/enum/入力/期限を変更しない。
 
 C fixture abfb628957867b28f1447ca2cb349616391367467edc01b3b709d3927658b4feはAPI結果1/実return1/同MOVE・prefix・input3/event ACK2を確認して診断を更新し、main05987c975c62a6293d6ca1e9f6c787ff88e414c67a5b22fb89a4d39cf7560a14は失敗時のACK情報を追加。独立した狭い確認GO。別の配布補助sourceレビューで、raw jobのrun/codeを正規化前に結合しないP1と、新規101selectorを古いbaselineへ保存検査するP1を検出。binderの各job identity確認と、旧100selectorを保持する1行へ限定訂正。全157保持pathのbaseline存在/現bytes一致とmetadata6 Greenを確認した。製品や旧assertは変更しない。
+
+## 最終限定Mac191
+
+Mac191/run43663964487、CODE `2c5afa96caa3944dc376ece148d274f913880500` が成功。標準MacでC/Swift compile後、旧Runtime/現Cのretentionと現Runtime/旧100Cのframingがそれぞれ指定named assertionでRed、現Runtime/現Cのretention＋framingがGreenとなった。2case・独立3実行であり、全Runtime故障/worldや実ゲームE2Eを実行したとはしない。
+
+retentionは実helperからrecent4退役後の元pair、元hash/時刻/世代/prefix、通常spool/export、23旧priority＋任意sourceの24上限、後着旧priorityの両pin経路、満杯時の正直なmissing診断、旧profile20上限を確認。framingは宣言した旧ACK履歴/public fitを前提とし、新票4→ACK UNKNOWNでは加点/新jobなし→実Nav MOVED→最新immutable画像Bのjob2→候補保持/input0を通常Runtime経路で確認した。旧job/旧票拒否・元horizon・同店count1も維持。元画像のPerception/分類再実行は0で、手続き的な未来像を実機到達の証明にしない。
+
+artifact14141063860、98,210B、API digest `8ab339589e782794a388c74d28aa1bbde195b9c806abe5ec4abb8d9ff94a1a72`。原本の照合情報はrootの取得記録に結合する。189/run43662628719と190/run43663183108は両named Red/現retentionまで成立したが、現framing未達の失敗である。189でcapture待機中に時計hookが動かない点、190で公開complete成功値1とevent ACK状態2の混同を特定した。fixtureだけ訂正し、製品・元assert・入力/期限を変えず191で同scopeを再確認した。
+
+製品Controller/Nav/Ring/Runtime・101入口と新Mac scopeは独立差分レビューGO、残P0/P1なし。レビュー検出の上端外端保護の境界漏れ、Mac fixtureのFrame可用性/snapshot根拠不足、配布補助のidentity/保存対象不足は、狭い具体例と修正確認で閉じた。実機の再発件数へ加算しない。
+
+## 同CODEの実機用build192と実物検査
+
+DEVICE192/run43664190943は2026-11-15T01:40:27Zに開始し01:53:27Zに成功。同CODEのMac191完了01:38:55Zより後に作成した。92 host methods/18scope（新35/関連57）＋selector6の98件/19scopeが成功。源泉・封印・実compiler profileを同じCODEへ結合し、広い旧Mac試験は繰り返さない。
+
+原artifactはunsigned14142071983（18,456,324B、SHA00193cadb4ca01da84c6269a1d3b35d48a3218b732724ce618f920b8fe71bf1e）、host14141970702（29,193B、SHA5f29ed80cf85c26cf38bd919733f3aeae2d4ec48fdbfa6aeb39b611853c79f82）、validation14141857419（163,110B、SHAd90c1861aa3a689f90bb9d6e8cba2211afccf115e9b37c49c9fba66fdbafdb65）。API digest/全CRC/安全path/重複なしを照合。IPAは18,033,203B、SHAbfe345a8e96a2fdc24fba2edd291c07cc1cb26545267c6a0cb3ec5b9602c5b89、version0.3.4/build192/minOS16.0。
+
+読み取り専用5gate（package/host/retained/9Mach-O/compiler）が成功。最初のretained照合は、元ソースが出す個別PASS2行＋全体PASS1行をreaderが全体1行だけと想定したため失敗した。実試験や製品の失敗へ丸めず、同じ凍結ソースの宣言から正確な3行と順序を検査する補助処理だけ訂正し、独立した狭い静的確認を受けた。passed package/hostのreceiptを再利用し、失敗/未実施だけをresumeした。
+
+最終gate ledgerは5種類/6attempt、製品試験/compile/classifierの追加実行はいずれも0。build CODE全884tracked fileのZIPも全bytes/CRCを照合。固定Release公開・匿名全GET/hash/tagの結果は公開後に別記する。実機の商品確認到達率・次周回、毎拍/拍精度・人超え速度、未知精度・耐久は未確認。

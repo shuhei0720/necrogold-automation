@@ -1,15 +1,17 @@
 # 最新状態
 
-更新: 2026-11-15（日本時間）。TEST101開発中。TEST100実機3回は全て次周回へ未到達。実1は空拍/移動確認UNKNOWN、実2は継続credit後のROUTE拒否、実3は商品判定UNKNOWN。6添付=3run、全73PNG/81record/160原本を照合。[計画](plans/test101-observation-continuation.md)・[検証](reviews/test101.md)・[修正表](fix-records.md)。
+更新: 2026-11-15（日本時間）。TEST101/build192のIPA・変更部と関連98件/19scope・限定Mac191・配布物5検査が成功。実機改善は未確認。TEST100の実機3runは全て次周回へ未到達で、全73PNG/81record/160原本を照合した。[計画](plans/test101-observation-continuation.md)・[検証](reviews/test101.md)・[修正表](fix-records.md)。
 
-修正は開扉後の遠方DOOR→GOLDによる拒否、新ITEM出現時の最新画像への再分類、側面入口下の3商品を確認する別policy4、左下口DIRTの候補bit9。旧partial結果で新商品を陰性にしない。対象はのろいのゆびわだけ、全商品登録/購入/宝箱開封は追加しない。
+実1は金壁初露出時の移動証明不足、実2は部分判定後の上端重複投影の縮退、実3は右端の実遮蔽と別の側面開口を分けて修正。旧motion段を保った有限phase支持証明、下段商品を保つ限定継続関係、FULL UNKNOWN後の局所観測MOVE一度限り、独立した完全判定policy5を追加した。実MOVED後だけ最新画像の新jobへ渡す。
 
-build187/run43623716812、code4ba361d3ca3ec12d4e068294c245546a4b4c1c6d。変更部＋関連host121件/21scope、別Mac186の単一callbackで旧Cのnamed assertion Red/現C Green、IPA実物5検査が各1回成功。実物検査で試験/compile/分類の追加実行0。製品native36中の変更はController/Navigation/Ringの3ファイルだけ。Runtime/header/旧ABI/Bank/Coverage/canonical15と56,088B ELF/G1/R12全40/通信・回収は保持。旧Mac183の広い試験は不変sourceの履歴扱いで、今回の実行にしない。
+TEST100の遠方DOOR→GOLD、新ITEM増加時の再分類、policy4、左下bit9を保持。旧policy1〜4、旧first-gold段、097空framing、入力/prefix/owner/取消/期限/UNKNOWN無再送を維持する。元画像不足の未送信拒否pairは、旧priorityと24pin上限を守って任意source1枚を補助保持する。採証改善を歩行改善としない。
 
-[IPA187](https://github.com/shuhei0720/necrogold-automation/releases/download/test100-build187/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test100-build187/source.zip)。固定Release公開済み。publisher188/run43625480323、Release445493721。IPA/全コード/SHAの匿名全GET200・全bytes/hash・tag一致を確認。公開sourceはdocsだけ更新したclosing e74f8ebで、全非docsはbuild CODEと同一。
+build192/run43664190943、CODE2c5afa96caa3944dc376ece148d274f913880500。Mac191/run43663964487は同CODEの独立2件named Red・現2case Green。189/190のfixture失敗は別記録。製品native36中の変更はController/Navigation/Ring/Runtimeの4ファイルだけ。保護資産・旧ABI・共有回収は保持。
 
-IPA更新後LoopCtrlを完全終了/起動、Start Server・通知・通常VPN。通常1-1ポーズから`sh test_100.sh --until-target`。候補探索/restart→商店→全商品確認→対象なしと確定した場合だけ次周回。対象/候補/実判定UNKNOWN/障害/資格のない上限では停止。区切りごとに画像回収が入る有限試運転で、最終PERF受入ではない。既入力/時間/restart上限とUNKNOWN無再送は維持する。
+[IPA192](https://github.com/shuhei0720/necrogold-automation/releases/download/test101-build192/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test101-build192/source.zip)を固定Releaseへ保存する。公開前の照合は完了し、公開GET/hash/tagの結果は公開後に追記する。完全sourceのclosingではdocs以外をbuild CODEから変えない。
 
-iSHの全画像保存・ZIP照合完了を待ち、表示されたcampaign返却ZIP（索引＋最後のrun全ZIP）を返す。全run原本は端末に保持。test-100は旧099と別spool。通常単発はオプションなし、明示された未回収だけ`--recovery`。
+IPA更新後LoopCtrlを完全終了/起動し、Start Server・通知・通常VPN。通常1-1ポーズから、展開した完全source内で`sh test_101.sh --until-target`。候補探索/restart→商店→追加観測→全商品確認→完全陰性のときだけ次周回。対象はのろいのゆびわだけで、自動購入/宝箱開封/全商品登録は追加しない。対象・候補・実判定UNKNOWN・障害・資格のない上限では停止する。有限試運転で最終PERF受入ではない。
 
-097実1/098の未確定停止を今回の別原因修正で解決済みにしない。実機到達率/毎拍・人超え速度/未知対象精度/長期耐久は未受入。遅延positive通知P1・native旧ledger整理なしP2は継続。[索引](context.md)。
+iSHの全画像保存・ZIP照合完了後、表示されたcampaign返却ZIP（索引＋最後のrun全ZIP）を返す。全run原本を端末に保持。101は旧100と別spool。
+
+最初の空拍436/462/488/502は元画像不足で内側原因未確定。097実1/098の未確定停止も今回の別原因修正で解決済みにしない。実機到達率/次周回/毎拍・人超え速度/未知対象精度/長期耐久は未受入。遅延positive通知P1・native旧ledger整理P2は継続。[索引](context.md)。
