@@ -81,6 +81,8 @@ Swift/fault/実compiler/IPAは[native workflow](../.github/workflows/loopctrl-ge
 
 ## Mac実ゲームの導入条件
 
+2026-11-16追記: ユーザー指示で、日本版iOSゲームのApple Silicon Mac直接実行へ導入先を絞った。[対象App/Mac互換・標準CIのVM制約・物理Mac候補と費用・実行順](plans/ios-game-on-mac.md)。対象AppのMac互換は公式確認済みだが、接続可能な物理Mac・導入・実起動・adapterは未成立。Apple Accountのログイン許可だけで利用可能な実行環境があると扱わない。
+
 [自己窓CI42545599822](https://github.com/shuhei0720/necrogold-automation/actions/runs/42545599822) は外部取得PNGの赤→青とキー押下/解放を実測。正規ゲーム導入/認証/起動・adapterは未成立で、実ゲーム試験は未実施。
 
 導入後は正規日本版/固定viewportでproduction CへGUI capture/inputを接続。独立の移動/商品oracleと配置別の時刻/画像/拍/全成否を保存し、fake値で成功にしない。
