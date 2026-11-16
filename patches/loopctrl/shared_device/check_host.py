@@ -7,6 +7,9 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
+import shutil
+import sys
 from pathlib import Path
 import subprocess
 
@@ -17,8 +20,8 @@ BEGIN='// NG2 DEVICE GEOMETRY BINDING BEGIN\n'
 END='// NG2 DEVICE GEOMETRY BINDING END\n'
 
 
-def run(command):
-    value=subprocess.run(list(map(str,command)),capture_output=True,text=True,timeout=120)
+def run(command,env=None):
+    value=subprocess.run(list(map(str,command)),capture_output=True,text=True,timeout=120,env=env)
     if value.returncode:
         raise RuntimeError(json.dumps({'command':str(command[0]),'exit':value.returncode,
             'stdout':value.stdout[-32768:],'stderr':value.stderr[-32768:]},sort_keys=True))
@@ -61,20 +64,36 @@ def check(upstream,output):
     raster_proof=None
     raster_swift_proof=None
     raster_red_proof=None
+    support_proofs={}
     if 'LoopCtrlUITests/NG2DeviceRaster.swift' in expected:
         run([*common,'-c',upstream/'LoopCtrlUITests/NG2DeviceRaster.c','-o',output/'raster.o'])
         run([*common,'-c',upstream/'LoopCtrlUITests/NG2Perception.c','-o',output/'perception.o'])
         run([*common,'-c',upstream/'LoopCtrlUITests/NG2Navigation.c','-o',output/'navigation.o'])
+        run([*common,'-c',upstream/'LoopCtrlUITests/NG2WorldSupport.c','-o',output/'world.o'])
         run([*common,HERE/'tests/NG2DeviceRasterTests.c',obj,output/'raster.o',output/'perception.o',
-            output/'navigation.o','-lm','-o',output/'raster'])
+            output/'navigation.o',output/'world.o','-lm','-o',output/'raster'])
         raster_proof=run([output/'raster'])
+        support_proofs={}
+        for name in ('lab_dispatch_fixture.c','bound_world_support_fixture.c',
+                     'motion_profile_fixture.c','motion_world_support_fixture.c','ui_world_support_fixture.c'):
+            executable=output/Path(name).stem
+            run([*common,HERE/'tests/v2'/name,obj,output/'raster.o',output/'perception.o',
+                output/'navigation.o',output/'world.o','-lm','-o',executable])
+            support_proofs[name]=run([executable])
+        reduction=output/'world-reduction';reduction.mkdir()
+        for name in ('perception_support_fixture.py','perception_support_fixture.c'):
+            shutil.copyfile(HERE/'tests/v2'/name,reduction/name)
+        environment=dict(os.environ)
+        environment['NG2_CANDIDATE_SOURCE_DIR']=str(upstream/'LoopCtrlUITests')
+        environment['NG2_LEGACY_SOURCE_DIR']=str(HERE.parent/'ngg2')
+        support_proofs['perception_legacy_reduction']=run([sys.executable,reduction/'perception_support_fixture.py'],env=environment)
         fixture_directory=output/'raster-fixture';fixture_directory.mkdir()
         main=fixture_directory/'main.swift'
         main.write_bytes((HERE/'tests/NG2DeviceRasterTests.swift').read_bytes())
         header=upstream/'LoopCtrlUITests/NG2DeviceRaster.h'
         actual=upstream/'LoopCtrlUITests/NG2DeviceRaster.swift'
         legacy=upstream/'LoopCtrlUITests/NG2Raster.swift'
-        link=[obj,output/'raster.o',output/'perception.o',output/'navigation.o']
+        link=[obj,output/'raster.o',output/'perception.o',output/'navigation.o',output/'world.o']
         compiler=['swiftc','-Onone','-import-objc-header',header]
         run([*compiler,legacy,actual,main,*link,'-o',output/'raster-swift'])
         # Reconstruct only the previously reviewed gap==31 rendering guard.
@@ -92,7 +111,7 @@ def check(upstream,output):
         raster_red_proof=gap_red_proof(rejected)
     result={'schema':'ng2-shared-device-host-v1','status':'pass','source_sha256':expected,
         'binding_sha256':hashlib.sha256(binding.encode()).hexdigest(),
-        'dispatch':dispatch,'swift':swift,'raster':raster_proof,'raster_swift':raster_swift_proof,'raster_gap_red':raster_red_proof,'physical_device_acceptance':False,
+        'dispatch':dispatch,'swift':swift,'raster':raster_proof,'raster_swift':raster_swift_proof,'raster_gap_red':raster_red_proof,'world_support':support_proofs,'physical_device_acceptance':False,
         'new_profile_input_authorized':False}
     (output/'host-result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps({'status':'pass','actual_c_dispatch':dispatch,'actual_swift_binding':swift,'actual_raster':raster_proof,'actual_swift_raster':raster_swift_proof,'raster_gap_red':raster_red_proof,

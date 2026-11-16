@@ -1,4 +1,5 @@
 #include "NG2DeviceRaster.h"
+#include "NG2WorldSupport.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -71,7 +72,7 @@ int ng2_profile_raster8(const uint8_t *s,size_t n,int32_t w,int32_t h,
         ||p->source_point_width!=667||p->source_point_height!=375
         ||p->canonical_width!=896||p->canonical_height!=414||!p->ui_maps||p->ui_map_count>16
         ||!p->source_hud||p->source_hud_count>32||count>16||(count&&!o)
-        ||(view!=NG2_PROFILE_RASTER_FLOOR&&view!=NG2_PROFILE_RASTER_PAUSE)
+        ||(view!=NG2_PROFILE_RASTER_FLOOR&&view!=NG2_PROFILE_RASTER_PAUSE&&view!=NG2_PROFILE_RASTER_WORLD)
         ||p->world_to_canonical.a!=1||p->world_to_canonical.b!=0||p->world_to_canonical.c!=0
         ||p->world_to_canonical.d!=1||!isfinite(p->world_to_canonical.tx)||!isfinite(p->world_to_canonical.ty)
         ||fabs(p->world_to_canonical.tx)>4096||fabs(p->world_to_canonical.ty)>4096
@@ -93,18 +94,8 @@ int ng2_profile_raster8(const uint8_t *s,size_t n,int32_t w,int32_t h,
         observed[at]=(uint8_t)sample(s,NG2_DEVICE_UI_BOX,(x-tx)*2,(y-ty)*2,
             (x+1-tx)*2,(y+1-ty)*2,r+at*4,p,o,count,1);
     }
-    /* Full 36x36 cell support covers the material lower bands as well as the
-     * central25x25. Unsupported cells are unknown, never observed black floor. */
-    for(int j=-5;j<5;j++)for(int i=-11;i<12;i++){
-        int cx=448+36*i,cy=207+36*j,ok=1;
-        for(int y=cy-18;y<cy+18&&ok;y++)for(int x=cx-18;x<cx+18;x++)
-            if(x<0||y<0||x>=896||y>=414||!observed[(size_t)y*896+(size_t)x]){ok=0;break;}
-        v->cell_observed[(j+5)*23+i+11]=(uint8_t)ok;
-        /* Preserve actually observed fragments for global pixel scans. Only
-         * the derived tile label is excluded after public C classification. */
-    }
     int required=0,all=1,restarts=0,restart_ok=1;
-    for(size_t k=0;k<p->ui_map_count;k++){
+    for(size_t k=0;k<p->ui_map_count&&view!=NG2_PROFILE_RASTER_WORLD;k++){
         const NG2DeviceUIMap *m=&p->ui_maps[k];
         int resume=strstr(m->name,"continue")!=NULL,restart=strstr(m->name,"restart")!=NULL;
         int pause=resume||restart;
@@ -118,6 +109,10 @@ int ng2_profile_raster8(const uint8_t *s,size_t n,int32_t w,int32_t h,
                 double left=(m->source_points.x0+(x-m->canonical.x0)*sx)*2;
                 double top=(m->source_points.y0+(y-m->canonical.y0)*sy)*2;
                 size_t at=(size_t)y*896+(size_t)x;
+                /* A UI copy can be fully observed UI without being observed
+                 * world at this destination. Lost actual world denies CLEAR. */
+                if(observed[at])v->clear_scope=NG2_CLEAR_SCOPE_UNKNOWN;
+                observed[at]=0;
                 if(!sample(s,m->resampler,left,top,left+sx*2,top+sy*2,r+at*4,p,o,count,0)){black(r,at);ok=0;}
             }
         v->ui_observed[k]=(uint8_t)ok;
@@ -128,6 +123,16 @@ int ng2_profile_raster8(const uint8_t *s,size_t n,int32_t w,int32_t h,
     }
     v->ui_state_observed=required>0&&all;
     v->restart_ui_observed=restarts>0&&restart_ok;
+    /* Full 36x36 cell support covers the material lower bands as well as the
+     * central25x25. Unsupported cells are unknown, never observed black floor. */
+    for(int j=-5;j<5;j++)for(int i=-11;i<12;i++){
+        int cx=448+36*i,cy=207+36*j,ok=1;
+        for(int y=cy-18;y<cy+18&&ok;y++)for(int x=cx-18;x<cx+18;x++)
+            if(x<0||y<0||x>=896||y>=414||!observed[(size_t)y*896+(size_t)x]){ok=0;break;}
+        v->cell_observed[(j+5)*23+i+11]=(uint8_t)ok;
+        /* Preserve actually observed fragments for global pixel scans. Only
+         * the derived tile label is excluded after public C classification. */
+    }
     return 0;
 }
 static void unknown_scene(NG2Scene *s){memset(s,0,sizeof(*s));s->abi_version=1;s->struct_size=sizeof(*s);}
@@ -177,10 +182,47 @@ int ng2_profile_raster_analyze(const uint8_t *floor_rgba,const uint8_t *floor_ob
             return 0;
         }
     }
-    if(ng2_analyze_rgba(floor_rgba,PIXELS*4u,896u*4u,scene))return -1;
+    NG2WorldSupportScope support=ng2_world_support_enter(floor_observed,PIXELS,fv->clear_scope);
+    int analyzed=ng2_analyze_rgba(floor_rgba,PIXELS*4u,896u*4u,scene);
+    ng2_world_support_leave(support);
+    if(analyzed)return -1;
     if(scene->state!=NG2_FLOOR||!fv->ui_state_observed){unknown_scene(scene);return 0;}
     ng2_profile_restrict_scene(scene,chosen,floor_observed);
     /* Global signatures still lack paired support. Keep motion/input0 and
      * gap31 until their contracts pass; CLEAR is only the explicit local FOV. */
+    return 0;
+}
+
+int ng2_profile_raster_analyze_world(const uint8_t *floor_ui,const NG2ProfileRasterValidity *fv,
+    const uint8_t *world_rgba,const uint8_t *world_observed,const NG2ProfileRasterValidity *wv,
+    const uint8_t *pause_ui,const NG2ProfileRasterValidity *pv,NG2Scene *scene,int32_t *selected,
+    NG2ProfileRasterValidity *chosen){
+    if(!scene||!selected||!chosen)return -1;
+    unknown_scene(scene);*selected=NG2_PROFILE_RASTER_FLOOR;memset(chosen,0,sizeof(*chosen));
+    if(!floor_ui||!world_rgba||!world_observed||!pause_ui||!valid(fv)||!valid(wv)||!valid(pv))return -1;
+    if(pv->ui_state_observed){
+        NG2WorldSupportScope legacy=ng2_world_support_enter(NULL,0,NG2_WORLD_CLEAR_UNKNOWN);
+        int analyzed=ng2_analyze_rgba(pause_ui,PIXELS*4u,896u*4u,scene);
+        ng2_world_support_leave(legacy);
+        if(analyzed)return -1;
+        if(scene->state==NG2_PAUSE){
+            *selected=NG2_PROFILE_RASTER_PAUSE;*chosen=*pv;
+            if(!pv->restart_ui_observed)scene->restart_label=0;
+            return 0;
+        }
+    }
+    NG2WorldSupportScope support=ng2_world_support_enter_rgba(world_rgba,PIXELS*4u,896u*4u,
+        world_observed,PIXELS,wv->clear_scope);
+    int analyzed=ng2_analyze_rgba(floor_ui,PIXELS*4u,896u*4u,scene);
+    ng2_world_support_leave(support);
+    if(analyzed)return -1;
+    *chosen=*wv;
+    /* UI authority belongs to this same capture's observed UI, never the
+     * absent footer on a proof-only world plane. No fake UI is exported. */
+    memcpy(chosen->ui_observed,fv->ui_observed,sizeof(chosen->ui_observed));
+    chosen->ui_state_observed=fv->ui_state_observed;
+    chosen->restart_ui_observed=fv->restart_ui_observed;
+    if(scene->state!=NG2_FLOOR||!fv->ui_state_observed){unknown_scene(scene);return 0;}
+    ng2_profile_restrict_scene(scene,chosen,world_observed);
     return 0;
 }

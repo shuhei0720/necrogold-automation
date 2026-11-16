@@ -7,53 +7,73 @@
     "ngg2-manifest.json": "9d1737ba60623660a3167415ab1d6dca57357cd2d3406bbbc893af04eca8b2aa",
     "ngg2.patch": "e6e764ae5e920ab8bd9e7b5527056ee52a68349f77afc1367524919509458438"
   },
-  "patch_sha256": "c57de44662f5d41a0de8621aa96d3761146f0f6fdd52c37257abe3acb5f25556",
+  "patch_sha256": "f13603cfc9897c8f729afc4af74899268f91e33c0383ff38602593709b0c3fa0",
   "files": {
     "LoopCtrlUITests/NG2Runtime.swift": {
       "base_sha256": "42f2f88634357083e82be64e56e6ba0806f26454e278b74782caee763c5bb3e8",
-      "final_sha256": "a04449dca68a8d79aea408f90725230d3b2ed96575cb67ac6a67226483e2256e"
+      "final_sha256": "904d11caf25c5b0281ce01b14df96e5103ecd07ddfaa5989c02de4112bebb421"
     },
     "LoopCtrlUITests/XCTestPrivate-Bridging-Header.h": {
       "base_sha256": "2da6914aed5de4098514a2faeff563c1f8c50f56868bea765f4f008905f8bf84",
-      "final_sha256": "e9d4ccce037daa5ba1a3581c68412d9e69bc7411b7ed4029f9995811b6a1cb50"
+      "final_sha256": "15513fcde63f0944ac04bf42acbebc8b63ccce98ac7393c59c39aab30bdbd579"
     },
     "project.yml": {
       "base_sha256": "e9f499a3258e80fb4721866a094393bc5544027f5f3ad0ec4f7fd16506b34fd5",
-      "final_sha256": "cd7761d87a452c0474126628863cb6c7e7f8d958ca435d5af48e48a57db561b3"
+      "final_sha256": "0f6d4638e7ba1d8c50c90da4a468b076ae5aa814edf0f8707358af62c7ac2aa8"
     },
     "LoopCtrlApp/Info.plist": {
       "base_sha256": "6a8d04c321875655d559e40e6f67163d70be0ba5e3d129becf5d142cd51fbe75",
-      "final_sha256": "4bb9a1c9407602c45bd7294f69745ee6a7ab45c4103bc36e88799b0666658f54"
+      "final_sha256": "2e1f3210105494d93aa3489ac714e1b39c3ea96b3273ca95f33cbf156296d7fb"
     },
     "LoopCtrlApp/AllInOne-Info.plist": {
       "base_sha256": "ceaedb45190f0672bcc1fda8f332afe1e017159005e0ceb95f5df1781a9fa497",
-      "final_sha256": "b1d147a20215f5ff8e581db8bc6295893294fa8a88a2ca2e21d899dd1dd6659f"
+      "final_sha256": "6a96906e3242a464631453c52fca2981aafcb8cab670647780f573b900d3aab8"
+    },
+    "LoopCtrlUITests/NG2Perception.c": {
+      "base_sha256": "d72a99cac507893884d3d3f4235af23a144fcd8f7406f07760d650c2c9a84fe6",
+      "final_sha256": "f7db770eb4c08555f9594c0216640f875f246c861fb47f3217381018f23b147b"
+    },
+    "LoopCtrlUITests/NG2Navigation.c": {
+      "base_sha256": "498760efa0351cc61cc40bdbc68ea4b93cfc14d8fd31fd2b2930dc7282ab1303",
+      "final_sha256": "6f75ef249c858c9cdc2fb42bb01a5a3201f0a89d9c3c206d1e1d429ccc001676"
     }
   },
   "additions": {
     "LoopCtrlUITests/NG2DeviceBuildInfo.plist": {
       "source": "NG2DeviceBuildInfo.plist",
-      "sha256": "61e0d6e080a096486b6308897fae8a48ec40f6831badca74af5cebae0274af61"
+      "sha256": "127eac152b9995a5e5eb6dabb7cb7484c7609abd299b0f636b518059404fa338"
     },
     "LoopCtrlUITests/NG2DeviceGeometryProfile.c": {
       "source": "NG2DeviceGeometryProfile.c",
-      "sha256": "05851d0c7cf170e62258f49c4eb13b1a3b9deea548fa53f1d2fcf710f615cfb8"
+      "sha256": "8b01a12d8247dc3716c2deb451d50f7262e07c882873b0a6e672d40156bde526"
     },
     "LoopCtrlUITests/NG2DeviceGeometryProfile.h": {
       "source": "NG2DeviceGeometryProfile.h",
-      "sha256": "fefe6b1c54b8b12d62ace93a4cacd2ec3d0f42c54b0d9bb1a0c422a4eb8653d1"
+      "sha256": "d5e7385d1418042f406feb267a993b690f3e754b1e1eab43747bd3a1721d495f"
     },
     "LoopCtrlUITests/NG2DeviceRaster.c": {
       "source": "NG2DeviceRaster.c",
-      "sha256": "49d560fa25dd07f0eb16efae3ffc677eadf7dcefbc90bf47843e032d668f9c8a"
+      "sha256": "a302148e6f8b6c2a9febd89ea1f7fde968b5ad6449a95610f4d1ebf684b3445f"
     },
     "LoopCtrlUITests/NG2DeviceRaster.h": {
       "source": "NG2DeviceRaster.h",
-      "sha256": "a2d7ad9648e490484c4a46cf711a1094629a7728ccc53f0f1f212d39288a356e"
+      "sha256": "0601c949239f9554a4b91cde07dbdbe04c28018392bdc1a0dd6a04595c3a39c2"
     },
     "LoopCtrlUITests/NG2DeviceRaster.swift": {
       "source": "NG2DeviceRaster.swift",
-      "sha256": "c509a06c1ac8029250eafeba64ae0a76479b3193ded024e4270f20acd372d4e6"
+      "sha256": "909772f9d34eed06f657462624a8d47af2b2d154ec519b6a4342bc02a3dc8bbb"
+    },
+    "LoopCtrlUITests/NG2MotionSupport.h": {
+      "source": "NG2MotionSupport.h",
+      "sha256": "f7792d25fc320c328f61933ad00a6974460470a9c8968a558a656dea036083bb"
+    },
+    "LoopCtrlUITests/NG2WorldSupport.c": {
+      "source": "NG2WorldSupport.c",
+      "sha256": "611585dfc74ada12f162304fae2432605a9ea2fe4bd647b2ce6ab0ebadb81790"
+    },
+    "LoopCtrlUITests/NG2WorldSupport.h": {
+      "source": "NG2WorldSupport.h",
+      "sha256": "41a7b2f2e9bced213e7b11bd4b1e72802335be610a59f79adc96ae8d7819ef2b"
     }
   }
 }

@@ -125,11 +125,11 @@ jobs:
             exit 1
           fi
           cat > "$RUNNER_TEMP/shared-device-build/release-notes.txt" <<'NOTES'
-          One normal IPA includes iPhone 11 legacy and iPhone 8 geometry profiles. Game perception, navigation, controller and reroll logic remain shared. This is not a capture-only build. Package verification does not grant physical-device input acceptance.
+          EXPERIMENTAL bounded native test on the spare iPhone 8. The trusted compiled iPhone 8 profile permits its seven measured input points for the existing finite NativeRun while qualification_gaps=31 remains unaccepted. This is not final quality or a 100-cycle acceptance. The same IPA retains the iPhone 11 legacy path with lab permission disabled; existing owner, foreground, lock, prefix, UNKNOWN, no-purchase and finite budgets remain in force.
 
           The unsigned IPA, complete source ZIP, final source/compiler manifest and hashes were verified together. No private device evidence, pairing files, signing identities or personal configuration are included.
           NOTES
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Shared device profile build $BUILD_NUMBER" --notes-file "$RUNNER_TEMP/shared-device-build/release-notes.txt" upstream/release/LoopCtrl.ipa upstream/release/source.zip upstream/release/SHA256SUMS.txt upstream/release/shared-device-build-manifest.json
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "EXPERIMENTAL spare8 native build $BUILD_NUMBER" --notes-file "$RUNNER_TEMP/shared-device-build/release-notes.txt" upstream/release/LoopCtrl.ipa upstream/release/source.zip upstream/release/SHA256SUMS.txt upstream/release/shared-device-build-manifest.json
       - name: Save public build diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

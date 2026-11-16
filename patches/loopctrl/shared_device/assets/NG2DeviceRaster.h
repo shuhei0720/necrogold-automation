@@ -1,7 +1,7 @@
 #ifndef NG2_PROFILE_RASTER_H
 #define NG2_PROFILE_RASTER_H
 #include "NG2DeviceGeometryProfile.h"
-enum { NG2_PROFILE_RASTER_FLOOR=1, NG2_PROFILE_RASTER_PAUSE=2 };
+enum { NG2_PROFILE_RASTER_FLOOR=1, NG2_PROFILE_RASTER_PAUSE=2, NG2_PROFILE_RASTER_WORLD=3 };
 enum { NG2_CLEAR_SCOPE_UNKNOWN=0, NG2_CLEAR_SCOPE_OBSERVED_FOV_MINUS_HUD=1 };
 typedef struct {
     uint32_t version, size, qualification_gaps;
@@ -24,6 +24,13 @@ int ng2_profile_raster8(const uint8_t *source,size_t length,int32_t width,int32_
  * selected_view/scene/validity refer to the same immutable chosen raster. */
 int ng2_profile_raster_analyze(const uint8_t *floor_rgba,const uint8_t *floor_observed,const NG2ProfileRasterValidity *floor_validity,
     const uint8_t *pause_rgba,const NG2ProfileRasterValidity *pause_validity,
+    NG2Scene *scene,int32_t *selected_view,NG2ProfileRasterValidity *selected_validity);
+/* Additive same-capture plane binding. UI state/beat use floor_ui; FLOOR
+ * world classification and returned proofs use untouched world_rgba only.
+ * Existing facade signature remains available for mask-only diagnostics. */
+int ng2_profile_raster_analyze_world(const uint8_t *floor_ui,const NG2ProfileRasterValidity *floor_ui_validity,
+    const uint8_t *world_rgba,const uint8_t *world_observed,const NG2ProfileRasterValidity *world_validity,
+    const uint8_t *pause_ui,const NG2ProfileRasterValidity *pause_validity,
     NG2Scene *scene,int32_t *selected_view,NG2ProfileRasterValidity *selected_validity);
 /* Coverage-only witness for the unchanged C's existing three-item VISIBLE.
  * Does not find signs, inspect colours or reimplement merchandise thresholds. */

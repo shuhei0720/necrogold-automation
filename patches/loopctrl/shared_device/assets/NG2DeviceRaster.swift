@@ -12,9 +12,14 @@ enum NG2DeviceRaster {
     }
 
     struct Decoded {
+        // floor is UI-state/beat evidence only; world is the unoverwritten
+        // material/signature/Ring proof plane from the SAME original capture.
         let floor: NG2Raster.ProfiledResult
+        let world: NG2Raster.ProfiledResult
         let pause: NG2Raster.ProfiledResult
         let floorCoverage: Data
+        let worldCoverage: Data
+        let worldValidity: NG2ProfileRasterValidity
         let floorValidity: NG2ProfileRasterValidity
         let pauseValidity: NG2ProfileRasterValidity
     }
@@ -22,6 +27,8 @@ enum NG2DeviceRaster {
         let raster: NG2Raster.ProfiledResult
         let validity: NG2ProfileRasterValidity
         let view: Int32
+        // Actual world support for the same selected FLOOR. PAUSE has no world.
+        let floorCoverage: Data?
         // Companion ownership and the existing profile gap31 must travel
         // with this same chosen raster/scene through Runtime publication.
     }
@@ -83,9 +90,11 @@ enum NG2DeviceRaster {
         case .success(let value): original = value
         }
         let renderingStart = DispatchTime.now().uptimeNanoseconds
-        var floor = Data(count: 896 * 414 * 4), pause = Data(count: 896 * 414 * 4)
-        var coverage = Data(count: 896 * 414), pauseCoverage = Data(count: 896 * 414)
-        var fv = NG2ProfileRasterValidity(), pv = NG2ProfileRasterValidity()
+        var floor = Data(count: 896 * 414 * 4), world = Data(count: 896 * 414 * 4)
+        var pause = Data(count: 896 * 414 * 4)
+        var coverage = Data(count: 896 * 414), worldCoverage = Data(count: 896 * 414)
+        var pauseCoverage = Data(count: 896 * 414)
+        var fv = NG2ProfileRasterValidity(), wv = NG2ProfileRasterValidity(), pv = NG2ProfileRasterValidity()
         func render(_ view: Int32, _ output: inout Data, _ observed: inout Data,
                     _ validity: inout NG2ProfileRasterValidity) -> Int32 {
             original.rgba.withUnsafeBytes { sourceBytes in
@@ -103,6 +112,7 @@ enum NG2DeviceRaster {
             }
         }
         guard render(Int32(NG2_PROFILE_RASTER_FLOOR), &floor, &coverage, &fv) == 0,
+              render(Int32(NG2_PROFILE_RASTER_WORLD), &world, &worldCoverage, &wv) == 0,
               render(Int32(NG2_PROFILE_RASTER_PAUSE), &pause, &pauseCoverage, &pv) == 0 else {
             return fail(.normalize, .renderFailed)
         }
@@ -113,26 +123,32 @@ enum NG2DeviceRaster {
             copyPixels: original.trace.copyPixels)
         return .success(Decoded(
             floor: .init(rgba: floor, trace: trace, diagnosticOrientation: 8),
+            world: .init(rgba: world, trace: trace, diagnosticOrientation: 8),
             pause: .init(rgba: pause, trace: trace, diagnosticOrientation: 8),
-            floorCoverage: coverage, floorValidity: fv, pauseValidity: pv))
+            floorCoverage: coverage, worldCoverage: worldCoverage, worldValidity: wv,
+            floorValidity: fv, pauseValidity: pv))
     }
 
     /// The caller supplies Runtime's heap-owned scene. No large C tuple copy
     /// crosses a Swift stack, and no controller/navigation decision occurs here.
     static func analyze(_ decoded: Decoded, scene: UnsafeMutablePointer<NG2Scene>) -> Selected? {
-        var fv = decoded.floorValidity, pv = decoded.pauseValidity
+        var fv = decoded.floorValidity, wv = decoded.worldValidity, pv = decoded.pauseValidity
         var selected = Int32(NG2_PROFILE_RASTER_FLOOR), validity = NG2ProfileRasterValidity()
         let rc = decoded.floor.rgba.withUnsafeBytes { floor in
-            decoded.pause.rgba.withUnsafeBytes { pause in
-                decoded.floorCoverage.withUnsafeBytes { coverage in
-                    ng2_profile_raster_analyze(floor.bindMemory(to: UInt8.self).baseAddress,
-                        coverage.bindMemory(to: UInt8.self).baseAddress, &fv,
-                        pause.bindMemory(to: UInt8.self).baseAddress, &pv, scene, &selected, &validity)
+            decoded.world.rgba.withUnsafeBytes { world in
+                decoded.pause.rgba.withUnsafeBytes { pause in
+                    decoded.worldCoverage.withUnsafeBytes { coverage in
+                        ng2_profile_raster_analyze_world(floor.bindMemory(to: UInt8.self).baseAddress, &fv,
+                            world.bindMemory(to: UInt8.self).baseAddress,
+                            coverage.bindMemory(to: UInt8.self).baseAddress, &wv,
+                            pause.bindMemory(to: UInt8.self).baseAddress, &pv, scene, &selected, &validity)
+                    }
                 }
             }
         }
         guard rc == 0 else { return nil }
-        return Selected(raster: selected == Int32(NG2_PROFILE_RASTER_PAUSE) ? decoded.pause : decoded.floor,
-                        validity: validity, view: selected)
+        return Selected(raster: selected == Int32(NG2_PROFILE_RASTER_PAUSE) ? decoded.pause : decoded.world,
+                        validity: validity, view: selected,
+                        floorCoverage: selected == Int32(NG2_PROFILE_RASTER_FLOOR) ? decoded.worldCoverage : nil)
     }
 }

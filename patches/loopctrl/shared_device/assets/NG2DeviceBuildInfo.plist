@@ -19,7 +19,7 @@
     <key>XCTContainsUITests</key>
     <true/>
     <key>NG2DeviceProfileBuild</key>
-    <string>shared-device-profile-v1</string>
+    <string>iphone8-experimental-lab-v1</string>
     <key>NG2DeviceProfiles</key>
     <string>iphone11-legacy,iphone8</string>
     <key>NG2DeviceProfileSourceSHA256</key>

@@ -60,6 +60,22 @@ class OverlayApplyTests(unittest.TestCase):
             'additions': {self.added: {'source': 'NG2DeviceGeometryProfile.h', 'sha256': sha(self.asset)}},
         }
 
+    def test_explicit_world_support_paths_and_only_fixed_assets_are_allowed(self):
+        for name in ('LoopCtrlUITests/NG2Perception.c','LoopCtrlUITests/NG2Navigation.c'):
+            manifest=copy.deepcopy(self.manifest);base=dict(self.baseline)
+            base[name]='a'*64;manifest['files'][name]={'base_sha256':'a'*64,'final_sha256':'b'*64}
+            try:overlay._validate(manifest,base)
+            except ValueError:outcome='rejected'
+            else:outcome='accepted'
+            self.assertEqual('accepted',outcome)
+        for source in ('NG2WorldSupport.c','NG2WorldSupport.h','NG2MotionSupport.h'):
+            manifest=copy.deepcopy(self.manifest)
+            manifest['additions']['LoopCtrlUITests/'+source]={'source':source,'sha256':'a'*64}
+            try:overlay._validate(manifest,self.baseline)
+            except ValueError:outcome='rejected'
+            else:outcome='accepted'
+            self.assertEqual('accepted',outcome)
+
     def test_valid_sealed_overlay_installs_exact_expected_bytes(self):
         final = self.apply()
         self.assertEqual(self.new, (self.root / self.name).read_bytes())

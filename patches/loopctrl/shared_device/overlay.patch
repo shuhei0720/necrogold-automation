@@ -67,62 +67,300 @@
  // NG2Scene contains a 23,296-byte imported C tuple. Keep its storage on
  // the heap so an unoptimized capture-thread stack never copies that tuple
  // through every Frame/Optional/closure temporary. Only the capture worker
-@@ -61,6 +114,8 @@
+@@ -43,6 +96,9 @@
+     deinit { scene.deinitialize(count: 1); scene.deallocate() }
+ }
+ 
++private enum NG2FramePlane {
++    case legacyCanonical, sourceWorld, profilePauseUI
++}
+ private struct NG2Frame {
+     let id: UInt64
+     let start: UInt64
+@@ -57,10 +113,17 @@
+     let startInFlight: Bool
+     let endInFlight: Bool
+     let stable: Bool
++    // sourceWorld is an exact pixel proof, not a fake self-classifying UI PNG.
++    // State/beat are bound internally to the same capture's observed UI plane.
+     let rgba: Data
++    let plane: NG2FramePlane
      let rasterTrace: NG2Raster.Trace
      let encodedBytes: Int
      let diagnosticOrientation: Int?
 +    // Companion belongs to this same selected raster/scene, never a UI source.
 +    let deviceRasterValidity: NG2ProfileRasterValidity?
++    // COW support of the same actual selected FLOOR, never reconstructed by ID.
++    let floorCoverage: Data?
  }
  
  // This state is owned by the run gate. Expensive classification and durable
-@@ -254,6 +309,7 @@
+@@ -254,6 +317,11 @@
      let owner: String
      let id: String
      let profile: String
 +    let deviceGeometry: NG2DeviceGeometryBinding
++    // Static geometry intersected with actual committed frame support covers
++    // every copied C anchor. Unknown dynamic pixels never widen this domain.
++    // Mutated only at the serialized controlQueue observation commit gate.
++    var deviceMotionSupport: Data?
      let maximumExportBytes: Int
      let clock: String
      var generation: UInt64 = 1
-@@ -327,6 +383,7 @@
+@@ -327,6 +395,19 @@
      let cycle: NG2CycleRun?
      init(owner: String, id: String, now: UInt64, profile: String = "normal-1-1-v1", clock: String? = nil) {
          self.owner = owner; self.id = id; self.profile = profile
-+        self.deviceGeometry = NG2DeviceGeometryBinding.local()
++        let geometry = NG2DeviceGeometryBinding.local()
++        self.deviceGeometry = geometry
++        if geometry.legacyPassthrough { deviceMotionSupport = nil }
++        else {
++            var support = Data(count: Int(NG2_SIGNATURE_LENGTH))
++            if let profileGeometry = geometry.profile {
++                _ = support.withUnsafeMutableBytes { bytes in
++                    ng2_device_motion_signature_support(profileGeometry,
++                        bytes.bindMemory(to: UInt8.self).baseAddress, Int(NG2_SIGNATURE_LENGTH))
++                }
++            }
++            deviceMotionSupport = support
++        }
          self.clock = clock ?? UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
          cycle = profile == NG2Runtime.cycleProfile ? NG2CycleRun() : nil
          maximumExportBytes = profile == NG2Runtime.evidenceProfile ? 10 * 1024 * 1024 : 4 * 1024 * 1024
-@@ -1600,7 +1657,8 @@
+@@ -340,6 +421,44 @@
+             exportCache = nil
+             preparation = nil
+         }
++    }
++    // All C reference scenes are copies of committed observations. Keeping a
++    // monotonic intersection over EVERY such FLOOR covers hidden/fallback C
++    // copies without guessing which IDs its current diagnostic getters retain.
++    // Signature erosion distributes over intersection; image eviction can
++    // never widen this run's support. Caller holds the existing run commit gate.
++    func intersectDeviceWorldCoverage(_ coverage: Data?) {
++        if deviceGeometry.legacyPassthrough { return }
++        guard let coverage, var support = deviceMotionSupport else {
++            deviceMotionSupport = Data(count: Int(NG2_SIGNATURE_LENGTH)); return
++        }
++        let worldLength = coverage.count, signatureLength = support.count
++        coverage.withUnsafeBytes { world in
++            support.withUnsafeMutableBytes { signature in
++                _ = ng2_device_motion_intersect_world(
++                    world.bindMemory(to: UInt8.self).baseAddress, worldLength,
++                    signature.bindMemory(to: UInt8.self).baseAddress, signatureLength)
++            }
++        }
++        deviceMotionSupport = support
++    }
++    // Every controller entry, including helpers reached outside ng2_motion,
++    // executes under the same run intersection snapshot. TLS scope is always
++    // restored; legacy executes its original C call without touching context.
++    func withDeviceMotionSupport<T>(_ body: () -> T) -> T {
++        if deviceGeometry.legacyPassthrough { return body() }
++        if let support = deviceMotionSupport {
++            return support.withUnsafeBytes { bytes in
++                let previous = ng2_motion_support_enter(
++                    bytes.bindMemory(to: UInt8.self).baseAddress, support.count)
++                defer { ng2_motion_support_leave(previous) }
++                return body()
++            }
++        }
++        // A missing8 mask rejects all evidence rather than falling to NULL.
++        let previous = ng2_motion_support_enter(nil, Int(NG2_SIGNATURE_LENGTH))
++        defer { ng2_motion_support_leave(previous) }
++        return body()
+     }
+ }
+ 
+@@ -801,7 +920,7 @@
+ 
+     private func refreshCycleEvidence(_ run: NG2Run, frame: NG2Frame? = nil) {
+         guard let cycle = run.cycle, let core = run.core else { return }
+-        var state = NG2ControllerCycleStatus(); ng2_controller_cycle_status(core, &state)
++        var state = NG2ControllerCycleStatus(); run.withDeviceMotionSupport({ ng2_controller_cycle_status(core, &state) })
+         run.lock.ng2Locked {
+             if state.job_id != cycle.companion.job_id && state.pending != 0 {
+                 cycle.assessment = nil; cycle.assessmentAdopted = false; cycle.rawSHA256 = nil
+@@ -826,8 +945,8 @@
+                   frame.generation == run.generation, frame.stable, !frame.startInFlight, !frame.endInFlight,
+                   frame.startPrefix == state.prefix, frame.prefix == state.prefix,
+                   frame.start == state.capture_start_ns,
+-                  ng2_controller_cycle_worker_begin(core, state.job_id, state.capture_id, state.prefix, Self.now()) == 1 else { return nil }
+-            var admitted = NG2ControllerCycleStatus(); ng2_controller_cycle_status(core, &admitted)
++                  run.withDeviceMotionSupport({ ng2_controller_cycle_worker_begin(core, state.job_id, state.capture_id, state.prefix, Self.now()) }) == 1 else { return nil }
++            var admitted = NG2ControllerCycleStatus(); run.withDeviceMotionSupport({ ng2_controller_cycle_status(core, &admitted) })
+             cycle.companion = admitted; cycle.classificationOutstanding = true
+             return NG2CycleJob(run, frame: frame, state: admitted)
+         }
+@@ -867,7 +986,7 @@
+                         defer { cycle.classificationOutstanding = false }
+                         guard let currentCore = run.core, run.generation == job.generation, run.cancelReason == 0,
+                               self.ownerActive(run), !LockStateMonitor.shared().isLocked else { return }
+-                        var current = NG2ControllerCycleStatus(); ng2_controller_cycle_status(currentCore, &current)
++                        var current = NG2ControllerCycleStatus(); run.withDeviceMotionSupport({ ng2_controller_cycle_status(currentCore, &current) })
+                         guard current.level_id == job.level, current.job_id == job.job,
+                               current.capture_id == job.frame.id, current.prefix == job.prefix,
+                               current.capture_start_ns == job.frame.start else { return }
+@@ -876,11 +995,11 @@
+                         // it cannot reopen a terminal or restore input authority.
+                         guard !run.stopped else { return }
+                         if returned != Int32(result.status) || encoded == nil {
+-                            _ = ng2_controller_cycle_fail(currentCore, job.job, Self.now(), 6)
++                            _ = run.withDeviceMotionSupport({ ng2_controller_cycle_fail(currentCore, job.job, Self.now(), 6) })
+                         } else {
+-                            let committed = ng2_controller_cycle_assess(currentCore, job.job, job.frame.id, job.prefix, Self.now(), &result)
++                            let committed = run.withDeviceMotionSupport({ ng2_controller_cycle_assess(currentCore, job.job, job.frame.id, job.prefix, Self.now(), &result) })
+                             if committed == 1 {
+-                                var adopted = NG2ControllerCycleStatus(); ng2_controller_cycle_status(currentCore, &adopted)
++                                var adopted = NG2ControllerCycleStatus(); run.withDeviceMotionSupport({ ng2_controller_cycle_status(currentCore, &adopted) })
+                                 cycle.assessmentAdopted = adopted.status == Int32(result.status)
+                                     && adopted.outcome == Int32(result.outcome) && Self.now() <= job.deadline
+                             }
+@@ -905,7 +1024,7 @@
+ 
+     private func persistCycleIntent(_ run: NG2Run, command: NG2Command) {
+         guard let cycle = run.cycle, let core = run.core else { return }
+-        var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
++        var status = NG2ControllerStatus(); run.withDeviceMotionSupport({ ng2_controller_status(core, &status) })
+         _ = cache(run, status, retainEvidence: false)
+         refreshCycleEvidence(run)
+         let admission: (NG2CycleSpool, NG2Frame, NG2ControllerCycleStatus, UInt64, Bool)? = run.lock.ng2Locked {
+@@ -919,7 +1038,7 @@
+             return (spool, frame, cycle.companion, run.generation, cycle.storedCaptureIDs.contains(frame.id))
+         }
+         guard let (spool, frame, state, generation, stored) = admission else {
+-            _ = ng2_controller_cycle_storage_failed(core, cycle.companion.job_id, Self.now()); return
++            _ = run.withDeviceMotionSupport({ ng2_controller_cycle_storage_failed(core, cycle.companion.job_id, Self.now()) }); return
+         }
+         persistenceQueue.async {
+             var success = false
+@@ -946,10 +1065,10 @@
+                     guard let currentCore = run.core, run.generation == generation, run.cancelReason == 0,
+                           !run.stopped, self.ownerActive(run), !LockStateMonitor.shared().isLocked else { return }
+                     if durable {
+-                        dispatch = ng2_controller_cycle_intent_commit(currentCore, state.job_id, command.id, frame.id, frame.prefix, Self.now()) == 1
++                        dispatch = run.withDeviceMotionSupport({ ng2_controller_cycle_intent_commit(currentCore, state.job_id, command.id, frame.id, frame.prefix, Self.now()) }) == 1
+                     } else {
+                         cycle.failure = "restart_intent_commit_failed"
+-                        _ = ng2_controller_cycle_storage_failed(currentCore, state.job_id, Self.now())
++                        _ = run.withDeviceMotionSupport({ ng2_controller_cycle_storage_failed(currentCore, state.job_id, Self.now()) })
+                     }
+                 }
+                 self.refreshCycleEvidence(run)
+@@ -961,7 +1080,7 @@
+ 
+     private func persistCycleOutcome(_ run: NG2Run) {
+         guard let cycle = run.cycle, let core = run.core else { return }
+-        var state = NG2ControllerCycleStatus(); ng2_controller_cycle_status(core, &state)
++        var state = NG2ControllerCycleStatus(); run.withDeviceMotionSupport({ ng2_controller_cycle_status(core, &state) })
+         let admission: (NG2CycleSpool, NG2Frame, UInt64, Bool, NG2ControllerSnapshot?)? = run.lock.ng2Locked {
+             guard state.next_floor_capture_id != 0, state.outcome_ns == 0,
+                   cycle.outcomeJob != state.job_id, !cycle.persistenceOutstanding,
+@@ -994,13 +1113,13 @@
+                     guard let currentCore = run.core, run.generation == generation, run.cancelReason == 0,
+                           !run.stopped, self.ownerActive(run) else { return }
+                     if durable {
+-                        if ng2_controller_cycle_outcome_commit(currentCore, state.job_id, frame.id, frame.prefix, Self.now()) == 1 {
++                        if run.withDeviceMotionSupport({ ng2_controller_cycle_outcome_commit(currentCore, state.job_id, frame.id, frame.prefix, Self.now()) }) == 1 {
+                             cycle.completed.append(.object(NG2CycleWire.companion(state)))
+                             cycle.frames.removeAll(); cycle.assessment = nil; cycle.assessmentAdopted = false; cycle.rawSHA256 = nil
+                         }
+                     } else {
+                         cycle.failure = "restart_outcome_commit_failed"
+-                        _ = ng2_controller_cycle_storage_failed(currentCore, state.job_id, Self.now())
++                        _ = run.withDeviceMotionSupport({ ng2_controller_cycle_storage_failed(currentCore, state.job_id, Self.now()) })
+                     }
+                 }
+                 self.refreshCycleEvidence(run); self.cycle(run)
+@@ -1019,7 +1138,7 @@
+ 
+     private func persistCycleCheckpoint(_ run: NG2Run) {
+         guard let cycle = run.cycle, let core = run.core else { return }
+-        var state = NG2ControllerCycleStatus(); ng2_controller_cycle_status(core, &state)
++        var state = NG2ControllerCycleStatus(); run.withDeviceMotionSupport({ ng2_controller_cycle_status(core, &state) })
+         let admission: (NG2CycleSpool, [NG2Frame], Set<UInt64>, NG2ControllerSnapshot?, [String: JSONValue]?, String?, UInt64)? = run.lock.ng2Locked {
+             guard state.job_id != 0, state.pending == 0, state.assessment_ns != 0, state.pause_capture_id != 0,
+                   state.durable_ns == 0, cycle.checkpointJob != state.job_id, !cycle.persistenceOutstanding,
+@@ -1062,10 +1181,10 @@
+                     if durable { cycle.storedCaptureIDs.formUnion(ids) }
+                     guard let currentCore = run.core, run.generation == generation, run.cancelReason == 0,
+                           !run.stopped, self.ownerActive(run) else { return }
+-                    if durable { _ = ng2_controller_cycle_durable(currentCore, state.job_id, state.capture_id, state.prefix, Self.now()) }
++                    if durable { _ = run.withDeviceMotionSupport({ ng2_controller_cycle_durable(currentCore, state.job_id, state.capture_id, state.prefix, Self.now()) }) }
+                     else {
+                         cycle.failure = "checkpoint_commit_failed"
+-                        _ = ng2_controller_cycle_storage_failed(currentCore, state.job_id, Self.now())
++                        _ = run.withDeviceMotionSupport({ ng2_controller_cycle_storage_failed(currentCore, state.job_id, Self.now()) })
+                     }
+                 }
+                 self.refreshCycleEvidence(run); self.notifyCycleIfNeeded(run); self.cycle(run)
+@@ -1599,8 +1718,9 @@
+                             generation: original.generation, analysisStart: original.analysisStart, analysisEnd: original.analysisEnd,
                              analysis: original.analysis, startPrefix: original.startPrefix, prefix: original.prefix,
                              startInFlight: original.startInFlight, endInFlight: original.endInFlight, stable: original.stable,
-                             rgba: original.rgba, rasterTrace: original.rasterTrace, encodedBytes: original.encodedBytes,
+-                            rgba: original.rgba, rasterTrace: original.rasterTrace, encodedBytes: original.encodedBytes,
 -                            diagnosticOrientation: original.diagnosticOrientation)
++                            rgba: original.rgba, plane: original.plane, rasterTrace: original.rasterTrace, encodedBytes: original.encodedBytes,
 +                            diagnosticOrientation: original.diagnosticOrientation,
-+                            deviceRasterValidity: original.deviceRasterValidity)
++                            deviceRasterValidity: original.deviceRasterValidity, floorCoverage: original.floorCoverage)
                      }
                      if let ids = pinnedIDs { run.pinned = Dictionary(uniqueKeysWithValues: ids.map { ($0, clone($0)) }) }
                      run.images = recentIDs.map(clone)
-@@ -1643,7 +1701,8 @@
+@@ -1612,9 +1732,9 @@
+                     return true
+                 }
+             }
+-            guard prepared, let core = ng2_controller_create(Self.now()) else { return false }
++            guard prepared, let core = run.withDeviceMotionSupport({ ng2_controller_create(Self.now()) }) else { return false }
+             run.core = core
+-            defer { NG2RuntimeEvidenceTestHooks.snapshot = nil; ng2_controller_destroy(core); run.core = nil }
++            defer { NG2RuntimeEvidenceTestHooks.snapshot = nil; run.withDeviceMotionSupport({ ng2_controller_destroy(core) }); run.core = nil }
+             var status = NG2ControllerStatus(); status.terminal = terminalID == 0 ? 0 : 1; status.last_capture_id = terminalID
+             let events = moveSources.enumerated().map { index, source -> NG2ControllerEvent in
+                 var event = NG2ControllerEvent(); event.command.id = UInt64(index+1)
+@@ -1642,8 +1762,9 @@
+                         generation: frame.generation, analysisStart: frame.analysisStart, analysisEnd: frame.analysisEnd,
                          analysis: frame.analysis, startPrefix: frame.startPrefix, prefix: frame.prefix,
                          startInFlight: frame.startInFlight, endInFlight: frame.endInFlight, stable: frame.stable,
-                         rgba: frame.rgba, rasterTrace: frame.rasterTrace, encodedBytes: frame.encodedBytes,
+-                        rgba: frame.rgba, rasterTrace: frame.rasterTrace, encodedBytes: frame.encodedBytes,
 -                        diagnosticOrientation: frame.diagnosticOrientation)
++                        rgba: frame.rgba, plane: frame.plane, rasterTrace: frame.rasterTrace, encodedBytes: frame.encodedBytes,
 +                        diagnosticOrientation: frame.diagnosticOrientation,
-+                        deviceRasterValidity: frame.deviceRasterValidity)
++                        deviceRasterValidity: frame.deviceRasterValidity, floorCoverage: frame.floorCoverage)
                  }
                  run.images = Array(frames.suffix(4)); run.pinned = Dictionary(uniqueKeysWithValues: frames.prefix(20).map { ($0.id, $0) })
                  run.initial = frames.first; run.found = nil; run.references = Set(frames.map { $0.id })
-@@ -1767,7 +1826,8 @@
+@@ -1766,8 +1887,9 @@
+                         analysisStart: original.analysisStart, analysisEnd: original.analysisEnd,
                          analysis: original.analysis, startPrefix: original.startPrefix, prefix: original.prefix,
                          startInFlight: original.startInFlight, endInFlight: original.endInFlight,
-                         stable: original.stable, rgba: original.rgba, rasterTrace: original.rasterTrace,
+-                        stable: original.stable, rgba: original.rgba, rasterTrace: original.rasterTrace,
 -                        encodedBytes: original.encodedBytes, diagnosticOrientation: original.diagnosticOrientation)
++                        stable: original.stable, rgba: original.rgba, plane: original.plane, rasterTrace: original.rasterTrace,
 +                        encodedBytes: original.encodedBytes, diagnosticOrientation: original.diagnosticOrientation,
-+                            deviceRasterValidity: original.deviceRasterValidity)
++                            deviceRasterValidity: original.deviceRasterValidity, floorCoverage: original.floorCoverage)
                  }
                  captureID += 1
              }
-@@ -2006,10 +2066,24 @@
+@@ -1783,7 +1905,7 @@
+     func testInvalidateControllerTicket(_ id: String) {
+         guard let run = lock.ng2Locked({ current }), run.id == id, let core = run.core else { return }
+         // Called from final main hook while controlQueue waits for that call.
+-        ng2_controller_cancel(core, Self.now(), 1)
++        run.withDeviceMotionSupport({ ng2_controller_cancel(core, Self.now(), 1) })
+     }
+     func testRecordDispatchFailure(_ id: String, generation: UInt64, command: NG2Command,
+                                    start: UInt64, end: UInt64, entry: UInt64, now: UInt64, code: String) {
+@@ -1873,7 +1995,7 @@
+     }
+ 
+     private func start(_ run: NG2Run) {
+-        let createdCore = run.cycle == nil ? ng2_controller_create(Self.now()) : ng2_controller_create_cycle(run.acceptedStarted)
++        let createdCore = run.cycle == nil ? run.withDeviceMotionSupport({ ng2_controller_create(Self.now()) }) : run.withDeviceMotionSupport({ ng2_controller_create_cycle(run.acceptedStarted) })
+         guard let core = createdCore else {
+             run.cancel(15); run.lock.ng2Locked { run.terminal = true; run.captureWorkerDone = true; run.lease = false }; return
+         }
+@@ -2006,10 +2128,24 @@
              }
              if run.lock.ng2Locked({ run.stopped || run.generation != before.3 }) { return }
              let decoding: NG2Raster.DecodeResult
@@ -148,7 +386,7 @@
              } else {
                  decoding = .failure(.init(stage: .reply, code: replyFailure(captureError)))
              }
-@@ -2038,21 +2112,33 @@
+@@ -2038,21 +2174,37 @@
              let analysisStart = Self.now()
              // Pure image scanning belongs to the existing capture worker. It
              // never touches the controller or blocks its timed ticket queue.
@@ -164,10 +402,14 @@
 +            let frameRGBA: Data
 +            let analyzed: Int32
 +            var deviceRasterValidity: NG2ProfileRasterValidity?
++            var floorCoverage: Data?
++            var framePlane = NG2FramePlane.legacyCanonical
 +            if let deviceDecoded {
 +                if let selected = NG2DeviceRaster.analyze(deviceDecoded, scene: scene) {
 +                    frameRGBA = selected.raster.rgba
 +                    deviceRasterValidity = selected.validity
++                    floorCoverage = selected.floorCoverage
++                    framePlane = selected.view == Int32(NG2_PROFILE_RASTER_PAUSE) ? .profilePauseUI : .sourceWorld
 +                    analyzed = 0
 +                } else { frameRGBA = decoded.rgba; analyzed = -1 }
 +            } else {
@@ -184,15 +426,128 @@
              let frame = NG2Frame(id: before.0, start: start, end: captureEnd, decodeEnd: decodeEnd,
                  generation: before.3, analysisStart: analysisStart, analysisEnd: Self.now(), analysis: analysis,
                  startPrefix: before.1, prefix: endPrefix, startInFlight: before.2, endInFlight: endInFlight,
-                 stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: frameRGBA,
+-                stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: frameRGBA,
++                stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: frameRGBA, plane: framePlane,
                  rasterTrace: decoded.trace, encodedBytes: raw?.count ?? 0,
 -                diagnosticOrientation: decoded.diagnosticOrientation)
 +                diagnosticOrientation: decoded.diagnosticOrientation,
-+                deviceRasterValidity: deviceRasterValidity)
++                deviceRasterValidity: deviceRasterValidity, floorCoverage: floorCoverage)
              if analyzed != 0 {
                  let trace = frame.rasterTrace
                  commitCaptureFailure(run, generation: before.3, id: frame.id, start: frame.start, end: frame.end,
-@@ -2374,9 +2460,18 @@
+@@ -2103,7 +2255,7 @@
+         guard let core = run.core else { return }
+         let now = Self.now()
+         let cancelled = run.lock.ng2Locked { run.cancelReason }
+-        if cancelled != 0 { ng2_controller_cancel(core, now, cancelled) }
++        if cancelled != 0 { run.withDeviceMotionSupport({ ng2_controller_cancel(core, now, cancelled) }) }
+         let frame: NG2Frame? = run.lock.ng2Locked {
+             let frame = run.latest; run.latest = nil; return frame
+         }
+@@ -2121,8 +2273,13 @@
+                     #if NG2_RUNTIME_HOST_TEST
+                     NG2RuntimeObserveTestHooks.beforeObserve?()
+                     #endif
++                    // Intersect the ACTUAL support before C can retain any
++                    // reference copy or consume raw motion evidence.
++                    if scene.pointee.state == Int32(NG2_FLOOR) {
++                        run.intersectDeviceWorldCoverage(frame.floorCoverage)
++                    }
+                     let observeStart = Self.now()
+-                    ng2_controller_observe_at(core, scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0, observeStart)
++                    run.withDeviceMotionSupport({ ng2_controller_observe_at(core, scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0, observeStart) })
+                     #if NG2_RUNTIME_HOST_TEST
+                     NG2RuntimeObserveTestHooks.afterObserve?()
+                     #endif
+@@ -2144,7 +2301,7 @@
+                     return true
+                 }
+                 if committed {
+-                    var observedStatus = NG2ControllerStatus(); ng2_controller_status(core, &observedStatus)
++                    var observedStatus = NG2ControllerStatus(); run.withDeviceMotionSupport({ ng2_controller_status(core, &observedStatus) })
+                     cache(run, observedStatus)
+                     refreshCycleEvidence(run, frame: frame)
+                 } else {
+@@ -2153,11 +2310,11 @@
+                     let reason = run.lock.ng2Locked { run.cancelReason != 0 ? run.cancelReason : (self.ownerActive(run) ? Int32(0) : Int32(5)) }
+                     if reason != 0 {
+                         run.cancel(reason)
+-                        ng2_controller_cancel(core, Self.now(), reason)
++                        run.withDeviceMotionSupport({ ng2_controller_cancel(core, Self.now(), reason) })
+                     }
+                 }
+         }
+-        var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
++        var status = NG2ControllerStatus(); run.withDeviceMotionSupport({ ng2_controller_status(core, &status) })
+         serviceCycleAssessment(run)
+         if status.terminal != 0 {
+             run.lock.ng2Locked {
+@@ -2176,7 +2333,7 @@
+                     && !(run.cycle?.workerBusy ?? false) && (run.cycle == nil || run.cycle!.terminalPersisted)
+             }
+             if drained {
+-                ng2_controller_destroy(core); run.core = nil
++                run.withDeviceMotionSupport({ ng2_controller_destroy(core) }); run.core = nil
+                 run.controlTimer?.cancel(); run.controlTimer = nil
+                 run.watchdog?.cancel(); run.watchdog = nil
+                 run.lock.ng2Locked { run.lease = false }
+@@ -2211,8 +2368,8 @@
+             #endif
+             if !waitForCycleAssessmentBeforePause(run, status: status) {
+                 var command = NG2Command()
+-                let ticket = ng2_controller_tick(core, Self.now(), run.foreground ? 1 : 0,
+-                    LockStateMonitor.shared().isLocked ? 1 : 0, ownerActive(run) ? 1 : 0, &command)
++                let ticket = run.withDeviceMotionSupport({ ng2_controller_tick(core, Self.now(), run.foreground ? 1 : 0,
++                    LockStateMonitor.shared().isLocked ? 1 : 0, ownerActive(run) ? 1 : 0, &command) })
+                 if ticket == 1 {
+                     if run.cycle != nil && command.kind == 3 {
+                         refreshCycleEvidence(run)
+@@ -2225,7 +2382,7 @@
+                 }
+             }
+         }
+-        if now - min(now, run.lastCache) >= 50_000_000 { ng2_controller_status(core, &status); cache(run, status) }
++        if now - min(now, run.lastCache) >= 50_000_000 { run.withDeviceMotionSupport({ ng2_controller_status(core, &status) }); cache(run, status) }
+         if run.lock.ng2Locked({ run.mainCommandID == 0 }) { flushReport(run) }
+     }
+ 
+@@ -2236,7 +2393,7 @@
+         let generation = run.lock.ng2Locked {
+             run.mainCommandID = command.id; run.mainCallbacks.insert(command.id); return run.generation
+         }
+-        ng2_controller_status(core, &status)
++        run.withDeviceMotionSupport({ ng2_controller_status(core, &status) })
+         let dispatchSnapshot = cache(run, status, retainEvidence: false)
+         let preparation = preparePipeline(run, command, generation: generation)
+         let authority = preparation.authority
+@@ -2277,7 +2434,7 @@
+         run.lock.ng2Locked { run.mainCommandID == command.id && run.generation == generation }
+     }
+     private func preparePipeline(_ run: NG2Run, _ command: NG2Command, generation: UInt64) -> NG2PreparationLease {
+-        let epoch = run.core.map { ng2_controller_preparation_epoch($0, command.id, Self.now()) } ?? 0
++        let epoch = run.core.map { controllerBuffer in run.withDeviceMotionSupport({ ng2_controller_preparation_epoch(controllerBuffer, command.id, Self.now()) }) } ?? 0
+         let reusable = run.lock.ng2Locked { () -> NG2PreparationLease? in
+             guard run.mainCommandID == command.id, run.generation == generation,
+                   run.cancelReason == 0, !run.stopped, !run.inFlight, self.ownerActive(run),
+@@ -2298,7 +2455,7 @@
+         }
+         let authority = prepare(run, command, generation: generation)
+         let at = Self.now()
+-        let currentEpoch = run.core.map { ng2_controller_preparation_epoch($0, command.id, at) } ?? 0
++        let currentEpoch = run.core.map { controllerBuffer in run.withDeviceMotionSupport({ ng2_controller_preparation_epoch(controllerBuffer, command.id, at) }) } ?? 0
+         return run.lock.ng2Locked {
+             let lease = NG2PreparationLease(key: queriedKey, commandID: command.id, authority: authority)
+             if currentEpoch != 0 && currentEpoch == epoch && run.mainCommandID == command.id
+@@ -2321,7 +2478,7 @@
+         if lease.key.epoch == 0 { currentEpoch = 0 }
+         else {
+             guard let core = run.core else { return false }
+-            currentEpoch = ng2_controller_preparation_epoch(core, command.id, now)
++            currentEpoch = run.withDeviceMotionSupport({ ng2_controller_preparation_epoch(core, command.id, now) })
+         }
+         return lease.matchesIdentity(key: candidate, commandID: command.id, currentEpoch: currentEpoch)
+     }
+@@ -2374,9 +2531,18 @@
              guard self.ownsTicket(run, command, generation: generation) else { return }
              let foreground = authority.foreground
              let locked = LockStateMonitor.shared().isLocked
@@ -211,7 +566,7 @@
                  let now = Self.now()
                  let authorityFresh = NG2TicketGuard.authoritySampleIsFresh(
                      start: authority.start, end: authority.end, now: now)
-@@ -2390,6 +2485,15 @@
+@@ -2390,12 +2556,21 @@
                      run.stopped = true; run.latest = nil
                      run.preparation = nil
                  }
@@ -227,7 +582,14 @@
                  guard NG2TicketGuard.permits(expectedGeneration: generation, currentGeneration: run.generation,
                      cancelled: run.cancelReason != 0, ownerActive: ownerActive, foreground: foreground,
                      locked: locked, now: now, notBefore: command.not_before_ns, deadline: command.deadline_ns),
-@@ -2409,10 +2513,16 @@
+                     preparation.map({ self.preparationMatches($0, run: run, command: command,
+                         generation: generation, now: now) }) ?? true,
+-                    ng2_controller_begin(core, command.id, now, foreground ? 1 : 0, locked ? 1 : 0, ownerActive ? 1 : 0) == 1 else {
++                    run.withDeviceMotionSupport({ ng2_controller_begin(core, command.id, now, foreground ? 1 : 0, locked ? 1 : 0, ownerActive ? 1 : 0) }) == 1 else {
+                     let code = now < command.not_before_ns ? "too_early" : (now > command.deadline_ns ? "too_late" : "controller_rejected")
+                     recordDispatchFailure(run, command, generation: generation, authority: authority, entry: mainEntry, now: now, code: code)
+                     return false
+@@ -2409,10 +2584,16 @@
              outcome = -1
              var result: ([String: JSONValue]?, JSONRPCError?) = (nil, .internalError)
              let raised = ObjCException.catching {
@@ -247,20 +609,86 @@
              }
              if raised == nil && result.1 == nil { outcome = 1 }
              run.lock.ng2Locked {
+@@ -2423,12 +2604,12 @@
+         }
+         guard run.lock.ng2Locked({ run.mainCommandID == command.id && (run.generation == generation || run.cancelReason != 0) }) else { return }
+         let cancelled = run.lock.ng2Locked { run.cancelReason }
+-        if outcome == 0 && cancelled != 0 { ng2_controller_cancel(core, Self.now(), cancelled) }
+-        ng2_controller_complete(core, command.id, Self.now(), outcome)
++        if outcome == 0 && cancelled != 0 { run.withDeviceMotionSupport({ ng2_controller_cancel(core, Self.now(), cancelled) }) }
++        run.withDeviceMotionSupport({ ng2_controller_complete(core, command.id, Self.now(), outcome) })
+         run.lock.ng2Locked {
+             if run.mainCommandID == command.id { run.mainCommandID = 0; run.preparation = nil }
+         }
+-        var status = NG2ControllerStatus(); ng2_controller_status(core, &status); cache(run, status)
++        var status = NG2ControllerStatus(); run.withDeviceMotionSupport({ ng2_controller_status(core, &status) }); cache(run, status)
+         flushReport(run)
+         cycle(run)
+     }
+@@ -2442,31 +2623,31 @@
+             run.lock.ng2Locked { run.uiFrozen = true }
+         }
+         var events = [NG2ControllerEvent](repeating: NG2ControllerEvent(), count: 64)
+-        var count = events.withUnsafeMutableBufferPointer { ng2_controller_events(core, $0.baseAddress, $0.count) }
++        var count = events.withUnsafeMutableBufferPointer { controllerBuffer in run.withDeviceMotionSupport({ ng2_controller_events(core, controllerBuffer.baseAddress, controllerBuffer.count) }) }
+         var changes = [NG2ControllerSceneChange](repeating: NG2ControllerSceneChange(), count: 3)
+-        var changeCount = changes.withUnsafeMutableBufferPointer { ng2_controller_scene_changes(core, $0.baseAddress, $0.count) }
++        var changeCount = changes.withUnsafeMutableBufferPointer { controllerBuffer in run.withDeviceMotionSupport({ ng2_controller_scene_changes(core, controllerBuffer.baseAddress, controllerBuffer.count) }) }
+         var details = [NG2ControllerSceneDetail](repeating: NG2ControllerSceneDetail(), count: 3)
+-        let detailCount = details.withUnsafeMutableBufferPointer { ng2_controller_scene_details(core, $0.baseAddress, $0.count) }
++        let detailCount = details.withUnsafeMutableBufferPointer { controllerBuffer in run.withDeviceMotionSupport({ ng2_controller_scene_details(core, controllerBuffer.baseAddress, controllerBuffer.count) }) }
+         var motionWait = NG2ControllerMotionWait()
+-        ng2_controller_motion_wait(core, &motionWait)
++        run.withDeviceMotionSupport({ ng2_controller_motion_wait(core, &motionWait) })
+         var motionReferences = [NG2ControllerMotionReference](repeating: NG2ControllerMotionReference(), count: 16)
+-        let motionReferenceCount = motionReferences.withUnsafeMutableBufferPointer {
+-            ng2_controller_motion_references(core, $0.baseAddress, $0.count)
++        let motionReferenceCount = motionReferences.withUnsafeMutableBufferPointer { controllerBuffer in
++            run.withDeviceMotionSupport({ ng2_controller_motion_references(core, controllerBuffer.baseAddress, controllerBuffer.count) })
+         }
+         var recovery = NG2ControllerRecoveryStatus()
+-        ng2_controller_recovery_status(core, &recovery)
++        run.withDeviceMotionSupport({ ng2_controller_recovery_status(core, &recovery) })
+         let retainedRecoveryCount = Int(min(recovery.record_count, 2))
+         let traces = [recovery.records.0, recovery.records.1]
+         let recoveryRecords: [NG2RecoveryRecord] = (0..<retainedRecoveryCount).map { index in
+             var samples = [NG2BeatSample](repeating: NG2BeatSample(), count: 13)
+-            let count = samples.withUnsafeMutableBufferPointer {
+-                ng2_controller_recovery_samples(core, index, $0.baseAddress, $0.count)
++            let count = samples.withUnsafeMutableBufferPointer { controllerBuffer in
++                run.withDeviceMotionSupport({ ng2_controller_recovery_samples(core, index, controllerBuffer.baseAddress, controllerBuffer.count) })
+             }
+             return NG2RecoveryRecord(trace: traces[index], samples: Array(samples.prefix(min(count, samples.count))))
+         }
+         var stopDetail = NG2ControllerStopDetail(), handoff = NG2ControllerHandoff()
+-        ng2_controller_stop_detail(core, &stopDetail)
+-        ng2_controller_handoff(core, &handoff)
++        run.withDeviceMotionSupport({ ng2_controller_stop_detail(core, &stopDetail) })
++        run.withDeviceMotionSupport({ ng2_controller_handoff(core, &handoff) })
+         // TEST056 HOST SNAPSHOT BEGIN.
+         #if NG2_RUNTIME_HOST_TEST
+         if let fixture = NG2RuntimeEvidenceTestHooks.snapshot {
 --- a/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
 +++ b/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
-@@ -12,6 +12,8 @@
+@@ -12,6 +12,9 @@
  #import "AutomationSession.h"
  #import "DeviceKeys.h"
  #import "NG2Controller.h"
 +#import "NG2DeviceGeometryProfile.h"
 +#import "NG2DeviceRaster.h"
++#import "NG2MotionSupport.h"
  #import "NG2CaptureBridge.h"
  
  @interface EarlyURLHook : NSObject
+@@ -103,3 +106,5 @@
+ NS_ASSUME_NONNULL_END
+ 
+ #endif
++
++#import "NG2WorldSupport.h"
 --- a/project.yml
 +++ b/project.yml
-@@ -116,8 +116,11 @@
+@@ -116,8 +116,12 @@
      sources:
        - path: LoopCtrlUITests
          excludes:
@@ -269,10 +697,11 @@
            - NG2Navigation.c
 +          - NG2DeviceGeometryProfile.c
 +          - NG2DeviceRaster.c
++          - NG2WorldSupport.c
            - NG2Ring.c
            - NG2RingKernel/observe.c
            - NG2RingKernel/icon.c
-@@ -126,6 +129,12 @@
+@@ -126,6 +130,14 @@
          compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
        - path: LoopCtrlUITests/NG2Navigation.c
          compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
@@ -282,10 +711,12 @@
 +        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
 +      - path: LoopCtrlUITests/NG2DeviceRaster.c
 +        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
++      - path: LoopCtrlUITests/NG2WorldSupport.c
++        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
        - path: LoopCtrlUITests/NG2Ring.c
          compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
        - path: LoopCtrlUITests/NG2RingKernel/observe.c
-@@ -162,6 +171,9 @@
+@@ -162,6 +174,9 @@
        base:
          PRODUCT_BUNDLE_IDENTIFIER: "$(LOOPCTRL_BUNDLE_PREFIX).loopctrl.uitests"
          GENERATE_INFOPLIST_FILE: YES
@@ -302,7 +733,7 @@
  		<string>shadowrocket</string>
  	</array>
 +	<key>NG2DeviceProfileBuild</key>
-+	<string>shared-device-profile-v1</string>
++	<string>iphone8-experimental-lab-v1</string>
 +	<key>NG2DeviceProfiles</key>
 +	<string>iphone11-legacy,iphone8</string>
 +	<key>NG2DeviceProfileSourceSHA256</key>
@@ -316,10 +747,139 @@
  		<string>shadowrocket</string>
  	</array>
 +	<key>NG2DeviceProfileBuild</key>
-+	<string>shared-device-profile-v1</string>
++	<string>iphone8-experimental-lab-v1</string>
 +	<key>NG2DeviceProfiles</key>
 +	<string>iphone11-legacy,iphone8</string>
 +	<key>NG2DeviceProfileSourceSHA256</key>
 +	<string>$(NG2_DEVICE_PROFILE_SOURCE_SHA256)</string>
  </dict>
  </plist>
+--- a/LoopCtrlUITests/NG2Perception.c
++++ b/LoopCtrlUITests/NG2Perception.c
+@@ -3,6 +3,7 @@
+  * No image scaling, interpolation, shared mutable state or external assets. */
+ #include "NG2Core.h"
+ #include "NG2Templates.h"
++#include "NG2WorldSupport.h"
+ #include <math.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -18,6 +19,7 @@
+     return x0<b[2] && b[0]<x1 && y0<b[3] && b[1]<y1;
+ }
+ static int ng2_hud_overlap(int x0,int y0,int x1,int y1){
++    if(ng2_world_support_active())return !ng2_world_roi_observed(x0,y0,x1,y1);
+     size_t k;for(k=0;k<sizeof(ng2_hud)/sizeof(ng2_hud[0]);++k)
+         if(ng2_overlap(x0,y0,x1,y1,ng2_hud[k]))return 1;
+     return 0;
+@@ -107,15 +109,20 @@
+ static int ng2_gold(const unsigned char *rgba,size_t stride,const unsigned char *gray,
+                     unsigned char *work,unsigned char *density,NG2Scene *out){
+     int x,y,row,col;unsigned peak=0;
++    int world_support=ng2_world_support_active();
+     for(y=0;y<H;++y)for(x=0;x<W;++x){
+         int excluded=(x<143&&y<54)||(x>=663&&y<80)||(x>=717&&y>=315)
+             ||(x>=405&&x<485&&y>=321)||y>=380;
++        if(world_support)excluded=!ng2_world_pixel_observed(x,y);
+         work[y*W+x]=(unsigned char)(!excluded&&ng2_gold_pixel(rgba+y*stride+4*x)?255:0);
+     }
+     if(ng2_blur(work,density,13))return -1;
+     for(y=0;y<H;++y)for(x=0;x<W;++x)if(density[y*W+x]>peak)peak=density[y*W+x];
+     out->gold_peak=(int32_t)peak;
+     out->gold_state=peak>=135?NG2_GOLD_CANDIDATE:peak<100?NG2_GOLD_CLEAR:NG2_GOLD_UNKNOWN;
++    if(world_support&&out->gold_state==NG2_GOLD_CLEAR
++        &&ng2_world_support_clear_scope()!=NG2_WORLD_CLEAR_OBSERVED_FOV_MINUS_HUD)
++        out->gold_state=NG2_GOLD_UNKNOWN;
+     for(row=0;row<6;++row)for(col=0;col<8;++col){unsigned sum=0,mean,remainder;
+         if(col>=2&&col<=5&&row>=2&&row<=4)continue;
+         for(y=70+row*48;y<118+row*48;++y)for(x=224+col*56;x<280+col*56;++x)sum+=gray[y*W+x];
+@@ -349,7 +356,8 @@
+     for(j=3;j<=5;++j)for(i=-11;i<=11;++i){
+         int cx=448+36*i,cy=207+36*j;unsigned count=0;
+         for(y=cy-12;y<cy+13;++y)for(x=cx-12;x<cx+13;++x)
+-            count+=(unsigned)ng2_gold_pixel(rgba+y*stride+4*x);
++            count+=(unsigned)((!ng2_world_support_active()||ng2_world_pixel_observed(x,y))
++                &&ng2_gold_pixel(rgba+y*stride+4*x));
+         counts[j-3][i+11]=count;
+     }
+     for(j=3;j<=5;++j)for(i=-10;i<=10;++i){
+@@ -434,11 +442,17 @@
+         &&ng2_match(rgba,stride,gray,&ng2_template_zone_one,1)&&ng2_match(rgba,stride,gray,&ng2_template_floor_one,1)
+         &&!ng2_match(rgba,stride,gray,&ng2_template_death,0)){
+         out->state=NG2_FLOOR;
+-        if(ng2_gold(rgba,stride,gray,work,density,out))result=-1;
+-        else {ng2_tiles(rgba,stride,out);ng2_material_proofs(rgba,stride,out);ng2_black_entry_floor(rgba,stride,out);ng2_separated_floor_bands(rgba,stride,out);result=ng2_merchandise(rgba,stride,gray,work,density,out);}
+-        if(!result){ng2_thin_gate_doors(rgba,stride,out);ng2_lower_fringe(rgba,stride,out);
++        /* NG2 WORLD PLANE BEGIN: UI state above always uses the input canvas. */
++        const uint8_t *world_rgba=ng2_world_support_rgba(rgba,length,stride);
++        if(!world_rgba)result=-1;
++        else {
++        if(world_rgba!=rgba)for(y=0;y<H;++y)for(x=0;x<W;++x)gray[y*W+x]=ng2_gray(world_rgba+y*stride+4*x);
++        if(ng2_gold(world_rgba,stride,gray,work,density,out))result=-1;
++        else {ng2_tiles(world_rgba,stride,out);ng2_material_proofs(world_rgba,stride,out);ng2_black_entry_floor(world_rgba,stride,out);ng2_separated_floor_bands(world_rgba,stride,out);result=ng2_merchandise(world_rgba,stride,gray,work,density,out);}
++        if(!result){ng2_thin_gate_doors(world_rgba,stride,out);ng2_lower_fringe(world_rgba,stride,out);
+             for(y=0;y<H;y+=4)for(x=0;x<W;x+=4)out->signature[(y/4)*224+x/4]=gray[y*W+x];
+             ng2_beat_extract(rgba,stride,out);}
++        } /* NG2 WORLD PLANE END. */
+     }
+     free(gray);
+     if(result){memset(out,0,sizeof(*out));out->abi_version=NG2_ABI_VERSION;out->struct_size=sizeof(*out);}
+--- a/LoopCtrlUITests/NG2Navigation.c
++++ b/LoopCtrlUITests/NG2Navigation.c
+@@ -3,6 +3,7 @@
+  * No acknowledgement or planned input count is evidence of displacement.
+  */
+ #include "NG2Core.h"
++#include "NG2MotionSupport.h"
+ #include <limits.h>
+ #include <math.h>
+ #include <stdlib.h>
+@@ -13,6 +14,24 @@
+ #define N (W*H)
+ #define CELLS NG2_TILE_COUNT
+ #define INF_COST 1000000
++/* A scoped per-thread geometry exclusion, shared by every evidence plane and
++ * displacement candidate. NULL legacy leaves all original masks unchanged. */
++static __thread NG2MotionSupportScope ng2_motion_support;
++NG2MotionSupportScope ng2_motion_support_enter(const uint8_t *signature_valid,size_t length) {
++    NG2MotionSupportScope previous=ng2_motion_support;
++    ng2_motion_support.pointer=signature_valid;
++    ng2_motion_support.len=length;
++    ng2_motion_support.enabled=signature_valid!=NULL||length!=0;
++    return previous;
++}
++void ng2_motion_support_leave(NG2MotionSupportScope previous) {
++    ng2_motion_support=previous;
++}
++static int motion_support_known(int x,int y) {
++    if(!ng2_motion_support.enabled)return 1;
++    return ng2_motion_support.pointer&&ng2_motion_support.len==NG2_SIGNATURE_LENGTH
++        &&x>=0&&x<W&&y>=0&&y<H&&ng2_motion_support.pointer[y*W+x]!=0;
++}
+ static const int ddx[5] = {0,-1,1,0,0};
+ static const int ddy[5] = {0,0,0,-1,1};
+ /* Python min(tuple) compares direction names, not DIRECTIONS insertion order. */
+@@ -484,6 +503,7 @@
+     }
+ }
+ static int mask(int x,int y,int expanded) {
++    if(!motion_support_known(x,y))return 0;
+     if (x<40 || x>=179 || y<20 || y>=79) return 0;
+     if (!expanded) return !(x>=90 && x<139 && y>=36);
+     return !(x>=103 && x<122 && y>=43 && y<61) && !(x>=115 && x<154 && y>=38 && y<80);
+@@ -668,6 +688,7 @@
+  * little terrain inside the ordinary mask. This separate zero-motion proof
+  * adds the observed lower terrain strip; it never changes the MOVE mask. */
+ static int opening_mask(int x,int y) {
++    if(!motion_support_known(x,y))return 0;
+     if (x<40 || x>=179 || y<20 || y>=85) return 0;
+     return !(x>=103 && x<122 && y>=43 && y<61) &&
+            !(x>=115 && x<154 && y>=38 && y<80);
+@@ -942,6 +963,7 @@
+ /* This mask observes world pixels, including the starting room's lettering.
+  * Fixed HUD, player and heart remain excluded. Legacy masks are unchanged. */
+ static int world_mask(int x,int y) {
++    if(!motion_support_known(x,y))return 0;
+     return x>=40 && x<179 && y>=20 && y<85 &&
+         !(x>=103 && x<122 && y>=43 && y<61) && !(x>=101 && x<123 && y>=80);
+ }

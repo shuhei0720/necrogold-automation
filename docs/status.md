@@ -6,9 +6,9 @@
 
 完成版は11/8同一IPA・共通制御、端末別profile。11座標を保護、11操作0回。
 
-最新要件: ゲーム停止確認→起動→間隔つきタップ→ホーム→左・下・下→通常1-1。3移動一括後の確認を許可。Game Centerは初回だけ。8で100周以上の判定付き自動運転品質まで自走開発し、その後に利用者が実機確認。[START-03](requirements/necrogold.md)の完全自動化は未実装。
+最新要件: 停止確認→起動→間隔つきタップ→ホーム→左・下・下→通常1-1。3移動一括確認可。8で100周以上の判定付き自走品質を作り、利用者が最後に確認。[START-03](requirements/necrogold.md)完全自動化は未実装。
 
-独立cold start 4回で左・下・下→1-1/3HPをG1確認。[計測版800008](reviews/iphone8-integration.md)は8へのUpgrade・fresh mode・既token・原JPEG取得成功。原画で共通CのPAUSE/Restart、固定G1でFLOOR/beat、関連34件成功。通常bindingの実Mac compileも成功。通常IPA統合・商店/商品/100周は未受入。
+独立cold start 4回で左・下・下→1-1/3HPをG1確認。[計測版800008](reviews/iphone8-integration.md)は8へのUpgrade・fresh mode・既token・原JPEG取得成功。原画で共通CのPAUSE/Restart、固定G1でFLOOR/beat。通常900006は実Mac build/IPA/全source照合済み、8はVPN peer疎通失敗で署名前停止を復旧中。次の実験版は既知8の実測7点に限定して有限native runを先行、gap31・本番未受入を保持。商店/商品/100周は0・未受入。
 
 現配布はTEST107/build204。[計画](plans/test107-partial-composition.md)・[レビュー](reviews/test107.md)・[修正表](fix-records.md)。TEST106の複合変化/初歩前フェードを修正し、既知MOVED拒否を維持。
 

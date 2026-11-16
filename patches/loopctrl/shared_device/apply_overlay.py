@@ -28,6 +28,7 @@ BASELINE_PINS = MappingProxyType({
 })
 ALLOWED_TARGETS = frozenset({
     'LoopCtrlUITests/NG2Runtime.swift',
+    'LoopCtrlUITests/NG2Perception.c', 'LoopCtrlUITests/NG2Navigation.c',
     'LoopCtrlUITests/XCTestPrivate-Bridging-Header.h', 'project.yml',
     'LoopCtrlApp/Info.plist', 'LoopCtrlApp/AllInOne-Info.plist',
 })
@@ -35,6 +36,7 @@ ALLOWED_ASSETS = frozenset({
     'NG2DeviceGeometryProfile.h', 'NG2DeviceGeometryProfile.c',
     'NG2DeviceRaster.h', 'NG2DeviceRaster.c', 'NG2DeviceRaster.swift',
     'NG2Startup.swift', 'NG2DeviceBuildInfo.plist',
+    'NG2MotionSupport.h', 'NG2WorldSupport.c', 'NG2WorldSupport.h',
 })
 MAX_SOURCE = 8 * 1024 * 1024
 MAX_ADDITIONS = 32
@@ -254,7 +256,7 @@ def _new_inventory(root, additions):
             raise ValueError('invalid_source_parent')
         if parent.is_dir():
             found.update(path.relative_to(root).as_posix() for path in parent.rglob('*')
-                         if path.name.startswith(('NG2Device', 'NG2Startup')))
+                         if path.name.startswith(('NG2Device', 'NG2Startup', 'NG2MotionSupport', 'NG2WorldSupport')))
     if found != set(additions):
         raise ValueError('destination_inventory_mismatch')
 

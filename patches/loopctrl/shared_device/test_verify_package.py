@@ -79,7 +79,7 @@ class ProbePackageTests(unittest.TestCase):
         self.info = {'CFBundleIdentifier': 'top.ebato.loopctrl',
             'CFBundleExecutable': 'LoopCtrlAllInOne', 'CFBundleVersion': '900001',
             'CFBundleShortVersionString': '0.3.4',
-            'NG2DeviceProfileBuild': 'shared-device-profile-v1',
+            'NG2DeviceProfileBuild': 'iphone8-experimental-lab-v1',
             'NG2DeviceProfiles': 'iphone11-legacy,iphone8',
             'NG2DeviceProfileSourceSHA256': self.source_sha256}
         self.entries = {self.app + 'Info.plist': plistlib.dumps(self.info),
@@ -152,6 +152,8 @@ class ProbePackageTests(unittest.TestCase):
         report = __import__('json').loads((self.root / 'shared-device-build-manifest.json').read_text())
         self.assertIs(False, report.get('capture_only_build'))
         self.assertEqual(['iphone11-legacy', 'iphone8'], report.get('device_profiles'))
+        self.assertEqual({'device8_profile_name':'iphone8-experimental-lab-v1','lab_input_permitted':True,
+            'qualification_gaps':31,'production_acceptance':False,'device11_lab_input_permitted':False}, report.get('experimental_admission'))
         for old_claim in ('service_mode', 'capability', 'callback_return_verified'):
             self.assertNotIn(old_claim, report)
         self.assertIs(False, report['build_verification_grants_input_authority'])

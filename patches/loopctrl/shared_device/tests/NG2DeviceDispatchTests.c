@@ -8,7 +8,9 @@ int main(void){
     const NG2DeviceGeometryProfile *legacy=ng2_device_geometry_profile(NULL,414,896);
     NG2DeviceInputPoint point={-91,-92,0};int began=0,synthesized=0;
     CHECK(spare&&spare->qualification_gaps==31);
-    if(ng2_device_dispatch_point(spare,NG2_ACTION_MOVE,NG2_LEFT,207,49,&point)){
+    /* Keep the original closed-gap rejection with the lab exception disabled. */
+    NG2DeviceGeometryProfile notAdmitted=*spare;notAdmitted.lab_input_permitted=0;
+    if(ng2_device_dispatch_point(&notAdmitted,NG2_ACTION_MOVE,NG2_LEFT,207,49,&point)){
         ++began;++synthesized;
     }
     CHECK(began==0&&synthesized==0);
