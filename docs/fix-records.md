@@ -396,3 +396,15 @@ TEST106/build202確認: 最終CODEc18427fの選択156件/24scope、同source IPA
 | FR-107-INITIAL-MOVED | 2026-11-16 | 配布前の独立点検で、episode前の既知MOVED後にUNKNOWNから再取得し得る不足 | sticky失効をepisode開始後だけに限定していた | 初期GOLD waitの既知MOVED/非零をepisode前から失効させ、後のUNKNOWN/零で取り戻さない | 元D確定/MOVED/UNKNOWN入口を資格化したRed1/error0→最終新7/旧15へ結合。実機未確認 | 配布前レビュー1。新しい実機再発へ数えない |
 
 TEST107/build204確認: CODEcfdb690の最終C fdbc142、選択52件/12scope、同source IPA作成、実物5gate/5attemptが成功。原3pairの役割証明・再判定原184/440の正常safe PARTIALは校正であり、実機改善完了と扱わず各行の未確認/再発数を維持する。
+
+## TEST108の対策（実機改善未確認）
+
+[今回計画](plans/test108-real-failures.md)。107の7添付を4固有runへ照合した。過去のFULL/PARTIAL/価格床/候補対策を照合し、同じ見た目の停止と同一根因を分ける。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-108-OPENED-FULL | 2026-11-17 | 開扉後に3商品が見えるが入店せず停止 | 原157の通常品直下が暗く、Ringは正常UNKNOWN。既FULL一歩観測は開扉後もう一度MOVEした履歴と現在位置の金壁を要求し、入口手前を扱わない | 正の開扉ACK・次FLOOR/入口金壁・正確ITEM保護/全ROIを根拠に既一度限りの入店観測へ。旧履歴との直積を拒否 | 原157の通常結果再現、正本Red1/2failと対向Red1。新7/旧9成功、最終Cで待機7/開扉7/旧9の23成功。未収録の次frameや実機改善は未確認 | 今回条件1。開扉後停止の同症状継続、同根因通算未集計 |
+| FR-108-REVEALED-MOTION | 2026-11-17 | LEFT一歩が実画像で成立したのに扉に着く前に停止 | 原256→279の一意unit地形とraw planeは成立するが、独立pixel面の支持不足。FR079/096の既幾何は成立しており削除回帰とは未確認 | 既world全依存閉包の全73実支持/有限値・unit/.45/.08と旧地形投影/texture300・95%・両領域100を結合。旧閾値不変、maskを1回cache | 原通常Motion UNKNOWN→MOVED(-1,0)。cache前新10/旧33、cache後新12成功、80case全score/支持/結果不変。品質/bandだけの私有変異各1fail。実機未確認 | 今回条件1。旧Motion系列の同根因通算未集計 |
+| FR-108-FULL-VIEW-CHANGE | 2026-11-17 | 入店後の商品分類がUNKNOWNとなり、追加観測で停止 | 単一看板/offset入口と未観測の右capで全被覆が不成立。続く描画材質の揺れで未予約FULL一歩観測も即失敗。近傍差向きの記録/校正差は未解明 | 新11は正の金壁/face/footprint/全B/3価格/cap/v2証明、未観測は陰性化しない。未予約stage1/2だけ固定anchor直接UNKNOWN/零を元D内で無入力待機、旧モデル権限を撤回し新fresh零とfitまでMOVE0 | 新11は13/旧13成功、原236/238はENDCAP16の正常UNKNOWNを維持。待機Red1/2fail→最終C23成功、full_static本体不変。未来frame/実機改善は未確認 | 今回条件1。FULL系列同根因通算未集計 |
+| FR-108-UNSENT-ROUTE | 2026-11-17 | 追加runで歩行途中に未送信のまま停止 | 原198→199は厳密零だが、観測床vantageがRIGHTからUPへ変化。旧票の同Decision検査がROUTE10で停止 | 旧票を撤回し、新旧の正規選択/観測床/一歩近傍/厳密零と限定材質関係を満たす別refresh modeへ。独立全tile一致/同Decision/将来拍、元予算を要求 | 最終新10を旧Cへ結合して24assert失敗→新10/旧16成功。原events由来world/visitsで純述語適格、私有非active仮定をRuntime証明にしない。実機未確認 | 今回条件1。利用者の周番号との対応未確定、同根因通算未集計 |
+| FR-108-SPLIT-ROOF | 2026-11-17 | 金壁候補の原70を見送り実リスタート | 観測された上左のsplit roofが旧095/097等の別形状条件に当たらずmask0。候補対策削除とは未確認 | 独立壁/屋根・暗い口・内側既床を要す新witness。既床3歩のvantageだけ許し、未知口へ進まない | 旧Nav新7で5assert失敗→新7/直接旧26成功（O0/strictO2）。原70はmask0→1/既床3歩、原Scene不変。実機未確認 | 今回1。FR106左/上観測系列の適用外、同根因通算未集計 |

@@ -354,6 +354,25 @@ static int passage_observed_upper_vantage(const NG2Scene *s,const Path route[CEL
         &&passage_clear(s,-2,-4)&&passage_clear(s,-2,-2)
         &&route[vantage].cost!=INF_COST&&route[vantage].length==3;
 }
+/* A split upper-left roof can show both mouth flanks and a horizontal outer
+ * cap while the vertical cap and inboard stay dark. Independent opposite
+ * roof/side walls support only the existing three-step inside FLOOR view. */
+static int passage_split_roof_vantage(const NG2Scene *s,const Path route[CELLS]) {
+    static const int walls[][2]={{-4,-3},{-3,-3},{-1,-3},{3,-3},{-3,-1},{-3,0},{3,-1},{3,0}};
+    static const int dark[][2]={{-2,-4},{-2,-3},{-2,-2},{-3,-2}};
+    int i,x,y,vantage=index_of(-2,-1);
+    if(s->gold_state!=NG2_GOLD_CLEAR)return 0;
+    for(i=0;i<CELLS;++i)
+        if(s->protected_cells[i]||s->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(i=0;i<(int)(sizeof(walls)/sizeof(walls[0]));++i)
+        if(!passage_wall(s,walls[i][0],walls[i][1]))return 0;
+    for(i=0;i<(int)(sizeof(dark)/sizeof(dark[0]));++i)
+        if(tile(s,dark[i][0],dark[i][1])!=NG2_TILE_UNKNOWN)return 0;
+    for(y=-1;y<=0;++y)for(x=-2;x<=0;++x)
+        if(tile(s,x,y)!=NG2_TILE_FLOOR)return 0;
+    return tile(s,-1,-2)==NG2_TILE_FLOOR&&tile(s,0,-2)==NG2_TILE_FLOOR
+        &&route[vantage].cost!=INF_COST&&route[vantage].length==3;
+}
 /* Independent left boundary ends can support a nearer observed FLOOR view.
  * All dark cells retain their meaning; the initial world mouth is fixed and
  * the unchanged chooser must stop before unobserved terrain. */
@@ -406,6 +425,7 @@ uint32_t ng2_passage_candidates(const NG2Scene *s) {
     if(passage_shadow_vantage(s,route)||passage_split_shadow_vantage(s,route))result|=UINT32_C(1);
     result|=passage_occluded_corner_vantage(s,route);
     if(passage_observed_upper_vantage(s,route))result|=UINT32_C(1);
+    if(passage_split_roof_vantage(s,route))result|=UINT32_C(1);
     if(passage_observed_left_vantage(s,route))result|=UINT32_C(1)<<5;
     if(passage_split_left_vantage(s,route))result|=UINT32_C(1)<<8;
     if(passage_lower_fringe_vantage(s,route))result|=UINT32_C(1)<<9;
@@ -2222,6 +2242,104 @@ static void revealed_singleton_motion(const NG2Scene *a,const NG2Scene *b,int di
     out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
 }
 
+/* A side reveal can have too little ordinary-mask texture even though its
+ * finite raw phase and complete old world agree on one unit. This separate
+ * plane uses the fixed wider world domain, with every median dependency off
+ * UI and the two camera bands disjoint. The old masks and proofs stay intact. */
+static int revealed_world_pixel(int x,int y) {
+    int ox,oy;
+    for(oy=-1;oy<=1;++oy)for(ox=-1;ox<=1;++ox)
+        if(!world_mask(x+ox,y+oy))return 0;
+    return 1;
+}
+static void revealed_world_mask(unsigned char included[N]) {
+    int x,y;memset(included,0,N);
+    for(y=20;y<85;++y)for(x=40;x<179;++x)
+        included[y*W+x]=(unsigned char)revealed_world_pixel(x,y);
+}
+static double revealed_world_intensity(const View v[2],const unsigned char included[N],int sx,int sy) {
+    uint32_t count=0,sa=0,sb=0,qa=0,qb=0,total=0;
+    int x,y;double contrast,ma,mb,gain;unsigned char lut[256];
+    for(y=20;y<85;++y)for(x=40;x<179;++x){
+        unsigned int a,b;
+        if(!included[y*W+x]||!included[(y+sy)*W+x+sx])continue;
+        a=v[0].normalized[y*W+x];b=v[1].normalized[(y+sy)*W+x+sx];
+        if(a<=6||b<=6)continue;
+        ++count;sa+=a;sb+=b;qa+=a*a;qb+=b*b;
+    }
+    if(count<300)return INFINITY;
+    contrast=(sqrt(((double)qa-(double)sa*sa/count)/count)
+        +sqrt(((double)qb-(double)sb*sb/count)/count))/2;
+    ma=(double)sa/count;mb=(double)sb/count;
+    if(!isfinite(contrast)||contrast<2.5||ma<6||mb<6)return INFINITY;
+    gain=ma/mb;if(gain<.65)gain=.65;else if(gain>1.55)gain=1.55;
+    for(x=0;x<256;++x){volatile double product=(double)x*gain;lut[x]=even_round(product);}
+    for(y=20;y<85;++y)for(x=40;x<179;++x){
+        int a,b;
+        if(!included[y*W+x]||!included[(y+sy)*W+x+sx])continue;
+        a=v[0].normalized[y*W+x];b=v[1].normalized[(y+sy)*W+x+sx];
+        if(a>6&&b>6)total+=(uint32_t)abs(a-(int)lut[b]);
+    }
+    return (double)total/count/contrast;
+}
+static int revealed_world_rank(const Candidate c[73],int direction) {
+    int i;
+    if(direction<1||direction>4||!isfinite(c[0].score)||c[0].score<0||c[0].score>.45
+        ||c[0].sx!=-9*ddx[direction]||c[0].sy!=-9*ddy[direction])return 0;
+    /* Every alternative must have its own observed 300-pixel score. Neither
+     * missing raw support nor a +INF world alternative supplies a margin. */
+    for(i=1;i<73;++i)
+        if(!isfinite(c[i].score)||c[i].score<0||!(c[i].score-c[0].score>=.08))return 0;
+    return 1;
+}
+static void revealed_dependency_texture(const View v[2],const unsigned char included[N],int sx,int sy,
+                                         int *support,int *bad,int regions[2]) {
+    int x,y;*support=*bad=0;
+    if(regions)regions[0]=regions[1]=0;
+    for(y=20;y<85;++y)for(x=40;x<179;++x){
+        int old=y*W+x,other=(y+sy)*W+x+sx;
+        if(y==51||y==52||y+sy==51||y+sy==52
+            ||!included[old]||!included[other]
+            ||!v[0].texture[old]||!v[1].texture[other])continue;
+        ++*support;*bad+=v[0].positive[old]!=v[1].positive[other];
+        if(regions)++regions[y<52?0:1];
+    }
+}
+static void revealed_dependency_unit_motion(const NG2Scene *a,const NG2Scene *b,int direction,
+                                             const View v[2],const Candidate raw[73],NG2Motion *out) {
+    Candidate world[73];
+    unsigned char included[N];
+    int i,dx,dy,support,bad,regions[2];
+    if(out->kind!=NG2_MOTION_UNKNOWN||direction<1||direction>4||!valid_scene(a)||!valid_scene(b))return;
+    dx=ddx[direction];dy=ddy[direction];
+    if(a->gold_state!=NG2_GOLD_CANDIDATE||b->gold_state!=NG2_GOLD_CANDIDATE
+        ||a->goods!=NG2_GOODS_UNKNOWN||b->goods!=NG2_GOODS_UNKNOWN
+        ||tile(a,0,0)!=NG2_TILE_FLOOR||tile(a,dx,dy)!=NG2_TILE_FLOOR
+        ||tile(b,0,0)!=NG2_TILE_FLOOR||revealed_singleton_raw_domain(raw,direction)!=1)return;
+    for(i=0;i<CELLS;++i)if(a->protected_cells[i]||b->protected_cells[i]
+        ||a->tiles[i]==NG2_TILE_ITEM||b->tiles[i]==NG2_TILE_ITEM||a->tiles[i]==NG2_TILE_DOOR)return;
+    /* The reveal establishes the side gate; independently, every old STONE
+     * (at least two) and noncollinear old DIRT must identify the same unit.
+     * New-only terrain never supplies a displacement anchor. */
+    if(!unique_revealed_singleton_translation(a,b,direction,raw[0].sx,raw[0].sy)
+        ||!unique_visible_terrain_translation(a,b,raw[0].sx,raw[0].sy))return;
+    revealed_world_mask(included);
+    for(i=0;i<73;++i){
+        world[i]=raw[i];world[i].score=revealed_world_intensity(v,included,raw[i].sx,raw[i].sy);
+    }
+    if(!revealed_world_rank(world,direction))return;
+    revealed_dependency_texture(v,included,raw[0].sx,raw[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,95)||regions[0]<100||regions[1]<100)return;
+    for(i=1;i<73;++i){
+        int count,opposite;
+        revealed_dependency_texture(v,included,raw[i].sx,raw[i].sy,&count,&opposite,NULL);
+        /* Unsupported texture is neutral; the fully observed world phase
+         * above, not a missing texture comparison, excludes that placement. */
+        if(count>=300&&!texture_lead(support,bad,count,opposite))return;
+    }
+    out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+}
+
 /* A preserved old singleton may be approached through a sparse corridor.
  * Complete old terrain anchors and two dependency-closed image planes must
  * agree with the finite raw winner; unsupported candidates supply no margin.
@@ -2361,6 +2479,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     revealed_singleton_motion(before,after,direction,views,candidates,out);
     preserved_singleton_sparse_motion(before,after,direction,views,candidates,out);
     first_gold_supported_phase_motion(before,after,direction,views,candidates,out);
+    revealed_dependency_unit_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,

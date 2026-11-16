@@ -1697,6 +1697,24 @@ static int offer_footprint_scene_base(const NG2Scene *scene,int left,int sy,int 
 static int offer_footprint_scene_row(const NG2Scene *scene,int left,int sy) {
     return offer_footprint_scene_base(scene,left,sy,NULL);
 }
+/* One real face is sufficient only with an independently observed enclosure:
+ * the solid side, lower rail and opposite post contain fourteen distinct GOLD
+ * cells, and the opening is two rows below the offers. Both orientations use
+ * the same relative evidence; no unseen wall or supporting floor is filled. */
+static int single_offer_scene_row(const NG2Scene *scene,int left,int sy) {
+    int ax,ay;
+    if(!offer_footprint_scene_row(scene,left,sy)
+       ||!offer_footprint_row_cells(left,sy,&ax,&ay)||ay-3 < -5||ay+3>4)return 0;
+    for(int mirror=0;mirror<2;mirror++) {
+        int wall=mirror?ax+4:ax-2,gate=mirror?ax-2:ax+4,valid=1;
+        for(int y=ay-3;y<=ay+3;y++)valid&=structural_tile(scene,wall,y)==NG2_TILE_GOLD;
+        for(int x=ax-2;x<=ax+4;x++)valid&=structural_tile(scene,x,ay+3)==NG2_TILE_GOLD;
+        valid&=structural_tile(scene,gate,ay+1)==NG2_TILE_GOLD;
+        valid&=structural_tile(scene,gate,ay+2)==NG2_TILE_FLOOR;
+        if(valid)return 1;
+    }
+    return 0;
+}
 /* A name can split the other real face below its observed top. The full
  * adjacent component anchors the row; a fragment's centroid cannot move it.
  * This is positive paired geometry, not a wider center-y tolerance. */
@@ -1724,31 +1742,41 @@ static int offer_footprint_pair(const NG2RingSign *a,const NG2RingSign *b,int le
 }
 static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObservation *observation,
                                 const NG2RingSign signs[12],int sign_count,
-                                const NG2RingOptions *options,NG2RingResult *result,int *handled,int closed) {
+                                const NG2RingOptions *options,NG2RingResult *result,int *handled,int kind) {
+    int closed=kind==1,single=kind==2;
     *handled=0;
-    if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY||sign_count!=2)return NG2_RING_OK;
+    if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY||sign_count!=(single?1:2))return NG2_RING_OK;
     int selected=-1,selected_pair[2]={-1,-1},selected_closed=-1,accepted=0;
     for(int r=0;r<result->row_count;r++) {
         const NG2RingRow *row=&result->rows[r];int pair[2]={-1,-1},hits[2]={0,0};
         int missing=-1;
         if(closed?(!offer_footprint_scene_base(options->scene,row->left,row->sy,&missing)||missing<0)
-                 :!offer_footprint_scene_row(options->scene,row->left,row->sy))continue;
+                 :single?!single_offer_scene_row(options->scene,row->left,row->sy)
+                        :!offer_footprint_scene_row(options->scene,row->left,row->sy))continue;
         for(int side=0;side<2;side++)for(int i=0;i<sign_count;i++)
             if(abs(signs[i].cx-row->left-72*side)<=2){pair[side]=i;hits[side]++;}
-        if(hits[0]!=1||hits[1]!=1||pair[0]==pair[1]
-           ||!offer_footprint_pair(&signs[pair[0]],&signs[pair[1]],row->left,row->sy))continue;
+        if(single) {
+            int side=hits[0]==1?0:1;
+            /* A single face cannot borrow the paired-fragment proof. Its
+             * canonical 29-row extent must be physically present. */
+            if(hits[0]+hits[1]!=1||pair[side]<0
+               ||!structural_face(&signs[pair[side]],row->left+72*side,row->sy)
+               ||signs[pair[side]].y1-signs[pair[side]].y0!=29)continue;
+        } else if(hits[0]!=1||hits[1]!=1||pair[0]==pair[1]
+                  ||!offer_footprint_pair(&signs[pair[0]],&signs[pair[1]],row->left,row->sy))continue;
         accepted++;
         if(selected<0){selected=r;selected_pair[0]=pair[0];selected_pair[1]=pair[1];selected_closed=missing;}
     }
     if(!accepted)return NG2_RING_OK;
     *handled=1;
     NG2RingCoverage *out=&result->certificate;NG2RingRow *row=&result->rows[selected];
-    memset(out,0,sizeof(*out));out->layout_version=1;out->policy_version=out->board_mode=closed?10:9;
+    memset(out,0,sizeof(*out));out->layout_version=1;out->policy_version=out->board_mode=single?11:closed?10:9;
     out->accepted_rows=accepted;out->row_index=selected;out->row[0]=row->left;out->row[1]=row->sy;
     out->scene_state=options->scene->state;out->scene_goods=options->scene->goods;
     for(int i=0;i<NG2_TILE_COUNT;i++)out->actual_gold_cells+=options->scene->tiles[i]==NG2_TILE_GOLD;
     result->coverage=NG2_RING_COVERAGE_INCOMPLETE;
     for(int side=0;side<2;side++) {
+        if(selected_pair[side]<0)continue;
         const NG2RingSign *face=&signs[selected_pair[side]];
         int32_t box[4]={face->x0,face->y0,face->x1-face->x0,face->y1-face->y0};
         memcpy(out->board_boxes[side],box,sizeof(box));out->board_counts[side]=face->count;
@@ -1819,6 +1847,8 @@ static int coverage_witness(const unsigned char *rgba,const RingObservation *obs
     if(footprint||handled)return footprint;
     int closed_offer=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,1);
     if(closed_offer||handled)return closed_offer;
+    int single_offer=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,2);
+    if(single_offer||handled)return single_offer;
     const NG2Scene *scene=options->scene;NG2RingCoverage *out=&result->certificate;
     if(scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene))return NG2_RING_INVALID;
     out->scene_state=scene->state;out->scene_goods=scene->goods;out->layout_version=1;
@@ -2174,11 +2204,13 @@ static int offer_footprint_negative_certificate(const NG2RingResult *result,int 
        ||result->partial_count!=2||result->selected_row<0||result->selected_row>=result->row_count
        ||result->selected_partial!=-1||result->partial_safe_no_positive)return 0;
     const NG2RingCoverage *w=&result->certificate;const NG2RingRow *row=&result->rows[result->selected_row];int ax,ay;
+    int single=w->policy_version==11,face_count=0;
     if(!offer_footprint_row_cells(row->left,row->sy,&ax,&ay)
-       ||w->layout_version!=1||w->policy_version!=9||w->board_mode!=9||w->failure_flags
+       ||w->layout_version!=1||(w->policy_version!=9&&!single)||w->board_mode!=w->policy_version||w->failure_flags
        ||w->accepted_rows!=1||w->row_index!=result->selected_row||w->row[0]!=row->left||w->row[1]!=row->sy
        ||w->scene_state!=NG2_FLOOR||w->scene_goods!=NG2_GOODS_VISIBLE
-       ||w->actual_gold_cells<1||w->actual_gold_cells>NG2_TILE_COUNT
+       ||w->actual_gold_cells<(single?14:1)||w->actual_gold_cells>NG2_TILE_COUNT
+       ||(single&&(ay-3 < -5||ay+3>4))
        ||w->observed_items!=3||w->observed_prices!=3||w->unmatched_prices||w->unmatched_boards
        ||w->unmatched_items<0||w->unmatched_items>(180*67)/24||w->non_target_items!=3||w->ignored_containers
        ||!box_valid(w->strip_box)||w->strip_box[0]!=row->left-54||w->strip_box[1]!=row->sy+24
@@ -2187,10 +2219,12 @@ static int offer_footprint_negative_certificate(const NG2RingResult *result,int 
     for(int side=0;side<2;side++) {
         int cx=row->left+72*side;const int32_t *board=w->board_boxes[side];const NG2RingEndcap *end=&w->endcaps[side];
         int32_t roi[4]={cx-18,row->sy-20,36,40};
-        if(!box_valid(roi)||!box_valid(board)||board[2]<18||board[2]>36||board[3]<16||board[3]>40
+        int absent=single&&!w->board_counts[side];
+        if(!box_valid(roi)||(!absent&&(!box_valid(board)||board[2]<18||board[2]>36||board[3]<16||board[3]>40
            ||w->board_counts[side]<150||w->board_counts[side]>board[2]*board[3]
            ||board[0]<roi[0]||board[1]<roi[1]||board[0]+board[2]>roi[0]+36||board[1]+board[3]>roi[1]+40
-           ||abs(board[0]+board[2]/2-cx)>2
+           ||abs(board[0]+board[2]/2-cx)>2||(single&&(board[3]!=29||abs(board[1]+board[3]/2-row->sy)>2))))
+           ||(absent&&(board[0]||board[1]||board[2]||board[3]))
            ||w->sign_iou[side]||w->sign_coverage[side]||w->board_exterior_count[side]
            ||!box_valid(end->box)||end->box[0]!=row->left+(side?96:-48)||end->box[1]!=row->sy+36
            ||end->box[2]!=25||end->box[3]!=25||end->count!=625||end->black_count<0||end->black_count>62
@@ -2198,6 +2232,7 @@ static int offer_footprint_negative_certificate(const NG2RingResult *result,int 
            ||end->r<0||end->r>255||end->g<0||end->g>255||end->b<0||end->b>255||end->spread!=1
            ||end->floor_full!=1||end->floor_upper!=1||end->floor_lower!=1||!material_floor(*end))return 0;
         for(int k=0;k<4;k++)if(w->sign_boxes[side][k]||w->board_edge_counts[side][k]||w->board_corner_counts[side][k])return 0;
+        face_count+=!absent;
     }
     NG2RingSign faces[2];
     for(int side=0;side<2;side++) {
@@ -2205,7 +2240,7 @@ static int offer_footprint_negative_certificate(const NG2RingResult *result,int 
         faces[side]=(NG2RingSign){w->board_counts[side],board[0]+board[2]/2,board[1]+board[3]/2,
             board[0],board[1],board[0]+board[2],board[1]+board[3]};
     }
-    if(!offer_footprint_pair(&faces[0],&faces[1],row->left,row->sy))return 0;
+    if(single?face_count!=1:!offer_footprint_pair(&faces[0],&faces[1],row->left,row->sy))return 0;
     for(int r=0;r<result->row_count;r++)for(int s=0;s<3;s++)if(!binary_no_candidate(&result->rows[r].slots[s]))return 0;
     for(int s=0;s<3;s++) {
         if(!binary_cell_certificate(&row->slots[s],row->left+36*s,row->sy,s,w->strip_box)
@@ -2297,7 +2332,7 @@ static int closed_color_negative_certificate(const NG2RingResult *result) {
        ||result->coverage!=NG2_RING_COVERAGE_COMPLETE||result->row_count<1||result->row_count>4
        ||result->selected_row<0||result->selected_row>=result->row_count
        ||result->partial_count<0||result->partial_count>12||w->layout_version!=2
-       ||w->policy_version<3||w->policy_version>10||w->board_mode!=w->policy_version
+       ||w->policy_version<3||w->policy_version>11||w->board_mode!=w->policy_version
        ||w->non_target_items!=2||w->ignored_containers!=1||!box_valid(w->strip_box))return 0;
     int ignored=-1;
     const NG2RingRow *row=&result->rows[result->selected_row];
@@ -2332,7 +2367,7 @@ static int closed_color_negative_certificate(const NG2RingResult *result) {
 int ng2_ring_negative_certificate(const NG2RingResult *result) {
     if(result&&result->certificate.layout_version==2)return closed_color_negative_certificate(result);
     if(result&&result->certificate.policy_version==10)return closed_offer_negative_certificate(result);
-    if(result&&result->certificate.policy_version==9)return offer_footprint_negative_certificate(result,-1);
+    if(result&&(result->certificate.policy_version==9||result->certificate.policy_version==11))return offer_footprint_negative_certificate(result,-1);
     if(result&&result->certificate.policy_version==8)return bottom_entry_negative_certificate(result,-1);
     if(result&&result->certificate.policy_version==7)return single_sign_negative_certificate(result,-1);
     if(result&&(result->certificate.policy_version==3||result->certificate.policy_version==4
