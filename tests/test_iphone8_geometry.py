@@ -98,6 +98,21 @@ class IPhone8GeometryTests(unittest.TestCase):
                                        Image.Resampling.BILINEAR)
             self.assertAlmostEqual(weight, sample.getpixel((4, 2)), places=6)
 
+    def test_resize_box_has_half_open_support_and_negative_edge_is_unknown(self):
+        try:
+            taps = geometry._axis_taps(.5, 2, 1, Image.Resampling.BOX)
+        except ValueError:
+            self.fail("proper BOX reduction support is missing")
+        self.assertEqual([(1, 2)], taps)
+        self.assertEqual([(-1, 0)], geometry._axis_taps(-.6, 2, 1, Image.Resampling.BOX))
+        # Independent Pillow impulses distinguish the exact half-open edge:
+        # source centre.5 is excluded, source centres1.5/2.5 have weight.5.
+        for x, expected in ((0, 0), (1, .5), (2, .5), (3, 0)):
+            source = Image.new("F", (4, 1))
+            source.putpixel((x, 0), 1)
+            sampled = source.resize((1, 1), Image.Resampling.BOX, box=(.5, 0, 2.5, 1))
+            self.assertEqual(expected, sampled.getpixel((0, 0)))
+
     def test_notification_cannot_be_reported_as_observed_pause_ui(self):
         raster = geometry.adapt_g1(Image.new("RGB", geometry.SOURCE_PIXELS),
                                    occlusions=((156, 8, 511, 84),))

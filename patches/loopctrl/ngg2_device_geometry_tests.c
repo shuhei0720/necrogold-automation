@@ -48,7 +48,7 @@ int main(int argc,char **argv){
         p=ng2_device_geometry_profile("iPhone10,1",375,667);CHECK(p&&!p->legacy_passthrough);
         CHECK(p->qualification_gaps==31&&(p->qualification_gaps&NG2_DEVICE_GAP_RAW));
         CHECK(p->world_to_canonical.tx==114.5&&p->world_to_canonical.ty==19.5);
-        CHECK(p->source_hud_count==12&&p->ui_map_count==5);
+        CHECK(p->source_hud_count==12&&p->ui_map_count==6);
         CHECK(!strcmp(p->ui_maps[1].name,"footer_body")&&p->ui_maps[1].full_guard_observed);
         CHECK(p->ui_maps[1].resampler==NG2_DEVICE_UI_BILINEAR);
         CHECK(p->ui_maps[1].source_points.x0==565&&p->ui_maps[1].source_points.x1==665);
@@ -60,6 +60,11 @@ int main(int argc,char **argv){
         CHECK(p->ui_maps[2].canonical.x0==852&&p->ui_maps[2].canonical.x1==856);
         CHECK(p->ui_maps[2].canonical.y0==396&&p->ui_maps[2].canonical.y1==414);
         CHECK(!p->ui_maps[3].full_guard_observed);
+        CHECK(!strcmp(p->ui_maps[5].name,"restart_raw_box")&&p->ui_maps[5].full_guard_observed);
+        CHECK(p->ui_maps[5].resampler==NG2_DEVICE_UI_BOX);
+        CHECK(p->ui_maps[5].source_points.x0==251.1363728537);
+        CHECK(p->ui_maps[5].canonical.x0==357&&p->ui_maps[5].canonical.y0==256);
+        CHECK(p->ui_maps[5].canonical.x1==538&&p->ui_maps[5].canonical.y1==284);
         CHECK(ng2_device_input_candidate(p,NG2_ACTION_MOVE,NG2_LEFT,&point));
         CHECK(point.x==187.5&&point.y==40);
         CHECK(p->portrait_to_landscape.b*point.y+p->portrait_to_landscape.tx==40);

@@ -31,3 +31,7 @@ footer診断の負guard欠損は、字形を保つbodyと観測済み実端guard
 [通常Runtime/100周increment](../plans/shared-device-profile.md)の8項目を独立して設計/網羅/運用レビューし、具体的P0/P1なし。11 passthrough・8 UNKNOWN・begin前拒否・begin後既契約と負例を対応させた。実装/実機受入はこれからであり、Windows依存の校正driverをPHONE-01達成と呼ばず、run/floor/商品完了の分母を分ける。
 
 通常shared overlayの最初のhost段階は、Rootが作成担当と独立して限定レビューした。固定旧seal/preimage・限定path/asset inventory・実Runtimeからのbinding抽出・11任意command点維持・8 gap31でbegin前拒否・host flagの本番不使用を確認し、P0/P1なし。関連57件成功。専用workflowは標準Macで実Swift/C bindingを検査するが、unsigned build stageは存在せずIPAを作らない。通常raster/startup/実UIKit枝とunsigned packageの実受入は後続であり、最初のhost成功を実機周回へ代用しない。
+
+800008実機では新PID・閉capture-only schema・既token認証・旧spool cleanを確認し、probe start1回で原JPEG全bytes/hashとmetadataを取得、cancel/drain成立。750×1334/EXIF8、57,369bytes。literal callback return・device生成時刻/鮮度・入力資格は未証明のまま。原画の観測ROIを正規BOX縮小するRestart写像で、未変更CがPAUSE1/restart_label1（IoU .798419）、Continueも成立した。全5068pixelの実支持と、ゼロguardの遮蔽によるcoverage失効を別担当が確認。Rootが限定差分レビューしP0/P1なし、BOX支持の意味Red→geometry/profile/raster34件Green。これは1枚の校正で未知評価ではない。
+
+[run43877258487](https://github.com/shuhei0720/necrogold-automation/actions/runs/43877258487)、source`a31bfc0`は57件・旧seal→normal overlay実replay・actual C/Swift binding compileを全成功。unsigned stageは予定どおりskipで、通常IPA実buildは次のraster接続後。

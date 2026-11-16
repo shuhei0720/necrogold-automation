@@ -32,6 +32,12 @@ FOOTER_UI_MAPS = (
     ("footer_body", (565, 357, 665, 375), (752, 396, 852, 414), Image.Resampling.BILINEAR),
     ("footer_guard", (665, 357, 667, 375), (852, 396, 856, 414), Image.Resampling.NEAREST),
 )
+PAUSE_UI_MAPS = (
+    ("continue", (275.72088607594935, 93.425, 391.45325497287525, 120.55678294573643),
+     (384, 104, 512, 132), Image.Resampling.BICUBIC),
+    ("restart_raw_box", (251.1363728537, 231.5552734659, 415.3524392753, 257.34481368475),
+     (357, 256, 538, 284), Image.Resampling.BOX),
+)
 # Conservative envelopes measured in NEW8 G1 point space, not old11 masks.
 # Dynamic notifications/instruction text must be supplied as extra occlusions.
 HUD_BOXES = (
@@ -102,6 +108,12 @@ def _axis_taps(start, scale, count, resample):
         if resample == Image.Resampling.NEAREST:
             taps.append((math.floor(center),))
             continue
+        if resample == Image.Resampling.BOX:
+            radius = max(1, scale)*.5
+            # Resize BOX uses a widened, uniform kernel for reduction. At an
+            # exact boundary the left centre is excluded, the right included.
+            taps.append(tuple(range(math.floor(center-radius+.5), math.floor(center+radius+.5))))
+            continue
         coordinate = center-.5
         lower = math.floor(coordinate)
         if resample not in (Image.Resampling.BILINEAR, Image.Resampling.BICUBIC):
@@ -122,8 +134,11 @@ def _ui_copy(source, canvas, name, source_box, target_box, resample, occlusions=
     sx, sy = (x1-x0)/width, (y1-y0)/height
     # Apply the affine to the full observed rectangle, including all template
     # zero positions. Never crop active ink and paint its surrounding guard.
-    patch = source.transform((width, height), Image.Transform.AFFINE,
-                             (sx, 0, x0, 0, sy, y0), resample)
+    if resample == Image.Resampling.BOX:
+        patch = source.resize((width, height), resample, box=source_box)
+    else:
+        patch = source.transform((width, height), Image.Transform.AFFINE,
+                                 (sx, 0, x0, 0, sy, y0), resample)
     canvas.paste(patch, (left, top))
     xtaps = _axis_taps(x0, sx, width, resample)
     ytaps = _axis_taps(y0, sy, height, resample)
@@ -209,12 +224,15 @@ def adapt_g1(source, ui="floor", occlusions=()):
                        "actual_source_band_observed": not any(_overlap((0, 311, 667, 350), box) for box in occlusions),
                        "note": "Only actual FOV is observed; outside horizontal FOV is unknown."})
     else:
-        # One measured known-capture Continue geometry, not an accepted menu
-        # profile. Restart is deliberately left unmatched rather than painted.
-        copies.append(_ui_copy(source, canvas, "continue",
-            (551.4417721518987, 186.85, 782.9065099457505, 241.11356589147286),
-            (384, 104, 512, 132), Image.Resampling.BICUBIC,
-            tuple(tuple(v*2 for v in box) for box in occlusions)))
+        # Fixed observed menu ROIs; Restart uses proper BOX reduction, not
+        # affine interpolation. Neither map grants menu/input qualification.
+        for name, source_box, target_box, resample in PAUSE_UI_MAPS:
+            item = _ui_copy(source, canvas, name, tuple(v*2 for v in source_box),
+                            target_box, resample,
+                            tuple(tuple(v*2 for v in box) for box in occlusions))
+            item["source_point_xyxy"] = list(source_box)
+            item["inverse_affine_source_units"] = "diagnostic_pixels"
+            copies.append(item)
     return GeometryRaster(canvas.convert("RGBA").tobytes(), {
         "profile": PROFILE, "evidence_kind": "g1_reencoded_diagnostic",
         "input_authorized": False, "automation_ready": False, "profile_qualified": False,
