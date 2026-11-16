@@ -11,6 +11,8 @@
 
 unknown375を誤って8へ選ぶassert Red→strict selector、既知8の混在拒否、11全値、半pointと未解消gap、新HubのUP/RIGHT・旧4回QRからのmeasured候補をfocused fixtureで確認した。新5件＋既G1/raster25件成功、旧22source/asset/manifest hash不変。独立レビューの型番条件の解釈を明示し残P0/P1なし。実Runtime/通常IPAへの統合は未実施、8のnative入力資格はない。
 
+追加の候補dataはDungeon PauseのContinue実点（Hubの別位置とは区別）と、footer字形を維持したbody/実端guardの別写像。guardは観測した実画素をコピーし、黒色を仮定して塗らない。実resamplerの非zero tapが全て観測範囲内かを検査する。固定G1 3枚は同じ公開CでFLOOR/beatを確認したが、原JPEG・未知精度・入力資格ではない。gap31と11 legacyを維持する。
+
 次は実RAWの向き/寸法/位相/全UI guardを確認し、Runtimeのrunへimmutable deviceGeometryを束縛→11は既decoder/実command点のpass-through→8の別normalizer→同C/判断へ接続する。未観測FOVを床/商品陰性/移動証明にしない。画像はGit外に保持し、既知校正を未知評価へ流用しない。
 
 各独立ゲーム実機試験は必ずゲーム終了・独立NotRunningから。起動後は間隔つき複数タップでホームへ進めてよく、到達後は連打を止め、階段との相対位置を確認して左1歩・下2歩へ。商店到達・全商品確認・次周回を主指標とし、途中の起動/リスタート回数を完成に置換しない。11への導入・物理受入と旧資料移送は未実施/未解決。

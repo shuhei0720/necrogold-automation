@@ -10,10 +10,16 @@ typedef struct { double x0,y0,x1,y1; } NG2DeviceRect;
 typedef struct { double a,b,tx,c,d,ty; } NG2DeviceAffine;
 typedef struct { double x,y; int32_t measured; } NG2DeviceInputPoint;
 typedef struct { const char *name; NG2DeviceRect source_points; } NG2DeviceHUD;
+/* Sampling policy for this inactive candidate type, separate from Core ABI. */
+enum {
+    NG2_DEVICE_UI_NEAREST=0, NG2_DEVICE_UI_BILINEAR=1,
+    NG2_DEVICE_UI_BICUBIC=2, NG2_DEVICE_UI_BOX=3
+};
 typedef struct {
     const char *name;
     NG2DeviceRect source_points,canonical;
-    /* Reference G1 ROI only; per-frame occlusions/support remain mandatory. */
+    int32_t resampler;
+    /* Reference G1 ROI only; per-frame exact support/occlusions are mandatory. */
     int32_t full_guard_observed;
 } NG2DeviceUIMap;
 enum {

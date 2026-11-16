@@ -19,11 +19,14 @@ static const NG2DeviceHUD hud8[]={
     {"left_lower_control",{0,220,87,225}},{"right_lower_control",{578,220,667,225}}
 };
 static const NG2DeviceUIMap ui8[]={
-    {"pause",{315,6,351,42},{429,6,465,42},1},
-    {"footer",{565,357,669,375},{752,396,856,414},0},
-    {"beat",{0,311,667,350},{114.5,350,781.5,389},0},
+    {"pause",{315,6,351,42},{429,6,465,42},NG2_DEVICE_UI_BILINEAR,1},
+    /* Glyph dimensions are unchanged. Only real observed terminal whitespace
+     * is widened; no assumption about its pixel values or per-frame validity. */
+    {"footer_body",{565,357,665,375},{752,396,852,414},NG2_DEVICE_UI_BILINEAR,1},
+    {"footer_guard",{665,357,667,375},{852,396,856,414},NG2_DEVICE_UI_NEAREST,1},
+    {"beat",{0,311,667,350},{114.5,350,781.5,389},NG2_DEVICE_UI_BOX,0},
     {"continue_g1_tuned",{275.72088607594935,93.425,391.45325497287525,120.55678294573643},
-        {384,104,512,132},1}
+        {384,104,512,132},NG2_DEVICE_UI_BICUBIC,1}
 };
 static const NG2DeviceGeometryProfile profile11={
     .name="iphone11-legacy-geometry",.device=11,.legacy_passthrough=1,
@@ -51,7 +54,7 @@ static const NG2DeviceGeometryProfile profile8={
      * Restart point has repeated observed Pause->new1-1/time-reset evidence.
      * Candidate facts never clear any RAW/guard/motion/menu acceptance gap. */
     .input={{187.5,40,1},{187.5,616,1},{325,187.5,1},{50,187.5,1},
-            {352.5,333.5,1},{0,0,0},{130,332.5,1}},
+            {352.5,333.5,1},{268.5,333.5,1},{130,332.5,1}},
     .qualification_gaps=NG2_DEVICE_GAP_RAW|NG2_DEVICE_GAP_FOUR_DIRECTION_ACK|
         NG2_DEVICE_GAP_UI_GUARD|NG2_DEVICE_GAP_MOTION_SUPPORT|NG2_DEVICE_GAP_MENU
 };

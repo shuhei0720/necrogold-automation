@@ -40,3 +40,6 @@ class NativeDeviceGeometryProfileTests(unittest.TestCase):
 
     def test_observed_hub_directions_and_pause_qr_are_candidates_only(self):
         self.run_fixture("observed-facts")
+
+    def test_measured_floor_resume_retains_fractional_point_and_gaps(self):
+        self.run_fixture("floor-resume")

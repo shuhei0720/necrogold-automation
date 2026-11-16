@@ -36,13 +36,67 @@ class IPhone8GeometryTests(unittest.TestCase):
             with self.subTest(size=size), self.assertRaisesRegex(ValueError, "unsupported_g1_geometry"):
                 geometry.adapt_g1(Image.new("RGB", size))
 
-    def test_footer_negative_guard_remains_explicitly_unknown(self):
-        raster = geometry.adapt_g1(Image.new("RGB", geometry.SOURCE_PIXELS))
-        footer = next(item for item in raster.provenance["ui_copies"] if item["name"] == "footer")
+    def test_out_of_source_footer_guard_remains_explicitly_unknown(self):
+        # The old crop really includes two unobserved columns. A different,
+        # fully observed UI map must not make that crop observed retroactively.
+        footer = geometry._ui_copy(Image.new("RGB", geometry.SOURCE_POINTS),
+            Image.new("RGB", (896, 414)), "old_footer", (565, 357, 669, 375),
+            (752, 396, 856, 414), Image.Resampling.BILINEAR)
         self.assertEqual(36, footer["unknown_required_domain_pixels"])
         self.assertFalse(footer["entire_required_domain_observed"])
+
+    def test_footer_margin_copies_real_pixels_without_assuming_black(self):
+        source = Image.new("RGB", geometry.SOURCE_PIXELS)
+        for y in range(714, 750):
+            for x in range(1330, 1334):
+                source.putpixel((x, y), (30*(x-1329), y-700, 200))
+        raster = geometry.adapt_g1(source)
+        maps = {item["name"]: item for item in raster.provenance["ui_copies"]}
+        self.assertIn("footer_guard", maps)
+        for name in ("footer_body", "footer_guard"):
+            self.assertEqual(0, maps[name]["unknown_required_domain_pixels"])
+            self.assertTrue(maps[name]["entire_required_domain_observed"])
+        image = Image.frombytes("RGBA", (896, 414), raster.rgba)
+        for y in range(18):
+            for x in range(4):
+                self.assertEqual((*source.getpixel((1330+x, 715+2*y)), 255),
+                                 image.getpixel((852+x, 396+y)))
+        hidden = geometry.adapt_g1(source, occlusions=((665, 357, 667, 375),))
+        guard = next(item for item in hidden.provenance["ui_copies"]
+                     if item["name"] == "footer_guard")
+        self.assertEqual(72, guard["required_pixels_in_declared_occlusion"])
+        self.assertFalse(guard["entire_required_domain_observed"])
         self.assertFalse(raster.provenance["input_authorized"])
         self.assertFalse(raster.provenance["profile_qualified"])
+
+    def test_bilinear_coverage_uses_actual_nonzero_taps(self):
+        # 8x6 -> 5x3 samples final source indices x6/7, y4/5. Its bounding
+        # rectangle touches the edge, but every nonzero kernel tap is observed.
+        copy = geometry._ui_copy(Image.new("RGB", (8, 6)),
+            Image.new("RGB", (5, 3)), "edge", (0, 0, 8, 6), (0, 0, 5, 3),
+            Image.Resampling.BILINEAR)
+        self.assertEqual(0, copy["unknown_required_domain_pixels"])
+        self.assertTrue(copy["entire_required_domain_observed"])
+        self.assertEqual([0, 0, 8, 6], copy["source_sample_support_xyxy"])
+        outside = geometry._ui_copy(Image.new("RGB", (8, 6)),
+            Image.new("RGB", (5, 3)), "clamped_edge", (0, 0, 9, 6),
+            (0, 0, 5, 3), Image.Resampling.BILINEAR)
+        self.assertEqual(3, outside["unknown_required_domain_pixels"])
+        self.assertFalse(outside["entire_required_domain_observed"])
+        # Independent nonglyph probes fix Pillow's pixel-center convention:
+        # final x is6.7, so impulses at x6/x7 have weights .3/.7.
+        gradient = Image.new("F", (8, 6))
+        gradient.putdata([float(x) for _ in range(6) for x in range(8)])
+        transform = (1.6, 0, 0, 0, 2, 0)
+        sample = gradient.transform((5, 3), Image.Transform.AFFINE, transform,
+                                    Image.Resampling.BILINEAR)
+        self.assertAlmostEqual(6.7, sample.getpixel((4, 2)), places=5)
+        for point, weight in (((6, 4), .15), ((7, 4), .35), ((5, 5), 0)):
+            impulse = Image.new("F", (8, 6))
+            impulse.putpixel(point, 1)
+            sample = impulse.transform((5, 3), Image.Transform.AFFINE, transform,
+                                       Image.Resampling.BILINEAR)
+            self.assertAlmostEqual(weight, sample.getpixel((4, 2)), places=6)
 
     def test_notification_cannot_be_reported_as_observed_pause_ui(self):
         raster = geometry.adapt_g1(Image.new("RGB", geometry.SOURCE_PIXELS),

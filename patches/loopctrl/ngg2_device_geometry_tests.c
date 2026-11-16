@@ -25,6 +25,7 @@ int main(int argc,char **argv){
         CHECK(p->canonical_width==896&&p->canonical_height==414&&p->source_hud_count==7);
         CHECK(p->world_to_canonical.a==1&&p->world_to_canonical.d==1);
         CHECK(p->world_to_canonical.tx==0&&p->world_to_canonical.ty==0);
+        CHECK(p->ui_maps==NULL&&p->ui_map_count==0);
         for(int i=0;i<7;++i){CHECK(p->input[i].x==expected[i][0]);CHECK(p->input[i].y==expected[i][1]);}
         CHECK(p->source_hud[5].source_points.x0==429&&p->source_hud[5].source_points.y1==45);
         CHECK(ng2_device_input_candidate(p,NG2_ACTION_RESTART,0,&point)&&point.x==144&&point.y==448);
@@ -37,11 +38,28 @@ int main(int argc,char **argv){
         CHECK(ng2_device_input_candidate(p,NG2_ACTION_RESTART,0,&point));
         CHECK(point.x==130&&point.y==332.5);
         CHECK(p->qualification_gaps==31);
+    }else if(!strcmp(argv[1],"floor-resume")){
+        p=ng2_device_geometry_profile("iPhone10,1",375,667);CHECK(p);
+        /* Dungeon seven-row menu, not Hub's differently placed Continue. */
+        CHECK(ng2_device_input_candidate(p,NG2_ACTION_RESUME,0,&point));
+        CHECK(point.x==268.5&&point.y==333.5);
+        CHECK(p->qualification_gaps==31);
     }else if(!strcmp(argv[1],"spare")){
         p=ng2_device_geometry_profile("iPhone10,1",375,667);CHECK(p&&!p->legacy_passthrough);
         CHECK(p->qualification_gaps==31&&(p->qualification_gaps&NG2_DEVICE_GAP_RAW));
         CHECK(p->world_to_canonical.tx==114.5&&p->world_to_canonical.ty==19.5);
-        CHECK(p->source_hud_count==12&&p->ui_map_count==4&&!p->ui_maps[1].full_guard_observed);
+        CHECK(p->source_hud_count==12&&p->ui_map_count==5);
+        CHECK(!strcmp(p->ui_maps[1].name,"footer_body")&&p->ui_maps[1].full_guard_observed);
+        CHECK(p->ui_maps[1].resampler==NG2_DEVICE_UI_BILINEAR);
+        CHECK(p->ui_maps[1].source_points.x0==565&&p->ui_maps[1].source_points.x1==665);
+        CHECK(p->ui_maps[1].canonical.x0==752&&p->ui_maps[1].canonical.x1==852);
+        CHECK(!strcmp(p->ui_maps[2].name,"footer_guard")&&p->ui_maps[2].full_guard_observed);
+        CHECK(p->ui_maps[2].resampler==NG2_DEVICE_UI_NEAREST);
+        CHECK(p->ui_maps[2].source_points.x0==665&&p->ui_maps[2].source_points.x1==667);
+        CHECK(p->ui_maps[2].source_points.y0==357&&p->ui_maps[2].source_points.y1==375);
+        CHECK(p->ui_maps[2].canonical.x0==852&&p->ui_maps[2].canonical.x1==856);
+        CHECK(p->ui_maps[2].canonical.y0==396&&p->ui_maps[2].canonical.y1==414);
+        CHECK(!p->ui_maps[3].full_guard_observed);
         CHECK(ng2_device_input_candidate(p,NG2_ACTION_MOVE,NG2_LEFT,&point));
         CHECK(point.x==187.5&&point.y==40);
         CHECK(p->portrait_to_landscape.b*point.y+p->portrait_to_landscape.tx==40);
@@ -49,7 +67,7 @@ int main(int argc,char **argv){
         CHECK(ng2_device_input_candidate(p,NG2_ACTION_MOVE,NG2_DOWN,&point)&&point.x==50&&point.y==187.5);
         CHECK(ng2_device_input_candidate(p,NG2_ACTION_PAUSE,0,&point)&&point.x==352.5&&point.y==333.5);
         CHECK(!ng2_device_input_candidate(p,NG2_ACTION_MOVE,NG2_DIR_NONE,&point));
-        CHECK(!ng2_device_input_candidate(p,NG2_ACTION_RESUME,0,&point));
+        CHECK(!ng2_device_input_candidate(p,-1,0,&point));
     }else return 1;
     puts("PASS pure runtime profile fixture");return 0;
 }

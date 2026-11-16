@@ -5,7 +5,8 @@ only geometry and coverage, and has no device, network, or input operation.
 Dynamic overlays are explicit source-point occlusions. For the observed
 All Zones instruction block, use --occlusion 259,151,405,269; do not infer its
 absence from elapsed time. A C FLOOR here is a diagnostic value, never input
-qualification (the floor footer still has an incomplete negative guard).
+qualification. UI copies require every actual nonzero resampling tap to be
+observed; the footer margin copies real source pixels without painting a guard.
 """
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,6 +28,10 @@ WORLD_OFFSET = (114.5, 19.5)
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT / "patches/loopctrl/ngg2"
 PROFILE = "iphone8-g1-geometry-preview-v1"
+FOOTER_UI_MAPS = (
+    ("footer_body", (565, 357, 665, 375), (752, 396, 852, 414), Image.Resampling.BILINEAR),
+    ("footer_guard", (665, 357, 667, 375), (852, 396, 856, 414), Image.Resampling.NEAREST),
+)
 # Conservative envelopes measured in NEW8 G1 point space, not old11 masks.
 # Dynamic notifications/instruction text must be supplied as extra occlusions.
 HUD_BOXES = (
@@ -89,6 +94,27 @@ class GeometryRaster:
     cell_coverage: list
 
 
+def _axis_taps(start, scale, count, resample):
+    """Pillow affine pixel centers, including only nonzero kernel support."""
+    taps = []
+    for index in range(count):
+        center = start+(index+.5)*scale
+        if resample == Image.Resampling.NEAREST:
+            taps.append((math.floor(center),))
+            continue
+        coordinate = center-.5
+        lower = math.floor(coordinate)
+        if resample not in (Image.Resampling.BILINEAR, Image.Resampling.BICUBIC):
+            raise ValueError("unsupported_ui_resampler")
+        if coordinate == lower:
+            taps.append((lower,))
+        elif resample == Image.Resampling.BILINEAR:
+            taps.append((lower, lower+1))
+        else:
+            taps.append((lower-1, lower, lower+1, lower+2))
+    return taps
+
+
 def _ui_copy(source, canvas, name, source_box, target_box, resample, occlusions=()):
     x0, y0, x1, y1 = source_box
     left, top, right, bottom = target_box
@@ -99,23 +125,28 @@ def _ui_copy(source, canvas, name, source_box, target_box, resample, occlusions=
     patch = source.transform((width, height), Image.Transform.AFFINE,
                              (sx, 0, x0, 0, sy, y0), resample)
     canvas.paste(patch, (left, top))
-    halo = 2 if resample == Image.Resampling.BICUBIC else 1
-    unknown = sum(not (0 <= x0+(x+.5)*sx < source.width and
-                       0 <= y0+(y+.5)*sy < source.height)
-                  for y in range(height) for x in range(width))
-    occluded = sum(any(_overlap((x0+(x+.5)*sx-halo, y0+(y+.5)*sy-halo,
-                                x0+(x+.5)*sx+halo, y0+(y+.5)*sy+halo), box)
-                       for box in occlusions) for y in range(height) for x in range(width))
-    halo_inside = (x0-halo >= 0 and y0-halo >= 0 and
-                   x1+halo <= source.width and y1+halo <= source.height)
+    xtaps = _axis_taps(x0, sx, width, resample)
+    ytaps = _axis_taps(y0, sy, height, resample)
+    # A crop touching the image edge need not use any out-of-image sample.
+    # Conversely, a valid center with an outside nonzero tap is not observed;
+    # Pillow's edge clamp cannot turn it into observed evidence.
+    unknown = sum(not (0 <= xs[0] and xs[-1] < source.width and
+                       0 <= ys[0] and ys[-1] < source.height)
+                  for ys in ytaps for xs in xtaps)
+    occluded = sum(any(_overlap((xs[0], ys[0], xs[-1]+1, ys[-1]+1), box)
+                       for box in occlusions) for ys in ytaps for xs in xtaps)
+    support = [min(xs[0] for xs in xtaps), min(ys[0] for ys in ytaps),
+               max(xs[-1] for xs in xtaps)+1, max(ys[-1] for ys in ytaps)+1]
     return {"name": name, "source_diagnostic_xyxy": list(source_box),
             "destination_canonical_xyxy": list(target_box),
             "inverse_affine": [sx, 0, x0, 0, sy, y0],
-            "resampler": "Pillow_BICUBIC" if halo == 2 else "Pillow_BOX_or_BILINEAR",
+            "resampler": "Pillow_"+Image.Resampling(resample).name,
+            "support_model": "pillow_affine_nonzero_kernel_taps",
+            "source_sample_support_xyxy": support,
             "unknown_required_domain_pixels": unknown,
             "required_pixels_in_declared_occlusion": occluded,
-            "entire_required_domain_observed": unknown == 0 and occluded == 0 and halo_inside,
-            "interpolation_halo_within_source": halo_inside}
+            "entire_required_domain_observed": unknown == 0 and occluded == 0,
+            "interpolation_support_within_source": unknown == 0}
 
 
 def adapt_g1(source, ui="floor", occlusions=()):
@@ -152,16 +183,21 @@ def adapt_g1(source, ui="floor", occlusions=()):
     copies = []
     if ui == "floor":
         logical = source.resize(SOURCE_POINTS, Image.Resampling.BOX)
-        # Actual JPEG UI pixels, not template pixels. Full footer coverage is
-        # intentionally reported incomplete; its black edge cannot qualify UI.
-        for name, source_box, target_box in (
-            ("pause_icon", (315, 6, 351, 42), (429, 6, 465, 42)),
-            ("footer", (565, 357, 669, 375), (752, 396, 856, 414)),
-        ):
-            item = _ui_copy(logical, canvas, name, source_box, target_box, Image.Resampling.BILINEAR, occlusions)
-            item["source_point_xyxy"] = item.pop("source_diagnostic_xyxy")
-            item["source_diagnostic_xyxy"] = [v*2 for v in source_box]
-            item["inverse_affine_source_units"] = "logical_points"
+        # Preserve the existing pause preview phase. Footer body retains its
+        # point dimensions; only the observed terminal whitespace is widened.
+        # Copy the real margin even when bright/occluded, never a painted zero.
+        item = _ui_copy(logical, canvas, "pause_icon", (315, 6, 351, 42),
+                        (429, 6, 465, 42), Image.Resampling.BILINEAR, occlusions)
+        item["source_point_xyxy"] = item.pop("source_diagnostic_xyxy")
+        item["source_diagnostic_xyxy"] = [v*2 for v in item["source_point_xyxy"]]
+        item["inverse_affine_source_units"] = "logical_points"
+        copies.append(item)
+        for name, source_box, target_box, resample in FOOTER_UI_MAPS:
+            item = _ui_copy(source, canvas, name, tuple(v*2 for v in source_box),
+                            target_box, resample,
+                            tuple(tuple(v*2 for v in box) for box in occlusions))
+            item["source_point_xyxy"] = list(source_box)
+            item["inverse_affine_source_units"] = "diagnostic_pixels"
             copies.append(item)
         bottom = Image.new("RGB", (1792, 828))
         bottom.paste(source, (229, 78))
