@@ -19,7 +19,7 @@
 | 診断環境 | Windowsローカルの保護された専用folder/venvへPython3.14.2・pymobiledevice3 11.55.1を導入。harnessもこの環境へ配置して実版APIで動作確認した。既存system Python/iSH環境は更新していない |
 | iPhone | iPhone10,1、iOS16.7.7/20H330、Activated、Developer Mode true、EnableWifiConnections true |
 | 実transport | PnP対象と同じ端末がusbmuxにはNetworkとして列挙され、lockdown/アプリ照会と実LAN62078到達が成功。USB transportは未掲載で、USB受入は未完了。診断用Networkを明示選択して進める |
-| アプリ | 日本版ネクロダンサー1.05/build03、iSH1.3.2、SideStore0.7.0の導入を確認。LoopCtrlの署名・導入は未完了。SideStoreのno-utunを受領後、通常UIでLocalDevVPNのConnected表示を確認したが、SideStoreのActiveはNo。通常UIでRemote Serverへ切替・保存後もReachable Noで、Health CheckはLockdown/Loaded (Connection down)/DeviceEndpointNotInitialized。通信許可を切り分け中で、同根因の断定や無条件の導入再送はしない |
+| アプリ | 日本版ネクロダンサー1.05/build03、iSH1.3.2、SideStore0.7.0を確認。LocalDevVPNは旧互換設定でもActive No、直接Remote ServerもReachable No。WireGuard1.0.16/build27＋SideStore EMProxyへ切替後、Health CheckはReachable/Pairing Verified・Lockdownとなった。LoopCtrlの導入再試行はエラーを受領し、内容を調査中。署名・導入の成功は未確認 |
 | DDI | 16.7用dmg 7,432,520B/SHA `6e4449ff8c751b4432934ade838382c79330b096b865eebabbc1fa42ead9c185`、signature128B/SHA `4e82ee8aa75c5ecdd320e075b7d9e4ea2fc1915d0bb776007e8dbc5728ca5d86`をWindowsで照合。明示したNetwork transportでmountが実機成功し、mounted Developer imageのsignatureも一致した |
 | 原寸取得 | `com.apple.mobile.screenshotr` / PMD ScreenshotServiceでPNG750×1334を実取得し、Windows内の保護領域へ原bytes/manifestを保存。EXIFなしの取得であり、検査の既定値1を取得済みEXIFや実向きの証明にしない。画像のゲーム状態・geometry/input対応・端末capture時刻・鮮度は未確定 |
 | 自動化の受入 | 診断のcapture成功まで。LoopCtrl server/組込みXCTest、正しいinput座標、ゲームの移動/商品確認は未受入。harnessは常に `input_authorized=false` / `automation_ready=false` と返す |
@@ -40,12 +40,25 @@ DDIの取得元は、固定LoopCtrl上流が指定する [DeveloperDiskImage pin
 
 新規[device_lab単体](../../tests/test_device_lab.py)25件と、[capture関連](../../tests/test_capture.py)全12件の計37件が最終関連検証で成功した。対象不在/別端末/曖昧な列挙、USB要求に対するNetwork-only、取得前後の入替、未検証geometryでの入力0、画像/metadata不一致、既存出力保持、timeout/取消・cleanup失敗、Windows保護ACL、私有sentinelの非公開を検査した。単体/fakeの成功とは別に、Windowsへの配置・PMD11.55.1 API・明示Network・実機DDI/原寸captureまで確認した。最終実行は `python -m unittest tests.test_device_lab tests.test_capture -q`。
 
-独立レビューでcaptureの前提理由がDeveloper Modeの不成立をDDI欠落へ誤表示するP2を修正した。新1test/6条件のRed（5assert失敗・error0）→上記37件Green、差分再確認で追加指摘なし。最終版をWindowsへ別directoryで配置・全archive hashを照合し、USB/Networkのcheckを再確認した。原寸capture実績はこの診断理由修正前の版で、無変更の取得bytes処理を根拠に再利用し、同一画像を最終版で再取得したとは記録しない。
+独立レビューでcaptureの前提理由がDeveloper Modeの不成立をDDI欠落へ誤表示するP2を修正した。新1test/6条件のRed（5assert失敗・error0）→上記37件Green、差分再確認で追加指摘なし。最終版をWindowsへ別directoryで配置・全archive hashを照合し、USB/Networkのcheckを再確認した。初期captureは修正前の版の実績として保持。接続復旧後のHealth Check画面は最終版でも新規取得し、PNG750×1334の全bytes/hash一致を別runで確認した。
+
+## WireGuard経路の接続復旧
+
+1. LocalDevVPNのConnectedだけではSideStoreのTCP到達は成立しなかった。通常UIで設定をConfirmし、旧トンネルIPも1回比較したがActive No。直接LAN endpointもReachable No。OSのローカルネットワーク一覧にSideStoreは無く、これだけで権限拒否とは確定しない。
+2. App Storeの公式WireGuardを導入。[固定SideStore.conf](https://github.com/SideStore/SideStore/blob/6032424a0e56c1c319762e786099bdd9186a238b/SideStore.conf)をWindowsで取得し、235B・Git blob `30b1954a1e0a5f4c6fa651b07fc4591e72ad0f2f`・SHA256 `3a6d33c9a03c9b0ec0b16b99086a61d0580cc5953cd40ad9da9c2a06ed6ff1a5`を照合。本文/鍵はCloudへ送らず、Phone Documentsへ配置して全hashを再照合した。
+3. SideStore Developer OptionsのStart EMProxyを操作し、端末上で公式configをWireGuardへimport/ON。その後の実Health CheckでVPN Connected、Reachable、Pairing Verified、Lockdownを確認。Windows内で構造化した診断logでもpeerのTCP62078がreachableとなった。認証・鍵・全log本文はCloudへ出していない。
+4. Health CheckのDDI Not Mountedと、独立PMDのDeveloper image mounted trueは分けて保存。[固定IdeviceGateway](https://github.com/SideStore/minimuxer/blob/98c3c79982f813878e922ab42f9545314a700f0c/DeviceGateway/idevice/IdeviceGateway.swift#L1665)の判定はPersonalized型/新mount pathだけを受理し、iOS16のDeveloper型を偽陰性にする。通常導入のisReadyはDDI検査を既定falseで呼び、JITの検査とは別。警告だけを理由に再mountせず、IPA導入へ進めた。
+
+接続改善の範囲は上記の到達とpairingまで。次の導入失敗は `SideStore.OperationError 3` / `extension 'LoopCtrlUITests.xctest' not found in targetAppBundle`。固定SideSignモデルは.appexだけを拡張辞書へ入れるが、InstallAppOperationはPlugIns直下の全Bundleを照合するため、必要な.xctestで失敗する。保持/削除UIの再試行では直る根拠がなく、同じ要求を繰り返さない。
+
+署名・IPA作成・AFC転送後、実install前の停止であり、通常AFCの `/PublicStaging/<targetID>/app.ipa` に今回分が残存することを確認した。元TEST107のコード/資産と署名をWindows内で検査し、合格した既存stagingを正規InstallationProxy APIへ渡す経路を準備中。署名済みIPAにはALTCertificate.p12が埋め込まれる場合があるため、Cloudへ送らず、そのentryを展開しない。導入・組込みXCTest・ゲーム対応は未完了。
+
+ゲーム起動時のGame Centerログインは初回だけ。通常はゲーム起動からオールゾーン入口の階段へ進む。最初の横向きPNG1334×750はGame Center案内画面で、ゲームplay画面の校正へ使用しない。
 
 公開するのは一般コード/文書/許可項目だけ。UDID・実IP・署名team・認証・pairing・生画像/ログはGit外。[検証資料](../testing.md)の区分を維持し、raw取得を画面認識/入力/実ゲーム成功へ昇格しない。
 
 ## 残る課題
 
-- SideStoreのno-utun原因を絞り、LoopCtrlの署名・導入とiOS16 Start Server/組込みXCTestを確認する。DDIのmount成功をLoopCtrl起動の代用にせず、iloaderの同ID xctest拒否や旧endpoint失敗も根拠なく解消済みにしない。
+- WireGuardで接続は改善したが、導入再試行のエラーを絞り、LoopCtrlの署名・導入とiOS16 Start Server/組込みXCTestを確認する。DDIのmount成功をLoopCtrl起動の代用にせず、iloaderの同ID xctest拒否や旧方式のendpoint失敗も根拠なく解消済みにしない。
 - USB transportの実受入、LoopCtrl serverの接続経路、captureの鮮度・production JPEG経路、geometry/inputの校正。旧896×414/portrait414×896ptの固定条件ではiPhone 8を動かさず、aspect guardや既assert/閾値/期限を緩めない。
 - 旧実機資料の移送は未解決。TEST107の実機受入も未完了。新たに得た校正run/隣接画像を未知評価へ流用しない。

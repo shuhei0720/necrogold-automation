@@ -11,7 +11,7 @@
 - Windows実backendはPython3.14.2/pymobiledevice3 11.55.1。USB要求はtransport_missingで停止し、Networkへfallbackしない。Networkを明示したcheckでlockdown/Developer Mode/DDIとcleanupを確認した。
 - 同じ実機のNetwork captureはPNG 750×1334を生bytesで保存し、Windows→Cloudの全bytes/hash一致を確認。画像・manifest・設定はGit外。画像取得の成功をゲームの鮮度・geometry校正・認識や操作成功へ昇格させない。
 
-最終版のWindows配置とUSB/Network checkは再確認した。実capture結果は前提理由P2修正前の版で、取得・保存の実装bytesは不変として再利用した。最終版で新画像を取得したとは扱わない。
+最終版のWindows配置とUSB/Network checkは再確認した。初期captureは前提理由P2修正前の実績として保持。接続復旧後のHealth Check画面は最終版でも別runで新規取得し、PNG750×1334と全bytes/hash一致を確認した。
 
 ## 証明範囲と未確認
 
