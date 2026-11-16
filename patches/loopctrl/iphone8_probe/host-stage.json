@@ -1,4 +1,4 @@
 {
   "schema": "ng8-host-stage-v1",
-  "phase": "bridge-green-components-red"
+  "phase": "bridge-green-components-batch-red"
 }

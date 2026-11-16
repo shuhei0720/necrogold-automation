@@ -1,0 +1,203 @@
+{
+  "schema": "ng8-coordinator-stub-red-expectations-v1",
+  "execution_status": "additional_cases_not_run",
+  "default_selector": "qualified_capture",
+  "source_path": "patches/loopctrl/iphone8_probe/assets/NG8CaptureProbe.swift",
+  "fixture_path": "patches/loopctrl/iphone8_probe/tests/NG8CaptureProbeTests.swift",
+  "core_sha256": "1519f48222f52bee8f870e8f76525292cf984fe04b16f66bdf1fc2cf5d00fc05",
+  "fixture_sha256": "8e62f0cb57f45da29faf87d4fd9948312b6f1b4eee14deece81be796086d2c7e",
+  "selectors": [
+    {
+      "name": "qualified_capture",
+      "expected_exit": 1,
+      "expected_first_fail": "qualified_start_is_accepted",
+      "expected_failed_assertions": 7
+    },
+    {
+      "name": "default_unqualified",
+      "expected_exit": 0,
+      "expected_first_fail": null,
+      "expected_failed_assertions": 0
+    },
+    {
+      "name": "queued_main_deadline",
+      "expected_exit": 1,
+      "expected_first_fail": "qualified_start_is_accepted",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "cancel_drain_fence",
+      "expected_exit": 1,
+      "expected_first_fail": "qualified_start_is_accepted",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "synchronous_reply_fence",
+      "expected_exit": 1,
+      "expected_first_fail": "qualified_start_is_accepted",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "prepare_cancel",
+      "expected_exit": 1,
+      "expected_first_fail": "qualified_start_is_accepted",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "revoked_owner",
+      "expected_exit": 1,
+      "expected_first_fail": "qualified_start_is_accepted",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "old_evidence_runtime",
+      "expected_exit": 1,
+      "expected_first_fail": "old_spool_presence_blocks_without_recovery",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "closed_params",
+      "expected_exit": 1,
+      "expected_first_fail": "closed_start_schema_accepts_only_valid_identity",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "ttl_chunk_bounds",
+      "expected_exit": 1,
+      "expected_first_fail": "qualified_start_is_accepted",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "id_budget_history",
+      "expected_exit": 1,
+      "expected_first_fail": "accepted_generation_1_through_128",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "same_id_cached",
+      "expected_exit": 1,
+      "expected_first_fail": "same_ready_id_returns_cached_without_recapture",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "same_id_cancelled",
+      "expected_exit": 1,
+      "expected_first_fail": "cancelled_same_id_is_consumed_without_recapture",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "same_id_expired",
+      "expected_exit": 1,
+      "expected_first_fail": "expired_same_id_is_consumed_without_recapture",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "other_owner_same_id",
+      "expected_exit": 1,
+      "expected_first_fail": "foreign_owner_same_id_gets_no_state_bytes_cancel_or_recapture",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "busy_id_not_consumed",
+      "expected_exit": 1,
+      "expected_first_fail": "busy_new_id_rejects_without_consuming_id",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "owner_pause_prepare",
+      "expected_exit": 1,
+      "expected_first_fail": "pause_before_prepare_refuses_owned_job",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "owner_revoke_prepare",
+      "expected_exit": 1,
+      "expected_first_fail": "revoke_before_prepare_refuses_owned_job",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "owner_pause_request",
+      "expected_exit": 1,
+      "expected_first_fail": "pause_before_request_refuses_new_capture",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "owner_revoke_request",
+      "expected_exit": 1,
+      "expected_first_fail": "revoke_before_request_refuses_new_capture",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "owner_pause_commit",
+      "expected_exit": 1,
+      "expected_first_fail": "pause_before_commit_cannot_publish_candidate",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "owner_revoke_commit",
+      "expected_exit": 1,
+      "expected_first_fail": "revoke_before_commit_cannot_publish_candidate",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "owner_pause_export",
+      "expected_exit": 1,
+      "expected_first_fail": "pause_before_export_returns_no_payload",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "owner_revoke_export",
+      "expected_exit": 1,
+      "expected_first_fail": "revoke_before_export_returns_no_payload",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "chunk_ranges",
+      "expected_exit": 1,
+      "expected_first_fail": "chunk_final_short_returns_only_remaining_bytes",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "wire_chunk_ranges",
+      "expected_exit": 1,
+      "expected_first_fail": "wire_chunk_max_count_accepts_integer_limit",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "exif_all_missing",
+      "expected_exit": 1,
+      "expected_first_fail": "exif_1_original_metadata_and_bytes",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "metadata_failure",
+      "expected_exit": 1,
+      "expected_first_fail": "inspector_failure_latches_without_published_raw",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "typed_metadata_invalid",
+      "expected_exit": 1,
+      "expected_first_fail": "invalid_typed_metadata_cannot_become_ready",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "encoded_bytes_bounds",
+      "expected_exit": 1,
+      "expected_first_fail": "empty_or_oversize_bytes_rejected_before_inspect_hash",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "handoff_owned_job",
+      "expected_exit": 1,
+      "expected_first_fail": "handoff_receivers_only_enqueue_owned_work",
+      "expected_failed_assertions": null
+    },
+    {
+      "name": "stale_generation",
+      "expected_exit": 1,
+      "expected_first_fail": "retired_generation_callbacks_cannot_commit_into_new_probe",
+      "expected_failed_assertions": null
+    }
+  ]
+}

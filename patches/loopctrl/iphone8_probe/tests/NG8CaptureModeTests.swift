@@ -177,10 +177,26 @@ struct NG8CaptureModeTests {
     }
 
     static func main() {
-        qualification()
-        metadata()
-        routesAndAuthority()
-        constructorBindings()
-        print("PASS NG8 pure mode/route policy; no live router, authentication, producer or device acceptance")
+        let arguments = Array(CommandLine.arguments.dropFirst())
+        guard arguments.count <= 1 else {
+            print("FAIL invalid_mode_test_selector")
+            exit(2)
+        }
+        let selector = arguments.first ?? "all"
+        switch selector {
+        case "qualification": qualification()
+        case "metadata": metadata()
+        case "routes": routesAndAuthority()
+        case "binding": constructorBindings()
+        case "all":
+            qualification()
+            metadata()
+            routesAndAuthority()
+            constructorBindings()
+        default:
+            print("FAIL invalid_mode_test_selector")
+            exit(2)
+        }
+        print("PASS NG8 mode selector \(selector); no live router, authentication, producer or device acceptance")
     }
 }

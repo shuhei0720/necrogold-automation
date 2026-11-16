@@ -47,3 +47,36 @@ constructor binding checks the supplied object identity without duplicating
 the coordinator's state implementation. It does not prove that the five real
 constructor calls use the helper. Actual router/authentication/metadata/body
 schemas/constructor wiring and producer-zero integration remain later work.
+
+## Feature selectors and Red evidence
+
+The executable accepts exactly one optional selector: `qualification`,
+`metadata`, `routes`, `binding`, or `all`. No argument preserves the previous
+full order (`all`). Unknown or multiple arguments print
+`FAIL invalid_mode_test_selector` and exit 2; that is not a behavior Red.
+Each selector runs the existing feature function without removing or relaxing
+its assertions. Run each as a separate process so an earlier Red does not hide
+the other features:
+
+```sh
+"$MODE_STAGE_DIR/ng8-mode-tests" qualification
+"$MODE_STAGE_DIR/ng8-mode-tests" metadata
+"$MODE_STAGE_DIR/ng8-mode-tests" routes
+"$MODE_STAGE_DIR/ng8-mode-tests" binding
+```
+
+For the unchanged implementation stub, each feature is expected to exit 1:
+
+| Selector | Expected first stdout line | Evidence |
+| --- | --- | --- |
+| `qualification` / default `all` | `FAIL qualified_optin_raw_iphone10_1_selects_capture_only` | Original entry measured on actual Mac at commit `fa768790563e0c33de39918bafd6f10df056a912`, run `43837286672` / job `133196971358`, both compile-flag variants compiled then exited 1 with empty stderr; selector entry itself awaits the next Mac run |
+| `metadata` | `FAIL dedicated_metadata_names_service_mode` | Expected from the baseline-only metadata stub; not yet measured |
+| `routes` | `FAIL pair_is_always_403_without_approval_dispatch` | Expected from the dedicated-mode deny stub; not yet measured |
+| `binding` | `FAIL capture_only_constructor_gets_process_binding_initialStart` | Expected from the nil binding stub after the inventory assertion passes; not yet measured |
+
+Repeat these selectors for the binary compiled without
+`-D NG8_CAPTURE_PROBE_BUILD`; injected qualification keeps the same expected
+first FAIL. Compile/environment failure is not an assertion Red. Keep the
+mode, hardware reader, metadata, route policy and binding implementation as
+stubs until the additional feature Reds are observed on actual Mac. This
+selector change does not itself establish those Reds or any Green result.

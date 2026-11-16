@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -18,6 +19,7 @@ BRIDGE_FILES = (
     "tests/NG8CaptureHostTest.h", "tests/NG8CaptureBridgeTests.m",
 )
 CORE_FILES = ("assets/NG8CaptureProbe.swift", "tests/NG8CaptureProbeTests.swift")
+CORE_EXPECTATIONS = "tests/coordinator-red-expectations.json"
 MODE_FILES = ("assets/NG8CaptureMode.swift", "tests/NG8CaptureModeTests.swift")
 BRIDGE_CASES = (
     "primary", "three_arg_request", "exact_maximum", "mutable_original", "unprepared",
@@ -55,6 +57,10 @@ def execute(command, output, name, timeout):
                             timeout=timeout, check=False)
     (output / (name + ".stdout.txt")).write_text(result.stdout)
     (output / (name + ".stderr.txt")).write_text(result.stderr)
+    if result.returncode and name.endswith("-compile"):
+        # These jobs compile committed public fixture source, never device data.
+        print(json.dumps({"public_fixture_compile_failure": name,
+            "stderr_tail": result.stderr[-6000:], "stdout_tail": result.stdout[-1000:]}), flush=True)
     return result
 
 
@@ -75,6 +81,25 @@ def bridge(output, *, expect_red):
             tested = execute([str(binary), case], output, "bridge-" + case, 30)
             expected = "PASS NG8 bridge " + case + " (real ObjC boundary, daemon fake)"
             if tested.returncode or tested.stdout.strip() != expected or tested.stderr:
+                # Only named assertions and the fixture's closed diagnostic
+                # object enter the job log; no arbitrary exception/data dump.
+                details = {"bridge_failure_case": case, "return_code": tested.returncode,
+                    "assertions": re.findall(r"^FAIL ([a-z0-9_]+)$", tested.stdout, re.MULTILINE),
+                    "stderr_nonempty": bool(tested.stderr), "source_sha256": before}
+                for line in tested.stderr.splitlines():
+                    try:
+                        diagnostic = json.loads(line)
+                    except ValueError:
+                        continue
+                    if (isinstance(diagnostic, dict)
+                            and set(diagnostic) == {"observed_error_code", "reply_calls", "drain_calls", "send_calls"}
+                            and diagnostic["observed_error_code"] in {"none", "api_unavailable", "request_unavailable",
+                                "prepare_unavailable", "request_exception", "reply_exception", "capture_failed",
+                                "bytes_invalid", "not_implemented", "unrecognized_fixed_code"}
+                            and all(type(diagnostic[k]) is int and 0 <= diagnostic[k] <= 128
+                                    for k in ("reply_calls", "drain_calls", "send_calls"))):
+                        details["fixed_fixture_diagnostic"] = diagnostic
+                print(json.dumps(details, sort_keys=True), flush=True)
                 raise ValueError("bridge_green_failed_" + case)
         if source_hashes(BRIDGE_FILES) != before:
             raise ValueError("fixture_source_changed")
@@ -90,14 +115,72 @@ def bridge(output, *, expect_red):
             "source_sha256": before}
 
 
-def coordinator_red(output):
-    before = source_hashes(CORE_FILES)
+def coordinator_red(output, *, expanded=False):
+    names = (*CORE_FILES, CORE_EXPECTATIONS) if expanded else CORE_FILES
+    before = source_hashes(names)
+    if expanded:
+        expectations = json.loads((HERE / CORE_EXPECTATIONS).read_text())
+        if (set(expectations) != {"schema", "execution_status", "default_selector", "source_path",
+                "fixture_path", "core_sha256", "fixture_sha256", "selectors"}
+                or expectations["schema"] != "ng8-coordinator-stub-red-expectations-v1"
+                or expectations["execution_status"] != "additional_cases_not_run"
+                or expectations["default_selector"] != "qualified_capture"
+                or expectations["source_path"] != "patches/loopctrl/iphone8_probe/" + CORE_FILES[0]
+                or expectations["fixture_path"] != "patches/loopctrl/iphone8_probe/" + CORE_FILES[1]
+                or expectations["core_sha256"] != before[CORE_FILES[0]]
+                or expectations["fixture_sha256"] != before[CORE_FILES[1]]):
+            raise ValueError("invalid_core_expectations_or_source_hash")
+        selectors = expectations["selectors"]
+        if not isinstance(selectors, list) or len(selectors) != 32:
+            raise ValueError("invalid_core_selector_inventory")
+        seen = set()
+        for item in selectors:
+            if (not isinstance(item, dict)
+                    or set(item) != {"name", "expected_exit", "expected_first_fail", "expected_failed_assertions"}
+                    or not isinstance(item["name"], str)
+                    or re.fullmatch(r"[a-z0-9_]+", item["name"]) is None
+                    or item["name"] in seen
+                    or type(item["expected_exit"]) is not int or item["expected_exit"] not in (0, 1)
+                    or (item["expected_first_fail"] is not None and
+                        (not isinstance(item["expected_first_fail"], str) or
+                         re.fullmatch(r"[a-z0-9_]+", item["expected_first_fail"]) is None))
+                    or (item["expected_failed_assertions"] is not None and
+                        (type(item["expected_failed_assertions"]) is not int or item["expected_failed_assertions"] < 0))
+                    or (item["expected_exit"] == 0) != (item["name"] == "default_unqualified")
+                    or (item["expected_exit"] == 0) != (item["expected_first_fail"] is None)):
+                raise ValueError("invalid_core_selector_expectation")
+            seen.add(item["name"])
     binary = output / "ng8-core-tests"
     built = execute(["xcrun", "swiftc", "-swift-version", "5", "-Onone",
         "-parse-as-library", *(str(HERE / name) for name in CORE_FILES), "-o", str(binary)],
         output, "core-compile", 120)
     if built.returncode:
         raise ValueError("core_compile_failed_not_behavior_red")
+    if expanded:
+        cases = {}
+        for item in selectors:
+            selector = item["name"]
+            try:
+                tested = execute([str(binary), selector], output, "core-" + selector, 30)
+                labels = re.findall(r"^FAIL ([a-z0-9_]+)$", tested.stdout, re.MULTILINE)
+                matched = re.fullmatch(r"CASE " + re.escape(selector) +
+                    r"\n(?:FAIL [a-z0-9_]+\n)*ASSERTIONS_FAILED ([0-9]+)\n", tested.stdout)
+                count = int(matched[1]) if matched else None
+                valid = (matched is not None and not tested.stderr
+                    and tested.returncode == item["expected_exit"]
+                    and count == len(labels)
+                    and (labels[0] if labels else None) == item["expected_first_fail"]
+                    and (count > 0) == (item["expected_exit"] == 1)
+                    and (item["expected_failed_assertions"] is None or count == item["expected_failed_assertions"]))
+                cases[selector] = {"status": ("expected_red" if tested.returncode == 1 else "green") if valid else "blocked",
+                    "return_code": tested.returncode, "assertion_labels": labels,
+                    "failed_assertions": count, "stderr_nonempty": bool(tested.stderr)}
+            except Exception as error:
+                cases[selector] = {"status": "blocked", "reason": type(error).__name__}
+        if source_hashes(names) != before:
+            raise ValueError("fixture_source_changed")
+        return {"status": "blocked" if any(c["status"] == "blocked" for c in cases.values()) else "expected_red",
+            "compiled": True, "selector_count": len(cases), "cases": cases, "source_sha256": before}
     tested = execute([str(binary)], output, "core-qualified", 30)
     if tested.returncode != 1 or tested.stdout != CORE_EXPECTED_RED or tested.stderr:
         raise ValueError("expected_core_assertion_red_missing")
@@ -109,24 +192,46 @@ def coordinator_red(output):
 
 def mode_red(output):
     before = source_hashes(MODE_FILES)
-    expected = "FAIL qualified_optin_raw_iphone10_1_selects_capture_only"
+    variants = {}
+    expected_by_selector = {
+        "qualification": "FAIL qualified_optin_raw_iphone10_1_selects_capture_only",
+        "metadata": "FAIL dedicated_metadata_names_service_mode",
+        "routes": "FAIL pair_is_always_403_without_approval_dispatch",
+        "binding": "FAIL capture_only_constructor_gets_process_binding_initialStart",
+    }
     for opt_in in (True, False):
         variant = "dedicated" if opt_in else "ordinary"
         binary = output / ("ng8-mode-" + variant)
         command = ["xcrun", "swiftc", "-swift-version", "5", "-Onone", "-parse-as-library"]
         if opt_in:
             command += ["-D", "NG8_CAPTURE_PROBE_BUILD"]
-        built = execute([*command, *(str(HERE / name) for name in MODE_FILES), "-o", str(binary)],
-                        output, "mode-" + variant + "-compile", 120)
+        try:
+            built = execute([*command, *(str(HERE / name) for name in MODE_FILES), "-o", str(binary)],
+                            output, "mode-" + variant + "-compile", 120)
+        except Exception as error:
+            variants[variant] = {"status": "blocked", "reason": type(error).__name__}
+            continue
         if built.returncode:
-            raise ValueError("mode_compile_failed_not_behavior_red_" + variant)
-        tested = execute([str(binary)], output, "mode-" + variant, 30)
-        if tested.returncode != 1 or tested.stdout.strip() != expected or tested.stderr:
-            raise ValueError("expected_mode_assertion_red_missing_" + variant)
+            variants[variant] = {"status": "blocked", "compiled": False,
+                "reason": "mode_compile_failed_not_behavior_red"}
+            continue
+        cases = {}
+        for selector, expected in expected_by_selector.items():
+            try:
+                tested = execute([str(binary), selector], output, "mode-" + variant + "-" + selector, 30)
+                valid = tested.returncode == 1 and tested.stdout.strip() == expected and not tested.stderr
+                cases[selector] = {"status": "expected_red" if valid else "blocked",
+                    "return_code": tested.returncode,
+                    "assertion_labels": re.findall(r"^FAIL ([a-z0-9_]+)$", tested.stdout, re.MULTILINE),
+                    "stderr_nonempty": bool(tested.stderr)}
+            except Exception as error:
+                cases[selector] = {"status": "blocked", "reason": type(error).__name__}
+        variants[variant] = {"status": "blocked" if any(c["status"] == "blocked" for c in cases.values()) else "expected_red",
+            "compiled": True, "cases": cases}
     if source_hashes(MODE_FILES) != before:
         raise ValueError("fixture_source_changed")
-    return {"status": "expected_red", "compiled": True, "variants": 2,
-            "assertion_red": expected, "source_sha256": before}
+    return {"status": "blocked" if any(v["status"] == "blocked" for v in variants.values()) else "expected_red",
+            "variants": variants, "assertion_red_by_selector": expected_by_selector, "source_sha256": before}
 
 
 def run(output):
@@ -135,7 +240,8 @@ def run(output):
     stage = json.loads((HERE / "host-stage.json").read_text())
     if (set(stage) != {"schema", "phase"}
             or stage["schema"] != "ng8-host-stage-v1"
-            or stage["phase"] not in ("bridge-red", "bridge-green-components-red")):
+            or stage["phase"] not in ("bridge-red", "bridge-green-components-red", "bridge-green-mode-red",
+                                      "bridge-green-components-batch-red")):
         raise ValueError("unsupported_host_stage")
     if stage["phase"] == "bridge-red":
         result = bridge(output, expect_red=True)
@@ -143,8 +249,11 @@ def run(output):
                     green_implementation=False, device_acceptance="not_run")
     # Independent components use distinct binaries/logs. Inspect every outcome,
     # including a compiler failure; none can be converted into an expected Red.
-    operations = {"bridge": lambda: bridge(output, expect_red=False),
-                  "coordinator": lambda: coordinator_red(output), "mode": lambda: mode_red(output)}
+    operations = {"bridge": lambda: bridge(output, expect_red=False), "mode": lambda: mode_red(output)}
+    if stage["phase"] == "bridge-green-components-red":
+        operations["coordinator"] = lambda: coordinator_red(output)
+    elif stage["phase"] == "bridge-green-components-batch-red":
+        operations["coordinator"] = lambda: coordinator_red(output, expanded=True)
     contracts = {}
     with ThreadPoolExecutor(max_workers=3) as executor:
         pending = {name: executor.submit(operation) for name, operation in operations.items()}

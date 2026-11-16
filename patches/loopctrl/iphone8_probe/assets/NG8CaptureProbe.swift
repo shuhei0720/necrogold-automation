@@ -20,7 +20,7 @@ enum NG8ProbeLimits {
 
 enum NG8ProbeFailure: String, Error {
     case notAvailable = "not_available", oldEvidenceBlocked = "old_evidence_blocked"
-    case authPending = "auth_pending", runtimeMismatch = "runtime_mismatch"
+    case trustedLocalUnavailable = "trusted_local_unavailable", runtimeMismatch = "runtime_mismatch"
     case invalidRequest = "invalid_request", ownerInactive = "owner_inactive"
     case unavailable, consumedID = "consumed_id", limitReached = "limit_reached"
     case busyProbe = "busy_probe", deadline, prepareUnavailable = "prepare_unavailable"
@@ -33,7 +33,7 @@ enum NG8ProbeFailure: String, Error {
 
 enum NG8ProbeState: String { case accepted, preparing, capturing, ready, cancelled, failed, expired }
 enum NG8ProbeOldEvidence: String { case clean, blocked }
-enum NG8ProbeOwnerState { case active, paused, inactive, awaitingApproval }
+enum NG8ProbeOwnerState { case active, paused, inactive }
 
 // Owner is injected by the authenticated adapter; no wire parser creates it.
 struct NG8ProbeOwner: Hashable { let tokenIdentity: String }
@@ -60,7 +60,10 @@ struct NG8ProbeStatus {
     let acceptedNs: UInt64?
     let deadlineNs: UInt64?
     let requestStartNs: UInt64?
+    // Wire callback_body_handoff_ns: owned getter/copy/reply-consumer handoff,
+    // never proof of the daemon block's literal stack return/internal cleanup.
     let callbackEndNs: UInt64?
+    let callbackReturnVerified = false
     let readyExpiryNs: UInt64?
     let draining: Bool
     let leaseHeld: Bool
@@ -83,7 +86,9 @@ struct NG8ProbeManifest {
     let acceptedNs: UInt64
     let deadlineNs: UInt64
     let requestStartNs: UInt64
+    // Same final owned-work handoff meaning as status.callbackEndNs.
     let callbackEndNs: UInt64
+    let callbackReturnVerified = false
     let readyExpiryNs: UInt64
     let sourceAPI = "XCTScreenshotRequest"
     let requestedUTI = "public.jpeg"
@@ -134,6 +139,9 @@ protocol NG8ProbeScheduler: AnyObject {
     // queued or its reply was delivered. Production adapters use finally/defer.
     func enqueueMain(_ body: @escaping () -> Void, returned: @escaping () -> Void)
     func enqueueWorker(_ body: @escaping () -> Void, returned: @escaping () -> Void)
+    // Bridge receivers only enqueue; no inline AX/hash/metadata/wait/core lock.
+    // This receiving owned job has a separate actual-return notification.
+    func enqueueCoordinator(_ body: @escaping () -> Void, returned: @escaping () -> Void)
     func watch(at deadlineNs: UInt64, fired: @escaping () -> Void) -> NG8ProbeWatch
 }
 
@@ -141,8 +149,10 @@ protocol NG8ProbeCaptureDriver: AnyObject {
     // Called only inside the owned main job. This is descriptor prepare only.
     func prepare(_ ticket: NG8ProbeTicket) -> Result<Void, NG8ProbeFailure>
     // `reply` supplies a candidate; it does not prove worker/callback drain.
-    // `drained` is the bridge's aggregate actual send-unwind AND callback-body
-    // finally. Neither function return nor a synthetic error implies drain.
+    // `drained` is the final owned data/getter/copy/primary-consumer handoff
+    // after send-unwind, not a post-return daemon ACK. Its receiver only enqueues;
+    // receiving coordinator-job return is tracked separately. Literal callback
+    // return remains unverified. Synthetic error/function return is no handoff.
     func request(_ ticket: NG8ProbeTicket,
                  reply: @escaping (Result<Data, NG8ProbeFailure>) -> Void,
                  drained: @escaping () -> Void)

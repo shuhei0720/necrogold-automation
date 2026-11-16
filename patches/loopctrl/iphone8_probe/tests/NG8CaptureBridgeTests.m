@@ -261,8 +261,23 @@ static void synchronousThrow(BOOL errorFirst) {
 static void unavailable(NSString *name) {
     mode = [name isEqualToString:@"api_unavailable"] ? NG8APIUnavailable : [name isEqualToString:@"encoding_unavailable"] ? NG8EncodingUnavailable : NG8RequestUnavailable;
     require([NG8CaptureBridge prepare], "unavailable_prepare"); beginRequest();
-    require(atomic_load(&sendCalls) == 0 && atomic_load(&replyCalls) == 1 && observedBytes == nil, "pre_send_failure_no_daemon");
     NSString *expected = mode == NG8RequestUnavailable ? @"request_unavailable" : @"api_unavailable";
+    if (!(atomic_load(&sendCalls) == 0 && atomic_load(&replyCalls) == 1 && observedBytes == nil &&
+          [observedError isEqualToString:expected] && atomic_load(&drainCalls) == 1)) {
+        // Failure-only, public generated-fixture diagnostics. Never print the
+        // raw exception, daemon text, arbitrary response fields, or image data.
+        NSArray *fixedCodes = @[@"api_unavailable", @"prepare_unavailable", @"request_unavailable",
+            @"request_exception", @"reply_exception", @"capture_failed", @"bytes_invalid", @"not_implemented"];
+        NSString *code = observedError == nil ? @"none" :
+            ([fixedCodes containsObject:observedError] ? observedError : @"unrecognized_fixed_code");
+        NSDictionary *diagnostic = @{@"observed_error_code": code,
+            @"reply_calls": @(atomic_load(&replyCalls)), @"drain_calls": @(atomic_load(&drainCalls)),
+            @"send_calls": @(atomic_load(&sendCalls))};
+        NSData *json = [NSJSONSerialization dataWithJSONObject:diagnostic options:NSJSONWritingSortedKeys error:nil];
+        NSString *line = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
+        fprintf(stderr, "%s\n", line.UTF8String); fflush(stderr);
+    }
+    require(atomic_load(&sendCalls) == 0 && atomic_load(&replyCalls) == 1 && observedBytes == nil, "pre_send_failure_no_daemon");
     require([observedError isEqualToString:expected] && atomic_load(&drainCalls) == 1, "proven_no_send_can_drain");
 }
 static void offMainPrepare(void) {
