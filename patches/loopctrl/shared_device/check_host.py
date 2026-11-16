@@ -1,0 +1,64 @@
+"""Compile the actual normal profile C and actual Swift binding on macOS.
+
+No device, network, signing, private configuration or game-input action exists.
+The binding is extracted from the sealed production Runtime, never duplicated.
+"""
+import argparse
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+
+HERE=Path(__file__).resolve().parent
+SPEC=importlib.util.spec_from_file_location('shared_host_overlay',HERE/'apply_overlay.py')
+overlay=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(overlay)
+BEGIN='// NG2 DEVICE GEOMETRY BINDING BEGIN\n'
+END='// NG2 DEVICE GEOMETRY BINDING END\n'
+
+
+def run(command):
+    value=subprocess.run(list(map(str,command)),capture_output=True,text=True,timeout=120)
+    if value.returncode:
+        raise RuntimeError(json.dumps({'command':str(command[0]),'exit':value.returncode,
+            'stdout':value.stdout[-32768:],'stderr':value.stderr[-32768:]},sort_keys=True))
+    return value.stdout.strip()
+
+
+def check(upstream,output):
+    upstream=overlay._root(upstream)
+    expected=overlay.verify_final(upstream)
+    output=Path(output).absolute();output.mkdir(parents=True,exist_ok=False)
+    runtime=overlay._read_path(upstream/'LoopCtrlUITests/NG2Runtime.swift').decode()
+    if runtime.count(BEGIN)!=1 or runtime.count(END)!=1:
+        raise ValueError('normal_binding_boundary')
+    binding=runtime.split(BEGIN,1)[1].split(END,1)[0]
+    wrapper='import Foundation\nimport CoreGraphics\nenum NG2RuntimeTestHooks { static var deviceGeometry: (() -> NG2DeviceGeometryBinding)? }\n'+BEGIN+binding+END
+    (output/'binding.swift').write_text(wrapper)
+    header=upstream/'LoopCtrlUITests/NG2DeviceGeometryProfile.h'
+    source=upstream/'LoopCtrlUITests/NG2DeviceGeometryProfile.c'
+    obj=output/'profile.o'
+    common=['clang','-std=c99','-O2','-fno-fast-math','-ffp-contract=off','-Wall','-Wextra','-Werror','-I',upstream/'LoopCtrlUITests']
+    run([*common,'-c',source,'-o',obj])
+    run([*common,HERE/'tests/NG2DeviceDispatchTests.c',obj,'-lm','-o',output/'dispatch'])
+    dispatch=run([output/'dispatch'])
+    run(['swiftc','-Onone','-D','NG2_RUNTIME_HOST_TEST','-import-objc-header',header,
+        output/'binding.swift',HERE/'tests/NG2DeviceBindingTests.swift',obj,'-o',output/'binding'])
+    swift=run([output/'binding'])
+    result={'schema':'ng2-shared-device-host-v1','status':'pass','source_sha256':expected,
+        'binding_sha256':hashlib.sha256(binding.encode()).hexdigest(),
+        'dispatch':dispatch,'swift':swift,'physical_device_acceptance':False,
+        'new_profile_input_authorized':False}
+    (output/'host-result.json').write_text(json.dumps(result,indent=2)+'\n')
+    print(json.dumps({'status':'pass','actual_c_dispatch':dispatch,'actual_swift_binding':swift,
+        'physical_device_acceptance':False},sort_keys=True))
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('upstream',type=Path)
+    parser.add_argument('--output',type=Path,required=True)
+    args=parser.parse_args();check(args.upstream,args.output)
+
+
+if __name__=='__main__':main()

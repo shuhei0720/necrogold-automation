@@ -1,0 +1,212 @@
+--- a/LoopCtrlUITests/NG2Runtime.swift
++++ b/LoopCtrlUITests/NG2Runtime.swift
+@@ -9,6 +9,7 @@
+ 
+ #if NG2_RUNTIME_HOST_TEST
+ enum NG2RuntimeTestHooks {
++    static var deviceGeometry: (() -> NG2DeviceGeometryBinding)?
+     static var clock: (() -> UInt64)?
+     static var beforeCaptureAdmission: (() -> Void)?
+     static var beforeMainAdmission: (() -> Void)?
+@@ -32,6 +33,58 @@
+ private extension NSLock {
+     func ng2Locked<T>(_ body: () -> T) -> T { lock(); defer { unlock() }; return body() }
+ }
++
++// NG2 DEVICE GEOMETRY BINDING BEGIN
++// A local immutable snapshot owned by one NG2Run, orthogonal to run.profile.
++// It cannot be selected by RPC parameters or changed by a later command.
++struct NG2DeviceGeometryBinding {
++    let profile: UnsafePointer<NG2DeviceGeometryProfile>?
++    let panelWidth: Int32
++    let panelHeight: Int32
++    let model: String?
++    var legacyPassthrough: Bool { profile?.pointee.legacy_passthrough == 1 }
++
++    static func local() -> NG2DeviceGeometryBinding {
++        #if NG2_RUNTIME_HOST_TEST
++        if let fixture = NG2RuntimeTestHooks.deviceGeometry { return fixture() }
++        return NG2DeviceGeometryBinding(profile: ng2_device_geometry_profile(nil, 414, 896),
++            panelWidth: 414, panelHeight: 896, model: nil)
++        #else
++        var bytes = [CChar](repeating: 0, count: 128)
++        let model: String? = bytes.withUnsafeMutableBufferPointer { buffer in
++            guard ng2_device_local_model(buffer.baseAddress!, buffer.count) == 1 else { return nil }
++            return String(cString: buffer.baseAddress!)
++        }
++        // bounds is compatibility-mode320x480 in some runners. Native physical
++        // pixels/nativeScale are local panel data, not screenshot EXIF/input
++        // transforms or an AX foreground query inside the input gate.
++        let screen = UIScreen.main
++        let scale = screen.nativeScale
++        let native = screen.nativeBounds.size
++        let width = min(native.width, native.height) / scale
++        let height = max(native.width, native.height) / scale
++        guard scale.isFinite, scale > 0, width.isFinite, height.isFinite,
++              width > 0, height > 0, width <= 4096, height <= 4096,
++              width.rounded() == width, height.rounded() == height else {
++            return NG2DeviceGeometryBinding(profile: nil, panelWidth: 0, panelHeight: 0, model: model)
++        }
++        let w = Int32(width), h = Int32(height)
++        let selected: UnsafePointer<NG2DeviceGeometryProfile>?
++        if let model { selected = model.withCString { ng2_device_geometry_profile($0, w, h) } }
++        else { selected = ng2_device_geometry_profile(nil, w, h) }
++        return NG2DeviceGeometryBinding(profile: selected, panelWidth: w, panelHeight: h, model: model)
++        #endif
++    }
++
++    func resolvedPoint(_ command: NG2Command) -> CGPoint? {
++        guard let profile else { return nil }
++        var point = NG2DeviceInputPoint()
++        guard ng2_device_dispatch_point(profile, command.kind, command.direction,
++            command.x, command.y, &point) == 1 else { return nil }
++        return CGPoint(x: point.x, y: point.y)
++    }
++}
++// NG2 DEVICE GEOMETRY BINDING END
+ 
+ // NG2Scene contains a 23,296-byte imported C tuple. Keep its storage on
+ // the heap so an unoptimized capture-thread stack never copies that tuple
+@@ -254,6 +307,7 @@
+     let owner: String
+     let id: String
+     let profile: String
++    let deviceGeometry: NG2DeviceGeometryBinding
+     let maximumExportBytes: Int
+     let clock: String
+     var generation: UInt64 = 1
+@@ -327,6 +381,7 @@
+     let cycle: NG2CycleRun?
+     init(owner: String, id: String, now: UInt64, profile: String = "normal-1-1-v1", clock: String? = nil) {
+         self.owner = owner; self.id = id; self.profile = profile
++        self.deviceGeometry = NG2DeviceGeometryBinding.local()
+         self.clock = clock ?? UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+         cycle = profile == NG2Runtime.cycleProfile ? NG2CycleRun() : nil
+         maximumExportBytes = profile == NG2Runtime.evidenceProfile ? 10 * 1024 * 1024 : 4 * 1024 * 1024
+@@ -2374,9 +2429,18 @@
+             guard self.ownsTicket(run, command, generation: generation) else { return }
+             let foreground = authority.foreground
+             let locked = LockStateMonitor.shared().isLocked
++            var actualPoint: CGPoint?
+             let permitted = run.lock.ng2Locked { () -> Bool in
+                 guard run.mainCommandID == command.id else { return false }
+                 let ownerActive = self.ownerActive(run)
++                // Resolve only NEW8 geometry before the begin linearization.
++                // Legacy keeps its exact command-coordinate dispatch below.
++                let geometryPermitted: Bool
++                if run.deviceGeometry.legacyPassthrough { geometryPermitted = true }
++                else {
++                    actualPoint = run.deviceGeometry.resolvedPoint(command)
++                    geometryPermitted = actualPoint != nil
++                }
+                 let now = Self.now()
+                 let authorityFresh = NG2TicketGuard.authoritySampleIsFresh(
+                     start: authority.start, end: authority.end, now: now)
+@@ -2390,6 +2454,15 @@
+                     run.stopped = true; run.latest = nil
+                     run.preparation = nil
+                 }
++                guard geometryPermitted else {
++                    recordDispatchFailure(run, command, generation: generation, authority: authority,
++                        entry: mainEntry, now: now, code: "controller_rejected")
++                    if run.generation == generation && run.cancelReason == 0 {
++                        run.cancelReason = 20; run.generation &+= 1
++                        run.stopped = true; run.latest = nil; run.preparation = nil
++                    }
++                    return false
++                }
+                 guard NG2TicketGuard.permits(expectedGeneration: generation, currentGeneration: run.generation,
+                     cancelled: run.cancelReason != 0, ownerActive: ownerActive, foreground: foreground,
+                     locked: locked, now: now, notBefore: command.not_before_ns, deadline: command.deadline_ns),
+@@ -2409,10 +2482,16 @@
+             outcome = -1
+             var result: ([String: JSONValue]?, JSONRPCError?) = (nil, .internalError)
+             let raised = ObjCException.catching {
+-                if command.kind == 4 {
+-                    let point = CGPoint(x: Int(command.x), y: Int(command.y))
++                if run.deviceGeometry.legacyPassthrough {
++                    if command.kind == 4 {
++                        let point = CGPoint(x: Int(command.x), y: Int(command.y))
++                        result = run.fast?.fastGesture([[(point: point, t: 0.0), (point: point, t: 0.05)]]) ?? (nil, .internalError)
++                    } else { result = run.fast?.fastTap(x: Double(command.x), y: Double(command.y)) ?? (nil, .internalError) }
++                } else if let point = actualPoint, command.kind == 4 {
+                     result = run.fast?.fastGesture([[(point: point, t: 0.0), (point: point, t: 0.05)]]) ?? (nil, .internalError)
+-                } else { result = run.fast?.fastTap(x: Double(command.x), y: Double(command.y)) ?? (nil, .internalError) }
++                } else if let point = actualPoint {
++                    result = run.fast?.fastTap(x: Double(point.x), y: Double(point.y)) ?? (nil, .internalError)
++                }
+             }
+             if raised == nil && result.1 == nil { outcome = 1 }
+             run.lock.ng2Locked {
+--- a/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
++++ b/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
+@@ -12,6 +12,7 @@
+ #import "AutomationSession.h"
+ #import "DeviceKeys.h"
+ #import "NG2Controller.h"
++#import "NG2DeviceGeometryProfile.h"
+ #import "NG2CaptureBridge.h"
+ 
+ @interface EarlyURLHook : NSObject
+--- a/project.yml
++++ b/project.yml
+@@ -116,8 +116,10 @@
+     sources:
+       - path: LoopCtrlUITests
+         excludes:
++          - NG2DeviceBuildInfo.plist
+           - NG2Perception.c
+           - NG2Navigation.c
++          - NG2DeviceGeometryProfile.c
+           - NG2Ring.c
+           - NG2RingKernel/observe.c
+           - NG2RingKernel/icon.c
+@@ -126,6 +128,10 @@
+         compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
+       - path: LoopCtrlUITests/NG2Navigation.c
+         compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
++      # Both device profiles are linked into every normal runner. Runtime
++      # hardware/panel selection never uses a model-specific compile flag.
++      - path: LoopCtrlUITests/NG2DeviceGeometryProfile.c
++        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
+       - path: LoopCtrlUITests/NG2Ring.c
+         compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
+       - path: LoopCtrlUITests/NG2RingKernel/observe.c
+@@ -162,6 +168,9 @@
+       base:
+         PRODUCT_BUNDLE_IDENTIFIER: "$(LOOPCTRL_BUNDLE_PREFIX).loopctrl.uitests"
+         GENERATE_INFOPLIST_FILE: YES
++        INFOPLIST_FILE: LoopCtrlUITests/NG2DeviceBuildInfo.plist
++        MARKETING_VERSION: "0.3.4"
++        CURRENT_PROJECT_VERSION: 1
+         CODE_SIGN_STYLE: Automatic
+         SWIFT_OBJC_BRIDGING_HEADER: LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
+         # The server runs in THIS (runner) process, so the runner is the app that
+--- a/LoopCtrlApp/Info.plist
++++ b/LoopCtrlApp/Info.plist
+@@ -96,5 +96,11 @@
+ 		<string>localdevvpn</string>
+ 		<string>shadowrocket</string>
+ 	</array>
++	<key>NG2DeviceProfileBuild</key>
++	<string>shared-device-profile-v1</string>
++	<key>NG2DeviceProfiles</key>
++	<string>iphone11-legacy,iphone8</string>
++	<key>NG2DeviceProfileSourceSHA256</key>
++	<string>$(NG2_DEVICE_PROFILE_SOURCE_SHA256)</string>
+ </dict>
+ </plist>
+--- a/LoopCtrlApp/AllInOne-Info.plist
++++ b/LoopCtrlApp/AllInOne-Info.plist
+@@ -118,5 +118,11 @@
+ 		<string>localdevvpn</string>
+ 		<string>shadowrocket</string>
+ 	</array>
++	<key>NG2DeviceProfileBuild</key>
++	<string>shared-device-profile-v1</string>
++	<key>NG2DeviceProfiles</key>
++	<string>iphone11-legacy,iphone8</string>
++	<key>NG2DeviceProfileSourceSHA256</key>
++	<string>$(NG2_DEVICE_PROFILE_SOURCE_SHA256)</string>
+ </dict>
+ </plist>

@@ -29,3 +29,5 @@ capture-only overlayの8許可pathは、固定6e25＋旧G1/G2の実preimageと�
 footer診断の負guard欠損は、字形を保つbodyと観測済み実端guardの2写像へ分けた。黒色補完を使わず、色付きprobeで全guard画素が実sourceから来ることを確認。補間の実nonzero tapで支持を検査し、旧cropの欠損36画素と明示遮蔽はunknownのまま保つ。Python2件とCのUIMap countのassertion Red→Green、Floor Resume実点の別assertを含むgeometry/profile/raster33件が成功。独立レビューでP0/P1なし。固定G1の3枚は同一公開CでFLOOR/beatだが、校正資料であり未知精度・direct原JPEG・入力資格へ一般化しない。11のlegacy値/保護native/R12は不変、gap31を維持。
 
 [通常Runtime/100周increment](../plans/shared-device-profile.md)の8項目を独立して設計/網羅/運用レビューし、具体的P0/P1なし。11 passthrough・8 UNKNOWN・begin前拒否・begin後既契約と負例を対応させた。実装/実機受入はこれからであり、Windows依存の校正driverをPHONE-01達成と呼ばず、run/floor/商品完了の分母を分ける。
+
+通常shared overlayの最初のhost段階は、Rootが作成担当と独立して限定レビューした。固定旧seal/preimage・限定path/asset inventory・実Runtimeからのbinding抽出・11任意command点維持・8 gap31でbegin前拒否・host flagの本番不使用を確認し、P0/P1なし。関連57件成功。専用workflowは標準Macで実Swift/C bindingを検査するが、unsigned build stageは存在せずIPAを作らない。通常raster/startup/実UIKit枝とunsigned packageの実受入は後続であり、最初のhost成功を実機周回へ代用しない。

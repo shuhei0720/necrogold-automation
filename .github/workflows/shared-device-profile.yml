@@ -1,0 +1,142 @@
+name: Shared iPhone device profile
+
+on:
+  push:
+    branches: [work/p1-capture-probe]
+    paths:
+      - .github/workflows/shared-device-profile.yml
+      - patches/loopctrl/shared_device/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  normal-host-contracts:
+    runs-on: macos-26
+    timeout-minutes: 15
+    outputs:
+      build_ready: ${{ steps.stage.outputs.ready }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Verify only the changed source and package boundaries
+        run: python3 -m unittest discover -s driver/patches/loopctrl/shared_device -p 'test_*.py' -v
+      - name: Replay the unchanged baseline and the normal shared overlay
+        run: |
+          set -euo pipefail
+          python3 driver/patches/loopctrl/apply_patch.py upstream
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream
+          python3 driver/patches/loopctrl/shared_device/apply_overlay.py upstream
+      - name: Compile the actual normal C and Swift binding
+        run: python3 driver/patches/loopctrl/shared_device/check_host.py upstream --output "$RUNNER_TEMP/shared-device-host"
+      - name: Detect the explicitly enabled unsigned build stage
+        id: stage
+        run: |
+          if [ -f driver/patches/loopctrl/shared_device/build-stage.json ]; then
+            python3 -c 'import json,pathlib; p=pathlib.Path("driver/patches/loopctrl/shared_device/build-stage.json"); x=json.loads(p.read_text()); assert x=={"schema":"ng2-shared-build-stage-v1","build_and_publish":True}'
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Save public host diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: shared-device-host-${{ github.sha }}
+          path: ${{ runner.temp }}/shared-device-host/
+          if-no-files-found: error
+          retention-days: 30
+  normal-unsigned-build:
+    needs: normal-host-contracts
+    if: needs.normal-host-contracts.outputs.build_ready == 'true'
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Apply the unchanged original seals and normal shared overlay
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/shared-device-build"
+          python3 driver/patches/loopctrl/apply_patch.py upstream
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream
+          python3 driver/patches/loopctrl/shared_device/apply_overlay.py upstream
+      - name: Install the standard unsigned build tools
+        run: |
+          brew install xcodegen
+          rustup target add aarch64-apple-ios
+          xcodebuild -version
+          swiftc --version
+          rustc --version
+      - name: Configure and inspect the actual generated project
+        run: |
+          set -euo pipefail
+          mkdir -p upstream/Config
+          printf '// CI: unsigned build, no team.\nDEVELOPMENT_TEAM =\n' > upstream/Config/Local.xcconfig
+          (cd upstream && xcodegen generate --spec project.yml)
+          python3 driver/patches/loopctrl/check_perception_build.py --project --profile-version 3 upstream "$RUNNER_TEMP/shared-device-build/perception-build"
+      - name: Build the same normal IPA for both device profiles
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          BUILD_NUMBER=$((900000 + GITHUB_RUN_NUMBER))
+          SOURCE_SHA=$(shasum -a 256 ../driver/patches/loopctrl/shared_device/manifest.json | cut -d ' ' -f 1)
+          make ipa UNSIGNED=1 EXTRA_BUILD_SETTINGS="CURRENT_PROJECT_VERSION=$BUILD_NUMBER NG2_DEVICE_PROFILE_SOURCE_SHA256=$SOURCE_SHA" 2>&1 | tee "$RUNNER_TEMP/shared-device-build/ios-build.txt"
+          Scripts/package-release.sh 2>&1 | tee "$RUNNER_TEMP/shared-device-build/ios-package.txt"
+      - name: Verify actual compiler inputs and final dual seals
+        run: |
+          set -euo pipefail
+          python3 driver/patches/loopctrl/check_perception_build.py --compile-profile --profile-version 3 upstream "$RUNNER_TEMP/shared-device-build/ios-build.txt" "$RUNNER_TEMP/shared-device-build/perception-build"
+          python3 driver/patches/loopctrl/shared_device/verify_package.py upstream driver upstream/release/LoopCtrl.ipa --build-number "$((900000 + GITHUB_RUN_NUMBER))" --build-log "$RUNNER_TEMP/shared-device-build/ios-build.txt" --compiler-profile "$RUNNER_TEMP/shared-device-build/perception-build"
+      - name: Package and verify complete public source
+        run: |
+          set -euo pipefail
+          python3 driver/patches/loopctrl/shared_device/package_source.py upstream driver upstream/release/source.zip
+          python3 driver/patches/loopctrl/shared_device/verify_package.py upstream driver upstream/release/LoopCtrl.ipa --build-number "$((900000 + GITHUB_RUN_NUMBER))" --build-log "$RUNNER_TEMP/shared-device-build/ios-build.txt" --compiler-profile "$RUNNER_TEMP/shared-device-build/perception-build" --source-zip upstream/release/source.zip
+      - name: Publish only the verified normal prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BUILD_NUMBER=$((900000 + GITHUB_RUN_NUMBER))
+          TAG="shared-device-profile-build$BUILD_NUMBER"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Existing release must be reconciled; refusing to overwrite.' >&2
+            exit 1
+          fi
+          cat > "$RUNNER_TEMP/shared-device-build/release-notes.txt" <<'NOTES'
+          One normal IPA includes iPhone 11 legacy and iPhone 8 geometry profiles. Game perception, navigation, controller and reroll logic remain shared. This is not a capture-only build. Package verification does not grant physical-device input acceptance.
+
+          The unsigned IPA, complete source ZIP, final source/compiler manifest and hashes were verified together. No private device evidence, pairing files, signing identities or personal configuration are included.
+          NOTES
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Shared device profile build $BUILD_NUMBER" --notes-file "$RUNNER_TEMP/shared-device-build/release-notes.txt" upstream/release/LoopCtrl.ipa upstream/release/source.zip upstream/release/SHA256SUMS.txt upstream/release/shared-device-build-manifest.json
+      - name: Save public build diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: shared-device-build-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/shared-device-build/
+            upstream/release/shared-device-build-manifest.json
+          if-no-files-found: error
+          retention-days: 30
