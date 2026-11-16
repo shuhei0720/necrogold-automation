@@ -2,12 +2,17 @@
 import hashlib
 import importlib.util
 import copy
+import contextlib
+import io
 from pathlib import Path
 import plistlib
 import struct
 import subprocess
+import shutil
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 
@@ -116,6 +121,38 @@ class ProbePackageTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'probe_plist_identity'):
                         self.inspect()
                 self.entries[name] = original
+
+    def test_cli_identity_failure_emits_only_six_field_presence_type_and_match(self):
+        sentinel = 'private-value-must-never-be-logged'
+        name = self.app + 'Info.plist'
+        info = plistlib.loads(self.entries[name])
+        del info['CFBundleVersion']
+        info['NG8CaptureProbeHardware'] = sentinel
+        info['private_extra_field'] = sentinel
+        self.entries[name] = plistlib.dumps(info)
+        self.write_ipa()
+        upstream = self.root / 'upstream'
+        shutil.copytree(self.products, upstream / 'build/Build/Products/Debug-iphoneos')
+        args = ['verify_package.py', str(upstream), str(self.root / 'driver'), str(self.path),
+                '--build-log', str(self.root / 'log'), '--compiler-profile', str(self.root / 'profile'),
+                '--build-number', '800001']
+        sources = {'overlay_manifest_sha256': self.source_sha256, 'build_stamp': {'value': self.stamp}}
+        output = io.StringIO()
+        with patch.object(sys, 'argv', args), patch.object(verifier, 'inspect_sources', return_value=sources), \
+                patch.object(verifier, 'inspect_compiler', return_value={}), contextlib.redirect_stdout(output):
+            with self.assertRaisesRegex(ValueError, '^probe_plist_identity$'):
+                verifier.main()
+        self.assertTrue(output.getvalue().startswith('{'), 'CLI must emit the closed identity diagnostic')
+        diagnostic = __import__('json').loads(output.getvalue())
+        self.assertEqual('probe_plist_identity', diagnostic['code'])
+        self.assertEqual('app', diagnostic['bundle_role'])
+        self.assertEqual({'CFBundleIdentifier', 'CFBundleExecutable', 'CFBundleVersion',
+                         'NG8CaptureProbeBuild', 'NG8CaptureProbeHardware', 'NG8CaptureProbeSourceSHA256'}, set(diagnostic['fields']))
+        self.assertEqual({'present': False, 'type': 'missing', 'match': False}, diagnostic['fields']['CFBundleVersion'])
+        self.assertEqual({'present': True, 'type': 'string', 'match': False}, diagnostic['fields']['NG8CaptureProbeHardware'])
+        self.assertTrue(diagnostic['fields']['NG8CaptureProbeBuild']['match'])
+        self.assertNotIn(sentinel, output.getvalue())
+        self.assertNotIn('private_extra_field', output.getvalue())
 
     def test_ipa_executable_cannot_be_from_another_compilation(self):
         self.entries[self.app + 'LoopCtrlAllInOne'] = macho(self.stamp.encode() + b'wrong code')

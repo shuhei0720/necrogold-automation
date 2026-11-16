@@ -7,8 +7,16 @@
     "ngg2-manifest.json": "9d1737ba60623660a3167415ab1d6dca57357cd2d3406bbbc893af04eca8b2aa",
     "ngg2.patch": "e6e764ae5e920ab8bd9e7b5527056ee52a68349f77afc1367524919509458438"
   },
-  "patch_sha256": "a5fc0451013948399152f01513c025994f8891d1a1a360d91b33b2dc7ba790ad",
+  "patch_sha256": "384ece08c659623c9cc82c592803cdf0e7a8e6a7ff4fc2bf509b6970caf6f38f",
   "files": {
+    "LoopCtrlApp/AllInOne-Info.plist": {
+      "base_sha256": "ceaedb45190f0672bcc1fda8f332afe1e017159005e0ceb95f5df1781a9fa497",
+      "final_sha256": "bea3c918e52f2b2f4292a21b06b8ce4307e1f642fe78a8ae7c30a9ad9e0b0299"
+    },
+    "LoopCtrlApp/Info.plist": {
+      "base_sha256": "6a8d04c321875655d559e40e6f67163d70be0ba5e3d129becf5d142cd51fbe75",
+      "final_sha256": "c180f73aa6bacab4a29f88f90be9a576ab8d74b53191d96fdb3298faf89c742a"
+    },
     "LoopCtrlApp/Models/AppState.swift": {
       "base_sha256": "39cf6a1095f37699fadcc5d896289b7359a0fad01e87a372a62cce94dd4bf393",
       "final_sha256": "59f4166d60a8a15be5b54d3c1ec51a9e1d524189c239d9ac29e68d76fa141b7b"
@@ -39,7 +47,7 @@
     },
     "project.yml": {
       "base_sha256": "e9f499a3258e80fb4721866a094393bc5544027f5f3ad0ec4f7fd16506b34fd5",
-      "final_sha256": "bece3863825901ec0f5dd515c35fc345c6c52d686fd9dc8a2e710643b349bb76"
+      "final_sha256": "bebcaf56b63a60913e633c4b62a575334fdf26238d257fcac1ac6ce54bb6689f"
     }
   },
   "additions": {
@@ -54,6 +62,10 @@
     "LoopCtrlUITests/NG8CaptureBridgeBinding.swift": {
       "source": "NG8CaptureBridgeBinding.swift",
       "sha256": "dc76f5b815cc55c446b673481c1434a5901a337a968ddf174acd30911fdcbce9"
+    },
+    "LoopCtrlUITests/NG8CaptureBuildInfo.plist": {
+      "source": "NG8CaptureBuildInfo.plist",
+      "sha256": "64d477e871ac17174779002927c318c022ed31c2cb13cc17f3d7f7d7395b89d6"
     },
     "LoopCtrlKit/NG8CaptureMode.swift": {
       "source": "NG8CaptureMode.swift",

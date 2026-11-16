@@ -32,6 +32,7 @@ ALLOWED_TARGETS = frozenset({
     'LoopCtrlUITests/XCTestPrivate-Bridging-Header.h',
     'LoopCtrlApp/Models/AppState.swift', 'LoopCtrlApp/Views/SettingsView.swift',
     'LoopCtrlApp/Runner/InProcessRunner.swift', 'project.yml',
+    'LoopCtrlApp/Info.plist', 'LoopCtrlApp/AllInOne-Info.plist',
 })
 MAX_SOURCE = 8 * 1024 * 1024
 MAX_ADDITIONS = 32
@@ -186,7 +187,8 @@ def _validate(manifest, baseline):
         if type(spec) is not dict or set(spec) != {'source', 'sha256'} or not _sha(spec['sha256']):
             raise ValueError('invalid_addition')
         source = _name(spec['source'])
-        if re.fullmatch(r'NG8[A-Za-z0-9_]*\.(swift|h|m)', source) is None:
+        if (re.fullmatch(r'NG8[A-Za-z0-9_]*\.(swift|h|m)', source) is None
+                and source != 'NG8CaptureBuildInfo.plist'):
             raise ValueError('invalid_asset_name')
         expected = ('LoopCtrlKit/' if source == 'NG8CaptureMode.swift' else 'LoopCtrlUITests/') + source
         if name != expected or name in baseline or name in files or source in seen:

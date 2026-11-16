@@ -19,3 +19,7 @@ capture-only overlayの8許可pathは、固定6e25＋旧G1/G2の実preimageと�
 [run43854686087](https://github.com/shuhei0720/necrogold-automation/actions/runs/43854686087)、source`2c40053`はService実Mac compile/結合fixture・既Bridge26/Core32/Mode8・Python51に成功。actual iOS build800006はSwift importerのlabelが`reply:drained:`であるのに`withReply:drained:`を渡して停止した。独立errorはこの1件で、IPA/package/公開は未到達。compile失敗はbehavior Redではない。
 
 次候補は同じproduction bindingを小さいUITest専用assetへ移し、実ObjC headerによるSwift typecheckをhost段階へ追加した。呼出しlabel以外の挙動・Service/Core/Bridge/mode/元fixtureは不変、独立差分確認P0/P1なし。6追加sourceを含む最終sealを再作成し、実Mac/IPAを再確認する。最新指示どおり完成版は11/8同一IPA・共通gameplay＋端末別profile。capture-onlyは原画取得の一時補助に限定し、8の本番商店到達/商品確認は未受入のまま記録する。
+
+[run43857208861](https://github.com/shuhei0720/necrogold-automation/actions/runs/43857208861)、source`713ac0c`は実ObjC importerを通すbinding typecheckと既host/51件に成功。IPA build800007・ad-hoc codesign/package・既strict v3 actual compiler照合も成功したが、新verifierの`probe_plist_identity`で停止し完全source/公開は未到達。どのfieldかは旧logから未判定で、投入済みbuild settingを最終plistの証明へ代用しない。
+
+次候補ではApp既Info2件に必須3keyを明示し、それ以外のdictionary不変を独立確認。UITestにも固定Infoをsourceとして明示する。applierは既Info2pathと固定名plist1件だけを追加許可し、任意plistは拒否。新assert Red→33件Green、package4＋verifierの閉診断17件と合わせ54件成功。診断は6fieldsのpresence/type/matchだけでraw値を出さず、拒否条件を維持する。実Xcodeによる展開・完全source・原画は次CI/実機で確認する。

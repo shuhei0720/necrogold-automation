@@ -1,3 +1,31 @@
+--- a/LoopCtrlApp/AllInOne-Info.plist
++++ b/LoopCtrlApp/AllInOne-Info.plist
+@@ -118,5 +118,11 @@
+ 		<string>localdevvpn</string>
+ 		<string>shadowrocket</string>
+ 	</array>
++	<key>NG8CaptureProbeBuild</key>
++	<string>ng8-capture-only-v1</string>
++	<key>NG8CaptureProbeHardware</key>
++	<string>iPhone10,1</string>
++	<key>NG8CaptureProbeSourceSHA256</key>
++	<string>$(NG8_CAPTURE_PROBE_SOURCE_SHA256)</string>
+ </dict>
+ </plist>
+--- a/LoopCtrlApp/Info.plist
++++ b/LoopCtrlApp/Info.plist
+@@ -96,5 +96,11 @@
+ 		<string>localdevvpn</string>
+ 		<string>shadowrocket</string>
+ 	</array>
++	<key>NG8CaptureProbeBuild</key>
++	<string>ng8-capture-only-v1</string>
++	<key>NG8CaptureProbeHardware</key>
++	<string>iPhone10,1</string>
++	<key>NG8CaptureProbeSourceSHA256</key>
++	<string>$(NG8_CAPTURE_PROBE_SOURCE_SHA256)</string>
+ </dict>
+ </plist>
 --- a/LoopCtrlApp/Models/AppState.swift
 +++ b/LoopCtrlApp/Models/AppState.swift
 @@ -24,7 +24,7 @@
@@ -621,7 +649,25 @@
  
  targets:
    LoopCtrl:
-@@ -259,6 +263,7 @@
+@@ -116,6 +120,7 @@
+     sources:
+       - path: LoopCtrlUITests
+         excludes:
++          - NG8CaptureBuildInfo.plist
+           - NG2Perception.c
+           - NG2Navigation.c
+           - NG2Ring.c
+@@ -162,6 +167,9 @@
+       base:
+         PRODUCT_BUNDLE_IDENTIFIER: "$(LOOPCTRL_BUNDLE_PREFIX).loopctrl.uitests"
+         GENERATE_INFOPLIST_FILE: YES
++        INFOPLIST_FILE: LoopCtrlUITests/NG8CaptureBuildInfo.plist
++        MARKETING_VERSION: "0.3.4"
++        CURRENT_PROJECT_VERSION: 1
+         CODE_SIGN_STYLE: Automatic
+         SWIFT_OBJC_BRIDGING_HEADER: LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
+         # The server runs in THIS (runner) process, so the runner is the app that
+@@ -259,6 +267,7 @@
        - path: LoopCtrlKit/TunnelFrame.swift
        - path: LoopCtrlKit/PageUpdate.swift
        - path: LoopCtrlKit/BuildStamp.swift

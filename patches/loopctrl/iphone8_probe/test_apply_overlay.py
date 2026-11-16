@@ -1,5 +1,6 @@
 import difflib
 import contextlib
+import copy
 import hashlib
 import importlib.util
 import io
@@ -66,6 +67,31 @@ class OverlayApplyTests(unittest.TestCase):
         self.assertEqual(self.baseline[self.protected], sha((self.root / self.protected).read_bytes()))
         self.assertEqual(final[self.name], sha(self.new))
         self.assertEqual(final[self.added], sha(self.asset))
+
+    def test_fixed_build_identity_plist_is_a_sealed_allowed_asset(self):
+        raw = b'<?xml version="1.0"?><plist version="1.0"><dict/></plist>\n'
+        source = 'NG8CaptureBuildInfo.plist'
+        target = 'LoopCtrlUITests/' + source
+        (self.assets / source).write_bytes(raw)
+        self.manifest['additions'][target] = {'source': source, 'sha256': sha(raw)}
+        try:
+            self.apply()
+        except ValueError:
+            outcome = 'rejected'
+        else:
+            outcome = 'accepted'
+        self.assertEqual('accepted', outcome)
+        self.assertEqual(raw, (self.root / target).read_bytes())
+
+    def test_other_plist_assets_remain_forbidden(self):
+        for source in ('NG8Other.plist', 'NG8CaptureBuildInfoOther.plist',
+                       'NG8CaptureBuildInfo.plist.bak'):
+            with self.subTest(source=source):
+                manifest = copy.deepcopy(self.manifest)
+                manifest['additions']['LoopCtrlUITests/' + source] = {
+                    'source': source, 'sha256': sha(b'not the fixed build plist')}
+                with self.assertRaisesRegex(ValueError, 'invalid_asset_name'):
+                    overlay._validate(manifest, self.baseline)
 
     def apply(self):
         return overlay._apply(self.root, self.manifest, self.patch_path, self.assets, self.baseline)

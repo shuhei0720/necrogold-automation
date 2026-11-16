@@ -238,11 +238,21 @@ def inspect_probe_ipa(path, *, build_number, source_sha256, stamp, products):
         for directory, executable, kind in ((base, 'LoopCtrlAllInOne', 2), (plugin, 'LoopCtrlUITests', 8)):
             info_raw = required(directory + 'Info.plist')
             info = plistlib.loads(info_raw)
-            if (type(info) is not dict or info.get('CFBundleIdentifier') != 'top.ebato.loopctrl'
-                    or info.get('CFBundleExecutable') != executable or info.get('CFBundleVersion') != build_number
-                    or any(info.get(key) != value for key, value in BUILD_MARKERS.items())
-                    or info.get('NG8CaptureProbeSourceSHA256') != source_sha256):
-                raise ValueError('probe_plist_identity')
+            expected_identity = {'CFBundleIdentifier': 'top.ebato.loopctrl', 'CFBundleExecutable': executable,
+                'CFBundleVersion': build_number, **BUILD_MARKERS, 'NG8CaptureProbeSourceSHA256': source_sha256}
+            if type(info) is not dict or any(info.get(key) != value for key, value in expected_identity.items()):
+                types = {str: 'string', bool: 'boolean', int: 'integer', float: 'real', list: 'array',
+                         dict: 'dictionary', bytes: 'data', datetime: 'date', type(None): 'null', plistlib.UID: 'uid'}
+                fields = {}
+                for key, expected in expected_identity.items():
+                    present = type(info) is dict and key in info
+                    observed = info[key] if present else None
+                    fields[key] = {'present': present, 'type': types.get(type(observed), 'unsupported') if present else 'missing',
+                                   'match': present and observed == expected}
+                error = ValueError('probe_plist_identity')
+                error._ng8_identity_diagnostic = {'schema': 'ng8-package-diagnostic-v1', 'code': 'probe_plist_identity',
+                    'bundle_role': 'app' if directory == base else 'test', 'fields': fields}
+                raise error
             local_info = _safe_file(products / (directory + 'Info.plist').removeprefix('Payload/'), 1024 * 1024)
             if plistlib.loads(local_info) != info:
                 raise ValueError('compiled_product_plist_mismatch')
@@ -617,9 +627,15 @@ def main():
     args = parser.parse_args()
     sources = inspect_sources(args.upstream, args.driver)
     proof = inspect_compiler(args.upstream, args.build_log, args.compiler_profile, sources)
-    report = inspect_probe_ipa(args.ipa, build_number=args.build_number,
-        source_sha256=sources['overlay_manifest_sha256'], stamp=sources['build_stamp']['value'],
-        products=args.upstream / 'build/Build/Products/Debug-iphoneos')
+    try:
+        report = inspect_probe_ipa(args.ipa, build_number=args.build_number,
+            source_sha256=sources['overlay_manifest_sha256'], stamp=sources['build_stamp']['value'],
+            products=args.upstream / 'build/Build/Products/Debug-iphoneos')
+    except ValueError as error:
+        diagnostic = getattr(error, '_ng8_identity_diagnostic', None)
+        if diagnostic is not None:
+            print(json.dumps(diagnostic, sort_keys=True), flush=True)
+        raise
     # Recheck the complete input set at the package-writing boundary, including
     # the specifically materialized link, after compiler and ZIP inspection.
     _fixed_link(overlay._root(args.upstream))
