@@ -40,7 +40,21 @@ bridge実装レビューのP1は、SDKがcallback後のliteral return ACKを持�
 新8 capだけは全owned data/getter/primary consumerとsend終了後のfinal handoffを境界とし、
 通知後のmutable workを禁止する。wireは`callback_body_handoff_ns`と`callback_return_verified=false`で未証明を明示する。
 独立確認の残P0/P1なし。旧native契約は変更せず、producer開始0・nonblocking receiver・受け側jobの別追跡はintegrationで検証する。
-bridgeの26ケースと、coordinator/modeの初回assertion Redは次のMac実行待ちである。
+### 拡張Redとhost Greenの実測
+
+[run43842351667](https://github.com/shuhei0720/necrogold-automation/actions/runs/43842351667)、job133213889275、commit `9d1bfa6c08168cde044e73aba40826bceac5522f` でSwift compile成功後、Core全32 selectorを実行した。31件は指定first FAIL/exit1、`default_unqualified` だけ0 FAIL/exit0、すべてstderr空。全FAILラベルと件数をreportへ保存し、modeもqualification/metadata/routes/bindingの4 selector×両flagsで8件の指定FAIL/exit1を確認した。Bridgeはcompile後の `encoding_unavailable` がSIGSEGV（return_code=-11）、FAILとstderrは空、閉診断より前に停止した。これはassertion Redではなくblockedである。
+
+NEW8だけのalloc/init ARC ownership修正、CoreとmodeのGreen候補は各独立レビュー後にfreezeした。Coreレビューのfresh-clock P1は、外部gate後に時刻を再取得する修正を確認し、残P0/P1なし。fixture・既assert・Red期待JSONは変更しない。
+
+[run43847996126](https://github.com/shuhei0720/necrogold-automation/actions/runs/43847996126)、job133232962600、commit `3ece8519f15e2a0bfcb86439e04d8f42910aba22` は標準macos-26で全componentのcompileと実行に成功した。
+
+- Bridge: 26 selectorすべてexact PASS/exit0/空stderr。前回SIGSEGVのselectorも成功。
+- Core: 同32 selectorすべて0 FAIL/exit0/空stderr。
+- mode: 同4 selector×両flagsの8件すべてexact PASS/exit0/空stderr。
+
+実reportの9 source/fixture/JSON SHAは実行commitのGit blob・review freezeと一致する。implementation SHAはBridge `202ab11d5c25226b392e9637f24ba1226b8841f0ec255c997f0e72bd2225ba5c`、Core `9a98b03c02f47b4460add0c697a345447c872c98f0aaa14dfc35f3fd84cb470d`、mode `b8cca3c87af2021ec8eddf42399b10f1f43635367b2ade8ef52db8838245dc8f`。この8-file commitは専用module/checker/stage/READMEだけで、fixture・旧native/R12・通常workflow変更0、IPA/端末/Release操作0だった。
+
+これは独立host componentのGreenであり、実機capture・production ImageIO adapter・実認証/router・5 constructor接続・producer開始0・二重封印/実IPA・iPhone 11受入の証明ではない。reportは `input_authorized=false` / `device_acceptance=not_run` / `callback_return_verified=false` を維持する。
 
 ## 現在の証明範囲
 
