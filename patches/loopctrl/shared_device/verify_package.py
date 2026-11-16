@@ -594,11 +594,19 @@ def inspect_c_records(upstream, records, source_report):
         name = _relative(upstream, source)
         output = _relative(upstream, _option(arguments, '-o'))
         triple = _option(arguments, '-target')
+        stem = Path(name).stem
+        paired_swift = str(Path(name).with_suffix('.swift'))
+        # Xcode disambiguates the C object when this exact target also contains
+        # a sealed Swift source with the same basename. Keep its actual name.
+        object_ok = Path(output).name == stem + '.o'
+        object_ok |= (paired_swift in source_report['manifest']['additions']
+            and paired_swift in source_report['final_source_sha256']
+            and re.fullmatch(re.escape(stem) + r'-[0-9a-f]{32}\.o', Path(output).name) is not None)
         if (name not in needed or name in found or not triple.startswith('arm64-apple-ios')
                 or '-simulator' in triple or '-macabi' in triple
                 or not output.startswith('build/') or '/Debug-iphoneos/' not in output
                 or '/LoopCtrlUITests.build/' not in output
-                or not output.endswith('/' + Path(name).stem + '.o')):
+                or not object_ok):
             raise ValueError('normal_c_target_or_membership')
         defines = _defines(arguments)
         if _forbidden_mode_defines(defines):

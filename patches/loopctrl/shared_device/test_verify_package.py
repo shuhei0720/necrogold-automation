@@ -385,6 +385,28 @@ class CompilerContracts(unittest.TestCase):
         self.assertEqual({name for name in self.additions if name.endswith('.c')}, set(proof))
         self.assertTrue(all(row['strict_flags']['optimization'] == '-O2' for row in proof.values()))
 
+    def test_xcode_c_object_hash_requires_the_exact_sealed_swift_pair(self):
+        rows = copy.deepcopy(self.crows)
+        source = 'LoopCtrlUITests/NG2DeviceRaster.c'
+        row = next(row for row in rows if row['arguments'][row['arguments'].index('-c')+1] == str(self.root / source))
+        args = row['arguments']; at = args.index('-o')+1
+        args[at] = args[at].replace('NG2DeviceRaster.o', 'NG2DeviceRaster-512ef35185fc502d9d4a2139a68d1433.o')
+        try: proof = verifier.inspect_c_records(self.root, rows, self.report)
+        except ValueError: outcome = 'rejected'
+        else:
+            outcome = 'accepted'
+            self.assertEqual(Path(args[at]).relative_to(self.root).as_posix(), proof[source]['object'])
+        self.assertEqual('accepted', outcome)
+        for suffix in ('not-a-hash', 'a'*31, 'g'*32, 'a'*33):
+            bad = copy.deepcopy(rows); target = bad[rows.index(row)]['arguments']; output = target.index('-o')+1
+            target[output] = target[output].replace('512ef35185fc502d9d4a2139a68d1433', suffix)
+            with self.subTest(suffix=suffix), self.assertRaises(ValueError):
+                verifier.inspect_c_records(self.root, bad, self.report)
+        unpaired = copy.deepcopy(self.report)
+        del unpaired['manifest']['additions']['LoopCtrlUITests/NG2DeviceRaster.swift']
+        with self.assertRaises(ValueError):
+            verifier.inspect_c_records(self.root, rows, unpaired)
+
     def test_added_c_requires_source_target_strict_flags_and_no_duplicates(self):
         for fault in ('missing', 'duplicate', 'wrongtarget', 'unsafe', 'optimization', 'capture', 'host', 'capturevalue', 'hostvalue', 'capturefunction', 'hostfunction', 'outside'):
             rows = copy.deepcopy(self.crows)
