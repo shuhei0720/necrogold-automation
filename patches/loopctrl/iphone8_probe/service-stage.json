@@ -1,0 +1,24 @@
+{
+  "schema": "ng8-service-stage-v1",
+  "phase": "red",
+  "selector": "service_status_runtime",
+  "expected_failure": "service_status_runtime",
+  "sources": [
+    {
+      "path": "patches/loopctrl/iphone8_probe/assets/NG8CaptureMode.swift",
+      "sha256": "b8cca3c87af2021ec8eddf42399b10f1f43635367b2ade8ef52db8838245dc8f"
+    },
+    {
+      "path": "patches/loopctrl/iphone8_probe/assets/NG8CaptureProbe.swift",
+      "sha256": "9a98b03c02f47b4460add0c697a345447c872c98f0aaa14dfc35f3fd84cb470d"
+    },
+    {
+      "path": "patches/loopctrl/iphone8_probe/assets/NG8CaptureService.swift",
+      "sha256": "9525a0ce0b6624e2a89ff7950817b56702e40c51f699f170bf983d0c1299d66f"
+    },
+    {
+      "path": "patches/loopctrl/iphone8_probe/tests/NG8CaptureServiceTests.swift",
+      "sha256": "63a8464676a98b63a42237d6277ea03faa57c0fc50bc088d2b0eb9a17732eb07"
+    }
+  ]
+}

@@ -1,0 +1,635 @@
+--- a/LoopCtrlApp/Models/AppState.swift
++++ b/LoopCtrlApp/Models/AppState.swift
+@@ -24,7 +24,7 @@
+         AuthManager.shared.delegate = self
+         updateServerAddress()
+ 
+-        if autoStartServer {
++        if autoStartServer && RPCServiceMode.currentBuildMode == .normal {
+             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                 self?.startServer()
+             }
+@@ -32,6 +32,7 @@
+     }
+ 
+     func startServer() {
++        guard RPCServiceMode.currentBuildMode == .normal else { return }
+         guard !isServerRunning else { return }
+ 
+         let s = JSONRPCServer(port: UInt16(serverPort), localOnly: !allowRemoteAccess)
+@@ -72,12 +73,22 @@
+     }
+ 
+     func revokeSession(id: String) {
++        let changed = RPCServiceMode.currentBuildMode == .iphone8CaptureOnly
++            && AuthManager.shared.activeSessions.contains { $0.id == id }
+         AuthManager.shared.revokeSession(id: id)
++        if changed {
++            NotificationCenter.default.post(name: Notification.Name("NG8CaptureOwnerAuthorizationChanged"), object: nil)
++        }
+         refreshSessions()
+     }
+ 
+     func revokeAllSessions() {
++        let changed = RPCServiceMode.currentBuildMode == .iphone8CaptureOnly
++            && !AuthManager.shared.activeSessions.isEmpty
+         AuthManager.shared.revokeAll()
++        if changed {
++            NotificationCenter.default.post(name: Notification.Name("NG8CaptureOwnerAuthorizationChanged"), object: nil)
++        }
+         refreshSessions()
+     }
+ 
+--- a/LoopCtrlApp/Runner/InProcessRunner.swift
++++ b/LoopCtrlApp/Runner/InProcessRunner.swift
+@@ -73,7 +73,9 @@
+     static func start() throws {
+         precondition(Thread.isMainThread)
+         if bootstrapped {
+-            enqueue(startURL)
++            if RPCServiceMode.currentBuildMode == .iphone8CaptureOnly {
++                NotificationCenter.default.post(name: Notification.Name("NG8CaptureLocalListenerStart"), object: nil)
++            } else { enqueue(startURL) }
+             return
+         }
+ 
+@@ -81,6 +83,22 @@
+         guard ddi.isMounted else { throw Failure.notMounted }
+         guard let bundleURL = testBundleURL else { throw Failure.noTestBundle }
+ 
++        // The app and embedded test must carry the same dedicated compile/build
++        // identity before any XCTest bootstrap or producer can be reached.
++        if RPCServiceMode.compiledOptIn {
++            let marker = "ng8-capture-only-v1"
++            guard Bundle.main.object(forInfoDictionaryKey: "NG8CaptureProbeBuild") as? String == marker,
++                  let testBundle = Bundle(url: bundleURL),
++                  testBundle.object(forInfoDictionaryKey: "NG8CaptureProbeBuild") as? String == marker,
++                  Bundle.main.object(forInfoDictionaryKey: "NG8CaptureProbeHardware") as? String == "iPhone10,1",
++                  testBundle.object(forInfoDictionaryKey: "NG8CaptureProbeHardware") as? String == "iPhone10,1",
++                  let source = Bundle.main.object(forInfoDictionaryKey: "NG8CaptureProbeSourceSHA256") as? String,
++                  source.utf8.count == 64,
++                  source.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
++                  testBundle.object(forInfoDictionaryKey: "NG8CaptureProbeSourceSHA256") as? String == source else {
++                throw Failure.configuration("capture-only build identity mismatch")
++            }
++        }
+         try loadXCTest()
+         setenv(environmentKey, "1", 1)
+ 
+@@ -180,6 +198,11 @@
+     /// the app does not link the test bundle.
+     static func handle(_ url: URL) {
+         guard url.scheme?.lowercased() == "loopctrl" else { return }
++        // External URL delivery is not the typed same-process admin lane.
++        guard RPCServiceMode.currentBuildMode == .normal else {
++            loopctrlLog("Capture-only URL control is not_available; use the local Start/Stop controls")
++            return
++        }
+         if !bootstrapped {
+             guard url.host?.lowercased() == "start" else { return }
+             do { try start() } catch { loopctrlLog("In-process start failed: \(error.localizedDescription)") }
+@@ -200,7 +223,9 @@
+     /// to return to.
+     static func stop() {
+         guard bootstrapped else { return }
+-        enqueue(stopURL)
++        if RPCServiceMode.currentBuildMode == .iphone8CaptureOnly {
++            NotificationCenter.default.post(name: Notification.Name("NG8CaptureLocalListenerStop"), object: nil)
++        } else { enqueue(stopURL) }
+     }
+ 
+     private static let startURL = URL(string: "loopctrl://start")!
+--- a/LoopCtrlApp/Views/SettingsView.swift
++++ b/LoopCtrlApp/Views/SettingsView.swift
+@@ -51,6 +51,10 @@
+ 
+                     AppIconImage()
+ 
++                    if RPCServiceMode.currentBuildMode == .iphone8CaptureOnly {
++                        Text(verbatim: "iPhone 8 capture-only: existing authorized clients only. Pairing and screen control are unavailable.")
++                            .font(.footnote).multilineTextAlignment(.center)
++                    }
+                     Text(verbatim: "LoopCtrl")
+                         .font(.largeTitle.bold())
+ 
+@@ -262,7 +266,7 @@
+                     }
+                 }
+                 #if LOOPCTRL_ALL_IN_ONE
+-                if broadcastOn {
++                if broadcastOn && RPCServiceMode.currentBuildMode == .normal {
+                     Divider().padding(.leading, 16)
+                     BroadcastRow()
+                 }
+--- a/LoopCtrlKit/JSONRPCServer.swift
++++ b/LoopCtrlKit/JSONRPCServer.swift
+@@ -48,6 +48,9 @@
+     /// Called (on the server queue) whenever `nearbyStatus` changes.
+     var onNearbyStateChange: ((NearbyAdvertiser.Status) -> Void)?
+     let port: UInt16
++    let mode: RPCServiceMode
++    /// A typed authenticated lane, never reached through caller-supplied origin fields.
++    var onCaptureOnlyRPC: ((String, [String: JSONValue]?, NG8RequestOrigin, @escaping ([String: JSONValue]?, JSONRPCError?) -> Void) -> Void)?
+     private let localOnly: Bool
+     private let queue = DispatchQueue(label: "top.ebato.loopctrl.server")
+     private(set) var isRunning = false
+@@ -93,9 +96,10 @@
+         print(message)
+     }
+ 
+-    init(port: UInt16 = ServerPort.defaultPort, localOnly: Bool = false) {
++    init(port: UInt16 = ServerPort.defaultPort, localOnly: Bool = false, mode: RPCServiceMode = .normal) {
+         self.port = port
+         self.localOnly = localOnly
++        self.mode = mode
+     }
+ 
+     func start() throws {
+@@ -580,6 +584,20 @@
+         let pathOnly = path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? path
+         let query = rawPath.contains("?") ? String(rawPath.split(separator: "?", maxSplits: 1).dropFirst().first ?? "") : ""
+ 
++        // The gate precedes every normal built-in route, including pairing,
++        // page/stream downloads, ticketed logs and all relay ingress.
++        switch NG8CaptureRoutePolicy.decide(mode: mode, origin: .publicHTTP,
++                                            operation: .http(verb: method, path: pathOnly)) {
++        case .rejectHTTP(let status, let code):
++            sendHTTPResponse(connection: connection, status: status,
++                contentType: "application/json", body: "{\"error\":\"\(code.rawValue)\"}")
++            return
++        case .reject(let code):
++            sendHTTPResponse(connection: connection, status: 404,
++                contentType: "application/json", body: "{\"error\":\"\(code.rawValue)\"}")
++            return
++        default: break
++        }
+         switch (method, pathOnly) {
+         case ("GET", "/"):
+             handleDocPage(connection: connection, headers: headers)
+@@ -736,7 +754,7 @@
+     }
+ 
+     private func handleSchema(connection: NWConnection) {
+-        let schema = RPCMethodRegistry.generateSchemaDocument()
++        let schema = RPCMethodRegistry.generateSchemaDocument(mode: mode)
+         if let jsonData = try? JSONSerialization.data(withJSONObject: schema, options: .prettyPrinted),
+            let jsonString = String(data: jsonData, encoding: .utf8) {
+             sendHTTPResponse(connection: connection, status: 200, contentType: "application/json", body: jsonString)
+@@ -1179,6 +1197,28 @@
+             return
+         }
+ 
++        // Capture-only is a closed authenticated lane BEFORE any normal
++        // built-in (stream_ticket/control/page_update) or UI/action bookkeeping.
++        if mode == .iphone8CaptureOnly {
++            let origin = NG8RequestOrigin.authenticatedRemote(tokenID: opened.tokId)
++            let decision = NG8CaptureRoutePolicy.decide(mode: mode, origin: origin,
++                operation: .rpc(method: rpcRequest.method,
++                    callerParams: Self.capturePolicyValues(rpcRequest.params ?? [:])))
++            guard case .allow = decision, let handler = onCaptureOnlyRPC else {
++                sendSealed(ex, seal: seal, json: Self.errorJSON(rpcRequest.id,
++                    JSONRPCError(code: -32601, message: "not_available", data: nil)))
++                return
++            }
++            // No caller owner/actor/peer field is trusted. The concrete adapter
++            // receives identity only through the typed authenticated origin.
++            handler(rpcRequest.method, rpcRequest.params, origin) { [weak self] result, error in
++                let json = error.map { Self.errorJSON(rpcRequest.id, $0) }
++                    ?? Self.resultJSON(rpcRequest.id, result ?? [:])
++                self?.sendSealed(ex, seal: seal, json: json)
++            }
++            return
++        }
++
+         // `stream_ticket` is served here rather than in the action handler: it
+         // mints credentials, so it must stay inside the authenticated boundary
+         // and needs the token id this envelope authenticated as.
+@@ -1382,6 +1422,18 @@
+         "launch_app", "activate_app", "terminate_app", "open_url",
+     ]
+ 
++    static func capturePolicyValues(_ params: [String: JSONValue]) -> [String: NG8PolicyValue] {
++        params.mapValues { value in
++            switch value {
++            case .string(let text): return .string(text)
++            case .int(let number): return .integer(number)
++            case .bool(let flag): return .bool(flag)
++            case .null: return .null
++            default: return .unsupported
++            }
++        }
++    }
++
+     // MARK: - Response Helpers
+ 
+     private func sendJSONRPCResult(_ id: JSONValue?, result: [String: JSONValue], connection: NWConnection) {
+--- a/LoopCtrlKit/RPCMethod.swift
++++ b/LoopCtrlKit/RPCMethod.swift
+@@ -651,8 +651,20 @@
+         "quiet_window",        // actions accept quiet_window — explicit settle override for pages whose timing the caller knows
+     ]
+ 
+-    static func generateSchemaDocument() -> [String: Any] {
+-        [
++    static func generateSchemaDocument(mode: RPCServiceMode = .normal) -> [String: Any] {
++        if mode == .iphone8CaptureOnly {
++            let surface = NG8AdvertisedSurface.project(mode: mode,
++                normalCapabilities: capabilityTags, normalMethodNames: methods.map(\.name))
++            return [
++                "protocol": "JSON-RPC 2.0", "server_version": serverVersion,
++                "build": buildTimestamp, "protocol_version": protocolVersion,
++                "service_mode": mode.rawValue, "capability_tags": surface.capabilities,
++                "endpoints": ["schema": "GET /schema", "whoami": "GET /whoami", "rpc": "POST /rpc (existing encrypted session only)"],
++                "methods": surface.methodNames.map { ["name": $0] },
++                "input_authorized": false, "input_geometry_verified": false,
++            ]
++        }
++        return [
+             "protocol": "JSON-RPC 2.0",
+             "server_version": serverVersion,
+             // Which BINARY this is. serverVersion is bumped by hand and so can be
+--- a/LoopCtrlUITests/LoopCtrlUITests.swift
++++ b/LoopCtrlUITests/LoopCtrlUITests.swift
+@@ -5,6 +5,7 @@
+ import Network
+ 
+ final class LoopCtrlUITests: XCTestCase, UNUserNotificationCenterDelegate {
++    private let serviceMode = RPCServiceMode.currentBuildMode
+     private var server: JSONRPCServer?
+     private var app: XCUIApplication!
+     private var actionHandler: ActionHandler?
+@@ -68,6 +69,14 @@
+     }
+ 
+     override func setUpWithError() throws {
++        if serviceMode == .iphone8CaptureOnly {
++            try validateCaptureOnlyIdentity()
++            EarlyURLHook.markSetUpEntered()
++            continueAfterFailure = true
++            URLSchemeHandler.installURLHandler()
++            Self.logBuffer.append("NG8 capture-only setUp; no normal application/notification producer")
++            return
++        }
+         // Signal the bootstrap watchdog that XCTest actually reached the test —
+         // so it never re-kicks runTestsInBackground: (which would re-enter XCTest
+         // and crash). Only a bootstrap that never reaches setUp gets recovered.
+@@ -396,6 +405,10 @@
+         // passcode prompt interrupted the XCTest bootstrap). Do this FIRST so a
+         // watchdog timer that's about to fire sees the flag and stays a no-op.
+         EarlyURLHook.markTestStarted()
++        if serviceMode == .iphone8CaptureOnly {
++            try runCaptureOnlyService()
++            return
++        }
+ 
+ 
+         // Bound XCTest's application-state wait now that bootstrap is behind us.
+@@ -608,6 +621,261 @@
+         Self.logBuffer.append("🔁 run loop exited (keepRunning=false)")
+     }
+ 
++    // NG8 CAPTURE-ONLY BEGIN
++    // One immutable process owner. Rebinding a listener never recreates this
++    // coordinator, its runtime identity, accepted IDs, tickets or deadlines.
++    private lazy var captureProbe: NG8CaptureService = {
++        guard let service = NG8CaptureService(mode: serviceMode,
++            bridge: NG8CaptureService.Bridge(
++                prepare: { NG8CaptureBridge.prepare() },
++                request: { reply, handoff in
++                    NG8CaptureBridge.requestJPEG(withReply: reply, drained: handoff)
++                }),
++            ownerState: { token in
++                guard AuthManager.shared.activeSessions.contains(where: { $0.id == token }) else { return .inactive }
++                return RemoteSession.shared.paused ? .paused : .active
++            }) else { preconditionFailure("capture-only qualification failed") }
++        return service
++    }()
++
++    private func validateCaptureOnlyIdentity() throws {
++        let testBundle = Bundle(for: LoopCtrlUITests.self)
++        let marker = "ng8-capture-only-v1"
++        guard EarlyURLHook.isInProcess(),
++              Bundle.main.object(forInfoDictionaryKey: "NG8CaptureProbeBuild") as? String == marker,
++              testBundle.object(forInfoDictionaryKey: "NG8CaptureProbeBuild") as? String == marker,
++              Bundle.main.object(forInfoDictionaryKey: "NG8CaptureProbeHardware") as? String == "iPhone10,1",
++              testBundle.object(forInfoDictionaryKey: "NG8CaptureProbeHardware") as? String == "iPhone10,1",
++              let source = Bundle.main.object(forInfoDictionaryKey: "NG8CaptureProbeSourceSHA256") as? String,
++              NG8ProbeWire.hex(source, count: 64),
++              testBundle.object(forInfoDictionaryKey: "NG8CaptureProbeSourceSHA256") as? String == source else {
++            throw NSError(domain: "NG8CaptureOnly", code: 1,
++                userInfo: [NSLocalizedDescriptionKey: "capture-only build identity mismatch"])
++        }
++    }
++
++    private func captureOnlyError(_ code: String) -> JSONRPCError {
++        JSONRPCError(code: -32000, message: code,
++            data: ["code": .string(code), "input_authorized": .bool(false)])
++    }
++
++    private func configureCaptureOnlyCallbacks(_ srv: JSONRPCServer) {
++        precondition(srv.mode == serviceMode && serviceMode == .iphone8CaptureOnly)
++        let processService = captureProbe
++        srv.onCaptureOnlyRPC = { [weak self, processService] method, params, origin, reply in
++            guard let self else { reply(nil, .internalError); return }
++            self.handleCaptureOnlyRPC(method: method, params: params ?? [:],
++                origin: origin, processService: processService, completion: reply)
++        }
++        srv.onLog = { Self.logBuffer.append($0) }
++        srv.onLogsRequest = { Self.logBuffer.dumpRedacted() }
++    }
++
++    private func startCaptureOnlyListener() {
++        precondition(Thread.isMainThread)
++        guard server == nil else { return }
++        remoteAccessEnabled = Self.persistedRemoteAccess
++        nearbyEnabled = remoteAccessEnabled && Self.persistedNearby
++        let listener = JSONRPCServer(port: Self.persistedPort, localOnly: !remoteAccessEnabled, mode: serviceMode)
++        configureCaptureOnlyCallbacks(listener)
++        server = listener
++        // JSONRPCServer emits false only for failed/cancelled, never setup or
++        // waiting. A queued old callback must not park a newer listener.
++        listener.onStateChange = { [weak self, weak listener] running in
++            guard !running else { return }
++            DispatchQueue.main.async {
++                guard let self, let listener, self.server === listener else { return }
++                listener.onStateChange = nil
++                listener.stop()
++                self.server = nil
++                self.captureProbe.setListenerActive(false)
++                Self.logBuffer.append("NG8 capture-only listener failed/cancelled; coordinator parked")
++            }
++        }
++        captureProbe.setListenerActive(true)
++        do {
++            try listener.start()
++            if nearbyEnabled { listener.startNearby() }
++            Self.logBuffer.append("NG8 capture-only listener started; input_authorized=false")
++        } catch {
++            listener.onStateChange = nil
++            listener.stop()
++            server = nil
++            captureProbe.setListenerActive(false)
++            Self.logBuffer.append("NG8 capture-only listener failed")
++        }
++    }
++
++    private func stopCaptureOnlyListener() {
++        precondition(Thread.isMainThread)
++        // Queue the admission-close/cancel event before closing this listener.
++        // Owned jobs/tickets remain until their real handoff.
++        captureProbe.setListenerActive(false)
++        server?.onStateChange = nil
++        server?.stop()
++        server = nil
++        Self.logBuffer.append("NG8 capture-only listener parked; coordinator retained")
++    }
++
++    private func rebindCaptureOnlyListener() {
++        precondition(Thread.isMainThread)
++        // A pure listener rebind preserves the probe even when it is ready.
++        server?.onStateChange = nil
++        server?.stop()
++        server = nil
++        startCaptureOnlyListener()
++    }
++
++    private func captureOnlyRemoteConfig() -> [String: JSONValue] {
++        ["service_mode": .string(serviceMode.rawValue),
++         "nearby": .object(["device_id": .string(NearbyIdentity.deviceID),
++                             "name": .string(NearbyIdentity.name)]),
++         "input_authorized": .bool(false)]
++    }
++
++    private func handleCaptureOnlyRPC(method: String, params: [String: JSONValue],
++        origin: NG8RequestOrigin, processService: NG8CaptureService,
++        completion: @escaping ([String: JSONValue]?, JSONRPCError?) -> Void) {
++        let decision = NG8CaptureRoutePolicy.decide(mode: serviceMode, origin: origin,
++            operation: .rpc(method: method, callerParams: JSONRPCServer.capturePolicyValues(params)))
++        guard case .allow(let route) = decision else {
++            completion(nil, captureOnlyError("not_available")); return
++        }
++        switch route {
++        case .probe:
++            guard case .authenticatedRemote(let owner) = origin else {
++                completion(nil, captureOnlyError("authentication_required")); return
++            }
++            // Caller dictionaries do not carry any privileged owner, actor or
++            // peer context. The closed core parser rejects their extra fields.
++            processService.handle(method: method, params: params.mapValues { $0.toAny() },
++                ownerTokenID: owner) { [weak self] response in
++                switch response {
++                case .failure(let failure):
++                    completion(nil, self?.captureOnlyError(failure.rawValue) ?? .internalError)
++                case .success(let object):
++                    guard JSONSerialization.isValidJSONObject(object),
++                          let bytes = try? JSONSerialization.data(withJSONObject: object),
++                          let result = try? JSONDecoder().decode([String: JSONValue].self, from: bytes) else {
++                        completion(nil, .internalError); return
++                    }
++                    completion(result, nil)
++                }
++            }
++        case .remoteConfigRead:
++            completion(captureOnlyRemoteConfig(), nil)
++        case .logs:
++            let all = Self.logBuffer.dumpRedacted().split(separator: "\n").map(String.init)
++            let count = params["max_elements"]?.intValue ?? 80
++            let selected = params["text"]?.stringValue.flatMap { text in
++                text.isEmpty ? nil : all.filter { $0.localizedCaseInsensitiveContains(text) }
++            } ?? all
++            let lines = Array(selected.suffix(count))
++            completion(["lines": .array(lines.map(JSONValue.string)),
++                        "count": .int(lines.count), "total": .int(all.count)], nil)
++        case .trustedLocalConfigRead, .trustedLocalAuthAdmin, .trustedLocalListenerAdmin:
++            guard origin == .trustedInProcess else {
++                completion(nil, captureOnlyError("trusted_local_required")); return
++            }
++            DispatchQueue.main.async { [weak self] in
++                guard let self else { completion(nil, .internalError); return }
++                if let id = params["revoke_session_id"]?.stringValue {
++                    let existed = AuthManager.shared.activeSessions.contains { $0.id == id }
++                    AuthManager.shared.revokeSession(id: id)
++                    if existed { self.captureProbe.ownerChanged() }
++                } else if params["clear_sessions"]?.boolValue == true {
++                    let changed = !AuthManager.shared.activeSessions.isEmpty
++                    AuthManager.shared.revokeAll()
++                    if changed { self.captureProbe.ownerChanged() }
++                } else if params["stop_server"]?.boolValue == true {
++                    // Reply before the owning connection is closed.
++                    completion(["stopping": .bool(true)], nil)
++                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.stopCaptureOnlyListener() }
++                    return
++                } else if let port = params["listen_port"]?.intValue {
++                    guard ServerPort.allowed.contains(port) else {
++                        completion(nil, .invalidParams); return
++                    }
++                    Self.persistedPort = UInt16(port)
++                    self.rebindCaptureOnlyListener()
++                } else if let remote = params["allow_remote_access"]?.boolValue {
++                    Self.persistedRemoteAccess = remote
++                    if !remote { Self.persistedNearby = false }
++                    self.rebindCaptureOnlyListener()
++                } else if let nearby = params["nearby_discovery"]?.boolValue {
++                    guard !nearby || Self.persistedRemoteAccess else {
++                        completion(nil, .invalidParams); return
++                    }
++                    Self.persistedNearby = nearby
++                    self.rebindCaptureOnlyListener()
++                }
++                // Strict local policy has already rejected pairing/game/UI
++                // mutations. This read retains the existing app admin shape.
++                let result = self.handleConfig([JSONRPCServer.peerSourceParam: .string(PeerSource.local.rawValue)])
++                var object = result.0 ?? [:]
++                object["service_mode"] = .string(self.serviceMode.rawValue)
++                object["pairing_supported"] = .bool(false)
++                completion(object, result.1)
++            }
++        default:
++            completion(nil, captureOnlyError("not_available"))
++        }
++    }
++
++    private func runCaptureOnlyService() throws {
++        try validateCaptureOnlyIdentity()
++        _ = captureProbe
++        Self.installExitHandlers()
++        Self.logBuffer.append("NG8 capture-only fresh process; normal producers unregistered")
++        // These observers are trusted same-process app origins; an encrypted
++        // HTTP request, loopback address or arbitrary params cannot create one.
++        NotificationCenter.default.addObserver(forName: InProcessRunnerControl.rpc, object: nil, queue: nil) { [weak self] note in
++            guard let self, let info = note.userInfo, let method = info["method"] as? String,
++                  let reply = info["reply"] as? (Data?, String?) -> Void else { return }
++            let params = (info["params"] as? Data)
++                .flatMap { try? JSONDecoder().decode([String: JSONValue].self, from: $0) } ?? [:]
++            self.handleCaptureOnlyRPC(method: method, params: params, origin: .trustedInProcess,
++                processService: self.captureProbe) { result, error in
++                reply(result.flatMap { try? JSONEncoder().encode($0) }, error?.message)
++            }
++        }
++        NotificationCenter.default.addObserver(forName: Notification.Name("NG8CaptureLocalListenerStart"), object: nil, queue: .main) { [weak self] _ in
++            self?.startCaptureOnlyListener()
++        }
++        NotificationCenter.default.addObserver(forName: Notification.Name("NG8CaptureLocalListenerStop"), object: nil, queue: .main) { [weak self] _ in
++            self?.stopCaptureOnlyListener()
++        }
++        NotificationCenter.default.addObserver(forName: Notification.Name("NG8CaptureOwnerAuthorizationChanged"), object: nil, queue: nil) { [weak self] _ in
++            self?.captureProbe.ownerChanged()
++        }
++        NotificationCenter.default.addObserver(forName: RemoteActivityRequest.pause, object: nil, queue: .main) { [weak self] note in
++            let paused = note.userInfo?["paused"] as? Bool ?? true
++            guard RemoteSession.shared.paused != paused else { return }
++            RemoteSession.shared.setPaused(paused)
++            self?.captureProbe.ownerChanged()
++        }
++        for (name, key) in [(InProcessRunnerControl.setRemoteAccess, "allow_remote_access"),
++                            (InProcessRunnerControl.setNearby, "nearby_discovery")] {
++            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
++                guard let self, let on = note.userInfo?["on"] as? Bool else { return }
++                self.handleCaptureOnlyRPC(method: "config", params: [key: .bool(on)],
++                    origin: .trustedInProcess, processService: self.captureProbe) { _, _ in }
++            }
++        }
++        // URL delivery has no trusted local origin and is unsupported in this
++        // build. Consume it without calling normal URL/app lifecycle handlers.
++        URLSchemeHandler.shared.onURLReceived = {
++            DispatchQueue.main.async { _ = URLSchemeHandler.shared.takeAllPendingURLs() }
++        }
++        _ = URLSchemeHandler.shared.takeAllPendingURLs()
++        startCaptureOnlyListener()
++        let loop = RunLoop.current
++        while keepRunning {
++            autoreleasepool { loop.run(mode: .default, before: Date.distantFuture) }
++        }
++    }
++    // NG8 CAPTURE-ONLY END
++
+     // MARK: - Service start / stop
+ 
+     /// Whether stopping the service leaves this test running, parked in its
+@@ -658,7 +926,7 @@
+             Self.persistedPort = asked
+         }
+         let port = Self.persistedPort
+-        let newServer = JSONRPCServer(port: port, localOnly: !remoteAccessEnabled)
++        let newServer = JSONRPCServer(port: port, localOnly: !remoteAccessEnabled, mode: serviceMode)
+         server = newServer
+         configureServerCallbacks(newServer)
+         Self.serverStartedAt = ProcessInfo.processInfo.systemUptime
+@@ -920,7 +1188,7 @@
+                 Self.logBuffer.append("🔢 loopctrl://start asks for port \(asked) — moving from \(current.port)")
+                 current.onStateChange = nil
+                 current.stop()
+-                let moved = JSONRPCServer(port: asked, localOnly: !remoteAccessEnabled)
++                let moved = JSONRPCServer(port: asked, localOnly: !remoteAccessEnabled, mode: serviceMode)
+                 wireNewServer(moved)
+                 do {
+                     try moved.start()
+@@ -1496,6 +1764,10 @@
+ 
+     /// Wire RPC dispatch + public logs onto a server instance.
+     private func configureServerCallbacks(_ srv: JSONRPCServer) {
++        if serviceMode == .iphone8CaptureOnly {
++            configureCaptureOnlyCallbacks(srv)
++            return
++        }
+         // Advertising can start late (awdl0 appears once Wi-Fi is on), so the
+         // status notification follows the advertiser rather than the toggle.
+         srv.onNearbyStateChange = { [weak self, weak srv] status in
+@@ -1937,7 +2209,7 @@
+                 guard let self = self else { return }
+                 self.server?.onStateChange = nil
+                 self.server?.stop()
+-                let newServer = JSONRPCServer(port: port, localOnly: !self.remoteAccessEnabled)
++                let newServer = JSONRPCServer(port: port, localOnly: !self.remoteAccessEnabled, mode: serviceMode)
+                 self.wireNewServer(newServer)
+                 do {
+                     try newServer.start()
+@@ -2563,7 +2835,7 @@
+         remoteAccessEnabled = true
+         Self.persistedRemoteAccess = true  // remember for next launch
+ 
+-        let newServer = JSONRPCServer(port: Self.persistedPort, localOnly: false)
++        let newServer = JSONRPCServer(port: Self.persistedPort, localOnly: false, mode: serviceMode)
+         wireNewServer(newServer)
+ 
+         do {
+@@ -2607,7 +2879,7 @@
+         nearbyEnabled = false               // nearby needs remote access
+         Self.persistedNearby = false
+ 
+-        let newServer = JSONRPCServer(port: Self.persistedPort, localOnly: true)
++        let newServer = JSONRPCServer(port: Self.persistedPort, localOnly: true, mode: serviceMode)
+         wireNewServer(newServer)
+ 
+         do {
+--- a/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
++++ b/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
+@@ -13,6 +13,7 @@
+ #import "DeviceKeys.h"
+ #import "NG2Controller.h"
+ #import "NG2CaptureBridge.h"
++#import "NG8CaptureBridge.h"
+ 
+ @interface EarlyURLHook : NSObject
+ + (NSArray<NSURL *> *)drainURLs;
+--- a/project.yml
++++ b/project.yml
+@@ -14,6 +14,10 @@
+ settings:
+   base:
+     SWIFT_VERSION: "5.0"
++    SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) NG8_CAPTURE_PROBE_BUILD"
++    INFOPLIST_KEY_NG8CaptureProbeBuild: "ng8-capture-only-v1"
++    INFOPLIST_KEY_NG8CaptureProbeHardware: "iPhone10,1"
++    INFOPLIST_KEY_NG8CaptureProbeSourceSHA256: "$(NG8_CAPTURE_PROBE_SOURCE_SHA256)"
+ 
+ targets:
+   LoopCtrl:
+@@ -259,6 +263,7 @@
+       - path: LoopCtrlKit/TunnelFrame.swift
+       - path: LoopCtrlKit/PageUpdate.swift
+       - path: LoopCtrlKit/BuildStamp.swift
++      - path: LoopCtrlKit/NG8CaptureMode.swift
+       - path: LoopCtrlKit/RemoteHTML.swift
+       - path: LoopCtrlKit/AppNameMatch.swift
+       - path: LoopCtrlKit/RemoteSession.swift

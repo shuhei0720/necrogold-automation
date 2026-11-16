@@ -2,7 +2,7 @@
 
 2026-11-16（日本時間）。[全体引き継ぎ](handover-2026-11-16.md)。旧私有資料は未移送。
 
-接続: [VPN/SSH](plans/windows-ssh-tailscale.md)受入済み。[iPhone8環境](plans/iphone8-device-lab.md)はNetwork/DDI/原寸capture成功、診断37件成功。WireGuard＋EMProxyで疎通。SideStoreのxctest失敗を検査済IPAの直接導入で回避し、LoopCtrl/XCTest/暗号RPC成功。USB・geometry/input・実ゲームは未受入。
+接続: [VPN/SSH](plans/windows-ssh-tailscale.md)受入済み。[iPhone8環境](plans/iphone8-device-lab.md)はNetwork/DDI/原寸capture成功、診断37件成功。WireGuard＋EMProxyで疎通。SideStoreのxctest失敗を検査済IPAの直接導入で回避し、LoopCtrl/XCTest/暗号RPC成功。8の限定リスタート4回を確認。USB・native入力/商品到達は未受入。
 
 本番はiPhone11、8は検証専用。11の既存座標/画面処理を保護し、8は別profile。11への接続・導入は行っていない。
 
