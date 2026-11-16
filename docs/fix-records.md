@@ -404,3 +404,10 @@ TEST106/build202確認: 最終CODEc18427fの選択156件/24scope、同source IPA
 TEST107/build204確認: CODEcfdb690の最終C fdbc142、選択52件/12scope、同source IPA作成、実物5gate/5attemptが成功。原3pairの役割証明・再判定原184/440の正常safe PARTIALは校正であり、実機改善完了と扱わず各行の未確認/再発数を維持する。
 
 | FR-HANDOVER-EXPORT-ROUTE | 2026-11-16 | Edgeで分割ZIP/213B ZIP/84B TXTも保存不能。TXT本文の表示は成功 | 共通の保存経路の障害が疑われるが、根本原因は未確定。TBOの404との対応は未採取。512MB超過だけでは説明不可 | 追加分割・アプリ固有との断定・存在しないLibrary UIの案内を止める。生資料未移送を明示して接続準備を先行 | 小型fileのFS可読/CRCとユーザー側失敗を分離して記録。転送復旧は未解決、原本保持 | 複数条件で同症状。同一原因の再発数は未確定（0にしない） |
+
+## Windows接続準備
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-SSH-PASTE-ORDER | 2026-11-16 | 複数行PowerShellが逆順になり、未設定変数の呼出しや未完了入力 `>>` で停止 | 初回診断の逆順を認識後も、接続probeを複数行blockで案内した。貼り付け順が反転するUI側の機構は未確定 | Ctrl+Cで通常promptへ戻し、1コード枠1論理行・行内で完結する変数/検査へ変更。promptや出力行を混ぜない | 1行版probeで管理CONNECT 200とWindowsの接続元報告を受信し、Tailscale TCP疎通を実測。SSH認証の成功とは分ける。[接続計画](plans/windows-ssh-tailscale.md) | 複数行で2件観測。同一UI原因の通算は未確定。1行化後の接続probeは成功 |
+| FR-SSH-HOSTKEY-SYSTEM | 2026-11-16 | 管理者の `sshd -t/-T` は成功するが、LocalSystemサービスが1067で停止 | 手動生成したhost private keyに個人SIDのowner/ACEが残り、手動実行者とLocalSystemの資格を同一視。Windowsのhost key所有者/ACE条件と不整合。直接のfatalログは未取得 | 今回生成したEd keyの旧SDDLだけを保存し、key内容を維持してowner Administrators・SYSTEM/Administrators Fullへ補正。他key/既存directoryへ広げない | 同じkeyのままサービスRunning/限定IPv4:22待受へ改善。OOB公開fingerprintと実受信keyが一致し、専用公開鍵SSHのwhoamiと空batch SFTPが成功。SSH実版9.5.6.4。PC再起動後は未確認 | 今回1。補正後の起動/SSH接続は成功、再起動後は未試験 |
