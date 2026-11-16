@@ -18,10 +18,32 @@ let image = CGImage(width: 750, height: 1334, bitsPerComponent: 8, bitsPerPixel:
     provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
 let encoded = NSMutableData()
 let destination = CGImageDestinationCreateWithData(encoded, "public.jpeg" as CFString, 1, nil)!
-CGImageDestinationAddImage(destination, image,
-    [kCGImagePropertyOrientation: 8, kCGImageDestinationLossyCompressionQuality: 0.6] as CFDictionary)
+let jpegProperties: [CFString: Any] = [
+    kCGImagePropertyOrientation: NSNumber(value: Int(8)),
+    kCGImageDestinationLossyCompressionQuality: NSNumber(value: Double(0.6))]
+CGImageDestinationAddImage(destination, image, jpegProperties as CFDictionary)
 require(CGImageDestinationFinalize(destination), "real_JPEG_encoded")
 let bytes = encoded as Data
+let encodedSource = CGImageSourceCreateWithData(bytes as CFData, nil)
+let encodedMetadata = encodedSource.flatMap {
+    CGImageSourceCopyPropertiesAtIndex($0, 0, nil) as? [CFString: Any]
+}
+let encodedOrientation = encodedMetadata?[kCGImagePropertyOrientation] as? NSNumber
+let hasIntegerEXIF8 = encodedOrientation.map {
+    CFGetTypeID($0) != CFBooleanGetTypeID() && $0.doubleValue == 8 && $0.intValue == 8
+} ?? false
+if !hasIntegerEXIF8 {
+    let fields: [String: Any] = [
+        "schema": "ng2-public-raster-fixture-encoding-failure-v1",
+        "source_width": (encodedMetadata?[kCGImagePropertyPixelWidth] as? NSNumber).map { $0 as Any } ?? NSNull(),
+        "source_height": (encodedMetadata?[kCGImagePropertyPixelHeight] as? NSNumber).map { $0 as Any } ?? NSNull(),
+        "exif_orientation": encodedOrientation.map { $0 as Any } ?? NSNull()]
+    if let data = try? JSONSerialization.data(withJSONObject: fields, options: [.sortedKeys]),
+       let line = String(data: data, encoding: .utf8) {
+        fputs("PUBLIC_FIXTURE_DIAGNOSTIC " + line + "\n", stderr)
+    }
+}
+require(hasIntegerEXIF8, "public_fixture_integer_EXIF8_encoded_before_decoder")
 let selected = "iPhone10,1".withCString { ng2_device_geometry_profile($0, 375, 667)! }
 var profile = selected.pointee
 var reference: Data?
