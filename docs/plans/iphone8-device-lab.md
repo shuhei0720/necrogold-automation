@@ -2,6 +2,8 @@
 
 2026-11-16（日本時間）。ユーザー指定のWindows＋接続中のサブiPhone 8で、開発側から診断・起動・取得・結果回収を行う環境を構築する。[全体引き継ぎ](../handover-2026-11-16.md)・[SSH設定](windows-ssh-tailscale.md)・[元の接続課題](spare-iphone-remote-setup.md)を引き継ぐ。通常製品の同じiPhoneだけで完結する要件は維持する。
 
+本番は既存iPhone 11、iPhone 8は実機テスト専用。今回、11への接続・導入操作は0回。8対応は別profileとし、11の既存座標・画面変換・認識閾値を変更しない。[要件正本](../requirements/necrogold.md)のFRAME-03とSTART-03を守る。
+
 ## 計画と境界
 
 1. **ホストと対象確認。** Windowsの既存Pythonを使った専用venvへ診断ツールを導入し、実版を保存する。expected UDIDと要求transportを私有設定で固定し、別端末やUSBからNetworkへ自動fallbackしない。PnP認識・usbmux列挙・lockdown sessionを別々に扱う。
@@ -9,7 +11,7 @@
 3. **導入と基本起動。** LoopCtrl/SideStore/ゲームの実導入版を確認。LoopCtrlの署名・導入を解決し、DDI mounted後に通常アプリを起動して組込みXCTestとserverを実測する。AllInOneへ外部 `xcuitest` runnerを無理に指定しない。既存runをkill/restartして回収を失わない。
 4. **取得と回収。** 生画像・向き・寸法・取得元・要求/実transport・host時刻域・hashを私有manifestへ保存する。画面取得や非黒画像をゲーム認識/商品到達の成立としない。server成立後は、対象transportを固定したWindows loopback forwardとSSH等の到達経路を別に実測し、iPhone serverをWANへ公開しない。診断用Networkの成功でUSB転送も受入済みとは扱わない。
 5. **再実行可能な診断harness。** 最初はtarget固定のcheckと入力しないcaptureを用意する。host/transport/lockdown/DevMode/DDI/app/server/geometryをpass・blocked・fail・not_runへ分ける。checkからpairing再作成・設定変更・アプリ導入・ゲーム入力を自動実行しない。例外/raw JSONを公開summaryへ出さない。
-6. **自動ゲーム試験。** iPhone 8のgeometry/input profileを別の設計で校正し、旧profile/ABI/閾値/期限/候補保持を保存する。正しい取得と座標が実測されるまでnative start・ゲーム入力は許可しない。環境のcheck/capture完了だけで自動周回環境全体を完成扱いしない。
+6. **自動ゲーム試験。** iPhone 8のgeometry/input profileを別の設計で校正し、旧profile/ABI/閾値/期限/候補保持を保存する。正しい取得と座標が実測されるまでnative start・自動周回入力の資格を付与しない。実画面を確認した単発のムービースキップ等、明示指示された校正操作は自動profileの受入と分けて記録する。環境のcheck/capture完了だけで自動周回環境全体を完成扱いしない。
 
 ## 現在の実測と停止点
 
@@ -19,12 +21,16 @@
 | 診断環境 | Windowsローカルの保護された専用folder/venvへPython3.14.2・pymobiledevice3 11.55.1を導入。harnessもこの環境へ配置して実版APIで動作確認した。既存system Python/iSH環境は更新していない |
 | iPhone | iPhone10,1、iOS16.7.7/20H330、Activated、Developer Mode true、EnableWifiConnections true |
 | 実transport | PnP対象と同じ端末がusbmuxにはNetworkとして列挙され、lockdown/アプリ照会と実LAN62078到達が成功。USB transportは未掲載で、USB受入は未完了。診断用Networkを明示選択して進める |
-| アプリ | 日本版ネクロダンサー1.05/build03、iSH1.3.2、SideStore0.7.0を確認。LocalDevVPNは旧互換設定でもActive No、直接Remote ServerもReachable No。WireGuard1.0.16/build27＋SideStore EMProxyへ切替後、Health CheckはReachable/Pairing Verified・Lockdownとなった。LoopCtrlの導入再試行はエラーを受領し、内容を調査中。署名・導入の成功は未確認 |
+| アプリ | 日本版ネクロダンサー1.05/build03、iSH1.3.2、SideStore0.7.0を確認。WireGuard1.0.16/build27＋SideStore EMProxyでReachable/Pairing Verified・Lockdownへ改善。SideStoreの.xctest metadata停止後に残った署名済stagingを検査し、正規InstallationProxyのInstallを1回だけ実行してCompleteを受信。導入後の一覧で正確な署名後IDと元配布物の両versionの一致を確認した |
+| LoopCtrl/XCTest | iPhone 8実機でtestStartServer開始、bootstrap成功、setup完了、server待受とrun loop投入を実ログで確認。観測範囲にteardownはないが、長時間耐久の証明ではない |
+| 暗号RPC | 所有するloopback/SSH経路でschema `1.98.16-ngg2`・protocol 1・期待capを確認。今回専用の新規client鍵で暗号pairingし、端末上の承認後にconfig/logsの認証済み非UI応答とrun loopを確認。鍵・fingerprint・実宛先はGit外 |
 | DDI | 16.7用dmg 7,432,520B/SHA `6e4449ff8c751b4432934ade838382c79330b096b865eebabbc1fa42ead9c185`、signature128B/SHA `4e82ee8aa75c5ecdd320e075b7d9e4ea2fc1915d0bb776007e8dbc5728ca5d86`をWindowsで照合。明示したNetwork transportでmountが実機成功し、mounted Developer imageのsignatureも一致した |
-| 原寸取得 | `com.apple.mobile.screenshotr` / PMD ScreenshotServiceでPNG750×1334を実取得し、Windows内の保護領域へ原bytes/manifestを保存。EXIFなしの取得であり、検査の既定値1を取得済みEXIFや実向きの証明にしない。画像のゲーム状態・geometry/input対応・端末capture時刻・鮮度は未確定 |
-| 自動化の受入 | 診断のcapture成功まで。LoopCtrl server/組込みXCTest、正しいinput座標、ゲームの移動/商品確認は未受入。harnessは常に `input_authorized=false` / `automation_ready=false` と返す |
+| 原寸取得 | PMD ScreenshotServiceのPNG750×1334を原bytes/manifestで保持。EXIFなしの取得で、検査の既定値1を取得済みEXIFや実向きの証明にしない。既取得のPMD画像とG1再エンコード画像は診断・校正資料であり、production direct JPEGや入力geometry・端末capture時刻・鮮度の受入へ代用しない |
+| 幾何の観測 | 暗号device_infoは375×667pt/scale2のportrait cached値。対象ゲームのpage_source root frameは667×375pt、G1 screen JPEGは1334×750px/source667×375/source_scale2/source_orientation UIImage値2だった。cached panel値・ゲームroot・G1 sourceを区別し、UIImage列挙値をEXIFや入力座標変換へ読み替えない |
+| ゲーム開始前 | 8だけで停止RPCのACK後にWindowsの対象model/process lookupからNotRunningを独立確認。起動後タイトルの「続けるにはどこかをタップ」へ1回送信し、ACK後のG1画像でホーム遷移を確認。ダンジョンマスター・All Zones/zone1階段・ケイデンス開始位置を観測した。ホーム移動は0回で、START-03全体は未受入 |
+| 自動化の受入 | 導入・組込みXCTest・暗号RPCまで確認した。iPhone 8のgeometry/input、START-03の自動停止確認から通常1-1への開始、ゲームの移動/商品確認は未受入。harnessは常に `input_authorized=false` / `automation_ready=false` と返す |
 
-DDIの取得元は、固定LoopCtrl上流が指定する [DeveloperDiskImage pin](https://github.com/doronz88/DeveloperDiskImage/tree/6eae353ae694bda1c421d4a3eee5459ae59c99a1/DeveloperDiskImages/16.7)。iOS16の組込みXCTest起動は固定上流でも実機未検証であり、mountや配布物照合で代用しない。
+DDIの取得元は、固定LoopCtrl上流が指定する [DeveloperDiskImage pin](https://github.com/doronz88/DeveloperDiskImage/tree/6eae353ae694bda1c421d4a3eee5459ae59c99a1/DeveloperDiskImages/16.7)。固定上流のiOS16未検証という注記に対し、今回はこのiPhone 8で組込みXCTestのbootstrap/run loopまで実測した。DDI mountや配布物照合だけから推定した成功ではなく、他端末や実ゲームの受入へも一般化しない。
 
 ## 診断harnessのAPI・配置・検証
 
@@ -49,16 +55,25 @@ DDIの取得元は、固定LoopCtrl上流が指定する [DeveloperDiskImage pin
 3. SideStore Developer OptionsのStart EMProxyを操作し、端末上で公式configをWireGuardへimport/ON。その後の実Health CheckでVPN Connected、Reachable、Pairing Verified、Lockdownを確認。Windows内で構造化した診断logでもpeerのTCP62078がreachableとなった。認証・鍵・全log本文はCloudへ出していない。
 4. Health CheckのDDI Not Mountedと、独立PMDのDeveloper image mounted trueは分けて保存。[固定IdeviceGateway](https://github.com/SideStore/minimuxer/blob/98c3c79982f813878e922ab42f9545314a700f0c/DeviceGateway/idevice/IdeviceGateway.swift#L1665)の判定はPersonalized型/新mount pathだけを受理し、iOS16のDeveloper型を偽陰性にする。通常導入のisReadyはDDI検査を既定falseで呼び、JITの検査とは別。警告だけを理由に再mountせず、IPA導入へ進めた。
 
-接続改善の範囲は上記の到達とpairingまで。次の導入失敗は `SideStore.OperationError 3` / `extension 'LoopCtrlUITests.xctest' not found in targetAppBundle`。固定SideSignモデルは.appexだけを拡張辞書へ入れるが、InstallAppOperationはPlugIns直下の全Bundleを照合するため、必要な.xctestで失敗する。保持/削除UIの再試行では直る根拠がなく、同じ要求を繰り返さない。
+この接続改善の後、導入は `SideStore.OperationError 3` / `extension 'LoopCtrlUITests.xctest' not found in targetAppBundle` で停止した。固定SideSignモデルは.appexだけを拡張辞書へ入れるが、InstallAppOperationはPlugIns直下の全Bundleを照合するため、必要な.xctestで失敗する。保持/削除UIの再試行では直る根拠がなく、同じ要求を繰り返さない。
 
-署名・IPA作成・AFC転送後、実install前の停止であり、通常AFCの `/PublicStaging/<targetID>/app.ipa` に今回分が残存することを確認した。元TEST107のコード/資産と署名をWindows内で検査し、合格した既存stagingを正規InstallationProxy APIへ渡す経路を準備中。署名済みIPAにはALTCertificate.p12が埋め込まれる場合があるため、Cloudへ送らず、そのentryを展開しない。導入・組込みXCTest・ゲーム対応は未完了。
+## 検証済stagingの直接導入と起動
 
-ゲーム起動時のGame Centerログインは初回だけ。通常はゲーム起動からオールゾーン入口の階段へ進む。最初の横向きPNG1334×750はGame Center案内画面で、ゲームplay画面の校正へ使用しない。
+SideStoreは署名・IPA作成・AFC転送後、実install前に停止していた。残存した `/PublicStaging/<targetID>/app.ipa` をWindows RAM内で再検査し、固定TEST107とのコード/非署名資産、9 Mach-O・9 CodeDirectoryのページ/既知slot、15資産、既存2.appexの署名時metadata変更、profileの端末許可/期限/開発用条件を照合した。CMS署名の暗号検証と証明書chain検証は行っておらず、静的検査だけでOSによる受理を宣言しない。
+
+検査済みpointerとAFCのpath/全bytes/hash/size/mtimeを再照合し、完了応答付きの事前一覧で対象未導入を確認した。SideStore等のstaging書込みを止め、排他的なAPI-entered receiptを保存してから、既存stagingへ正規 `InstallationProxy Install` を1回だけ実行。OS installerのCompleteと、完了応答付きの導入後一覧による正確な署名後ID/両versionの一致を確認した。upload・再署名・必須.xctest削除・自動再送は行っていない。署名済みIPAのCloud転送とp12 entryの読取りは0回で、私有receipt/導入metadataもWindows内だけに保持した。
+
+続いて通常LoopCtrlのStart Serverから組込みXCTestを起動し、実ログのbootstrap/setup/待受/run loopと、schema・専用鍵による暗号RPCのconfig/logsまで確認した。共有pathを渡すAPIの非原子性、結果不明時はreceiptを残して再送しない条件を維持する。この回避は今回の残存署名済packageに対するもので、SideStore本体のmetadata不整合やiloaderの同ID xctest拒否を修正したとは扱わない。
+
+タイトル進行の最初の2試行はforeground/lock preflightの階層誤読により送信前に停止し、送信receiptはない。device_infoの該当値はtop-levelではなくsystem内であることをsourceで確認して読取りを補正した。3回目だけ送信1回/ACKが成立し、G1画像でホーム遷移を確認した。未知の送信結果への再送とは区別し、この単発成功をnative原JPEG・入力profileやホーム移動の資格へ一般化しない。
+
+ゲーム起動時のGame Centerログインは初回だけ。START-03は起動後のムービーを実観測してタッチでスキップし、タイトルのスタートからホームへ進む。ホーム開始位置を観測したら相対タイル経路の左1歩→下2歩でオールゾーン階段へ進み、通常1-1開始を確認する。ホームだけbeat同期不要とし、ダンジョンnativeのbeat/座標/閾値は変えない。ムービーがなければスキップ入力を出さず、操作後の画面変化を確認して未知画面へ連続タップしない。8の校正位置を11へ流用しない。最初の横向きPNG1334×750はGame Center案内画面で、ゲームplay画面の校正へ使用しない。
 
 公開するのは一般コード/文書/許可項目だけ。UDID・実IP・署名team・認証・pairing・生画像/ログはGit外。[検証資料](../testing.md)の区分を維持し、raw取得を画面認識/入力/実ゲーム成功へ昇格しない。
 
 ## 残る課題
 
-- WireGuardで接続は改善したが、導入再試行のエラーを絞り、LoopCtrlの署名・導入とiOS16 Start Server/組込みXCTestを確認する。DDIのmount成功をLoopCtrl起動の代用にせず、iloaderの同ID xctest拒否や旧方式のendpoint失敗も根拠なく解消済みにしない。
-- USB transportの実受入、LoopCtrl serverの接続経路、captureの鮮度・production JPEG経路、geometry/inputの校正。旧896×414/portrait414×896ptの固定条件ではiPhone 8を動かさず、aspect guardや既assert/閾値/期限を緩めない。
+- USB transportの実受入、captureの鮮度・production direct JPEG経路、iPhone 8専用geometry/input profileの校正。既存iPhone 11の896×414/portrait414×896pt条件を8へ流用せず、11の変換/座標/閾値やaspect guard・既assert・期限を緩めない。
+- START-03は未実装・未受入。既存制御の取消・保存/回収を保った自動ゲーム停止確認から、起動・ムービー実観測/スキップ・タイトルのスタート・ホーム開始位置から左1歩/下2歩・通常1-1へ進む必要がある。home限定のbeat不要をダンジョンへ広げず、通常lifecycle RPCのACKや単発skipだけで自動開始経路の成立を認定しない。
+- SideStore本体の.xctest metadata不整合、iloaderの同ID拡張拒否、旧LocalDevVPN経路の根因は未解消。今回の直接導入/暗号RPC成功とは分ける。LoopCtrlの長時間耐久と実ゲーム到達も未受入。
 - 旧実機資料の移送は未解決。TEST107の実機受入も未完了。新たに得た校正run/隣接画像を未知評価へ流用しない。

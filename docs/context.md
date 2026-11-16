@@ -1,6 +1,6 @@
 # 作業ごとのコンテキスト
 
-最初は [AGENTS](../AGENTS.md)・[現在の状態](status.md)・本索引を読む。この3文書は合計16KiB以内とし、最新結果・今回の計画・必要な契約へ案内する。現行版、配布物、試験結果はstatusを正本とする。
+最初に [AGENTS](../AGENTS.md)・[現在の状態](status.md)・本索引を読む（計16KiB以内）。版/配布/試験結果はstatusを正本とする。
 
 機能を変える前に [要件正本](requirements/necrogold.md)、[開発フロー](development-flow.md)、[制御契約](contracts/native-control.md) の該当節を読む。TEST072の探索/level切替は[限定契約](contracts/passage-approach.md)も参照する。以下の表から対象の関数と試験を選び、`rg -n` で位置を探して周辺を読む。大きいファイルを一括で読んだことを、影響範囲の確認の代わりにしない。
 
