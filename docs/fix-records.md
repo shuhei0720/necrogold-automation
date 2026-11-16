@@ -402,3 +402,5 @@ TEST106/build202確認: 最終CODEc18427fの選択156件/24scope、同source IPA
 | FR-HANDOVER-DOWNLOAD-SIZE | 2026-11-16 | Windowsで私有資料ZIPの「アーティファクトをダウンロードできませんでした」 | 1,305,774,621Bの単一ファイルを案内し、[公式の512MB未満の条件](https://help.openai.com/en/articles/7996703-troubleshooting-chatgpt-error-messages)を確認していなかった。サイズ以外の要因は未確定 | 上限未満の4つの独立ZIPへ分割。順序/offset/各chunk SHA/元全体SHAを保ち、新環境で結合 | 全4chunkと結合後の全bytes/SHA一致、既存出力拒否/verify-only書込み禁止を確認。ユーザーの保存成功・新環境の受領は未確認 | 今回1。過去の類似保存不能との同原因通算は未集計。製品歩行の再発と混同しない |
 
 TEST107/build204確認: CODEcfdb690の最終C fdbc142、選択52件/12scope、同source IPA作成、実物5gate/5attemptが成功。原3pairの役割証明・再判定原184/440の正常safe PARTIALは校正であり、実機改善完了と扱わず各行の未確認/再発数を維持する。
+
+| FR-HANDOVER-EXPORT-ROUTE | 2026-11-16 | Edgeで分割ZIP/213B ZIP/84B TXTも保存不能。TXT本文の表示は成功 | 共通の保存経路の障害が疑われるが、根本原因は未確定。TBOの404との対応は未採取。512MB超過だけでは説明不可 | 追加分割・アプリ固有との断定・存在しないLibrary UIの案内を止める。生資料未移送を明示して接続準備を先行 | 小型fileのFS可読/CRCとユーザー側失敗を分離して記録。転送復旧は未解決、原本保持 | 複数条件で同症状。同一原因の再発数は未確定（0にしない） |
