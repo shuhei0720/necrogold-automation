@@ -1,0 +1,31 @@
+name: iPhone 8 capture-only probe
+
+on:
+  push:
+    branches: [work/p1-capture-probe]
+    paths:
+      - .github/workflows/iphone8-capture-probe.yml
+      - patches/loopctrl/iphone8_probe/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-host-contracts:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Run only the declared probe host phase
+        run: python3 patches/loopctrl/iphone8_probe/check_host.py --output "$RUNNER_TEMP/ng8-host"
+      - name: Save public fixture diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: iphone8-probe-host-${{ github.sha }}
+          path: ${{ runner.temp }}/ng8-host/
+          if-no-files-found: error
+          retention-days: 30

@@ -21,7 +21,7 @@ SideStoreの.xctest metadataエラーで実install前に残った署名済IPAを
 
 iPhone 8実機のtestStartServer開始からbootstrap成功・setup完了・待受・run loop投入を実ログで確認した。今回の観測範囲にteardownはない。さらに所有するloopback/SSH経路でschema `1.98.16-ngg2` / protocol 1 / 期待cap、今回専用client鍵の暗号pairing、端末承認後のconfig/logsの認証済み非UI応答を確認した。秘密値・fingerprint・実宛先・全ログは公開文書へ載せない。これらは組込みXCTest/serverの基本成立を示し、ゲーム入力・速度・長時間耐久を示さない。
 
-8の追加読取りでは、device_infoはportrait cached 375×667pt/scale2、ゲームpage_source rootは667×375pt、G1 JPEGは1334×750px/source667×375/source_scale2/UIImage orientation2だった。異なる取得空間をそのまま入力変換へ結合せず、G1再エンコードとproduction原JPEGを区別する。停止RPC後のNotRunningはWindowsの対象model/process lookupで独立確認し、再起動後のタイトルを実画像で確認した。タイトル進行tapは、初めの2回がpreflightのsystem階層誤読で送信前block（receiptなし）。source確認による補正後の3回目だけ送信1回/ACKが成立し、G1画像でホームのダンジョンマスター・All Zones/zone1階段・ケイデンス開始位置を確認した。UNKNOWN再送の実績ではなく、ホーム移動は0回。native原JPEG/入力profileの資格やSTART-03全体の受入ではない。
+8の追加読取りでは、device_infoはportrait cached 375×667pt/scale2、ゲームpage_source rootは667×375pt、G1 JPEGは1334×750px/source667×375/source_scale2/UIImage orientation2だった。異なる取得空間をそのまま入力変換へ結合せず、G1再エンコードとproduction原JPEGを区別する。停止RPC後のNotRunningはWindowsの対象model/process lookupで独立確認し、再起動後のタイトルを実画像で確認した。タイトル進行tapは、初めの2回がpreflightのsystem階層誤読で送信前block（receiptなし）。source確認による補正後の3回目だけ送信1回/ACKが成立し、G1画像でホームを確認した。続く8の限定校正では下1歩→左1歩→下1歩の実世界変位と階段進入を確認し、G1画像の「ゾーン1フロア1」・All Zones説明・3 heartsからAll Zones 1-1到達を確認した。最短入力受付間隔は未測定で、各1歩の完了観測後に次入力する。実際の順序は正規の左1歩→下2歩と異なり、自動一連START-03や明示movie skipを検証した実績ではない。native原JPEG/入力profile、商品確認・速度・未知配置評価の受入にも含めない。
 
 ## 証明範囲と未確認
 

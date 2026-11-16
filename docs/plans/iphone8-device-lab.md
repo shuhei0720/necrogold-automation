@@ -27,8 +27,8 @@
 | DDI | 16.7用dmg 7,432,520B/SHA `6e4449ff8c751b4432934ade838382c79330b096b865eebabbc1fa42ead9c185`、signature128B/SHA `4e82ee8aa75c5ecdd320e075b7d9e4ea2fc1915d0bb776007e8dbc5728ca5d86`をWindowsで照合。明示したNetwork transportでmountが実機成功し、mounted Developer imageのsignatureも一致した |
 | 原寸取得 | PMD ScreenshotServiceのPNG750×1334を原bytes/manifestで保持。EXIFなしの取得で、検査の既定値1を取得済みEXIFや実向きの証明にしない。既取得のPMD画像とG1再エンコード画像は診断・校正資料であり、production direct JPEGや入力geometry・端末capture時刻・鮮度の受入へ代用しない |
 | 幾何の観測 | 暗号device_infoは375×667pt/scale2のportrait cached値。対象ゲームのpage_source root frameは667×375pt、G1 screen JPEGは1334×750px/source667×375/source_scale2/source_orientation UIImage値2だった。cached panel値・ゲームroot・G1 sourceを区別し、UIImage列挙値をEXIFや入力座標変換へ読み替えない |
-| ゲーム開始前 | 8だけで停止RPCのACK後にWindowsの対象model/process lookupからNotRunningを独立確認。起動後タイトルの「続けるにはどこかをタップ」へ1回送信し、ACK後のG1画像でホーム遷移を確認。ダンジョンマスター・All Zones/zone1階段・ケイデンス開始位置を観測した。ホーム移動は0回で、START-03全体は未受入 |
-| 自動化の受入 | 導入・組込みXCTest・暗号RPCまで確認した。iPhone 8のgeometry/input、START-03の自動停止確認から通常1-1への開始、ゲームの移動/商品確認は未受入。harnessは常に `input_authorized=false` / `automation_ready=false` と返す |
+| ゲーム開始・単発校正 | 8だけで停止後NotRunningを独立確認し、タイトルへの1回の入力後にG1画像でホームを確認。限定校正の下1歩→左1歩→下1歩で実世界変位と階段進入を確認し、G1画像の「ゾーン1フロア1」・All Zones説明・3 heartsからAll Zones 1-1到達を確認した。正規の左1歩→下2歩とは順序が異なり、自動一連START-03・明示movie skip・native入力profileの資格ではない |
+| 自動化の受入 | 導入・組込みXCTest・暗号RPCまで確認した。iPhone 8のgeometry/input、START-03の自動停止確認から通常1-1への開始、nativeのゲーム移動/商品確認は未受入。harnessは常に `input_authorized=false` / `automation_ready=false` と返す |
 
 DDIの取得元は、固定LoopCtrl上流が指定する [DeveloperDiskImage pin](https://github.com/doronz88/DeveloperDiskImage/tree/6eae353ae694bda1c421d4a3eee5459ae59c99a1/DeveloperDiskImages/16.7)。固定上流のiOS16未検証という注記に対し、今回はこのiPhone 8で組込みXCTestのbootstrap/run loopまで実測した。DDI mountや配布物照合だけから推定した成功ではなく、他端末や実ゲームの受入へも一般化しない。
 
@@ -67,7 +67,7 @@ SideStoreは署名・IPA作成・AFC転送後、実install前に停止してい�
 
 タイトル進行の最初の2試行はforeground/lock preflightの階層誤読により送信前に停止し、送信receiptはない。device_infoの該当値はtop-levelではなくsystem内であることをsourceで確認して読取りを補正した。3回目だけ送信1回/ACKが成立し、G1画像でホーム遷移を確認した。未知の送信結果への再送とは区別し、この単発成功をnative原JPEG・入力profileやホーム移動の資格へ一般化しない。
 
-ゲーム起動時のGame Centerログインは初回だけ。START-03は起動後のムービーを実観測してタッチでスキップし、タイトルのスタートからホームへ進む。ホーム開始位置を観測したら相対タイル経路の左1歩→下2歩でオールゾーン階段へ進み、通常1-1開始を確認する。ホームだけbeat同期不要とし、ダンジョンnativeのbeat/座標/閾値は変えない。ムービーがなければスキップ入力を出さず、操作後の画面変化を確認して未知画面へ連続タップしない。8の校正位置を11へ流用しない。最初の横向きPNG1334×750はGame Center案内画面で、ゲームplay画面の校正へ使用しない。
+ゲーム起動時のGame Centerログインは初回だけ。START-03は起動後のムービーを実観測してタッチでスキップし、タイトルのスタートからホームへ進む。ホーム開始位置を観測したら相対タイル経路の左1歩→下2歩でオールゾーン階段へ進み、通常1-1開始を確認する。ホームだけbeat同期不要だが、各1歩の完了を実観測してから次入力を送る。最短受付間隔は未測定で、ダンジョンnativeのbeat/座標/閾値は変えない。ムービーがなければスキップ入力を出さず、操作後の画面変化を確認して未知画面へ連続タップしない。8の校正位置を11へ流用しない。最初の横向きPNG1334×750はGame Center案内画面で、ゲームplay画面の校正へ使用しない。
 
 公開するのは一般コード/文書/許可項目だけ。UDID・実IP・署名team・認証・pairing・生画像/ログはGit外。[検証資料](../testing.md)の区分を維持し、raw取得を画面認識/入力/実ゲーム成功へ昇格しない。
 
@@ -75,5 +75,5 @@ SideStoreは署名・IPA作成・AFC転送後、実install前に停止してい�
 
 - USB transportの実受入、captureの鮮度・production direct JPEG経路、iPhone 8専用geometry/input profileの校正。既存iPhone 11の896×414/portrait414×896pt条件を8へ流用せず、11の変換/座標/閾値やaspect guard・既assert・期限を緩めない。
 - START-03は未実装・未受入。既存制御の取消・保存/回収を保った自動ゲーム停止確認から、起動・ムービー実観測/スキップ・タイトルのスタート・ホーム開始位置から左1歩/下2歩・通常1-1へ進む必要がある。home限定のbeat不要をダンジョンへ広げず、通常lifecycle RPCのACKや単発skipだけで自動開始経路の成立を認定しない。
-- SideStore本体の.xctest metadata不整合、iloaderの同ID拡張拒否、旧LocalDevVPN経路の根因は未解消。今回の直接導入/暗号RPC成功とは分ける。LoopCtrlの長時間耐久と実ゲーム到達も未受入。
+- SideStore本体の.xctest metadata不整合、iloaderの同ID拡張拒否、旧LocalDevVPN経路の根因は未解消。今回の直接導入/暗号RPC成功とは分ける。LoopCtrlの長時間耐久、自動周回の実ゲーム到達/商品確認も未受入。
 - 旧実機資料の移送は未解決。TEST107の実機受入も未完了。新たに得た校正run/隣接画像を未知評価へ流用しない。
