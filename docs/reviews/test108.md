@@ -44,4 +44,12 @@ assertion Redは期待値の前提を満たす試行だけを保存。初期fixt
 
 runner/selector/workflowの補足静的レビューも未解決P0/P1/P2なし。明示method集合はproduct153件/21class scope、新56件/6module、selector6件の合計159件/22scopeへ固定し、空/重複/skip/expected failureを成功扱いしない。ホストのselector6件が成功した。これらは現在の選択CI159件が成功したという意味ではない。
 
-選択CI・新IPA・固定配布の実物照合は次工程。無関係な全Runtime故障/全合成world/実ゲームE2Eを既定で追加しない。新TEST108の実機到達率・未知精度・毎拍/人超え速度・耐久は未受入。
+## 最終CIと実物照合
+
+CODE `e8c4bb884f079fe11a7b14483bc3095990964641` の[device CI206](https://github.com/shuhei0720/necrogold-automation/actions/runs/43935103938)は、同じ最終sourceの159件/22scopeがfailure/error/skip0で成功し、未署名IPAを作成した。Runtime callbackの再実行を加えず、旧42f2/Mac191はhistorical-onlyのまま。
+
+同runの3artifactをGitHub metadataの全bytes/digest/CRC/pathへ結合し、同CODEの完全source967 filesをGitの全bytes/CRCへ照合した。実package/host/retained/Mach-O/compileの5gateを各1回で全成功。検証器による追加native/分類/compile実行は0。実compiler・36source・旧source/feature/ELF/R12・9 Mach-O・現在のmethod inventoryを照合し、作者の旧source確認を最終CIと区別した。
+
+IPAは18,065,614 bytes、SHA256 `08e84bbf3777e706861bfe8ce993f4d78faa05225b928cd3bb258e2943d606f7`。CODE完全sourceは9,344,389 bytes、SHA256 `f13a24c98a552973cf85ac4df26f7254b214a8002d4e92f4b695d2597f30855e`。固定Release `test108-build206` への公開は次工程で、公開後の完全sourceは閉じ文書だけを加えたclosing commitを使う。
+
+無関係な全Runtime故障/全合成world/実ゲームE2Eは実行していない。新TEST108の実機到達率・未知精度・毎拍/人超え速度・耐久は未受入。原236/238で未観測の端を陰性にせず、次の適格frameと移動後は実機で確認する。
