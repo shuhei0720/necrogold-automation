@@ -2,6 +2,8 @@
 
 2026-11-16（日本時間）。接続準備の記録であり、実機試験の成功記録ではない。最初に `AGENTS.md`・`docs/status.md`・`docs/context.md` と[開発全体の引き継ぎ](../handover-2026-11-16.md)を読む。
 
+新環境での続報は[Windows SSH準備](windows-ssh-tailscale.md)。CloudのTailscale `Running`・経路準備済みを確認した。以下の表はその前の引き継ぎ時点を保持し、Windowsの実接続と資料移送は引き続き未完了。
+
 ## 目的と製品の状態
 
 無料で、開発側から Windows＋USB接続のサブiPhoneを使って日本版ネクロダンサーを実行・診断する。通常運用を同じiPhoneだけで完結する要件は維持する。有料Mac・大型CI runnerは導入しない。
