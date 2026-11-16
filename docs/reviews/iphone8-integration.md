@@ -35,3 +35,5 @@ footer診断の負guard欠損は、字形を保つbodyと観測済み実端guard
 800008実機では新PID・閉capture-only schema・既token認証・旧spool cleanを確認し、probe start1回で原JPEG全bytes/hashとmetadataを取得、cancel/drain成立。750×1334/EXIF8、57,369bytes。literal callback return・device生成時刻/鮮度・入力資格は未証明のまま。原画の観測ROIを正規BOX縮小するRestart写像で、未変更CがPAUSE1/restart_label1（IoU .798419）、Continueも成立した。全5068pixelの実支持と、ゼロguardの遮蔽によるcoverage失効を別担当が確認。Rootが限定差分レビューしP0/P1なし、BOX支持の意味Red→geometry/profile/raster34件Green。これは1枚の校正で未知評価ではない。
 
 [run43877258487](https://github.com/shuhei0720/necrogold-automation/actions/runs/43877258487)、source`a31bfc0`は57件・旧seal→normal overlay実replay・actual C/Swift binding compileを全成功。unsigned stageは予定どおりskipで、通常IPA実buildは次のraster接続後。
+
+通常raster校正版をRootが独立レビュー。11の旧decode/C呼出しを保ち、8だけ原画EXIF→同opaque-sRGB/整数向き→別写像→同公開Cを通す。選択したPAUSE/FLOORのrgba・scene・coverageを同frameへ固定。未知tileへprotectedを捏造するP1、観測fragmentを黒く消す不足、decodeが入力gap31へ依存する責務の誤りを修正。CLEARは既consumerを確認して観測FOV内の見送りだけに限定し、全世界の店なしと扱わない。完全な商品支持が欠ければUNKNOWN。関連58件とstrict C fixture成功、現8の入力gap31は保持。unsigned verifierの誤capture-only表記と値付き禁止macroの漏れも意味Redから修正し、Root再確認で残P0/P1なし。実Mac raster/全IPAと8の実操作は次工程。

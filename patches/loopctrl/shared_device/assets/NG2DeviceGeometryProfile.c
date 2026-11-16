@@ -30,7 +30,11 @@ static const NG2DeviceUIMap ui8[]={
     {"footer_guard",{665,357,667,375},{852,396,856,414},NG2_DEVICE_UI_NEAREST,1},
     {"beat",{0,311,667,350},{114.5,350,781.5,389},NG2_DEVICE_UI_BOX,0},
     {"continue_g1_tuned",{275.72088607594935,93.425,391.45325497287525,120.55678294573643},
-        {384,104,512,132},NG2_DEVICE_UI_BICUBIC,1}
+        {384,104,512,132},NG2_DEVICE_UI_BICUBIC,1},
+    /* One actual original JPEG, EXIF8. Full observed ROI, proper BOX reduction;
+     * metadata/phase evidence does not clear the menu or input acceptance gap. */
+    {"restart_raw_box",{251.1363728537,231.5552734659,415.3524392753,257.34481368475},
+        {357,256,538,284},NG2_DEVICE_UI_BOX,1}
 };
 static const NG2DeviceGeometryProfile profile11={
     .name="iphone11-legacy-geometry",.device=11,.legacy_passthrough=1,

@@ -7,19 +7,19 @@
     "ngg2-manifest.json": "9d1737ba60623660a3167415ab1d6dca57357cd2d3406bbbc893af04eca8b2aa",
     "ngg2.patch": "e6e764ae5e920ab8bd9e7b5527056ee52a68349f77afc1367524919509458438"
   },
-  "patch_sha256": "0c871247d24d59d12a91aa80553a445b0878720f69de7875b7ff7cf86576eee8",
+  "patch_sha256": "c57de44662f5d41a0de8621aa96d3761146f0f6fdd52c37257abe3acb5f25556",
   "files": {
     "LoopCtrlUITests/NG2Runtime.swift": {
       "base_sha256": "42f2f88634357083e82be64e56e6ba0806f26454e278b74782caee763c5bb3e8",
-      "final_sha256": "20bb8c5e616173efd3ad888ef8d023551f4ced86da80889842ae26f669fa55d0"
+      "final_sha256": "a04449dca68a8d79aea408f90725230d3b2ed96575cb67ac6a67226483e2256e"
     },
     "LoopCtrlUITests/XCTestPrivate-Bridging-Header.h": {
       "base_sha256": "2da6914aed5de4098514a2faeff563c1f8c50f56868bea765f4f008905f8bf84",
-      "final_sha256": "7e0c078afe2f89e2415ed41e0ae2fd7e9334743794c7bc92862e9247fcc4eec5"
+      "final_sha256": "e9d4ccce037daa5ba1a3581c68412d9e69bc7411b7ed4029f9995811b6a1cb50"
     },
     "project.yml": {
       "base_sha256": "e9f499a3258e80fb4721866a094393bc5544027f5f3ad0ec4f7fd16506b34fd5",
-      "final_sha256": "1125e17d59f872a8891563fd17eca9ede2f57422f58aa1e9472db6ea87128ce5"
+      "final_sha256": "cd7761d87a452c0474126628863cb6c7e7f8d958ca435d5af48e48a57db561b3"
     },
     "LoopCtrlApp/Info.plist": {
       "base_sha256": "6a8d04c321875655d559e40e6f67163d70be0ba5e3d129becf5d142cd51fbe75",
@@ -37,11 +37,23 @@
     },
     "LoopCtrlUITests/NG2DeviceGeometryProfile.c": {
       "source": "NG2DeviceGeometryProfile.c",
-      "sha256": "6ffbd1f1357dc4b8fd470883cbd4895337a34ab00dfd5e8a8680dca452ac0fe0"
+      "sha256": "05851d0c7cf170e62258f49c4eb13b1a3b9deea548fa53f1d2fcf710f615cfb8"
     },
     "LoopCtrlUITests/NG2DeviceGeometryProfile.h": {
       "source": "NG2DeviceGeometryProfile.h",
       "sha256": "fefe6b1c54b8b12d62ace93a4cacd2ec3d0f42c54b0d9bb1a0c422a4eb8653d1"
+    },
+    "LoopCtrlUITests/NG2DeviceRaster.c": {
+      "source": "NG2DeviceRaster.c",
+      "sha256": "49d560fa25dd07f0eb16efae3ffc677eadf7dcefbc90bf47843e032d668f9c8a"
+    },
+    "LoopCtrlUITests/NG2DeviceRaster.h": {
+      "source": "NG2DeviceRaster.h",
+      "sha256": "a2d7ad9648e490484c4a46cf711a1094629a7728ccc53f0f1f212d39288a356e"
+    },
+    "LoopCtrlUITests/NG2DeviceRaster.swift": {
+      "source": "NG2DeviceRaster.swift",
+      "sha256": "c509a06c1ac8029250eafeba64ae0a76479b3193ded024e4270f20acd372d4e6"
     }
   }
 }

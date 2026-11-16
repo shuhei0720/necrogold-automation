@@ -8,11 +8,10 @@
      static var clock: (() -> UInt64)?
      static var beforeCaptureAdmission: (() -> Void)?
      static var beforeMainAdmission: (() -> Void)?
-@@ -32,6 +33,58 @@
- private extension NSLock {
+@@ -33,6 +34,58 @@
      func ng2Locked<T>(_ body: () -> T) -> T { lock(); defer { unlock() }; return body() }
  }
-+
+ 
 +// NG2 DEVICE GEOMETRY BINDING BEGIN
 +// A local immutable snapshot owned by one NG2Run, orthogonal to run.profile.
 +// It cannot be selected by RPC parameters or changed by a later command.
@@ -64,10 +63,20 @@
 +    }
 +}
 +// NG2 DEVICE GEOMETRY BINDING END
- 
++
  // NG2Scene contains a 23,296-byte imported C tuple. Keep its storage on
  // the heap so an unoptimized capture-thread stack never copies that tuple
-@@ -254,6 +307,7 @@
+ // through every Frame/Optional/closure temporary. Only the capture worker
+@@ -61,6 +114,8 @@
+     let rasterTrace: NG2Raster.Trace
+     let encodedBytes: Int
+     let diagnosticOrientation: Int?
++    // Companion belongs to this same selected raster/scene, never a UI source.
++    let deviceRasterValidity: NG2ProfileRasterValidity?
+ }
+ 
+ // This state is owned by the run gate. Expensive classification and durable
+@@ -254,6 +309,7 @@
      let owner: String
      let id: String
      let profile: String
@@ -75,7 +84,7 @@
      let maximumExportBytes: Int
      let clock: String
      var generation: UInt64 = 1
-@@ -327,6 +381,7 @@
+@@ -327,6 +383,7 @@
      let cycle: NG2CycleRun?
      init(owner: String, id: String, now: UInt64, profile: String = "normal-1-1-v1", clock: String? = nil) {
          self.owner = owner; self.id = id; self.profile = profile
@@ -83,7 +92,107 @@
          self.clock = clock ?? UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
          cycle = profile == NG2Runtime.cycleProfile ? NG2CycleRun() : nil
          maximumExportBytes = profile == NG2Runtime.evidenceProfile ? 10 * 1024 * 1024 : 4 * 1024 * 1024
-@@ -2374,9 +2429,18 @@
+@@ -1600,7 +1657,8 @@
+                             analysis: original.analysis, startPrefix: original.startPrefix, prefix: original.prefix,
+                             startInFlight: original.startInFlight, endInFlight: original.endInFlight, stable: original.stable,
+                             rgba: original.rgba, rasterTrace: original.rasterTrace, encodedBytes: original.encodedBytes,
+-                            diagnosticOrientation: original.diagnosticOrientation)
++                            diagnosticOrientation: original.diagnosticOrientation,
++                            deviceRasterValidity: original.deviceRasterValidity)
+                     }
+                     if let ids = pinnedIDs { run.pinned = Dictionary(uniqueKeysWithValues: ids.map { ($0, clone($0)) }) }
+                     run.images = recentIDs.map(clone)
+@@ -1643,7 +1701,8 @@
+                         analysis: frame.analysis, startPrefix: frame.startPrefix, prefix: frame.prefix,
+                         startInFlight: frame.startInFlight, endInFlight: frame.endInFlight, stable: frame.stable,
+                         rgba: frame.rgba, rasterTrace: frame.rasterTrace, encodedBytes: frame.encodedBytes,
+-                        diagnosticOrientation: frame.diagnosticOrientation)
++                        diagnosticOrientation: frame.diagnosticOrientation,
++                        deviceRasterValidity: frame.deviceRasterValidity)
+                 }
+                 run.images = Array(frames.suffix(4)); run.pinned = Dictionary(uniqueKeysWithValues: frames.prefix(20).map { ($0.id, $0) })
+                 run.initial = frames.first; run.found = nil; run.references = Set(frames.map { $0.id })
+@@ -1767,7 +1826,8 @@
+                         analysis: original.analysis, startPrefix: original.startPrefix, prefix: original.prefix,
+                         startInFlight: original.startInFlight, endInFlight: original.endInFlight,
+                         stable: original.stable, rgba: original.rgba, rasterTrace: original.rasterTrace,
+-                        encodedBytes: original.encodedBytes, diagnosticOrientation: original.diagnosticOrientation)
++                        encodedBytes: original.encodedBytes, diagnosticOrientation: original.diagnosticOrientation,
++                            deviceRasterValidity: original.deviceRasterValidity)
+                 }
+                 captureID += 1
+             }
+@@ -2006,10 +2066,24 @@
+             }
+             if run.lock.ng2Locked({ run.stopped || run.generation != before.3 }) { return }
+             let decoding: NG2Raster.DecodeResult
++            var deviceDecoded: NG2DeviceRaster.Decoded?
+             if captureEnd <= start {
+                 decoding = .failure(.init(stage: .interval, code: .invalidInterval, encodedBytes: raw?.count))
+             } else if let raw {
+-                decoding = NG2Raster.decodeDetailed(raw)
++                if run.deviceGeometry.legacyPassthrough {
++                    decoding = NG2Raster.decodeDetailed(raw)
++                } else if let profile = run.deviceGeometry.profile {
++                    switch NG2DeviceRaster.decode8(raw, profile: profile,
++                        contract: .originalPortrait750x1334EXIF8, occlusions: []) {
++                    case .success(let value):
++                        deviceDecoded = value
++                        decoding = .success(value.floor)
++                    case .failure(let failure): decoding = .failure(failure)
++                    }
++                } else {
++                    decoding = .failure(.init(stage: .metadata, code: .sourceGeometry,
++                        encodedBytes: raw.count))
++                }
+             } else {
+                 decoding = .failure(.init(stage: .reply, code: replyFailure(captureError)))
+             }
+@@ -2038,21 +2112,33 @@
+             let analysisStart = Self.now()
+             // Pure image scanning belongs to the existing capture worker. It
+             // never touches the controller or blocks its timed ticket queue.
+-            #if NG2_RUNTIME_HOST_TEST
+-            let frameRGBA = NG2RuntimeCycleTestHooks.rgba?(decoded.rgba) ?? decoded.rgba
+-            let analysisRGBA = NG2RuntimeTestHooks.analysisRGBA?(decoded.rgba) ?? frameRGBA
+-            #else
+-            let frameRGBA = decoded.rgba
+-            let analysisRGBA = decoded.rgba
+-            #endif
+-            let analyzed = analysisRGBA.withUnsafeBytes { ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress,
+-                analysisRGBA.count, NG2Raster.stride, scene) }
++            let frameRGBA: Data
++            let analyzed: Int32
++            var deviceRasterValidity: NG2ProfileRasterValidity?
++            if let deviceDecoded {
++                if let selected = NG2DeviceRaster.analyze(deviceDecoded, scene: scene) {
++                    frameRGBA = selected.raster.rgba
++                    deviceRasterValidity = selected.validity
++                    analyzed = 0
++                } else { frameRGBA = decoded.rgba; analyzed = -1 }
++            } else {
++                #if NG2_RUNTIME_HOST_TEST
++                frameRGBA = NG2RuntimeCycleTestHooks.rgba?(decoded.rgba) ?? decoded.rgba
++                let analysisRGBA = NG2RuntimeTestHooks.analysisRGBA?(decoded.rgba) ?? frameRGBA
++                #else
++                frameRGBA = decoded.rgba
++                let analysisRGBA = decoded.rgba
++                #endif
++                analyzed = analysisRGBA.withUnsafeBytes { ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress,
++                    analysisRGBA.count, NG2Raster.stride, scene) }
++            }
+             let frame = NG2Frame(id: before.0, start: start, end: captureEnd, decodeEnd: decodeEnd,
+                 generation: before.3, analysisStart: analysisStart, analysisEnd: Self.now(), analysis: analysis,
+                 startPrefix: before.1, prefix: endPrefix, startInFlight: before.2, endInFlight: endInFlight,
+                 stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: frameRGBA,
+                 rasterTrace: decoded.trace, encodedBytes: raw?.count ?? 0,
+-                diagnosticOrientation: decoded.diagnosticOrientation)
++                diagnosticOrientation: decoded.diagnosticOrientation,
++                deviceRasterValidity: deviceRasterValidity)
+             if analyzed != 0 {
+                 let trace = frame.rasterTrace
+                 commitCaptureFailure(run, generation: before.3, id: frame.id, start: frame.start, end: frame.end,
+@@ -2374,9 +2460,18 @@
              guard self.ownsTicket(run, command, generation: generation) else { return }
              let foreground = authority.foreground
              let locked = LockStateMonitor.shared().isLocked
@@ -102,7 +211,7 @@
                  let now = Self.now()
                  let authorityFresh = NG2TicketGuard.authoritySampleIsFresh(
                      start: authority.start, end: authority.end, now: now)
-@@ -2390,6 +2454,15 @@
+@@ -2390,6 +2485,15 @@
                      run.stopped = true; run.latest = nil
                      run.preparation = nil
                  }
@@ -118,7 +227,7 @@
                  guard NG2TicketGuard.permits(expectedGeneration: generation, currentGeneration: run.generation,
                      cancelled: run.cancelReason != 0, ownerActive: ownerActive, foreground: foreground,
                      locked: locked, now: now, notBefore: command.not_before_ns, deadline: command.deadline_ns),
-@@ -2409,10 +2482,16 @@
+@@ -2409,10 +2513,16 @@
              outcome = -1
              var result: ([String: JSONValue]?, JSONRPCError?) = (nil, .internalError)
              let raised = ObjCException.catching {
@@ -140,17 +249,18 @@
              run.lock.ng2Locked {
 --- a/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
 +++ b/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
-@@ -12,6 +12,7 @@
+@@ -12,6 +12,8 @@
  #import "AutomationSession.h"
  #import "DeviceKeys.h"
  #import "NG2Controller.h"
 +#import "NG2DeviceGeometryProfile.h"
++#import "NG2DeviceRaster.h"
  #import "NG2CaptureBridge.h"
  
  @interface EarlyURLHook : NSObject
 --- a/project.yml
 +++ b/project.yml
-@@ -116,8 +116,10 @@
+@@ -116,8 +116,11 @@
      sources:
        - path: LoopCtrlUITests
          excludes:
@@ -158,10 +268,11 @@
            - NG2Perception.c
            - NG2Navigation.c
 +          - NG2DeviceGeometryProfile.c
++          - NG2DeviceRaster.c
            - NG2Ring.c
            - NG2RingKernel/observe.c
            - NG2RingKernel/icon.c
-@@ -126,6 +128,10 @@
+@@ -126,6 +129,12 @@
          compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
        - path: LoopCtrlUITests/NG2Navigation.c
          compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
@@ -169,10 +280,12 @@
 +      # hardware/panel selection never uses a model-specific compile flag.
 +      - path: LoopCtrlUITests/NG2DeviceGeometryProfile.c
 +        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
++      - path: LoopCtrlUITests/NG2DeviceRaster.c
++        compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
        - path: LoopCtrlUITests/NG2Ring.c
          compilerFlags: "-O2 -fno-fast-math -ffp-contract=off"
        - path: LoopCtrlUITests/NG2RingKernel/observe.c
-@@ -162,6 +168,9 @@
+@@ -162,6 +171,9 @@
        base:
          PRODUCT_BUNDLE_IDENTIFIER: "$(LOOPCTRL_BUNDLE_PREFIX).loopctrl.uitests"
          GENERATE_INFOPLIST_FILE: YES

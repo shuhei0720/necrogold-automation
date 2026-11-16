@@ -134,6 +134,29 @@ class ProbePackageTests(unittest.TestCase):
                         self.inspect()
                 self.entries[name] = original
 
+    def test_normal_manifest_reports_verified_profiles_without_capture_only_claims(self):
+        # Test the CLI report assembly after separately tested package/source
+        # boundaries, without an Xcode toolchain or physical device claim.
+        sources = {'overlay_manifest_sha256': self.source_sha256,
+            'build_stamp': {'value': self.stamp}, 'manifest': {}, 'complete_source_sha256': {}}
+        args = ['verify_package.py', str(self.root), str(self.root), str(self.path),
+            '--build-log', str(self.root / 'log'), '--compiler-profile', str(self.root / 'profile'),
+            '--build-number', '900001']
+        with patch.object(sys, 'argv', args), patch.object(verifier, 'inspect_sources', return_value=sources), \
+                patch.object(verifier, 'inspect_compiler', return_value={}), \
+                patch.object(verifier, 'inspect_normal_ipa', return_value={'ipa_sha256': 'a'*64, 'build': '900001'}), \
+                patch.object(verifier, '_fixed_link'), \
+                patch.object(verifier.subprocess, 'check_output', return_value='public fixture toolchain'), \
+                contextlib.redirect_stdout(io.StringIO()):
+            verifier.main()
+        report = __import__('json').loads((self.root / 'shared-device-build-manifest.json').read_text())
+        self.assertIs(False, report.get('capture_only_build'))
+        self.assertEqual(['iphone11-legacy', 'iphone8'], report.get('device_profiles'))
+        for old_claim in ('service_mode', 'capability', 'callback_return_verified'):
+            self.assertNotIn(old_claim, report)
+        self.assertIs(False, report['build_verification_grants_input_authority'])
+        self.assertEqual('not_run', report['device_acceptance'])
+
     def test_cli_identity_failure_emits_only_six_field_presence_type_and_match(self):
         sentinel = 'private-value-must-never-be-logged'
         name = self.app + 'Info.plist'
@@ -363,7 +386,7 @@ class CompilerContracts(unittest.TestCase):
         self.assertTrue(all(row['strict_flags']['optimization'] == '-O2' for row in proof.values()))
 
     def test_added_c_requires_source_target_strict_flags_and_no_duplicates(self):
-        for fault in ('missing', 'duplicate', 'wrongtarget', 'unsafe', 'optimization', 'capture', 'host', 'outside'):
+        for fault in ('missing', 'duplicate', 'wrongtarget', 'unsafe', 'optimization', 'capture', 'host', 'capturevalue', 'hostvalue', 'capturefunction', 'hostfunction', 'outside'):
             rows = copy.deepcopy(self.crows)
             if fault == 'missing': rows.pop()
             elif fault == 'duplicate': rows.append(copy.deepcopy(rows[0]))
@@ -374,6 +397,10 @@ class CompilerContracts(unittest.TestCase):
                 elif fault == 'optimization': args.append('-O0')
                 elif fault == 'capture': args += ['-D', 'NG8_CAPTURE_PROBE_BUILD']
                 elif fault == 'host': args.append('-DNG2_DEVICE_RASTER_HOST_TEST')
+                elif fault == 'capturevalue': args.append('-DNG8_CAPTURE_PROBE_BUILD=1')
+                elif fault == 'hostvalue': args.append('-DNG2_DEVICE_RASTER_HOST_TEST=1')
+                elif fault == 'capturefunction': args.append('-DNG8_CAPTURE_PROBE_BUILD(x)=x')
+                elif fault == 'hostfunction': args.append('-DNG2_DEVICE_RASTER_HOST_TEST(x)=x')
                 elif fault == 'outside': args[args.index('-c')+1] = '/outside/NG2DeviceGeometryProfile.c'
             with self.subTest(fault=fault), self.assertRaises(ValueError):
                 verifier.inspect_c_records(self.root, rows, self.report)

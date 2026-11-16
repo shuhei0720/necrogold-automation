@@ -487,6 +487,13 @@ def _defines(arguments):
     return found
 
 
+def _forbidden_mode_defines(defines):
+    # Clang's -DNAME=1 and -DNAME(x)=x both define NAME for #ifdef.
+    # Preserve raw argv in the proof; normalize only the forbidden-name fence.
+    names = {re.split(r'[=(\s]', value.strip(), maxsplit=1)[0] for value in defines}
+    return 'NG8_CAPTURE_PROBE_BUILD' in names or any(value.endswith('_HOST_TEST') for value in names)
+
+
 def _option(arguments, name):
     if arguments.count(name) != 1:
         raise ValueError('compiler_option_missing_or_duplicate')
@@ -537,8 +544,7 @@ def inspect_swift_records(upstream, records, source_report):
         defines = _defines(arguments)
         triple = _option(arguments, '-target')
         if (not triple.startswith('arm64-apple-ios') or '-simulator' in triple or '-macabi' in triple
-                or 'NG8_CAPTURE_PROBE_BUILD' in defines
-                or any(value.endswith('_HOST_TEST') for value in defines)
+                or _forbidden_mode_defines(defines)
                 or (module == 'LoopCtrlAllInOne' and 'LOOPCTRL_ALL_IN_ONE' not in defines)):
             raise ValueError('normal_swift_target_or_flags')
         names, used_lists = swift_sources(upstream, arguments)
@@ -595,7 +601,7 @@ def inspect_c_records(upstream, records, source_report):
                 or not output.endswith('/' + Path(name).stem + '.o')):
             raise ValueError('normal_c_target_or_membership')
         defines = _defines(arguments)
-        if ('NG8_CAPTURE_PROBE_BUILD' in defines or any(value.endswith('_HOST_TEST') for value in defines)):
+        if _forbidden_mode_defines(defines):
             raise ValueError('normal_c_test_or_capture_flag')
         flags = compiler.effective_flags(arguments, '-O2')
         digest = sha(_safe_file(upstream / name))
@@ -673,8 +679,8 @@ def main():
     sources.pop('manifest')
     report.update(sources)
     report.update({'schema': 'ng2-shared-device-build-manifest-v1', 'compiler_evidence': proof,
-        'service_mode': 'iphone8-capture-only-v1', 'capability': 'necrogold_capture_probe_v1',
-        'build_verification_grants_input_authority': False, 'device_acceptance': 'not_run', 'callback_return_verified': False})
+        'capture_only_build': False, 'device_profiles': BUILD_MARKERS['NG2DeviceProfiles'].split(','),
+        'build_verification_grants_input_authority': False, 'device_acceptance': 'not_run'})
     report['toolchain'] = {name: subprocess.check_output(command, text=True, timeout=30).strip()
         for name, command in {'xcode': ['xcodebuild', '-version'], 'swift': ['swiftc', '--version'],
                              'rust': ['rustc', '--version'], 'xcodegen': ['xcodegen', '--version']}.items()}
