@@ -1,8 +1,10 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#endif
 
-// Initial TDD stub. No existing Kit/UI-test source calls these declarations.
-// Keep qualification and policy unimplemented until the named assertion Red
-// has been observed with the real macOS compiler.
+// Pure qualification and policy. Actual Kit/UI-test callsites are connected
+// only by the separate overlay; this file never starts a producer or listener.
 enum RPCServiceMode: String, Equatable {
     case normal
     case iphone8CaptureOnly = "iphone8-capture-only-v1"
@@ -18,20 +20,28 @@ enum RPCServiceMode: String, Equatable {
 
     static func select(buildOptIn: Bool,
                        readHardwareIdentifier: () -> String?) -> RPCServiceMode {
-        // Intentionally does not call the reader, including in normal builds.
-        // Green will require exact raw iPhone10,1 qualification, not UIDevice's
-        // family name or NearbyIdentity's marketing-name fallback.
-        _ = buildOptIn
-        _ = readHardwareIdentifier
-        return .normal
+        guard buildOptIn else { return .normal }
+        return readHardwareIdentifier() == "iPhone10,1" ? .iphone8CaptureOnly : .normal
     }
 }
 
 enum NG8HardwareIdentifier {
     static func read() -> String? {
-        // Stub: the eventual Darwin hw.machine reader belongs here, with no
-        // UIKit/XCTest/ObjC dependency. nil is not device qualification.
-        nil
+        #if os(iOS) && canImport(Darwin)
+        var count = 0
+        guard sysctlbyname("hw.machine", nil, &count, nil, 0) == 0,
+              count > 1, count <= 256 else { return nil }
+        var bytes = [UInt8](repeating: 0, count: count)
+        let capacity = bytes.count
+        let result = bytes.withUnsafeMutableBytes {
+            sysctlbyname("hw.machine", $0.baseAddress, &count, nil, 0)
+        }
+        guard result == 0, count > 1, count <= capacity, bytes[count - 1] == 0,
+              !bytes.prefix(count - 1).contains(0) else { return nil }
+        return String(bytes: bytes.prefix(count - 1), encoding: .utf8)
+        #else
+        return nil
+        #endif
     }
 }
 
@@ -99,9 +109,16 @@ struct NG8AdvertisedSurface: Equatable {
     let capabilities: [String]
     let methodNames: [String]
 
+    static let probeMethodNames = ["necro_capture_probe_status", "necro_capture_probe_start",
+                                  "necro_capture_probe_cancel", "necro_capture_probe_results"]
+
     static func project(mode: RPCServiceMode, normalCapabilities: [String],
                         normalMethodNames: [String]) -> NG8AdvertisedSurface {
-        _ = mode
+        if mode == .iphone8CaptureOnly {
+            return NG8AdvertisedSurface(serviceMode: mode.rawValue,
+                capabilities: ["envelope_v1", "necrogold_capture_probe_v1"],
+                methodNames: ["config", "logs", "recent_logs"] + probeMethodNames)
+        }
         return NG8AdvertisedSurface(serviceMode: nil,
             capabilities: normalCapabilities, methodNames: normalMethodNames)
     }
@@ -125,17 +142,96 @@ struct NG8ServerBinding<Coordinator: AnyObject> {
 enum NG8CaptureRoutePolicy {
     static func decide(mode: RPCServiceMode, origin: NG8RequestOrigin,
                        operation: NG8PolicyOperation) -> NG8RouteDecision {
-        _ = origin
-        _ = operation
-        return mode == .normal ? .normalDispatch : .reject(.notAvailable)
+        guard mode == .iphone8CaptureOnly else { return .normalDispatch }
+        switch operation {
+        case .http(let verb, let path):
+            if verb == "POST", path == "/pair" {
+                return .rejectHTTP(status: 403, code: .pairingDisabledInCaptureOnly)
+            }
+            if verb == "GET", path == "/schema" || path == "/whoami" {
+                return .allow(.publicMetadata)
+            }
+            if verb == "POST", path == "/rpc" { return .allow(.encryptedRPC) }
+            return .reject(.notAvailable)
+        case .rpc(let method, let params):
+            if NG8AdvertisedSurface.probeMethodNames.contains(method) {
+                // This grants entry to the core's closed command parser only.
+                // The authenticated adapter and core still validate the owner,
+                // params, pause, runtime, generation and capture admission.
+                return authenticated(origin) ? .allow(.probe) : .reject(.authenticationRequired)
+            }
+            if method == "config" { return config(origin: origin, params: params) }
+            if method == "logs" || method == "recent_logs" {
+                guard authenticated(origin) || origin == .trustedInProcess else {
+                    return .reject(.authenticationRequired)
+                }
+                guard logParamsValid(params) else { return .reject(.invalidRequest) }
+                return .allow(.logs)
+            }
+            return .reject(.notAvailable)
+        case .local(let operation):
+            guard origin == .trustedInProcess else { return .reject(.trustedLocalRequired) }
+            switch operation {
+            case .setPaused: return .allow(.trustedLocalAuthAdmin)
+            case .setPort(let port):
+                return validPort(port) ? .allow(.trustedLocalListenerAdmin) : .reject(.invalidRequest)
+            case .stop, .restart, .setRemoteAccess, .setNearby:
+                return .allow(.trustedLocalListenerAdmin)
+            }
+        }
     }
 
     static func bind<Coordinator: AnyObject>(mode: RPCServiceMode,
         site: NG8ServerConstructionSite, processCoordinator: Coordinator)
         -> NG8ServerBinding<Coordinator>? {
-        _ = mode
+        guard mode == .iphone8CaptureOnly else { return nil }
         _ = site
-        _ = processCoordinator
-        return nil
+        return NG8ServerBinding(mode: mode, processCoordinator: processCoordinator)
+    }
+
+    private static func authenticated(_ origin: NG8RequestOrigin) -> Bool {
+        guard case .authenticatedRemote(let tokenID) = origin else { return false }
+        return tokenID.utf8.count == 8 && tokenID.utf8.allSatisfy {
+            (48...57).contains($0) || (97...102).contains($0)
+        }
+    }
+
+    private static func config(origin: NG8RequestOrigin,
+                               params: [String: NG8PolicyValue]) -> NG8RouteDecision {
+        if authenticated(origin) {
+            return params.isEmpty ? .allow(.remoteConfigRead) : .reject(.invalidRequest)
+        }
+        guard origin == .trustedInProcess else { return .reject(.authenticationRequired) }
+        if params.isEmpty { return .allow(.trustedLocalConfigRead) }
+        guard params.count == 1, let (key, value) = params.first else { return .reject(.invalidRequest) }
+        switch (key, value) {
+        case ("revoke_session_id", .string(let tokenID)):
+            return authenticated(.authenticatedRemote(tokenID: tokenID))
+                ? .allow(.trustedLocalAuthAdmin) : .reject(.invalidRequest)
+        case ("clear_sessions", .bool(true)):
+            return .allow(.trustedLocalAuthAdmin)
+        case ("listen_port", .integer(let port)):
+            return validPort(port) ? .allow(.trustedLocalListenerAdmin) : .reject(.invalidRequest)
+        case ("stop_server", .bool(true)), ("allow_remote_access", .bool), ("nearby_discovery", .bool):
+            return .allow(.trustedLocalListenerAdmin)
+        default:
+            return .reject(.invalidRequest)
+        }
+    }
+
+    private static func validPort(_ value: Int) -> Bool {
+        // The real listener adapter additionally enforces ServerPort.allowed.
+        (1...65535).contains(value)
+    }
+
+    private static func logParamsValid(_ params: [String: NG8PolicyValue]) -> Bool {
+        guard Set(params.keys).isSubset(of: ["text", "max_elements"]) else { return false }
+        if let text = params["text"] {
+            guard case .string = text else { return false }
+        }
+        if let count = params["max_elements"] {
+            guard case .integer(let value) = count, (1...500).contains(value) else { return false }
+        }
+        return true
     }
 }

@@ -115,7 +115,7 @@ def bridge(output, *, expect_red):
             "source_sha256": before}
 
 
-def coordinator_red(output, *, expanded=False):
+def coordinator(output, *, expanded=False, expect_green=False):
     names = (*CORE_FILES, CORE_EXPECTATIONS) if expanded else CORE_FILES
     before = source_hashes(names)
     if expanded:
@@ -127,7 +127,7 @@ def coordinator_red(output, *, expanded=False):
                 or expectations["default_selector"] != "qualified_capture"
                 or expectations["source_path"] != "patches/loopctrl/iphone8_probe/" + CORE_FILES[0]
                 or expectations["fixture_path"] != "patches/loopctrl/iphone8_probe/" + CORE_FILES[1]
-                or expectations["core_sha256"] != before[CORE_FILES[0]]
+                or (not expect_green and expectations["core_sha256"] != before[CORE_FILES[0]])
                 or expectations["fixture_sha256"] != before[CORE_FILES[1]]):
             raise ValueError("invalid_core_expectations_or_source_hash")
         selectors = expectations["selectors"]
@@ -160,6 +160,9 @@ def coordinator_red(output, *, expanded=False):
         cases = {}
         for item in selectors:
             selector = item["name"]
+            expected_exit = 0 if expect_green else item["expected_exit"]
+            expected_first_fail = None if expect_green else item["expected_first_fail"]
+            expected_count = 0 if expect_green else item["expected_failed_assertions"]
             try:
                 tested = execute([str(binary), selector], output, "core-" + selector, 30)
                 labels = re.findall(r"^FAIL ([a-z0-9_]+)$", tested.stdout, re.MULTILINE)
@@ -167,11 +170,11 @@ def coordinator_red(output, *, expanded=False):
                     r"\n(?:FAIL [a-z0-9_]+\n)*ASSERTIONS_FAILED ([0-9]+)\n", tested.stdout)
                 count = int(matched[1]) if matched else None
                 valid = (matched is not None and not tested.stderr
-                    and tested.returncode == item["expected_exit"]
+                    and tested.returncode == expected_exit
                     and count == len(labels)
-                    and (labels[0] if labels else None) == item["expected_first_fail"]
-                    and (count > 0) == (item["expected_exit"] == 1)
-                    and (item["expected_failed_assertions"] is None or count == item["expected_failed_assertions"]))
+                    and (labels[0] if labels else None) == expected_first_fail
+                    and (count > 0) == (expected_exit == 1)
+                    and (expected_count is None or count == expected_count))
                 cases[selector] = {"status": ("expected_red" if tested.returncode == 1 else "green") if valid else "blocked",
                     "return_code": tested.returncode, "assertion_labels": labels,
                     "failed_assertions": count, "stderr_nonempty": bool(tested.stderr)}
@@ -179,7 +182,7 @@ def coordinator_red(output, *, expanded=False):
                 cases[selector] = {"status": "blocked", "reason": type(error).__name__}
         if source_hashes(names) != before:
             raise ValueError("fixture_source_changed")
-        return {"status": "blocked" if any(c["status"] == "blocked" for c in cases.values()) else "expected_red",
+        return {"status": "blocked" if any(c["status"] == "blocked" for c in cases.values()) else ("green" if expect_green else "expected_red"),
             "compiled": True, "selector_count": len(cases), "cases": cases, "source_sha256": before}
     tested = execute([str(binary)], output, "core-qualified", 30)
     if tested.returncode != 1 or tested.stdout != CORE_EXPECTED_RED or tested.stderr:
@@ -190,7 +193,7 @@ def coordinator_red(output, *, expanded=False):
             "assertion_red": "FAIL qualified_new_id_one_capture", "source_sha256": before}
 
 
-def mode_red(output):
+def mode(output, *, expect_green=False):
     before = source_hashes(MODE_FILES)
     variants = {}
     expected_by_selector = {
@@ -217,21 +220,23 @@ def mode_red(output):
             continue
         cases = {}
         for selector, expected in expected_by_selector.items():
+            if expect_green:
+                expected = "PASS NG8 mode selector " + selector + "; no live router, authentication, producer or device acceptance"
             try:
                 tested = execute([str(binary), selector], output, "mode-" + variant + "-" + selector, 30)
-                valid = tested.returncode == 1 and tested.stdout.strip() == expected and not tested.stderr
-                cases[selector] = {"status": "expected_red" if valid else "blocked",
+                valid = tested.returncode == (0 if expect_green else 1) and tested.stdout.strip() == expected and not tested.stderr
+                cases[selector] = {"status": ("green" if expect_green else "expected_red") if valid else "blocked",
                     "return_code": tested.returncode,
-                    "assertion_labels": re.findall(r"^FAIL ([a-z0-9_]+)$", tested.stdout, re.MULTILINE),
+                    "assertion_labels": re.findall(r"^FAIL ([A-Za-z0-9_]+)$", tested.stdout, re.MULTILINE),
                     "stderr_nonempty": bool(tested.stderr)}
             except Exception as error:
                 cases[selector] = {"status": "blocked", "reason": type(error).__name__}
-        variants[variant] = {"status": "blocked" if any(c["status"] == "blocked" for c in cases.values()) else "expected_red",
+        variants[variant] = {"status": "blocked" if any(c["status"] == "blocked" for c in cases.values()) else ("green" if expect_green else "expected_red"),
             "compiled": True, "cases": cases}
     if source_hashes(MODE_FILES) != before:
         raise ValueError("fixture_source_changed")
-    return {"status": "blocked" if any(v["status"] == "blocked" for v in variants.values()) else "expected_red",
-            "variants": variants, "assertion_red_by_selector": expected_by_selector, "source_sha256": before}
+    return {"status": "blocked" if any(v["status"] == "blocked" for v in variants.values()) else ("green" if expect_green else "expected_red"),
+            "variants": variants, "source_sha256": before}
 
 
 def run(output):
@@ -241,7 +246,7 @@ def run(output):
     if (set(stage) != {"schema", "phase"}
             or stage["schema"] != "ng8-host-stage-v1"
             or stage["phase"] not in ("bridge-red", "bridge-green-components-red", "bridge-green-mode-red",
-                                      "bridge-green-components-batch-red")):
+                                      "bridge-green-components-batch-red", "bridge-core-mode-green")):
         raise ValueError("unsupported_host_stage")
     if stage["phase"] == "bridge-red":
         result = bridge(output, expect_red=True)
@@ -249,11 +254,14 @@ def run(output):
                     green_implementation=False, device_acceptance="not_run")
     # Independent components use distinct binaries/logs. Inspect every outcome,
     # including a compiler failure; none can be converted into an expected Red.
-    operations = {"bridge": lambda: bridge(output, expect_red=False), "mode": lambda: mode_red(output)}
+    expect_green = stage["phase"] == "bridge-core-mode-green"
+    operations = {"bridge": lambda: bridge(output, expect_red=False), "mode": lambda: mode(output, expect_green=expect_green)}
     if stage["phase"] == "bridge-green-components-red":
-        operations["coordinator"] = lambda: coordinator_red(output)
+        operations["coordinator"] = lambda: coordinator(output)
     elif stage["phase"] == "bridge-green-components-batch-red":
-        operations["coordinator"] = lambda: coordinator_red(output, expanded=True)
+        operations["coordinator"] = lambda: coordinator(output, expanded=True)
+    elif expect_green:
+        operations["coordinator"] = lambda: coordinator(output, expanded=True, expect_green=True)
     contracts = {}
     with ThreadPoolExecutor(max_workers=3) as executor:
         pending = {name: executor.submit(operation) for name, operation in operations.items()}

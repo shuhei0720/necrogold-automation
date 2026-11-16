@@ -10,6 +10,14 @@ a real macOS compile followed by the behavioral Red below at commit
 `133183319327`. Green source has now been written; a new macOS run must verify it.
 This component alone is not a deployable or device-qualified build.
 
+Subsequent run `43842351667` / job `133213889275` at commit `9d1bfa6` compiled
+successfully, but `encoding_unavailable` exited by SIGSEGV (`return_code=-11`)
+before any named assertion or closed diagnostic was emitted; stderr was empty.
+That is a blocked execution, not an assertion Red. A NEW8-only alloc/init ARC
+ownership correction is now a reviewed candidate, with all fixture assertions
+unchanged. The next host phase must rerun all 26 selectors; improvement is still
+unverified. The existing NG2/iPhone 11 factory remains unchanged.
+
 For this new, isolated capture-only capability, `drained` means **the final
 owned-work handoff**: send return/unwind plus all first-callback data/getter/copy
 work and the primary reply consumer have ended. It does not prove literal daemon

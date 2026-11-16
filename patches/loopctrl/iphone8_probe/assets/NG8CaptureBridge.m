@@ -119,11 +119,21 @@
 // Preserve the production encoding-constructor order and its API probes.
 // Like the baseline, maximumCompression is a factory fallback with a fixed
 // system quality; 0.6 is the requested quality, not a JPEG-inferred measurement.
+static void *NG8AllocateInstance(Class type) {
+    // Keep the +1 allocation out of ARC's temporary id-receiver handling. The
+    // init-family call consumes it, including when init returns nil. Only its
+    // returned +1 object is transferred into ARC below.
+    void *(*allocate)(Class, SEL) = (void *)objc_msgSend;
+    return allocate(type, @selector(alloc));
+}
 static id NG8MakeImageEncoding(Class encodingClass) {
     SEL dictionary = NSSelectorFromString(@"initWithDictionary:");
     if ([encodingClass instancesRespondToSelector:dictionary]) {
-        id value = [[encodingClass alloc] performSelector:dictionary withObject:@{
-            @"uniformTypeIdentifier": @"public.jpeg", @"compressionQuality": @0.6 }];
+        NSDictionary *spec = @{@"uniformTypeIdentifier": @"public.jpeg", @"compressionQuality": @0.6};
+        void *allocated = NG8AllocateInstance(encodingClass);
+        void *(*initialize)(void *, SEL, void *) = (void *)objc_msgSend;
+        void *created = allocated ? initialize(allocated, dictionary, (__bridge void *)spec) : NULL;
+        id value = created ? (__bridge_transfer id)created : nil;
         BOOL took = NO;
         @try { took = [value valueForKey:@"uniformTypeIdentifier"] != nil; }
         @catch (__unused NSException *exception) {}
@@ -143,8 +153,7 @@ static id NG8MakeImageEncoding(Class encodingClass) {
         // An unsupported signature cannot be initialized safely. Do not create
         // a +1 allocated object that no initializer can consume in that case.
         if (!floatQuality && !doubleQuality) return nil;
-        void *(*allocate)(Class, SEL) = (void *)objc_msgSend;
-        void *allocated = allocate(encodingClass, @selector(alloc));
+        void *allocated = NG8AllocateInstance(encodingClass);
         void *created = NULL;
         if (allocated && floatQuality) {
             void *(*initialize)(void *, SEL, void *, float) = (void *)objc_msgSend;
@@ -192,11 +201,15 @@ static atomic_llong ng8ScreenID = 0;
         SEL four = NSSelectorFromString(@"initWithScreenID:rect:encoding:options:");
         SEL three = NSSelectorFromString(@"initWithScreenID:rect:encoding:");
         if ([requestClass instancesRespondToSelector:four]) {
-            id (*initialize)(id, SEL, long long, CGRect, id, id) = (void *)objc_msgSend;
-            descriptor = initialize([requestClass alloc], four, screen, CGRectNull, encoding, nil);
+            void *allocated = NG8AllocateInstance(requestClass);
+            void *(*initialize)(void *, SEL, long long, CGRect, void *, void *) = (void *)objc_msgSend;
+            void *created = allocated ? initialize(allocated, four, screen, CGRectNull, (__bridge void *)encoding, NULL) : NULL;
+            if (created) descriptor = (__bridge_transfer id)created;
         } else if ([requestClass instancesRespondToSelector:three]) {
-            id (*initialize)(id, SEL, long long, CGRect, id) = (void *)objc_msgSend;
-            descriptor = initialize([requestClass alloc], three, screen, CGRectNull, encoding);
+            void *allocated = NG8AllocateInstance(requestClass);
+            void *(*initialize)(void *, SEL, long long, CGRect, void *) = (void *)objc_msgSend;
+            void *created = allocated ? initialize(allocated, three, screen, CGRectNull, (__bridge void *)encoding) : NULL;
+            if (created) descriptor = (__bridge_transfer id)created;
         }
         if (!descriptor) { [ticket failBeforeSend:@"request_unavailable"]; return; }
         void (*send)(id, SEL, id, id) = (void *)objc_msgSend;

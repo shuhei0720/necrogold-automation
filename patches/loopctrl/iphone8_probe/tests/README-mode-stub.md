@@ -1,13 +1,12 @@
-# NG8 Kit mode / route policy: initial Red stub
+# NG8 Kit mode / route policy: Red evidence and Green candidate
 
 This stage owns only `assets/NG8CaptureMode.swift`,
 `tests/NG8CaptureModeTests.swift`, and this README. It does not modify or bind
 the existing Kit router/metadata/session, overlay, bridge, coordinator or CI.
 
-`RPCServiceMode.select` deliberately returns `.normal`; the raw-hardware reader
-returns nil, capture-only route policy refuses dispatch, metadata keeps its
-baseline input, and constructor binding returns nil. Do not implement Green
-until the real macOS compiler has observed this named assertion failure:
+The initial stub deliberately selected `.normal`, returned no hardware model,
+refused dedicated dispatch, preserved baseline metadata, and returned no binding.
+The real macOS compiler first observed this named assertion failure:
 
 `FAIL qualified_optin_raw_iphone10_1_selects_capture_only`
 
@@ -15,6 +14,12 @@ The fixture first verifies that opt-in false performs zero hardware queries
 and other/unknown/failed raw models remain normal. It then requires dedicated
 opt-in plus exact raw `iPhone10,1` to select the new mode. This value assertion,
 not a missing symbol/compiler/environment error, is the intended first Red.
+The expanded four-selector Red was subsequently observed for both compile flags
+in [run43842351667](https://github.com/shuhei0720/necrogold-automation/actions/runs/43842351667),
+job `133213889275`, commit `9d1bfa6c08168cde044e73aba40826bceac5522f`.
+All eight executions matched the required FAIL, exit 1 and empty stderr, with
+source/fixture hashes matching that commit. Green source is now a reviewed
+candidate; actual Mac Green and iOS hardware-reader execution remain unverified.
 
 From the repository root on macOS, with a fresh scratch directory:
 
@@ -27,11 +32,12 @@ xcrun swiftc -Onone -D NG8_CAPTURE_PROBE_BUILD \
 "$MODE_STAGE_DIR/ng8-mode-tests"
 ```
 
-Expected: compilation succeeds, execution prints the named FAIL and exits 1.
-Repeat compilation without `-D NG8_CAPTURE_PROBE_BUILD` to check the normal
-compile condition: the fixture's explicit injected positive case still has
-the same required Red. No live `hw.machine`, iPhone, credentials or network
-access is needed. The production Darwin reader is intentionally still a stub.
+The recorded stub compiled then printed the named FAIL and exited 1 for both
+compile flags. For the Green candidate, every selector must instead print its
+exact `PASS NG8 mode selector ...` line and exit 0 with empty stderr. Repeat
+compilation without `-D NG8_CAPTURE_PROBE_BUILD` to check the ordinary compile
+condition. No live iPhone, credentials or network access is needed by this host
+fixture; its injected hardware cases do not prove production iOS sysctl behavior.
 
 The remaining prepared assertions cover normal surface identity, the new
 probe-only advertised surface, closed remote/local policy, pair HTTP403,
@@ -65,18 +71,17 @@ the other features:
 "$MODE_STAGE_DIR/ng8-mode-tests" binding
 ```
 
-For the unchanged implementation stub, each feature is expected to exit 1:
+The implementation stub produced these exact failures in both flag variants:
 
 | Selector | Expected first stdout line | Evidence |
 | --- | --- | --- |
-| `qualification` / default `all` | `FAIL qualified_optin_raw_iphone10_1_selects_capture_only` | Original entry measured on actual Mac at commit `fa768790563e0c33de39918bafd6f10df056a912`, run `43837286672` / job `133196971358`, both compile-flag variants compiled then exited 1 with empty stderr; selector entry itself awaits the next Mac run |
-| `metadata` | `FAIL dedicated_metadata_names_service_mode` | Expected from the baseline-only metadata stub; not yet measured |
-| `routes` | `FAIL pair_is_always_403_without_approval_dispatch` | Expected from the dedicated-mode deny stub; not yet measured |
-| `binding` | `FAIL capture_only_constructor_gets_process_binding_initialStart` | Expected from the nil binding stub after the inventory assertion passes; not yet measured |
+| `qualification` | `FAIL qualified_optin_raw_iphone10_1_selects_capture_only` | Measured in run43842351667; original no-argument entry also measured in run43837286672 |
+| `metadata` | `FAIL dedicated_metadata_names_service_mode` | Measured in run43842351667 |
+| `routes` | `FAIL pair_is_always_403_without_approval_dispatch` | Measured in run43842351667 |
+| `binding` | `FAIL capture_only_constructor_gets_process_binding_initialStart` | Measured in run43842351667 |
 
-Repeat these selectors for the binary compiled without
-`-D NG8_CAPTURE_PROBE_BUILD`; injected qualification keeps the same expected
-first FAIL. Compile/environment failure is not an assertion Red. Keep the
-mode, hardware reader, metadata, route policy and binding implementation as
-stubs until the additional feature Reds are observed on actual Mac. This
-selector change does not itself establish those Reds or any Green result.
+The next `bridge-core-mode-green` phase runs all four selectors for both flags
+and requires eight exact PASS lines, exit 0 and empty stderr. Existing assertions
+and the fixture remain unchanged. Compile/environment failure and timeouts are
+blocked results; host Green does not establish live authentication, integration,
+device capture or iPhone 11 acceptance.
