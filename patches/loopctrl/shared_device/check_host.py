@@ -25,6 +25,19 @@ def run(command):
     return value.stdout.strip()
 
 
+EXPECTED_GAP_RED = 'FAIL identical_geometry_renders_when_input_gap_mask_0\n'
+OBSERVED_SCALER_VM_LINE = 'IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver\n'
+
+
+def gap_red_proof(value):
+    if value.returncode != 1 or value.stdout or value.stderr not in (EXPECTED_GAP_RED, OBSERVED_SCALER_VM_LINE + EXPECTED_GAP_RED):
+        raise RuntimeError(json.dumps({'code':'raster_gap_assertion_red_not_observed',
+            'exit':value.returncode, 'stdout':value.stdout[-4096:],
+            'stderr':value.stderr[-4096:]},sort_keys=True))
+    return {'exit':value.returncode,'stdout':value.stdout,'stderr':value.stderr,
+        'observed_scaler_vm_line':value.stderr.startswith(OBSERVED_SCALER_VM_LINE)}
+
+
 def check(upstream,output):
     upstream=overlay._root(upstream)
     expected=overlay.verify_final(upstream)
@@ -47,6 +60,7 @@ def check(upstream,output):
     swift=run([output/'binding'])
     raster_proof=None
     raster_swift_proof=None
+    raster_red_proof=None
     if 'LoopCtrlUITests/NG2DeviceRaster.swift' in expected:
         run([*common,'-c',upstream/'LoopCtrlUITests/NG2DeviceRaster.c','-o',output/'raster.o'])
         run([*common,'-c',upstream/'LoopCtrlUITests/NG2Perception.c','-o',output/'perception.o'])
@@ -75,16 +89,13 @@ def check(upstream,output):
         # must remain visible rather than being hidden by a later Red mismatch.
         raster_swift_proof=run([output/'raster-swift'])
         rejected=subprocess.run([str(output/'raster-swift-red')],capture_output=True,text=True,timeout=120)
-        if rejected.returncode!=1 or rejected.stdout or rejected.stderr!='FAIL identical_geometry_renders_when_input_gap_mask_0\n':
-            raise RuntimeError(json.dumps({'code':'raster_gap_assertion_red_not_observed',
-                'exit':rejected.returncode, 'stdout':rejected.stdout[-4096:],
-                'stderr':rejected.stderr[-4096:]},sort_keys=True))
+        raster_red_proof=gap_red_proof(rejected)
     result={'schema':'ng2-shared-device-host-v1','status':'pass','source_sha256':expected,
         'binding_sha256':hashlib.sha256(binding.encode()).hexdigest(),
-        'dispatch':dispatch,'swift':swift,'raster':raster_proof,'raster_swift':raster_swift_proof,'physical_device_acceptance':False,
+        'dispatch':dispatch,'swift':swift,'raster':raster_proof,'raster_swift':raster_swift_proof,'raster_gap_red':raster_red_proof,'physical_device_acceptance':False,
         'new_profile_input_authorized':False}
     (output/'host-result.json').write_text(json.dumps(result,indent=2)+'\n')
-    print(json.dumps({'status':'pass','actual_c_dispatch':dispatch,'actual_swift_binding':swift,'actual_raster':raster_proof,'actual_swift_raster':raster_swift_proof,
+    print(json.dumps({'status':'pass','actual_c_dispatch':dispatch,'actual_swift_binding':swift,'actual_raster':raster_proof,'actual_swift_raster':raster_swift_proof,'raster_gap_red':raster_red_proof,
         'physical_device_acceptance':False},sort_keys=True))
 
 
