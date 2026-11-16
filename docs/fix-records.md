@@ -411,3 +411,9 @@ TEST107/build204確認: CODEcfdb690の最終C fdbc142、選択52件/12scope、�
 | --- | --- | --- | --- | --- | --- | --- |
 | FR-SSH-PASTE-ORDER | 2026-11-16 | 複数行PowerShellが逆順になり、未設定変数の呼出しや未完了入力 `>>` で停止 | 初回診断の逆順を認識後も、接続probeを複数行blockで案内した。貼り付け順が反転するUI側の機構は未確定 | Ctrl+Cで通常promptへ戻し、1コード枠1論理行・行内で完結する変数/検査へ変更。promptや出力行を混ぜない | 1行版probeで管理CONNECT 200とWindowsの接続元報告を受信し、Tailscale TCP疎通を実測。SSH認証の成功とは分ける。[接続計画](plans/windows-ssh-tailscale.md) | 複数行で2件観測。同一UI原因の通算は未確定。1行化後の接続probeは成功 |
 | FR-SSH-HOSTKEY-SYSTEM | 2026-11-16 | 管理者の `sshd -t/-T` は成功するが、LocalSystemサービスが1067で停止 | 手動生成したhost private keyに個人SIDのowner/ACEが残り、手動実行者とLocalSystemの資格を同一視。Windowsのhost key所有者/ACE条件と不整合。直接のfatalログは未取得 | 今回生成したEd keyの旧SDDLだけを保存し、key内容を維持してowner Administrators・SYSTEM/Administrators Fullへ補正。他key/既存directoryへ広げない | 同じkeyのままサービスRunning/限定IPv4:22待受へ改善。OOB公開fingerprintと実受信keyが一致し、専用公開鍵SSHのwhoamiと空batch SFTPが成功。SSH実版9.5.6.4。PC再起動後は未確認 | 今回1。補正後の起動/SSH接続は成功、再起動後は未試験 |
+
+## iPhone 8の開発環境
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-SIDESTORE-CONNECTION-BIND | 2026-11-16 | TEST107 IPAを選択後、`No utun interface detected — LocalDevVPN is not connected` で導入失敗 | 固定minimuxerの当該文言は有効モードlocalVPNで発生。保存plistはremote指定でも、実行時bindingの切替は証明されていなかった。設定のずれの根本原因は未確定。実画面のLocalDevVPNはDisconnected | 保存値だけで復旧と扱わず、通常UIのConnection Config/ConfirmとVPNの実接続を確認してから再試行。全設定backupは許可済みのWindows保護folder内だけに保持 | [環境計画](plans/iphone8-device-lab.md)。DDI mount/生画像取得は成功。LocalDevVPNの実Connected表示は確認したがSideStoreのActiveはNo。導入・server起動は未確認で、接続方式を通常UIから検証する | 今回exact文言1。旧DeviceEndpointNotInitializedとの同根因通算は未確定 |
