@@ -28,6 +28,7 @@ typedef void (^NG8DaemonReply)(id, NSError *);
 static NG8FakeMode mode;
 static atomic_int sendCalls, encodingCalls, requestCalls, getterCalls, replyCalls, drainCalls;
 static atomic_int descriptorReads;
+static atomic_int callbackExitCount;
 static long long recordedScreen;
 static CGRect recordedRect;
 static NSString *recordedUTI;
@@ -36,10 +37,11 @@ static id payload;
 static NSData *observedBytes;
 static NSString *observedError;
 static NG8DaemonReply daemonReply;
-static BOOL getterThrows, getterFence, consumerFence, consumerThrows, prepareThrows;
+static BOOL getterThrows, getterFence, consumerFence, consumerThrows, prepareThrows, drainFence;
 static dispatch_semaphore_t sendEntered, sendRelease, synchronousCallbackEnded;
 static dispatch_semaphore_t getterEntered, getterRelease, consumerEntered, consumerRelease;
 static dispatch_semaphore_t requestReturned, callbackReturned, duplicateReturned, drainedSignal;
+static dispatch_semaphore_t handoffEntered, handoffRelease;
 
 @implementation XCUIScreen
 + (instancetype)mainScreen {
@@ -154,6 +156,7 @@ static void initialize(void) {
     consumerEntered = dispatch_semaphore_create(0); consumerRelease = dispatch_semaphore_create(0);
     requestReturned = dispatch_semaphore_create(0); callbackReturned = dispatch_semaphore_create(0);
     duplicateReturned = dispatch_semaphore_create(0); drainedSignal = dispatch_semaphore_create(0);
+    handoffEntered = dispatch_semaphore_create(0); handoffRelease = dispatch_semaphore_create(0);
     const unsigned char original[] = { 0xff, 0xd8, 0xff, 0xd9 };
     // Byte transport only: coordinator's ImageIO tests must reject malformed JPEG.
     payload = [NSData dataWithBytes:original length:sizeof(original)];
@@ -164,7 +167,13 @@ static void beginRequest(void) {
         observedBytes = bytes; observedError = error;
         if (consumerFence) { dispatch_semaphore_signal(consumerEntered); waitFor(consumerRelease, "consumer_fence_released"); }
         if (consumerThrows) [NSException raise:@"FakeConsumerFailure" format:@"private sentinel"];
-    } drained:^{ atomic_fetch_add(&drainCalls, 1); dispatch_semaphore_signal(drainedSignal); }];
+    } drained:^{
+        atomic_fetch_add(&drainCalls, 1);
+        // Deliberately block only in the boundary-demonstration fixture. The
+        // real integration receiver is required to enqueue without blocking.
+        if (drainFence) { dispatch_semaphore_signal(handoffEntered); waitFor(handoffRelease, "handoff_fence_released"); }
+        dispatch_semaphore_signal(drainedSignal);
+    }];
 }
 static void assertDescriptor(void) {
     require(atomic_load(&sendCalls) == 1, "capture_one_daemon_request");
@@ -262,6 +271,21 @@ static void offMainPrepare(void) {
     waitFor(requestReturned, "off_main_prepare_returned");
     require(!prepared && atomic_load(&descriptorReads) == 0 && atomic_load(&sendCalls) == 0, "off_main_prepare_no_descriptor_or_capture");
 }
+static void handoffIsNotLiteralReturn(void) {
+    drainFence = YES;
+    require([NG8CaptureBridge prepare], "handoff_prepare"); beginRequest(); assertDescriptor();
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{ @autoreleasepool {
+        callRealReply(nil); atomic_fetch_add(&callbackExitCount, 1); dispatch_semaphore_signal(callbackReturned);
+    } });
+    waitFor(handoffEntered, "owned_work_final_handoff_entered");
+    assertSuccess();
+    require(atomic_load(&callbackExitCount) == 0, "handoff_is_not_literal_callback_return_proof");
+    callRealReply(nil);
+    require(atomic_load(&getterCalls) == 1 && atomic_load(&replyCalls) == 1 && atomic_load(&drainCalls) == 1,
+            "no_data_getter_consumer_or_second_handoff_after_final_handoff");
+    dispatch_semaphore_signal(handoffRelease); waitFor(callbackReturned, "boundary_demo_callback_really_returned");
+    require(atomic_load(&callbackExitCount) == 1, "boundary_demo_distinguishes_later_return");
+}
 int main(int argc, const char **argv) { @autoreleasepool {
     initialize();
     NSString *name = argc > 1 ? [NSString stringWithUTF8String:argv[1]] : @"primary";
@@ -276,6 +300,7 @@ int main(int argc, const char **argv) { @autoreleasepool {
     else if ([name isEqualToString:@"sync_error_then_throw"]) synchronousThrow(YES);
     else if ([@[@"api_unavailable", @"encoding_unavailable", @"request_unavailable"] containsObject:name]) unavailable(name);
     else if ([name isEqualToString:@"off_main_prepare"]) offMainPrepare();
+    else if ([name isEqualToString:@"handoff_not_return"]) handoffIsNotLiteralReturn();
     else if ([name isEqualToString:@"prepare_exception"]) {
         prepareThrows = YES;
         require(![NG8CaptureBridge prepare] && atomic_load(&descriptorReads) == 1 && atomic_load(&sendCalls) == 0, "prepare_exception_no_capture");
@@ -284,6 +309,17 @@ int main(int argc, const char **argv) { @autoreleasepool {
         require(atomic_load(&replyCalls) == 0 && atomic_load(&drainCalls) == 0, "never_callback_keeps_unresolved_ownership");
     } else if ([name isEqualToString:@"three_arg_request"]) { mode = NG8ThreeArgumentRequest; primary(); }
     else if ([name isEqualToString:@"exact_maximum"]) { payload = [NSMutableData dataWithLength:8 * 1024 * 1024]; primary(); }
+    else if ([name isEqualToString:@"mutable_original"]) {
+        payload = [payload mutableCopy]; NSData *original = [payload copy]; primary();
+        unsigned char changed = 0; [payload replaceBytesInRange:NSMakeRange(0, 1) withBytes:&changed];
+        require([observedBytes isEqualToData:original], "mutable_daemon_buffer_does_not_change_artifact");
+    } else if ([name isEqualToString:@"unprepared"]) {
+        beginRequest();
+        require(atomic_load(&sendCalls) == 0 && atomic_load(&descriptorReads) == 0 && atomic_load(&replyCalls) == 1 && observedBytes == nil,
+                "unprepared_request_has_no_capture");
+        require([observedError isEqualToString:@"prepare_unavailable"] && atomic_load(&drainCalls) == 1,
+                "unprepared_has_fixed_failure_and_proven_no_send_drain");
+    }
     else if ([name isEqualToString:@"consumer_exception"]) {
         consumerThrows = YES;
         require([NG8CaptureBridge prepare], "consumer_exception_prepare"); beginRequest(); callRealReply(nil);

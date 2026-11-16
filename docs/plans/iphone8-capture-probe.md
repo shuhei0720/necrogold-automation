@@ -1,6 +1,6 @@
 # iPhone 8: capture-only buildによるproduction原JPEG probe
 
-2026-11-16（日本時間）。**設計改訂案 / 未実装 / 入力権限なし**。Round 3限定独立レビュー前で、改訂担当による合格判定ではない。
+2026-11-16（日本時間）。**設計レビュー完了 / 実装・host検証中 / 未配布 / 入力権限なし**。Round 3の独立レビューと、実装で判明した完了境界の限定確認を記録する。実機受入は未実施。
 
 **最優先制約:** 本番はiPhone 11、8は実機試験専用。本incrementでは11へ接続・導入せず、TEST107配布tag/既定launcherを変更しない。通常build/11の座標・capture/raster・認識閾値・既API/ABI/cap/profileを保持する。8/hostの成功を11受入に代用しない。
 
@@ -101,7 +101,7 @@ accepted ID集合はprobe専用128件、画像なしterminal履歴64件。上限
 
 clientはruntime/probe IDを送信前に私有保存し、HTTP start失敗を自動再送・新ID置換・新runtimeへ付替えない。statusで元受付を調べ、runtime変更は元probe unavailableとして終了する。旧要求をrestart後に新captureとして受けない。
 
-stateは `accepted → preparing → capturing → ready`、terminalは `cancelled|failed|expired`。別にdraining/lease_heldを持ち、最初のfailure/cancelをlate成功で上書きしない。status固定fieldsは `schema,service_mode,runtime_id,old_evidence_gate,probe_id,generation,cancel_epoch,state,failure_code,clock_id,accepted_ns,deadline_ns,request_start_ns,callback_end_ns,ready_expiry_ns,draining,lease_held`。未発生値はnull。owner/raw/端末IDなし。
+stateは `accepted → preparing → capturing → ready`、terminalは `cancelled|failed|expired`。別にdraining/lease_heldを持ち、最初のfailure/cancelをlate成功で上書きしない。status固定fieldsは `schema,service_mode,runtime_id,old_evidence_gate,probe_id,generation,cancel_epoch,state,failure_code,clock_id,accepted_ns,deadline_ns,request_start_ns,callback_body_handoff_ns,callback_return_verified,ready_expiry_ns,draining,lease_held`。未発生値はnull、callback_return_verifiedは常にfalse。owner/raw/端末IDなし。
 
 同時に一probe/一worker/一prepare job/一原bytes。coordinatorの一lockでcheck-and-grant/cancel/commit/raw消去をatomicにする。native/captureとの共存arbiterは作らず、禁止producerが一つでも登録/実行されたら前提違反で固定failure/以後start拒否にする。
 
@@ -111,7 +111,9 @@ stateは `accepted → preparing → capturing → ready`、terminalは `cancell
 
 main prepareは旧production bridgeと同じXCUIScreenの `displayID` descriptor読取だけを新NG8 classのprivate stateへ保存する。旧 `NG2CaptureBridge.m/.h` は完全bytes不変とし、旧private static変数を参照/変更しない。AX app.frame/app.activate/device_info/UI snapshot/public screenshot fallbackを追加しない。capture workerは一requestだけを行い、ImageIO metadata/hash以外の解析をしない。
 
-private send前に専用ticketを設置し、sendの実return/unwind、daemon callback到着、callback全body（image.data/consumer/例外処理）のfinally終了を別に記録する。semaphore signal/consumer reply/既pending減算をdrain証明にしない。最初のcallbackだけがraw/error候補を提供し、duplicateはgetter/consumerを再実行しない。
+private send前に専用ticketを設置し、sendの実return/unwind、daemon callback到着、data/getter/copy/例外処理とprimary reply consumerの終了を別に記録する。semaphore signal/consumer reply/既pending減算だけを完了証明にしない。最初のcallbackだけがraw/error候補を提供し、duplicateはgetter/consumerを再実行しない。
+
+この新しい読取専用capでは、上記の全owned work終了後の**最終handoff**をbridge完了境界とする。通知後はdata/getter/consumer/ticketのmutable workを行わない。受け側はnonblocking enqueueだけを行い、AX・解析・hash・待機・coordinator lockをcallback内で実行せず、受け側jobの実終了も別に追跡する。SDKにpost-return ACKはなく、daemon blockのliteral stack returnやdaemon内部cleanupは証明できない。`callback_body_handoff_ns`はこのhandoff時刻、`callback_return_verified=false`を固定し、draining=falseをliteral return成功と呼ばない。これはproducer開始0の8専用probeだけの境界で、旧nativeのdrain契約・lease・入力資格は変更も再解釈もしない。
 
 同期callbackが終了してもsend未returnなら保持し、sendが戻ってもcallback body実行中なら保持する。sendがblock保持後throwした時はrequest_exceptionをラッチし、synthetic errorをdaemon終了としない。保持有無を証明できないthrow枝は実callback finallyが来るまで未解決ownershipとして閉じる。API不在等private send未呼出しを証明できる枝だけdaemon待ちなしで終了できる。強制解放/再送はしない。
 
@@ -123,9 +125,9 @@ leaseは保持raw又は未終了main/worker/send/daemon/callback ticketがある
 
 原NSDataを再encodeせずimmutable Dataとして一度固定しSHA256を一度計算する。ImageIOはJPEG/count1/各軸1..4096/8Mpx以下/EXIF非bool整数1..8又はmissing=nullのmetadata検査だけ。full raster decode/resize/回転/修復なし。
 
-原bytesは一枚8MiB以下、manifest64KiB以下、chunk raw最大64KiB/wire256KiB以下。limitは非bool整数1..65536、offsetは非bool非負整数でoverflow/実長/hashを検査。同immutable Dataの範囲だけ返し、8MiBなら最大128chunk。readyから固定300秒後は新export不可。全bytes/length/SHA検証後clientが明示cancelする。検証済fragmentをGit外へ保存し、不一致を新startへ変換しない。
+原bytesは一枚8MiB以下、manifest64KiB以下、chunk raw最大64KiB/wire256KiB以下。limitは最大返却数で非bool整数1..65536。offsetは非bool非負整数で実長未満、offset+limitのoverflow/hashを検査し、end=min(checked offset+limit,byte_length)として最終chunkは短縮できる。同immutable Dataの範囲だけ返し、8MiBなら最大128chunk。readyから固定300秒後は新export不可。全bytes/length/SHA検証後clientが明示cancelする。検証済fragmentをGit外へ保存し、不一致を新startへ変換しない。
 
-manifest固定fieldsは `schema,service_mode,runtime_id,probe_id,generation,clock_id,source_api,requested_uti,requested_quality,format,byte_length,sha256,source_width,source_height,exif_orientation,accepted_ns,deadline_ns,request_start_ns,callback_end_ns,ready_expiry_ns,input_authorized,input_geometry_verified,normalization_applied,device_capture_ns,freshness_verified,scope`。source_api=XCTScreenshotRequest、UTI=public.jpeg、quality=0.6は要求値、format=jpeg、scope=screen、authority/geometry/normalize/freshness各false、device_capture_ns=nullを固定する。chunkはschema/runtime/probe/generation/mode/sha256/offset/byte_length/chunk_bytes/data_base64だけ。余剰key拒否。
+manifest固定fieldsは `schema,service_mode,runtime_id,probe_id,generation,clock_id,source_api,requested_uti,requested_quality,format,byte_length,sha256,source_width,source_height,exif_orientation,accepted_ns,deadline_ns,request_start_ns,callback_body_handoff_ns,callback_return_verified,ready_expiry_ns,input_authorized,input_geometry_verified,normalization_applied,device_capture_ns,freshness_verified,scope`。source_api=XCTScreenshotRequest、UTI=public.jpeg、quality=0.6は要求値、format=jpeg、scope=screen、callback_return_verified/authority/geometry/normalize/freshness各false、device_capture_ns=nullを固定する。chunkはschema/runtime/probe/generation/mode/sha256/offset/byte_length/chunk_bytes/data_base64だけ。余剰key拒否。
 
 request/callbackはnative host-side intervalでcompositor生成/鮮度の証明ではない。全画面captureでforeground/game identityを未観測のまま認証済みにしない。原画をnative入力sourceへ昇格させない。failureは未発生null又は固定code `not_available,old_evidence_blocked,trusted_local_unavailable,runtime_mismatch,invalid_request,owner_inactive,unavailable,consumed_id,limit_reached,busy_probe,deadline,prepare_unavailable,api_unavailable,request_unavailable,request_exception,reply_exception,capture_failed,bytes_invalid,jpeg_invalid,metadata_invalid,producer_violation,cancelled,expired` の閉enumにする。pair endpointの固定codeは§3.3で別定義し、承認pending stateは作らない。raw例外/daemon文字列をwire/logへ出さない。私有manifestだけにexpected device/install・transport・build/cap・runtime/probe/hashを結合する。JPEG/full metadata/log/端末ID/IP/team/pairing/鍵はGit外、公開summaryは許可fieldの合否だけ。
 
@@ -151,7 +153,8 @@ request/callbackはnative host-side intervalでcompositor生成/鮮度の証明�
 | double start/cancel/late/旧generation/pause/revoke | 一勝者、偽owner/actor無効、各commit/export gate、最初terminal reason不変 |
 | block保持後throw/保持不明throw/synthetic error後late daemon | 実callback finally＋send return前lease保持、callbackなしはdraining、再送0 |
 | 同期callback/send未return、send return/callback getter・consumer fence中、duplicate | 両方完了までready/解放0、duplicate再getter/consumer0、underflow0 |
-| main待機2秒超過/prepare中cancel/HTTP切断/never callback | 新prepare/request/commit0、実main/worker/callback終了前lease保持、status有限、強制解放0 |
+| main待機2秒超過/prepare中cancel/HTTP切断/never callback | 新prepare/request/commit0、実main/worker/send終了とcallback owned work handoff前lease保持、status有限、強制解放0 |
+| final handoff通知のreceiverをfenceで保持 | data/getter/primary consumer終了済み、通知以後のmutable work0。literal callback return未証明をfalseで表示。実adapterはenqueueだけ、受け側job実終了まで別ticket保持 |
 | API不在/例外/空/oversize/非JPEG/count/寸法/EXIF不正 | 固定failure、fallback/修復/公開0。EXIF1..8/欠落と896×414以外の合法JPEGは原bytes/metadata正確、normalize0 |
 | range/hash/overflow/bool/余剰key/TTL後cursor/fragment再開 | payload範囲内のみ、同artifactだけ、length/SHA不一致を成功/新startにしない |
 | 私有sentinel混入 | 公開summary/logにraw/Base64/秘密/端末識別子0。実fresh process/JPEG/drain未実施を成功にしない |

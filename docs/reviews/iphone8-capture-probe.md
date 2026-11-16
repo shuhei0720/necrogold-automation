@@ -1,7 +1,7 @@
 # iPhone 8 capture-only probeのレビュー・検証
 
 2026-11-16（日本時間）。[計画](../plans/iphone8-capture-probe.md)に対応。
-**未実装・未配布。iPhone 11への接続・導入なし。** 通常TEST107、既定launcher、旧G1/G2 source・seal・workflowは維持する。
+**実装・host検証中、未配布。iPhone 11への接続・導入なし。** 通常TEST107、既定launcher、旧G1/G2 source・seal・workflowは維持する。
 
 ## 設計レビュー
 
@@ -30,6 +30,17 @@ compile・環境失敗はRedに数えない。23ケースの準備や静的レ�
 
 専用workflowは承認済みbranchと専用pathだけのpushを対象にし、閉じたhost phaseを実行する。
 この段階ではIPA作成・導入・公開Releaseへの到達はない。通常workflowを変更しない。
+
+初回実測は[Actions 43833216314](https://github.com/shuhei0720/necrogold-automation/actions/runs/43833216314)、
+commit `9f86c93c6e316582efe78842dd2472e781f79e69`。
+macos-26でObjC compile成功後、指定assertion/exit1/空stderrを確認した。
+CI reportの4 source SHAは当該stub/fixtureと全一致。これはbehavior Redの成功であり、取得処理のGreenや実機成功ではない。
+
+bridge実装レビューのP1は、SDKがcallback後のliteral return ACKを持たない点だった。
+新8 capだけは全owned data/getter/primary consumerとsend終了後のfinal handoffを境界とし、
+通知後のmutable workを禁止する。wireは`callback_body_handoff_ns`と`callback_return_verified=false`で未証明を明示する。
+独立確認の残P0/P1なし。旧native契約は変更せず、producer開始0・nonblocking receiver・受け側jobの別追跡はintegrationで検証する。
+bridgeの26ケースと、coordinator/modeの初回assertion Redは次のMac実行待ちである。
 
 ## 現在の証明範囲
 
