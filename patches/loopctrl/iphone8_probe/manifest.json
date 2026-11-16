@@ -1,0 +1,67 @@
+{
+  "schema": "ng8-overlay-v1",
+  "upstream_commit": "6e25cf6a9f65bc86c372cdce94bdb151d0cf6767",
+  "baseline": {
+    "source-manifest.json": "0ecd13d76591a5251f2df4614a59e69138812f80b6dcd06885dd7705df41ad92",
+    "ngg1.patch": "f9508cd394d3f57c0f44583effad8d43fb5de363dbf6f61df81bf5dbfa1215e2",
+    "ngg2-manifest.json": "9d1737ba60623660a3167415ab1d6dca57357cd2d3406bbbc893af04eca8b2aa",
+    "ngg2.patch": "e6e764ae5e920ab8bd9e7b5527056ee52a68349f77afc1367524919509458438"
+  },
+  "patch_sha256": "9383c0946f67342fec80420118f247e45d285efdce60aa6041bd5c808beb0b85",
+  "files": {
+    "LoopCtrlApp/Models/AppState.swift": {
+      "base_sha256": "39cf6a1095f37699fadcc5d896289b7359a0fad01e87a372a62cce94dd4bf393",
+      "final_sha256": "59f4166d60a8a15be5b54d3c1ec51a9e1d524189c239d9ac29e68d76fa141b7b"
+    },
+    "LoopCtrlApp/Runner/InProcessRunner.swift": {
+      "base_sha256": "c91d4e67c8bec4dd5182d22a464ea90a959cd682caf2b25794a396580847ee8b",
+      "final_sha256": "7ef62ed737ffd9df299ffe76748e7ace3f8e1952d34962ee96e09aa3ca6164a6"
+    },
+    "LoopCtrlApp/Views/SettingsView.swift": {
+      "base_sha256": "0035d7214cfac5690b6914a02f554bdab83e48aa2a5acb4cf57d42df0781da11",
+      "final_sha256": "df6027db1245042aeda5636abfb109822ac4afb57ff8fb6fa4a3b3be35ee58af"
+    },
+    "LoopCtrlKit/JSONRPCServer.swift": {
+      "base_sha256": "cf70ae2d0583eebe96ae79910c281d00950eeca0d5e2e2ee74fa433dfb920467",
+      "final_sha256": "ee9d6f4ae01a148ec863f55aeb2e3ed1d427185f3abc91eba564c068f7f3de11"
+    },
+    "LoopCtrlKit/RPCMethod.swift": {
+      "base_sha256": "86d665bc01c3118d4174805229e65bda00ce48e22231ac7c09fcb3d07319c234",
+      "final_sha256": "97d5e963205ac4fc33d60fd73a4ecadf61bc3e47ffd656cba31f2bab55e3a41b"
+    },
+    "LoopCtrlUITests/LoopCtrlUITests.swift": {
+      "base_sha256": "41a79bfa1ee2d3e6a326faf46cee207c8053f20b593a6769c5aef856d5365217",
+      "final_sha256": "19bfc9cd4da0978de89d54d36bd93e4ee0f2bdd44ae843b3a0bb0141ce4b3da9"
+    },
+    "LoopCtrlUITests/XCTestPrivate-Bridging-Header.h": {
+      "base_sha256": "2da6914aed5de4098514a2faeff563c1f8c50f56868bea765f4f008905f8bf84",
+      "final_sha256": "a6e0e7bc8fde4f1f3eb609eedd12992a609b8ebc8611d6825a7f80c3d753c31d"
+    },
+    "project.yml": {
+      "base_sha256": "e9f499a3258e80fb4721866a094393bc5544027f5f3ad0ec4f7fd16506b34fd5",
+      "final_sha256": "bece3863825901ec0f5dd515c35fc345c6c52d686fd9dc8a2e710643b349bb76"
+    }
+  },
+  "additions": {
+    "LoopCtrlUITests/NG8CaptureBridge.h": {
+      "source": "NG8CaptureBridge.h",
+      "sha256": "77d516b6e2544eebaff8227a5eebc38d2683016e17f4a161bfa6e895ead24901"
+    },
+    "LoopCtrlUITests/NG8CaptureBridge.m": {
+      "source": "NG8CaptureBridge.m",
+      "sha256": "202ab11d5c25226b392e9637f24ba1226b8841f0ec255c997f0e72bd2225ba5c"
+    },
+    "LoopCtrlKit/NG8CaptureMode.swift": {
+      "source": "NG8CaptureMode.swift",
+      "sha256": "b8cca3c87af2021ec8eddf42399b10f1f43635367b2ade8ef52db8838245dc8f"
+    },
+    "LoopCtrlUITests/NG8CaptureProbe.swift": {
+      "source": "NG8CaptureProbe.swift",
+      "sha256": "9a98b03c02f47b4460add0c697a345447c872c98f0aaa14dfc35f3fd84cb470d"
+    },
+    "LoopCtrlUITests/NG8CaptureService.swift": {
+      "source": "NG8CaptureService.swift",
+      "sha256": "addb34db6fef1aa57171ea76890f9aa28b0d159579e1fd0c65a7f66954d7c462"
+    }
+  }
+}
