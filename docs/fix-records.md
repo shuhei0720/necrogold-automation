@@ -395,4 +395,10 @@ TEST106/build202確認: 最終CODEc18427fの選択156件/24scope、同source IPA
 | FR-107-INITIAL-FADE | 2026-11-16 | 実3で一歩も動かず待機期限で停止 | 初歩前の暗い原40へ静止基準を固定し、同prefixでも点灯後の画像とMotion不明が続く | 旧入力/候補経路の権限を撤回し、初歩前の限定条件で最新独立2画像の観測を再取得。元D/同期epoch/予算を維持し通常の新sourceへ | 原40→107だけUNKNOWN、元D内87→88は厳密零。元D確定の正本Red7/3fail→最終C新7成功＋旧15別成功。postRESTART→新source票/実MOVEDと拒否条件を確認。実機未確認 | 今回1。旧初歩前再取得は未送信MOVE用でpassage_waitを対象外、過去改善完了とは扱わない |
 | FR-107-INITIAL-MOVED | 2026-11-16 | 配布前の独立点検で、episode前の既知MOVED後にUNKNOWNから再取得し得る不足 | sticky失効をepisode開始後だけに限定していた | 初期GOLD waitの既知MOVED/非零をepisode前から失効させ、後のUNKNOWN/零で取り戻さない | 元D確定/MOVED/UNKNOWN入口を資格化したRed1/error0→最終新7/旧15へ結合。実機未確認 | 配布前レビュー1。新しい実機再発へ数えない |
 
+## 環境移行・資料配布
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-HANDOVER-DOWNLOAD-SIZE | 2026-11-16 | Windowsで私有資料ZIPの「アーティファクトをダウンロードできませんでした」 | 1,305,774,621Bの単一ファイルを案内し、[公式の512MB未満の条件](https://help.openai.com/en/articles/7996703-troubleshooting-chatgpt-error-messages)を確認していなかった。サイズ以外の要因は未確定 | 上限未満の4つの独立ZIPへ分割。順序/offset/各chunk SHA/元全体SHAを保ち、新環境で結合 | 全4chunkと結合後の全bytes/SHA一致、既存出力拒否/verify-only書込み禁止を確認。ユーザーの保存成功・新環境の受領は未確認 | 今回1。過去の類似保存不能との同原因通算は未集計。製品歩行の再発と混同しない |
+
 TEST107/build204確認: CODEcfdb690の最終C fdbc142、選択52件/12scope、同source IPA作成、実物5gate/5attemptが成功。原3pairの役割証明・再判定原184/440の正常safe PARTIALは校正であり、実機改善完了と扱わず各行の未確認/再発数を維持する。
