@@ -409,7 +409,7 @@ TEST107/build204確認: CODEcfdb690の最終C fdbc142、選択52件/12scope、�
 | FR-108-UNSENT-ROUTE | 2026-11-17 | 追加runで歩行途中に未送信のまま停止 | 原198→199は厳密零だが、観測床vantageがRIGHTからUPへ変化。旧票の同Decision検査がROUTE10で停止 | 旧票を撤回し、新旧の正規選択/観測床/一歩近傍/厳密零と限定材質関係を満たす別refresh modeへ。独立全tile一致/同Decision/将来拍、元予算を要求 | 最終新10を旧Cへ結合して24assert失敗→新10/旧16成功。原events由来world/visitsで純述語適格、私有非active仮定をRuntime証明にしない。実機未確認 | 今回条件1。利用者の周番号との対応未確定、同根因通算未集計 |
 | FR-108-SPLIT-ROOF | 2026-11-17 | 金壁候補の原70を見送り実リスタート | 観測された上左のsplit roofが旧095/097等の別形状条件に当たらずmask0。候補対策削除とは未確認 | 独立壁/屋根・暗い口・内側既床を要す新witness。既床3歩のvantageだけ許し、未知口へ進まない | 旧Nav新7で5assert失敗→新7/直接旧26成功（O0/strictO2）。原70はmask0→1/既床3歩、原Scene不変。実機未確認 | 今回1。FR106左/上観測系列の適用外、同根因通算未集計 |
 
-TEST108/build206確認: CODEe8c4bb8の最終C8f071469/Ring0a767a0d/Nav34f1fae6、選択CI159件/22scope、同source IPA作成、実物5gate/5attemptが成功。原画像校正/手続き試験と実機を区別し、各行の実機未確認・再発数を維持する。
+TEST108/build206確認: CODEe8c4bb8の最終C8f071469/Ring0a767a0d/Nav34f1fae6、選択CI159件/22scope、同source IPA作成、実物5gate/5attemptが成功。固定Release test108-build206を公開し、IPA/完全source/hash表の匿名GET200・全hash一致まで確認。配布source595f5bbの追加は閉じ文書3件のみ。原画像校正/手続き試験と実機を区別し、各行の実機未確認・再発数を維持する。次はメインiPhone11のtest_108.sh --until-targetで入店/3商品確認/対象なし次周回を確認し、全照合後のcampaign ZIPを受領する。
 
 配布準備の修正（製品の実機再発へ数えない）:
 

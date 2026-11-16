@@ -50,6 +50,20 @@ CODE `e8c4bb884f079fe11a7b14483bc3095990964641` の[device CI206](https://github
 
 同runの3artifactをGitHub metadataの全bytes/digest/CRC/pathへ結合し、同CODEの完全source967 filesをGitの全bytes/CRCへ照合した。実package/host/retained/Mach-O/compileの5gateを各1回で全成功。検証器による追加native/分類/compile実行は0。実compiler・36source・旧source/feature/ELF/R12・9 Mach-O・現在のmethod inventoryを照合し、作者の旧source確認を最終CIと区別した。
 
-IPAは18,065,614 bytes、SHA256 `08e84bbf3777e706861bfe8ce993f4d78faa05225b928cd3bb258e2943d606f7`。CODE完全sourceは9,344,389 bytes、SHA256 `f13a24c98a552973cf85ac4df26f7254b214a8002d4e92f4b695d2597f30855e`。固定Release `test108-build206` への公開は次工程で、公開後の完全sourceは閉じ文書だけを加えたclosing commitを使う。
+IPAは18,065,614 bytes、SHA256 `08e84bbf3777e706861bfe8ce993f4d78faa05225b928cd3bb258e2943d606f7`。CODE完全sourceは9,344,389 bytes、SHA256 `f13a24c98a552973cf85ac4df26f7254b214a8002d4e92f4b695d2597f30855e`。
+
+[publisher CI207](https://github.com/shuhei0720/necrogold-automation/actions/runs/43943888739)が成功し、[固定Release test108-build206](https://github.com/shuhei0720/necrogold-automation/releases/tag/test108-build206)へ公開した。配布完全sourceはclosing `595f5bb458dbcc66a1a30118e0df4f3e3b807c93` の全967 files、9,345,261 bytes、SHA256 `7491b68453e8381fec938a9be5d4e53b9579ccc2af4b7abc2b4656c1a6940eeb`。CODEとの差はstatus/review/fix-recordsの閉じ文書3件だけで、全tracked bytes/CRC/pathを照合済み。公開IPA/source/SHA256SUMSの3assetを匿名で再取得してHTTP200・全bytes/SHA256とRelease digest一致を確認した。後続の配布完了記録は同3文書だけで、IPA/sourceの再作成を要しない。
 
 無関係な全Runtime故障/全合成world/実ゲームE2Eは実行していない。新TEST108の実機到達率・未知精度・毎拍/人超え速度・耐久は未受入。原236/238で未観測の端を陰性にせず、次の適格frameと移動後は実機で確認する。
+
+## 次の実機確認
+
+メインiPhone11で[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test108-build206/LoopCtrl.ipa)を更新し、LoopCtrlを完全終了→再起動→Start Server。通常VPNと通知を有効にし、日本版ケイデンス・通常オールゾーン1-1をポーズする。[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test108-build206/source.zip)を展開し、`test_108.sh` があるフォルダーをiSHから選んでmountする。
+
+```sh
+mkdir -p /mnt/necro_test108
+mount -t ios . /mnt/necro_test108
+cd /mnt/necro_test108 && sh test_108.sh --until-target
+```
+
+候補探索→開扉後の入店→全3商品確認→対象なしなら次周回を確認し、のろいのゆびわ候補・障害・停止時の状態を記す。全画像/ZIPの保存・照合終了後に表示されたcampaign ZIPを返却し、全run原本を保持する。回収済みrunの追加回収目的で再実行しない。実機結果を受領するまでは各対策を改善完了にしない。
