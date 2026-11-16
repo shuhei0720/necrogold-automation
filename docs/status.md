@@ -1,15 +1,11 @@
 # 最新状態
 
-2026-11-16（日本時間）。[引き継ぎ](handover-2026-11-16.md)。旧資料未移送。
+更新: 2026-11-16（日本時間）。TEST106の4実行/5商店遭遇の停止を修正し、TEST107/build204の実物照合まで完了。[計画](plans/test107-partial-composition.md)・[受領/検証](reviews/test107.md)・[修正表](fix-records.md)。
 
-接続: [VPN/SSH](plans/windows-ssh-tailscale.md)受入済み。[iPhone8環境](plans/iphone8-device-lab.md)はNetwork/DDI/capture・LoopCtrl/XCTest/暗号RPC成功。SideStoreのxctest不整合は検査済staging直接導入で回避。USB・native入力/商品到達は未受入。
+実1/2/4後半の正常PARTIAL後ROUTE10は、上端商品投影と既地形関係を分離・合成して修正。新ITEM/上端dataは一用再判定へ。実3の初歩前フェード固定は元D内の最新2画像から再取得し、既知MOVEDはsticky拒否。実4前半は原記録で正常完全陰性→実RESTART ACK15→新floor225まで成立を確認した。
 
-完成版は11/8同一IPA・共通制御、端末別profile。11座標を保護、11操作0回。
+CODE cfdb690の[CI204](https://github.com/shuhei0720/necrogold-automation/actions/runs/43732679433)は52件/12scopeが失敗・skipなしで成功。同source IPA/完全source955files、実compiler等5gate/5attemptを照合済み。独立レビューは未解決P0/P1なし。原3pairの役割と再判定原184/440も校正。[TEST107/build204固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test107-build204)を公開済み。IPA/source/SHAの匿名GET200・全bytes/hash・tagを照合した。公開CI205成功、配布sourceはaeee520でCODEとの差はdocs3filesだけ。
 
-最新要件: 停止確認→起動→間隔つきタップ→ホーム→左・下・下→通常1-1。3移動一括確認可。8で100周以上の判定付き自走品質を作り、利用者が最後に確認。[START-03](requirements/necrogold.md)完全自動化は未実装。
+Cだけ変更し、他35 native/公開ABI/cap/既feature/canonical15/ELF/G1/R12・元予算/対象保持/UNKNOWN無再送を維持。無関係な全Runtime/合成world/実ゲームE2Eは未実施。
 
-独立cold start 4回で左・下・下→1-1/3HPをG1確認。[計測版800008](reviews/iphone8-integration.md)は8へのUpgrade・fresh mode・既token・原JPEG取得成功。原画で共通CのPAUSE/Restart、固定G1でFLOOR/beat。通常900006は実Mac build/IPA/全source照合済み、8はVPN peer疎通失敗で署名前停止を復旧中。次の実験版は既知8の実測7点に限定して有限native runを先行、gap31・本番未受入を保持。商店/商品/100周は0・未受入。
-
-現配布はTEST107/build204。[計画](plans/test107-partial-composition.md)・[レビュー](reviews/test107.md)・[修正表](fix-records.md)。TEST106の複合変化/初歩前フェードを修正し、既知MOVED拒否を維持。
-
-CI204と固定配布の来歴は[TEST107レビュー](reviews/test107.md)。旧入口はLoopCtrl再起動/Start Server後の1-1ポーズ。保護native/R12・候補保持・UNKNOWN無再送を維持。商品到達・未知精度・毎拍/人超え速度・耐久は未受入。
+次の実機は新IPA更新・LoopCtrl完全再起動/Start Server後、通常1-1ポーズから test_107.sh --until-target。候補探索→入店→全3商品確認→対象なし次周回を確認する。全照合終了後のcampaign ZIPを返却し、全run原本を保持。実機到達率・未知精度・毎拍/人超え速度・耐久は未受入。

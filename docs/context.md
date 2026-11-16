@@ -1,6 +1,6 @@
 # 作業ごとのコンテキスト
 
-最初に [AGENTS](../AGENTS.md)・[現在の状態](status.md)・本索引を読む（計16KiB以内）。版/配布/試験結果はstatusを正本とする。
+最初は [AGENTS](../AGENTS.md)・[現在の状態](status.md)・本索引を読む。この3文書は合計16KiB以内とし、最新結果・今回の計画・必要な契約へ案内する。現行版、配布物、試験結果はstatusを正本とする。
 
 機能を変える前に [要件正本](requirements/necrogold.md)、[開発フロー](development-flow.md)、[制御契約](contracts/native-control.md) の該当節を読む。TEST072の探索/level切替は[限定契約](contracts/passage-approach.md)も参照する。以下の表から対象の関数と試験を選び、`rg -n` で位置を探して周辺を読む。大きいファイルを一括で読んだことを、影響範囲の確認の代わりにしない。
 
@@ -13,7 +13,7 @@
 | TEST103の遮蔽・静止・商品coverage | [計画](plans/test103-observation-coverage.md)・[検証](reviews/test103.md) | ACK内UNKNOWN待機、plural資格、policy7/8、C独立証明 |
 | TEST102の入店継続・陰性周回 | [今回計画](plans/test102-shop-entry-cycle.md)・[検証](reviews/test102.md) | 実footprint/通路framing、policy6、正常分類→保存→再開。[前版101](reviews/test101.md) |
 | TEST093の開扉後の入店 | [計画](plans/test093-opened-entry.md)・[受領/検証](reviews/test093.md) | 新CのFRESH/未送信回復と旧関連だけ。Runtime092は不変bytes/過去証跡 |
-| 新環境へ全体引き継ぎ | [引き継ぎ](handover-2026-11-16.md) | 要件・修正履歴・接続・私有資料の受け取り確認 |
+| 現在の不具合・今回の計画 | statusの結果と計画リンク | [検証の区分](testing.md)、該当する受領記録 |
 | 修正前の過去対策・再発照合 | [修正記録表](fix-records.md) | 同じ事象/原因を検索。過去の対策を改善完了と扱わない |
 | 入力予約・初歩・再予約・motion | `patches/loopctrl/ngg2/NG2Controller.c` の `reserve`、`ng2_controller_observe_at/tick/begin/complete`、`resolve_move`、`reference_*` | `tests/test_native_closed_mouth080.py`・`tests/test_native_dirt_ticket079.py`・`tests/test_native_passage_palette077.py`・`tests/test_native_open_entry077.py`・`tests/test_native_stationary_wait076.py`・`tests/test_native_passage_unsent076.py`・`tests/test_native_view074.py`・`tests/test_native_ui073.py`・`tests/test_native_observation072.py`・`tests/test_native_passage072.py`・`tests/test_native_shop071.py`・`tests/test_native_terrain071.py`・`tests/test_native_cadence070.py`・`tests/test_native_gate069.py`・`tests/test_native_edge068.py`・`tests/test_native_blocked067.py`・`test_native_cadence067.py`・`tests/test_native_device066.py`・`test_native_shop066.py`・`test_native_device065.py`・`test_native_device064.py`・`test_native_gate064.py`・`test_native_unsent_continuous.py`・`test_native_device061.py`・`test_native_motion_cadence.py`、旧回帰は`test_native_controller.py`・`test_native_recovery.py`、[制御契約](contracts/native-control.md) |
 | 拍の取得・追跡 | `patches/loopctrl/ngg2/NG2Beat.c` のfit/track、Controllerのmodel検査 | `tests/test_native_beat.py`、`testInitialSlotPreparationPublic` |

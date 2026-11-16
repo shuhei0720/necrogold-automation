@@ -395,30 +395,4 @@ TEST106/build202確認: 最終CODEc18427fの選択156件/24scope、同source IPA
 | FR-107-INITIAL-FADE | 2026-11-16 | 実3で一歩も動かず待機期限で停止 | 初歩前の暗い原40へ静止基準を固定し、同prefixでも点灯後の画像とMotion不明が続く | 旧入力/候補経路の権限を撤回し、初歩前の限定条件で最新独立2画像の観測を再取得。元D/同期epoch/予算を維持し通常の新sourceへ | 原40→107だけUNKNOWN、元D内87→88は厳密零。元D確定の正本Red7/3fail→最終C新7成功＋旧15別成功。postRESTART→新source票/実MOVEDと拒否条件を確認。実機未確認 | 今回1。旧初歩前再取得は未送信MOVE用でpassage_waitを対象外、過去改善完了とは扱わない |
 | FR-107-INITIAL-MOVED | 2026-11-16 | 配布前の独立点検で、episode前の既知MOVED後にUNKNOWNから再取得し得る不足 | sticky失効をepisode開始後だけに限定していた | 初期GOLD waitの既知MOVED/非零をepisode前から失効させ、後のUNKNOWN/零で取り戻さない | 元D確定/MOVED/UNKNOWN入口を資格化したRed1/error0→最終新7/旧15へ結合。実機未確認 | 配布前レビュー1。新しい実機再発へ数えない |
 
-## 環境移行・資料配布
-
-| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
-| --- | --- | --- | --- | --- | --- | --- |
-| FR-HANDOVER-DOWNLOAD-SIZE | 2026-11-16 | Windowsで私有資料ZIPの「アーティファクトをダウンロードできませんでした」 | 1,305,774,621Bの単一ファイルを案内し、[公式の512MB未満の条件](https://help.openai.com/en/articles/7996703-troubleshooting-chatgpt-error-messages)を確認していなかった。サイズ以外の要因は未確定 | 上限未満の4つの独立ZIPへ分割。順序/offset/各chunk SHA/元全体SHAを保ち、新環境で結合 | 全4chunkと結合後の全bytes/SHA一致、既存出力拒否/verify-only書込み禁止を確認。ユーザーの保存成功・新環境の受領は未確認 | 今回1。過去の類似保存不能との同原因通算は未集計。製品歩行の再発と混同しない |
-
 TEST107/build204確認: CODEcfdb690の最終C fdbc142、選択52件/12scope、同source IPA作成、実物5gate/5attemptが成功。原3pairの役割証明・再判定原184/440の正常safe PARTIALは校正であり、実機改善完了と扱わず各行の未確認/再発数を維持する。
-
-| FR-HANDOVER-EXPORT-ROUTE | 2026-11-16 | Edgeで分割ZIP/213B ZIP/84B TXTも保存不能。TXT本文の表示は成功 | 共通の保存経路の障害が疑われるが、根本原因は未確定。TBOの404との対応は未採取。512MB超過だけでは説明不可 | 追加分割・アプリ固有との断定・存在しないLibrary UIの案内を止める。生資料未移送を明示して接続準備を先行 | 小型fileのFS可読/CRCとユーザー側失敗を分離して記録。転送復旧は未解決、原本保持 | 複数条件で同症状。同一原因の再発数は未確定（0にしない） |
-
-## Windows接続準備
-
-| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
-| --- | --- | --- | --- | --- | --- | --- |
-| FR-SSH-PASTE-ORDER | 2026-11-16 | 複数行PowerShellが逆順になり、未設定変数の呼出しや未完了入力 `>>` で停止 | 初回診断の逆順を認識後も、接続probeを複数行blockで案内した。貼り付け順が反転するUI側の機構は未確定 | Ctrl+Cで通常promptへ戻し、1コード枠1論理行・行内で完結する変数/検査へ変更。promptや出力行を混ぜない | 1行版probeで管理CONNECT 200とWindowsの接続元報告を受信し、Tailscale TCP疎通を実測。SSH認証の成功とは分ける。[接続計画](plans/windows-ssh-tailscale.md) | 複数行で2件観測。同一UI原因の通算は未確定。1行化後の接続probeは成功 |
-| FR-SSH-HOSTKEY-SYSTEM | 2026-11-16 | 管理者の `sshd -t/-T` は成功するが、LocalSystemサービスが1067で停止 | 手動生成したhost private keyに個人SIDのowner/ACEが残り、手動実行者とLocalSystemの資格を同一視。Windowsのhost key所有者/ACE条件と不整合。直接のfatalログは未取得 | 今回生成したEd keyの旧SDDLだけを保存し、key内容を維持してowner Administrators・SYSTEM/Administrators Fullへ補正。他key/既存directoryへ広げない | 同じkeyのままサービスRunning/限定IPv4:22待受へ改善。OOB公開fingerprintと実受信keyが一致し、専用公開鍵SSHのwhoamiと空batch SFTPが成功。SSH実版9.5.6.4。PC再起動後は未確認 | 今回1。補正後の起動/SSH接続は成功、再起動後は未試験 |
-
-## iPhone 8の開発環境
-
-| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
-| --- | --- | --- | --- | --- | --- | --- |
-| FR-SIDESTORE-CONNECTION-BIND | 2026-11-16 | TEST107 IPAを選択後、`No utun interface detected — LocalDevVPN is not connected` で導入失敗 | 固定minimuxerの当該文言は有効モードlocalVPNで発生。保存plistはremote指定でも、実行時bindingの切替は証明されていなかった。設定のずれの根本原因は未確定。実画面のLocalDevVPNはDisconnected | 保存値だけで復旧と扱わず、通常UIのConnection Config/ConfirmとVPNの実接続を確認。全設定backupは許可済みのWindows保護folder内だけに保持 | [環境計画](plans/iphone8-device-lab.md)。LocalDevVPNはConnectedでもActive Noを確認。後掲WireGuard経路でReachable/Verifiedへ改善し、別のmetadata停止を回避後に直接導入/XCTest/暗号RPCまで成功。旧設定の根因解消とは扱わない | 今回exact文言1。旧DeviceEndpointNotInitializedとの同根因通算は未確定 |
-| FR-SIDESTORE-IOS16-VPN-PATH | 2026-11-16 | LocalDevVPN Connectedでもpeer TCP62078がunreachable。旧互換IP/直接LANも到達せず | classic iOS16とLocalDevVPN経路の互換性が候補。TCP probeはBoolだけでerrno未取得、根因は未確定 | 固定公式WireGuard config＋SideStore EMProxyへ切替。元configの全bytes/hashをWindows/Phone内で照合し鍵をCloudへ出さない | 実Health CheckのReachable/Pairing Verified・Lockdownと診断logのreachableを確認。DDIはPMDで実mountedを再確認し、SideStoreのiOS16偽陰性/JIT検査と分離。後続metadata停止は次行の直接導入で回避し、実XCTest/schema/暗号RPCを確認 | 旧方式で複数条件の同症状。今回回避経路の接続は成功、旧原因の通算未確定 |
-| FR-SIDESTORE-XCTEST-METADATA | 2026-11-16 | Reachable/Verified後のLoopCtrl導入でOperationError 3、LoopCtrlUITests.xctest not found | 固定SideSignの拡張モデルは.appex限定、InstallAppOperationはPlugIns中の全Bundleを元辞書へ照合し、.xctestを拒否。署名/転送後・実install前で停止 | 必須.xctestを残し、既存署名済stagingをWindows RAMで固定TEST107と照合。完了応答付き事前一覧・直前の全bytes/hash/size/mtime・排他的receiptを確認後、正規InstallationProxy Installを1回だけ実行。個人署名IPA/p12 entryはCloudへ出さず、自動再送しない | [検証](reviews/iphone8-device-lab-2026-11-16.md)。9 Mach-O/9 CodeDirectory・15資産・2.appex metadata/profile条件を検査。CMS/chainの暗号検証とは別に、実OS installer Completeと導入後の正確なID/両version一致を確認。実機XCTest bootstrap/run loop、schema 1.98.16-ngg2、専用暗号RPC config/logs成功。8のgeometry/input/START-03と本番11の受入は含めない | 今回1。直接導入で今回packageを回避。本体metadata不整合とiloaderの同ID拡張拒否は未修正 |
-| FR-I8-OPERATOR-DELAY | 2026-11-16 | 1-1到達後、手動RPC間隔が長くポーズ前にゲームオーバー | 操作→Cloud確認→次操作を個別に待ち、ゲームを進行させたまま解析 | 既run_stepsで実観測済QR・待機・撮影・Homeを端末内で一括実行。復帰時Pauseと最終Homeを独立確認 | [実機記録](plans/iphone8-device-lab.md)。新規1-1を4回すべて3HP/異なる地形で確認しHome退避。待機だけで暗いicon/説明が消える仮説は不成立。商店探索/native入力/START-03全体は未受入 | 当該放置死1。一括化後4回で同事象未観測、最終性能/耐久の合格ではない |
-| FR-I8-FOOTER-SUPPORT | 2026-11-16 | G1診断のFLOOR footerが閾値未満、単純写像では負guard36画素が実FOV外 | 8の画面幅と旧canonical footer幅の差。さらに一律halo検査が実tap内のedge cropも未観測扱い | 字形維持bodyと実端guardの別写像。実画素だけをコピーし、nonzero kernel支持と遮蔽を検査。旧C/template/閾値は保持 | [限定レビュー](reviews/iphone8-integration.md)。意味Red→Green、関連33件、固定G1 3枚が公開CでFLOOR/beat。RAW/未知精度/native入力は未受入 | 固定校正3枚で再現し改善。同原因の未知run通算は未確定 |
-| FR-I8-RESTART-REDUCTION | 2026-11-16 | 実原JPEGでPAUSE成立もrestart_label0 | Restart用ROIが未接続で、単段affineも縮小支持を正しく扱わず既閾値未満 | 観測ROI全体を正規BOXで縮小。半開区間の全nonzero tapと負guardの実支持を検査し旧C/閾値を維持 | 原画1枚で同C PAUSE1/restart1、独立全支持/遮蔽拒否、関連34件。実CoreGraphics位相・次の実機入力は未受入 | 既知原画1件で改善。未知画像/連続実機の再発数は未確定 |
