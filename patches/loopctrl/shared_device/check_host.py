@@ -71,10 +71,14 @@ def check(upstream,output):
         red=fixture_directory/'NG2DeviceRaster.swift'
         red.write_text(text.replace(needle,needle+' p.qualification_gaps == 31,'))
         run([*compiler,legacy,red,main,*link,'-o',output/'raster-swift-red'])
+        # Run the current implementation first: its bounded failure output
+        # must remain visible rather than being hidden by a later Red mismatch.
+        raster_swift_proof=run([output/'raster-swift'])
         rejected=subprocess.run([str(output/'raster-swift-red')],capture_output=True,text=True,timeout=120)
         if rejected.returncode!=1 or rejected.stdout or rejected.stderr!='FAIL identical_geometry_renders_when_input_gap_mask_0\n':
-            raise ValueError('raster_gap_assertion_red_not_observed')
-        raster_swift_proof=run([output/'raster-swift'])
+            raise RuntimeError(json.dumps({'code':'raster_gap_assertion_red_not_observed',
+                'exit':rejected.returncode, 'stdout':rejected.stdout[-4096:],
+                'stderr':rejected.stderr[-4096:]},sort_keys=True))
     result={'schema':'ng2-shared-device-host-v1','status':'pass','source_sha256':expected,
         'binding_sha256':hashlib.sha256(binding.encode()).hexdigest(),
         'dispatch':dispatch,'swift':swift,'raster':raster_proof,'raster_swift':raster_swift_proof,'physical_device_acceptance':False,

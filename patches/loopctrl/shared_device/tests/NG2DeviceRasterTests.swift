@@ -30,7 +30,22 @@ for gaps in [UInt32(31), 0, 4] {
     withUnsafePointer(to: &profile) { pointer in
         switch NG2DeviceRaster.decode8(bytes, profile: pointer,
             contract: .originalPortrait750x1334EXIF8, occlusions: []) {
-        case .failure:
+        case .failure(let failure):
+            // The intended old-guard Red is gap0 and retains its exact line.
+            // Any first (gap31) render failure reports only public fixture
+            // enums and acquired numeric metadata, never encoded bytes.
+            if gaps == 31 {
+                let fields: [String: Any] = [
+                    "schema": "ng2-public-raster-fixture-failure-v1",
+                    "stage": failure.stage.rawValue, "code": failure.code.rawValue,
+                    "source_width": failure.sourceWidth.map { $0 as Any } ?? NSNull(),
+                    "source_height": failure.sourceHeight.map { $0 as Any } ?? NSNull(),
+                    "exif_orientation": failure.orientation.map { $0 as Any } ?? NSNull()]
+                if let data = try? JSONSerialization.data(withJSONObject: fields, options: [.sortedKeys]),
+                   let line = String(data: data, encoding: .utf8) {
+                    fputs("PUBLIC_FIXTURE_DIAGNOSTIC " + line + "\n", stderr)
+                }
+            }
             require(false, "identical_geometry_renders_when_input_gap_mask_\(gaps)")
         case .success(let decoded):
             if let reference { require(reference == decoded.floor.rgba, "input_gaps_do_not_change_pixels") }
