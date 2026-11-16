@@ -7,7 +7,7 @@
     "ngg2-manifest.json": "9d1737ba60623660a3167415ab1d6dca57357cd2d3406bbbc893af04eca8b2aa",
     "ngg2.patch": "e6e764ae5e920ab8bd9e7b5527056ee52a68349f77afc1367524919509458438"
   },
-  "patch_sha256": "9383c0946f67342fec80420118f247e45d285efdce60aa6041bd5c808beb0b85",
+  "patch_sha256": "a5fc0451013948399152f01513c025994f8891d1a1a360d91b33b2dc7ba790ad",
   "files": {
     "LoopCtrlApp/Models/AppState.swift": {
       "base_sha256": "39cf6a1095f37699fadcc5d896289b7359a0fad01e87a372a62cce94dd4bf393",
@@ -31,7 +31,7 @@
     },
     "LoopCtrlUITests/LoopCtrlUITests.swift": {
       "base_sha256": "41a79bfa1ee2d3e6a326faf46cee207c8053f20b593a6769c5aef856d5365217",
-      "final_sha256": "19bfc9cd4da0978de89d54d36bd93e4ee0f2bdd44ae843b3a0bb0141ce4b3da9"
+      "final_sha256": "7a7ab664559737b0def8b5112f2cde8d818e2304085893aae26f168e19c38ba4"
     },
     "LoopCtrlUITests/XCTestPrivate-Bridging-Header.h": {
       "base_sha256": "2da6914aed5de4098514a2faeff563c1f8c50f56868bea765f4f008905f8bf84",
@@ -50,6 +50,10 @@
     "LoopCtrlUITests/NG8CaptureBridge.m": {
       "source": "NG8CaptureBridge.m",
       "sha256": "202ab11d5c25226b392e9637f24ba1226b8841f0ec255c997f0e72bd2225ba5c"
+    },
+    "LoopCtrlUITests/NG8CaptureBridgeBinding.swift": {
+      "source": "NG8CaptureBridgeBinding.swift",
+      "sha256": "dc76f5b815cc55c446b673481c1434a5901a337a968ddf174acd30911fdcbce9"
     },
     "LoopCtrlKit/NG8CaptureMode.swift": {
       "source": "NG8CaptureMode.swift",

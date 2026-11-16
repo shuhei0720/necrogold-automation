@@ -2,7 +2,7 @@
 
 2026-11-16（日本時間）。ユーザー指定のWindows＋接続中のサブiPhone 8で、開発側から診断・起動・取得・結果回収を行う環境を構築する。[全体引き継ぎ](../handover-2026-11-16.md)・[SSH設定](windows-ssh-tailscale.md)・[元の接続課題](spare-iphone-remote-setup.md)を引き継ぐ。通常製品の同じiPhoneだけで完結する要件は維持する。
 
-本番は既存iPhone 11、iPhone 8は実機テスト専用。今回、11への接続・導入操作は0回。8対応は別profileとし、11の既存座標・画面変換・認識閾値を変更しない。[要件正本](../requirements/necrogold.md)のFRAME-03とSTART-03を守る。
+本番は既存iPhone 11、iPhone 8は実機テスト専用。完成版は同一IPA・共通の探索/リセマラ/商品判断/制御とし、端末識別でgeometry/input profileだけを切替える。8で共通処理の実機改善を繰り返し、11の既存座標・画面変換・認識閾値を保護する。原画観測用capture-only buildは一時補助に限定する。今回、11への接続・導入操作は0回。[要件正本](../requirements/necrogold.md)のFRAME-03とSTART-03を守る。
 
 ## 計画と境界
 

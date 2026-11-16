@@ -2,7 +2,7 @@
 
 2026-11-16（日本時間）。**設計レビュー完了 / 実装・host検証中 / 未配布 / 入力権限なし**。Round 3の独立レビューと、実装で判明した完了境界の限定確認を記録する。実機受入は未実施。
 
-**最優先制約:** 本番はiPhone 11、8は実機試験専用。本incrementでは11へ接続・導入せず、TEST107配布tag/既定launcherを変更しない。通常build/11の座標・capture/raster・認識閾値・既API/ABI/cap/profileを保持する。8/hostの成功を11受入に代用しない。
+**最優先制約:** 完成版は8/11同一IPA・共通gameplay処理、端末別geometry/input profileとする。本書の8専用capture-onlyは原画観測を終えるまでの一時診断で、本番実機検証の別実装へ発展させない。本incrementでは11へ接続・導入せず、TEST107配布tag/既定launcherを変更しない。通常build/11の座標・capture/raster・認識閾値・既API/ABI/cap/profileを保持する。8/hostの成功を11受入に代用しない。
 
 native基準は `95eb3b9a94abd053cadb17b756667598aaff09c7`、調査時のdocs-only HEADは `f64e694`（nativeはTEST107から無変更）、固定upstreamは `6e25cf6a9f65bc86c372cdce94bdb151d0cf6767`。実装前に最新commit/diffを再固定する。正本は `AGENTS.md`、要件 `docs/requirements/necrogold.md`、native契約、開発フロー、architecture/testing/review規則、`docs/testing.md` と本書。Git外のgeometry草案を必須入力にしない。
 

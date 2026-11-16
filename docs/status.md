@@ -4,7 +4,7 @@
 
 接続: [VPN/SSH](plans/windows-ssh-tailscale.md)受入済み。[iPhone8環境](plans/iphone8-device-lab.md)はNetwork/DDI/原寸capture成功、診断37件成功。WireGuard＋EMProxyで疎通。SideStoreのxctest失敗を検査済IPAの直接導入で回避し、LoopCtrl/XCTest/暗号RPC成功。8の限定リスタート4回を確認。USB・native入力/商品到達は未受入。
 
-本番はiPhone11、8は検証専用。11の既存座標/画面処理を保護し、8は別profile。11への接続・導入は行っていない。
+完成版は11/8同一IPA・共通制御、端末別profile。11の既存座標/画面処理を保護。11への接続・導入0回。
 
 最新要件: 新規リセマラ/実機検証はゲーム停止・確認→起動→スタート→ホームのオールゾーン階段→通常1-1。Game Centerは初回だけ。[START-03](requirements/necrogold.md)は未実装。旧ポーズ/回復互換を保つ。
 

@@ -284,7 +284,7 @@
  
  
          // Bound XCTest's application-state wait now that bootstrap is behind us.
-@@ -608,6 +621,261 @@
+@@ -608,6 +621,257 @@
          Self.logBuffer.append("🔁 run loop exited (keepRunning=false)")
      }
  
@@ -293,11 +293,7 @@
 +    // coordinator, its runtime identity, accepted IDs, tickets or deadlines.
 +    private lazy var captureProbe: NG8CaptureService = {
 +        guard let service = NG8CaptureService(mode: serviceMode,
-+            bridge: NG8CaptureService.Bridge(
-+                prepare: { NG8CaptureBridge.prepare() },
-+                request: { reply, handoff in
-+                    NG8CaptureBridge.requestJPEG(withReply: reply, drained: handoff)
-+                }),
++            bridge: NG8CaptureBridgeBinding.make(),
 +            ownerState: { token in
 +                guard AuthManager.shared.activeSessions.contains(where: { $0.id == token }) else { return .inactive }
 +                return RemoteSession.shared.paused ? .paused : .active
@@ -546,7 +542,7 @@
      // MARK: - Service start / stop
  
      /// Whether stopping the service leaves this test running, parked in its
-@@ -658,7 +926,7 @@
+@@ -658,7 +922,7 @@
              Self.persistedPort = asked
          }
          let port = Self.persistedPort
@@ -555,7 +551,7 @@
          server = newServer
          configureServerCallbacks(newServer)
          Self.serverStartedAt = ProcessInfo.processInfo.systemUptime
-@@ -920,7 +1188,7 @@
+@@ -920,7 +1184,7 @@
                  Self.logBuffer.append("🔢 loopctrl://start asks for port \(asked) — moving from \(current.port)")
                  current.onStateChange = nil
                  current.stop()
@@ -564,7 +560,7 @@
                  wireNewServer(moved)
                  do {
                      try moved.start()
-@@ -1496,6 +1764,10 @@
+@@ -1496,6 +1760,10 @@
  
      /// Wire RPC dispatch + public logs onto a server instance.
      private func configureServerCallbacks(_ srv: JSONRPCServer) {
@@ -575,7 +571,7 @@
          // Advertising can start late (awdl0 appears once Wi-Fi is on), so the
          // status notification follows the advertiser rather than the toggle.
          srv.onNearbyStateChange = { [weak self, weak srv] status in
-@@ -1937,7 +2209,7 @@
+@@ -1937,7 +2205,7 @@
                  guard let self = self else { return }
                  self.server?.onStateChange = nil
                  self.server?.stop()
@@ -584,7 +580,7 @@
                  self.wireNewServer(newServer)
                  do {
                      try newServer.start()
-@@ -2563,7 +2835,7 @@
+@@ -2563,7 +2831,7 @@
          remoteAccessEnabled = true
          Self.persistedRemoteAccess = true  // remember for next launch
  
@@ -593,7 +589,7 @@
          wireNewServer(newServer)
  
          do {
-@@ -2607,7 +2879,7 @@
+@@ -2607,7 +2875,7 @@
          nearbyEnabled = false               // nearby needs remote access
          Self.persistedNearby = false
  

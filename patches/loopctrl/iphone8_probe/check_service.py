@@ -53,10 +53,28 @@ def main():
         else:
             raise SystemExit("unsupported service stage")
         accepted = accepted and result.stdout == expected and result.stderr == ""
+        # Type-check the very same production binding through Clang's actual
+        # Objective-C importer, before paying for the complete iOS IPA build.
+        binding = HERE / "assets/NG8CaptureBridgeBinding.swift"
+        header = HERE / "assets/NG8CaptureBridge.h"
+        checked_sources = [path for path in sources if path.parent == HERE / "assets"] + [binding, header]
+        binding_hashes = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+                          for path in checked_sources}
+        binding_result = subprocess.run(["swiftc", "-swift-version", "5", "-Onone", "-typecheck",
+            "-D", "NG8_CAPTURE_PROBE_BUILD", "-import-objc-header", str(header),
+            *[str(path) for path in checked_sources if path.suffix == ".swift"]],
+            capture_output=True, text=True, timeout=120)
+        (output / "binding.stdout").write_text(binding_result.stdout)
+        (output / "binding.stderr").write_text(binding_result.stderr)
+        if binding_result.returncode:
+            print("\n".join(binding_result.stderr.splitlines()[:16]))
+        accepted = accepted and binding_result.returncode == 0
         report = {"schema": "ng8-service-host-v1", "phase": stage["phase"],
                   "compile_returncode": compile_result.returncode, "sources": actual,
                   "selector": selector, "returncode": result.returncode,
-                  "stdout": result.stdout, "stderr": result.stderr, "accepted": accepted}
+                  "stdout": result.stdout, "stderr": result.stderr, "accepted": accepted,
+                  "production_binding_typecheck_returncode": binding_result.returncode,
+                  "production_binding_source_sha256": binding_hashes}
         (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps(report, sort_keys=True))
         if not accepted:

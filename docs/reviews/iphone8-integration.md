@@ -15,3 +15,7 @@ capture-only overlayの8許可pathは、固定6e25＋旧G1/G2の実preimageと�
 次候補ではServiceに実GCD queue/単調時計/独立watchdog、metadata-only ImageIO、原bytesのhash/chunk、旧spoolの読み取りgate、owner/Stop fenceを結線した。独立レビューのsandbox祖先P1を、OS提供homeをFD anchorとして下だけnofollow走査する形で補正。既status assertionを維持し、公開合成JPEGで原bytes/EXIF/chunkと破損・取消・旧資料の結合fixtureを追加した。Core/Bridge/modeは不変で、Serviceの実Mac Greenは次CIで確認する。
 
 新二重封印/package verifierは、compiled productsへの結合がsectionだけではload commandやsection外symbol変更を見逃すP1を実反例で確認し修正した。署名差分だけを限定正規化し、header/全non-signature load commandと非署名payload全体を照合する。独立した2反例の拒否を再実行し残P0/P1なし。新16件、applier31・packager4の計51件が成功。固定upstreamから旧seal→新overlayを実replayし45 sourceの最終hash一致を確認した。実compiler/IPA/完全source/原画像は次の専用buildと実機で確認し、未確認を成功扱いしない。
+
+[run43854686087](https://github.com/shuhei0720/necrogold-automation/actions/runs/43854686087)、source`2c40053`はService実Mac compile/結合fixture・既Bridge26/Core32/Mode8・Python51に成功。actual iOS build800006はSwift importerのlabelが`reply:drained:`であるのに`withReply:drained:`を渡して停止した。独立errorはこの1件で、IPA/package/公開は未到達。compile失敗はbehavior Redではない。
+
+次候補は同じproduction bindingを小さいUITest専用assetへ移し、実ObjC headerによるSwift typecheckをhost段階へ追加した。呼出しlabel以外の挙動・Service/Core/Bridge/mode/元fixtureは不変、独立差分確認P0/P1なし。6追加sourceを含む最終sealを再作成し、実Mac/IPAを再確認する。最新指示どおり完成版は11/8同一IPA・共通gameplay＋端末別profile。capture-onlyは原画取得の一時補助に限定し、8の本番商店到達/商品確認は未受入のまま記録する。
