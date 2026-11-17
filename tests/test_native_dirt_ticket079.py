@@ -168,15 +168,15 @@ class NativeDirtTicket079Tests(unittest.TestCase):
                     self.assertEqual((direction, 5, dx, dy, 5), self.choice(walked))
 
     def test_closed_gate_unit_target_unknown_goods_and_verified_lead_are_required(self):
-        for fault in ('opened_gate', 'wrong_bracket', 'distant_target', 'floor_target',
+        for fault in ('opened_gate', 'wrong_bracket', 'distant_target', 'floor_target_without_bracket',
                       'unverified', 'old_partial', 'new_partial', 'new_visible'):
             with self.subTest(fault=fault):
                 self.fresh_engine()
                 terrain, command = self.armed(gate_kind='floor' if fault == 'opened_gate' else 'door',
-                    distant_gate=fault == 'distant_target', target_kind='floor' if fault == 'floor_target' else 'dirt',
+                    distant_gate=fault == 'distant_target', target_kind='floor' if fault == 'floor_target_without_bracket' else 'dirt',
                     verified=fault != 'unverified', goods='partial' if fault == 'old_partial' else 'unknown')
                 changed = self.drift(terrain)
-                if fault == 'wrong_bracket':
+                if fault in ('wrong_bracket', 'floor_target_without_bracket'):
                     changed.tiles[(1, -2)] = 'floor'; changed.tiles[(2, -2)] = 'gold'
                 elif fault == 'new_partial': changed.goods = 'partial'
                 elif fault == 'new_visible': changed.goods = 'visible'

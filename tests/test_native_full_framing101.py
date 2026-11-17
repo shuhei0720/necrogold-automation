@@ -212,9 +212,53 @@ class NativeFullFraming101Tests(unittest.TestCase):
                     elif fault == 'unexplained_protection': value.protected.add((8, 4))
                     return value
                 self.full_source = source
-                self.pending(opening=fault != 'no_open', old_direction=2 if fault == 'wrong_axis' else 1,
+                terrain, _, state, _ = self.pending(opening=fault != 'no_open', old_direction=2 if fault == 'wrong_axis' else 1,
                     mutate=(lambda v: setattr(v.partial[0], 'cx', 150)) if fault == 'hud_partial' else None)
                 self.full_source = original
+                parent, hold, first_job = (state.continuation_deadline_ns,
+                    state.hold_started_ns, state.job_id)
+                fields = ('inputs', 'moves', 'door_changes', 'terrain_changes',
+                          'restarts', 'x', 'y', 'lead_confirmed', 'lead_ns',
+                          'walk_started_ns', 'started_ns')
+                def credit():
+                    current = self.h.status()
+                    return tuple(getattr(current, field) for field in fields)
+                saved_credit = credit()
+                saved_events = b''.join(bytes(event) for event in self.h.events())
+                # Reclassification is data only. It never substitutes for the
+                # rejected opening/axis/floor/ROI permission to MOVE.
+                for retry in range(2):
+                    state = self.q.cycle()
+                    if state.state == 7:
+                        break
+                    self.assertNotIn(fault, ('protected_next', 'unexplained_protection'))
+                    self.assertEqual((3, 0), (state.state, state.pending))
+                    self.assertEqual((parent, hold), (state.continuation_deadline_ns,
+                        state.hold_started_ns))
+                    self.assertEqual((saved_credit, saved_events, 0), (credit(),
+                        b''.join(bytes(event) for event in self.h.events()),
+                        self.h.status().input_state))
+                    ready, command = self.h.tick()
+                    self.assertEqual((0, 0), (ready, command.kind))
+                    self.h.now += 10_000_000
+                    self.assertLess(self.h.now, parent)
+                    self.assertEqual(1, self.h.observe_actual(
+                        self.h.scene(2, 2, terrain, beat=True)))
+                    current = self.q.cycle()
+                    self.assertEqual((1, first_job + retry + 1),
+                        (current.pending, current.job_id))
+                    self.assertGreater(current.capture_id, state.capture_id)
+                    self.assertEqual((parent, hold), (current.continuation_deadline_ns,
+                        current.hold_started_ns))
+                    self.assertLessEqual(current.deadline_ns,
+                        min(parent, current.capture_start_ns + 150_000_000))
+                    def unknown(value):
+                        self.result(value)
+                        if fault == 'hud_partial': value.partial[0].cx = 150
+                    self.q.assess(0, 1, unknown)
+                    self.assertEqual((saved_credit, saved_events, 0), (credit(),
+                        b''.join(bytes(event) for event in self.h.events()),
+                        self.h.status().input_state))
                 self.assertEqual(7, self.q.cycle().state)
                 self.assertNotEqual(4, self.h.tick()[1].kind)
 

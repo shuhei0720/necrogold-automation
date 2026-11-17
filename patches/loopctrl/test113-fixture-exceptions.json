@@ -1,0 +1,45 @@
+{
+  "schema": "test113-historical-source-exception-v1",
+  "baseline": "6f4925214fa2efd4e9516e898611ab3c10fd3002",
+  "files": [
+    {
+      "path": "tests/test_native_closed_refresh081.py",
+      "old_file_sha256": "31f609544556d18951ed3aef0b3a0e469ef87ac3bc472f82419af6fab777884c",
+      "new_file_sha256": "d32e1c2c4f3b30c323ad14e42e97de5a457fc02c6f7e41648a04aec48e1c063e",
+      "methods": [
+        {
+          "name": "NativeClosedRefresh081Tests.test_geometry_near_cells_and_all_protection_materials_bound_stone_scope",
+          "old_sha256": "6055e0eb1eea9b13a1ae733d9549f754418784b0485d2aa7737dc11be4af3d16",
+          "new_sha256": "f2978ba351057f8df26ceaf652ad2b76ec4e2ee6d2527b67b23776d29f1fbc6f",
+          "reason": "Replace only the now-positive bracketed one-FLOOR negative scope with an explicit rejected scope; new113 positively covers original supported scope in four directions."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_dirt_ticket079.py",
+      "old_file_sha256": "c46873365b1459e1bb92eef4685ca9494c538f32c3eb925089a2fbc2c8d1716c",
+      "new_file_sha256": "cccd0d7c50cb53ffe1c7d3a3b76922fa8eba0904298e4c081161e926dab07968",
+      "methods": [
+        {
+          "name": "NativeDirtTicket079Tests.test_closed_gate_unit_target_unknown_goods_and_verified_lead_are_required",
+          "old_sha256": "a1d53a41875c4e9bf4da3e549b179f4d90048f849b3b8fa00b4c8f993cf7e739",
+          "new_sha256": "5dc127e86823fbcd3f3acf568489885e52bb9e91981e3e44ccc53eb7f1d5a0a7",
+          "reason": "Replace only the now-positive bracketed one-FLOOR negative scope with an explicit rejected scope; new113 positively covers original supported scope in four directions."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_full_framing101.py",
+      "old_file_sha256": "49164805053074b938ae8531afa2602c58692d4b5f812c7e9c879cbfa66bdd69",
+      "new_file_sha256": "83d2dac3e10f1915c105da473256a28467a0989270c85bacd62b8919d332827c",
+      "methods": [
+        {
+          "name": "NativeFullFraming101Tests.test_real_opening_axis_known_floor_protection_and_safe_potential_roi_are_required",
+          "old_sha256": "fc527cc5cffbccd3b32566a165070671b3fed01e59b925d6b3838c6a9369ca74",
+          "new_sha256": "7818421f857d4c453fd148a546574cc572c8fb8afb98a8e50092f8fc82788f75",
+          "reason": "Retain all six no-observation faults and original HELD/NOTMOVE assertions; exhaust only the newly permitted bounded DATA-only retries without UI or MOVE credit before checking the original terminal safety result."
+        }
+      ]
+    }
+  ]
+}

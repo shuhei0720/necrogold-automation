@@ -159,7 +159,7 @@ class NativeClosedRefresh081Tests(unittest.TestCase):
                 self.assertEqual((0,2,2),(self.status().reason,self.status().inputs,self.status().moves))
 
     def test_geometry_near_cells_and_all_protection_materials_bound_stone_scope(self):
-        for fault in ('distance2','distance4','opened','partial','protected_material',
+        for fault in ('distance4_left','distance4','opened','partial','protected_material',
                       'near_origin_diagonal','near_next_diagonal','origin','next','extra_gold',
                       'lost_gold','new_protection','door','item','route'):
             with self.subTest(fault=fault):
@@ -176,7 +176,7 @@ class NativeClosedRefresh081Tests(unittest.TestCase):
                     self.assertEqual(bytes(old),bytes(next(row for row in self.events() if row.command.id==old.id).command))
                     continue
                 anchor,old,retired,credit = self.retiring(
-                    distance=2 if fault=='distance2' else 4 if fault=='distance4' else 3,
+                    direction=1 if fault=='distance4_left' else 3, distance=4 if fault in ('distance4_left','distance4') else 3,
                     protected=fault=='protected_material')
                 changed = self.drift(anchor)
                 if fault=='opened': changed.tiles[(0,-3)]='floor'

@@ -135,7 +135,10 @@ def publish(client, base, destination, record, *, cancelled=lambda: False,
                 export_id=record['export_id'], manifest_sha256=record['manifest_sha256'],
                 archive_sha256=signature[1], archive_bytes=signature[0], receipt_sha256=response['receipt_sha256'])
             _atomic(storage/(record['run_id']+'.receipt.json'), cycle.canonical(receipt))
-            record.update(published=True, last_error=None)
+            # Publishing a cancelled run does not erase its last client failure
+            # or restore its authority to start another run.
+            record.update(published=True,
+                          last_error=record['last_error'] if record['cancel_intent'] else None)
             cycle._journal(base, record)
             break
         sleep(.25)

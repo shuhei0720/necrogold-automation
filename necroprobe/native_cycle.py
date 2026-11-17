@@ -286,7 +286,12 @@ def status(value, run_id, *, protocol_spec=STANDARD_PROTOCOL):
     require(notification['authorization'] in ('pending', 'not_determined', 'authorized',
                 'provisional', 'denied', 'unavailable')
             and notification['state'] in ('not_requested', 'pending', 'requested', 'failed', 'unavailable'))
-    require(not result['terminal'] or result['state'] in TERMINAL)
+    # Native has finished gameplay before its capture, worker, and durable
+    # storage leases return. This status permits waiting, not collection.
+    if result['state'] == 'draining':
+        require(result['terminal'] and not result['workers_drained'])
+    else:
+        require(not result['terminal'] or result['state'] in TERMINAL)
     return result
 
 
@@ -602,7 +607,8 @@ def collect(client, base, record, *, cancelled=lambda: False, clock=time.monoton
                 saved = sum(entry['offset'] == entry['bytes'] for entry in record['images'])
                 notice('画像回収中: 保存済み'+str(saved)+'/'+str(len(record['images']))+'枚。終了表示までお待ちください。')
     verify_evidence(base, record, manifest, protocol_spec=protocol)
-    record.update(resolved=True, state='stopped' if manifest['interrupted'] else 'completed', last_error=None)
+    record.update(resolved=True, state='stopped' if manifest['interrupted'] else 'completed',
+                  last_error=record['last_error'] if record['cancel_intent'] else None)
     _journal(base, record)
     return manifest
 

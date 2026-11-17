@@ -515,3 +515,20 @@ TEST111/build219実物確認（2026-11-17）: CODE7974482/run44069884103で選�
 TEST112/build228確認（2026-11-18）: CODEcf8c393/run44123540366で現sourceの選択230件、実Python3.9の55件、現Mac8ケースが成功。判定元原画保持の936実Mac Red→dc082の同assert成功と、通常/候補/上側の実Spool→実3.9 parserを確認。IPA/全36native/保持source/実compiler/完全source1036filesの5gateは5attemptで成功。上記の段階記録と作者別sourceの試験を区別し、実機改善未確認・再発数は維持する。
 
 TEST112の固定Release公開と匿名GET200・IPA/完全source/hash表の全byte/SHA照合も完了。配布sourceはac3d0d6、追加はbuild CODEからdocs3件のみ。公開後の記録保存もdocsだけとし、固定配布物と各行の実機未確認・再発数を維持する。
+
+## TEST113の対策（実機改善未確認・配布前）
+
+2026-11-18（日本時間）。[計画](plans/test113-device-failures.md)・[検証記録](reviews/test113.md)。TEST112の18添付＝9campaign/9固有run、216 PNG/243記録を照合。5/9回目の正常陰性→実リスタート→新床PAUSEを比較基準にする。補助試験合格を実機改善完了とは扱わない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-113-CLIENT-DRAINING | 2026-11-18 | 正常商品リスタート後もcampaignが続かず、回収後は取消だけが残る | 実Runtimeのterminal=true/state=draining/worker未終了をclientが拒否し、取消後の回収/公開でlast_errorも消す不整合。実アーカイブの最初の例外は未保存 | 正常drainingは同runの読取待機だけ許可。収集/次startの資格は据置。取消時の既last_errorを回収/公開でも保持 | 実3.9の手続き的transportで同じ取消/r5最終形を再現。新8methodのRed9assert/error0→新8＋直接旧114Green、独立レビュー残P0/P1なし。実Mac公開statusとの結合・実機は未確認 | 今回の取消形9、最初の同根因発火数は未確定。旧sourceにも存在し過去修正削除とは未実証 |
+| FR-113-FULL-NORMAL-UNKNOWN | 2026-11-18 | 1回目は3商品が見えてもUNKNOWN保持 | 元220は端床/価格の完全証明不足。実後続223は旧Ringで完全陰性だが、旧再取得はDEADLINE限定・近傍材質も不変を要求 | 元親期限/共用最大2回の新sourceで正常UNKNOWNもDATA-only再判定。直接strict零・同商品/全GOLD/保護を要求し、材質関係をUIへ流用しない | 実220→223の通常strict零と旧Ring陰性を校正。設計レビュー済、実装/最終結合・実機は未確認。未観測を陰性化しない | 今回1。同症状継続、同根因通算未集計 |
+| FR-113-UPPER-HUD-VIEW | 2026-11-18 | 2/3回目は全商品可視でもUNKNOWN保持 | 上端の商品行にあるSHOP看板が固定PAUSE HUDと重なり完全証明不足。3回目には端床の照明資格不足もある | 閾値/HUDを維持。既一回の独立観測枠で、現在正のUP床へ新ticketの一歩を検証し通常producerで再判定。旧ACKの未確認変位は信用0・再送禁止 | 実365/159のHUD重なりと現在UP床、3回目の元150→159実unitを校正。次画像は未収録で、UP後の陰性や実機成功を仮定しない。実装/最終結合は未確認 | 今回2。上側停止の継続、同根因通算未集計 |
+| FR-113-UNSENT-PALETTE-ZERO | 2026-11-18 | 4回目はLEFT一歩後、確実未送信の待機で停止 | 数値的な静止証明は成立するが、原点/移動先以外の近傍FLOOR→DIRTが旧Scene資格を拒否 | 固定world待機専用のplural palette零証明。原点/次床・旧STONE/DIRT・唯一幾何・元数値条件を保持し、通常Motionは変更しない | 元157→186は通常UNKNOWNのまま専用零のみ1。指定Red→公開C Green・直接関連確認済。最終合成source/実機は未確認 | 今回1。FR112とは別のScene資格組合せ、同系列通算未集計 |
+| FR-113-CLOSED-FLOOR | 2026-11-18 | 6回目は扉手前で未送信UP停止 | 1セル先FLOOR/2セル先の金壁で挟まれた扉が旧距離2/扉3の資格外。遠方材質変化で票を消費し、元91→97のFLOOR→STONEを拒否 | 正の同入口を持つ床だけのquietと、STONEを扱う別formal refreshを分離。旧距離2 helper・strict零・全経路・期限/再取得上限は維持 | 実90→91は既refresh成立、実停止91→97だけを別校正。4方向の指定Red→Green＋反例10確認。最終合成source/実機は未確認 | 今回1。旧079/081の適用距離不足、同系列通算未集計 |
+| FR-113-PRETICKET-REACQUIRE | 2026-11-18 | 7回目は初歩の票を作る前に停止 | settled候補の遠方材質/金壁分類変化を、ticket前の既再取得が扱えない | 無ticket/無入力権限のDATA再取得。元非零候補/支持/完全判断を固定し、独立した2新画像の直接零と全く新しい拍fitを要求 | 元145→146の候補/支持・通常strict零を校正。旧sourceの指定Red→新公開C Green。未送信event/creditを作らず、候補消失/元12秒超過を拒否。未来画像/実機は未確認 | 今回1。同系列通算未集計 |
+| FR-113-ACK-DOMAIN2-UNIT | 2026-11-18 | 8回目は実UP一歩を確認できず8評価で停止 | raw domain2の旧狭域texture支持が300未満で、広い依存面と独立軸面の正の証明を使えない | 最後のUNKNOWNだけ別unit証明。全73候補の広域支持/15ppと独立軸勝者95%/両帯100、元地形/側方/有限raw/.08を要求。旧.45閾値は据置 | 原295等はUP1、資格不足の原画はUNKNOWN維持。4方向Red→新9＋直接旧23Green、実ACK/prefix/元visualDの公開C2件確認。最終合成source/実機は未確認 | 今回1。旧移動証明はbyte保持、削除回帰とは未実証 |
+| FR-113-REVIEW-PAUSE-INVALIDATION | 2026-11-18 | 商品修正の差分レビューで、不整合後のDATA再取得を許す経路を検出 | 未送信PAUSE予約中は初回workerのhard記録を飛ばす。初修正では既DATA workerまで旧関係で監視し近傍材質の正例も拒否 | 初回admissionと実行中のhard vetoを分離し、監視は初回workerだけへ。既DATAのhard記録を維持し、一時UNKNOWNだけと区別 | 86bfの4反例Red/error0、8d7の追加対照1件Red/error0→1df5の新18全Green。独立した対象差分再確認P0/P1なし、実機改善未確認 | 配布前レビュー2境界。実機の再発へ算入しない |
+| FR-113-FIXTURE-PAUSE-ORACLE | 2026-11-18 | 新DATA試験の初版が、必要なPAUSE予約まで禁止し失敗 | fresh PAUSE画像取得前の予約と、保存/RESTARTの実行権限を混同した試験 | 予約を許し、PAUSE画像ID0・durable拒否を要求。実ACK/新画像後の既保存/RESTART検査を保持 | 元17の初candidate失敗を資格不足として保存。影響2methodだけ両旧sourceでassertion Redを再確認、最終18Green。製品Redとは扱わない | 新fixture1。実機再発ではない |
+| FR-113-FIXTURE-METHOD-HASH | 2026-11-18 | 旧101例外の適用前確認でmethod hashが一致しない | 提案はindent/newlineを含む行単位hash、host契約はAST source-segment hash | 元行hashを履歴に残し、AST形式を明示して正確なmethodだけ承認 | 原file491648→候補83d2・6fault/元2assert/対象外bytesと両source Greenは不変。適用前assertで検出、metadataだけ訂正し試験は反復しない | 配布準備1。製品/実機再発ではない |

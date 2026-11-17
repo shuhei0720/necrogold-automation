@@ -2156,6 +2156,45 @@ int ng2_clear_singleton_phase_stationary_zero(const NG2Scene *a,const NG2Scene *
         &&clear_plural_zero_numeric(candidates,&evidence);
     free(views);return result;
 }
+/* A palette-classification difference away from the exact origin/next FLOOR
+ * is not displacement. Keep complete old-world placement and independent
+ * photometric zero proofs; this helper supplies no Motion or input credit. */
+static int clear_plural_palette_zero_scene(const NG2Scene *a,const NG2Scene *b,int direction) {
+    int i,x,y,center,dx,dy;
+    if(!valid_scene(a)||!valid_scene(b)||direction<1||direction>4
+        ||a->gold_state!=NG2_GOLD_CLEAR||b->gold_state!=NG2_GOLD_CLEAR
+        ||a->goods!=NG2_GOODS_UNKNOWN||b->goods!=NG2_GOODS_UNKNOWN)return 0;
+    dx=ddx[direction];dy=ddy[direction];
+    if(tile(a,0,0)!=NG2_TILE_FLOOR||tile(b,0,0)!=NG2_TILE_FLOOR
+        ||tile(a,dx,dy)!=NG2_TILE_FLOOR||tile(b,dx,dy)!=NG2_TILE_FLOOR)return 0;
+    for(i=0;i<CELLS;++i)if(a->protected_cells[i]||b->protected_cells[i]
+        ||a->tiles[i]==NG2_TILE_GOLD||b->tiles[i]==NG2_TILE_GOLD
+        ||a->tiles[i]==NG2_TILE_DOOR||b->tiles[i]==NG2_TILE_DOOR
+        ||a->tiles[i]==NG2_TILE_ITEM||b->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(center=0;center<2;++center)for(y=-1;y<=1;++y)for(x=-1;x<=1;++x){
+        int old=tile(a,x+center*dx,y+center*dy),now=tile(b,x+center*dx,y+center*dy);
+        if(old!=now&&!((old==NG2_TILE_FLOOR&&now==NG2_TILE_DIRT)
+            ||(old==NG2_TILE_DIRT&&now==NG2_TILE_FLOOR)))return 0;
+    }
+    return unique_visible_terrain_translation(a,b,0,0);
+}
+int ng2_clear_plural_palette_stationary_zero(const NG2Scene *a,const NG2Scene *b,int32_t direction) {
+    View *views;Candidate candidates[73];ClearSingletonZeroEvidence evidence;
+    int amount,d,n=1,result;
+    if(!clear_plural_palette_zero_scene(a,b,direction))return 0;
+    views=(View*)malloc(2*sizeof(*views));if(!views)return 0;
+    view(a->signature,views);view(b->signature,views+1);
+    candidates[0].sx=candidates[0].sy=0;candidates[0].score=intensity(views,views+1,0,0);
+    for(amount=1;amount<=18;++amount)for(d=1;d<=4;++d){
+        candidates[n].sx=amount*ddx[d];candidates[n].sy=amount*ddy[d];
+        candidates[n].score=intensity(views,views+1,candidates[n].sx,candidates[n].sy);++n;
+    }
+    qsort(candidates,73,sizeof(*candidates),ranked);
+    result=clear_singleton_zero_raw(candidates)
+        &&clear_singleton_zero_evidence(a,b,views,candidates,&evidence)
+        &&(clear_singleton_zero_numeric(&evidence)||clear_plural_zero_numeric(candidates,&evidence));
+    free(views);return result;
+}
 /* A unit may reveal a side gate while only one old STONE remains observable.
  * Gold/stone/dirt identify the unique old-world placement; new cells never
  * supply anchors. This recognizes a past step, not another input or entry. */
@@ -2381,6 +2420,50 @@ static void revealed_dependency_unit_motion(const NG2Scene *a,const NG2Scene *b,
     out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
 }
 
+/* A side reveal may have finite raw domain2 competition while the narrower
+ * known blur has too few votes. Complete wider signed competition and a
+ * separate known axis must both prove the same past unit. Missing wider
+ * alternatives never count as a margin; no earlier proof is weakened. */
+static void revealed_domain2_dependency_motion(const NG2Scene *a,const NG2Scene *b,int direction,
+                                                const View views[2],const Candidate raw[73],NG2Motion *out) {
+    unsigned char included[N];
+    ClosedGateAxisCache *cache;
+    int i,dx,dy,support,bad,regions[2];
+    if(out->kind!=NG2_MOTION_UNKNOWN||direction<1||direction>4||!valid_scene(a)||!valid_scene(b))return;
+    dx=ddx[direction];dy=ddy[direction];
+    if(a->gold_state!=NG2_GOLD_CANDIDATE||b->gold_state!=NG2_GOLD_CANDIDATE
+        ||a->goods!=NG2_GOODS_UNKNOWN||b->goods!=NG2_GOODS_UNKNOWN
+        ||tile(a,0,0)!=NG2_TILE_FLOOR||tile(a,dx,dy)!=NG2_TILE_FLOOR
+        ||tile(b,0,0)!=NG2_TILE_FLOOR||revealed_singleton_raw_domain(raw,direction)!=2)return;
+    for(i=0;i<CELLS;++i)if(a->protected_cells[i]||b->protected_cells[i]
+        ||a->tiles[i]==NG2_TILE_ITEM||b->tiles[i]==NG2_TILE_ITEM||a->tiles[i]==NG2_TILE_DOOR)return;
+    if(!unique_revealed_singleton_translation(a,b,direction,raw[0].sx,raw[0].sy)
+        ||!unique_visible_terrain_translation(a,b,raw[0].sx,raw[0].sy))return;
+    revealed_world_mask(included);
+    revealed_dependency_texture(views,included,raw[0].sx,raw[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,95)||regions[0]<100||regions[1]<100)return;
+    for(i=1;i<73;++i){
+        int count,opposite;
+        revealed_dependency_texture(views,included,raw[i].sx,raw[i].sy,&count,&opposite,NULL);
+        if(count<300||!texture_lead(support,bad,count,opposite))return;
+    }
+    cache=(ClosedGateAxisCache *)calloc(1,sizeof(*cache));
+    if(!cache)return;
+    closed_gate_axis_features(a,cache->before,cache->indices,&cache->count);
+    closed_gate_axis_features(b,cache->after,NULL,NULL);
+    closed_gate_axis_texture(cache,raw[0].sx,raw[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,95)||regions[0]<100||regions[1]<100){free(cache);return;}
+    for(i=1;i<73;++i){
+        int count,opposite;
+        closed_gate_axis_texture(cache,raw[i].sx,raw[i].sy,&count,&opposite,NULL);
+        /* Missing axis competitors are neutral. Every one already lost to
+         * positive wider observations, independently of this axis plane. */
+        if(count>=300&&!texture_lead(support,bad,count,opposite)){free(cache);return;}
+    }
+    free(cache);
+    out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+}
+
 /* A preserved old singleton may be approached through a sparse corridor.
  * Complete old terrain anchors and two dependency-closed image planes must
  * agree with the finite raw winner; unsupported candidates supply no margin.
@@ -2521,6 +2604,7 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     preserved_singleton_sparse_motion(before,after,direction,views,candidates,out);
     first_gold_supported_phase_motion(before,after,direction,views,candidates,out);
     revealed_dependency_unit_motion(before,after,direction,views,candidates,out);
+    revealed_domain2_dependency_motion(before,after,direction,views,candidates,out);
     free(views);return 1;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,

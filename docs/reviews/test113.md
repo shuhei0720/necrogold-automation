@@ -1,0 +1,39 @@
+# TEST113: 実機9回の原因・検証記録
+
+2026-11-18（日本時間）。基準6f492521、配布TEST112/build228・製品CODEcf8c393。今回の[計画](../plans/test113-device-failures.md)。
+
+## 受領と成功比較
+
+9 campaign/9固有run、216 PNG/243記録。各campaign内の最終ZIPは個別添付と完全一致し、全参照・CRC/path・記録hashchain・PNG→896×414 RGBA hashが正常。原本はGit外。開始時刻順は3ad7→3dad→7bbe→751c→8ffd→45a4→8579→6cc5→5b3aで、添付順へ依存しない。
+
+5回目の実source151は通常policy9、9回目の実source128はpolicy7の完全陰性で、3ITEM/3価格・C採用・checkpoint→intent→実RESTART12/9→新床172/149を確認した。分類時間49.791708/53.958541msは実2例の観測で、未知精度や本番速度の受入ではない。両方とも新床PAUSEとnativeのrestarted_budget継続許可が成立し、client取消意図だけで継続を拒否している。原本を変えない分岐切分け用コピーでは取消意図を外すと既parserのhandoff検査を全て満たすが、実ユーザーの取消を無視する根拠にはしない。
+
+## client終了途中の不整合
+
+Runtimeの公開cyclePayloadはterminal=true・leaseありでstate=draining/worker未終了を返す。Python statusはSTATESへdrainingを含めながらterminal状態として拒否し、run_sessionが不正応答→取消→同run回復へ進む。回収/公開がlast_errorを消すため、cancel_intent=true・campaign r5/cancelledという受領全9件と同じ最終形になる。
+
+この不整合は112以前のsourceにも存在し、過去の対策削除による回帰とは未実証。実3.9の手続き的transportで公開projection形から上記全経路を再現したが、実機アーカイブには最初の例外そのものが残らないため、各runの最初の発火源を観測済みとは書かない。
+
+修正は正常drainingの読取待機と、取消時だけ既last_errorを保持する2箇所。TERMINAL定数・run_session/開始/同UUID回復/回収資格/閉journalを維持。実Python3.9.25で新8methodの実装前Red9assert失敗/error0→新8＋直接旧114件Green。旧4試験ファイルと全assertは不変、独立差分レビュー残P0/P1なし。実Macの公開応答→実Python3.9の結合は次工程であり、現段階で受入済みにしない。
+
+## 歩行4件の実装と旧条件の保持
+
+歩行だけの中間Controller259c4145/Navfd172e5fで、新20methodと直接関連を確認した。指定された変更前6method/44assert失敗/error0からのGreenを保存し、独立差分レビューの残P0/P1なし。通常Motionを変えない4回目の専用静止proof、6回目の閉扉手前のFLOOR quiet/別refresh、7回目の無ticket再取得と完全に新しい拍fit、8回目の最後のUNKNOWNだけのunit証明を分けた。ACK/prefix/元visual期限・未知入力の無再送・元回数上限は保持する。
+
+原画像校正では4回目の通常MotionはUNKNOWNのまま専用零だけ成立し、8回目の適格原295等だけUP一歩へ進む。7回目の停止後に必要な次の独立2画像は未収録で、手続き的な公開C試験と区別する。この中間sourceのGreenを、商品修正を合成した最終sourceの実行結果へ読み替えない。
+
+旧079/081には新たに明示許可する同一FLOOR条件を一律拒否する負例があった。faultやassertを削除せず、079は必要な金壁bracketのないFLOOR、081は別方向の距離外distance4_leftへ限定置換した。元5b9と中間259cの両sourceで同じ2methodが成功し、元の8/15fault数・全assert・各method外のbytesを保持する。承認は2path/2methodの前後hashへ限定し、旧112の既承認部分や他の過去試験は変更しない。
+
+## 商品と結合の残工程
+
+商品1回目の後続223は旧Ringのまま通常完全陰性、2/3回目は上端HUDと観測一歩の適用範囲を確認した。実3回目のentry状態は公開記録に出ないため推測を撤回し、既存entry/lower/upperの活動中は追加の独立UPを拒否する。旧MOVEのworld証明を使う場合は、旧MOVEが元sourceを所有する間に検査・固定し、PAUSE予約後のsource/ordinalを借用しない。Ring/全HUD/価格・対象の閾値は維持する。
+
+新Macは現sourceのterminal_statusと旧bodyを保持したupper_entryだけを選ぶ。実writer待機中の公開draining応答と実drain後のstopped応答を保存し、元parserの拒否と現実3.9の受理へ結合する設計を独立レビュー済み。現段階ではsource-onlyであり、Mac実行・compile・実iSH HTTP/ZIP公開・実機受入の合格とは扱わない。商品実装の最終18Greenと独立差分レビューP0/P1なしを確認した。合成sourceの必要な結合・IPA・固定配布は未完了。実機改善は未確認。
+
+### 商品の実装後確認（ビルド前）
+
+商品を合成したController1df5c2df/Navfd172e5f、新18method/e656b982でGreenを確認した。元17method/3c659の原5b9・中間259cそれぞれ21assert失敗/error0、途中で強化した2methodの両sourceで3assert失敗/error0を別に保存する。初版の新試験が必要なPAUSE予約まで禁止した失敗は、fixture oracleの資格不足として記録し、製品Redに数えない。元15methodと、最終17から18への既存17methodのASTは保持する。
+
+独立レビューで未開始PAUSE中のhard不整合記録不足を発見し、86bfで4反例がassert失敗/error0になった。続く8d7は初回監視が既DATA再判定にも入り近傍材質の正例を拒否するため、追加対照1件のassert Red/error0を保存した。最終変更は監視を初回workerへ限定し、DATA側の既hard記録を維持するもの。現18の全Green、原5/9回目のPNG→未変更Ring→現C正常陰性の受理を確認した。予算・source150/worker100ms・未知入力・新入力の権限は増やしていない。
+
+旧FULL101の1methodは新DATA待ちを即HELDとする旧期待値に当たり、4subtestが失敗した。元6faultと最後のHELD/NOTMOVEのassertを保ち、最大2回のDATA-only再判定を元parent/hold内・入力/移動/lead/event不変で終えた後に同じassertを実行する。元5b9/現1df5の同一methodと12境界caseがGreen。既保護2faultは即HELD/noDATAを維持する。承認は079/081/101の正確な3path/3methodに限定し、対象method外bytesと既assertを維持する。101の行単位hashとAST source-segment hashの形式違いは適用前に検出・区別し、製品や試験を再実行せずmetadataだけを訂正した。
