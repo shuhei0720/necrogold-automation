@@ -59,3 +59,13 @@ CI222/CODE1760a5fは制御226/実3.9 55/API Redと旧方式Macが成功。新7�
 ## CI225: 手続き的時計の解像度
 
 CODE4bfd2d7/run44114461878の専用診断は7ケース成功、上側のみ保持。通常部分結果の採用とmodel保持は成立し、PREPARATION記録は50ms区間210545115095..210595115095を82msの仮想時計刻みが飛び越えたことを示した。最初の拍なら4入力＋230msが元parentに413.837ms余りで収まり、失った次の拍は107.272ms超過するためCの保持は正しい。新上側fixtureの判定後の刻みだけ80msから20ms（返信分込み最大22ms）へ修正し、C/各期限/上限/全assertを保持。Swift b93729d9の独立レビュー0P0/P1。試験前提の修正であり製品assertion Redではなく、修正後のMac確認を要する。
+
+## CI226: 正常入店後の判定原画保持
+
+CODE45a3ce3/run44117057079、診断build226。上側左入口でHの実MOVED→同方向DOOR_OPENED→H/H/D/Dの実MOVED、通常Ringの5source39/51/63/75/87、最後のpolicy9完全陰性→durable保存→RESTART9→実新床93→budget PAUSE10/観測94→kind3成立まで確認した。全6入力のordinal/生成物理拍6..11と実ticket/ACKも成功。ほか7ケースも成功。これは合成画像/仮想時計を使う実Swift/C/Spoolの確認で、実機受入ではない。
+
+その後、変更していない全5sourceのfrozen manifest assertが失敗した。公開reportのmissingに39/51/63があり、次jobでcycle.framesを整理した後、判定済みsourceを24pinの優先保護へ残していないことを確認。正確なfrozen manifest全IDは失敗ログにないため、欠損3枚の確定と原画の生存不足を区別する。右入口/取消の上側subcaseは左で中断して未実施、IPAも未作成。
+
+新flag限定の有界な診断履歴を保持し、終了時は既選択24枚との和集合を既44画像/64MiB内でSpoolへ保存する。pin24/選択24/checkpoint最大6やdispatch権限は変えない。保存済みIDを含む全生存集合で容量を検査し、異常checkpoint/取消/死亡にも履歴を残す。Runtime936の実Mac assertion Redを保存済み。独立設計確認後に修正し、同じ全5枚hash/manifest assertと8ケースを実Macで再確認する。
+
+Runtime dc082fd9へ限定修正し、独立差分レビュー残P0/P1なし。静的source/ID集合の36確認は実CPython3.9による構造・集合検査であり、Swift実行や実Runtime容量境界の合格とは呼ばない。全36nativeをfresh G1から封印・適用し、旧111に対する変更5資産と全適用hashの一致を確認。元の8ケース・Swift b93729d9・C5b9f63a6・通常Ring・旧13fixtureは不変。修正後Macは次工程。
