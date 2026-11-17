@@ -84,7 +84,8 @@ func ir110CheckFootprint(_ id: String) {
         "irregular110_immutable_pin_union_stays_within_24_plus_one_handoff")
 }
 func ir110Publish(_ id: String, required: Set<Int> = [], diagnostic: Bool = false,
-                  owner: String = "fixture-owner", frozen: Bool = false) {
+                  owner: String = "fixture-owner", frozen: Bool = false,
+                  originalImageHashes: [Int: String] = [:], verifyImageBytes: Bool = false) {
     var value: [String: JSONValue]?
     pump("irregular110_manifest_ready", timeout: 40) {
         let answer = ir110Call(id, "manifest", owner: owner)
@@ -103,7 +104,7 @@ func ir110Publish(_ id: String, required: Set<Int> = [], diagnostic: Bool = fals
     guard let evidenceRoot = NG2RuntimeCycleTestHooks.spoolRoot else {
         require(false, "irregular110_actual_evidence_root_available"); return
     }
-    var requiredImages = required, boundHashes = [Int: String]()
+    var requiredImages = required.union(originalImageHashes.keys), boundHashes = originalImageHashes
     for record in ir110Records(evidenceRoot, id) where record["kind"]?.stringValue?.hasPrefix("irregular_") == true {
         for frame in ir110FrameRows(record["payload"]?.objectValue ?? [:]) {
             guard let capture = frame["capture_id"]?.intValue, capture > 0,
@@ -126,6 +127,40 @@ func ir110Publish(_ id: String, required: Set<Int> = [], diagnostic: Bool = fals
     if diagnostic { require(manifest["complete"]?.boolValue == false, "irregular110_fault_is_diagnostic_export") }
     if frozen { require(manifest["input_state"]?.intValue == 4 && manifest["ui_frozen"]?.boolValue == true,
         "irregular110_unknown_input_remains_frozen_in_export") }
+    if verifyImageBytes {
+        for image in imageRows {
+            guard let capture = image["capture_id"]?.intValue,
+                  let count = image["bytes"]?.intValue, count > 0,
+                  let hash = image["sha256"]?.stringValue else {
+                require(false, "irregular110_diagnostic_png_manifest_identity_available"); return
+            }
+            var png = Data(), offset = 0
+            while offset < count {
+                var answer: [String: JSONValue]?
+                pump("irregular110_diagnostic_original_png_chunk_available", timeout: 30) {
+                    let response = ir110Call(id, "chunk", extra: ["export_id": .string(exportID),
+                        "capture_id": .int(capture), "offset": .int(offset)], owner: owner)
+                    if let error = response.1 { require(error.code == -32094, "irregular110_diagnostic_png_only_pending_is_polled") }
+                    answer = response.0?["payload"]?.objectValue
+                    return answer != nil
+                }
+                guard let answer, let text = answer["data_base64"]?.stringValue,
+                      let bytes = Data(base64Encoded: text), !bytes.isEmpty,
+                      let next = answer["next_offset"]?.intValue else {
+                    require(false, "irregular110_diagnostic_png_chunk_has_exact_bytes"); return
+                }
+                require(answer["export_id"]?.stringValue == exportID && answer["capture_id"]?.intValue == capture &&
+                    answer["offset"]?.intValue == offset && answer["total_bytes"]?.intValue == count &&
+                    answer["sha256"]?.stringValue == hash && bytes.count <= NG2CycleWire.chunkBytes &&
+                    next == offset + bytes.count && next <= count && answer["eof"]?.boolValue == (next == count),
+                    "irregular110_diagnostic_png_chunk_keeps_manifest_identity_length_and_eof")
+                png.append(bytes); offset = next
+            }
+            require(png.count == count && NG2CycleWire.hash(png) == hash &&
+                Array(png.prefix(8)) == [137, 80, 78, 71, 13, 10, 26, 10],
+                "irregular110_all_diagnostic_original_png_bytes_and_sha_verified_before_publication")
+        }
+    }
     pump("irregular110_publication_ack", timeout: 30) {
         ir110Call(id, "published", extra: ["export_id": .string(exportID), "manifest_sha256": .string(manifestSHA),
             "archive_sha256": .string(String(repeating: "b", count: 64))], owner: owner)
@@ -427,8 +462,43 @@ func testIrregular110DeathCallbacksPublic(_ root: URL, variant: String = "lifecy
             "irregular110_real_restart_ack_without_outcome_fsync_grants_no_level_restart_shop_or_goods_worker")
         NG2CycleSpoolTestHooks.beforeBoundary = nil
         ir110ReleaseCaptures()
-        pump("irregular110_outcome_failure_terminal_record_committed", timeout: 30) {
-            ir110Record(root, id, "terminal") != nil
+        let originalDirectory = root.appendingPathComponent("NGG2Cycles").appendingPathComponent(id)
+        func originalFiles() -> [String: String] {
+            guard let files = try? FileManager.default.contentsOfDirectory(at: originalDirectory,
+                includingPropertiesForKeys: nil) else {
+                require(false, "irregular110_failed_original_directory_readable"); return [:]
+            }
+            var hashes = [String: String]()
+            for file in files {
+                guard let bytes = try? Data(contentsOf: file) else {
+                    require(false, "irregular110_failed_original_artifact_readable"); return [:]
+                }
+                hashes[file.lastPathComponent] = NG2CycleWire.hash(bytes)
+            }
+            return hashes
+        }
+        let originalHashes = originalFiles()
+        require(!originalHashes.isEmpty && ir110Record(root, id, "terminal") == nil &&
+            ir110Record(root, id, "irregular_restart_outcome") == nil,
+            "irregular110_failed_writer_does_not_revive_to_append_terminal_or_outcome")
+        guard let readOnlySource = try? NG2CycleSpool.testRecover(rootURL: root, runID: id,
+            owner: "fixture-failed-source-reader") else {
+            require(false, "irregular110_failed_original_readonly_recovery_available"); return
+        }
+        require(readOnlySource.readOnly && readOnlySource.diagnosticInterrupted,
+            "irregular110_failed_original_recovers_readonly_with_interrupted_artifacts")
+        var registeredFrames = [Int: String]()
+        for name in originalHashes.keys where name.hasPrefix("frame-") && name.hasSuffix(".json") {
+            let file = originalDirectory.appendingPathComponent(name)
+            guard let bytes = try? Data(contentsOf: file),
+                  let row = try? JSONDecoder().decode([String: JSONValue].self, from: bytes),
+                  let capture = row["capture_id"]?.intValue,
+                  let hash = row["raw_sha256"]?.stringValue,
+                  let raw = try? Data(contentsOf: file.deletingPathExtension().appendingPathExtension("rgba")) else {
+                require(false, "irregular110_failed_original_registered_frame_available"); return
+            }
+            require(NG2CycleWire.hash(raw) == hash, "irregular110_failed_original_registered_frame_hash_valid")
+            registeredFrames[capture] = hash
         }
         let rawPath = root.appendingPathComponent("NGG2Cycles").appendingPathComponent(id)
             .appendingPathComponent(String(format: "frame-%016llx.rgba", first))
@@ -446,7 +516,38 @@ func testIrregular110DeathCallbacksPublic(_ root: URL, variant: String = "lifecy
             recovered["irregular"]?.objectValue?["outcome_ns"]?.intValue == 0 &&
             recovered["cycle"]?.objectValue?["completed_shops"]?.intValue == 0 && NG2Fake.countTouches() == touches,
             "irregular110_outcome_failure_recovers_same_uuid_frozen_without_retry_or_shop_credit")
-        ir110Publish(id, required: [Int(first)], diagnostic: true, owner: recovery, frozen: true)
+        ir110Publish(id, required: [Int(first)], diagnostic: true, owner: recovery, frozen: true,
+            originalImageHashes: registeredFrames, verifyImageBytes: true)
+        let publication = ir110Call(id, "manifest", owner: recovery).0?["payload"]?.objectValue
+        guard let exportID = publication?["export_id"]?.stringValue,
+              let text = publication?["manifest_json"]?.stringValue, let bytes = text.data(using: .utf8),
+              let manifest = try? JSONDecoder().decode([String: JSONValue].self, from: bytes) else {
+            require(false, "irregular110_failed_outcome_diagnostic_publication_manifest_available"); return
+        }
+        let imageRows = (manifest["images"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        require(!registeredFrames.isEmpty && registeredFrames[Int(first)] != nil &&
+            manifest["run_id"]?.stringValue == id && manifest["interrupted"]?.boolValue == true &&
+            manifest["complete"]?.boolValue == false && manifest["terminal"]?.boolValue == true &&
+            manifest["workers_drained"]?.boolValue == true && manifest["input_state"]?.intValue == 4 &&
+            manifest["ui_frozen"]?.boolValue == true &&
+            registeredFrames.allSatisfy { capture, hash in
+                imageRows.first { $0["capture_id"]?.intValue == capture }?["raw_sha256"]?.stringValue == hash
+            }, "irregular110_diagnostic_sibling_preserves_all_registered_original_image_hashes")
+        let sibling = root.appendingPathComponent("NGG2RecoveryExports").appendingPathComponent(id + "-" + exportID)
+        let siblingFiles = (try? FileManager.default.contentsOfDirectory(at: sibling, includingPropertiesForKeys: nil)) ?? []
+        let siblingRecords = siblingFiles.filter { $0.lastPathComponent.hasPrefix("record-") && $0.pathExtension == "json" }
+            .compactMap { file -> [String: JSONValue]? in
+                guard let bytes = try? Data(contentsOf: file) else { return nil }
+                return try? JSONDecoder().decode([String: JSONValue].self, from: bytes)
+            }
+        require(siblingRecords.contains { $0["kind"]?.stringValue == "recovery_source" &&
+                $0["payload"]?.objectValue?["input_authority"]?.boolValue == false } &&
+            siblingRecords.contains { $0["kind"]?.stringValue == "published" &&
+                $0["payload"]?.objectValue?["export_id"]?.stringValue == exportID &&
+                $0["payload"]?.objectValue?["manifest_sha256"]?.stringValue == publication?["manifest_sha256"]?.stringValue } &&
+            originalFiles() == originalHashes && ir110Record(root, id, "terminal") == nil &&
+            ir110Record(root, id, "irregular_restart_outcome") == nil && NG2Fake.countTouches() == touches,
+            "irregular110_diagnostic_sibling_receipt_never_mutates_or_revives_failed_original_ledger")
         print("PASS TEST110 actual post-restart outcome fsync failure preserves first goods and frozen recovery")
         return
     }
