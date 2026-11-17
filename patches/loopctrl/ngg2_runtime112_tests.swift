@@ -597,15 +597,70 @@ func testRestartYield112InitialGate(_ root: URL) {
 
 // This world advances only after an actual public UI callback. The factory
 // renders every pixel; it never writes a Scene or patches Controller state.
+func runtime112UpperPendingTicket(_ snapshot: [String: JSONValue], _ ticket: [String: JSONValue]) -> Bool {
+    guard let id = ticket["id"]?.intValue, id > 0,
+          snapshot["current_command_id"]?.intValue == id, snapshot["input_state"]?.intValue == 1,
+          ticket["kind"]?.intValue == 4, ticket["outcome"]?.intValue == 0,
+          ticket["begin_ns"]?.intValue == 0, (ticket["ordinal"]?.intValue ?? 0) > 0,
+          let target = ticket["target_ns"]?.intValue, target == snapshot["next_target_ns"]?.intValue,
+          let notBefore = ticket["not_before_ns"]?.intValue, let deadline = ticket["deadline_ns"]?.intValue,
+          let lead = snapshot["lead_ns"]?.intValue, lead > 0, target >= lead,
+          notBefore == target-lead, deadline >= notBefore, deadline-notBefore <= 10_000_000,
+          let source = ticket["source_capture_id"]?.intValue, source > 0,
+          source == snapshot["last_capture_id"]?.intValue,
+          let start = ticket["source_start_ns"]?.intValue, start > 0,
+          start == snapshot["last_capture_start_ns"]?.intValue,
+          let end = snapshot["last_capture_end_ns"]?.intValue, end >= start,
+          let phase = ticket["phase_sample_ns"]?.intValue, phase > 0, phase <= end,
+          let now = snapshot["device_now_ns"]?.intValue, now >= end, now >= phase,
+          now <= deadline, now-start <= 3_000_000_000, now-phase <= 3_000_000_000 else { return false }
+    return true
+}
+func runtime112UpperAcknowledgedTicket(_ actual: [String: JSONValue], _ reserved: [String: JSONValue]) -> Bool {
+    let fields = ["id", "ordinal", "kind", "direction", "x", "y", "target_ns", "not_before_ns", "deadline_ns",
+        "source_capture_id", "source_start_ns", "phase_sample_ns"]
+    guard fields.allSatisfy({ actual[$0] != nil && actual[$0] == reserved[$0] }),
+          actual["outcome"]?.intValue == 2, (actual["observed_capture_id"]?.intValue ?? 0) > 0,
+          let begin = actual["begin_ns"]?.intValue, let end = actual["end_ns"]?.intValue,
+          let notBefore = reserved["not_before_ns"]?.intValue,
+          let deadline = reserved["deadline_ns"]?.intValue, let target = reserved["target_ns"]?.intValue,
+          let source = reserved["source_start_ns"]?.intValue, let phase = reserved["phase_sample_ns"]?.intValue,
+          source <= begin, phase <= begin, begin >= notBefore, begin <= deadline,
+          end >= begin, end-target <= 50_000_000 else { return false }
+    return true
+}
+func runtime112UpperPhysicalBeat(_ target: Int, epoch: Int) -> Int? {
+    // The generator's epoch/period are independent of C's fitted model. Keep
+    // nearest-cycle arithmetic checked; no epoch is moved to fit a ticket.
+    guard epoch >= 0, target >= epoch, target-epoch <= Int.max-260_000_000 else { return nil }
+    return (target-epoch+260_000_000)/520_000_000
+}
+func runtime112UpperConsecutivePhysicalBeats(_ tickets: [[String: JSONValue]], epoch: Int) -> Bool {
+    guard !tickets.isEmpty else { return false }
+    var previousOrdinal: Int?, previousBeat: Int?
+    for ticket in tickets {
+        guard let ordinal = ticket["ordinal"]?.intValue, ordinal > 0,
+              let target = ticket["target_ns"]?.intValue,
+              let beat = runtime112UpperPhysicalBeat(target, epoch: epoch) else { return false }
+        if let before = previousOrdinal, let cycle = previousBeat {
+            guard before < Int.max, cycle < Int.max, ordinal == before+1, beat == cycle+1 else { return false }
+        }
+        previousOrdinal = ordinal; previousBeat = beat
+    }
+    return true
+}
 final class Runtime112UpperWorld {
     let gate = NSLock()
     let id: String, mirrored: Bool, cancelPartial: Bool
+    let physicalEpoch: Int
     let workerRelease = DispatchSemaphore(value: 0)
     var stage = 0, aligned = false, workerParked = false, restarts = 0, pressureAdded = false, pressureObserved = false
     var advanced = Set<UInt64>(), rawSources = [UInt64: Data](), kernelCalls = 0, workers = 0
+    var reservations = [UInt64: [String: JSONValue]]()
     var restoreClock = false
     init(_ id: String, mirrored: Bool, cancelPartial: Bool) {
         self.id = id; self.mirrored = mirrored; self.cancelPartial = cancelPartial
+        NG2Fake.lock.lock(); physicalEpoch = Int(NG2Fake.phaseBase); NG2Fake.lock.unlock()
     }
     func locked<T>(_ body: () -> T) -> T { gate.lock(); defer { gate.unlock() }; return body() }
     func install() {
@@ -633,8 +688,17 @@ final class Runtime112UpperWorld {
             }
         }
         NG2RuntimeTestHooks.scheduleTicket = { command, callback in
-            let events = (report(self.id)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+            let snapshot = report(self.id)
+            let events = (snapshot["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
             guard let event = events.first(where: { $0["id"]?.intValue == Int(command) }), event["kind"]?.intValue == 4 else { return false }
+            require(runtime112UpperPendingTicket(snapshot, event),
+                "test112_upper_coherent_public_reservation_source_phase_and_frozen_window")
+            var reservation = event
+            reservation["cached_model_period_ns"] = snapshot["beat_period_ns"]
+            self.locked {
+                require(self.reservations[command] == nil, "test112_upper_actual_ticket_reserved_once")
+                self.reservations[command] = reservation
+            }
             let phase = self.locked { self.stage }, horizontal = self.mirrored ? 2 : 1
             require(phase < 6 && event["direction"]?.intValue == (phase < 4 ? horizontal : 4),
                 "test112_upper_actual_planner_h_h_h_h_down_down_sequence")
@@ -760,9 +824,28 @@ func testRuntime112UpperEntry(_ root: URL, mirrored: Bool, cancelPartial: Bool) 
         directions.map { $0["motion"]?.intValue ?? 0 } == [1, 3, 1, 1, 1, 1] &&
         world.locked { world.restarts == 1 && world.kernelCalls == world.workers && world.pressureObserved },
         "test112_upper_real_opening_then_each_moved_h_h_down_down_and_one_restart")
-    let targets = directions.suffix(4).map { $0["target_ns"]?.intValue ?? 0 }
-    require(targets.count == 4 && zip(targets, targets.dropFirst()).allSatisfy { $0.1-$0.0 == 520_000_000 },
+    let reservations = world.locked { world.reservations }
+    require(reservations.count == directions.count && directions.allSatisfy { event in
+        guard let command = event["id"]?.intValue, command > 0,
+              let reserved = reservations[UInt64(command)] else { return false }
+        return runtime112UpperAcknowledgedTicket(event, reserved)
+    }, "test112_upper_actual_ack_keeps_each_reserved_ticket_source_phase_and_window")
+    require(directions.count == 6 && runtime112UpperConsecutivePhysicalBeats(directions, epoch: world.physicalEpoch),
         "test112_upper_each_continuation_real_ticket_is_the_next_beat")
+    for event in directions {
+        let command = event["id"]!.intValue!, target = event["target_ns"]!.intValue!
+        let beat = runtime112UpperPhysicalBeat(target, epoch: world.physicalEpoch)!
+        var diagnostic = event
+        diagnostic["run_id"] = .string(id); diagnostic["physical_epoch_ns"] = .int(world.physicalEpoch)
+        diagnostic["physical_period_ns"] = .int(520_000_000); diagnostic["nearest_physical_beat"] = .int(beat)
+        diagnostic["target_phase_error_ns"] = .int((target-world.physicalEpoch)-beat*520_000_000)
+        // Diagnostic only: this public cached period is not the frozen C
+        // reservation period, and the phase error does not assert precision.
+        diagnostic["cached_model_period_ns"] = reservations[UInt64(command)]?["cached_model_period_ns"]
+        if let bytes = try? JSONEncoder().encode(diagnostic), let line = String(data: bytes, encoding: .utf8) {
+            print("EVIDENCE TEST112 UPPER_CADENCE " + line)
+        } else { require(false, "test112_upper_physical_cadence_diagnostic_encodes") }
+    }
     let checkpoint = ir110Record(root, id, "checkpoint") ?? [:], assessment = checkpoint["assessment"]?.objectValue ?? [:]
     require(assessment["outcome"]?.stringValue == "negative" && assessment["coverage"]?.stringValue == "complete" &&
         checkpoint["assessment_adopted"]?.boolValue == true &&

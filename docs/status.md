@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-17（日本時間）。TEST111実機結果を受領しTEST112を修正中。[計画](plans/test112-device-failures.md)・[修正表](fix-records.md)。
+更新: 2026-11-18（日本時間）。TEST111実機結果を受領しTEST112を修正中。[計画](plans/test112-device-failures.md)・[修正表](fix-records.md)。
 
 8添付=4campaign/4run、102 PNG/118記録を既存client/hashchain/RGBAで照合。1eabの実133/328は通常Ring/policy7の完全陰性、保存→RESTART11/25→新床160/355を確認した。分類実時間51.336/55.732msは2例の観測値で、速度要件全体の受入ではない。
 

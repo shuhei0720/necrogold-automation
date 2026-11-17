@@ -3,6 +3,7 @@
 #include "ngg2_runtime_scene_fixtures.h"
 #include "runtime112_upper_shop.h"
 #include <math.h>
+#include <stdlib.h>
 
 static void upper112_pixel(uint8_t *out,int x,int y,int r,int g,int b){
     size_t at;
@@ -18,7 +19,10 @@ int ng2_fixture_upper112_rgba(uint8_t *out,size_t length,int32_t stage,int32_t m
     static const int cells[][3]={{-1,0,7},{-1,-1,2},{-1,1,2},
         {-7,-2,2},{-7,-1,2},{-7,0,2},{-7,1,2},{-6,-2,2},{-5,-2,2},{-4,-2,2},
         {-2,0,4},{0,1,4},{-8,-3,3},{5,2,3},{8,3,3},{1,0,1}};
-    uint8_t world[1089]={0};int x,y,px,py,sign=mirror?-1:1,k,left,sy,column=0,row=0;
+    static const int hud[][4]={{0,0,143,140},{663,0,896,80},{717,315,896,414},
+        {405,321,485,414},{0,380,896,414},{429,0,465,45},{866,45,896,290}};
+    uint8_t world[1089]={0},unknown[1089]={0},*ui;
+    int x,y,px,py,sign=mirror?-1:1,left,sy,column=0,row=0;
     size_t i;
     if(!out||length!=896u*414u*4u||stage<0||stage>6||mirror<0||mirror>1
         ||!isfinite(q)||q<0||q>=1)return 0;
@@ -28,24 +32,39 @@ int ng2_fixture_upper112_rgba(uint8_t *out,size_t length,int32_t stage,int32_t m
         world[(cells[i][1]+16)*33+sign*cells[i][0]+16]=(uint8_t)cells[i][2];
     if(stage>=2)world[16*33-sign+16]=1; /* Actually opened door; no displacement. */
     if(stage>=3)world[16*33-2*sign+16]=1; /* Later observed positive next floor. */
+    ui=(uint8_t *)malloc(length);if(!ui)return 0;
+    if(!ng2_fixture_shop_rgba(ui,length,0,0,q,unknown,sizeof(unknown),16,16,mirror?2:1,0)){
+        free(ui);return 0;
+    }
     /* The unused far gate suppresses the old factory's automatic shop layer. */
-    if(!ng2_fixture_shop_rgba(out,length,px,py,q,world,sizeof(world),16,16,mirror?2:1,0))return 0;
-    if(stage<2)return 1;
-    left=(mirror?557:267)-36*px;sy=267-36*py;
-    for(i=0;i<sizeof(ng2_upper112_runs)/sizeof(*ng2_upper112_runs);++i){
-        const NG2Upper112Run *run=&ng2_upper112_runs[i];int j;
-        for(j=0;j<run->count;++j){
-            upper112_pixel(out,left-90+column,sy-35+row,run->r,run->g,run->b);
-            if(++column==253){column=0;++row;}
+    if(!ng2_fixture_shop_rgba(out,length,px,py,q,world,sizeof(world),16,16,mirror?2:1,0)){
+        free(ui);return 0;
+    }
+    if(stage>=2){
+        left=(mirror?557:267)-36*px;sy=267-36*py;
+        for(i=0;i<sizeof(ng2_upper112_runs)/sizeof(*ng2_upper112_runs);++i){
+            const NG2Upper112Run *run=&ng2_upper112_runs[i];int j;
+            for(j=0;j<run->count;++j){
+                upper112_pixel(out,left-90+column,sy-35+row,run->r,run->g,run->b);
+                if(++column==253){column=0;++row;}
+            }
         }
     }
-    if(stage<5)for(k=0;k<3;++k)
-        upper112_rect(out,left+36*k-12,sy+69,left+36*k+13,sy+90,27,17,15);
-    /* HUD is a screen overlay, not moving world terrain. Restore its existing
-     * beat bars after the lower room patch at precisely the same q. */
-    for(k=0;k<6;++k){int distance=(int)floor((q+k)*104+.5);
-        upper112_rect(out,446-distance,350,448-distance,387,20,180,160);
-        upper112_rect(out,446+distance,350,448+distance,387,20,180,160);
+    /* Explicit procedural visibility model, not a claim about the game's
+     * renderer or an actual HUD mask. A fixed actor-relative lower boundary
+     * hides whole world rows in every stage, independent of items/prices.
+     * Actual movement brings the unchanged world above this same boundary. */
+    upper112_rect(out,0,334,896,414,0,0,0);
+    /* Restore the original base UI, including its positive beat-bar strokes
+     * outside the coarse fixed HUD panels. Do not redact any world price box. */
+    for(i=0;i<sizeof(hud)/sizeof(*hud);++i){
+        for(y=hud[i][1];y<hud[i][3];++y)for(x=hud[i][0];x<hud[i][2];++x){
+            size_t at=((size_t)y*896+(size_t)x)*4;
+            upper112_pixel(out,x,y,ui[at],ui[at+1],ui[at+2]);
+        }
     }
-    return 1;
+    for(i=0;i<length;i+=4)if(ui[i]||ui[i+1]||ui[i+2]){
+        out[i]=ui[i];out[i+1]=ui[i+1];out[i+2]=ui[i+2];out[i+3]=255;
+    }
+    free(ui);return 1;
 }

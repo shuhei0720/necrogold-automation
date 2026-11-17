@@ -47,3 +47,11 @@ CI222/CODE1760a5fは制御226/実3.9 55/API Redと旧方式Macが成功。新7�
 旧223のfirst_partialはdriver上Greenでも、実Spool検証がwatchdog reason19/input3を検出して最終資格を拒否した。候補用fixtureもreasonGoods/input0/通常PAUSEの実観測を必須に強める。happyの実24PNG/29記録は実Python3.9で通常parserへ通り、candidateの26PNG/31記録はhashchain/RGBA正常・parser候補保持だが入力待機残存を拒否した。これは診断で、全8ケース/最終5gate/実client ZIP公開/実機の合格ではない。
 
 上側入店の手続き的画像にはstage依存の価格消去があり、通常producerの最初の4部分候補と空結果限定のC資格も不一致だった。物理的なHUD/可視性と実商品の投影を照合してから対策を選び、分類結果の注入や可視価格の消去で合格させない。Mac反復用の専用diagnostic laneを追加し、現8ケースだけを実行する。配布用device laneの制御/実3.9/IPA確認は維持する。
+
+## 2026-11-18: 上側の正常部分判定と画像資材
+
+実224の専用Mac診断は、候補後の実PAUSE確認を強化した後の7ケースが成功し、上側だけ未成立だった。配布IPA/全8成功ではない。上側は元row3/7ITEMへ対応する正常safe非空partialを限定許可し、異常reason/kindを入口だけで拒否するC5b9f63a6へ修正。normal309の公開C全経路Red2/error0、途中b60のenum Red8/error0→最終17＋直接45件Green、独立レビュー0P0/P1。既14assert/row3/4開始入力/元親/230ms/旧累積上限/static検査は維持。
+
+新画像factory9e81は価格別消去を除き、全段階に同じプレイヤー相対の下側可視境界を適用してから元UIを戻す。これは将来画像の手続き的遮蔽モデルで、実ゲーム/実HUDの再現ではない。左右×2位相×7段階の通常producer/Motion、280拍位相、異常10、実223の14厳密位相pair/追加1428地形比較を確認し、GOLD支持/ITEM投影/保護を維持した。
+
+固定520msのtarget差分assertは、実223の物理拍6→7/差521729332nsで誤前提と判明。2334 fixtureは同一snapshotの予約/画像元/phase/windowと実ACK、全6入力のordinalと生成物理拍indexの連続を検査する。モデル周期・位相誤差は診断だけで、非公開の固定周期や8%条件の独立証明とは呼ばない。独立レビュー0P0/P1、実Swift確認は次のMac診断。

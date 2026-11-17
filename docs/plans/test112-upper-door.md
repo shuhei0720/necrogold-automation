@@ -10,7 +10,7 @@ TEST111の時刻順4実行の最後は、開扉後に商品が下へ隠れたま
 
 ## 2. 新しい限定権限
 
-通常の同source workerがOK/UNKNOWN/INCOMPLETEで、対象/候補/強い手掛かりがなく、PARTIALかつ未FULL・row/partial0・選択-1・partial_safe_no_positive=0であること。同prefixの直前ACKが同方向の横開扉であり、lead確認/実移動履歴あり、現在Navの完全判断が同方向の入口FLOORであること。入力中、旧worker未終了、既観測episode、再開/PAUSE/storage/terminalは拒否する。
+通常の同source workerがOK/UNKNOWN/INCOMPLETEで、対象/候補/強い手掛かりがなく、PARTIALかつ未FULL・row0であること。初回は空結果（partial0・選択-1・safe0）、または正常に認証された部分probe（partial1〜12・safe1・既選択index検査）に限定する。後者は全probeが元ITEMそのものへoutside=0で対応し、既binary/box検査を通ること。同prefixの直前ACKが同方向の横開扉であり、lead確認/実移動履歴あり、現在Navの完全判断が同方向の入口FLOORであること。入力中、旧worker未終了、既観測episode、再開/PAUSE/storage/terminalは拒否する。
 
 局所形は横方向d=±1について、入口(d,0)の上下GOLD、反対側(7d,-2..1)のGOLD柱、(4d..7d,-2)のGOLD屋根、下側row3・d..7dの連続7ITEM投影と正確な十字保護を要求する。原点/次床は正の非保護FLOOR。一般Nav、旧UP/lower、任意の金壁・空結果へ広げない。左右鏡像は各々の実HUD条件で検査し、一律に中央域へ収まるとは仮定しない。
 

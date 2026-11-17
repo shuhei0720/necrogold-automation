@@ -5,19 +5,48 @@ The received empty lower source motivates admission, not future phone arrival.
 """
 import ctypes as C
 from copy import deepcopy
+import importlib.util
+import os
+from pathlib import Path
+import subprocess
+import tempfile
 import unittest
 
 from tests import test_native_controller as native
 from tests import test_native_cycle094 as cycle
 from tests import test_native_opened_fade100 as opened
 from tests import test_native_structural_cycle096 as structural
+from tests.test_native_ring094 import Options, Result, Clock, Cancelled
+from tests import test_native_ring_bank094 as ring_bank
+
+ROOT=Path(__file__).resolve().parents[1]
 
 
 class NativeUpperEntry112Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        opened.NativeOpenedFade100Tests.setUpClass()
+        previous=native.CORE
+        try:
+            native.CORE=Path(os.environ.get('NECRO112_UPPER_CORE',str(previous)))
+            opened.NativeOpenedFade100Tests.setUpClass()
+        finally:native.CORE=previous
         cls.lib = opened.NativeOpenedFade100Tests.lib
+        cls.pixel_tmp=tempfile.TemporaryDirectory(prefix='upper112-normal-')
+        cls.addClassCleanup(cls.pixel_tmp.cleanup)
+        folder=Path(cls.pixel_tmp.name);core=Path(os.environ.get('NECRO112_UPPER_CORE',str(previous)))
+        spec=importlib.util.spec_from_file_location('upper112_public_generator',ROOT/'patches/loopctrl/generate_upper112_pixels.py')
+        generator=importlib.util.module_from_spec(spec);spec.loader.exec_module(generator)
+        cls.generated=generator.generate(folder/'runtime112_upper_shop.h')
+        library=folder/'upper.so'
+        subprocess.run(['cc','-std=c99','-O2','-fno-fast-math','-ffp-contract=off',
+            '-Wall','-Wextra','-Werror','-shared','-fPIC','-I'+str(core),
+            '-I'+str(ROOT/'patches/loopctrl'),'-I'+str(folder),
+            str(ROOT/'patches/loopctrl/ngg2_runtime112_upper_fixture.c'),
+            str(ROOT/'patches/loopctrl/ngg2_runtime_scene_fixtures.c'),'-lm','-o',str(library)],check=True)
+        cls.pixels=C.CDLL(str(library))
+        cls.pixels.ng2_fixture_upper112_rgba.argtypes=[C.c_void_p,C.c_size_t,C.c_int32,C.c_int32,C.c_double]
+        cls.lib.ng2_analyze_rgba.argtypes=[C.c_void_p,C.c_size_t,C.c_size_t,C.POINTER(native.Scene)]
+        cls.ring=ring_bank.NativeRingBank094Tests.build_library(core/'NG2Ring.c',folder/'ring.so')
 
     @classmethod
     def tearDownClass(cls):
@@ -30,6 +59,158 @@ class NativeUpperEntry112Tests(unittest.TestCase):
         self.p = opened.NativeOpenedFade100Tests(methodName='runTest')
         self.p.lib = self.lib
         self.addCleanup(self.p.doCleanups)
+
+    def actual_pixels(self,stage,direction):
+        """Public procedural world+visibility; no Scene/result injection."""
+        q=((5*native.SECOND-(self.h.now-1))%native.PERIOD)/native.PERIOD
+        pixels=(C.c_ubyte*(896*414*4))()
+        self.assertEqual(1,self.pixels.ng2_fixture_upper112_rgba(pixels,len(pixels),stage,int(direction==2),q))
+        scene=native.Scene()
+        self.assertEqual(0,self.lib.ng2_analyze_rgba(pixels,len(pixels),896*4,C.byref(scene)))
+        return pixels,scene
+
+    def actual_move(self,stage,direction):
+        for _ in range(220):
+            self.h.now+=20_000_000
+            _pixels,scene=self.actual_pixels(stage,direction)
+            self.h.observe_actual(scene)
+            ready,command=self.h.tick()
+            if ready:
+                self.assertEqual(4,command.kind,'the normal source must continue toward all three offers')
+                return command
+            self.assertEqual(0,self.h.status().terminal,'normal producer/public C bounded route stopped before complete offers')
+        self.fail('normal producer/public C did not issue the next bounded observation')
+
+    def actual_assess(self,pixels,scene,mutate=None):
+        state=self.q.cycle()
+        self.assertEqual(1,self.lib.ng2_controller_cycle_worker_begin(self.h.engine,state.job_id,
+            state.capture_id,state.prefix,self.h.now))
+        now=Clock(lambda _context:self.h.now);cancelled=Cancelled(lambda _context:0)
+        state=self.q.cycle()
+        options=Options(abi=1,size=C.sizeof(Options),mode=2,deadline_ns=state.deadline_ns,
+            now_ns=now,cancelled=cancelled,scene=C.addressof(scene),fast=1)
+        result=Result()
+        self.assertEqual(0,self.ring.ng2_ring_assess_rgba(pixels,len(pixels),896*4,C.byref(options),C.byref(result)))
+        self.assertEqual(0,result.status)
+        if mutate:mutate(result)
+        self.h.now+=1
+        self.assertEqual(1,self.lib.ng2_controller_cycle_assess(self.h.engine,state.job_id,
+            state.capture_id,state.prefix,self.h.now,C.byref(result)))
+        return result
+
+    def actual_pending(self,direction=1):
+        self.h=self.q.h=self.p.harness()
+        for stage in (0,1):
+            command=self.actual_move(stage,direction)
+            self.assertEqual(direction,command.direction)
+            self.h.ack(command);self.h.now=max(self.h.now,command.target_ns+80_000_002)
+            pixels,scene=self.actual_pixels(stage+1,direction)
+            self.h.observe_actual(scene)
+            event=self.h.events()[-1]
+            self.assertEqual(1 if stage==0 else 3,event.motion)
+        self.assertEqual((2,1,1),(self.h.status().inputs,self.h.status().moves,self.h.status().door_changes))
+        self.assertEqual((1,7),(scene.goods,sum(cell==6 for cell in scene.tiles)))
+        return pixels,scene,self.q.cycle()
+
+    def test_normal_producer_partial_probes_complete_public_c_hhdd_and_single_negative(self):
+        # The whole band visibility model is procedural. Every merchandise
+        # Scene and worker result comes from its real pixels/normal producer;
+        # this asserts neither phone timing nor future game renderer behavior.
+        for direction in (1,2):
+            with self.subTest(direction=direction):
+                pixels,scene,parent=self.actual_pending(direction)
+                result=self.actual_assess(pixels,scene)
+                self.assertEqual((0,1,0,1),(result.outcome,result.coverage,result.row_count,result.partial_safe_no_positive))
+                self.assertGreater(result.partial_count,0)
+                targets=[];parents=[];visual=[]
+                for stage,wanted in zip(range(2,6),(direction,direction,4,4)):
+                    command=self.actual_move(stage,direction);targets.append(command.target_ns)
+                    self.assertEqual(wanted,command.direction,'upper observation follows the known room before moving down')
+                    visual.append(self.h.motion_wait().deadline_ns)
+                    before=self.h.status();self.h.ack(command)
+                    self.assertEqual(before.moves,self.h.status().moves,'ACK is not a displacement')
+                    self.h.now=max(self.h.now,command.target_ns+80_000_002)
+                    pixels,scene=self.actual_pixels(stage+1,direction);self.h.observe_actual(scene)
+                    event=self.h.events()[-1]
+                    self.assertEqual((1,*native.DIRS[wanted]),(event.motion,event.dx,event.dy))
+                    parents.append(self.q.cycle().continuation_deadline_ns)
+                    result=self.actual_assess(pixels,scene)
+                    self.assertEqual(3 if stage==5 else 0,result.outcome,'only the final normal complete source is negative')
+                self.assertEqual((3,2,9),(result.outcome,result.coverage,result.certificate.policy_version))
+                self.assertEqual((6,5,1,0),(self.h.status().inputs,self.h.status().moves,self.h.status().door_changes,self.h.status().restarts))
+                self.assertEqual((3,0,1),(self.q.cycle().outcome,self.q.cycle().status,self.q.cycle().completed_shops))
+                self.assertEqual([parent.continuation_deadline_ns]*4,parents)
+                self.assertTrue(all(deadline<=parent.continuation_deadline_ns for deadline in visual))
+                self.assertEqual(0,self.q.durable(),'normal complete evidence still needs observed PAUSE/durable UI order')
+                self.assertLess(self.h.now,parent.continuation_deadline_ns)
+
+    def test_initial_partial_counterexamples_do_not_gain_the_frozen_upper_route(self):
+        # Corrupt only the normal first result at the C trust boundary. An
+        # ineligible upper admission may still use the unchanged generic
+        # partial path; it must not inherit this bounded room's frozen root.
+        faults=('safe0','safe2','row','other_row','other_shop','halo','half_cell',
+                'icon_box','word_box','nonfinite','kind4','kind_max','reason5','reason_max')
+        for direction in (1,2):
+            for fault in faults:
+                with self.subTest(direction=direction,fault=fault):
+                    pixels,scene,parent=self.actual_pending(direction)
+                    def corrupt(value):
+                        slot=value.partial[value.partial_count-1]
+                        if fault=='safe0':value.partial_safe_no_positive=0
+                        elif fault=='safe2':value.partial_safe_no_positive=2
+                        elif fault=='row':value.row_count=1
+                        elif fault=='other_row':slot.sy-=36
+                        elif fault=='other_shop':slot.cx=448-36*native.DIRS[direction][0]
+                        elif fault=='halo':slot.cx=448+8*36*native.DIRS[direction][0]
+                        elif fault=='half_cell':slot.cx=448+(4*36+18)*native.DIRS[direction][0]
+                        elif fault=='icon_box':slot.icon_box[:]=(-1,291,32,28)
+                        elif fault=='word_box':slot.word_present=1;slot.word_box[:]=(0,0,0,0)
+                        elif fault=='kind4':slot.kind=4
+                        elif fault=='kind_max':slot.kind=0xffffffff
+                        elif fault=='reason5':value.reason=5
+                        elif fault=='reason_max':value.reason=0xffffffff
+                        else:slot.icon_score=float('nan')
+                    self.actual_assess(pixels,scene,corrupt)
+                    bounded=False
+                    for _ in range(220):
+                        self.h.now+=20_000_000
+                        _pixels,current=self.actual_pixels(2,direction)
+                        self.h.observe_actual(current)
+                        ready,command=self.h.tick()
+                        if ready or self.h.status().terminal:
+                            if ready and command.kind==4 and command.direction==direction:
+                                self.h.ack(command)
+                                self.h.now=max(self.h.now,command.target_ns+80_000_002)
+                                _pixels,current=self.actual_pixels(3,direction)
+                                self.h.observe_actual(current)
+                                event=self.h.events()[-1]
+                                self.assertEqual((1,*native.DIRS[direction]),(event.motion,event.dx,event.dy))
+                                bounded=self.q.cycle().continuation_deadline_ns==parent.continuation_deadline_ns
+                            break
+                    self.assertFalse(bounded,'invalid initial probes must not acquire the frozen four-step room route')
+                    self.assertNotEqual(3,self.q.cycle().outcome,'partial probes never prove absence')
+                    self.assertEqual(0,self.h.status().restarts)
+
+    def test_initial_partial_positive_hints_preempt_any_upper_input(self):
+        for direction in (1,2):
+            for hint in ('candidate','target','upper_bound','strong_word'):
+                with self.subTest(direction=direction,hint=hint):
+                    pixels,scene,_parent=self.actual_pending(direction)
+                    def positive(value):
+                        slot=value.partial[value.partial_count-1]
+                        if hint in ('candidate','target'):
+                            # A normally aggregated candidate carries the
+                            # same top-level outcome, not contradictory safe1.
+                            slot.outcome=value.outcome=1 if hint=='candidate' else 2
+                            value.partial_safe_no_positive=0
+                        elif hint=='upper_bound':slot.icon_upper_bound=.8
+                        else:
+                            slot.word_present=1;slot.word_iou=.95;slot.word_coverage=.95
+                    self.actual_assess(pixels,scene,positive)
+                    if hint in ('candidate','target'):self.assertEqual(1,self.q.cycle().candidate_latched)
+                    self.assertNotEqual(3,self.q.cycle().outcome)
+                    self.assertNotEqual(4,self.h.tick()[1].kind)
+                    self.assertEqual((2,1,0),(self.h.status().inputs,self.h.status().moves,self.h.status().restarts))
 
     @staticmethod
     def cross(items):

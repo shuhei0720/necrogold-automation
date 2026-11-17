@@ -4614,7 +4614,9 @@ static int upper_admit(NG2Controller *p,const NG2RingResult *result,uint64_t now
     NG2Decision choice;int d,i,x,y,count=0;
     if(p->upper.active||p->entry.active||p->lower.active||p->cycle_full_spent||p->cycle_full_framing
         ||!p->cycle.partial||p->cycle.full_seen||!entry_result_safe(result)
-        ||result->row_count||result->partial_count||result->partial_safe_no_positive
+        ||result->reason>NG2_RING_EXPOSED_TARGET_ABSENT
+        ||result->row_count
+        ||(result->partial_count?result->partial_safe_no_positive!=1:result->partial_safe_no_positive!=0)
         ||p->cycle_restart_unproved||p->cycle_pause_attempted||p->cycle_storage_error
         ||p->s.input_state||p->finish_requested||p->s.terminal||!p->s.lead_confirmed||level_moves(p)<=0
         ||p->s.inputs>12||!p->cycle.capture_id||p->cycle.prefix!=p->s.last_completed_id
@@ -4623,6 +4625,8 @@ static int upper_admit(NG2Controller *p,const NG2RingResult *result,uint64_t now
         ||(choice.direction!=NG2_LEFT&&choice.direction!=NG2_RIGHT)||choice.reason!=5
         ||choice.obstacle!=NG2_TILE_FLOOR||!last_ack_opened_gate(p,choice.direction)
         ||!cycle_exact_item_protection(&p->cycle_anchor))return 0;
+    for(i=0;i<result->partial_count;++i)
+        if(result->partial[i].kind>NG2_RING_GENERIC_NON_TARGET)return 0;
     d=dx[choice.direction];
     for(i=0;i<NG2_TILE_COUNT;++i){
         x=i%23-11;y=i/23-5;
@@ -4641,7 +4645,9 @@ static int upper_admit(NG2Controller *p,const NG2RingResult *result,uint64_t now
     p->upper.sync=p->cycle_sync_deadline;p->upper.level=p->cycle.level_id;p->upper.opening=p->cycle.prefix;
     p->upper.job=p->cycle.job_id;p->upper.capture=p->cycle.capture_id;p->upper.prefix=p->cycle.prefix;
     p->upper.ordinal=p->s.last_ordinal;
-    if(!upper_floor(p,&p->cycle_anchor)||!upper_budget(p,now,0)){
+    /* Initial partial probes belong to the original ITEM cells themselves.
+     * No row means upper_result cannot grant its later coherent-row halo. */
+    if(!upper_result(p,result)||!upper_floor(p,&p->cycle_anchor)||!upper_budget(p,now,0)){
         memset(&p->upper,0,sizeof(p->upper));return 0;
     }
     p->upper.stage=1;p->cycle.state=NG2_CYCLE_OBSERVE_MORE;p->cycle.release_after_ns=now;return 1;
