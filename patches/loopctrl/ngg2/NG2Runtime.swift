@@ -1313,6 +1313,7 @@ final class NG2Runtime {
                 NG2RuntimeCycleTestHooks.beforeIrregularPersistenceCommit?(kind, state.episode_id)
                 #endif
                 var shouldDispatch = false, completedRestart = false
+                var committedStatus: NG2ControllerStatus?
                 run.lock.ng2Locked {
                     cycle.persistenceOutstanding = false
                     if let reserved { irregular.reservation = reserved }
@@ -1339,7 +1340,11 @@ final class NG2Runtime {
                             action, commandID, captureID, state.prefix, Self.now())
                         completedRestart = action == 3 && committed == 1
                     }
+                    var latest = NG2ControllerStatus()
+                    ng2_controller_status(currentCore, &latest)
+                    committedStatus = latest
                 }
+                if let committedStatus { self.cache(run, committedStatus, retainEvidence: false) }
                 self.refreshCycleEvidence(run)
                 self.refreshIrregularEvidence(run)
                 if completedRestart { self.releaseIrregularReservation(run) }
