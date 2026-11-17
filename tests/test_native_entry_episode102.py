@@ -512,12 +512,21 @@ class NativeEntryEpisode102Tests(unittest.TestCase):
                     self.h.now = running.deadline_ns+1
                     self.h.tick(); self.held()
                     before = bytes(self.q.cycle())
+                    controls = self.h.status()
                     value = cycle.Result(abi=1,size=C.sizeof(cycle.Result),outcome=2,
                         coverage=1,selected_row=-1,selected_partial=-1,
                         started_ns=self.h.now,finished_ns=self.h.now)
-                    self.assertEqual(0,self.lib.ng2_controller_cycle_assess(self.h.engine,
+                    # TEST111 retains a late positive only as CANDIDATE.
+                    # The expired worker cannot adopt TARGET, refresh its
+                    # old deadline/state/source, or grant any new input.
+                    self.assertEqual(1,self.lib.ng2_controller_cycle_assess(self.h.engine,
                         job.job_id,job.capture_id,job.prefix,self.h.now,C.byref(value)))
-                    self.assertEqual(before,bytes(self.q.cycle()))
+                    expected = cycle.Cycle.from_buffer_copy(before)
+                    expected.outcome, expected.candidate_latched = 1, 1
+                    self.assertEqual(bytes(expected),bytes(self.q.cycle()))
+                    after = self.h.status()
+                    self.assertEqual((controls.inputs,controls.moves,controls.restarts,controls.input_state),
+                        (after.inputs,after.moves,after.restarts,after.input_state))
                     continue
                 self.h.now = self.parent.continuation_deadline_ns+1
                 self.assertEqual(0,self.h.tick()[0])

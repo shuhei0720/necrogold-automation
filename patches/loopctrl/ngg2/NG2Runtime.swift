@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 import CoreGraphics
 #if !NG2_RUNTIME_HOST_TEST
 import XCTest
@@ -24,6 +25,8 @@ enum NG2RuntimeTestHooks {
     static var beforeCaptureFailureCommit: ((String) -> Void)?
     static var analysisRGBA: ((Data) -> Data)?
     static var afterWatchdogCheck: ((String, UInt64) -> Void)?
+    static var afterCaptureBackendReply: ((UInt64) -> Void)?
+    static var beforeCaptureControlConsume: ((UInt64) -> Void)?
     static var beforeReportEncode: ((String, UInt64) -> Void)?
     static var beforeDueDispatch: ((UInt64) -> Void)?
     static var beforeEvidenceRetention: ((UInt64) -> Void)?
@@ -65,12 +68,47 @@ private struct NG2Frame {
     let diagnosticOrientation: Int?
 }
 
+// A token is released by classificationQueue -> controlQueue serial fences,
+// after both the exact producer and result callback closures have returned.
+private final class NG2ClassificationDrainToken {
+    let id = UUID()
+    let owner, runID: String
+    let generation, job, capture, prefix: UInt64
+    init(_ run: NG2Run, frame: NG2Frame, job: UInt64) {
+        owner = run.owner; runID = run.id
+        generation = frame.generation; self.job = job; capture = frame.id; prefix = frame.prefix
+    }
+}
+
+private struct NG2RestartYieldEpoch {
+    let generation, restart, oldJob: UInt64
+    let fingerprint: Data
+}
+private final class NG2RestartYieldRun {
+    var companion = NG2ControllerRestartYieldStatus()
+    var epoch: NG2RestartYieldEpoch?
+    var firstFloor: NG2Frame?
+    var firstPartial: NG2Frame?
+    var firstFull: NG2Frame?
+    var submittedGoodsIDs = Set<UInt64>()
+    var goodsFrames: [NG2Frame] {
+        [firstPartial, firstFull].compactMap { $0 }.sorted { $0.id < $1.id }
+    }
+    var firstGoods: NG2Frame? { goodsFrames.first }
+    var firstGoodsSubmitted: Bool { goodsFrames.allSatisfy { submittedGoodsIDs.contains($0.id) } }
+    var capturePaused = false
+    var captureControlTokens = Set<UInt64>()
+    var controlReady = false
+    var failed = false
+}
+
 // This state is owned by the run gate. Expensive classification and durable
 // storage use separate single workers; neither worker has input authority.
 private final class NG2CycleRun {
     var companion = NG2ControllerCycleStatus()
     var spool: NG2CycleSpool?
     var classificationOutstanding = false
+    var classificationDrainTokens: [UUID: NG2ClassificationDrainToken] = [:]
     var persistenceOutstanding = false
     var checkpointJob: UInt64 = 0
     var intentCommand: UInt64 = 0
@@ -90,7 +128,7 @@ private final class NG2CycleRun {
     var recovered = false
     var recoveredInputState: Int32 = 0
     var exporter: NG2CycleExport?
-    var workerBusy: Bool { classificationOutstanding || persistenceOutstanding }
+    var workerBusy: Bool { classificationOutstanding || !classificationDrainTokens.isEmpty || persistenceOutstanding }
     init() {
         companion.abi_version = 1; companion.struct_size = UInt32(MemoryLayout<NG2ControllerCycleStatus>.size)
         companion.level_id = 1
@@ -130,9 +168,11 @@ private final class NG2CycleJob {
     let run: NG2Run
     let frame: NG2Frame
     let generation, level, job, prefix, deadline: UInt64
+    let drainToken: NG2ClassificationDrainToken?
     init(_ run: NG2Run, frame: NG2Frame, state: NG2ControllerCycleStatus) {
         self.run = run; self.frame = frame; generation = frame.generation
         level = state.level_id; job = state.job_id; prefix = state.prefix; deadline = state.deadline_ns
+        drainToken = run.yieldAfterRestart ? NG2ClassificationDrainToken(run, frame: frame, job: state.job_id) : nil
     }
     var cancelled: Bool {
         run.lock.ng2Locked { run.cancelReason != 0 || run.stopped || run.generation != generation }
@@ -147,6 +187,8 @@ enum NG2RuntimeCycleTestHooks {
     static var beforeClassification: ((UInt64) -> Void)?
     static var classificationResult: ((UInt64, UnsafePointer<NG2Scene>, inout NG2RingResult) -> Void)?
     static var afterClassificationCall: ((Int32, Int32, UInt32) -> Void)?
+    static var afterClassificationEnqueueBeforeReturn: ((UInt64) -> Void)?
+    static var beforeClassificationCommitReturn: ((UInt64) -> Void)?
     static var irregularRGBA: ((Data) -> Data)?
     static var afterIrregularAnalysis: ((UInt64, Data, NG2IrregularObservation) -> Void)?
     static var beforeIrregularWrite: ((String, UInt64) -> Void)?
@@ -154,6 +196,7 @@ enum NG2RuntimeCycleTestHooks {
     static var beforeClassificationCommit: ((UInt64) -> Void)?
     static var beforeCheckpointWrite: ((UInt64) -> Void)?
     static var beforeIntentWrite: ((UInt64) -> Void)?
+    static var beforeRestartOutcomeWrite: ((UInt64) -> Void)?
     static var beforePersistenceCommit: ((UInt64) -> Void)?
     static var afterNotification: ((String) -> Void)?
     static var afterTerminalDrainPass: ((String, Bool, Bool, Bool) -> Void)?
@@ -290,6 +333,8 @@ private final class NG2Run {
     let id: String
     let profile: String
     let maximumExportBytes: Int
+    let yieldAfterRestart: Bool
+    let restartYield: NG2RestartYieldRun?
     let clock: String
     var generation: UInt64 = 1
     var cancelReason: Int32 = 0
@@ -363,8 +408,11 @@ private final class NG2Run {
     var exportBuildID: String?
     let cycle: NG2CycleRun?
     let irregular: NG2IrregularRun?
-    init(owner: String, id: String, now: UInt64, profile: String = "normal-1-1-v1", clock: String? = nil) {
+    init(owner: String, id: String, now: UInt64, profile: String = "normal-1-1-v1", clock: String? = nil,
+         yieldAfterRestart: Bool = false) {
         self.owner = owner; self.id = id; self.profile = profile
+        self.yieldAfterRestart = yieldAfterRestart
+        restartYield = yieldAfterRestart ? NG2RestartYieldRun() : nil
         self.clock = clock ?? UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         cycle = NG2Runtime.isCycleProfile(profile) ? NG2CycleRun() : nil
         irregular = profile == NG2Runtime.irregularProfile ? NG2IrregularRun() : nil
@@ -389,6 +437,7 @@ private struct NG2ResponseProjection {
     let cachedReport: [String: JSONValue]
     let generation, reportGeneration: UInt64
     let id, clock, state, profile: String
+    let yieldAfterRestart: Bool
     let inFlight, terminal, cancelled, captureOutstanding, captureTimedOut, bootstrapUIStarted: Bool
     let lease, uiFrozen, mainOutstanding: Bool
     let acceptedStarted, prefix, captureID, replacedFrames, analyzedFrames, evictedFrames: UInt64
@@ -401,7 +450,7 @@ private struct NG2ResponseProjection {
     init(_ run: NG2Run) {
         snapshot = run.controllerSnapshot; reportSnapshot = run.reportSnapshot; cachedReport = run.report
         generation = run.generation; reportGeneration = run.reportGeneration
-        id = run.id; clock = run.clock; profile = run.profile
+        id = run.id; clock = run.clock; profile = run.profile; yieldAfterRestart = run.yieldAfterRestart
         state = run.terminal ? (run.lease ? "draining" : (run.successful ? "completed" : "stopped"))
             : (run.controllerSnapshot == nil && run.report.isEmpty ? "accepted" : "running")
         inFlight = run.inFlight; terminal = run.terminal; cancelled = run.cancelReason != 0
@@ -520,7 +569,7 @@ final class NG2Runtime {
             }
             exportMode = mode
         }
-        let allowed: Set<String> = method == "necro_native_start" ? ["run_id", "profile", Self.ownerParam]
+        let allowed: Set<String> = method == "necro_native_start" ? ["run_id", "profile", "yield_after_restart", Self.ownerParam]
             : (method == "necro_native_status" ? ["run_id", "keepalive", Self.ownerParam]
                : (exportMode == "chunk" ? ["run_id", "mode", "export_id", "capture_id", "offset", Self.ownerParam]
                   : (exportMode == "manifest" ? ["run_id", "mode", Self.ownerParam] : ["run_id", Self.ownerParam])))
@@ -530,15 +579,33 @@ final class NG2Runtime {
                   profile == Self.profile || profile == Self.evidenceProfile || Self.isCycleProfile(profile) else {
                 return failure("Unsupported native profile.", -32602)
             }
+            let yieldAfterRestart: Bool
+            if let value = params?["yield_after_restart"] {
+                guard profile == Self.irregularProfile, value.boolValue == true else {
+                    return failure("yield_after_restart is true-only and requires the irregular profile.", -32602)
+                }
+                yieldAfterRestart = true
+            } else { yieldAfterRestart = false }
             guard !RemoteSession.shared.paused else { return failure("Owner paused native control.") }
             var created: NG2Run?
             let answer: ([String: JSONValue]?, JSONRPCError?) = lock.ng2Locked {
                 if let old = current, old.owner == owner, old.id == id {
                     guard old.profile == profile else { return failure("Native run profile is immutable.", -32602) }
+                    guard old.yieldAfterRestart == yieldAfterRestart else {
+                        return failure("Native restart yield option is immutable.", -32602)
+                    }
                     return (response(old), nil)
                 }
+                if let recovered = recoveredCycles[id], recovered.owner == owner,
+                   recovered.yieldAfterRestart || yieldAfterRestart {
+                    guard recovered.profile == profile && recovered.yieldAfterRestart == yieldAfterRestart else {
+                        return failure("Native run profile and restart yield option are immutable.", -32602)
+                    }
+                    return (response(recovered), nil)
+                }
                 if let archived = history[id], archived.owner == owner {
-                    guard archived.response["profile"]?.stringValue == profile else {
+                    guard archived.response["profile"]?.stringValue == profile &&
+                        (archived.response["yield_after_restart"]?.boolValue ?? false) == yieldAfterRestart else {
                         return failure("Native run profile is immutable.", -32602)
                     }
                     return (historical(archived.response), nil)
@@ -559,7 +626,7 @@ final class NG2Runtime {
                 if current?.lock.ng2Locked({ current?.exportBuildID != nil }) == true { return failure("Previous native image export is still being prepared.") }
                 if NG2CaptureBridge.pendingRequests != 0 { return failure("Previous daemon capture is still outstanding.") }
                 if seen.contains(id) || seen.count >= 128 { return failure("Run identity was already consumed or process run limit reached.") }
-                let run = NG2Run(owner: owner, id: id, now: Self.now(), profile: profile)
+                let run = NG2Run(owner: owner, id: id, now: Self.now(), profile: profile, yieldAfterRestart: yieldAfterRestart)
                 if let old = current {
                     old.lock.ng2Locked {
                         old.exportCache = nil
@@ -707,6 +774,11 @@ final class NG2Runtime {
         }
         if includingInitialSource, Self.isCycleProfile(run.profile),
            let source = run.initialRejectedSourceCaptureID, source != 0, !ids.contains(source) { ids.append(source) }
+        if let boundary = run.restartYield {
+            for id in [boundary.firstFloor?.id, boundary.firstPartial?.id, boundary.firstFull?.id].compactMap({ $0 }) where !ids.contains(id) {
+                ids.insert(id, at: 0)
+            }
+        }
         return ids
     }
 
@@ -714,7 +786,8 @@ final class NG2Runtime {
         var available = run.pinned
         let cycleFrames = run.irregular == nil ? [] : (run.cycle.map { Array($0.frames.values) } ?? [])
         for frame in (run.irregular.map { Array($0.frames.values) } ?? []) + cycleFrames
-            + run.images + [run.initial, run.found].compactMap({ $0 }) { available[frame.id] = frame }
+            + run.images + [run.initial, run.found, run.restartYield?.firstFloor,
+                run.restartYield?.firstPartial, run.restartYield?.firstFull].compactMap({ $0 }) { available[frame.id] = frame }
         var needed = priorityCaptureIDs(run)
         if run.irregular != nil, let cycle = run.cycle {
             for id in [cycle.companion.capture_id, cycle.companion.queued_capture_id,
@@ -877,9 +950,173 @@ final class NG2Runtime {
                 state.pause_capture_id, state.next_floor_capture_id].filter { $0 != 0 })
             let available = [frame, run.initial, run.found].compactMap { $0 } + run.images + Array(run.pinned.values) + Array(retained.values)
                 + (run.irregular.map { Array($0.frames.values) } ?? [])
+                + [run.restartYield?.firstFloor, run.restartYield?.firstPartial, run.restartYield?.firstFull].compactMap { $0 }
             cycle.frames = cycle.frames.filter { needed.contains($0.key) }
             for item in available where needed.contains(item.id) { cycle.frames[item.id] = item }
         }
+    }
+
+    private func restartFingerprint(_ frame: NG2Frame) -> Data {
+        var fingerprint = frame.analysis.scene.pointee.fingerprint
+        return withUnsafeBytes(of: &fingerprint) { Data($0) }
+    }
+
+    // Main's successful RESTART reply installs this before publishing its ACK
+    // prefix. The capture worker can therefore protect the very first stable
+    // new-floor raster even when controlQueue has not consumed latest yet.
+    private func armRestartYieldLocked(_ run: NG2Run, command: NG2Command, generation: UInt64) {
+        guard let boundary = run.restartYield, let cycle = run.cycle,
+              run.generation == generation, run.cancelReason == 0, ownerActive(run),
+              cycle.companion.state == 6, cycle.companion.restart_command_id == command.id,
+              (run.controllerSnapshot?.status.inputs ?? 0) > 0,
+              cycle.companion.outcome == Int32(NG2_RING_NEGATIVE), cycle.companion.durable_ns != 0,
+              cycle.companion.intent_ns != 0 else { return }
+        guard let source = cycle.frames[cycle.companion.capture_id], source.generation == generation,
+              source.stable, cycle.assessmentAdopted else { boundary.failed = true; return }
+        boundary.epoch = NG2RestartYieldEpoch(generation: generation, restart: command.id,
+            oldJob: cycle.companion.job_id, fingerprint: restartFingerprint(source))
+        boundary.firstFloor = nil; boundary.firstPartial = nil; boundary.firstFull = nil; boundary.submittedGoodsIDs.removeAll()
+        boundary.capturePaused = false; boundary.controlReady = false
+    }
+
+    private func restartYieldRetainedIDsLocked(_ run: NG2Run, adding id: UInt64? = nil) -> Set<UInt64> {
+        var ids = Set(run.pinned.keys).union(run.images.map { $0.id })
+        ids.formUnion(run.capturePipelineIDs)
+        ids.formUnion(run.restartYield?.captureControlTokens ?? [])
+        ids.formUnion(run.cycle?.classificationDrainTokens.values.map { $0.capture } ?? [])
+        ids.formUnion(run.cycle?.frames.keys.map { $0 } ?? [])
+        ids.formUnion(run.irregular?.frames.keys.map { $0 } ?? [])
+        ids.formUnion([run.initial?.id, run.found?.id, run.latest?.id,
+            run.restartYield?.firstFloor?.id, run.restartYield?.firstPartial?.id,
+            run.restartYield?.firstFull?.id, id].compactMap { $0 })
+        return ids
+    }
+
+    // Reserve only inside the existing pin budget. Ordinary diagnostic pins
+    // may yield their slot; all protected sources stay immutable and retained.
+    private func reserveRestartYieldPinLocked(_ run: NG2Run, frame: NG2Frame, protected: Set<UInt64>) -> Bool {
+        if run.pinned[frame.id] != nil { return true }
+        let limit = evidencePinLimit(run)
+        if run.pinned.count == limit, let victim = pinVictimLocked(run, incoming: frame.id, protected: protected) {
+            run.pinned.removeValue(forKey: victim); run.evictedFrames += 1
+        }
+        guard run.pinned.count < limit else { return false }
+        run.pinned[frame.id] = frame
+        return true
+    }
+
+    // Caller holds run.lock. These three aliases share the existing bounded pin
+    // store; they never displace protected evidence to manufacture a boundary.
+    private func retainRestartYieldCaptureLocked(_ run: NG2Run, frame: NG2Frame) {
+        guard let boundary = run.restartYield else { return }
+        let retained = restartYieldRetainedIDsLocked(run, adding: frame.id).count
+        guard retained <= NG2CycleSpool.maximumFrames,
+              retained * NG2CycleSpool.rasterBytes <= NG2CycleSpool.maximumRawBytes else {
+            boundary.failed = true; return
+        }
+        guard let epoch = boundary.epoch, !boundary.failed,
+              run.generation == epoch.generation, frame.generation == epoch.generation,
+              run.cancelReason == 0, ownerActive(run), frame.stable,
+              !frame.startInFlight, !frame.endInFlight, frame.startPrefix == epoch.restart,
+              frame.prefix == epoch.restart, frame.analysis.scene.pointee.state == Int32(NG2_FLOOR) else { return }
+        let fingerprint = restartFingerprint(frame)
+        let changed = epoch.fingerprint.withUnsafeBytes { old in
+            fingerprint.withUnsafeBytes { current in
+                ng2_fingerprint_changed(old.bindMemory(to: UInt8.self).baseAddress,
+                    current.bindMemory(to: UInt8.self).baseAddress) == 1
+            }
+        }
+        guard changed else { return }
+        let needsFloor = boundary.firstFloor == nil
+        let goods = frame.analysis.scene.pointee.goods
+        let needsPartial = boundary.firstPartial == nil && goods == Int32(NG2_GOODS_PARTIAL)
+        let needsFull = boundary.firstFull == nil && goods == Int32(NG2_GOODS_VISIBLE)
+        guard needsFloor || needsPartial || needsFull else { return }
+        let protected = Set(priorityCaptureIDs(run) + [frame.id])
+        guard reserveRestartYieldPinLocked(run, frame: frame, protected: protected) else {
+            boundary.failed = true; return
+        }
+        run.references.insert(frame.id)
+        if needsFloor { boundary.firstFloor = frame }
+        if needsPartial { boundary.firstPartial = frame }
+        if needsFull { boundary.firstFull = frame }
+    }
+
+    // Only controlQueue calls C. Raw slots are immutable and were protected
+    // before latest replacement. The DATA API consumes their original source;
+    // it does not reinstall an old image as the current UI or motion scene.
+    private func serviceRestartYield(_ run: NG2Run) {
+        guard let boundary = run.restartYield, let cycle = run.cycle, let core = run.core else { return }
+        var state = NG2ControllerRestartYieldStatus()
+        ng2_controller_restart_yield_status(core, Self.now(), &state)
+        run.lock.ng2Locked { boundary.companion = state }
+        guard run.lock.ng2Locked({ run.cancelReason == 0 && !run.stopped && !boundary.failed && ownerActive(run) }),
+              !LockStateMonitor.shared().isLocked else { return }
+        if state.invalid != 0 {
+            run.lock.ng2Locked { boundary.controlReady = false; boundary.capturePaused = false }
+            return
+        }
+        guard state.pending == 1 else { return }
+        let missingFloor = run.lock.ng2Locked { boundary.firstFloor == nil }
+        if missingFloor { run.cancel(17); ng2_controller_cancel(core, Self.now(), 17); return }
+        let goods: NG2Frame? = run.lock.ng2Locked {
+            guard !boundary.firstGoodsSubmitted, !cycle.classificationOutstanding,
+                  cycle.classificationDrainTokens.isEmpty, !cycle.persistenceOutstanding,
+                  !run.mainOutstanding else { return nil }
+            return boundary.goodsFrames.first { !boundary.submittedGoodsIDs.contains($0.id) }
+        }
+        if let goods {
+            let admitted = run.lock.ng2Locked { () -> Bool in
+                guard let epoch = boundary.epoch, epoch.generation == run.generation,
+                      goods.generation == run.generation, epoch.restart == state.restart_command_id,
+                      goods.prefix == state.prefix, state.old_job_id == epoch.oldJob,
+                      run.cancelReason == 0, ownerActive(run), !run.stopped else { return false }
+                return ng2_controller_restart_yield_goods(core, UnsafePointer(goods.analysis.scene),
+                    goods.id, goods.start, goods.end, goods.prefix, Self.now()) == 1
+            }
+            if !admitted { run.lock.ng2Locked { boundary.failed = true }; run.cancel(17); ng2_controller_cancel(core, Self.now(), 17); return }
+            run.lock.ng2Locked { boundary.submittedGoodsIDs.insert(goods.id) }
+            refreshCycleEvidence(run, frame: goods)
+            ng2_controller_restart_yield_status(core, Self.now(), &state)
+            run.lock.ng2Locked { boundary.companion = state }
+        }
+        if state.permitted == 1 { return }
+        let ready = run.lock.ng2Locked { () -> Bool in
+            guard state.ready == 1, boundary.firstGoods == nil || boundary.firstGoodsSubmitted,
+                  cycle.classificationDrainTokens.isEmpty, !cycle.classificationOutstanding,
+                  !cycle.persistenceOutstanding else { return false }
+            boundary.capturePaused = true
+            return true
+        }
+        guard ready else {
+            run.lock.ng2Locked { boundary.controlReady = false; boundary.capturePaused = false }
+            return
+        }
+        let permit = run.lock.ng2Locked { () -> Bool in
+            guard let epoch = boundary.epoch, epoch.generation == run.generation,
+                  run.cancelReason == 0, !run.stopped, ownerActive(run), !LockStateMonitor.shared().isLocked,
+                  !run.captureOutstanding, run.capturePipelineIDs.isEmpty, run.latest == nil,
+                  boundary.captureControlTokens.isEmpty, !run.inFlight, !run.mainOutstanding, NG2CaptureBridge.pendingRequests == 0,
+                  cycle.classificationDrainTokens.isEmpty, !cycle.classificationOutstanding,
+                  !cycle.persistenceOutstanding, boundary.firstGoods == nil || boundary.firstGoodsSubmitted,
+                  ng2_controller_restart_yield_ready(core, Self.now()) == 1,
+                  let source = (run.images + Array(run.pinned.values)).first(where: { $0.id == state.source_capture_id }),
+                  source.generation == run.generation, source.stable, !source.startInFlight, !source.endInFlight,
+                  source.start == state.source_start_ns, source.startPrefix == epoch.restart,
+                  source.prefix == epoch.restart, state.source_prefix == epoch.restart,
+                  source.analysis.scene.pointee.state == Int32(NG2_FLOOR) else { return false }
+            pinDispatchSourceLocked(run, source.id)
+            guard run.pinned[source.id] != nil else { boundary.failed = true; return false }
+            return ng2_controller_restart_yield_permit(core, source.id, source.start, source.prefix, Self.now()) == 1
+        }
+        run.lock.ng2Locked {
+            boundary.controlReady = permit
+            // A stale UI source can be reacquired only under C's original
+            // parent bound. Immutable unprocessed goods never take this path:
+            // their source-bound DATA admission already fails closed above.
+            if !permit { boundary.capturePaused = false }
+        }
+        if run.lock.ng2Locked({ boundary.failed }) { run.cancel(17); ng2_controller_cancel(core, Self.now(), 17) }
     }
 
     private func serviceCycleAssessment(_ run: NG2Run) {
@@ -889,7 +1126,7 @@ final class NG2Runtime {
         if let irregular = run.irregular, irregularOwnsInput(irregular.companion) { return }
         let job: NG2CycleJob? = run.lock.ng2Locked {
             let state = cycle.companion
-            guard !cycle.classificationOutstanding, state.pending == 1, state.worker_started_ns == 0,
+            guard !cycle.classificationOutstanding, cycle.classificationDrainTokens.isEmpty, state.pending == 1, state.worker_started_ns == 0,
                   state.capture_id != 0, run.cancelReason == 0, !run.stopped, ownerActive(run),
                   !LockStateMonitor.shared().isLocked, let frame = cycle.frames[state.capture_id],
                   frame.generation == run.generation, frame.stable, !frame.startInFlight, !frame.endInFlight,
@@ -898,7 +1135,9 @@ final class NG2Runtime {
                   ng2_controller_cycle_worker_begin(core, state.job_id, state.capture_id, state.prefix, Self.now()) == 1 else { return nil }
             var admitted = NG2ControllerCycleStatus(); ng2_controller_cycle_status(core, &admitted)
             cycle.companion = admitted; cycle.classificationOutstanding = true
-            return NG2CycleJob(run, frame: frame, state: admitted)
+            let job = NG2CycleJob(run, frame: frame, state: admitted)
+            if let token = job.drainToken { cycle.classificationDrainTokens[token.id] = token }
+            return job
         }
         if let job {
             classificationQueue.async {
@@ -929,6 +1168,26 @@ final class NG2Runtime {
                 #endif
                 let encoded = try? NG2CycleWire.assessment(result, mode: options.mode)
                 self.controlQueue.async {
+                    defer {
+                        #if NG2_RUNTIME_HOST_TEST
+                        NG2RuntimeCycleTestHooks.beforeClassificationCommitReturn?(job.job)
+                        #endif
+                        if let token = job.drainToken {
+                            // A result may have cleared its logical flag while
+                            // its producer is still returning. Both serial
+                            // closures must return before this token can clear.
+                            self.classificationQueue.async {
+                                self.controlQueue.async {
+                                    run.lock.ng2Locked {
+                                        if cycle.classificationDrainTokens[token.id] === token {
+                                            cycle.classificationDrainTokens.removeValue(forKey: token.id)
+                                        }
+                                    }
+                                    self.cycle(run)
+                                }
+                            }
+                        }
+                    }
                     #if NG2_RUNTIME_HOST_TEST
                     NG2RuntimeCycleTestHooks.beforeClassificationCommit?(job.job)
                     #endif
@@ -978,6 +1237,9 @@ final class NG2Runtime {
                     self.refreshIrregularEvidence(run)
                     self.cycle(run)
                 }
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeCycleTestHooks.afterClassificationEnqueueBeforeReturn?(job.job)
+                #endif
             }
         }
         persistCycleCheckpoint(run)
@@ -1071,9 +1333,9 @@ final class NG2Runtime {
     }
 
     private func irregularDrainedLocked(_ run: NG2Run, _ cycle: NG2CycleRun) -> Bool {
-        !cycle.classificationOutstanding && !cycle.persistenceOutstanding && !run.mainOutstanding
+        !cycle.classificationOutstanding && cycle.classificationDrainTokens.isEmpty && !cycle.persistenceOutstanding && !run.mainOutstanding
             && !run.inFlight && !run.captureOutstanding && run.capturePipelineIDs.isEmpty && run.latest == nil
-            && NG2CaptureBridge.pendingRequests == 0
+            && (run.restartYield?.captureControlTokens.isEmpty ?? true) && NG2CaptureBridge.pendingRequests == 0
     }
 
     private func releaseIrregularReservation(_ run: NG2Run, allowDrainedPoison: Bool = false) {
@@ -1444,6 +1706,9 @@ final class NG2Runtime {
                     "generation": NG2CycleWire.number(generation), "floor_capture_id": NG2CycleWire.number(frame.id),
                     "floor_prefix": NG2CycleWire.number(frame.prefix), "floor_raw_sha256": .string(NG2CycleWire.hash(frame.rgba)),
                     "controller": snapshot.map { .object(self.encodeSnapshot($0, origin: "cycle_restart_outcome")) } ?? .null]
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeCycleTestHooks.beforeRestartOutcomeWrite?(state.job_id)
+                #endif
                 _ = try spool.commitRecord(kind: "restart_outcome", cycle: UInt64(max(state.completed_shops, 0)), payload: NG2CycleWire.object(body))
                 success = true
             } catch { }
@@ -1547,12 +1812,17 @@ final class NG2Runtime {
             releaseIrregularReservation(run, allowDrainedPoison: true)
         }
         let admission: (NG2CycleSpool, [NG2Frame], Set<UInt64>, NG2ControllerSnapshot?, NG2ControllerCycleStatus)? = run.lock.ng2Locked {
-            guard !cycle.terminalPersistenceStarted, !cycle.workerBusy, let spool = cycle.spool else { return nil }
+            guard !cycle.terminalPersistenceStarted, !cycle.workerBusy,
+                  (run.restartYield?.captureControlTokens.isEmpty ?? true), let spool = cycle.spool else { return nil }
             cycle.terminalPersistenceStarted = true; cycle.persistenceOutstanding = true
             var selected = selectedExportFrames(run)
             if let irregular = run.irregular, irregular.checkpointEpisode != 0,
                irregular.companion.outcome_ns == 0 {
                 var required = Set(irregular.roles.values)
+                if let boundary = run.restartYield {
+                    required.formUnion([boundary.firstFloor?.id, boundary.firstPartial?.id,
+                        boundary.firstFull?.id].compactMap { $0 })
+                }
                 required.formUnion([irregular.companion.before_capture_id, irregular.companion.proof_capture_id,
                     irregular.companion.trigger_capture_id, irregular.companion.live_baseline_capture_id,
                     cycle.companion.capture_id, cycle.companion.queued_capture_id,
@@ -1706,6 +1976,7 @@ final class NG2Runtime {
                     "generation": run.generation, "runtime_instance_id": self.runtimeInstanceID,
                     "system_uptime_ns": UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000_000)]
                 if run.irregular != nil { provenance["native_profile"] = run.profile }
+                if run.yieldAfterRestart { provenance["yield_after_restart"] = true }
                 let spool: NG2CycleSpool
                 #if NG2_RUNTIME_HOST_TEST
                 if let root = NG2RuntimeCycleTestHooks.spoolRoot {
@@ -1769,6 +2040,7 @@ final class NG2Runtime {
     // it is distinct from an actual native callback that is still executing.
     private func cycleWorkersDrainedLocked(_ run: NG2Run, _ cycle: NG2CycleRun) -> Bool {
         !run.lease && !cycle.workerBusy && run.captureWorkerDone && !run.captureOutstanding && !run.mainOutstanding
+            && (run.restartYield?.captureControlTokens.isEmpty ?? true)
     }
 
     private func beginCycleRecovery(owner: String, id: String) {
@@ -1789,6 +2061,7 @@ final class NG2Runtime {
                 #endif
                 var clock: String?
                 var recoveredProfile = Self.cycleProfile
+                var recoveredYield = false
                 if let header = try? spool.sessionBytes(),
                    let object = try? JSONSerialization.jsonObject(with: header) as? [String: Any],
                    let provenance = object["provenance"] as? [String: Any] {
@@ -1799,9 +2072,16 @@ final class NG2Runtime {
                         }
                         recoveredProfile = name
                     }
+                    if let value = provenance["yield_after_restart"] {
+                        guard recoveredProfile == Self.irregularProfile,
+                              let bool = value as? NSNumber, CFGetTypeID(bool) == CFBooleanGetTypeID(), bool.boolValue else {
+                            throw NG2CycleSpool.Failure.invalid("recovery-restart-yield")
+                        }
+                        recoveredYield = true
+                    }
                     if let original = provenance["clock_id"] as? String, self.lowerHexIdentity(original) { clock = original }
                 }
-                let run = NG2Run(owner: owner, id: id, now: Self.now(), profile: recoveredProfile, clock: clock)
+                let run = NG2Run(owner: owner, id: id, now: Self.now(), profile: recoveredProfile, clock: clock, yieldAfterRestart: recoveredYield)
                 let cycle = run.cycle!
                 cycle.spool = spool; cycle.recovered = true; cycle.terminalPersisted = true
                 cycle.companion.state = 8
@@ -2330,6 +2610,75 @@ final class NG2Runtime {
              "capture_pipeline": run.capturePipelineIDs.sorted()]
         }
     }
+    // Combined callback/resource coverage. These are ordinary diagnostic
+    // aliases of one real raster, never C observations or input permission.
+    func testRestartYieldSaturatePins112(_ id: String) -> Bool {
+        guard let run = lock.ng2Locked({ current }), run.id == id, run.yieldAfterRestart else { return false }
+        return run.lock.ng2Locked {
+            guard !run.terminal, let source = run.images.last else { return false }
+            var capture: UInt64 = 1_000_000
+            while run.pinned.count < evidencePinLimit(run) {
+                if run.pinned[capture] == nil {
+                    run.pinned[capture] = NG2Frame(id: capture, start: source.start, end: source.end,
+                        decodeEnd: source.decodeEnd, generation: source.generation,
+                        analysisStart: source.analysisStart, analysisEnd: source.analysisEnd, analysis: source.analysis,
+                        startPrefix: source.startPrefix, prefix: source.prefix, startInFlight: source.startInFlight,
+                        endInFlight: source.endInFlight, stable: source.stable, rgba: source.rgba,
+                        rasterTrace: source.rasterTrace, encodedBytes: source.encodedBytes,
+                        diagnosticOrientation: source.diagnosticOrientation)
+                }
+                capture += 1
+            }
+            return run.pinned.count == 24
+        }
+    }
+    // Resource allocator coverage only. Synthetic diagnostic IDs share one
+    // real immutable raster; no C scene, source permission or frame is injected.
+    func testRestartYieldPinPressure(_ id: String, protectAll: Bool) -> [String: JSONValue]? {
+        guard let run = lock.ng2Locked({ current }), run.id == id, run.yieldAfterRestart else { return nil }
+        return run.lock.ng2Locked {
+            guard let source = run.images.last else { return nil }
+            let original = run.pinned, evicted = run.evictedFrames
+            defer { run.pinned = original; run.evictedFrames = evicted }
+            run.pinned.removeAll()
+            for index in 0..<evidencePinLimit(run) {
+                let capture = UInt64(1_000_000 + index)
+                run.pinned[capture] = NG2Frame(id: capture, start: source.start, end: source.end,
+                    decodeEnd: source.decodeEnd, generation: source.generation,
+                    analysisStart: source.analysisStart, analysisEnd: source.analysisEnd, analysis: source.analysis,
+                    startPrefix: source.startPrefix, prefix: source.prefix, startInFlight: source.startInFlight,
+                    endInFlight: source.endInFlight, stable: source.stable, rgba: source.rgba,
+                    rasterTrace: source.rasterTrace, encodedBytes: source.encodedBytes,
+                    diagnosticOrientation: source.diagnosticOrientation)
+            }
+            let before = Set(run.pinned.keys)
+            let protected = protectAll ? before.union([source.id]) : Set([source.id])
+            let accepted = reserveRestartYieldPinLocked(run, frame: source, protected: protected)
+            return ["accepted": .bool(accepted), "pin_count": .int(run.pinned.count),
+                    "protected_preserved": .bool(protected.subtracting([source.id]).isSubset(of: Set(run.pinned.keys))),
+                    "incoming_retained": .bool(run.pinned[source.id] != nil),
+                    "evicted": number(run.evictedFrames - evicted)]
+        }
+    }
+    func testRestartYieldState(_ id: String) -> [String: JSONValue]? {
+        guard let run = lock.ng2Locked({ current }), run.id == id, let boundary = run.restartYield else { return nil }
+        return run.lock.ng2Locked {
+            ["basis_pending": .bool(boundary.companion.pending == 1), "C_ready": .bool(boundary.companion.ready == 1),
+             "C_invalid": .bool(boundary.companion.invalid != 0),
+             "first_floor_capture_id": number(boundary.firstFloor?.id ?? 0),
+             "first_goods_capture_id": number(boundary.firstGoods?.id ?? 0),
+             "first_partial_capture_id": number(boundary.firstPartial?.id ?? 0),
+             "first_full_capture_id": number(boundary.firstFull?.id ?? 0),
+             "submitted_goods_ids": .array(boundary.submittedGoodsIDs.sorted().map { number($0) }),
+             "first_goods_raw_sha256": boundary.firstGoods.map { .string(NG2CycleWire.hash($0.rgba)) } ?? .null,
+             "first_goods_submitted": .bool(boundary.firstGoods != nil && boundary.firstGoodsSubmitted),
+             "drain_token_count": .int(run.cycle?.classificationDrainTokens.count ?? 0),
+             "capture_paused": .bool(boundary.capturePaused), "control_ready": .bool(boundary.controlReady),
+             "capture_control_token_count": .int(boundary.captureControlTokens.count),
+             "unique_retained_frame_count": .int(restartYieldRetainedIDsLocked(run).count),
+             "epoch_restart_id": number(boundary.epoch?.restart ?? 0)]
+        }
+    }
     func testOriginalFrameEvidence(_ id: String, captureIDs: [UInt64]) -> [UInt64: (Data, [String: JSONValue])]? {
         guard let run = lock.ng2Locked({ current }), run.id == id else { return nil }
         let frames = run.lock.ng2Locked {
@@ -2443,8 +2792,10 @@ final class NG2Runtime {
         report["recent_image_count"] = .int(projection.recentCount)
         report["referenced_capture_ids"] = .array(projection.references.sorted().map { number($0) })
         report["missing_capture_ids"] = .array(projection.references.subtracting(projection.retained).sorted().map { number($0) })
-        return ["run_id": .string(projection.id), "profile": .string(projection.profile), "state": .string(projection.state),
+        var result: [String: JSONValue] = ["run_id": .string(projection.id), "profile": .string(projection.profile), "state": .string(projection.state),
             "api_version": .string("1.98.16-ngg2"), "report": .object(report)]
+        if projection.yieldAfterRestart { result["yield_after_restart"] = .bool(true) }
+        return result
     }
 
     private func historical(_ snapshot: [String: JSONValue]) -> [String: JSONValue] {
@@ -2471,6 +2822,11 @@ final class NG2Runtime {
         }
         run.core = core
         if run.irregular != nil && ng2_controller_enable_irregular(core) != 1 {
+            run.cancel(17)
+            run.lock.ng2Locked { run.captureWorkerDone = true }
+            ng2_controller_cancel(core, Self.now(), 17); self.cycle(run); return
+        }
+        if run.yieldAfterRestart && ng2_controller_enable_restart_yield(core) != 1 {
             run.cancel(17)
             run.lock.ng2Locked { run.captureWorkerDone = true }
             ng2_controller_cancel(core, Self.now(), 17); self.cycle(run); return
@@ -2548,7 +2904,10 @@ final class NG2Runtime {
             }
         }
         while !run.lock.ng2Locked({ run.stopped }) {
-            if !streamsDrained || run.lock.ng2Locked({ run.irregularCapturePaused }) {
+            // Return tokens have the same four-entry bound as recent frames;
+            // a parked control callback cannot accumulate raw queue closures.
+            if !streamsDrained || run.lock.ng2Locked({ run.irregularCapturePaused || (run.restartYield?.capturePaused ?? false)
+                || (run.restartYield?.captureControlTokens.count ?? 0) >= 4 }) {
                 Thread.sleep(forTimeInterval: 0.005); continue
             }
             let finished = DispatchSemaphore(value: 0)
@@ -2565,7 +2924,8 @@ final class NG2Runtime {
             var startupDenied = false, pausedAdmission = false
             let admission: (UInt64, UInt64, Bool, UInt64, UInt64)? = run.lock.ng2Locked {
                 guard !run.stopped, run.cancelReason == 0, self.ownerActive(run) else { return nil }
-                if run.irregularCapturePaused { pausedAdmission = true; return nil }
+                if run.irregularCapturePaused || (run.restartYield?.capturePaused ?? false)
+                    || (run.restartYield?.captureControlTokens.count ?? 0) >= 4 { pausedAdmission = true; return nil }
                 if let prior = startupPortrait, !run.startupRasterReady,
                    !self.startupPortraitGateLocked(run, generation: prior.generation, now: Self.now()) {
                     startupDenied = run.generation == prior.generation && run.cancelReason == 0 && !run.stopped
@@ -2596,6 +2956,9 @@ final class NG2Runtime {
                     run.captureOutstanding = false
                     if run.generation == before.3 && !run.stopped { raw = data; captureError = error }
                 }
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeTestHooks.afterCaptureBackendReply?(before.0)
+                #endif
                 finished.signal()
             }
             if finished.wait(timeout: .now() + 2) != .success {
@@ -2698,6 +3061,8 @@ final class NG2Runtime {
             }
             run.lock.ng2Locked {
                 if run.generation == before.3 && !run.stopped {
+                    self.retainRestartYieldCaptureLocked(run, frame: frame)
+                    run.restartYield?.captureControlTokens.insert(frame.id)
                     if let previous = run.latest {
                         run.replacedFrames += 1; run.capturePipelineIDs.remove(previous.id)
                     }
@@ -2706,7 +3071,19 @@ final class NG2Runtime {
                     run.capturePipelineIDs.remove(frame.id)
                 }
             }
-            controlQueue.async { self.cycle(run) }
+            if run.lock.ng2Locked({ run.restartYield?.failed ?? false }) { run.cancel(17) }
+            let publishedID = frame.id
+            controlQueue.async {
+                self.cycle(run)
+                if run.yieldAfterRestart {
+                    // This serial item follows the actual frame-consumption
+                    // callback return, including a frame replaced in latest.
+                    self.controlQueue.async {
+                        run.lock.ng2Locked { run.restartYield?.captureControlTokens.remove(publishedID) }
+                        self.cycle(run)
+                    }
+                }
+            }
             Thread.sleep(forTimeInterval: 0.005)
         }
     }
@@ -2716,6 +3093,7 @@ final class NG2Runtime {
     // window before asking C to mint that PAUSE. No command is reserved here.
     private func waitForCycleAssessmentBeforePause(_ run: NG2Run, status: NG2ControllerStatus) -> Bool {
         run.lock.ng2Locked {
+            if run.yieldAfterRestart && !(run.cycle?.classificationDrainTokens.isEmpty ?? true) { return true }
             guard let cycle = run.cycle, cycle.classificationOutstanding,
                   cycle.companion.pending == 1, cycle.companion.state == Int32(NG2_CYCLE_ASSESS),
                   cycle.companion.full_seen == 1, cycle.companion.worker_started_ns != 0,
@@ -2758,6 +3136,9 @@ final class NG2Runtime {
             let frame = run.latest; run.latest = nil; return frame
         }
         if let frame, cancelled == 0 {
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeTestHooks.beforeCaptureControlConsume?(frame.id)
+            #endif
             let analysisGeneration = frame.generation
             let scene = frame.analysis.scene
                 #if NG2_RUNTIME_HOST_TEST
@@ -2815,6 +3196,7 @@ final class NG2Runtime {
                 }
                 run.lock.ng2Locked { run.capturePipelineIDs.remove(frame.id) }
         }
+        serviceRestartYield(run)
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
         serviceCycleAssessment(run)
         serviceIrregularPersistence(run)
@@ -2833,6 +3215,7 @@ final class NG2Runtime {
                 NG2TicketGuard.canReleaseLease(captureWorkerDone: run.captureWorkerDone,
                     captureOutstanding: run.captureOutstanding, mainOutstanding: run.mainOutstanding, legacyCaptures: legacy)
                     && !(run.cycle?.workerBusy ?? false) && (run.cycle == nil || run.cycle!.terminalPersisted)
+                    && (run.restartYield?.captureControlTokens.isEmpty ?? true)
             }
             if drained {
                 ng2_controller_destroy(core); run.core = nil
@@ -3102,7 +3485,10 @@ final class NG2Runtime {
             }
             if raised == nil && result.1 == nil { outcome = 1 }
             run.lock.ng2Locked {
-                if run.mainCommandID == command.id && outcome == 1 { run.prefix = command.id; run.inFlight = false }
+                if run.mainCommandID == command.id && outcome == 1 {
+                    if command.kind == 3 { self.armRestartYieldLocked(run, command: command, generation: generation) }
+                    run.prefix = command.id; run.inFlight = false
+                }
                 // A started failure remains inflight: never certify a later
                 // frame prefix or issue an automatic cleanup tap from it.
             }
@@ -3112,8 +3498,10 @@ final class NG2Runtime {
         if outcome == 0 && cancelled != 0 { ng2_controller_cancel(core, Self.now(), cancelled) }
         ng2_controller_complete(core, command.id, Self.now(), outcome)
         run.lock.ng2Locked {
+            if command.kind == 2 { run.restartYield?.capturePaused = false }
             if run.mainCommandID == command.id { run.mainCommandID = 0; run.preparation = nil }
         }
+        if run.lock.ng2Locked({ run.restartYield?.failed ?? false }) { run.cancel(17) }
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status); cache(run, status)
         flushReport(run)
         cycle(run)
@@ -3395,7 +3783,7 @@ final class NG2Runtime {
         var result = encodeSnapshot(snapshot, origin: origin)
         let stop = snapshot.stopDetail, handoff = snapshot.handoff
         let stages = ["none", "generic", "passage_wait", "cycle_observe", "cycle_credit"]
-        let kinds = ["none", "negative_limit", "clear_search_limit"]
+        let kinds = ["none", "negative_limit", "clear_search_limit", "restarted_budget"]
         let stage = Int(stop.stage), kind = Int(handoff.kind)
         result["stop_detail"] = .object(["schema": .string("ngg2-stop-detail-v1"), "valid": .bool(stop.valid == 1),
             "stage": .string(stages.indices.contains(stage) ? stages[stage] : "none"), "reason": integer(stop.reason),

@@ -491,3 +491,17 @@ TEST110/build217の実物確認（2026-11-17）: CODEcdff284/run44044340448で�
 | FR-111-DELIVERY-CANONICAL | 2026-11-17 | build219の配布物照合で保持sourceを拒否 | tools/build_ring_manifest.pyは全bytes不変だが、検査helperがfixture保持一覧への所属を要求 | 全15 canonical sourceをmanifest/local/CODE/baselineのSHA一致で直接検証。manifest/ELF検査を維持 | 独立差分レビュー後に失敗したretained gateのみ再開し合格。先行package/hostは再実行せず、5gate合計6attemptで成功。製品変更なし | 内部検査1。実機障害へ算入しない |
 
 TEST111/build219実物確認（2026-11-17）: CODE7974482/run44069884103で選択host247件、実Python3.9の21件、実Macの4callbackが成功。全36native/IPA/実compiler/保持source/全CODE source1016filesの5gateを照合。閉じsource09b853fの全1016filesを再照合し、固定test111-build219をpublisher220で公開。IPA/source/hash表の匿名GET200・全bytes/SHA一致を確認。各修正の実機改善未確認・再発数は維持する。
+
+## TEST112の対策（実機改善未確認）
+
+2026-11-17（日本時間）。[計画](plans/test112-device-failures.md)。TEST111の8添付=4campaign/4run、102 PNG/118記録を照合。1eab実133/328は完全陰性/policy7、保存→RESTART11/25→実新floor160/355まで成功。ほか4件の停止を成功と区別した。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-112-CLEAR-PHASE | 2026-11-17 | 4344が実2歩後に未送信停止 | 旧STONE1個のScene資格と、ぼけ競合を扱うplural数値条件が既存別経路に分かれ、両経路が適用外 | 既singleton Scene＋raw零＋plural数値の専用積を、確実未送信の固定world待機だけへ追加 | 実58→60..75の資格を校正。新10件/直接36件Green。通常MotionはUNKNOWNのまま、実機改善未確認 | 今回1。FR103の資格組合せ不足、通算未集計 |
+| FR-112-FULL-ACK | 2026-11-17 | 57f3が全商品可視でも停止 | 最初のFULL446で未解決ACKを終了し、元436→450の実MOVEDを利用できない。450も右端が黒く完全陰性には不足 | 元ACK/visual期限の強い実MOVEDを限定採用。最新FULLをDATA-onlyへ結び、独立した静止証明と新ticketで追加観測。446→450のUNKNOWNを静止にしない | 実436→450だけMOVED、449→450だけ静止。元visual期限内を確認。新7＋関連50件Green、実436/446..450を公開Cで校正。既成功/床閾値は保持、実機改善未確認 | 今回1。FR111の保持とは別の初回FULL境界、同症状継続 |
+| FR-112-CUMULATIVE-LIMIT | 2026-11-17 | 正常商品リスタート2回後、次フロアで実3歩停止 | 正常なlevel切替後もsessionの16入力上限が累積し途中でLIMIT | 旧16/12/45/180・診断容量を維持。対象外→実RS→新床→保存→実PAUSE/全drain→回収公開後、新UUIDで同フロアを続行する専用opt-inを追加 | 実inputs16/moves14/restarts3/reasonLIMITを確認。新16＋直接128件Green、独立差分レビューの3P1修正済み。実Mac/実機改善は未確認 | 今回1。旧試運転上限の運用不整合 |
+| FR-112-UPPER-ENTRY | 2026-11-17 | ff8fで上側入口を開けたあと停止、下の商品が見えない | 空PARTIALに既UP入店・実MOVED後のlower条件が適用されずHELD。次の正の床はLEFTだけ | 内壁に沿う有限の入店→下側観測を実装。各手の新FLOOR/実MOVED、元店/商品行投影・元期限を確認して全3商品を見る | 実147の空Ring/7.56ms・開扉0歩・LEFT床を確認。新14件Green、通常RGBA/Perception/Motion/Ringの左右7段階を校正。実Mac/実機改善は未確認 | 今回1。上側停止の継続、同根因通算未集計 |
+
+| FR-112-BOUNDARY-REVIEW | 2026-11-17 | 正常区切り実装のレビューで死亡UI・開始PAUSE鮮度・UNKNOWN後の保存を拒否/誤採用する条件を検出 | 新規待機の優先順と現在UI/履歴DATAの権限を混同 | 死亡は既異常経路へ、開始は実鮮度を検査、実新床は履歴DATAのみ保存して現在UNKNOWNを巻き戻さない | 指定assertion Red→最終新16/直接128件Green。独立レビューP0/P1なし、実機未確認 | 開発中レビュー3。実機再発には算入しない |
+| FR-112-CLIENT-SHAPE | 2026-11-17 | 正常区切りparserが実outcomeの非零座標を拒否し得る | outcomeはdurable reset前の旧店座標だが試験が零に固定 | 旧座標はint32診断として許容し、terminal原点・ACK/時刻/上限は厳密保持。行/slotの候補/異常と非nullの不正assessmentも拒否へ | 実形(-1,2)・nested候補の指定Red→変更部27件Green（最新receiptはPython3.12）。最終全55件の実Python3.9再結合はCI、実機未確認 | 開発中parser3。実機再発には算入しない |

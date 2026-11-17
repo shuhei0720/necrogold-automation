@@ -1,0 +1,19 @@
+{
+  "schema": "test112-historical-source-exception-v1",
+  "baseline": "08d6ce9a8d329e114740b2a5d67618d7f37dc3ae",
+  "files": [
+    {
+      "path": "tests/test_native_entry_episode102.py",
+      "old_file_sha256": "4e53a56f269df171806dbc635d1248a6a7056731ab47d90cfa5549d3e49cbba3",
+      "new_file_sha256": "14a56233c54609e5ceda446aee72c94831105703aacbafad7eb40de078924488",
+      "methods": [
+        {
+          "name": "NativeEntryEpisode102Tests.test_pending_worker_keeps_its_original_budget_after_observation_parent_expires",
+          "old_sha256": "b4f0c8bf24af6236aa39cc1708e0e24dd8711f2cb53488ef98222e8c6c7cd136",
+          "new_sha256": "7b2206c6ded8bfe4f6f4fe02bb6337b9a7a944dd7b4caf3e7d96aa4daef48eb0",
+          "reason": "An expired worker target already retains a candidate in the111 baseline. Preserve inputs/moves/restarts/input_state and every other cycle byte; align only this expired-target expectation to candidate retention."
+        }
+      ]
+    }
+  ]
+}

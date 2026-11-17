@@ -272,6 +272,14 @@ def seal(root):
             and b'ng2_analyze_irregular_rgba(' in safe_path(ASSETS_ROOT, 'NG2Core.h').read_bytes()):
         manifest.update(irregular_capability='necrogold_native_irregular_v1',
                         irregular_profile='normal-1-1-irregular-v1')
+    if ('LoopCtrlUITests/NG2Controller.h' in additions
+            and 'LoopCtrlUITests/NG2Runtime.swift' in additions
+            and b'ng2_controller_enable_restart_yield(' in safe_path(ASSETS_ROOT, 'NG2Controller.h').read_bytes()
+            and b'let yieldAfterRestart: Bool' in safe_path(ASSETS_ROOT, 'NG2Runtime.swift').read_bytes()
+            and b'"yield_after_restart"' in safe_path(ASSETS_ROOT, 'NG2Runtime.swift').read_bytes()
+            and b'necrogold_native_restart_yield_v1' in raw_patch):
+        manifest.update(restart_yield_capability='necrogold_native_restart_yield_v1',
+                        restart_yield_start_flag='yield_after_restart')
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2) + '\n')
     return manifest
 

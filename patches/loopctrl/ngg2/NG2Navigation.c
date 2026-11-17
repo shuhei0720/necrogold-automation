@@ -2135,6 +2135,27 @@ int ng2_clear_plural_stationary_zero(const NG2Scene *a,const NG2Scene *b,int32_t
         &&clear_plural_zero_numeric(candidates,&evidence);
     free(views);return result;
 }
+/* One retained old STONE can coexist with the already bounded one-unit
+ * illumination alias. Keep both independent qualifications intact: the
+ * singleton's unique 2D material placement and the plural phase/texture
+ * proof. Only an owned unsent wait consumes this zero-only helper. */
+int ng2_clear_singleton_phase_stationary_zero(const NG2Scene *a,const NG2Scene *b,int32_t direction) {
+    View *views;Candidate candidates[73];ClearSingletonZeroEvidence evidence;
+    int amount,d,n=1,result;
+    if(!clear_singleton_zero_scene(a,b,direction))return 0;
+    views=(View*)malloc(2*sizeof(*views));if(!views)return 0;
+    view(a->signature,views);view(b->signature,views+1);
+    candidates[0].sx=candidates[0].sy=0;candidates[0].score=intensity(views,views+1,0,0);
+    for(amount=1;amount<=18;++amount)for(d=1;d<=4;++d){
+        candidates[n].sx=amount*ddx[d];candidates[n].sy=amount*ddy[d];
+        candidates[n].score=intensity(views,views+1,candidates[n].sx,candidates[n].sy);++n;
+    }
+    qsort(candidates,73,sizeof(*candidates),ranked);
+    result=clear_singleton_zero_raw(candidates)
+        &&clear_singleton_zero_evidence(a,b,views,candidates,&evidence)
+        &&clear_plural_zero_numeric(candidates,&evidence);
+    free(views);return result;
+}
 /* A unit may reveal a side gate while only one old STONE remains observable.
  * Gold/stone/dirt identify the unique old-world placement; new cells never
  * supply anchors. This recognizes a past step, not another input or entry. */

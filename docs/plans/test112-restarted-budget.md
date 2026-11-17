@@ -1,0 +1,65 @@
+# TEST112: 再開後の予算区切り
+
+2026-11-17（日本時間）。新しい自動start資格として独立確認を要する実装計画。TEST111の1eabは正常な商品判定・保存・リスタートを2件成立させた後、次の探索中に累積16方向入力へ到達して停止した。既16方向入力/12restart/45秒/180秒・64event・16motion reference・24pinを増やしたり、同run内でリセットしたりしない。
+
+## 1. 目的と範囲
+
+正常陰性からのリスタートを先に実行し、その新フロアをポーズで保持して、全回収・照合・公開ACK後に別UUIDの通常runから同じフロアを再開する。商品未確認の次フロアをリスタートしない。方向入力を使ったrunが別の探索へ入る前に区切るため、次runには元の16入力が残る。通常start、旧handoff、既profileの既定動作は変えない。
+
+## 2. 明示したopt-in
+
+新cap `necrogold_native_restart_yield_v1` と、start時の任意key `yield_after_restart: true` を追加する。指定できるのはirregular cycle profileだけ。省略は旧動作、false/数値/他profile/他methodでの指定は開始前に拒否する。新112 clientだけが同flagを追加し、新capと既画像・価格capを開始前に確認する。profile/query/envelope/既PODのlayoutは変更しない。
+
+flagはNG2Runの不変属性とし、同UUIDの再要求、history、session provenance、読み取り専用回復へ結びつける。旧clientの閉parserは新handoffを継続資格として採用しない。新parserも新flagを含むsessionと新clientの明示許可がなければ採用しない。
+
+新flagのrunは、各新UUIDの初回入力前に、そのrun開始後・同owner/世代・prefix0・noinflightの新しいPAUSE画像を必要とする。取得開始から実commitまで既3秒以内で、既irregular companionの検証・DEATH存在/別UIとの矛盾がないことも必要とし、古いPAUSEから後続FLOORを開始可能にしない。FLOORや別UIで始まった場合はゲームへのUI入力0で保持し、旧flag省略時のFLOOR直接開始は変更しない。適格PAUSEからの通常RESUME後も、1-1・GOLD・商品を新しい画像で判定する。前runの陰性・画像・進路は新runの入力権限にしない。
+
+## 3. 区切りを作る時点
+
+新flagが有効で方向入力累積が1以上の場合、正常・完全陰性のcheckpoint、実PAUSE、durable保存、restart intent、実RESTART ACK、fingerprintが変わった実新FLOOR、restart outcomeのdurable commitまで既経路をそのまま実行する。そのcommitで旧陰性・実restart・新floorのbasisをprivate stateへ固定し、新levelでMOVE/RESTART/RESUMEを発行しない観測段階へ入る。残り8入力等の推測閾値では、次の探索が上限内に収まることを保証できないため、歩いたrunはこの境界で区切る。
+
+過去の陰性だけ、restart送信だけ、変位未確認、保存未完了、UNKNOWN入力からbasisを作らない。basisは同UUID/owner/世代、元のsession/walk期限、実restart command ID、newfloor capture ID/prefix、完了した旧jobに固定する。取消・owner/前面/lock変更・保存異常・期限・新入力で失効し、後の画像で復活させない。
+
+最初の実新FLOORは、元のID/start/end・実ACK/prefix・変化したfingerprint・入力/移動/restart数をprivateへ固定する。outcome保存中に現在画像がUNKNOWNへ進んでも、その不変の観測証明から新flagのDATA-only basisを確定できる。元画像を現在UIへ戻さず、PAUSE許可には別の新しい適格FLOORを要求する。保存待ちにも新levelへのUI入力を出さない。旧flagのoutcome条件は変更しない。
+
+## 4. 新フロアの商品を保護する観測
+
+区切りを理由に、既に出たPARTIAL/FULLや未終了workerのpositive hintを捨てない。最初の新floor原画と、最初の適格goods原画を既有限storeへ保持する。outcome commit後も既通常のcycle_latch/bindを通し、既Ring workerとcallbackでDATA-onlyのpositive vetoをPAUSE/終端・次startの資格より先に処理する。旧陰性basisは別のprivate snapshotに保存するため、新floorのjobで上書きしない。新levelの観測段階からMOVE/RESTARTは出さず、未知の商品を陰性にしない。target/candidate/late positive hintは通常の保持へ進み、handoff mintと次startを禁止する。
+
+最初の原画を保護する場所はcapture workerが解析済みのimmutable frameを公開するrun gate内、`latest`の置換より前とする。新flagの実restart epochについて、generation、ACK後の安定prefix、FLOOR、旧陰性sourceに対する既fingerprint変化を満たす最初のfloor・最初のPARTIAL・最初のFULLを各1枠、最大3つのaliasに固定する。PARTIALを処理した後にFULLで初めて対象が露出し、そのFULLが後続UNKNOWNに置換されるケースも保護するため、最初のgoods1枠へまとめない。source IDで重複排除し、同一frameなら同じDataを共有する。全aliasは既44画像/64MiB/24pin・metadataの内数であり、44画像に3つを加算しない。floorの保存とbasis確定後は不要なfloor aliasを解放できるが、未処理のgoods aliasは押し出さない。slotを確保できない場合は区切りを失格にする。
+
+後続UNKNOWNがlatestを置き換えても、PARTIAL/FULL slotは消さない。controlQueueは保護slotを取得順に新floorのDATA-only sourceとしてCへ各1回渡し、frameの実ID/start/end/prefixで通常jobをbindする。Cの現在UI scene/変位creditへ過去frameを再注入せず、同restart epoch・新floor basis・元150msとの一致を確認する。自動のlatest bindでこの順序を先取りせず、最初のsourceもこの入口から既cycle_latch/bindへ渡す。既存jobがある場合は実callback drain前に差し替えない。通常workerへ渡したjob/raw hashと保存frameを照合し、期限切れ・不適格・未処理のslotは「候補なし」として消費しない。実workerは1つ、2種のgoods各1回のvetoであり、新しい親期限や回数を無制限に作らない。
+
+normal workerの単一実行、source150ms/worker100ms、元親期限、実callback drainを維持する。PARTIAL/FULLの正常OK・候補なしは「今のフロアを捨ててよい」証拠ではなく、ポーズした同フロアを別runで引き続き観測するための条件とする。timeout/invalid/cancel/storage failureを正常陰性へ読み替えない。最初のgoods sourceが後続UNKNOWNで押し出されないことを検査する。
+
+yield pendingをentry/lower/fullframing/通常MOVE・RESTARTの発行より前で扱い、未送信framing許可を撤回する。正常DATA結果のtarget/candidate処理は既存の優先順位で行い、OKかつ全slotにpositive hintがないUNKNOWN/NEGATIVEだけを区切りの観測完了にする。未確認の新floorを対象外と認定する権限は与えず、境界の次runは同floorを再観測する。
+
+PAUSEを作る前に既取得callbackも閉じる。Runtimeはyield観測が一度完了したら新しいcapture要求を一時停止し、既capture/decode/analysis/control callbackと分類workerの実終了を待つ。待機中のcallbackで最初のPARTIAL/FULLが届けば必ず通常DATAへ渡し、positive vetoが終わるまでPAUSEを出さない。必要なfresh source再取得は元親期限/既回数内に限定し、PAUSE送信後は独立したPAUSE確認用の取得を再開する。この境界を読み取り専用のC ready状態とrun gateで一致させ、cancel/owner/世代/期限失効は保持側へ進める。`unassessed`表示だけで原画保持・実worker drain・positive vetoを代替しない。
+
+`classificationOutstanding=false`だけを実drainと扱わない。新flagの各jobにはsource/generation/jobに固定したdrain tokenを作り、結果commit callbackの末尾からserial classificationQueueへfenceを積み、そのfenceからserial controlQueueへ返した後にだけtokenを解放する。元producer closureの実returnと結果commit closureの実returnの両方が、この順序で先行する。新DATA job、yield PAUSE、terminal保存、次startはtoken保持中禁止する。取消・旧世代の結果もtokenの実解放は行うが、入力資格は復活させない。capture側はcapturePipelineIDsが空でlatest消費済み・保護slot処理済みであることも必要とし、JPEG reply完了だけをdrainにしない。
+
+ユーザーが明示した、検証済みDEATH/ENEMY時の既irregularリスタートは別の例外である。適格なDEATHを既経路へ渡すときは正常な予算区切りを失効し、既worker/late hintを先にsettleして既知TARGET/CANDIDATEを保持する。まだworkerへ提出していない保護FULL/PARTIALだけを理由にDEATH再試行を禁止しないが、3つの原画aliasを回収まで残す。その商品はUNASSESSEDのままであり、正常陰性・商品確認完了・kind3の成立に数えない。不正companionや既PAUSE入力との矛盾から強制PAUSE/DEATH操作を作らず、保持する。
+
+## 5. 新しいhandoffの証明
+
+既9keys/同PODへkind3 `restarted_budget` を追加する。Cが上記正常outcome分岐で固定したbasis、新しい同prefixのFLOORをsourceにした実PAUSE ACK/独立PAUSE観測、terminal/input0/noinflight/全worker drainが揃った時だけallowed=true。新floorには方向入力/移動0、world原点、restart後に別RESTARTなし。実PAUSEのsource/時刻/prefixを終端まで固定し、旧分類画像をUI sourceにしない。
+
+clientは、session flag、全manifest/hash/record chain、候補なし、旧完全陰性checkpoint、対応するrestart intent/outcomeと実ACK、新floorと新PAUSEのcapture/generation/prefix/時刻、間にMOVE/RESUME/RESTARTがないことを照合する。新floorのDATA jobで現在cycleが変わった場合も、直近の実restart prefixに対応する旧checkpoint→intent→outcomeを一意に辿り、残存current outcomeだけから判定しない。新floorの結果は未確認として区別し、旧levelのnegativeを新floorのnegativeへ流用しない。新clientだけ、このkindを通常UNKNOWNの一律見送りより先に検証できるが、positive veto・取消・未完・入力UNKNOWN・drain条件は常に先に適用する。
+
+全run保存・ZIP照合・公開ACK後の次UUIDは、旧画像/経路/位相を入力権限へ移さず、新flag用のfresh PAUSE-only gate→通常RESUME→新規観測から開始する。この間に手動ゲーム変更がなければ保持した同じfloorを再開する、という条件付きの保証とする。手動で別のPAUSE floorへ変えたことを旧画像hashから検出できるとは主張しない。変更されたPAUSEでも現在画像を独立に読み、旧陰性を理由にRESTARTしない。128run/保存容量上限と途中回収の制約は維持する。
+
+## 6. 検証
+
+実装前Redは、旧累積16上限を保ったまま、歩行陰性→実RESTART/新floor/outcome→PAUSE→handoff→新UUID同floor再開が成立すること。通常旧flagなしは既挙動を維持する。Cでは旧陰性だけ/未commit/ACK不明/新floor未確認/新MOVE/予算/取消/新goods候補を拒否する。
+
+実Python3.9では新cap/startflagの閉validation、同flagの不変性、旧parserの拒否、全記録からの新handoff証明、候補優先、crash/回収未完/公開前は次start0、新floorをnegativeと報告しないことを確認する。実Macでは実Ring・実C・実Spool・公開RPCで、最初のPARTIAL/FULL/後続UNKNOWN/遅いpositive callbackとPAUSE/次startの境界を選択する。capture/decode/analysisをparkし、見かけのready後にgoodsが届く間もPAUSE0・次start0を確認する。旧全29故障集合を既定で再実行しない。
+
+latest置換より前のgoodsを保持するケース、producerが結果をenqueue後にreturn直前でparkするケース、commitの論理flag解除後にreturn直前でparkするケースをそれぞれ検査する。いずれも実fence前のPAUSE/新job/終端保存/次startは0、解放後も古い世代は入力0。新flagの最初がFLOOR/別UIならUI0、fresh PAUSEならRESUMEを新しいsourceで行い、次のRESTARTは現在runの新しい完全陰性だけで許可する。
+
+## 7. 独立確認と保存
+
+新しい自動start資格であるため、実装前に設計・未観測/候補・owner/世代/期限/保存/取消の重点差分レビューを行う。未決点を閉じてから実装し、意味Red→最小Green→独立差分レビュー、必要なnative seal/実IPA/実compiler/完全source照合へ進む。修正表には実機原因と新契約を記録し、ソフト試験合格を実機改善としない。
+
+## 8. 制約
+
+この案は正常陰性から先に実リスタートするが、その後の有限run回収時間は残る試運転である。人より速い本番性能や長期500restartの達成とは呼ばない。限界値の拡大、同runでのカウンタ消去、全画像の無限保持、未知入力の再送を含めない。

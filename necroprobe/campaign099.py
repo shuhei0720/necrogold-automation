@@ -85,16 +85,21 @@ def _new(until_target):
         runs=[],intent=None,pending_run_id=None,complete=False,pending_publication=False,pending_archive=None)
 
 
-def _row(base,record,archive,*,protocol_spec=cycle.STANDARD_PROTOCOL):
-    evidence=inspect_run(base,record,protocol_spec=protocol_spec)
+def _row(base,record,archive,*,protocol_spec=cycle.STANDARD_PROTOCOL,allow_restarted_budget=False):
+    cycle.require(type(allow_restarted_budget) is bool and (not allow_restarted_budget
+        or cycle._spec(protocol_spec) is cycle.IRREGULAR_PROTOCOL), 'cycle_protocol_invalid')
+    options=dict(protocol_spec=protocol_spec)
+    if allow_restarted_budget:
+        options['allow_restarted_budget']=True
+    evidence=inspect_run(base,record,**options)
     count,digest=_digest(Path(archive),lambda:False)
     cycle.require(digest==record['archive_sha256'],'campaign_archive_changed')
     return dict(run_id=record['run_id'],archive_name=publication._label(base)+'-'+record['run_id']+'.zip',
                 archive_sha256=digest,archive_bytes=count,**evidence)
 
 
-def _bind(base,ledger,record,archive,*,protocol_spec=cycle.STANDARD_PROTOCOL):
-    row=_row(base,record,archive,protocol_spec=protocol_spec)
+def _bind(base,ledger,record,archive,*,protocol_spec=cycle.STANDARD_PROTOCOL,allow_restarted_budget=False):
+    row=_row(base,record,archive,protocol_spec=protocol_spec,allow_restarted_budget=allow_restarted_budget)
     known=[old for old in ledger['runs'] if old['run_id']==record['run_id']]
     if known:
         cycle.require(known==[ledger['runs'][-1]] and known[0]==row,'campaign_run_changed')
@@ -114,14 +119,14 @@ def _bind(base,ledger,record,archive,*,protocol_spec=cycle.STANDARD_PROTOCOL):
     return row
 
 
-def _verify_predecessor(base,ledger,*,protocol_spec=cycle.STANDARD_PROTOCOL):
+def _verify_predecessor(base,ledger,*,protocol_spec=cycle.STANDARD_PROTOCOL,allow_restarted_budget=False):
     last=ledger['runs'][-1]
     folder=Path(base)/('cycle-'+last['run_id'])
     cycle.require(not folder.is_symlink() and not (folder/'records').is_symlink(),'cycle_local_symlink')
     old=cycle.json_object(cycle._read(folder/'journal.json',512*1024),512*1024)
     cycle.require(old.get('run_id')==last['run_id'] and old.get('published') is True
                   and old.get('resolved') is True,'campaign_unpublished_run')
-    row=_row(base,old,_last_archive(base,ledger),protocol_spec=protocol_spec)
+    row=_row(base,old,_last_archive(base,ledger),protocol_spec=protocol_spec,allow_restarted_budget=allow_restarted_budget)
     cycle.require(row==last and row['stop_reason']=='handoff','campaign_run_changed')
 
 
@@ -182,6 +187,9 @@ def run(client,destination,*,spool,until_target=False,recovery_only=False,
     """
     protocol=cycle._spec(protocol_spec)
     cycle.require(cycle.client_protocol(client) is protocol,'cycle_protocol_invalid')
+    allow_restarted_budget=getattr(client,'allow_restarted_budget',False)
+    cycle.require(type(allow_restarted_budget) is bool and (not allow_restarted_budget
+        or protocol is cycle.IRREGULAR_PROTOCOL and cycle.restart_yield_enabled(client)), 'cycle_protocol_invalid')
     cycle.require(not (until_target and recovery_only),'campaign_mode_conflict')
     base=Path(spool);base.mkdir(mode=0o700,parents=True,exist_ok=True)
     cycle.require(not base.is_symlink(),'cycle_local_symlink')
@@ -197,7 +205,7 @@ def run(client,destination,*,spool,until_target=False,recovery_only=False,
             cycle.require(active is not None and active['published'],'campaign_active_missing')
             old,old_zip,error=_publish(client,destination,base,recovery_only=True,cancelled=cancelled,notice=notice,protocol_spec=protocol)
             if old_zip is None:return _pending(base,destination,ledger,old,error)
-            _bind(base,ledger,old,old_zip,protocol_spec=protocol)
+            _bind(base,ledger,old,old_zip,protocol_spec=protocol,allow_restarted_budget=allow_restarted_budget)
             explicit_after=old['run_id'];already_reconciled=True;ledger=None
         if ledger is None:
             ledger=_new(until_target);_save(base,ledger)
@@ -207,7 +215,7 @@ def run(client,destination,*,spool,until_target=False,recovery_only=False,
         if active is not None and active['start_intent'] and not already_reconciled:
             record,archive,error=_publish(client,destination,base,recovery_only=True,cancelled=cancelled,notice=notice,protocol_spec=protocol)
             if archive is None:return _pending(base,destination,ledger,record,error)
-            row=_bind(base,ledger,record,archive,protocol_spec=protocol)
+            row=_bind(base,ledger,record,archive,protocol_spec=protocol,allow_restarted_budget=allow_restarted_budget)
             if recovery_only:
                 reason=ledger['stop_reason'] if ledger['state']=='stopped' else row['stop_reason']
                 if reason=='handoff':reason='recovery'
@@ -235,7 +243,7 @@ def run(client,destination,*,spool,until_target=False,recovery_only=False,
                 cycle.require(current['run_id']==intent['after_run_id'],'campaign_intent_changed')
             elif current is not None and current['start_intent']:
                 raise ProbeError('campaign_unreconciled_run')
-            if intent['kind']=='handoff':_verify_predecessor(base,ledger,protocol_spec=protocol)
+            if intent['kind']=='handoff':_verify_predecessor(base,ledger,protocol_spec=protocol,allow_restarted_budget=allow_restarted_budget)
             record,archive,error=_publish(client,destination,base,cancelled=cancelled,notice=notice,protocol_spec=protocol)
             if archive is None:return _pending(base,destination,ledger,record,error)
-            row=_bind(base,ledger,record,archive,protocol_spec=protocol)
+            row=_bind(base,ledger,record,archive,protocol_spec=protocol,allow_restarted_budget=allow_restarted_budget)

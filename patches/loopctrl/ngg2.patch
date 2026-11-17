@@ -71,14 +71,15 @@
  // Modified for NecroGold NG-G1: opt-in screenshot image geometry, 2026-11-05.
  import Foundation
 
-@@ -26,6 +27,50 @@
+@@ -26,6 +27,51 @@
 
  struct RPCMethodRegistry {
      static let methods: [RPCMethodDef] = [
 +        RPCMethodDef(name: "necro_native_start",
 +            description: "Start one bounded native normal-zone1-1 run. UI and capture are exclusively leased until all workers drain. Same owner/run_id is idempotent. No purchase. Native status heartbeat must arrive within 5 seconds.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Fresh 32 lowercase hex UUID; retain before submitting."),
-+                     RPCParamDef(name: "profile", type: "string", required: true, description: "normal-1-1-v1: legacy/paged PNGs up to 4 MiB; normal-1-1-evidence-v2: manifest/chunk only, up to 20 PNGs / 512 KiB each / 10 MiB total; normal-1-1-cycle-v1: independent native classifier and durable bounded multi-shop cycle; normal-1-1-irregular-v1: same cycle plus positively confirmed enemy/death retry")],
++                     RPCParamDef(name: "profile", type: "string", required: true, description: "normal-1-1-v1: legacy/paged PNGs up to 4 MiB; normal-1-1-evidence-v2: manifest/chunk only, up to 20 PNGs / 512 KiB each / 10 MiB total; normal-1-1-cycle-v1: independent native classifier and durable bounded multi-shop cycle; normal-1-1-irregular-v1: same cycle plus positively confirmed enemy/death retry"),
++                     RPCParamDef(name: "yield_after_restart", type: "boolean", required: false, description: "Only true with normal-1-1-irregular-v1: after a walking normal negative restart, pause the actual new floor for full publication and a fresh run. Omit for existing behavior.")],
 +            returns: "{run_id,profile,state,api_version,report:{schema,clock_id,device_now_ns,input_state,...}}"),
 +        RPCMethodDef(name: "necro_native_status", description: "Image-free cached native status; default is read-only. Only explicit keepalive:true renews an active uncancelled owner heartbeat. Input state 4 means started unknown; never resend.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID"), RPCParamDef(name: "keepalive", type: "boolean", required: false, description: "Default false: read-only; true renews the active uncancelled owner heartbeat")],
@@ -122,7 +123,7 @@
          RPCMethodDef(
              name: "config",
              description: "Read or update server settings and manage authorized sessions. With no params: returns current config plus the list of authorized sessions (client name, masked token prefix, granted/expiry times). Pass allow_remote_access and/or listen_port to change settings (persisted; server restarts, dropping the connection — reconnect at the returned address). Pass revoke_session_id to remove one session, or clear_sessions=true to revoke ALL tokens (including your own). Pass stop_server=true to SHUT DOWN the service (stops listening after replying; re-launch the runner to restart — tokens are preserved so no re-auth is needed).",
-@@ -549,7 +594,7 @@
+@@ -549,7 +595,7 @@
      /// release that added the encrypted auth channel plus the docs/Skill,
      /// clear-text, page-source, and reliability improvements. Single source of
      /// truth for /schema AND device_info.
@@ -131,7 +132,7 @@
 
      /// When this binary was built, as "YYYY-MM-DD HH:MM".
      ///
-@@ -569,6 +614,24 @@
+@@ -569,6 +615,25 @@
      /// call (no separate /schema fetch needed). Keep in sync with what the server
      /// actually implements.
      static let capabilityTags: [String] = [
@@ -153,6 +154,7 @@
 +        "necrogold_native_cycle_v1", // independent bounded native classification and durable negative cycles
 +        "necrogold_native_irregular_v1", // opt-in positively confirmed enemy/death retries
 +        "necrogold_native_image_price_v1", // strong target image with its own observed price; names optional
++        "necrogold_native_restart_yield_v1", // explicit irregular-only pause of a confirmed restarted floor after real drain
          "envelope_v1",         // /pair + encrypted /rpc envelopes (HMAC-SHA256)
          "stream_ticket",       // stream_ticket RPC → single-use ?ticket= for /stream + /logs
          "video_stream",        // GET /stream (framed H.264, docs/remote-control.md)

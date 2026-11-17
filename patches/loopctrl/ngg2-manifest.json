@@ -4,7 +4,7 @@
   "api_version": "1.98.16-ngg2",
   "capability": "necrogold_native_v1",
   "client_capability": "necrogold_native_v15",
-  "patch_sha256": "8197f0b120d26b0ac9f7ac053e44360bbaabf6e445d0ab1ceaca6b0f597425b3",
+  "patch_sha256": "6d618213af3bdb7e130e305c0c7a60b042dc62db92bba30e559002f6a4333922",
   "files": {
     "LoopCtrlUITests/ActionHandler.swift": {
       "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
@@ -19,7 +19,7 @@
     "LoopCtrlKit/RPCMethod.swift": {
       "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
       "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
-      "patched_sha256": "afb93845a954ed233da877dc3734dd45036fdaaeb0d4d849eb0138568a10d659"
+      "patched_sha256": "3e046f91363abd387e3b4b9488140a88e17e66603fa9bb6787b3bf264975ab8e"
     },
     "LoopCtrlKit/JSONRPCServer.swift": {
       "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
@@ -67,11 +67,11 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "366bb3bbbe1cf48b06e0403507ed3d9f7d1f100d328a49bdd50d95c9e9c86d20"
+      "sha256": "ebb658d2e9f6374daa9074c60d3b1df4f40875de2cdbe57a101c8dd46e6e16c6"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
-      "sha256": "092aa5ca1a2b3f441b3aa7a4d10c9268dce322c5e54ed608a32057d7dcad6710"
+      "sha256": "ab3c0a3b9904eb34a4bfd32e2b0284ae76a18fd375f820cda8b5dd110db4f4c8"
     },
     "LoopCtrlUITests/NG2Core.h": {
       "source": "NG2Core.h",
@@ -91,7 +91,7 @@
     },
     "LoopCtrlUITests/NG2Navigation.c": {
       "source": "NG2Navigation.c",
-      "sha256": "a24b03cf66b5251f93c658201e09fe8205365022f93591bd3cf11c4dcc638e1b"
+      "sha256": "25f0631a12bcf21d8d8a7c6b0d59b68a6ce4962c8104dbdd6020fea6c45c3949"
     },
     "LoopCtrlUITests/NG2Perception.c": {
       "source": "NG2Perception.c",
@@ -123,7 +123,7 @@
     },
     "LoopCtrlUITests/NG2Runtime.swift": {
       "source": "NG2Runtime.swift",
-      "sha256": "37c079fdbf7c3f93ab17c49802b562b8923858ef3da8a6ca7b5a972fce1336a1"
+      "sha256": "93621e1e94b2de80c0814635faf4a06a90d3700c74005765ec7687953a6923a9"
     },
     "LoopCtrlUITests/NG2Templates.h": {
       "source": "NG2Templates.h",
@@ -174,5 +174,7 @@
   "compiler_profile_version": 3,
   "image_price_capability": "necrogold_native_image_price_v1",
   "irregular_capability": "necrogold_native_irregular_v1",
-  "irregular_profile": "normal-1-1-irregular-v1"
+  "irregular_profile": "normal-1-1-irregular-v1",
+  "restart_yield_capability": "necrogold_native_restart_yield_v1",
+  "restart_yield_start_flag": "yield_after_restart"
 }

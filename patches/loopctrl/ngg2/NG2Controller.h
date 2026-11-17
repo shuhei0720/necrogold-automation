@@ -195,7 +195,8 @@ typedef struct {
     uint64_t at_ns, source_capture_id, observed_capture_id, anchor_capture_id;
     uint64_t prefix, deadline_ns, last_comparison_capture_id;
 } NG2ControllerStopDetail;
-enum { NG2_HANDOFF_NONE=0, NG2_HANDOFF_NEGATIVE_LIMIT=1, NG2_HANDOFF_CLEAR_SEARCH_LIMIT=2 };
+enum { NG2_HANDOFF_NONE=0, NG2_HANDOFF_NEGATIVE_LIMIT=1, NG2_HANDOFF_CLEAR_SEARCH_LIMIT=2,
+       NG2_HANDOFF_RESTARTED_BUDGET=3 };
 typedef struct {
     uint32_t abi_version, struct_size;
     int32_t kind, allowed, reason, reserved;
@@ -203,6 +204,29 @@ typedef struct {
 } NG2ControllerHandoff;
 void ng2_controller_stop_detail(const NG2Controller *, NG2ControllerStopDetail *out);
 void ng2_controller_handoff(const NG2Controller *, NG2ControllerHandoff *out);
+
+/* Explicit TEST112 opt-in. Existing POD layouts and cumulative budgets stay
+ * unchanged. Runtime's real capture/worker drain is separate from C readiness.
+ * Only controlQueue may call these after its owner/generation gate. */
+typedef struct {
+    uint32_t abi_version, struct_size;
+    int32_t enabled, pending, invalid, ready;
+    int32_t goods_processed, needs_goods, permitted, initial_pause_seen;
+    uint64_t old_job_id, restart_command_id, new_floor_capture_id, new_floor_start_ns;
+    uint64_t prefix, level_id, parent_deadline_ns, goods_capture_id, goods_start_ns;
+    uint64_t source_capture_id, source_start_ns, source_prefix;
+} NG2ControllerRestartYieldStatus;
+int ng2_controller_enable_restart_yield(NG2Controller *);
+void ng2_controller_restart_yield_status(const NG2Controller *, uint64_t now,
+    NG2ControllerRestartYieldStatus *out);
+int ng2_controller_restart_yield_ready(const NG2Controller *, uint64_t now);
+/* DATA-only original goods; never install an older scene as a UI source. */
+int ng2_controller_restart_yield_goods(NG2Controller *, const NG2Scene *,
+    uint64_t capture_id, uint64_t start_ns, uint64_t end_ns, uint64_t prefix, uint64_t now);
+/* A one-source quiescence permit. Any later FLOOR observation revokes it;
+ * independent PAUSE confirmation instead completes the held boundary. */
+int ng2_controller_restart_yield_permit(NG2Controller *, uint64_t capture_id,
+    uint64_t start_ns, uint64_t prefix, uint64_t now);
 
 /* Defaults: 16 directions, 12 restarts, 45s walking, 180s session. */
 NG2Controller *ng2_controller_create(uint64_t now);
