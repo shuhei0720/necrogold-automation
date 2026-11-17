@@ -153,6 +153,23 @@ class DeviceHostSelection112Tests(unittest.TestCase):
             old=build.split('- name: '+title+'\n',1)[1].split('      - ',1)[0]
             self.assertIn("device_profile == '"+profile+"'",old)
         self.assertIn('runs-on: macos-26',build);self.assertIn('runs-on: ubuntu-latest',source)
+        self.assertIn('test112-runtime-diagnostic]',source.split('jobs:',1)[0])
+        diagnostic=source.split('  test112-runtime-diagnostic:\n',1)[1].split('\n  test110-runtime-red:\n',1)[0]
+        self.assertIn("if: inputs.native_lane == 'test112-runtime-diagnostic'",diagnostic)
+        self.assertIn('runs-on: macos-26',diagnostic);self.assertNotIn('needs:',diagnostic)
+        self.assertEqual(2,diagnostic.count('fetch-depth: 0'))
+        self.assertIn('ref: ${{ github.sha }}',diagnostic)
+        self.assertIn('ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767',diagnostic)
+        for command in ('apply_patch.py upstream','apply_ngg2.py upstream','inspect_native_sources','check_runtime112.py upstream'):
+            self.assertIn(command,diagnostic)
+        self.assertIn('set -euo pipefail',diagnostic)
+        self.assertIn('loopctrl-test112-runtime-diagnostic',diagnostic)
+        self.assertIn('${{ runner.temp }}/test112-runtime-diagnostic/',diagnostic)
+        self.assertIn('if: always()',diagnostic)
+        for excluded in ('--expect-red','--baseline-runtime','check_runtime110.py','--fault-red','run_test112_host.py','run_test112_python39.py','build_unsigned_ipa','xcodebuild','brew install','setup-python'):
+            self.assertNotIn(excluded,diagnostic)
+        ready=source.split('  native-source-ready:\n',1)[1].split('\n  native-host-contracts:\n',1)[0]
+        self.assertIn("inputs.native_lane != 'test112-runtime-diagnostic'",ready)
 
     def test_skip_error_failure_duplicate_and_empty_never_become_green(self):
         runner = module('run_test112_host')

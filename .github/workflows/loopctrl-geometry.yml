@@ -8,7 +8,7 @@ on:
         type: choice
         required: true
         default: device
-        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic, test099-runtime-remaining, test100-runtime-partial, test101-runtime-observation, test110-runtime-red]
+        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic, test099-runtime-remaining, test100-runtime-partial, test101-runtime-observation, test110-runtime-red, test112-runtime-diagnostic]
       artifact_id:
         type: string
         required: false
@@ -68,6 +68,72 @@ jobs:
         with:
           name: loopctrl-ngg2-baseline
           path: ${{ runner.temp }}/ngg2-baseline/
+          if-no-files-found: error
+          retention-days: 30
+  test112-runtime-diagnostic:
+    if: inputs.native_lane == 'test112-runtime-diagnostic'
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Apply and inspect exact sealed G1 and G2 sources for TEST112 Runtime diagnosis
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/test112-runtime-diagnostic"
+          python3 driver/patches/loopctrl/apply_patch.py upstream > "$RUNNER_TEMP/test112-runtime-diagnostic/workflow-g1-applied.json"
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream > "$RUNNER_TEMP/test112-runtime-diagnostic/workflow-g2-applied.json"
+          python3 - <<'PYCODE' | tee "$RUNNER_TEMP/test112-runtime-diagnostic/workflow-source-preconditions.json"
+          import ast, hashlib, json, os, subprocess, sys
+          from pathlib import Path
+          driver, upstream = Path('driver').resolve(), Path('upstream').resolve()
+          code = subprocess.check_output(['git','rev-parse','HEAD'],cwd=driver,text=True).strip()
+          if code != os.environ['GITHUB_SHA']:
+              raise SystemExit('TEST112 diagnostic driver differs from dispatched CODE')
+          sys.path.insert(0,str(driver/'patches/loopctrl'))
+          from verify_package import inspect_native_sources
+          sealed = inspect_native_sources(upstream,driver)
+          if len(sealed['native_source_sha256']) != 36:
+              raise SystemExit('TEST112 diagnostic native inventory must be36 sealed sources')
+          manifest = json.loads((driver/'patches/loopctrl/ngg2-manifest.json').read_bytes())
+          if manifest.get('api_version') != '1.98.16-ngg2' or manifest.get('restart_yield_capability') != 'necrogold_native_restart_yield_v1' or manifest.get('restart_yield_start_flag') != 'yield_after_restart':
+              raise SystemExit('TEST112 diagnostic API/capability/startflag source identity differs')
+          tree = ast.parse((driver/'patches/loopctrl/check_runtime112.py').read_text())
+          controls = {node.targets[0].id:ast.literal_eval(node.value) for node in tree.body
+              if isinstance(node,ast.Assign) and isinstance(node.targets[0],ast.Name)
+              and node.targets[0].id in ('GREEN_CASES','SCOPE_FINALIZED')}
+          expected = ('legacy','yield','first_partial','first_full','producer_return','commit_return','capture_drain','upper_entry')
+          if controls != dict(GREEN_CASES=expected,SCOPE_FINALIZED=True):
+              raise SystemExit('TEST112 diagnostic requires exact finalized current8 callbacks')
+          report = dict(schema='test112-runtime-diagnostic-workflow-source-v1',code=code,
+              native_manifest_sha256=hashlib.sha256((driver/'patches/loopctrl/ngg2-manifest.json').read_bytes()).hexdigest(),
+              native_source_sha256=sealed['native_source_sha256'],required_cases=list(expected),
+              diagnostic_only=True,ipa_built=False,linux_host_replayed=False,old_runtime_api_red_replayed=False)
+          print(json.dumps(report,indent=2))
+          PYCODE
+      - name: Diagnose only the finalized eight TEST112 current Runtime callbacks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 driver/patches/loopctrl/check_runtime112.py upstream "$RUNNER_TEMP/test112-runtime-diagnostic" 2>&1 | tee "$RUNNER_TEMP/test112-runtime-diagnostic/runtime-command.txt"
+      - name: Save TEST112 current Runtime diagnostic evidence without IPA
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-test112-runtime-diagnostic
+          path: ${{ runner.temp }}/test112-runtime-diagnostic/
           if-no-files-found: error
           retention-days: 30
   test110-runtime-red:
@@ -351,7 +417,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   native-source-ready:
-    if: inputs.native_lane != 'publish-download'
+    if: inputs.native_lane != 'publish-download' && inputs.native_lane != 'test112-runtime-diagnostic'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
