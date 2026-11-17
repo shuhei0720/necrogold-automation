@@ -1,9 +1,9 @@
 # 最新状態
 
-更新: 2026-11-18（日本時間）。TEST113を修正中。対象はメインiPhone11の通常1-1、のろいのゆびわ。[計画](plans/test113-device-failures.md)・[修正表](fix-records.md)・[検証](reviews/test113.md)。
+更新: 2026-11-18（日本時間）。TEST113/build230の配布前照合が完了。メインiPhone11・通常1-1・のろいのゆびわが対象。[計画](plans/test113-device-failures.md)・[修正表](fix-records.md)・[検証](reviews/test113.md)。
 
-TEST112の9回/18ZIP、216PNG/243記録を照合。5/9回目は正常完全陰性・実リスタート・新床ポーズ・継続許可まで成立。client取消意図で継続せず、終了途中drainingの応答拒否を再現した。商品UNKNOWN3件と歩行停止4件も原因別に解析した。
+TEST112の18ZIP/9run、216PNG/243記録を照合。商品再確認・上端HUDの観測位置、歩行停止4条件、終了途中応答の読取待機を修正。元5/9回目の正常判定と実リスタートを比較基準にした。最初の実client例外は未保存で、全取消の発火源を確定済みとはしない。
 
-clientの終了待ちと取消時のエラー保持を修正、新8＋関連114件が実Python3.9で成功。C/Navの商品18件・歩行20件と独立レビューを保存。最終C1df5/Navfd172の36nativeを固定し、変更2/保持34を照合。閾値・元予算・候補保持・UNKNOWN無再送は維持、実機改善は未確認。
+CODE a565681、CI230/run44154202349でhost150（native142＋selector8）、実Python3.9の122件、現Mac2ケースが成功。実公開status2件・Spool2件/48合成PNG→実3.9を照合。5実物gateは5attemptで全成功し、再試験・再compileなし。
 
-最新配布は[TEST112/build228](https://github.com/shuhei0720/necrogold-automation/releases/tag/test112-build228)。113のnative/実Mac/IPA/配布確認は未完了。G1/R12/既feature/ELFを保持し、遠隔開発は再開しない。
+36nativeはC/Navの2変更・34保持、Runtime/Ring/HUD/閾値・G1/R12/feature/ELF・元予算を維持。CODE完全source1053filesを照合済み。固定公開・匿名取得の確認は次工程。最新固定配布は[TEST112/build228](https://github.com/shuhei0720/necrogold-automation/releases/tag/test112-build228)。TEST113の実機改善は未確認。
