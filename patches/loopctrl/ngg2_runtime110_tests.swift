@@ -89,16 +89,19 @@ func testFullData110QueueRetentionPublic(_ root: URL, candidateFirst: Bool = fal
         (cycleCompanion(id)["queued_capture_id"]?.intValue ?? 0) > 0
     }
     let queued = cycleCompanion(id)["queued_capture_id"]!.intValue!
-    let oldDeadline = cycleCompanion(id)["continuation_deadline_ns"]!.intValue!
+    let queuedStart = cycleCompanion(id)["queued_capture_start_ns"]!.intValue!
     let acceptedAtQueue = report(id)["accepted_frames"]!.intValue!
     pump("test110_queued_source_older_than_recent_four", timeout: 20) {
-        gate.lock(); let idsAdvanced = latestCapture >= UInt64(queued + 8); gate.unlock()
+        gate.lock(); let idsAdvanced = latestCapture >= UInt64(queued + 32); gate.unlock()
         let state = report(id)
-        return idsAdvanced && (state["accepted_frames"]?.intValue ?? 0) >= acceptedAtQueue + 8 &&
+        return idsAdvanced && (state["accepted_frames"]?.intValue ?? 0) >= acceptedAtQueue + 32 &&
             state["last_completed_id"]?.intValue == Int(resume)
     }
     require(cycleCompanion(id)["queued_capture_id"]?.intValue == queued && NG2Fake.countTouches() == 1,
         "test110_first_full_queue_not_replaced_or_resynthesized")
+    require(runtime.testOriginalFrameEvidence(id, captureIDs: [UInt64(queued)]) == nil &&
+        report(id)["pinned_image_count"]?.intValue == 24,
+        "test110_queued_source_evicted_from_real_recent_and_pin_fallback")
     release.signal()
     if candidateFirst {
         pump("test110_candidate_precedes_queued_negative", timeout: 20) {
@@ -115,8 +118,11 @@ func testFullData110QueueRetentionPublic(_ root: URL, candidateFirst: Bool = fal
             cycleCompanion(id)["candidate_latched"]?.boolValue == true
         }
         let state = cycleCompanion(id)
-        require(state["capture_id"]?.intValue == queued && state["continuation_deadline_ns"]!.intValue! <= oldDeadline,
-            "test110_queued_worker_uses_original_source_without_parent_extension")
+        require(state["capture_id"]?.intValue == queued && state["capture_start_ns"]?.intValue == queuedStart &&
+            state["deadline_ns"]!.intValue! <= queuedStart + 150_000_000 &&
+            state["deadline_ns"]!.intValue! <= state["worker_started_ns"]!.intValue! + 100_000_000 &&
+            state["continuation_deadline_ns"]!.intValue! <= queuedStart + 3_000_000_000,
+            "test110_queued_worker_uses_source_bound_deadlines_without_runtime_extension")
     }
     // The earlier real RESUME keeps PAUSE ineligible during the parked worker.
     // Let its existing 200ms UI interval elapse only after classifier adoption.

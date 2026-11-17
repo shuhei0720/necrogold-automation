@@ -115,7 +115,9 @@ episode Dはtrigger時 `min(trigger+既存4秒transition,walk45秒,session180秒
 
 最初のPAUSE/CONTINUE前にepisode予約tokenを作る。重複IDを除き最大16 raw役割（last live baseline/before/zero1/zero2/trigger/Ring source/queued source/fresh death/continue outcome/menu1/menu2/live pause source/pause ACK/restart source/new floor/terminal）、1枚1483776 byte、最大23740416 byteを予約する。44 raw/64MiB・metadata2MiB・memory pin24は増やさない。既存分+予約分が1つでも超えればUI前にSTORAGE保持。既にdurableな同IDは再計上しない。一般writerも未消費予約creditを使えない。
 
-metadata予約は厳密に1304KiB：compact5 record×32KiB、raw envelope16×4KiB、terminal512KiB、PNG metadata44×4KiB、manifest384KiB、receipt8KiB。前2項224KiBはepisode、後1080KiBは最終回収に残す。各上限はpayload単体ではなくschema/run/sequence/hashchain等のenvelopeを含めたcanonical保存byte全体に適用し、実byte数を上限検査する。full reportをcompact recordへ重複しない。既存space preflightに未保存PNG最大88MiBまでの残り・予約raw/metadata・既存temp2MiBも含める。OS空き容量検査は他processに対する排他的な物理予約ではないため、実write/fsync失敗では即保持し次入力しない。
+metadata最大予約は1304KiB：compact5 record×32KiB、raw envelope16×4KiB、terminal512KiB、PNG metadata44×4KiB、manifest384KiB、receipt8KiB。これは最大値であり、既保存/既予約分を再び加算しない。実予約式は `E=32KiB×未書込compact件数(最大5)+4KiB×future raw件数(最大16)`、`F=512KiB+4KiB×(44−既保存PNG件数)+384KiB+8KiB`。Fはrun単位の1poolで、既に有効なF予約があればepisodeの度に再予約しない。最大E224KiB/F1080KiB。既登録raw IDはfuture raw/envelope credit0、重複したknown roleも1 ID、まだIDが決まらない各future roleだけを最悪1 IDとして予約する。pinも同様に既pin IDを重複計上せず、現在8 pinが全く重複しなくても最大16 future pinなら24内、known roleと3 ID重複すればfuture13以下になるため早期episodeが常に枠不足になる計算ではない。
+
+各上限はpayload単体ではなくschema/run/sequence/hashchain等のenvelopeを含めたcanonical保存byte全体に適用し、実byte数を上限検査する。full reportをcompact recordへ重複しない。実書込byteだけを通常使用量へ移し、完了roleの余剰creditは解放する。未完了roleのcreditとFは保持する。既存space preflightに未保存PNG最大88MiBまでの残り・予約raw/metadata・既存temp2MiBも含める。OS空き容量検査は他processに対する排他的な物理予約ではないため、実write/fsync失敗では即保持し次入力しない。
 
 全reservationはrun/episode/prefix/generationへ結合し、実書込分を消費済として計上、未使用episode分だけabort/outcome後に解放する。finalization分はterminal/manifest/receiptまで保持する。releaseは書いた画像/記録を消さず、取消中のwriterが返る前にtokenを別episodeへ再利用しない。pin不足を暗黙の枠増加で解消しない。
 
@@ -128,3 +130,5 @@ metadata予約は厳密に1304KiB：compact5 record×32KiB、raw envelope16×4Ki
 追加sourceはCore/Controller header+Controller/Perception既存C、Runtime/CycleWire/CycleSpool/CycleExport、NG-G2 registry/cap/owner行、明示protocol specを渡すPython cycle/client/campaign/publication、新TEST110 entry。G1/R12/旧NativeWalk parserを変更しない。
 
 現在sourceの実Swift Runtime fixtureでcapture→analysis→control→main→save callbackとRing positive/quiesce、取消/owner/generation/prefix/storage/UNKNOWN/recoveryを検査する。旧Runtimeに対するpublic新profile prepareの実assertion Redを先行させ、未定義C symbol/compile失敗をRedと数えない。Python3.9は旧閉schema、cap不足start0、cross profile/journal拒否、同UUID回復/UNKNOWN無再送、原本hashとイレギュラー非陰性を検査する。死亡後未知menuやenemy多様性は実機未確認として残す。
+
+新profileのkind5 ACKをstatus・export内controller snapshot・保存journal再読込まで通し、既知ACK prefixは進むがMOVE credit・motion-reference行・restart成功数・商品陰性数は増えないこと、旧profileでは同eventと新companionを各境界で拒否することを検査する。

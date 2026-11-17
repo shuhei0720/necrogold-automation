@@ -35,3 +35,9 @@ job切替時に旧cycle.framesを消し、移送元をincoming/initial/found/rec
 ## イレギュラー再試行
 
 設計/網羅/安全の3独立読取で、敵の正の証拠、最初のBLOCKEDの処理順、保存容量予約、pending候補/中断回復・schema交差の不足を検出した。正のhealthbar/body、288Bの新companion、旧profile分離、元8/D、continueとrestart各intent/outcome、有限容量予約の[契約](../contracts/irregular-retry.md)へ閉じる。まだ実装承認/試験成功とはしていない。今回の98原に死亡/被害の証拠はなく、死亡後の実menuも未受領。通常4停止を敵としてリセットしない。
+
+### イレギュラー設計の限定再読（2026-11-17 日本時間）
+
+独立の設計・網羅・安全担当がSSOT `docs/contracts/irregular-retry.md` を再読。敵の正の証拠、最初のBLOCKED処理順と元8比較/D、全future raw/pin/metadata予約の初回P1を閉鎖。網羅のkind5 ACK→status/export/journal・MOVE診断分離条件を追記し、planの旧interface/API確認中と現在床条件を同期。設計/試験条件としてP0/P1残0。実装合格・実機確認という意味ではない。
+
+通常修正の中間SOURCE `abf70e5` をpushし、Mac Red run44018498941/build210を初実行。新profile公開prepareの指定assertionはRed成立。queued画像のcaseは別assertionで失敗してRed資格拒否。compile/environment失敗ではないが、画像欠落のRedとして数えずfixtureを調査する。Runtime製品sourceはまだ未変更。

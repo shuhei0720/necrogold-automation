@@ -1,10 +1,10 @@
 # TEST110: 敵による進行不能・死亡の明示的な再試行
 
-2026-11-17（日本時間）。[最新要件](../requirements/necrogold.md#2026-11-17-敵による進行不能ゲームオーバー時の再試行)・[通常4停止](test110-device-failures.md)。基準c2f7624。新入力/保存境界を伴うため、本設計の独立重点レビュー後に実装する。以下のinterface名はRuntimeとの突合せで確定する。
+2026-11-17（日本時間）。[最新要件](../requirements/necrogold.md#2026-11-17-敵による進行不能ゲームオーバー時の再試行)・[通常4停止](test110-device-failures.md)。基準c2f7624。新入力/保存境界を伴うため、本設計の独立重点レビュー後に実装する。入力権限・ABI・数値・保存予約の正本は[明示契約](../contracts/irregular-retry.md)。本文との相違は契約を優先する。
 
 ## 1. 概要
 
-新capability `necrogold_native_irregular_v1` / profile `normal-1-1-irregular-v1` を明示選択した新TEST110だけ、正に確認した進行不能/死亡を再試行する。旧profile/Scene・Status・Eventのlayoutと旧action1〜4のschemaは維持し、API全体の緩いenum上限変更をしない。Runtime調査で既API.16のadditive capが使えるかを確認し、全体APIの変更が必要なら先に設計へ反映する。
+新capability `necrogold_native_irregular_v1` / profile `normal-1-1-irregular-v1` を明示選択した新TEST110だけ、正に確認した進行不能/死亡を再試行する。旧profile/Scene・Status・Eventのlayoutと旧action1〜4のschemaは維持し、API全体の緩いenum上限変更をしない。API `1.98.16-ngg2` を維持し、新query/schema/journal revisionを明示分離する。確定名・閉集合は上記契約に従う。
 
 ## 2. 背景・証拠
 
@@ -14,7 +14,7 @@
 
 同じimmutable RGBAから別companionで死亡prompt/再開選択を正に検出し、従来Scene出力の意味を上書きしない。Runtimeの既owner/generation/取消・prefix/stability/取得両端/commit時計gateでCへ結合する。元画像を他runや別prefixのboolに取り替えられない構造とする。
 
-進行不能は `stalled_after_ack` と呼び、敵の種類を推定しない。同MOVEのACK既知、入力前にlead確認済み、元/現在の観測非保護FLOOR・同じ進行先/地形・元before画像へ通常strict BLOCKED零が必要。独立2画像は少なくとも元periodだけ離れ、後者は元earliest+period以降・元visualD/8比較内。早いanimationの2静止だけで再試行せず、途中のMOVEDは通常確認へ、UNKNOWN/TWEEN/非零を静止へ丸めない。
+進行不能は `stalled_after_ack` と呼び、敵の種類を推定しない。同MOVEのACK既知、入力前にlead確認済み、元beforeのorigin/進行先は観測非保護FLOOR。現在originもFLOOR、進行先はFLOOR又は正のenemy/bodyが当該セルを遮るUNKNOWNだけを認める。両post-ACK画像の指示方向enemy/body、同じ進行先/地形、元before画像へ通常strict BLOCKED零が必要。UNKNOWNを床へ補完しない。独立2画像は少なくとも元periodだけ離れ、後者は元earliest+period以降・元visualD/8比較内。早いanimationの2静止だけで再試行せず、途中のMOVEDは通常確認へ、UNKNOWN/TWEEN/非零を静止へ丸めない。
 
 FSMは `quiesce -> checkpoint durable -> UI qualification -> restart intent durable -> RESTART -> changed normal floor -> outcome durable`。旧MOVE/slot/model/proofを撤回し、開始済callback/workerが実際にdrainするまで入力しない。pending Ringの正の対象/候補が来たら保持を優先する。障害/不明を商品陰性にせず、completed_shopsを増やさない。
 
@@ -26,7 +26,7 @@ episode親Dをtrigger時に元transition/walk/sessionの最小で固定。保存
 
 ## 4. 影響・互換
 
-候補sourceはPerceptionの別positive companionと宣言header、CのFSM/companion getter、Runtime/CycleWire/Spool、new-profileだけの厳密client/parser/journal、新entry。既Ring/Nav/feature/canonical15/ELF/G1/R12は保持する。新Csourceが必要ならcompiler whitelist/sealの閉集合へ明示追加する。新wire companionとkind5は新profileだけ。旧request/response/保存原本へ余分fieldを混ぜない。最終file/API集合は実装前にRuntime担当と突合せる。
+候補sourceはPerceptionの別positive companionと宣言header、CのFSM/companion getter、Runtime/CycleWire/Spool、new-profileだけの厳密client/parser/journal、新entry。既Ring/Nav/feature/canonical15/ELF/G1/R12は保持する。新Csourceが必要ならcompiler whitelist/sealの閉集合へ明示追加する。新wire companionとkind5は新profileだけ。旧request/response/保存原本へ余分fieldを混ぜない。追加file/API・288B companion・136×39全成分halo・kind5・保存tokenの集合は上記契約で確定した。
 
 ## 5. 新規試験
 
@@ -36,7 +36,7 @@ episode親Dをtrigger時に元transition/walk/sessionの最小で固定。保存
 
 ## 6. 実装順
 
-interface確定→独立の設計/網羅/安全レビュー→機能ごとの実Red→positive detector/C FSM→Runtime/保存/parser→選択結合→独立最終差分レビュー→same-source seal/CI/IPA/実物照合→固定配布。通常4修正は並行するが、敵によるリセットで通常不具合を覆い隠さない。
+確定契約の独立設計/網羅/安全レビュー→機能ごとの実Red→positive detector/C FSM→Runtime/保存/parser→選択結合→独立最終差分レビュー→same-source seal/CI/IPA/実物照合→固定配布。通常4修正は並行するが、敵によるリセットで通常不具合を覆い隠さない。
 
 ## 7. コミット前確認
 
