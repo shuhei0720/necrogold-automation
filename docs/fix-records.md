@@ -513,3 +513,5 @@ TEST111/build219実物確認（2026-11-17）: CODE7974482/run44069884103で選�
 | FR-112-RT-ASSESSMENT-RAW | 2026-11-18 | Mac226で入店・正常5判定・リスタートは成立したが途中判定の原画保持assertが失敗 | 次jobのcycle.frames整理後、過去の通常sourceがpin優先集合から外れ、24枚圧力で失われる | 新flagの適格worker sourceを診断履歴として保持。既選択24枚と終了時保存へ結合し、全生存/保存済みIDを既44画像/64MiBへ計上。入力権限・旧容量は不変 | Runtime936の実Mac意味Redを保存。元5枚manifest/RGBA assertを保持し、最終Mac8ケースと実3.9回収3exportが成功。容量の集合検査は静的確認であり実Runtime極限試験ではない。実機改善は未確認 | 新112内部保持の今回1。実機再発には算入せず、FR111画像保持の過去合格を完了扱いしない |
 
 TEST112/build228確認（2026-11-18）: CODEcf8c393/run44123540366で現sourceの選択230件、実Python3.9の55件、現Mac8ケースが成功。判定元原画保持の936実Mac Red→dc082の同assert成功と、通常/候補/上側の実Spool→実3.9 parserを確認。IPA/全36native/保持source/実compiler/完全source1036filesの5gateは5attemptで成功。上記の段階記録と作者別sourceの試験を区別し、実機改善未確認・再発数は維持する。
+
+TEST112の固定Release公開と匿名GET200・IPA/完全source/hash表の全byte/SHA照合も完了。配布sourceはac3d0d6、追加はbuild CODEからdocs3件のみ。公開後の記録保存もdocsだけとし、固定配布物と各行の実機未確認・再発数を維持する。

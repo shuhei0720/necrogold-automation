@@ -81,3 +81,5 @@ IPAは18,235,124 bytes、SHA256 f93a8289f8e5d95498722743eb737cd1eabd3fc6237e158c
 完全sourceは全1036 tracked fileの原byte/CRC/安全なpathを確認。build CODEから閉じsourceへの追加はdocs内だけとし、製品・試験の同一性を維持する。[固定TEST112/build228](https://github.com/shuhei0720/necrogold-automation/releases/tag/test112-build228)へIPA/source/hash表を公開し、匿名GETの全byte/hash照合を配布の最終工程とする。
 
 次はメインiPhone11の通常1-1ポーズからtest_112.sh --until-targetで、上側扉から下の全3商品へ到達するか、対象外後にリスタートして同じ流れを続行するか、数歩で停止しないかを確認する。実機改善・未知の対象精度・本番速度は未受入。連続試運転の返却は表示campaign索引＋最後のrun ZIP、全run原本を残す。
+
+公開確認（2026-11-18）: publisher229/run44128260508で固定test112-build228（release448914780）を公開。IPA/source.zip/SHA256SUMS.txtの匿名GETは全て200、全byte・SHA・Release API digest・tag→source commitを照合済み。完全sourceはac3d0d605fff23fc8458b03a3b11826ad56fab51、9,747,717 bytes、SHA256 000ad7853403f7024874b0e91daf6e38fbb205a9aa111b714d8d6816092784cc。公開後の本記録はdocsのみで、固定資材を上書きしない。
