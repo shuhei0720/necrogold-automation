@@ -535,3 +535,6 @@ TEST112の固定Release公開と匿名GET200・IPA/完全source/hash表の全byt
 
 
 TEST113/build230配布前確認（2026-11-18）: CODEa565681/run44154202349で選択host150・実Python3.9の122件・現Mac2ケースが成功。実公開status2件と実Spool2件/48合成PNGを現3.9へ結合し、旧parserのdraining拒否と現parserの読取待機を確認した。原5/9回目の正常Ring/現C受入も保持。IPA/36native/保持source/実compiler/完全CODE source1053filesの5gateは5attemptで成功し、合格済みは反復していない。固定公開と匿名取得の確認は次工程。各行の実機改善未確認・再発数は維持する。
+
+
+TEST113の固定公開確認: 配布source8c96c77（CODEとの差はdocs3件のみ）・1053files/全CRCを照合し、test113-build230をpublisher231で公開。IPA/完全source/hash表を匿名GET200・全bytes/SHA一致まで確認した。固定配布物は変更せず、公開後の記録保存もdocsだけとする。実機改善未確認と各再発数は維持する。

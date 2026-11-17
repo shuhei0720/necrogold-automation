@@ -47,3 +47,9 @@ CODE a565681c6e88704721b789d9551db2805f71d1e3、run44154202349/build230で、選
 IPAは18,240,732bytes、SHA256 68701631a8cf348c9e2dd0f686527fb1a53e5a1dc9b7f1e069dc7a45a3aa5122。CFBundleVersion230/MinimumOS16.0、36nativeはC/Nav2変更・34保持。R12 40/既canonical15/ELFを保持し、実compilerと1053 CODE tracked filesを照合した。package/host/retained/macho/compileの5gateは5attemptで全成功。crossbinding SHA256 52fc2049135736f7fccf9986f7828796d00b7fc2d39a9ca03ce840d2093f0772。照合では追加のnative/分類/compileを実行せず、合格gateの再実行もしない。
 
 固定配布はdocs-onlyの閉じcommitをCodeload全sourceへ照合してから行う。公開・匿名取得の照合は次工程で、今回の実機改善は未確認。試験依頼は通常1-1開始直後のポーズ、更新後のLoopCtrl完全終了/再起動/StartServer、新規展開フォルダのtest_113.sh --until-target。campaign ZIPと最後のrun ZIPを返却し、元runtime/全ZIPを保持する。
+
+## 固定公開の完了
+
+固定[TEST113/build230](https://github.com/shuhei0720/necrogold-automation/releases/tag/test113-build230)、Release449100061をpublisher231/run44159496675で公開した。配布sourceは8c96c776c5a0a28342d886a83ad81a8c35caf337で、build CODEからの差はstatus/検証/修正表のdocs3件のみ。Codeload source全1053filesの全bytes/CRCを照合し、9,819,029bytes/SHA256 977210f26967a9bdea21da275353d8b8337c9dcb1ab846d8a959f5da8bd63644を固定した。
+
+IPA・source.zip・SHA256SUMS.txtを公開リンクからAuthorization/CookieなしでGETし、3件ともHTTP200・全bytes/SHA・Release側digestが一致した。tagは配布sourceの正確なcommitを参照し、assetは3件だけである。公開後の記録保存はdocsのみとし、固定配布物を置換しない。各修正の実機改善未確認・再発数は維持する。
