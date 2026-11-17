@@ -751,7 +751,9 @@ final class Runtime112UpperWorld {
                       state["drain_token_count"]?.intValue == 0 else { return false }
                 self.restoreClock = false; return true
             }
-            if restore { NG2Fake.lock.lock(); NG2Fake.fixedCaptureAdvance = 80_000_000; NG2Fake.lock.unlock() }
+            // The fixed clock must sample the existing 50ms publication/
+            // preparation window: 20ms + 2ms reply, rather than TEST225's 82ms jump.
+            if restore { NG2Fake.lock.lock(); NG2Fake.fixedCaptureAdvance = 20_000_000; NG2Fake.lock.unlock() }
             if cycle["outcome"]?.stringValue == "negative", (cycle["pause_capture_id"]?.intValue ?? 0) > 0,
                (cycle["durable_ns"]?.intValue ?? 0) > 0, self.locked({ self.stage == 6 }) {
                 let now = NG2Fake.virtualClock(), durable = UInt64(cycle["durable_ns"]!.intValue!)

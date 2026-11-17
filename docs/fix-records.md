@@ -514,3 +514,5 @@ TEST111/build219実物確認（2026-11-17）: CODE7974482/run44069884103で選�
 
 | FR-112-UPPER-NORMAL-PROBES | 2026-11-18 | 正常partialが非空probeを返す上側入店が旧一般partialへ落ちる | 空結果限定の資格が同じ元ITEM行の正常probeを扱わず、一般経路では親の更新/停止が起きる | row3の元ITEMに対応する安全probeだけ限定許可。不正reason/kindを入口で拒否し、元parent/最大4/230ms/static/候補優先を維持 | 公開通常producer全経路のRed2、enum Red8(error0)→C5b9の上側17＋関連45Green。旧14assert不変、独立レビュー0P0/P1。実Mac/実機改善は未確認 | 内部結合1、レビューenum1。実機同根因は未評価 |
 | FR-112-CI-VISIBILITY-CADENCE | 2026-11-18 | 上側fixtureの初回PARTIALと完全520ms一致条件が実producerと不整合 | 価格だけのstage別消去と、量子化された推定拍を生の520msと同一視した前提 | 全域の固定可視境界＋元UIで画像を生成。実公開ticket/ACKと生成物理拍index連続を検査し、モデル値は診断へ | factory9e81の通常28例/拍280/異常10/位相pairと地形1428比較。Swift2334の独立レビュー0P0/P1。実Macは次工程 | 内部試験前提2。実機再発へ算入しない |
+
+| FR-112-CI-CLOCK-RESOLUTION | 2026-11-18 | Mac225は上側入店の最初の入力準備を失い安全保持 | 仮想時計の82ms刻みが既存50ms準備区間を飛び越え、次の拍では元parentに4入力が収まらない | 新上側fixtureの判定後だけ20ms刻みへ。製品の時計/期限/上限と全assertを保持 | 実225のPREPARATION/元model/target/parentを3者照合。差分レビュー0P0/P1、次Macで確認。製品Redではない | 内部試験前提1。実機再発へ算入しない |
