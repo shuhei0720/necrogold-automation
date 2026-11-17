@@ -577,9 +577,28 @@ jobs:
       - name: Select actual Python 3.9 for TEST110 client compatibility
         if: inputs.native_lane == 'device' && steps.host_contracts.outputs.device_profile == '110'
         id: python39
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
-          python-version: '3.9'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python39_root="$RUNNER_TEMP/test110-python39"
+          python39_archive="$RUNNER_TEMP/test110-python39.tar.gz"
+          mkdir -p "$python39_root"
+          curl --fail --location --retry 2 --connect-timeout 15 --max-time 120 --output "$python39_archive" 'https://github.com/astral-sh/python-build-standalone/releases/download/20251031/cpython-3.9.25%2B20251031-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz'
+          echo "fe04e8b27bd69ca2144fc542428f8b9b5287b6a2e45516a4acfe2c2bc3102773  $python39_archive" | sha256sum --check
+          tar -xzf "$python39_archive" -C "$python39_root"
+          python39_path="$python39_root/python/bin/python3.9"
+          TEST110_PYTHON_ARCHIVE="$python39_archive" "$python39_path" - <<'PY' | tee "$RUNNER_TEMP/test061-host/test110-python39-provider.json"
+          import ctypes, hashlib, json, os, platform, ssl, sys, zlib
+          from pathlib import Path
+          assert platform.python_implementation() == 'CPython' and sys.version_info[:3] == (3, 9, 25)
+          archive_sha = hashlib.sha256(Path(os.environ['TEST110_PYTHON_ARCHIVE']).read_bytes()).hexdigest()
+          assert archive_sha == 'fe04e8b27bd69ca2144fc542428f8b9b5287b6a2e45516a4acfe2c2bc3102773'
+          print(json.dumps(dict(schema='test110-python39-provider-v1', implementation=platform.python_implementation(),
+              version=list(sys.version_info[:3]), sys_version=sys.version, archive_sha256=archive_sha,
+              executable_sha256=hashlib.sha256(Path(sys.executable).resolve().read_bytes()).hexdigest(),
+              imports=['ssl','hashlib','ctypes','zlib'], openssl_version=ssl.OPENSSL_VERSION)))
+          PY
+          echo "python-path=$python39_path" >> "$GITHUB_OUTPUT"
       - name: Run TEST110 exact client methods and shell entry using actual Python 3.9
         if: inputs.native_lane == 'device' && steps.host_contracts.outputs.device_profile == '110'
         shell: bash

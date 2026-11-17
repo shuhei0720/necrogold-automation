@@ -128,7 +128,10 @@ class DeviceHostSelection110Tests(unittest.TestCase):
         for version in ('094', '095', '096', '097', '098', '099', '100', '101', '102', '103', '104', '105', '106', '107', '108', '109', '110'):
             self.assertIn('NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test' + version + '_host.py', host)
         self.assertLess(host.index('DEVICE_PROFILE=109'), host.index('DEVICE_PROFILE=110'))
-        self.assertIn("python-version: '3.9'", host)
+        self.assertIn('cpython-3.9.25%2B20251031-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz', host)
+        self.assertIn('fe04e8b27bd69ca2144fc542428f8b9b5287b6a2e45516a4acfe2c2bc3102773', host)
+        self.assertLess(host.index('sha256sum --check'), host.index('tar -xzf'))
+        self.assertIn('test110-python39-provider.json', host)
         self.assertIn('steps.python39.outputs.python-path', host)
         self.assertIn('run_test110_python39.py driver', host)
         build = source.split('  focused-build:\n', 1)[1].split('\n  build:\n', 1)[0]
