@@ -507,3 +507,5 @@ TEST111/build219実物確認（2026-11-17）: CODE7974482/run44069884103で選�
 | FR-112-CLIENT-SHAPE | 2026-11-17 | 正常区切りparserが実outcomeの非零座標を拒否し得る | outcomeはdurable reset前の旧店座標だが試験が零に固定 | 旧座標はint32診断として許容し、terminal原点・ACK/時刻/上限は厳密保持。行/slotの候補/異常と非nullの不正assessmentも拒否へ | 実形(-1,2)・nested候補の指定Red→変更部27件Green（最新receiptはPython3.12）。最終全55件の実Python3.9再結合はCI、実機未確認 | 開発中parser3。実機再発には算入しない |
 
 | FR-112-CI-SWIFT-LOCK | 2026-11-17 | Mac221の新112結合fixtureが2箇所でcompile error | 別ファイルのprivate NSLock補助を呼び出した | 新112 fixture内の当該読取だけを明示lock/read/unlockへ。旧資材/全assert/製品sourceを保持 | 221は制御226/実3.9 55成功、API Red正常、現8ケース未実行。独立差分確認後の新ビルドで実行確認する。compile失敗をRedに数えない | 内部試験補助1。実機再発には算入しない |
+
+| FR-112-CI-SUPPORT-ROOT | 2026-11-17 | Mac222は旧方式成功、新7ケースが撮影0で終了 | 新fixtureの子保存先directoryが未作成でSpool openが失敗、C開始前にcancel6 | 新reset内だけmkdir0700と存在/種別/非symlink/権限assertを追加。製品と既assertは保持 | 実222の0取得/旧方式成功と初期化経路を独立照合。差分レビューP0/P1なし、次Macで確認。製品Redではない | 内部試験準備1。実機再発には算入しない |

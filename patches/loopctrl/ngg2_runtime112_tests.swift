@@ -89,6 +89,16 @@ func runtime112Start(_ id: String) {
 }
 
 func runtime112Reset(_ root: URL) {
+    do {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true,
+            attributes: [.posixPermissions: NSNumber(value: 0o700)])
+        let attributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        let type = attributes[.type] as? FileAttributeType
+        let mode = (attributes[.posixPermissions] as? NSNumber)?.intValue ?? 0
+        require(FileManager.default.fileExists(atPath: root.path) && type == .typeDirectory &&
+            type != .typeSymbolicLink && (mode & 0o777) == 0o700,
+            "test112_support_root_exists_private_directory_without_symlink")
+    } catch { require(false, "test112_support_root_creation_failed") }
     _ = resetCycleFixture(root)
     NG2RuntimeCycleTestHooks.afterClassificationCall = nil
     NG2RuntimeCycleTestHooks.afterClassificationEnqueueBeforeReturn = nil

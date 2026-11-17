@@ -37,3 +37,5 @@ ff8f原147は開扉のみで移動しておらず、下の商品は部分表示�
 ## 配布前CI221の試験補助修正
 
 CODE915cee9/run44096307751で制御219＋selector7＝226件、実CPython3.9.25の55件は成功。旧Runtime37cのopt-in API assertion Redも正しい単一assert/compile0で成立した。現Runtimeの8ケースは、別Swiftファイルのprivate NSLock補助を新fixtureから呼ぶ2箇所がcompile errorとなり、未実行。製品assertion RedやIPA成功ではない。新112 fixtureの2読み取りだけを明示lock/read/unlockへ直し、assert全体・旧13資材・全36製品sourceを維持して再ビルドする。旧runの成功と未実施はそのsourceに結び付けて保持する。
+
+CI222/CODE1760a5fは制御226/実3.9 55/API Redと旧方式Macが成功。新7ケースはcompile後に全て取得0で停止した。保存先の子directoryを新fixtureが作らず、SpoolのO_DIRECTORY openがsupport失敗し、initializeCycleがcancel6へ入っていた。C開始前であり、C/Runtimeの有効化順序は正常。新reset内だけmkdir0700とdirectory/非symlink/権限の明示assertを追加し、既assert・製品source・旧資材を保持。独立レビュー残P0/P1なし。これも製品assertion Redや実機障害へ算入せず、修正後のMac実行を要する。
