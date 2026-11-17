@@ -470,3 +470,6 @@ TEST109/build208確認: CODE270773bの選択CI130件/19scope、同source IPA、�
 | FR-110-RUNTIME-DRAIN | 2026-11-17 | 未終了decode/解析中に保存/trimへ進み得る | JPEG callbackだけでcaptureOutstandingをfalseにし後段leaseがない | requestから解析/controlまで実lease、CHECKPOINT新取得停止、trim前再検査 | 独立読取P1。実decode park中UI0/保存0→解放後進行をMacで確認予定 | 配布前1。実機再発ではない |
 | FR-110-RUNTIME-RAW | 2026-11-17 | OUTCOME待機中の最初PARTIAL原画が取消時失われる | cycle.framesだけのBがterminal export候補へ入らない | 必要cycle/firstgoods原画を有界保持しterminal/取消でも優先保存 | A→PARTIAL B→4枚超UNKNOWN→取消のrawhash/manifestをMacで確認予定 | 配布前1。実機再発ではない |
 | FR-110-FIXTURE-CASE | 2026-11-17 | 未実装caseでも別fixtureのPASSでGreenになり得る | unknown caseのretention fallbackと任意PASS文字列による資格 | unknownを拒否し要求case exact marker/全case完了を必須化 | root読取。実driver case一覧/返却値/markerをMac artifactで照合予定 | 私有fixture1。実機再発ではない |
+
+
+TEST110/build217の実物確認（2026-11-17）: CODEcdff284/run44044340448で選択180件、実Python3.9の108件、Mac Runtime29閉case、Spool production/2故障感度検査が成功。Mac214の製品snapshot不足は修正後の同assert成功、215/216は誤fixtureの資格拒否として保持した。IPA/source1000files/実compiler/全保持sourceと5実物gateを5attemptで照合済み。各行の実機改善未確認・再発数は維持し、単体・callback合格を改善完了にしない。閉じ文書sourceと固定配布の匿名照合は次工程。

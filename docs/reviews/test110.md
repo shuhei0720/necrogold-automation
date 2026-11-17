@@ -2,6 +2,16 @@
 
 2026-11-17（日本時間）。基準c2f7624。[通常計画](../plans/test110-device-failures.md)・[再試行設計](../plans/test110-irregular-retry.md)・[修正表](../fix-records.md)。実機改善は未確認。
 
+## 最終CODEと実物検証
+
+CODE `cdff28438adf31e45863dfb7af85e4535c8d46c4`、[実CI217](https://github.com/shuhei0720/necrogold-automation/actions/runs/44044340448) が成功。選択native173＋selector7、実CPython3.9.25の108method、実Mac Runtime29閉case、Spool production Green＋2件の実装後故障感度検査が同sourceで成功した。手続き画素・模擬時計・制御した分類結果を使うcallback/実FSの検査であり、iPhone実ゲーム受入ではない。
+
+Runtime最終37c079fd・seal f4551161、native36/変更10/保持26を確認。IPA18,184,294bytes/SHA256 `677ce1d1b4fa62b4abad6a997b71d9f2e3a37531431d2e1fdc33a9b2b9f54af5`、CODE完全source1000files/全bytes・CRC・安全path、実compiler・9 Mach-O・保持sourceを照合。package/host/retained/macho/compileの5gateは各1回で成功し、ここで意味試験やcompilerを再実行していない。公開用の閉じ文書sourceと固定Release照合は次工程。
+
+Mac214はdurable C commit後に公開controllerSnapshotが古い製品不具合を検出。lock内で同C statusを取得しlock外cacheへ公開する5行修正を行い、215以降で同検査が成功した。215はUNKNOWN tail用の撮影制限が再表示後も再armするfixture不足、216は不可逆readOnlyの故障writerへ追記を求める誤oracle。元失敗/bytesを保持して製品Redと分け、finalではfresh PAUSE観測、原本全bytes不変、同UUID新owner凍結回収、全PNG公開chunkのサイズ/SHAと診断sibling receiptを検査した。最終combined fixture15540b13、新IRG3b831290。独立した限定再読で残P0/P1/P2なし。
+
+以下は準備経過であり、「未実行」は当該段階の状態を示す。実機改善、未知の対象精度、人より速い実効速度、商品到達率は未確認のまま次の実機で評価する。
+
 ## 受領・原因
 
 8添付は4固有run/98 PNG/108記録/214論理ファイル。全CRC/安全path/内包ZIP一致・manifest/hashchain・896×414 RGBA SHAを確認した。原本・Scene・作者の実行証跡はGit外。単調時刻順8d78→9bf5→fe54→80c6は利用者4周に整合する。
