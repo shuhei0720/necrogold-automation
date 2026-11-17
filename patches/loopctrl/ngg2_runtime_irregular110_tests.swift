@@ -218,7 +218,7 @@ func testIrregular110DeathCallbacksPublic(_ root: URL, variant: String = "lifecy
                     }
                 } else if laterGoods && postPhase == 1 {
                     goodsSource = capture; postPhase = 2
-                } else if laterGoods && freezeTail {
+                } else if laterGoods && postPhase == 2 && freezeTail {
                     lastTail = capture; tailFrozen = true
                     NG2Fake.lock.lock(); NG2Fake.captureLimit = NG2Fake.requests; NG2Fake.lock.unlock()
                 }
@@ -517,6 +517,19 @@ func testIrregular110DeathCallbacksPublic(_ root: URL, variant: String = "lifecy
     ir110ReleaseCaptures(); clock.advance(220_000_000)
     pump("irregular110_candidate_pause_terminal_actual_drain", timeout: 40) { ir110Payload(id)["workers_drained"]?.boolValue == true }
     if laterGoods {
+        let final = report(id)
+        let pauses = (final["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+            .filter { $0["kind"]?.intValue == 2 && $0["outcome"]?.intValue == 2 }
+        let pause = pauses.last
+        let observed = (final["captures"]?.arrayValue ?? []).compactMap { $0.objectValue }
+            .first { $0["id"]?.intValue == pause?["observed_capture_id"]?.intValue }
+        require(pauses.count == 1 && (pause?["observed_capture_id"]?.intValue ?? 0) > 0 &&
+            (observed?["start_ns"]?.intValue ?? 0) >= (pause?["end_ns"]?.intValue ?? Int.max) &&
+            observed?["completed_prefix_start"]?.intValue == pause?["id"]?.intValue &&
+            observed?["completed_prefix_end"]?.intValue == pause?["id"]?.intValue &&
+            observed?["inflight_start"]?.boolValue == false && observed?["inflight_end"]?.boolValue == false &&
+            observed?["stable"]?.boolValue == true && final["paused"]?.intValue == 1,
+            "irregular110_later_goods_normal_pause_requires_one_ack_and_fresh_same_prefix_observation")
         require(ir110Record(root, id, "checkpoint")?["raw_sha256"]?.stringValue == NG2CycleWire.hash(next),
             "irregular110_later_goods_actual_worker_rgba_digest_survives_unknown_tail")
     }

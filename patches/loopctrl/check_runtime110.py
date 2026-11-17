@@ -152,7 +152,12 @@ void ng2_test_pause(uint8_t *out,size_t length){
             print(case + ': ' + ('qualified expected assertion Red' if args.expect_red and qualified else
                                 'Green' if qualified else 'FAILED qualification'))
             if not qualified:
-                raise SystemExit(result.stdout + result.stderr or 'Unexpected Runtime110 result')
+                print(result.stdout + result.stderr or 'Unexpected Runtime110 result', flush=True)
+                if args.expect_red:
+                    raise SystemExit('TEST110 expected assertion Red did not qualify: ' + case)
+        failed = [case for case, row in results.items() if not row['qualified']]
+        if failed:
+            raise SystemExit('TEST110 current Runtime cases failed: ' + ', '.join(failed))
         print('TEST110 assertion Red captured; this is not a product pass' if args.expect_red else
               'PASS TEST110 selected current Runtime callbacks')
 
