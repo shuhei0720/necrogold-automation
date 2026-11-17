@@ -781,9 +781,16 @@ static void price_witness(const RingObservation *observation,const NG2RingRow *r
         if(x<x1)for(int y=sy+69;y<y_end;y++)ink|=price_white(observation,out,x,y);
         if(ink) {if(start<0)start=x;last=x;}
         if(start>=0&&((!ink&&x-last>3)||x==x1)) {
-            int matched=-1,y0=RING_HH,y1=0;
+            int matched=-1,y0=RING_HH,y1=0,ink_count=0;
             for(int y=sy+69;y<y_end;y++)for(int xx=start;xx<=last;xx++)
-                if(price_white(observation,out,xx,y)){if(y<y0)y0=y;if(y>y1)y1=y;}
+                if(price_white(observation,out,xx,y)){if(y<y0)y0=y;if(y>y1)y1=y;ink_count++;}
+            /* The target-only offer proof already requires eighteen white
+             * pixels for each real price. An icon/name fragment with less
+             * support is not a fourth price. The full target sweep and the
+             * exact Scene ITEM projection remain independent requirements. */
+            if((out->policy_version==9||out->policy_version==11)&&ink_count<18) {
+                start=-1;continue;
+            }
             out->observed_prices++;
             for(int s=0;s<3;s++)if(start>=left+36*s-11&&last<left+36*s+12)matched=s;
             if(matched<0||out->price_boxes[matched][2]>0)out->unmatched_prices++;
@@ -1740,6 +1747,40 @@ static int offer_footprint_pair(const NG2RingSign *a,const NG2RingSign *b,int le
     }
     return 0;
 }
+/* A local lighting witness for an already observed FLOOR endcap. It does not
+ * change the material predicate: the independent full 25x25 sample must pass
+ * it. A textured, visible half may instead prove the same chromaticity with
+ * at most 3% red-normalized channel difference and 4/5..5/4 red gain. This is
+ * only used by target-only offer policies9/11, after exact Scene projection;
+ * old coverage policies and NG2Perception keep their original predicates. */
+static int offer_half_floor(NG2RingEndcap full,NG2RingEndcap half) {
+    if(!material_floor(full)||full.count!=625||half.count<=0||half.spread!=1
+       ||half.r<6||half.r>52||half.g<3||half.b<1
+       ||100*(half.count-half.black_count)<90*half.count
+       ||625*half.bright_count>=24*half.count
+       ||5*half.r<4*full.r||4*half.r>5*full.r)return 0;
+    int reference[2]={full.g*half.r,full.b*half.r};
+    int observed[2]={half.g*full.r,half.b*full.r};
+    for(int c=0;c<2;c++) {
+        int bound=reference[c]>observed[c]?reference[c]:observed[c];
+        if(100*abs(reference[c]-observed[c])>3*bound)return 0;
+    }
+    return 1;
+}
+static int offer_endcap_witness(const unsigned char *rgba,const RingObservation *observation,
+                               const NG2Scene *scene,int cx,int sy,NG2RingEndcap *out) {
+    if(endcap_witness(rgba,observation,cx,sy,out))return 1;
+    int x,y;
+    if(!out->floor_full||!structural_cell(cx,448,&x)||!structural_cell(sy+48,207,&y)
+       ||structural_tile(scene,x,y)!=NG2_TILE_FLOOR
+       ||100*(out->count-out->black_count)<90*out->count
+       ||out->bright_count>=24||out->price_ink_count>=18)return 0;
+    if(!out->floor_upper)out->floor_upper=offer_half_floor(*out,
+        material_sample(rgba,out->box[0],out->box[1],25,12));
+    if(!out->floor_lower)out->floor_lower=offer_half_floor(*out,
+        material_sample(rgba,out->box[0],out->box[1]+12,25,13));
+    return out->floor_upper&&out->floor_lower;
+}
 static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObservation *observation,
                                 const NG2RingSign signs[12],int sign_count,
                                 const NG2RingOptions *options,NG2RingResult *result,int *handled,int kind) {
@@ -1786,8 +1827,10 @@ static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObs
     if(!box_valid(strip)){out->failure_flags|=NG2_RING_COV_BOUNDS;return NG2_RING_OK;}
     int status=binary_primary(rgba,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
     status=binary_word_veto(observation,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
-    int complete=endcap_witness(rgba,observation,row->left-36,row->sy,&out->endcaps[0]);
-    complete&=endcap_witness(rgba,observation,row->left+108,row->sy,&out->endcaps[1]);
+    int complete=closed?endcap_witness(rgba,observation,row->left-36,row->sy,&out->endcaps[0])
+        :offer_endcap_witness(rgba,observation,options->scene,row->left-36,row->sy,&out->endcaps[0]);
+    complete&=closed?endcap_witness(rgba,observation,row->left+108,row->sy,&out->endcaps[1])
+        :offer_endcap_witness(rgba,observation,options->scene,row->left+108,row->sy,&out->endcaps[1]);
     if(!complete)out->failure_flags|=NG2_RING_COV_ENDCAP;
     price_witness(observation,row,out);
     status=closed_price_recover(rgba,observation,options,result,row,out,0);if(status)return status;

@@ -400,6 +400,25 @@ static int passage_split_left_vantage(const NG2Scene *s,const Path route[CELLS])
     static const int dark[][2]={{-3,-1},{-3,0},{-3,1},{-4,1}};
     return passage_left_view_support(s,route,walls,7,dark,4,1);
 }
+/* A left FLOOR mouth can be separated from its inside view by a dark bend.
+ * Independent roof and lower boundary walls support only the known inside
+ * three-step FLOOR approach; the outside and connecting cells stay UNKNOWN. */
+static int passage_dark_side_mouth_vantage(const NG2Scene *s,const Path route[CELLS]) {
+    static const int walls[][2]={{-4,-3},{-3,-3},{-2,-3},{-1,-3},{-3,1},{-3,2},{-3,3}};
+    static const int dark[][2]={{-4,-2},{-2,-2},{-3,-1},{-3,0}};
+    int i,x,y,vantage=index_of(-2,-1);
+    if(s->gold_state!=NG2_GOLD_CLEAR||tile(s,-3,-2)!=NG2_TILE_FLOOR)return 0;
+    for(i=0;i<CELLS;++i)
+        if(s->protected_cells[i]||s->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(i=0;i<(int)(sizeof(walls)/sizeof(walls[0]));++i)
+        if(!passage_wall(s,walls[i][0],walls[i][1]))return 0;
+    for(i=0;i<(int)(sizeof(dark)/sizeof(dark[0]));++i)
+        if(tile(s,dark[i][0],dark[i][1])!=NG2_TILE_UNKNOWN)return 0;
+    for(y=-1;y<=0;++y)for(x=-2;x<=0;++x)
+        if(tile(s,x,y)!=NG2_TILE_FLOOR)return 0;
+    return tile(s,-1,-2)==NG2_TILE_FLOOR
+        &&route[vantage].cost!=INF_COST&&route[vantage].length==3;
+}
 /* The lower-left exterior FLOOR can be visible beyond an opaque boundary.
  * Keep that disconnected floor and the mouth's wall unchanged; only the
  * current short inside FLOOR approach gains this fixed-world hypothesis. */
@@ -427,6 +446,7 @@ uint32_t ng2_passage_candidates(const NG2Scene *s) {
     if(passage_observed_upper_vantage(s,route))result|=UINT32_C(1);
     if(passage_split_roof_vantage(s,route))result|=UINT32_C(1);
     if(passage_observed_left_vantage(s,route))result|=UINT32_C(1)<<5;
+    if(passage_dark_side_mouth_vantage(s,route))result|=UINT32_C(1)<<5;
     if(passage_split_left_vantage(s,route))result|=UINT32_C(1)<<8;
     if(passage_lower_fringe_vantage(s,route))result|=UINT32_C(1)<<9;
     for (side=0;side<2;++side) for (k=-2;k<=2;++k) {

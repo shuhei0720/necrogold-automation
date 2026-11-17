@@ -416,3 +416,20 @@ TEST108/build206確認: CODEe8c4bb8の最終C8f071469/Ring0a767a0d/Nav34f1fae6�
 | ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
 | --- | --- | --- | --- | --- | --- | --- |
 | FR-108-DELIVERY-REFERENCE | 2026-11-17 | 新私有helperが未配置の旧番号readerを参照 | underscoreを含むhelper名の置換漏れ。AST/GO拒否だけでは相互参照を確認できなかった | 新readerへの参照を修正し、意図的な旧107履歴readerと区別。単一producer Redから2Greenクラスへの対応も明示し別Redを捏造しない | 35source/445参照/34生成予定出力/7schema対の静的閉包、元Red source/hashと6作者→7classの集合一致、実物5gate初回成功 | 配布前1。実機再発ではない |
+
+## TEST109の対策（原因確認・実機改善未確認）
+
+[計画](plans/test109-device-failures.md)。TEST108の3固有run/73画像/82記録を照合。FR104〜108を確認し、過去の補助試験合格を実機改善完了と扱わない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-109-DARK-SIDE-MOUTH | 2026-11-17 | 観測口のある原323を候補として拾わずリスタート | 外/内側と側方壁がUNKNOWNで旧106/108の別shapeに該当せずmask0 | 独立屋根4/下側壁3・観測口/内側既床・暗い側方を要求する別witnessから既bit5へ。既床3歩の観測位置のみ | 変更前1method/1assert失敗→新7/旧12がO0/strictO2成功。原mask0→32/chooser既床3歩、他15保存PAUSE不変。実機未確認 | 今回確認1。利用者の番号との対応は未確定、同系列通算未集計 |
+| FR-109-PARTIAL-REMOTE | 2026-11-17 | 開扉後2商品だけ見え、入店せず23job後に期限停止 | 元画像との通常strict零/同判断でも、遠方UNKNOWN→DIRT/FLOOR等でROUTE10となり分類/準備を反復 | 既開扉safe PARTIAL・正確ITEM/全GOLD/保護/一歩近傍/完全Decisionを保ち、遠方3材質だけ別quiet証明。各比較は固定元anchorへの直接strict零、元D/入力条件を保持 | 最終testで変更前1method/2assert失敗→新8/開扉7/直接旧45の60成功。原227固定の後続20枚は通常零/同判断/staticNONE。外側4GOLDを要求し非公開flagを仮定しない。実機未確認 | 今回条件1。FR107のPARTIAL合成とは別の遠方関係不足、同症状継続・通算未集計 |
+| FR-109-OFFER-WITNESS | 2026-11-17 | 3商品可視でもUNKNOWNで保持しリスタートしない | 11白画素を第4価格と数え、有効価格の18支持条件と不整合。端のfull床は成立するが半分の同色相照明差で固定palette不成立 | 正の価格支持を統一。既full床/Scene FLOORとhalf独立可視/texture/色度/輝度関係を要する局所offer証明を追加。global閾値/候補保持/余剰品拒否は維持 | 旧Red3method/5assert失敗→新12/直接旧33成功。実採用source275は正常NEGATIVE/証明1/C独立検査1、公開C保存/RESTART連鎖も確認。後続PAUSE用276はUNKNOWN保持。実機未確認 | 今回条件1。正常UNKNOWN保持は仕様通りだが検出不足が継続、同根因通算未集計 |
+| FR-109-OPEN-EDGE | 2026-11-17 | 開扉後3商品が見えても入店せず停止 | 新108の正の開扉条件は成立したが、壁付近のpartial unionのleft135が旧安全域143から外れFULL一歩を拒否 | 直後開扉のpartialだけ、中央にある実icon coreと可視unionを失わず中央へ移す横一歩の別証明。旧row/ITEM ROI・上下・HUD拒否と一用/元Dは保持 | 最終testで変更前1method/2assert失敗→新7/遠方8/直接旧45の60成功。原522の通常結果と実履歴でadmission1、後続同prefix原画像なし。候補/元D/UNKNOWN無再送維持、実機未確認 | 今回条件1。FR108開扉履歴の削除回帰ではなく後続ROI条件不足、同症状継続・通算未集計 |
+
+配布準備の確認不備（製品の実機再発へ数えない）:
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-109-DELIVERY-COUNT | 2026-11-17 | seal/適用成功後の一時集計assertが失敗 | 36 nativeをadditionsだけの件数と誤認。正しくは既patch9＋additions27 | 元manifestと同じ和集合36を照合し、変更3/保持33と全metadataを検証 | 正しい集合で全一致。seal/適用/製品sourceを作り直さず、件数確認だけ修正。native実行0 | 私有確認1。実機再発ではない |

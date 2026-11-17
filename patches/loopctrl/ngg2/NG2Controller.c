@@ -3108,6 +3108,25 @@ static int cycle_full_slot(const NG2RingSlot *slot,int d){
     return cycle_binary_no_positive(slot)&&slot->cx>=0&&slot->cx<896&&slot->sy>=0&&slot->sy<414
         &&cycle_full_roi(slot->cx-60,slot->sy-32,slot->cx+60,slot->sy+115,d);
 }
+/* Only a direct opening may retain an already clipped outer name margin.
+ * The full observed icon core must be central, and every currently visible
+ * potential pixel must remain there after the horizontal observation step.
+ * The clipped margin remains UNKNOWN; this grants no negative certificate. */
+static int cycle_full_opening_edge_slot(const NG2RingSlot *slot,int d){
+    int left,right,visible_left,visible_right,shift;
+    if(!cycle_binary_no_positive(slot)||slot->cx<0||slot->cx>=896||slot->sy<0||slot->sy>=414
+        ||slot->sy-32<45||slot->sy+115>315||slot->cx-18<143||slot->cx+18>663
+        ||slot->sy+24<45||slot->sy+66>315)return 0;
+    left=slot->cx-60;right=slot->cx+60;
+    if(d==NG2_LEFT){
+        if(left>=143||right>663)return 0;
+        visible_left=143;visible_right=right;shift=36;
+    }else if(d==NG2_RIGHT){
+        if(right<=663||left<143)return 0;
+        visible_left=left;visible_right=663;shift=-36;
+    }else return 0;
+    return visible_left<visible_right&&visible_left+shift>=143&&visible_right+shift<=663;
+}
 static int cycle_full_admit(const NG2Controller *p,const NG2RingResult *result,NG2Decision *choice){
     int d,r,k,direct=0;
     if(!cycle_full_history(p,&d)){
@@ -3132,7 +3151,9 @@ static int cycle_full_admit(const NG2Controller *p,const NG2RingResult *result,N
             if(row->slots[k].cx!=row->left+36*k||row->slots[k].sy!=row->sy
                 ||!cycle_full_slot(&row->slots[k],d))return 0;
     }
-    for(k=0;k<result->partial_count;++k)if(!cycle_full_slot(&result->partial[k],d))return 0;
+    for(k=0;k<result->partial_count;++k)
+        if(!cycle_full_slot(&result->partial[k],d)
+            &&(!direct||!cycle_full_opening_edge_slot(&result->partial[k],d)))return 0;
     for(k=0;k<NG2_TILE_COUNT;++k)if(p->cycle_anchor.tiles[k]==NG2_TILE_ITEM){
         int cx=448+36*(k%23-11),cy=207+36*(k/23-5);
         if(!cycle_full_roi(cx-78,cy-86,cx+78,cy+61,d))return 0;
@@ -3213,6 +3234,52 @@ static int cycle_partial_distant_dirt(const NG2Controller *p,const NG2Scene *sou
     for(i=0;i<NG2_TILE_COUNT;++i)
         if(!cycle_partial_quiet_cell(p,source,scene,d,i))return 0;
     return 1;
+}
+/* A same-opening clipped side row may flicker between the three ordinary
+ * floor palette labels outside the actual MOVE footprint. Preserve its
+ * classified source instead of repeatedly discarding the upcoming input.
+ * This is only a material relation: cycle_partial_comparison still requires
+ * normal strict zero directly from that immutable source on every image. */
+static int cycle_partial_side_palette(const NG2Controller *p,const NG2Scene *scene,int d){
+    const NG2Scene *a=&p->cycle_anchor;const NG2ControllerEvent *e;
+    int i,y,rail=0,items=0,left=12,right=-12,row=5;
+    if((d!=NG2_LEFT&&d!=NG2_RIGHT)||!p->cycle_refresh_safe||!p->cycle.partial
+        ||p->cycle.full_seen||p->cycle.pending||p->cycle.candidate_latched
+        ||p->cycle.status!=NG2_RING_OK||p->cycle.outcome!=NG2_RING_UNKNOWN
+        ||p->cycle.coverage!=NG2_RING_COVERAGE_INCOMPLETE
+        ||p->cycle_framing_credit||p->cycle_full_framing||p->cycle_full_spent
+        ||p->entry.active||p->lower.active||p->cycle_restart_unproved
+        ||p->cycle_pause_attempted||p->cycle_storage_error||p->finish_requested||p->s.terminal
+        ||!p->s.lead_confirmed||level_moves(p)<=0||p->s.input_state>1
+        ||p->cycle.prefix!=p->s.last_completed_id||p->last_observed_prefix!=p->cycle.prefix
+        ||!cycle_opened_partial(p,d)||a->state!=NG2_FLOOR||scene->state!=NG2_FLOOR
+        ||a->goods!=NG2_GOODS_PARTIAL||scene->goods!=NG2_GOODS_PARTIAL
+        ||!cycle_exact_item_protection(a)||!cycle_exact_item_protection(scene))return 0;
+    e=p->event_count?&p->events[p->event_count-1]:NULL;
+    if(p->s.input_state==1&&(!e||e->begin_ns||e->outcome||p->command.kind!=NG2_ACTION_MOVE))return 0;
+    /* A separate observed outside rail supports the clipped side-room
+     * geometry. The later all-cell relation preserves every one of its GOLD
+     * cells; an entry bracket or newly exposed ITEM alone cannot supply it. */
+    for(i=-11;i<=11;++i)if(i*dx[d]>=3){
+        int complete=1;
+        for(y=-2;y<=1;++y)complete&=tile(a,i,y)==NG2_TILE_GOLD;
+        rail|=complete;
+    }
+    if(!rail)return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int old=a->tiles[i],latest=scene->tiles[i],x=i%23-11,y=i/23-5;
+        if(old==NG2_TILE_ITEM){
+            if(items&&row!=y)return 0;
+            row=y;++items;if(x<left)left=x;if(x>right)right=x;
+        }
+        if(a->protected_cells[i]!=scene->protected_cells[i])return 0;
+        if(old==latest)continue;
+        if(a->protected_cells[i]||(abs(x)<=1&&abs(y)<=1)
+            ||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)
+            ||(old!=NG2_TILE_UNKNOWN&&old!=NG2_TILE_FLOOR&&old!=NG2_TILE_DIRT)
+            ||(latest!=NG2_TILE_UNKNOWN&&latest!=NG2_TILE_FLOOR&&latest!=NG2_TILE_DIRT))return 0;
+    }
+    return items>=3&&right-left+1==items;
 }
 enum { CYCLE_TOP_ALIAS=1,CYCLE_TOP_ITEM=2,CYCLE_TOP_DATA=4 };
 /* Separate an observed top duplicate from the unchanged real row beneath it.
@@ -3303,7 +3370,8 @@ static int cycle_partial_static(const NG2Controller *p,const NG2Scene *scene,NG2
     if(!p->cycle_choice_valid||!cycle_partial_choice(p,scene,latest)
         ||!same_choice(&p->cycle_choice,latest))return NG2_REVALIDATE_ROUTE;
     if(cycle_partial_top_alias(p,scene))return NG2_REVALIDATE_NONE;
-    if(!cycle_partial_distant_dirt(p,&p->cycle_anchor,scene,latest->direction))return NG2_REVALIDATE_ROUTE;
+    if(!cycle_partial_distant_dirt(p,&p->cycle_anchor,scene,latest->direction)
+        &&!cycle_partial_side_palette(p,scene,latest->direction))return NG2_REVALIDATE_ROUTE;
     if(memcmp(p->cycle_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT))return NG2_REVALIDATE_PROTECTED;
     return NG2_REVALIDATE_NONE;
 }
