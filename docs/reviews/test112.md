@@ -69,3 +69,15 @@ CODE45a3ce3/run44117057079、診断build226。上側左入口でHの実MOVED→�
 新flag限定の有界な診断履歴を保持し、終了時は既選択24枚との和集合を既44画像/64MiB内でSpoolへ保存する。pin24/選択24/checkpoint最大6やdispatch権限は変えない。保存済みIDを含む全生存集合で容量を検査し、異常checkpoint/取消/死亡にも履歴を残す。Runtime936の実Mac assertion Redを保存済み。独立設計確認後に修正し、同じ全5枚hash/manifest assertと8ケースを実Macで再確認する。
 
 Runtime dc082fd9へ限定修正し、独立差分レビュー残P0/P1なし。静的source/ID集合の36確認は実CPython3.9による構造・集合検査であり、Swift実行や実Runtime容量境界の合格とは呼ばない。全36nativeをfresh G1から封印・適用し、旧111に対する変更5資産と全適用hashの一致を確認。元の8ケース・Swift b93729d9・C5b9f63a6・通常Ring・旧13fixtureは不変。修正後Macは次工程。
+
+## 最終TEST112/build228の配布物照合
+
+CODEcf8c393e3bb642a90f19d94c15e34c225fb913a5/run44123540366。制御223件＋selector7件＝230件、実CPython3.9.25の55件、旧Runtime37cの独立したopt-in API assertion Red、現Runtime dc082の閉じた8ケースが成功。先行診断227も同CODE/同8ケースで成功し、上側左右の通常5job・全原画・実MOVED/DOOR/連続物理拍・保存→RESTART→実新床→PAUSEを確認した。取消・候補・producer/control/captureの実drainも既assertを保持した。
+
+実MacのSpool/PNG/manifest/published RPCを保存し、同228の3export（通常区切り・候補停止・上側入店）を実Python3.9の既存parserで照合、全て成功。PNG/RGBA・記録hashchain・対象の優先・通常陰性と未確認の新床の区別を確認した。公開ACKのclient archive hashはfixtureの模擬値で、実iSH ZIP公開やiPhone実ゲームの受入へ読み替えない。
+
+IPAは18,235,124 bytes、SHA256 f93a8289f8e5d95498722743eb737cd1eabd3fc6237e158c2d0f3bd393bac2ae、bundle top.ebato.loopctrl/0.3.4/build228/min16.0。全36native/保持31資産・既G1/R12・canonical15/旧ELFを照合。package/host/retained/macho/compileの実物5gateが5attemptで成功し、Gate内で意味試験/分類/コンパイルを再実行していない。C作者のebb→309→5b9、Runtimeの936→dc082と最終現sourceの実行を別の出典として保持した。
+
+完全sourceは全1036 tracked fileの原byte/CRC/安全なpathを確認。build CODEから閉じsourceへの追加はdocs内だけとし、製品・試験の同一性を維持する。[固定TEST112/build228](https://github.com/shuhei0720/necrogold-automation/releases/tag/test112-build228)へIPA/source/hash表を公開し、匿名GETの全byte/hash照合を配布の最終工程とする。
+
+次はメインiPhone11の通常1-1ポーズからtest_112.sh --until-targetで、上側扉から下の全3商品へ到達するか、対象外後にリスタートして同じ流れを続行するか、数歩で停止しないかを確認する。実機改善・未知の対象精度・本番速度は未受入。連続試運転の返却は表示campaign索引＋最後のrun ZIP、全run原本を残す。
