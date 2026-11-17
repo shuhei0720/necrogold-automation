@@ -455,7 +455,8 @@ func testRestartYield112ReturnFence(_ root: URL, producer: Bool, variant: String
                 (variant == "late_candidate" || runtime112State(id)["C_ready"]?.boolValue == true)
         }
     }
-    let snapshot = runtime112State(id), job = parkGate.fixtureLocked { parkedJob }
+    let snapshot = runtime112State(id)
+    parkGate.lock(); let job = parkedJob; parkGate.unlock()
     require(snapshot["drain_token_count"]?.intValue == 1 && cycleCompanion(id)["pending"]?.boolValue == false &&
         cycleCompanion(id)["job_id"]?.intValue == Int(job) && cyclePayload(id)["workers_drained"]?.boolValue == false,
         "test112_logical_false_is_not_actual_" + (producer ? "producer" : "commit") + "_return")
@@ -530,7 +531,7 @@ func testRestartYield112CaptureDrain(_ root: URL, boundary: String) {
     if boundary == "capture" || boundary == "decode" || staleEmpty {
         pump("test112_C_ready_while_" + boundary + "_lease_alive", timeout: 20) { runtime112State(id)["C_ready"]?.boolValue == true }
     }
-    let capture = gate.fixtureLocked { parkedID }
+    gate.lock(); let capture = parkedID; gate.unlock()
     let leases = runtime.testIrregularRetentionIDs(id)?["capture_pipeline"] ?? []
     require(leases.contains(capture) || (runtime112State(id)["capture_control_token_count"]?.intValue ?? 0) > 0,
         "test112_" + boundary + "_actual_pipeline_lease_retained")

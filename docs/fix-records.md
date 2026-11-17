@@ -505,3 +505,5 @@ TEST111/build219実物確認（2026-11-17）: CODE7974482/run44069884103で選�
 
 | FR-112-BOUNDARY-REVIEW | 2026-11-17 | 正常区切り実装のレビューで死亡UI・開始PAUSE鮮度・UNKNOWN後の保存を拒否/誤採用する条件を検出 | 新規待機の優先順と現在UI/履歴DATAの権限を混同 | 死亡は既異常経路へ、開始は実鮮度を検査、実新床は履歴DATAのみ保存して現在UNKNOWNを巻き戻さない | 指定assertion Red→最終新16/直接128件Green。独立レビューP0/P1なし、実機未確認 | 開発中レビュー3。実機再発には算入しない |
 | FR-112-CLIENT-SHAPE | 2026-11-17 | 正常区切りparserが実outcomeの非零座標を拒否し得る | outcomeはdurable reset前の旧店座標だが試験が零に固定 | 旧座標はint32診断として許容し、terminal原点・ACK/時刻/上限は厳密保持。行/slotの候補/異常と非nullの不正assessmentも拒否へ | 実形(-1,2)・nested候補の指定Red→変更部27件Green（最新receiptはPython3.12）。最終全55件の実Python3.9再結合はCI、実機未確認 | 開発中parser3。実機再発には算入しない |
+
+| FR-112-CI-SWIFT-LOCK | 2026-11-17 | Mac221の新112結合fixtureが2箇所でcompile error | 別ファイルのprivate NSLock補助を呼び出した | 新112 fixture内の当該読取だけを明示lock/read/unlockへ。旧資材/全assert/製品sourceを保持 | 221は制御226/実3.9 55成功、API Red正常、現8ケース未実行。独立差分確認後の新ビルドで実行確認する。compile失敗をRedに数えない | 内部試験補助1。実機再発には算入しない |

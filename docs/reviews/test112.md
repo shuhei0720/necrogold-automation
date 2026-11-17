@@ -33,3 +33,7 @@ ff8f原147は開扉のみで移動しておらず、下の商品は部分表示�
 全36nativeを封印・実適用し、変更はController.c/.h、Navigation.c、Runtime.swift、RPCMethod.swiftの5資産。Ring/Perception/Wire/Spool/Export・G1/R12は保持した。最終CODEでの選択host/実Python3.9、実Macの限定callback、IPA/実compiler/全source/固定配布の同一性確認が残る。旧全240native/29Runtime故障集合を既定では再実行しない。選んだ現sourceの結果と、不変資産の過去結果を区別する。
 
 次の実機では全3商品の可視位置への到達、対象/対象外の正しい判定、正常リスタートと自動継続を確認する。複数手の未来Sceneを手続き的fixtureで生成した確認を、実機到達成功とは扱わない。
+
+## 配布前CI221の試験補助修正
+
+CODE915cee9/run44096307751で制御219＋selector7＝226件、実CPython3.9.25の55件は成功。旧Runtime37cのopt-in API assertion Redも正しい単一assert/compile0で成立した。現Runtimeの8ケースは、別Swiftファイルのprivate NSLock補助を新fixtureから呼ぶ2箇所がcompile errorとなり、未実行。製品assertion RedやIPA成功ではない。新112 fixtureの2読み取りだけを明示lock/read/unlockへ直し、assert全体・旧13資材・全36製品sourceを維持して再ビルドする。旧runの成功と未実施はそのsourceに結び付けて保持する。
