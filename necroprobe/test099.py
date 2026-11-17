@@ -9,7 +9,7 @@ from . import native_cycle as cycle
 from .crypto import Crypto
 from .deadlines import OwnedRpcTimer
 from .protocol import HttpTransport, load_pairing
-from .trial_evidence099 import TrialClient099
+from .trial_evidence099 import TrialClient099, IrregularTrialClient110, irregular_result_notice
 from .validation import ProbeError
 
 REASONS = ('none','goods','cancelled','foreground','locked','owner_paused','capture','stale',
@@ -17,7 +17,8 @@ REASONS = ('none','goods','cancelled','foreground','locked','owner_paused','capt
            'restart','screen','generation','heartbeat','geometry')
 
 
-def main(argv=None, *, test_number='099'):
+def main(argv=None, *, test_number='099', protocol_spec=cycle.STANDARD_PROTOCOL):
+    protocol=cycle._spec(protocol_spec)
     if type(test_number) is not str or len(test_number)!=3 or any(char not in '0123456789' for char in test_number):
         raise ValueError('invalid test number')
     prefix='TEST-'+test_number
@@ -29,7 +30,7 @@ def main(argv=None, *, test_number='099'):
     parser.add_argument('--check',action='store_true')
     args=parser.parse_args(argv)
     if args.check:
-        print('native-trial-v1 / '+cycle.API_VERSION)
+        print(('native-irregular-trial-v1' if protocol.irregular else 'native-trial-v1')+' / '+cycle.API_VERSION)
         return 0
     cancelled=[False]
     def stop(_signal,_frame):cancelled[0]=True
@@ -38,12 +39,17 @@ def main(argv=None, *, test_number='099'):
     try:
         key,tok=load_pairing(Path.home()/'.loopctrl'/'token.json')
         with OwnedRpcTimer() as timer:
-            client=TrialClient099(HttpTransport(),key,tok,timeout=8,
+            client_type=IrregularTrialClient110 if protocol.irregular else TrialClient099
+            client=client_type(HttpTransport(),key,tok,timeout=8,
                 crypto=Crypto(native=not args.python_crypto),deadline_owner=timer)
             result=campaign.run(client,Path.cwd(),spool=Path.home()/'.necroprobe'/'runtime'/('test-'+test_number),
                 until_target=args.until_target,recovery_only=args.recovery,
-                cancelled=lambda:cancelled[0],notice=notice)
+                cancelled=lambda:cancelled[0],notice=notice,protocol_spec=protocol)
         ledger=result['ledger'];reason=result['stop_reason']
+        if protocol.irregular and ledger['runs'] and result['record'] is not None \
+                and result['record']['published']:
+            notice(irregular_result_notice(Path.home()/'.necroprobe'/'runtime'/('test-'+test_number),
+                result['record'],ledger['runs'][-1]))
         if reason=='trial_support_missing':
             notice(prefix+': 新IPAの試運転機能を確認できません。IPAを更新してください。ゲームは開始していません。')
         elif reason in ('target','candidate'):

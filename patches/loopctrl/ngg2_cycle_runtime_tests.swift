@@ -6,10 +6,11 @@ final class CycleFixtureClock {
     func now() -> UInt64 { gate.lock(); defer { gate.unlock() }; value += 1_000; return value }
     func advance(_ amount: UInt64) { gate.lock(); value += amount; gate.unlock() }
 }
+var cycleFixtureProfile = "normal-1-1-cycle-v1"
 func cycleCall(_ id: String, _ mode: String = "status", extra: [String: JSONValue] = [:], owner: String = "fixture-owner") -> ([String: JSONValue]?, JSONRPCError?) {
     var params: [String: JSONValue] = ["run_id": .string(id), "mode": .string(mode), "_necro_owner": .string(owner)]
     for (key, value) in extra { params[key] = value }
-    return runtime.handle(method: "necro_native_cycle", params: params)
+    return runtime.handle(method: cycleFixtureProfile == "normal-1-1-irregular-v1" ? "necro_native_irregular" : "necro_native_cycle", params: params)
 }
 func cyclePayload(_ id: String) -> [String: JSONValue] { cycleCall(id).0?["payload"]?.objectValue ?? [:] }
 func cycleCompanion(_ id: String) -> [String: JSONValue] { cyclePayload(id)["cycle"]?.objectValue ?? [:] }
@@ -21,7 +22,7 @@ func cycleStart(_ id: String) {
          "tap_count": .int(NG2Fake.taps().count)]
     }
     let answer = runtime.handle(method: "necro_native_start", params: ["run_id": .string(id),
-        "profile": .string("normal-1-1-cycle-v1"), "_necro_owner": .string("fixture-owner")])
+        "profile": .string(cycleFixtureProfile), "_necro_owner": .string("fixture-owner")])
     require(answer.1 == nil, "cycle094_start_accepted")
 }
 func cycleProof(_ outcome: Int32) {
@@ -62,6 +63,13 @@ func resetCycleFixture(_ root: URL) -> CycleFixtureClock {
     NG2RuntimeCycleTestHooks.beforePersistenceCommit = nil
     NG2RuntimeCycleTestHooks.afterNotification = nil
     NG2RuntimeCycleTestHooks.afterTerminalDrainPass = nil
+    #if NG2_IRREGULAR_TEST110_GREEN
+    NG2RuntimeCycleTestHooks.irregularRGBA = nil
+    NG2RuntimeTestHooks.beforeCaptureDecode = nil
+    NG2RuntimeCycleTestHooks.afterIrregularAnalysis = nil
+    NG2RuntimeCycleTestHooks.beforeIrregularWrite = nil
+    NG2RuntimeCycleTestHooks.beforeIrregularPersistenceCommit = nil
+    #endif
     NG2CycleSpoolTestHooks.beforeBoundary = nil
     let full = cyclePixels()
     NG2RuntimeCycleTestHooks.rgba = { original in

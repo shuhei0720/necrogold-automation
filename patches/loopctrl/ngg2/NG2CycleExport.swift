@@ -18,6 +18,7 @@ final class NG2CycleExport {
     private let terminalStatus: [String: JSONValue]
     private let recovered: Bool
     private let owner: String
+    private let spec: NG2CycleWire.ProtocolSpec
     private let queue = DispatchQueue(label: "top.ebato.loopctrl.ngg2.cycle-export", qos: .utility)
     private let gate = NSLock()
     private var started = false
@@ -35,8 +36,9 @@ final class NG2CycleExport {
     private var publicationResponse: [String: JSONValue]?
     private var didPublish = false
 
-    init(spool: NG2CycleSpool, status: [String: JSONValue], recovered: Bool, owner: String) {
-        self.spool = spool; terminalStatus = status; self.recovered = recovered; self.owner = owner
+    init(spool: NG2CycleSpool, status: [String: JSONValue], recovered: Bool, owner: String,
+         spec: NG2CycleWire.ProtocolSpec = .standard) {
+        self.spool = spool; terminalStatus = status; self.recovered = recovered; self.owner = owner; self.spec = spec
     }
     var identifier: String? { gate.lock(); defer { gate.unlock() }; return manifestData == nil ? nil : exportID }
     var busy: Bool { gate.lock(); defer { gate.unlock() }; return working }
@@ -155,7 +157,7 @@ final class NG2CycleExport {
             let total = imageRows.reduce(0) { $0 + ($1["bytes"] as! Int) }
                 + recordRows.reduce(0) { $0 + ($1["bytes"] as! Int) }
             let object: [String: Any] = ["schema": "ngg2-cycle-manifest-v1", "run_id": spool.runID,
-                "profile": NG2CycleWire.profile, "export_id": identity,
+                "profile": spec.profile, "export_id": identity,
                 "complete": !interrupted && diagnostics.isEmpty && imageMap.count == rawFrames.count,
                 "interrupted": interrupted, "terminal": true, "workers_drained": true,
                 "input_state": status["input_state"] ?? 0, "native_inflight": false,
@@ -181,7 +183,7 @@ final class NG2CycleExport {
     private func verifyManifest(_ data: Data, images: [UInt64: Image], records: [Int: Record]) throws {
         guard let value = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               value["schema"] as? String == "ngg2-cycle-manifest-v1",
-              value["run_id"] as? String == spool.runID, value["profile"] as? String == NG2CycleWire.profile,
+              value["run_id"] as? String == spool.runID, value["profile"] as? String == spec.profile,
               let listedImages = value["images"] as? [[String: Any]],
               let listedRecords = value["records"] as? [[String: Any]],
               listedImages.count == images.count else { throw NG2CycleSpool.Failure.invalid("manifest-identity") }

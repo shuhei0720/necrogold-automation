@@ -21,7 +21,7 @@ class TrialClient099(cycle.CycleClient):
         self.trial_probe_id = uuid.uuid4().hex
 
     def _validate(self, method, params):
-        if method == 'necro_native_cycle' and type(params) is dict and params.get('mode') == 'trial_support':
+        if method == cycle._spec(self.protocol_spec).query and type(params) is dict and params.get('mode') == 'trial_support':
             cycle.closed(params, ('run_id','mode'), 'method_not_allowed')
             cycle.require(cycle.identifier(params.get('run_id')), 'method_not_allowed')
             return
@@ -30,17 +30,21 @@ class TrialClient099(cycle.CycleClient):
     def check_schema(self):
         result = super().check_schema()
         try:
-            reply = cycle._call(self, 'necro_native_cycle',
+            reply = cycle._call(self, cycle._spec(self.protocol_spec).query,
                 dict(run_id=self.trial_probe_id,mode='trial_support'))
         except ProbeError as error:
             if getattr(error,'rpc_code',None) in (-32601,-32602) and getattr(error,'error_shape_valid',False):
                 raise ProbeError('trial_support_missing') from None
             raise
-        payload = cycle.envelope(reply,self.trial_probe_id,'trial_support')
+        payload = cycle.envelope(reply,self.trial_probe_id,'trial_support', protocol_spec=self.protocol_spec)
         cycle.closed(payload,SUPPORT,'trial_support_invalid')
         cycle.require(payload == SUPPORT and type(payload['maximum_run_ids']) is int
                       and type(payload['pin_limit']) is int, 'trial_support_invalid')
         return result
+
+
+class IrregularTrialClient110(TrialClient099):
+    protocol_spec = cycle.IRREGULAR_PROTOCOL
 
 
 def _frame(frames, capture, prefix):
@@ -143,13 +147,14 @@ def _handoff(payload, frames, checkpoints):
     return value,'handoff'
 
 
-def inspect_run(base, record):
+def inspect_run(base, record, *, protocol_spec=cycle.STANDARD_PROTOCOL):
     """Interpret only records already published and then byte-verified again."""
     cycle.require(record['resolved'] and record['published'], 'campaign_unpublished_run')
-    manifest=cycle.verify_evidence(base,record)
+    protocol=cycle._spec(protocol_spec)
+    manifest=cycle.verify_evidence(base,record,protocol_spec=protocol)
     folder=Path(base)/('cycle-'+record['run_id'])/'records'
     images={item['capture_id']:item for item in manifest['images']}
-    frames={};checkpoints=[];terminals=[];positives=[]
+    frames={};checkpoints=[];terminals=[];positives=[];irregular_records=[]
     for item in manifest['records']:
         raw=cycle._read(folder/cycle.record_name(item),cycle.MAX_RECORD)
         cycle.require(hashlib.sha256(raw).hexdigest()==item['sha256'],'cycle_file_changed')
@@ -158,6 +163,15 @@ def inspect_run(base, record):
             image=images.get(body['capture_id'])
             if image is not None and image['raw_sha256']==body['raw_sha256']:
                 frames[body['capture_id']]=body
+        elif item['kind'].startswith('irregular_'):
+            cycle.require(protocol.irregular, 'cycle_record_schema')
+            irregular_payload=body.get('payload',{})
+            irregular_records.append((item['kind'],irregular_payload))
+            hint=irregular_payload.get('assessment_hint')
+            if type(hint) is dict and hint.get('outcome') in ('target','candidate'):
+                # A typed, source-bound hint can only hold a possible target.
+                # It is not an adopted target or a completed shop assessment.
+                positives.append(('candidate',False))
         elif item['kind'] in ('checkpoint','terminal','assessment'):
             payload=body.get('payload',{});assessment=payload.get('assessment')
             if type(assessment) is dict and assessment.get('outcome') in ('target','candidate'):
@@ -178,6 +192,13 @@ def inspect_run(base, record):
     elif manifest['input_state']!=0 or manifest['native_inflight'] or manifest['ui_frozen']:reason='unknown_input'
     elif outcome=='unknown':reason='unknown'
     elif state.get('assessment_status')!='ok':reason='assessment_failed'
+    if protocol.irregular:
+        from .irregular import sequence_summary
+        irregular_summary=sequence_summary(irregular_records,frames)
+        if not positives and irregular_summary['unknown_ack']:
+            outcome='unknown';reason='unknown_input'
+        elif not positives and irregular_summary['pending']:
+            outcome='unknown';reason='irregular_pending'
     if reason=='handoff_unavailable':
         try:handoff,reason=_handoff(payload,frames,checkpoints)
         except ProbeError as error:
@@ -188,6 +209,37 @@ def inspect_run(base, record):
     return dict(outcome=outcome,assessment_adopted=adopted,stop_reason=reason,
         handoff=handoff,controller_reason=controller.get('reason',0),
         restarts=controller.get('restarts',0),moves=controller.get('moves',0))
+
+
+def irregular_result_notice(base, record, row):
+    """Report verified outcome and retry state without treating UNKNOWN as absent."""
+    from .irregular import validate_status
+    cycle.require(record['profile'] == cycle.IRREGULAR_PROTOCOL.profile
+        and record['revision'] == cycle.IRREGULAR_PROTOCOL.revision
+        and record['published'] and record['resolved'], 'cycle_journal_invalid')
+    terminal=[item for item in record['records'] if item['kind']=='terminal']
+    cycle.require(len(terminal)==1,'campaign_terminal_missing')
+    item=terminal[0]
+    raw=cycle._read(Path(base)/('cycle-'+record['run_id'])/'records'/cycle.record_name(item),cycle.MAX_RECORD)
+    cycle.require(hashlib.sha256(raw).hexdigest()==item['sha256'],'cycle_file_changed')
+    state=cycle.json_object(raw,cycle.MAX_RECORD).get('payload',{}).get('irregular')
+    outcome=row['outcome']
+    if outcome=='negative' and row['assessment_adopted']:
+        assessment='完全対象なし'
+    elif outcome=='target' and row['assessment_adopted']:
+        assessment='のろいのゆびわ確認'
+    elif outcome in ('target','candidate'):
+        assessment='のろいのゆびわ候補を保持'
+        if not row['assessment_adopted']:
+            assessment+='（未採用の解析結果）'
+    else:
+        assessment='未判定' if outcome=='unassessed' else 'UNKNOWN'
+    if state is None:
+        detail='記録なし'
+    else:
+        validate_status(state)
+        detail=' / '.join(state[key] for key in ('kind','stage','held_reason'))
+    return '商品判定: '+assessment+'。再試行: '+detail+'。'
 
 
 def bundle(destination, ledger, last_archive, *, label='test-099'):

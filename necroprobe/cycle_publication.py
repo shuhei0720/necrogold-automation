@@ -14,14 +14,15 @@ def _label(base):
     return name if re.fullmatch(r'test-[0-9]{3}', name) else 'test-094'
 
 
-def _inventory(base, record, cancelled):
-    manifest = cycle.verify_evidence(base, record)
+def _inventory(base, record, cancelled, *, protocol_spec=cycle.STANDARD_PROTOCOL):
+    manifest = cycle.verify_evidence(base, record, protocol_spec=protocol_spec)
     folder = base/('cycle-'+record['run_id'])
     snapshot = folder/'archive-journal.json'
     if not snapshot.exists():
         _atomic(snapshot, cycle.canonical(record))
     source = cycle.json_object(cycle._read(snapshot, 512*1024), 512*1024)
     cycle.require(source['run_id'] == record['run_id']
+        and source.get('profile') == record['profile'] and source.get('revision') == record['revision']
         and source['manifest_sha256'] == record['manifest_sha256']
         and source['export_id'] == record['export_id'] and source['resolved']
         and source['images'] == record['images'] and source['records'] == record['records'],
@@ -57,9 +58,9 @@ def _verify(path, inventory, cancelled):
             cycle.require((count, sha.hexdigest()) == (size, digest), 'cycle_archive_changed')
 
 
-def build_archive(base, record, storage, *, cancelled=lambda: False):
+def build_archive(base, record, storage, *, cancelled=lambda: False, protocol_spec=cycle.STANDARD_PROTOCOL):
     cycle.require(record['resolved'], 'cycle_files_incomplete')
-    inventory = _inventory(base, record, cancelled)
+    inventory = _inventory(base, record, cancelled, protocol_spec=protocol_spec)
     archive = storage/(record['run_id']+'.zip')
     if archive.exists():
         _verify(archive, inventory, cancelled)
@@ -91,13 +92,14 @@ def build_archive(base, record, storage, *, cancelled=lambda: False):
 
 
 def publish(client, base, destination, record, *, cancelled=lambda: False,
-            clock=cycle.time.monotonic_ns, sleep=cycle.time.sleep, notice=print):
+            clock=cycle.time.monotonic_ns, sleep=cycle.time.sleep, notice=print, protocol_spec=cycle.STANDARD_PROTOCOL):
+    protocol = cycle._spec(protocol_spec)
     base, destination = Path(base), Path(destination)
     storage = base.parent/('.'+base.name+'-publication')
     storage.mkdir(mode=0o700, exist_ok=True)
     cycle.require(not storage.is_symlink(), 'cycle_local_symlink')
     notice('全画像と実行記録を照合し、返却用ZIPを保存しています。')
-    source = build_archive(base, record, storage, cancelled=cancelled)
+    source = build_archive(base, record, storage, cancelled=cancelled, protocol_spec=protocol)
     signature = _digest(source, cancelled)
     if record['archive_sha256'] is not None:
         cycle.require(record['archive_sha256'] == signature[1], 'cycle_archive_changed')
@@ -122,7 +124,7 @@ def publish(client, base, destination, record, *, cancelled=lambda: False,
         cycle._checked(cancelled, clock, deadline)
         params = {'run_id':record['run_id'], 'mode':'published', 'export_id':record['export_id'],
                   'manifest_sha256':record['manifest_sha256'], 'archive_sha256':signature[1]}
-        response = cycle.envelope(cycle._call(client, 'necro_native_cycle', params), record['run_id'], 'published')
+        response = cycle.envelope(cycle._call(client, protocol.query, params), record['run_id'], 'published', protocol_spec=protocol)
         cycle.closed(response, ('accepted', 'export_id', 'manifest_sha256', 'archive_sha256', 'receipt_sha256'))
         cycle.require(type(response['accepted']) is bool and response['export_id'] == record['export_id']
             and response['manifest_sha256'] == record['manifest_sha256']
@@ -141,11 +143,13 @@ def publish(client, base, destination, record, *, cancelled=lambda: False,
 
 
 def run(client, destination, *, spool, cancelled=lambda: False, notice=print,
-        clock=cycle.time.monotonic_ns, sleep=cycle.time.sleep, recovery_only=False):
+        clock=cycle.time.monotonic_ns, sleep=cycle.time.sleep, recovery_only=False, protocol_spec=cycle.STANDARD_PROTOCOL):
+    protocol = cycle._spec(protocol_spec)
+    cycle.require(cycle.client_protocol(client) is protocol, 'cycle_protocol_invalid')
     base = Path(spool)
     base.mkdir(parents=True, mode=0o700, exist_ok=True)
     with cycle.device_lock():
-        previous = cycle.load_journal(base)
+        previous = cycle.load_journal(base, protocol_spec=protocol)
         if recovery_only:
             cycle.require(previous is not None and previous['start_intent'],
                           'cycle_recovery_record_missing')
@@ -163,13 +167,13 @@ def run(client, destination, *, spool, cancelled=lambda: False, notice=print,
                 and receipt['manifest_sha256'] == previous['manifest_sha256']
                 and receipt['archive_sha256'] == previous['archive_sha256']
                 and cycle.digest(receipt['receipt_sha256']), 'cycle_publication_receipt')
-            previous_archive = build_archive(base, previous, storage, cancelled=cancelled)
+            previous_archive = build_archive(base, previous, storage, cancelled=cancelled, protocol_spec=protocol)
             cycle.require(_digest(previous_archive, cancelled) ==
                 (receipt['archive_bytes'], receipt['archive_sha256']), 'cycle_archive_changed')
         record = previous if recovery_only and previous['published'] else cycle.run_session(
-            client, base, cancelled=cancelled, notice=notice, clock=clock, sleep=sleep)
+            client, base, cancelled=cancelled, notice=notice, clock=clock, sleep=sleep, protocol_spec=protocol)
         if not record['resolved']:
             return record, None
         archive = publish(client, base, destination, record, cancelled=cancelled,
-                          notice=notice, clock=clock, sleep=sleep)
+                          notice=notice, clock=clock, sleep=sleep, protocol_spec=protocol)
         return record, archive

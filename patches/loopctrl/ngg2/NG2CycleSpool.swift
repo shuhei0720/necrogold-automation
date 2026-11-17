@@ -11,6 +11,7 @@ import Glibc
 enum NG2CycleSpoolTestHooks {
     static var beforeBoundary: ((String) -> Bool)?
     static var writeLimit: Int?
+    static var availableBytes: UInt64?
 }
 #endif
 
@@ -28,6 +29,31 @@ final class NG2CycleSpool {
     enum Failure: Error {
         case invalid(String), io(String), limit(String), readOnly, collision
     }
+    // A run-local reservation is never reconstructed from a recovery journal.
+    struct IrregularReservation: Equatable {
+        let id: String
+        let episode, prefix, generation: UInt64
+    }
+    private struct IrregularBudget {
+        let token: IrregularReservation
+        var knownCaptureIDs: Set<UInt64>
+        var futureRoles: Int
+        var records: Set<String>
+        let pinSlots: Int
+        var rawSlots: Int { knownCaptureIDs.count + futureRoles }
+        var metadata: Int { rawSlots * 4096 + records.count * 32768 }
+    }
+    private struct FinalBudget {
+        var terminal = true, manifest = true, receipt = true
+        var pngSlots: Int
+        var metadata: Int {
+            (terminal ? 512 * 1024 : 0) + pngSlots * 4096
+                + (manifest ? 384 * 1024 : 0) + (receipt ? 8 * 1024 : 0)
+        }
+        var records: Int { (terminal ? 1 : 0) + (receipt ? 1 : 0) }
+    }
+    private static let irregularKinds: Set<String> = ["irregular_checkpoint", "irregular_continue_intent",
+        "irregular_continue_outcome", "irregular_restart_intent", "irregular_restart_outcome"]
     struct FrameRef {
         let captureID: UInt64
         let rawSHA256: String
@@ -85,6 +111,13 @@ final class NG2CycleSpool {
     private var manifestRef: ManifestRef?
     private var metadataBytes = 0
     private var incompleteEntries = false
+    private var nativeProfile: String?
+    private var irregularBudget: IrregularBudget?
+    private var finalBudget: FinalBudget?
+    private var lastReservedEpisode: UInt64 = 0
+    private var reservedRawSlots: Int { irregularBudget?.rawSlots ?? 0 }
+    private var reservedMetadata: Int { (irregularBudget?.metadata ?? 0) + (finalBudget?.metadata ?? 0) }
+    private var reservedRecords: Int { (irregularBudget?.records.count ?? 0) + (finalBudget?.records ?? 0) }
     var readOnly: Bool { gate.lock(); defer { gate.unlock() }; return !writable || damaged }
 
     private init(rootURL: URL, runID: String, owner: String, recover: Bool, verifyRasters: Bool = true,
@@ -105,6 +138,7 @@ final class NG2CycleSpool {
         self.directoryName = checkedName
         ownerSHA256 = Self.sha(Data(owner.utf8))
         writable = !recover
+        nativeProfile = provenance["native_profile"] as? String
         let support = open(rootURL.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard support >= 0 else { throw Failure.io("support") }
         defer { close(support) }
@@ -228,36 +262,103 @@ final class NG2CycleSpool {
     static func testUnpublishedRunIDs(rootURL: URL) throws -> [String] {
         try unpublished(rootURL: rootURL)
     }
+    func testIrregularCredits() -> [String: Int] {
+        gate.lock(); defer { gate.unlock() }
+        return ["episode_raw_slots": reservedRawSlots, "episode_metadata_bytes": irregularBudget?.metadata ?? 0,
+            "final_metadata_bytes": finalBudget?.metadata ?? 0, "record_slots": reservedRecords]
+    }
     #endif
 
-    // The single writer calls this before a checkpoint. Reserving never grants
-    // input authority, and the actual writes recheck every bound and free byte.
-    func reserveCheckpoint(frames: Int, metadataBytes requested: Int) throws {
+    // The single writer calls this before a checkpoint. Finalization may
+    // count its own terminal-record credit; no other writer can spend it.
+    func reserveCheckpoint(frames: Int, metadataBytes requested: Int, finalization: Bool = false) throws {
         try writing {
-            guard frames >= 0, frames <= Self.maximumFrames - registered.count,
-                  requested >= 0, requested <= Self.maximumMetadataBytes - metadataBytes,
-                  (registered.count + frames) * Self.rasterBytes <= Self.maximumRawBytes else {
+            let terminalCredit = finalization && finalBudget?.terminal == true ? 512 * 1024 : 0
+            guard frames >= 0, frames <= Self.maximumFrames - registered.count - reservedRawSlots,
+                  requested >= 0, requested <= Self.maximumMetadataBytes - metadataBytes - reservedMetadata + terminalCredit,
+                  (registered.count + frames + reservedRawSlots) * Self.rasterBytes <= Self.maximumRawBytes else {
                 throw Failure.limit("checkpoint")
             }
             try checkSpace(raw: frames * Self.rasterBytes, metadata: requested)
         }
     }
-    func commitFrame(captureID: UInt64, rgba: Data, metadata: [String: Any]) throws -> FrameRef {
+    func reserveIrregular(episode: UInt64, prefix: UInt64, generation: UInt64,
+                          knownCaptureIDs: Set<UInt64>, futureRoles: Int,
+                          pinnedCaptureIDs: Set<UInt64>) throws -> IrregularReservation {
+        try writing {
+            guard nativeProfile == "normal-1-1-irregular-v1", irregularBudget == nil, manifestRef == nil,
+                  episode > lastReservedEpisode, episode < UInt64(Int64.max), generation > 0,
+                  generation < UInt64(Int64.max), prefix < UInt64(Int64.max),
+                  futureRoles >= 0, knownCaptureIDs.count <= 16,
+                  futureRoles <= 16 - knownCaptureIDs.count, pinnedCaptureIDs.count <= 24,
+                  (knownCaptureIDs.union(pinnedCaptureIDs)).allSatisfy({ $0 > 0 && $0 < UInt64(Int64.max) }),
+                  !recordList.contains(where: { $0.kind == "terminal" || $0.kind == "published" }) else {
+                throw Failure.invalid("irregular-reservation")
+            }
+            let missing = knownCaptureIDs.subtracting(registered.keys)
+            let pins = knownCaptureIDs.subtracting(pinnedCaptureIDs).count + futureRoles
+            let token = IrregularReservation(id: UUID().uuidString.lowercased(), episode: episode,
+                prefix: prefix, generation: generation)
+            let budget = IrregularBudget(token: token, knownCaptureIDs: missing, futureRoles: futureRoles,
+                records: Self.irregularKinds, pinSlots: pins)
+            let final = finalBudget ?? FinalBudget(pngSlots: Self.maximumFrames - registeredPNGs.count)
+            guard registered.count + budget.rawSlots <= Self.maximumFrames,
+                  (registered.count + budget.rawSlots) * Self.rasterBytes <= Self.maximumRawBytes,
+                  pinnedCaptureIDs.count + pins <= 24,
+                  metadataBytes + budget.metadata + final.metadata <= Self.maximumMetadataBytes,
+                  recordList.count + budget.records.count + final.records <= 512 else {
+                throw Failure.limit("irregular-reservation")
+            }
+            let previousFinal = finalBudget
+            irregularBudget = budget; finalBudget = final
+            do { try checkSpace(raw: 0, metadata: 0) }
+            catch {
+                // No token escaped: roll back only this attempted reservation.
+                // The enclosing writer still freezes after the space failure.
+                irregularBudget = nil; finalBudget = previousFinal
+                throw error
+            }
+            lastReservedEpisode = episode
+            return token
+        }
+    }
+    func irregularResources(_ token: IrregularReservation) throws -> [String: Any] {
+        gate.lock(); defer { gate.unlock() }
+        guard let budget = irregularBudget, budget.token == token else { throw Failure.invalid("irregular-token") }
+        return ["raw_slots": budget.rawSlots, "raw_bytes": budget.rawSlots * Self.rasterBytes,
+            "pin_slots": budget.pinSlots, "episode_metadata_bytes": budget.metadata,
+            "final_metadata_bytes": finalBudget?.metadata ?? 0]
+    }
+    // Runtime calls this only after its actual persistence callback drains.
+    // Written bytes stay charged; only unused episode credit is released.
+    func releaseIrregular(_ token: IrregularReservation) throws {
+        gate.lock(); defer { gate.unlock() }
+        guard irregularBudget?.token == token else { throw Failure.invalid("irregular-token") }
+        irregularBudget = nil
+    }
+    func commitFrame(captureID: UInt64, rgba: Data, metadata: [String: Any],
+                     reservation: IrregularReservation? = nil) throws -> FrameRef {
         try writing {
             guard manifestRef == nil, captureID > 0, captureID < UInt64(Int64.max), registered[captureID] == nil else {
                 throw Failure.collision
             }
             try Self.validateRGBA(rgba)
-            guard registered.count < Self.maximumFrames,
-                  (registered.count + 1) * Self.rasterBytes <= Self.maximumRawBytes else {
-                throw Failure.limit("rasters")
-            }
             let rawHash = Self.sha(rgba)
             let envelope: [String: Any] = ["schema": "ngg2-cycle-frame-v1", "run_id": runID,
                 "capture_id": captureID, "raw_sha256": rawHash, "raw_bytes": rgba.count,
                 "metadata": metadata]
             let encoded = try Self.canonical(envelope)
-            guard encoded.count <= Self.maximumMetadataBytes - metadataBytes else { throw Failure.limit("metadata") }
+            if let reservation {
+                guard Self.unsigned(metadata["generation"]) == reservation.generation else {
+                    throw Failure.invalid("irregular-frame-generation")
+                }
+            }
+            try consumeFrameCredit(captureID, bytes: encoded.count, reservation: reservation)
+            guard registered.count + 1 + reservedRawSlots <= Self.maximumFrames,
+                  (registered.count + 1 + reservedRawSlots) * Self.rasterBytes <= Self.maximumRawBytes else {
+                throw Failure.limit("rasters")
+            }
+            try checkMetadata(encoded.count)
             try checkSpace(raw: rgba.count, metadata: encoded.count)
             // Raw may survive an interrupted metadata commit. It is never in
             // the registered set until its matching metadata is durable.
@@ -269,7 +370,8 @@ final class NG2CycleSpool {
             return ref
         }
     }
-    func commitRecord(kind: String, cycle: UInt64, payload: [String: Any], previous: String? = nil) throws -> RecordRef {
+    func commitRecord(kind: String, cycle: UInt64, payload: [String: Any], previous: String? = nil,
+                      reservation: IrregularReservation? = nil) throws -> RecordRef {
         try writing {
             guard Self.validKind(kind), cycle < UInt64(Int64.max), recordList.count < 512,
                   recordList.last?.kind != "published", manifestRef == nil || kind == "published" else {
@@ -282,7 +384,9 @@ final class NG2CycleSpool {
                 "sequence": recordList.count + 1, "kind": kind, "cycle": cycle,
                 "previous": prior as Any? ?? NSNull(), "payload": payload]
             let encoded = try Self.canonical(envelope)
-            guard encoded.count <= Self.maximumMetadataBytes - metadataBytes else { throw Failure.limit("metadata") }
+            try consumeRecordCredit(kind, bytes: encoded.count, payload: payload, reservation: reservation)
+            guard recordList.count + 1 + reservedRecords <= 512 else { throw Failure.limit("records") }
+            try checkMetadata(encoded.count)
             try checkSpace(raw: 0, metadata: encoded.count)
             let sequence = recordList.count + 1
             if kind == "published" {
@@ -351,6 +455,13 @@ final class NG2CycleSpool {
                   (try? JSONSerialization.jsonObject(with: bytes)) is [String: Any] else {
                 throw Failure.invalid("export-manifest")
             }
+            if var final = finalBudget {
+                guard final.manifest, bytes.count <= 384 * 1024, irregularBudget == nil else {
+                    throw Failure.limit("irregular-manifest")
+                }
+                final.manifest = false; final.pngSlots = 0; finalBudget = final
+            }
+            try checkMetadata(bytes.count)
             try checkSpace(raw: 0, metadata: bytes.count)
             try atomic(bytes, name: "export-" + exportID + ".json")
             let ref = ManifestRef(exportID: exportID, sha256: Self.sha(bytes), bytes: bytes.count)
@@ -421,8 +532,14 @@ final class NG2CycleSpool {
             let value: [String: Any] = ["schema": "ngg2-cycle-png-v1", "run_id": runID,
                 "capture_id": captureID, "png_sha256": digest, "png_bytes": bytes.count, "metadata": metadata]
             let encoded = try Self.canonical(value)
-            guard encoded.count <= Self.maximumMetadataBytes - metadataBytes else { throw Failure.limit("metadata") }
-            try checkSpace(raw: bytes.count, metadata: encoded.count)
+            if var final = finalBudget {
+                guard final.pngSlots > 0, encoded.count <= 4096, irregularBudget == nil else {
+                    throw Failure.limit("irregular-png-metadata")
+                }
+                final.pngSlots -= 1; finalBudget = final
+            }
+            try checkMetadata(encoded.count)
+            try checkSpace(raw: finalBudget == nil ? bytes.count : 0, metadata: encoded.count)
             try atomic(bytes, name: pngName(captureID, suffix: "png"))
             try atomic(encoded, name: pngName(captureID, suffix: "json"))
             let committed = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
@@ -585,17 +702,76 @@ final class NG2CycleSpool {
         guard writable && !damaged else { throw Failure.readOnly }
         do { return try body() } catch { damaged = true; writable = false; diagnosticInterrupted = true; incompleteEntries = true; throw error }
     }
+    private func checkMetadata(_ bytes: Int) throws {
+        guard bytes >= 0, bytes <= Self.maximumMetadataBytes - metadataBytes - reservedMetadata else {
+            throw Failure.limit("metadata")
+        }
+    }
+    private func consumeFrameCredit(_ captureID: UInt64, bytes: Int,
+                                    reservation: IrregularReservation?) throws {
+        guard let reservation else {
+            guard irregularBudget?.knownCaptureIDs.contains(captureID) != true else {
+                throw Failure.invalid("irregular-frame-token")
+            }
+            return
+        }
+        guard var budget = irregularBudget, budget.token == reservation, bytes <= 4096 else {
+            throw Failure.invalid("irregular-frame-token")
+        }
+        if budget.knownCaptureIDs.remove(captureID) == nil {
+            guard budget.futureRoles > 0 else { throw Failure.limit("irregular-frame-credit") }
+            budget.futureRoles -= 1
+        }
+        irregularBudget = budget
+    }
+    private func consumeRecordCredit(_ kind: String, bytes: Int, payload: [String: Any],
+                                     reservation: IrregularReservation?) throws {
+        if let reservation {
+            guard var budget = irregularBudget, budget.token == reservation,
+                  Self.irregularKinds.contains(kind), budget.records.contains(kind), bytes <= 32768,
+                  Self.unsigned(payload["generation"]) == reservation.generation,
+                  let status = payload["irregular"] as? [String: Any],
+                  Self.unsigned(status["episode_id"]) == reservation.episode else {
+                throw Failure.invalid("irregular-record-token")
+            }
+            budget.records.remove(kind); irregularBudget = budget
+        } else if kind.hasPrefix("irregular_") {
+            throw Failure.invalid("irregular-record-token")
+        } else if var final = finalBudget {
+            if kind == "terminal" {
+                guard final.terminal, bytes <= 512 * 1024, irregularBudget == nil else {
+                    throw Failure.limit("irregular-terminal")
+                }
+                final.terminal = false
+            } else if kind == "published" {
+                guard final.receipt, !final.terminal, !final.manifest, manifestRef != nil,
+                      bytes <= 8 * 1024, irregularBudget == nil else {
+                    throw Failure.limit("irregular-receipt")
+                }
+                final.receipt = false
+            }
+            finalBudget = final
+        }
+    }
     private func checkSpace(raw: Int, metadata requested: Int) throws {
         #if canImport(Darwin)
         var value = statfs()
         guard fstatfs(directoryFD, &value) == 0 else { throw Failure.io("space") }
-        let available = UInt64(value.f_bavail) * UInt64(value.f_bsize)
+        let measuredAvailable = UInt64(value.f_bavail) * UInt64(value.f_bsize)
         #else
         var value = statvfs()
         guard fstatvfs(directoryFD, &value) == 0 else { throw Failure.io("space") }
-        let available = UInt64(value.f_bavail) * UInt64(value.f_frsize)
+        let measuredAvailable = UInt64(value.f_bavail) * UInt64(value.f_frsize)
         #endif
-        let reserve = UInt64(raw + max(requested, Self.maximumMetadataBytes - metadataBytes)
+        #if NG2_RUNTIME_HOST_TEST
+        let available = NG2CycleSpoolTestHooks.availableBytes ?? measuredAvailable
+        #else
+        let available = measuredAvailable
+        #endif
+        let futureRaw = reservedRawSlots * Self.rasterBytes
+        let futurePNG = finalBudget?.manifest == true ? Self.maximumPNGBytes - pngBytes : 0
+        let reserve = UInt64(raw + futureRaw + futurePNG
+                             + max(requested, Self.maximumMetadataBytes - metadataBytes)
                              + Self.maximumExportTemporaryBytes)
         guard available >= reserve else { throw Failure.limit("space") }
     }
@@ -680,6 +856,7 @@ final class NG2CycleSpool {
         // Recovery is read only. Runtime authenticates the current same-device
         // owner; the original owner digest remains evidence provenance.
         ownerSHA256 = originalOwner
+        nativeProfile = (header["provenance"] as? [String: Any])?["native_profile"] as? String
         metadataBytes = headerBytes.count
         let names = try entryNames()
         for name in names.sorted() {

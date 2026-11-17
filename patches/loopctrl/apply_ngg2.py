@@ -264,6 +264,10 @@ def seal(root):
     if 'LoopCtrlUITests/NG2CycleWire.swift' in additions:
         manifest.update(cycle_capability='necrogold_native_cycle_v1',
                         cycle_profile='normal-1-1-cycle-v1', compiler_profile_version=3)
+    if ('LoopCtrlUITests/NG2Core.h' in additions
+            and b'ng2_analyze_irregular_rgba(' in safe_path(ASSETS_ROOT, 'NG2Core.h').read_bytes()):
+        manifest.update(irregular_capability='necrogold_native_irregular_v1',
+                        irregular_profile='normal-1-1-irregular-v1')
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2) + '\n')
     return manifest
 

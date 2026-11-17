@@ -513,3 +513,265 @@ int ng2_fingerprint_changed(const uint8_t *before,const uint8_t *after){
     count=0;for(k=0;k<8;++k)count+=(cols>>k)&1u;if(count<3)return 0;
     count=0;for(k=0;k<6;++k)count+=(rows>>k)&1u;return count>=2;
 }
+
+/* Separate positive irregular observations. Neither these immutable shape
+ * masks nor the companion change ng2_analyze_rgba's Scene/terrain output.
+ * Depleted HUD shape382bits: existing immutable R12 death reference.
+ * Miniheart137bits: generic health marker calibrated on TEST109 fe54/244;
+ * only this derived binary glyph is stored, never the private frame. */
+static const uint32_t ng2_depleted_rows[25]={
+    0x0u,0x1fc3f8u,0x3fe7fcu,0x7ffffeu,0x7ffffeu,0xffffffu,0xffffffu,
+    0xffffffu,0xffffffu,0xffffffu,0xffffffu,0x7ffffeu,0x7ffffeu,0x3ffffcu,
+    0x1ffff8u,0xffff0u,0xffff0u,0x7ffe0u,0x3ffc0u,0x1ff80u,0x7e00u,
+    0x3c00u,0x1800u,0x0u,0x0u};
+static const uint16_t ng2_actor_heart_rows[13]={
+    0x3c3cu,0x7f7eu,0x7fffu,0x7fffu,0x7fffu,0x7fffu,0x7ffeu,
+    0x3ffcu,0x1ff8u,0xff0u,0x7e0u,0x3c0u,0x180u};
+static int ng2_irregular_red(const unsigned char *p,int bright){
+    return bright?p[0]>=125&&p[0]>=p[1]+45&&p[0]>=p[2]+45:
+        p[0]>=40&&p[0]>=p[1]+25&&p[0]>=p[2]+25;
+}
+static void ng2_irregular_template(const unsigned char *rgba,size_t stride,
+    const unsigned char *gray,const NG2Template *t,int neutral,int *intersection,int *uni){
+    int x,y;*intersection=0;*uni=0;
+    for(y=0;y<t->h;++y)for(x=0;x<t->w;++x){
+        int a=gray[(t->y+y)*W+t->x+x]>=t->cutoff
+            &&(!neutral||ng2_neutral(rgba+(t->y+y)*stride+4*(t->x+x)));
+        int b=ng2_template_bit(t,x,y);*intersection+=a&&b;*uni+=a||b;
+    }
+}
+static void ng2_irregular_health(const unsigned char *rgba,size_t stride,
+    NG2IrregularObservation *out){
+    int s,x,y;
+    for(s=0;s<3;++s){int cx=695+29*s,inter=0,uni=0,red=0,dark=0,bright=0;
+        for(y=0;y<25;++y)for(x=0;x<25;++x){
+            const unsigned char *p=rgba+(6+y)*stride+4*(cx-12+x);
+            int a=ng2_irregular_red(p,0),b=(ng2_depleted_rows[y]>>x)&1u;
+            inter+=a&&b;uni+=a||b;
+        }
+        for(y=10;y<28;++y)for(x=cx-8;x<cx+9;++x){
+            const unsigned char *p=rgba+y*stride+4*x;
+            int a=ng2_irregular_red(p,0);red+=a;dark+=a&&p[0]<=124;
+            bright+=ng2_irregular_red(p,1);
+        }
+        out->heart_inter[s]=inter;out->heart_union[s]=uni;
+        out->heart_red[s]=red;out->heart_dark[s]=dark;out->heart_bright[s]=bright;
+        out->empty_hearts+=100*inter>=90*uni&&100*inter>=95*382
+            &&red>=225&&dark>=192&&bright<=48;
+    }
+}
+/* 136x39 is a maximality guard, not a cropped candidate box. A centered
+ * three-heart bar ends within32.5px; its fourth aligned neighbor ends within
+ *51.5px. The complete fourth component therefore cannot hide at this edge. */
+#define NG2_ACTOR_GUARD_W 136
+#define NG2_ACTOR_GUARD_H 39
+#define NG2_ACTOR_GUARD_PIXELS (NG2_ACTOR_GUARD_W*NG2_ACTOR_GUARD_H)
+typedef struct {int left,top,inter,uni,label;} NG2ActorMarker;
+typedef struct {int left,top,width,height,count,label;} NG2ActorFragment;
+/* A rejected fourth marker must not disappear from a maximal three-bar.
+ * Only a complete connected fragment, with a full glyph axis and at least
+ *56 supported reference pixels, is positive partial-marker evidence.56 is
+ * the smallest ink count among the four geometric halves of the137bit glyph.
+ * Ordinary brown floor pixels and a separately placed bat are not fragments
+ * cropped into the expected next slot. This veto grants no new input. */
+static int ng2_actor_partial_extension(const uint16_t *labels,int guard_left,int guard_top,
+    const NG2ActorFragment *fragments,int count,const NG2ActorMarker *markers,
+    const int *members,int total){
+    int side,step,dy,k,j;
+    for(side=0;side<2;++side){NG2ActorMarker end=markers[members[side?total-1:0]];
+        for(step=17;step<=19;++step)for(dy=-1;dy<=1;++dy){
+            int left=end.left+(side?step:-step),top=end.top+dy;
+            for(k=0;k<count;++k){NG2ActorFragment f=fragments[k];int adopted=0,inter=0,x,y;
+                if(f.left<left||f.left+f.width>left+15||f.top<top||f.top+f.height>top+13)continue;
+                for(j=0;j<total;++j)adopted|=f.label==markers[members[j]].label;
+                if(adopted)continue;
+                for(y=f.top;y<f.top+f.height;++y)for(x=f.left;x<f.left+f.width;++x)
+                    if(labels[(y-guard_top)*NG2_ACTOR_GUARD_W+x-guard_left]==f.label)
+                        inter+=(ng2_actor_heart_rows[y-top]>>(x-left))&1u;
+                if(inter>=56&&100*inter>=90*f.count)return 1;
+            }
+        }
+    }
+    return 0;
+}
+static int ng2_irregular_actor(const unsigned char *rgba,size_t stride,
+    const unsigned char *gray,int direction,NG2IrregularObservation *out){
+    static const int dx[4]={-1,1,0,0},dy[4]={0,0,-1,1};
+    unsigned char grouped[64]={0};uint16_t mask[NG2_ACTOR_GUARD_PIXELS];
+    uint16_t stack[NG2_ACTOR_GUARD_PIXELS];
+    NG2ActorMarker markers[64];NG2ActorFragment fragments[96];
+    int n=0,fragment_count=0,next_label=2,cx=448+36*dx[direction],cy=207+36*dy[direction];
+    int left=cx-68,top=cy-43,x,y,k,body_luma=0,body_sat=0;
+    for(y=0;y<NG2_ACTOR_GUARD_H;++y)for(x=0;x<NG2_ACTOR_GUARD_W;++x)
+        mask[y*NG2_ACTOR_GUARD_W+x]=(uint16_t)ng2_irregular_red(rgba+(top+y)*stride+4*(left+x),1);
+    for(k=0;k<NG2_ACTOR_GUARD_PIXELS;++k)if(mask[k]==1){
+        int count=0,used=0,label=next_label++,x0=NG2_ACTOR_GUARD_W,x1=0,y0=NG2_ACTOR_GUARD_H,y1=0;
+        stack[used++]=(uint16_t)k;mask[k]=(uint16_t)label;
+        while(used){int at=stack[--used],xx=at%NG2_ACTOR_GUARD_W,yy=at/NG2_ACTOR_GUARD_W,a,b;
+            ++count;x0=ng2_min(x0,xx);x1=ng2_max(x1,xx+1);y0=ng2_min(y0,yy);y1=ng2_max(y1,yy+1);
+            for(b=-1;b<=1;++b)for(a=-1;a<=1;++a){int nx=xx+a,ny=yy+b,pos;
+                if(nx<0||nx>=NG2_ACTOR_GUARD_W||ny<0||ny>=NG2_ACTOR_GUARD_H)continue;
+                pos=ny*NG2_ACTOR_GUARD_W+nx;
+                if(mask[pos]==1){
+                    if(used>=NG2_ACTOR_GUARD_PIXELS)return -1;
+                    mask[pos]=(uint16_t)label;stack[used++]=(uint16_t)pos;
+                }
+            }
+        }
+        if(count>=56&&count<=152&&x1-x0<=15&&y1-y0<=13&&(x1-x0==15||y1-y0==13)){
+            /* At least56 distinct pixels per complete component: at most94
+             * fit in5304pixels. Preserve all, and fail closed on overflow. */
+            NG2ActorFragment *f;if(fragment_count>=96)return -1;
+            f=&fragments[fragment_count++];f->left=left+x0;f->top=top+y0;
+            f->width=x1-x0;f->height=y1-y0;f->count=count;f->label=label;
+        }
+        if(x1-x0==15&&y1-y0==13&&count>=128){int inter=0,uni=0;
+            for(y=0;y<13;++y)for(x=0;x<15;++x){
+                int a=ng2_irregular_red(rgba+(top+y0+y)*stride+4*(left+x0+x),1);
+                int b=(ng2_actor_heart_rows[y]>>x)&1u;inter+=a&&b;uni+=a||b;
+            }
+            if(100*inter>=90*uni&&100*inter>=93*137){
+                /* Each full qualified component has>=128 distinct pixels:
+                 * at most41 fit the5304pixel guard. Never truncate on overflow. */
+                if(n>=64)return -1;
+                markers[n].left=left+x0;markers[n].top=top+y0;
+                markers[n].inter=inter;markers[n].uni=uni;markers[n].label=label;++n;
+            }
+        }
+    }
+    for(y=cy-9;y<cy+15;++y)for(x=cx-14;x<cx+15;++x){
+        const unsigned char *p=rgba+y*stride+4*x;
+        body_luma+=gray[y*W+x]>=70;
+        body_sat+=ng2_max(p[0],ng2_max(p[1],p[2]))-ng2_min(p[0],ng2_min(p[1],p[2]))>=40;
+    }
+    out->enemy_body_luma[direction]=body_luma;out->enemy_body_saturation[direction]=body_sat;
+    for(k=0;k<n;++k)if(!grouped[k]){
+        int queue[64],members[64],used=1,total=0,j,a,b,l=W,r=0,t=H,bottom=0,inter=0,uni=0;
+        queue[0]=k;grouped[k]=1;
+        while(used){int at=queue[--used];members[total++]=at;
+            for(j=0;j<n;++j)if(!grouped[j]
+                &&abs(markers[j].left-markers[at].left)>=17&&abs(markers[j].left-markers[at].left)<=19
+                &&abs(markers[j].top-markers[at].top)<=1){
+                if(used>=64)return -1;
+                grouped[j]=1;queue[used++]=j;
+            }
+        }
+        if(total<1||total>3)continue;
+        for(j=0;j<total;++j){NG2ActorMarker m=markers[members[j]];
+            l=ng2_min(l,m.left);r=ng2_max(r,m.left+15);t=ng2_min(t,m.top);bottom=ng2_max(bottom,m.top+13);
+        }
+        if(bottom-t>14||abs(l+r-2*cx)>12||t+bottom-2*cy<-64||t+bottom-2*cy>-24)continue;
+        /* Maximal graph components are retained before these global checks.
+         * Reject staircases/branches, rather than extracting a passing subset. */
+        for(a=0;a<total;++a)for(b=a+1;b<total;++b)
+            if(markers[members[b]].left<markers[members[a]].left){int tmp=members[a];members[a]=members[b];members[b]=tmp;}
+        for(j=1;j<total;++j)if(markers[members[j]].left-markers[members[j-1]].left<17
+            ||markers[members[j]].left-markers[members[j-1]].left>19)break;
+        if(j<total)continue;
+        for(y=t;y<bottom;++y)for(x=l;x<r;++x){int observed=ng2_irregular_red(rgba+y*stride+4*x,1),reference=0;
+            for(j=0;j<total;++j){NG2ActorMarker m=markers[members[j]];
+                if(x>=m.left&&x<m.left+15&&y>=m.top&&y<m.top+13)
+                    reference|=(ng2_actor_heart_rows[y-m.top]>>(x-m.left))&1u;
+            }
+            inter+=observed&&reference;uni+=observed||reference;
+        }
+        if(uni-137*total>64||100*inter<90*uni||100*inter<93*137*total||body_luma<48||body_sat<96)continue;
+        if(!out->enemy_matches[direction]){
+            out->enemy_inter[direction]=inter;out->enemy_union[direction]=uni;
+            out->enemy_left[direction]=l;out->enemy_top[direction]=t;
+            out->enemy_red_outside[direction]=uni-137*total;out->enemy_heart_count[direction]=total;
+            out->enemy_width[direction]=r-l;out->enemy_height[direction]=bottom-t;
+        }
+        if(ng2_actor_partial_extension(mask,left,top,fragments,fragment_count,markers,members,total))
+            out->enemy_matches[direction]=2;
+        else out->enemy_matches[direction]=ng2_min(2,out->enemy_matches[direction]+1);
+    }
+    if(out->enemy_matches[direction]==1)out->enemy_mask|=1u<<direction;
+    return 0;
+}
+/* Exact full-window white counts reject most positions before the sparse
+ *223-bit intersection. Max108108 windows, no resize, crop or global state. */
+static int ng2_irregular_restart(const unsigned char *rgba,size_t stride,
+    const unsigned char *gray,NG2IrregularObservation *out){
+    enum {RW=576,RH=300,PITCH=577};
+    uint32_t *integral=(uint32_t*)calloc((size_t)PITCH*(RH+1),sizeof(uint32_t));
+    int refx[223],refy[223],count=0,x,y,found=0,best_i=0,best_u=1,best_x=0,best_y=0;
+    int min_x=W,max_x=0,min_y=H,max_y=0;const NG2Template *t=&ng2_template_restart;
+    if(!integral)return -1;
+    for(y=0;y<28;++y)for(x=0;x<181;++x)if(ng2_template_bit(t,x,y)){
+        if(count>=223){free(integral);return -1;}
+        refx[count]=x;refy[count]=y;++count;
+    }
+    if(count!=223){free(integral);return -1;}
+    for(y=0;y<RH;++y)for(x=0;x<RW;++x){
+        int a=gray[(y+60)*W+x+160]>=180&&ng2_neutral(rgba+(y+60)*stride+4*(x+160));
+        integral[(y+1)*PITCH+x+1]=(uint32_t)a+integral[y*PITCH+x+1]
+            +integral[(y+1)*PITCH+x]-integral[y*PITCH+x];
+    }
+    for(y=0;y<=RH-28;++y)for(x=0;x<=RW-181;++x){int i=0,u,j,observed;
+        observed=(int)(integral[(y+28)*PITCH+x+181]-integral[y*PITCH+x+181]
+            -integral[(y+28)*PITCH+x]+integral[y*PITCH+x]);
+        if(observed<212||observed>237)continue;
+        for(j=0;j<count;++j){int xx=x+160+refx[j],yy=y+60+refy[j];
+            i+=gray[yy*W+xx]>=180&&ng2_neutral(rgba+yy*stride+4*xx);
+        }
+        u=223+observed-i;if(100*i<94*u||100*i<95*223)continue;
+        min_x=ng2_min(min_x,x);max_x=ng2_max(max_x,x);min_y=ng2_min(min_y,y);max_y=ng2_max(max_y,y);
+        if(!found||i*best_u>best_i*u||(i*best_u==best_i*u&&i>best_i)){
+            best_i=i;best_u=u;best_x=x;best_y=y;
+        }
+        found=1;
+    }
+    free(integral);
+    if(found){out->glyph_intersection=best_i;out->glyph_union=best_u;
+        out->left=best_x+160;out->top=best_y+60;out->width=181;out->height=28;
+        out->matches=best_x-min_x<=2&&max_x-best_x<=2&&best_y-min_y<=2&&max_y-best_y<=2?1:2;
+        if(out->matches==1)out->kind=NG2_IRREGULAR_IMAGE_RESTART;
+    }
+    return 0;
+}
+int ng2_analyze_irregular_rgba(const uint8_t *rgba,size_t length,size_t stride,
+    uint32_t flags,NG2IrregularObservation *out){
+    unsigned char *gray;int x,y,inter,uni,pause,death,glyph_death,k,result=0;
+    if(!out)return -1;
+    memset(out,0,sizeof(*out));out->abi_version=NG2_IRREGULAR_ABI_VERSION;out->struct_size=sizeof(*out);
+    if(!rgba||stride<W*4u||stride>7680u||length!=stride*H||flags>NG2_IRREGULAR_SCAN_RESTART)return -1;
+    for(y=0;y<H;++y)for(x=0;x<W;++x)if(rgba[y*stride+4*x+3]!=255)return -1;
+    gray=(unsigned char*)malloc(PIXELS);if(!gray)return -1;
+    for(y=0;y<H;++y)for(x=0;x<W;++x)gray[y*W+x]=ng2_gray(rgba+y*stride+4*x);
+    out->hud_mask=ng2_match(rgba,stride,gray,&ng2_template_footer,1)
+        +2*ng2_match(rgba,stride,gray,&ng2_template_zone_one,1)
+        +4*ng2_match(rgba,stride,gray,&ng2_template_floor_one,1)
+        +8*ng2_pause_icon(rgba,stride,gray);
+    pause=ng2_match(rgba,stride,gray,&ng2_template_continue,0);
+    death=ng2_match(rgba,stride,gray,&ng2_template_death,0);
+    ng2_irregular_health(rgba,stride,out);
+    ng2_irregular_template(rgba,stride,gray,&ng2_template_death,1,&inter,&uni);
+    glyph_death=100*inter>=64*uni&&100*inter>=90*522;
+    if(glyph_death){
+        /* A visible full prompt vetoes live/menu input even when the HUD is
+         * incomplete. Preserve its support as NONE; only the stronger
+         * three-heart/HUD certificate below grants DEATH_CONTINUE authority. */
+        out->glyph_intersection=inter;out->glyph_union=uni;
+        out->matches=1;out->left=312;out->top=312;out->width=270;out->height=24;
+    }else if(death){
+        /* The old non-neutral mask is a conservative UI veto even below the
+         * new90% coverage. Preserve that distinct support, never action
+         * authority: strong DEATH still requires matches1 and all HUD hearts. */
+        ng2_irregular_template(rgba,stride,gray,&ng2_template_death,0,&inter,&uni);
+        out->glyph_intersection=inter;out->glyph_union=uni;
+        out->matches=2;out->left=312;out->top=312;out->width=270;out->height=24;
+    }
+    if(glyph_death&&out->hud_mask==15&&!pause&&out->empty_hearts==3)
+        out->kind=NG2_IRREGULAR_IMAGE_DEATH;
+    else if(!death&&!glyph_death){
+        if(flags&NG2_IRREGULAR_SCAN_RESTART)result=ng2_irregular_restart(rgba,stride,gray,out);
+        if(!result&&out->kind==NG2_IRREGULAR_IMAGE_NONE&&out->hud_mask==15&&!pause){
+            for(k=0;k<4;++k)if(ng2_irregular_actor(rgba,stride,gray,k,out)){result=-1;break;}
+            if(out->enemy_mask)out->kind=NG2_IRREGULAR_IMAGE_ENEMY;
+        }
+    }
+    free(gray);
+    if(result){memset(out,0,sizeof(*out));out->abi_version=NG2_IRREGULAR_ABI_VERSION;out->struct_size=sizeof(*out);}
+    return result;
+}

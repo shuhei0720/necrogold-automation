@@ -41,3 +41,39 @@ job切替時に旧cycle.framesを消し、移送元をincoming/initial/found/rec
 独立の設計・網羅・安全担当がSSOT `docs/contracts/irregular-retry.md` を再読。敵の正の証拠、最初のBLOCKED処理順と元8比較/D、全future raw/pin/metadata予約の初回P1を閉鎖。網羅のkind5 ACK→status/export/journal・MOVE診断分離条件を追記し、planの旧interface/API確認中と現在床条件を同期。設計/試験条件としてP0/P1残0。実装合格・実機確認という意味ではない。
 
 通常修正の中間SOURCE `abf70e5` をpushし、Mac Red run44018498941/build210を初実行。新profile公開prepareの指定assertionはRed成立。queued画像のcaseは別assertionで失敗してRed資格拒否。compile/environment失敗ではないが、画像欠落のRedとして数えずfixtureを調査する。Runtime製品sourceはまだ未変更。
+
+### before-Runtime Redの成立と通常移送修正
+
+fixtureの最初の不足は、queued画像がpin24枠未満でfallbackに残り、欠落に届かなかったことと、旧PARTIAL→FULLの合法的なsource+3秒bindを誤って不変Dとassertしたこと。32枚の実accepted/current-prefix後続画像・既helperの元画像取得nil・実pin24を前提にし、source150ms/worker100ms/source3秒の既境界へ修正した。製品のassert/期限は緩めていない。
+
+SOURCE `18e3683a28707984b5dcda5dd69f5e21abb07bde` の[Mac211](https://github.com/shuhei0720/necrogold-automation/actions/runs/44019392210)はprofile/retention両caseで指定FAIL1件/exit1・compile errors0を確認し、before-code Redとして成立。Runtimeは42f2不変、native変更は既正常C/Perception2件だけ。artifact14300681123（SHA256 f505ceb897b9f5caf71d10bb31f672f062a15be5ff16f15c395dd54b047e1add）をCRC/path/hash検証しGit外保存。product_pass=falseを維持。
+
+その後、Runtimeは旧cycle.framesをsnapshotし必要ID集合だけへfilterして移送する3行を適用（直後hash9d03444e）。最終newprofile実装後に同sourceの現在Runtime Greenを確認する。Red成功は実機改善/新機能合格ではない。
+
+### 新producerの独立差分レビュー（第1周・配布前）
+
+P0なし、P1二件。旧死亡matcherだけ正の時のveto証拠欠落と、不完全な4個目を捨て残る3個を受理する反例。NONE/deathbbox/matches2の旧非neutral countsをveto専用に保存し、選択chain左右の隣接slotに未採用redがある場合の部分bar拒否を追加する。strong DEATH/actionの閾値は変更しない。実Red→Greenと既知3枚RIGHT/98 Scene不変を作者が再確認し、限定再読で閉じる。C/Runtimeは編集中で、このproducerレビューを全機能合格としない。
+
+### C差分の独立設計・安全レビュー（第1周）
+
+P0なし、P1二件。安全担当は、irregular restart outcomeのdurable後に初回floorの商品資格/epochを通常処理へ渡さず、後続UNKNOWNで失う点を指摘。設計担当は、translated menuからのRS予約/intent後にPAUSEへ変わると旧座標でbeginできる点を指摘。各反例を追加assertion Redへ固定し、初回floor/最初のgoodsの有界保持・通常handoff、予約UI種類と両UI座標の最終照合で修正する。producerの前P1二件は限定再読でclosure済。
+
+### C・producer・Pythonの限定closure
+
+producerは旧death vetoと部分4個目のP1を実API Red→Greenで修正し、新11/関連18、98 Scene不変・3RIGHT・O0/O2一致を再確認。red1px案は実原を拒否したため不採用で、全componentの全bbox・幾何半分56以上の参照支持/precision.90で限定する。独立設計の限定再読で二件closure。
+
+Cはinitial FLOOR/first goods各1枠と元sourceによるhandoff、予約UI種類/両座標のintent/finalbegin照合、次DEATHの基準画像引継ぎを追加。残った初期epochは保存済firstfloorから `begin_initial_view` 1回を追加し、現在UNKNOWNのUI metadataを巻き戻さず元E+12秒を維持。最終C4c91d825の新30件Green、前29 assert維持。通常27件の作者回帰は直前94e4 sourceでGreen、この1call後の同source再実行は選択CIで確認する。独立設計/安全P1は限定再読で閉鎖。
+
+Pythonはstate/outcome/intentの各command/capture ID結合、IRG参照PNGの出版前必須化、fixtureのkind5と実RESTART credit分離を補強。各実Red→Green、旧protocol診断omissionは不変。実Python3.9.25で新34+旧74=108件Green・sourcebefore/after一致、独立網羅の第3周限定再読で全指摘closure。元原本/hashchain/PNGを再生成して都合よく修復しない。Runtime/Spoolの実callback・FS/現在Swiftコンパイルはまだ未実施で、これらの単体/読取合格へ含めない。
+
+### Runtime候補の設計・安全レビュー（第1周）
+
+P0なし。設計P1は製品coreへのenable_irregular欠落/HOSThelperへの誤挿入、OUTCOME最初PARTIAL原画の取消/terminal欠落。安全P1はIRG Ring分岐による戻り値/encode検査迂回、JPEG callback終了をdecode/解析完了と誤認するdrain不足。新query説明の旧schema/profileは共通P2。製品開始時enable、失格workerはCLASSIFICATION保持、必要cycle原画のterminal優先、実pipeline leaseとCHECKPOINT admission停止で修正する。root読取ではunknown fixture caseがretentionへfallbackして任意PASSでGreenになる資格不足も発見し、閉caseと要求caseのexact marker/全case完了だけproduct_passを要求した。これらはSwift未実行の読取結果で、実callbackは次のMacで検査する。
+
+### Runtime最終候補・試験資格のclosureと封印
+
+製品Runtime79a85bf3は実startでIRG enable、worker不整合/encode失敗をCLASSIFICATION保持、capture pipeline ID lease/admission停止/実drain、checkpoint durable後の新UI source待機、必要cycle/firstgoods原画のterminal優先を実装。Wire9014b1cf/Spool074d76fc/Exportf2afe945、registry16dbeb6d。設計・安全の限定再読でP0/P1/P2残0。Swift実行とは区別する。
+
+網羅レビューはpending OK UNKNOWN/NEGATIVE、RS ACK後outcome fsync故障、全IRG参照PNG/rawhashの出版前照合を追加し、Spool5故障の実boundary到達/正確注入例外も確認。元26維持の最終29閉case、要求case exact marker、unknown fallback禁止、全case完了だけproduct_passを静的確認して指摘残0。combined fixture860e4ec5/128391 bytes、driver58cecc08、新IRG31f60997/Spooltest2de3332b。実Swift compile/callback/FS成功は次のMac CIで確認する。
+
+最終seal48260847を作り、固定G1基準から実G2適用で36 source全bytes一致、変更10/保持26、新irregular cap/profile正値、旧API.16/cycle/strict compiler profile3を確認。G1/R12/Ring/Nav/feature/ELFを保持。seal utility既存47件Green、diff/初期context16103 bytesを確認。新manifest/fixture/sourceのCIはこれからで、実機改善は未確認。

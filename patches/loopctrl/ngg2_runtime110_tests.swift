@@ -152,6 +152,26 @@ func testFullData110QueueRetentionPublic(_ root: URL, candidateFirst: Bool = fal
         "PASS TEST110 queued FULL source retained and actual worker RGBA digest persisted")
 }
 
+func runRuntime110IrregularCase(_ name: String, _ root: URL) -> Bool {
+    #if NG2_IRREGULAR_TEST110_GREEN
+    switch name {
+    case "death_lifecycle", "death_partial_floor", "death_later_goods", "death_third_menu", "death_unknown_menu", "death_unknown_continue", "death_pin24", "death_cancel_pin24", "death_cancel_continue", "death_cancel_restart", "death_owner_checkpoint", "death_late_checkpoint", "death_storage_checkpoint", "death_recovery_lifecycle", "death_decode_park", "death_outcome_storage":
+        testIrregular110DeathCallbacksPublic(root, variant: String(name.dropFirst(6))); return true
+    case "invalid_companion": testIrregular110AnalysisVetoPublic(root, promptOnly: false); return true
+    case "prompt_only": testIrregular110AnalysisVetoPublic(root, promptOnly: true); return true
+    case "pending_candidate": testIrregular110PendingCandidatePublic(root, variant: "candidate"); return true
+    case "pending_invalid": testIrregular110PendingCandidatePublic(root, variant: "invalid"); return true
+    case "pending_unknown": testIrregular110PendingCandidatePublic(root, variant: "unknown"); return true
+    case "pending_negative": testIrregular110PendingCandidatePublic(root, variant: "negative"); return true
+    case "enemy_retention": testIrregular110EnemyRetentionPublic(root); return true
+    case "recovery_unknown_profile": testIrregular110RecoveryProfileBoundaryPublic(root); return true
+    default: return false
+    }
+    #else
+    return false
+    #endif
+}
+
 let root110 = FileManager.default.temporaryDirectory.appendingPathComponent("runtime110-" + UUID().uuidString)
 try FileManager.default.createDirectory(at: root110, withIntermediateDirectories: true,
     attributes: [.posixPermissions: NSNumber(value: 0o700)])
@@ -160,13 +180,24 @@ NG2RuntimeCycleTestHooks.spoolRoot = root110
 NG2RuntimeCycleTestHooks.notificationAuthorization = "authorized"
 let case110 = CommandLine.arguments.last ?? ""
 if case110 == "profile" { testIrregular110ProfilePreparePublic(root110) }
+else if case110 == "negative" {
+    cycleFixtureProfile = "normal-1-1-irregular-v1"
+    pump("test110_irregular_prepare_ready") {
+        cycleCall(identity(), "prepare").0?["payload"]?.objectValue?["ready"]?.boolValue == true
+    }
+    testCycle094TwoShopsAndIntentCancel(root110, cancelIntent: false)
+    print("PASS TEST110 new-profile normal negative durable restart and next candidate")
+}
+else if runRuntime110IrregularCase(case110, root110) { }
 else if case110 == "prefix" {
     test058PreparedContinuousCase("prefix")
     print("PASS TEST110 existing prefix gate actual callbacks")
 }
-else {
+else if case110 == "retention" || case110 == "candidate" {
     pump("test110_cycle_prepare_ready") {
         cycleCall(identity(), "prepare").0?["payload"]?.objectValue?["ready"]?.boolValue == true
     }
     testFullData110QueueRetentionPublic(root110, candidateFirst: case110 == "candidate")
 }
+else { require(false, "test110_unknown_case_is_not_another_fixture") }
+print("PASS TEST110 CASE " + case110)

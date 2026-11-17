@@ -14,6 +14,7 @@ enum NG2RuntimeTestHooks {
     static var beforeMainAdmission: (() -> Void)?
     static var beforeMainAuthority: (() -> Void)?
     static var beforeAnalysisCommit: (() -> Void)?
+    static var beforeCaptureDecode: ((UInt64) -> Void)?
     static var beforeAnalysisFrameCommit: ((UInt64, UInt64, UInt64, UInt64, Bool) -> Void)?
     static var afterForegroundQuery: (() -> Void)?
     static var beforeControlTick: (() -> Void)?
@@ -39,6 +40,7 @@ private extension NSLock {
 // writes it, before publishing the immutable Frame; observe copies from const.
 private final class NG2Analysis {
     let scene = UnsafeMutablePointer<NG2Scene>.allocate(capacity: 1)
+    var irregular = NG2IrregularObservation()
     init() { scene.initialize(to: NG2Scene()) }
     deinit { scene.deinitialize(count: 1); scene.deallocate() }
 }
@@ -95,6 +97,35 @@ private final class NG2CycleRun {
     }
 }
 
+private struct NG2IrregularMenuFrame {
+    let id, prefix: UInt64
+    let left, top: Int32
+}
+private final class NG2IrregularRun {
+    var companion = NG2ControllerIrregularStatus()
+    var frames: [UInt64: NG2Frame] = [:]
+    var scanRestart = false
+    var reservation: NG2CycleSpool.IrregularReservation?
+    var checkpointEpisode: UInt64 = 0
+    var continueIntent: UInt64 = 0
+    var continueOutcome: UInt64 = 0
+    var restartIntent: UInt64 = 0
+    var restartOutcome: UInt64 = 0
+    var recoveredProjection: [String: JSONValue]?
+    var resourceProjection: [String: JSONValue] = [:]
+    var hint: [String: JSONValue]?
+    var roles: [String: UInt64] = [:]
+    var roleEpisode: UInt64 = 0
+    var menuFrames: [NG2IrregularMenuFrame] = []
+    var observations: [UInt64: NG2IrregularObservation] = [:]
+    var archivedInitialID: UInt64 = 0
+    var archivedFoundID: UInt64 = 0
+    init() {
+        companion.abi_version = 1
+        companion.struct_size = UInt32(MemoryLayout<NG2ControllerIrregularStatus>.size)
+    }
+}
+
 private final class NG2CycleJob {
     let run: NG2Run
     let frame: NG2Frame
@@ -116,6 +147,10 @@ enum NG2RuntimeCycleTestHooks {
     static var beforeClassification: ((UInt64) -> Void)?
     static var classificationResult: ((UInt64, UnsafePointer<NG2Scene>, inout NG2RingResult) -> Void)?
     static var afterClassificationCall: ((Int32, Int32, UInt32) -> Void)?
+    static var irregularRGBA: ((Data) -> Data)?
+    static var afterIrregularAnalysis: ((UInt64, Data, NG2IrregularObservation) -> Void)?
+    static var beforeIrregularWrite: ((String, UInt64) -> Void)?
+    static var beforeIrregularPersistenceCommit: ((String, UInt64) -> Void)?
     static var beforeClassificationCommit: ((UInt64) -> Void)?
     static var beforeCheckpointWrite: ((UInt64) -> Void)?
     static var beforeIntentWrite: ((UInt64) -> Void)?
@@ -262,6 +297,8 @@ private final class NG2Run {
     let acceptedStarted: UInt64
     var lease = true
     var captureOutstanding = false
+    var capturePipelineIDs = Set<UInt64>()
+    var irregularCapturePaused = false
     var captureWorkerDone = false
     var bootstrapOutstanding = false
     var mainCommandID: UInt64 = 0
@@ -325,10 +362,12 @@ private final class NG2Run {
     var exportCache: NG2ExportCache?
     var exportBuildID: String?
     let cycle: NG2CycleRun?
+    let irregular: NG2IrregularRun?
     init(owner: String, id: String, now: UInt64, profile: String = "normal-1-1-v1", clock: String? = nil) {
         self.owner = owner; self.id = id; self.profile = profile
         self.clock = clock ?? UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
-        cycle = profile == NG2Runtime.cycleProfile ? NG2CycleRun() : nil
+        cycle = NG2Runtime.isCycleProfile(profile) ? NG2CycleRun() : nil
+        irregular = profile == NG2Runtime.irregularProfile ? NG2IrregularRun() : nil
         maximumExportBytes = profile == NG2Runtime.evidenceProfile ? 10 * 1024 * 1024 : 4 * 1024 * 1024
         heartbeat = now; acceptedStarted = now
     }
@@ -383,11 +422,13 @@ private struct NG2ResponseProjection {
 /// Status/cancel RPCs read immutable cached dictionaries and never touch C.
 final class NG2Runtime {
     static let shared = NG2Runtime()
-    static let methods: Set<String> = ["necro_native_start", "necro_native_status", "necro_native_cancel", "necro_native_results", "necro_native_cycle"]
+    static let methods: Set<String> = ["necro_native_start", "necro_native_status", "necro_native_cancel", "necro_native_results", "necro_native_cycle", "necro_native_irregular"]
     static let ownerParam = "_necro_owner"
     static let profile = "normal-1-1-v1"
     static let evidenceProfile = "normal-1-1-evidence-v2"
     static let cycleProfile = "normal-1-1-cycle-v1"
+    static let irregularProfile = "normal-1-1-irregular-v1"
+    static func isCycleProfile(_ profile: String) -> Bool { profile == cycleProfile || profile == irregularProfile }
     private static let cycleEvidencePinLimit = 24
     private static let game = "jp.co.spike-chunsoft.necrodancerjp"
     private let lock = NSLock()
@@ -468,7 +509,10 @@ final class NG2Runtime {
               lowerHexIdentity(id) else {
             return failure("Invalid native request identity.", -32602)
         }
-        if method == "necro_native_cycle" { return handleCycle(owner: owner, id: id, params: params ?? [:]) }
+        if method == "necro_native_cycle" || method == "necro_native_irregular" {
+            return handleCycle(owner: owner, id: id, params: params ?? [:],
+                spec: method == "necro_native_irregular" ? .irregular : .standard)
+        }
         var exportMode: String?
         if method == "necro_native_results", let value = params?["mode"] {
             guard let mode = value.stringValue, mode == "manifest" || mode == "chunk" else {
@@ -483,7 +527,7 @@ final class NG2Runtime {
         guard Set((params ?? [:]).keys).isSubset(of: allowed) else { return failure("Unknown native request parameter.", -32602) }
         if method == "necro_native_start" {
             guard let profile = params?["profile"]?.stringValue,
-                  profile == Self.profile || profile == Self.evidenceProfile || profile == Self.cycleProfile else {
+                  profile == Self.profile || profile == Self.evidenceProfile || Self.isCycleProfile(profile) else {
                 return failure("Unsupported native profile.", -32602)
             }
             guard !RemoteSession.shared.paused else { return failure("Owner paused native control.") }
@@ -500,14 +544,14 @@ final class NG2Runtime {
                     return (historical(archived.response), nil)
                 }
                 guard cycleScanState == "ready", unpublishedCycles.isEmpty else {
-                    return profile == Self.cycleProfile ? cycleNotStarted("Native cycle evidence must be recovered and publication acknowledged before a new start.")
+                    return Self.isCycleProfile(profile) ? cycleNotStarted("Native cycle evidence must be recovered and publication acknowledged before a new start.")
                         : failure("Native cycle evidence must be recovered and publication acknowledged before a new start.")
                 }
-                if profile == Self.cycleProfile && notificationAuthorization != "authorized" && notificationAuthorization != "provisional" {
+                if Self.isCycleProfile(profile) && notificationAuthorization != "authorized" && notificationAuthorization != "provisional" {
                     return cycleNotStarted("Prepare native cycle notifications before starting gameplay.")
                 }
                 if let oldCycle = current?.cycle, !oldCycle.published {
-                    return profile == Self.cycleProfile ? cycleNotStarted("Previous native cycle publication is not acknowledged.")
+                    return Self.isCycleProfile(profile) ? cycleNotStarted("Previous native cycle publication is not acknowledged.")
                         : failure("Previous native cycle publication is not acknowledged.")
                 }
                 if poisoned { return failure("Unknown native input freezes new runs until the runner process restarts.") }
@@ -637,11 +681,21 @@ final class NG2Runtime {
     }
 
     private func evidencePinLimit(_ run: NG2Run) -> Int {
-        run.profile == Self.cycleProfile ? Self.cycleEvidencePinLimit : 20
+        Self.isCycleProfile(run.profile) ? Self.cycleEvidencePinLimit : 20
     }
 
     private func priorityCaptureIDs(_ run: NG2Run, includingInitialSource: Bool = true) -> [UInt64] {
         var ids: [UInt64] = []
+        if let irregular = run.irregular {
+            let state = irregular.companion
+            let hint = state.stage == 0 && state.proof_capture_id != 0
+                ? [state.before_capture_id, state.proof_capture_id, state.live_baseline_capture_id]
+                : [state.live_baseline_capture_id]
+            let needed = irregularOwnsInput(state)
+                ? irregular.roles.keys.sorted().compactMap { irregular.roles[$0] } : hint
+            for id in needed where id != 0 && !ids.contains(id)
+                && !(run.cycle?.storedCaptureIDs.contains(id) ?? false) { ids.append(id) }
+        }
         let decisions = run.restartDecisionCaptureIDs.keys.sorted().compactMap { run.restartDecisionCaptureIDs[$0] }
         let initial = decisions.isEmpty ? [run.initial?.id].compactMap({ $0 }) : []
         // Existing stop/goods/comparison evidence stays ahead of the bounded
@@ -651,15 +705,25 @@ final class NG2Runtime {
             + run.cycleDiagnosticCaptureIDs {
             if id != 0 && !ids.contains(id) { ids.append(id) }
         }
-        if includingInitialSource, run.profile == Self.cycleProfile,
+        if includingInitialSource, Self.isCycleProfile(run.profile),
            let source = run.initialRejectedSourceCaptureID, source != 0, !ids.contains(source) { ids.append(source) }
         return ids
     }
 
     private func selectedExportFrames(_ run: NG2Run) -> [NG2Frame] {
         var available = run.pinned
-        for frame in run.images + [run.initial, run.found].compactMap({ $0 }) { available[frame.id] = frame }
-        let priority = priorityCaptureIDs(run).compactMap { available[$0] }
+        let cycleFrames = run.irregular == nil ? [] : (run.cycle.map { Array($0.frames.values) } ?? [])
+        for frame in (run.irregular.map { Array($0.frames.values) } ?? []) + cycleFrames
+            + run.images + [run.initial, run.found].compactMap({ $0 }) { available[frame.id] = frame }
+        var needed = priorityCaptureIDs(run)
+        if run.irregular != nil, let cycle = run.cycle {
+            for id in [cycle.companion.capture_id, cycle.companion.queued_capture_id,
+                       cycle.companion.pause_source_capture_id, cycle.companion.pause_capture_id,
+                       cycle.companion.next_floor_capture_id].filter({ $0 != 0 }) where !needed.contains(id) {
+                needed.insert(id, at: 0)
+            }
+        }
+        let priority = needed.compactMap { available[$0] }
         var frames: [NG2Frame] = []
         for frame in priority + [run.images.last].compactMap({ $0 })
             + run.pinned.values.sorted(by: { $0.id > $1.id }) + Array(run.images.reversed()) {
@@ -803,6 +867,7 @@ final class NG2Runtime {
         guard let cycle = run.cycle, let core = run.core else { return }
         var state = NG2ControllerCycleStatus(); ng2_controller_cycle_status(core, &state)
         run.lock.ng2Locked {
+            let retained = cycle.frames
             if state.job_id != cycle.companion.job_id && state.pending != 0 {
                 cycle.assessment = nil; cycle.assessmentAdopted = false; cycle.rawSHA256 = nil
                 if !cycle.classificationOutstanding { cycle.frames.removeAll() }
@@ -810,7 +875,9 @@ final class NG2Runtime {
             cycle.companion = state
             let needed = Set([state.capture_id, state.queued_capture_id, state.pause_source_capture_id,
                 state.pause_capture_id, state.next_floor_capture_id].filter { $0 != 0 })
-            let available = [frame, run.initial, run.found].compactMap { $0 } + run.images + Array(run.pinned.values)
+            let available = [frame, run.initial, run.found].compactMap { $0 } + run.images + Array(run.pinned.values) + Array(retained.values)
+                + (run.irregular.map { Array($0.frames.values) } ?? [])
+            cycle.frames = cycle.frames.filter { needed.contains($0.key) }
             for item in available where needed.contains(item.id) { cycle.frames[item.id] = item }
         }
     }
@@ -818,6 +885,8 @@ final class NG2Runtime {
     private func serviceCycleAssessment(_ run: NG2Run) {
         guard let cycle = run.cycle, let core = run.core else { return }
         refreshCycleEvidence(run)
+        refreshIrregularEvidence(run)
+        if let irregular = run.irregular, irregularOwnsInput(irregular.companion) { return }
         let job: NG2CycleJob? = run.lock.ng2Locked {
             let state = cycle.companion
             guard !cycle.classificationOutstanding, state.pending == 1, state.worker_started_ns == 0,
@@ -872,6 +941,25 @@ final class NG2Runtime {
                               current.capture_id == job.frame.id, current.prefix == job.prefix,
                               current.capture_start_ns == job.frame.start else { return }
                         cycle.assessment = encoded; cycle.assessmentAdopted = false; cycle.rawSHA256 = digest
+                        if let irregular = run.irregular {
+                            var state = NG2ControllerIrregularStatus()
+                            ng2_controller_irregular_status(currentCore, &state)
+                            if state.episode_id != 0 && self.irregularOwnsInput(state) {
+                                if returned != Int32(result.status) || encoded == nil {
+                                    irregular.hint = nil
+                                    _ = ng2_controller_irregular_ring_settled(currentCore, state.episode_id,
+                                        job.job, job.frame.id, job.prefix, nil, Self.now())
+                                } else {
+                                    irregular.hint = ["job_id": NG2CycleWire.number(job.job),
+                                        "capture_id": NG2CycleWire.number(job.frame.id), "prefix": NG2CycleWire.number(job.prefix),
+                                        "status": .string(NG2CycleWire.assessmentStatus(result.status)),
+                                        "outcome": .string(NG2CycleWire.outcome(result.outcome))]
+                                    _ = ng2_controller_irregular_ring_settled(currentCore, state.episode_id,
+                                        job.job, job.frame.id, job.prefix, &result, Self.now())
+                                }
+                                return
+                            }
+                        }
                         // A same-job late report may remain diagnostic evidence;
                         // it cannot reopen a terminal or restore input authority.
                         guard !run.stopped else { return }
@@ -887,12 +975,380 @@ final class NG2Runtime {
                         }
                     }
                     self.refreshCycleEvidence(run)
+                    self.refreshIrregularEvidence(run)
                     self.cycle(run)
                 }
             }
         }
         persistCycleCheckpoint(run)
         persistCycleOutcome(run)
+    }
+
+    private func irregularOwnsInput(_ state: NG2ControllerIrregularStatus) -> Bool {
+        state.stage != 0 && !(state.stage == 8 && state.outcome_ns != 0)
+    }
+
+    // The first enemy zero may precede its partner by a whole period. These
+    // exact C IDs retain original pixels independently of recent4/pin24.
+    private func refreshIrregularEvidence(_ run: NG2Run, frame: NG2Frame? = nil) {
+        guard let irregular = run.irregular, let core = run.core else { return }
+        var state = NG2ControllerIrregularStatus()
+        guard ng2_controller_irregular_status(core, &state) == 1,
+              (try? NG2CycleWire.irregular(state)) != nil else {
+            run.cancel(17); ng2_controller_cancel(core, Self.now(), 17); return
+        }
+        let completed = state.stage == 8 && state.outcome_ns != 0
+        if completed { refreshCycleEvidence(run, frame: frame) }
+        run.lock.ng2Locked {
+            if completed || state.stage == 0 {
+                if completed {
+                    let oldRoles = Set(irregular.roles.values)
+                    let normal = Set(run.cycle?.frames.keys.map { $0 } ?? [])
+                    run.pinned = run.pinned.filter {
+                        !oldRoles.contains($0.key) || !(run.cycle?.storedCaptureIDs.contains($0.key) ?? false) || normal.contains($0.key)
+                    }
+                }
+                irregular.roles.removeAll(); irregular.menuFrames.removeAll(); irregular.observations.removeAll()
+                irregular.roleEpisode = 0
+            } else if state.episode_id != 0 && state.episode_id != irregular.roleEpisode {
+                irregular.roles.removeAll(); irregular.menuFrames.removeAll(); irregular.hint = nil
+                irregular.roleEpisode = state.episode_id
+                irregular.continueIntent = 0; irregular.continueOutcome = 0
+                irregular.restartIntent = 0; irregular.restartOutcome = 0
+                if state.live_baseline_capture_id != 0 { irregular.roles["last_live_baseline"] = state.live_baseline_capture_id }
+                if state.before_capture_id != 0 { irregular.roles["before"] = state.before_capture_id }
+                if state.trigger_capture_id != 0 { irregular.roles["trigger"] = state.trigger_capture_id }
+                if state.kind == 1 {
+                    irregular.roles["zero1"] = state.proof_capture_id
+                    irregular.roles["zero2"] = state.trigger_capture_id
+                }
+                if let cycle = run.cycle {
+                    if cycle.companion.capture_id != 0 { irregular.roles["ring_source"] = cycle.companion.capture_id }
+                    if cycle.companion.queued_capture_id != 0 { irregular.roles["queued_source"] = cycle.companion.queued_capture_id }
+                }
+            }
+            irregular.companion = state
+            run.irregularCapturePaused = state.stage == 1 || state.stage == 2
+            irregular.scanRestart = (state.stage == 5 || state.stage == 6) && state.continue_command_id != 0 && !run.inFlight
+            if irregularOwnsInput(state) {
+                if state.continue_capture_id != 0 { irregular.roles["continue_outcome"] = state.continue_capture_id }
+                if state.pause_capture_id != 0 { irregular.roles["pause_ack"] = state.pause_capture_id }
+                if state.next_floor_capture_id != 0 { irregular.roles["new_floor"] = state.next_floor_capture_id }
+            }
+            if let frame, state.episode_id != 0, irregular.restartIntent == 0, (state.stage == 5 || state.stage == 6),
+               frame.generation == run.generation, frame.stable, !frame.startInFlight, !frame.endInFlight,
+               frame.prefix == state.prefix, frame.analysis.irregular.kind == 2,
+               frame.analysis.irregular.matches == 1 {
+                if let previous = irregular.menuFrames.last {
+                    let b = frame.analysis.irregular
+                    if previous.prefix != frame.prefix || abs(previous.left - b.left) > 2 || abs(previous.top - b.top) > 2 {
+                        irregular.menuFrames.removeAll()
+                    }
+                }
+                if irregular.menuFrames.last?.id != frame.id {
+                    irregular.menuFrames.append(NG2IrregularMenuFrame(id: frame.id, prefix: frame.prefix,
+                        left: frame.analysis.irregular.left, top: frame.analysis.irregular.top))
+                }
+                if irregular.menuFrames.count > 2 { irregular.menuFrames.removeFirst() }
+                if let first = irregular.menuFrames.first { irregular.roles["menu1"] = first.id }
+                if irregular.menuFrames.count == 2 { irregular.roles["menu2"] = irregular.menuFrames[1].id }
+            }
+            let hints: [UInt64] = state.stage == 0 && state.proof_capture_id != 0
+                ? [state.before_capture_id, state.live_baseline_capture_id, state.proof_capture_id]
+                : [state.live_baseline_capture_id]
+            let needed = Set((irregularOwnsInput(state) ? Array(irregular.roles.values) : hints).filter { $0 != 0 })
+            let available = Array(irregular.frames.values) + (run.cycle.map { Array($0.frames.values) } ?? [])
+                + run.images + Array(run.pinned.values) + [run.initial, run.found, frame].compactMap { $0 }
+            for value in available where needed.contains(value.id) && value.stable {
+                irregular.observations[value.id] = value.analysis.irregular
+            }
+            irregular.observations = irregular.observations.filter { needed.contains($0.key) }
+            let durable = run.cycle?.storedCaptureIDs ?? []
+            let rawNeeded = needed.subtracting(durable)
+            irregular.frames = irregular.frames.filter { rawNeeded.contains($0.key) }
+            for value in available where rawNeeded.contains(value.id) { irregular.frames[value.id] = value }
+        }
+    }
+
+    private func irregularDrainedLocked(_ run: NG2Run, _ cycle: NG2CycleRun) -> Bool {
+        !cycle.classificationOutstanding && !cycle.persistenceOutstanding && !run.mainOutstanding
+            && !run.inFlight && !run.captureOutstanding && run.capturePipelineIDs.isEmpty && run.latest == nil
+            && NG2CaptureBridge.pendingRequests == 0
+    }
+
+    private func releaseIrregularReservation(_ run: NG2Run, allowDrainedPoison: Bool = false) {
+        guard let cycle = run.cycle, let irregular = run.irregular else { return }
+        let value: (NG2CycleSpool, NG2CycleSpool.IrregularReservation)? = run.lock.ng2Locked {
+            guard !cycle.workerBusy, !run.mainOutstanding,
+                  !run.inFlight || (allowDrainedPoison && run.terminal && run.captureWorkerDone && !run.captureOutstanding),
+                  let spool = cycle.spool, let token = irregular.reservation else { return nil }
+            return (spool, token)
+        }
+        if let (spool, token) = value {
+            do {
+                try spool.releaseIrregular(token)
+                run.lock.ng2Locked { if irregular.reservation == token { irregular.reservation = nil } }
+            } catch {
+                if let core = run.core {
+                    _ = ng2_controller_irregular_storage_failed(core, irregular.companion.episode_id, Self.now())
+                }
+            }
+        }
+    }
+
+    private func serviceIrregularPersistence(_ run: NG2Run) {
+        guard let irregular = run.irregular, let cycle = run.cycle else { return }
+        refreshIrregularEvidence(run)
+        let state = run.lock.ng2Locked { irregular.companion }
+        if state.stage == 9 || state.outcome_ns != 0 {
+            releaseIrregularReservation(run); return
+        }
+        if state.stage == 2 && state.durable_ns == 0 && irregular.checkpointEpisode != state.episode_id {
+            persistIrregularRecord(run, kind: "irregular_checkpoint", command: nil)
+        } else if state.stage == 5 && state.continue_capture_id != 0 && state.continue_outcome_ns == 0
+                    && irregular.continueOutcome != state.continue_command_id {
+            persistIrregularRecord(run, kind: "irregular_continue_outcome", command: nil)
+        } else if state.stage == 8 && state.next_floor_capture_id != 0 && state.outcome_ns == 0
+                    && irregular.restartOutcome != state.episode_id {
+            persistIrregularRecord(run, kind: "irregular_restart_outcome", command: nil)
+        }
+        _ = cycle
+    }
+
+    private func persistIrregularIntent(_ run: NG2Run, command: NG2Command) {
+        guard let irregular = run.irregular else { return }
+        if command.kind == 5 && irregular.continueIntent != command.id {
+            persistIrregularRecord(run, kind: "irregular_continue_intent", command: command)
+        } else if command.kind == 3 && irregular.restartIntent != command.id {
+            persistIrregularRecord(run, kind: "irregular_restart_intent", command: command)
+        }
+    }
+
+    private func irregularACK(_ event: NG2ControllerEvent?) -> JSONValue {
+        guard let event else { return .null }
+        return .object(["command_id": NG2CycleWire.number(event.command.id), "kind": .int(Int(event.command.kind)),
+            "started_ns": NG2CycleWire.number(event.begin_ns), "completed_ns": NG2CycleWire.number(event.end_ns),
+            "outcome": .string(event.outcome == 2 ? "acked" : "unknown")])
+    }
+
+    private func persistIrregularRecord(_ run: NG2Run, kind: String, command: NG2Command?) {
+        guard let irregular = run.irregular, let cycle = run.cycle, let core = run.core else { return }
+        refreshIrregularEvidence(run)
+        var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
+        _ = cache(run, status, retainEvidence: false)
+        let admission: (NG2CycleSpool, NG2ControllerIrregularStatus, [String: UInt64], [UInt64: NG2Frame],
+                        NG2ControllerSnapshot?, [UInt64: NG2Frame], [UInt64: NG2IrregularObservation], UInt64, NG2CycleSpool.IrregularReservation?, [String: JSONValue]?)? = run.lock.ng2Locked {
+            let state = irregular.companion
+            guard state.episode_id != 0, !cycle.persistenceOutstanding, !cycle.classificationOutstanding,
+                  !run.mainOutstanding, !run.inFlight, run.cancelReason == 0, !run.stopped,
+                  ownerActive(run), !LockStateMonitor.shared().isLocked, Self.now() <= state.parent_deadline_ns,
+                  let spool = cycle.spool else { return nil }
+            if kind == "irregular_checkpoint" {
+                guard state.stage == 2, state.durable_ns == 0, irregularDrainedLocked(run, cycle) else { return nil }
+                irregular.checkpointEpisode = state.episode_id
+            } else if kind == "irregular_continue_intent" || kind == "irregular_restart_intent" {
+                guard let command, status.input_state == 1, status.current_command_id == command.id,
+                      command.source_capture_id != 0, command.id != 0, state.durable_ns != 0,
+                      let source = (Array(irregular.frames.values) + run.images + Array(run.pinned.values))
+                        .first(where: { $0.id == command.source_capture_id }),
+                      source.generation == run.generation, source.stable, !source.startInFlight, !source.endInFlight,
+                      source.start == command.source_start_ns,
+                      source.startPrefix == state.prefix, source.prefix == state.prefix else { return nil }
+                irregular.frames[source.id] = source
+                if command.kind == 5 {
+                    guard state.stage == 4, state.continue_command_id == command.id else { return nil }
+                    irregular.roles["fresh_death"] = source.id; irregular.continueIntent = command.id
+                } else {
+                    guard state.stage == 6, state.restart_command_id == command.id else { return nil }
+                    irregular.roles["restart_source"] = source.id; irregular.restartIntent = command.id
+                }
+            } else if kind == "irregular_continue_outcome" {
+                guard state.stage == 5, state.continue_capture_id != 0, state.continue_outcome_ns == 0,
+                      state.continue_intent_ns != 0 else { return nil }
+                irregular.continueOutcome = state.continue_command_id
+            } else {
+                guard state.stage == 8, state.next_floor_capture_id != 0, state.outcome_ns == 0,
+                      state.restart_intent_ns != 0 else { return nil }
+                irregular.restartOutcome = state.episode_id
+            }
+            cycle.persistenceOutstanding = true
+            var historical = run.pinned
+            for value in [run.initial, run.found].compactMap({ $0 }) { historical[value.id] = value }
+            return (spool, state, irregular.roles, irregular.frames, run.controllerSnapshot,
+                historical, irregular.observations, run.generation, irregular.reservation, irregular.hint)
+        }
+        guard let (spool, state, roles, frames, snapshot, historicalPins, certificates, generation, previousToken, hint) = admission else { return }
+        let completedShops = run.lock.ng2Locked { max(0, cycle.companion.completed_shops) }
+        persistenceQueue.async {
+            var success = false, token = previousToken, authorityFailed = false
+            var savedIDs = Set<UInt64>()
+            do {
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeCycleTestHooks.beforeIrregularWrite?(kind, state.episode_id)
+                #endif
+                guard roles.count <= 16, !roles.values.contains(0) else { throw NG2CycleSpool.Failure.invalid("irregular-roles") }
+                let ids = Set(roles.values)
+                var stored = Dictionary(uniqueKeysWithValues: try spool.frames().map { ($0.captureID, $0) })
+                if kind == "irregular_checkpoint" {
+                    // Preserve every historical pin before making its memory slot
+                    // available to the finite future UI roles. No UI is yet allowed.
+                    let transfer = historicalPins.values.filter { stored[$0.id] == nil }
+                    try spool.reserveCheckpoint(frames: transfer.count, metadataBytes: transfer.count * 4096)
+                    for frame in transfer {
+                        stored[frame.id] = try spool.commitFrame(captureID: frame.id, rgba: frame.rgba,
+                            metadata: self.cycleFrameMetadata(frame))
+                        savedIDs.insert(frame.id)
+                    }
+                    let pins: Set<UInt64>? = run.lock.ng2Locked {
+                        guard run.generation == generation, run.cancelReason == 0, !run.stopped,
+                              self.ownerActive(run), !LockStateMonitor.shared().isLocked,
+                              irregular.companion.episode_id == state.episode_id,
+                              irregular.companion.prefix == state.prefix,
+                              irregular.companion.parent_deadline_ns == state.parent_deadline_ns,
+                              irregular.companion.stage == 2, !run.mainOutstanding, !run.inFlight,
+                              !run.captureOutstanding, run.capturePipelineIDs.isEmpty, run.latest == nil,
+                              NG2CaptureBridge.pendingRequests == 0,
+                              Self.now() <= state.parent_deadline_ns else { return nil }
+                        // All removed IDs are durable. Active role originals stay.
+                        run.pinned = run.pinned.filter { ids.contains($0.key) || stored[$0.key] == nil }
+                        if let initial = run.initial, stored[initial.id] != nil {
+                            irregular.archivedInitialID = initial.id; run.initial = nil
+                        }
+                        if let found = run.found, stored[found.id] != nil {
+                            irregular.archivedFoundID = found.id; run.found = nil
+                        }
+                        return Set(run.pinned.keys)
+                    }
+                    guard let pins else {
+                        authorityFailed = true
+                        throw NG2CycleSpool.Failure.invalid("irregular-authority-changed")
+                    }
+                    token = try spool.reserveIrregular(episode: state.episode_id, prefix: state.prefix,
+                        generation: generation, knownCaptureIDs: ids, futureRoles: 16 - roles.count, pinnedCaptureIDs: pins)
+                }
+                guard let reservation = token else { throw NG2CycleSpool.Failure.invalid("irregular-no-reservation") }
+                for id in ids.sorted() where stored[id] == nil {
+                    guard let frame = frames[id], frame.generation == generation, frame.stable,
+                          !frame.startInFlight, !frame.endInFlight else { throw NG2CycleSpool.Failure.invalid("irregular-source-missing") }
+                    stored[id] = try spool.commitFrame(captureID: id, rgba: frame.rgba,
+                        metadata: self.cycleFrameMetadata(frame), reservation: reservation)
+                    savedIDs.insert(id)
+                }
+                var frameRows = [JSONValue]()
+                for role in roles.keys.sorted() {
+                    let id = roles[role]!
+                    guard let ref = stored[id] else { throw NG2CycleSpool.Failure.invalid("irregular-source-unregistered") }
+                    let metadata = try spool.frameMetadata(ref)
+                    guard let start = metadata["capture_start_ns"] as? NSNumber,
+                          let end = metadata["capture_end_ns"] as? NSNumber,
+                          let prefix = metadata["completed_prefix_end"] as? NSNumber,
+                          let sourceGeneration = metadata["generation"] as? NSNumber else {
+                        throw NG2CycleSpool.Failure.invalid("irregular-source-metadata")
+                    }
+                    frameRows.append(.object(["role": .string(role), "capture_id": NG2CycleWire.number(id),
+                        "start_ns": NG2CycleWire.number(start.uint64Value), "end_ns": NG2CycleWire.number(end.uint64Value),
+                        "prefix": NG2CycleWire.number(prefix.uint64Value), "generation": NG2CycleWire.number(sourceGeneration.uint64Value),
+                        "rgba_sha256": .string(ref.rawSHA256)]))
+                }
+                let events = snapshot?.events ?? []
+                let checkpointMove = kind == "irregular_checkpoint" && state.kind == 1
+                    ? events.last(where: { $0.command.kind == 4 && $0.command.id == state.prefix && $0.outcome == 2 }) : nil
+                if kind == "irregular_checkpoint" && state.kind == 1 && checkpointMove == nil {
+                    throw NG2CycleSpool.Failure.invalid("irregular-move-ack-missing")
+                }
+                let actionID = kind == "irregular_continue_outcome" ? state.continue_command_id
+                    : (kind == "irregular_restart_outcome" ? state.restart_command_id : 0)
+                let outcomeEvent = actionID == 0 ? nil : events.last(where: { $0.command.id == actionID && $0.outcome == 2 })
+                if actionID != 0 && outcomeEvent == nil { throw NG2CycleSpool.Failure.invalid("irregular-ui-ack-missing") }
+                let recordedCommand = command ?? checkpointMove?.command ?? outcomeEvent?.command
+                var proofs = [JSONValue](), observations = [JSONValue]()
+                var observationIDs = Set<UInt64>()
+                if kind == "irregular_checkpoint" && state.kind == 1 {
+                    for id in [state.proof_capture_id, state.trigger_capture_id] {
+                        guard let observed = certificates[id], let ref = stored[id] else {
+                            throw NG2CycleSpool.Failure.invalid("irregular-proof-missing")
+                        }
+                        let metadata = try spool.frameMetadata(ref)
+                        guard let start = metadata["capture_start_ns"] as? NSNumber,
+                              let end = metadata["capture_end_ns"] as? NSNumber else {
+                            throw NG2CycleSpool.Failure.invalid("irregular-proof-metadata")
+                        }
+                        let certificate = try NG2CycleWire.irregularObservation(observed)
+                        proofs.append(.object(["capture_id": NG2CycleWire.number(id), "start_ns": NG2CycleWire.number(start.uint64Value),
+                            "end_ns": NG2CycleWire.number(end.uint64Value), "normal_motion": .string("blocked"),
+                            "dx": .int(0), "dy": .int(0), "enemy": .object(certificate)]))
+                        observationIDs.insert(id)
+                    }
+                }
+                if kind == "irregular_checkpoint" && state.kind == 2 { observationIDs.insert(state.trigger_capture_id) }
+                if kind == "irregular_continue_intent", let source = roles["fresh_death"] { observationIDs.insert(source) }
+                if kind == "irregular_continue_outcome" { observationIDs.insert(state.continue_capture_id) }
+                if kind == "irregular_restart_intent" {
+                    for role in ["menu1", "menu2", "restart_source"] {
+                        if let id = roles[role] { observationIDs.insert(id) }
+                    }
+                }
+                if kind == "irregular_restart_outcome" { observationIDs.insert(state.next_floor_capture_id) }
+                guard observationIDs.count <= 5 else { throw NG2CycleSpool.Failure.invalid("irregular-observation-bound") }
+                for id in observationIDs.sorted() {
+                    guard let observed = certificates[id] ?? frames[id]?.analysis.irregular else {
+                        throw NG2CycleSpool.Failure.invalid("irregular-observation-missing")
+                    }
+                    observations.append(.object(["capture_id": NG2CycleWire.number(id),
+                        "value": .object(try NG2CycleWire.irregularObservation(observed))]))
+                }
+                let resources = try NG2CycleWire.decode(spool.irregularResources(reservation))
+                let payload: [String: JSONValue] = ["irregular": .object(try NG2CycleWire.irregular(state)),
+                    "generation": NG2CycleWire.number(generation), "resources": .object(resources), "frames": .array(frameRows),
+                    "observations": .array(observations), "command": recordedCommand.map { .object(self.cycleCommand($0)) } ?? .null,
+                    "ack": self.irregularACK(checkpointMove ?? outcomeEvent), "proofs": .array(proofs),
+                    "assessment_hint": hint.map { .object($0) } ?? .null]
+                _ = try spool.commitRecord(kind: kind, cycle: UInt64(completedShops),
+                    payload: NG2CycleWire.object(payload), reservation: reservation)
+                success = true
+            } catch { }
+            let durable = success, reserved = token, lostAuthority = authorityFailed, committedIDs = savedIDs
+            self.controlQueue.async {
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeCycleTestHooks.beforeIrregularPersistenceCommit?(kind, state.episode_id)
+                #endif
+                var shouldDispatch = false, completedRestart = false
+                run.lock.ng2Locked {
+                    cycle.persistenceOutstanding = false
+                    if let reserved { irregular.reservation = reserved }
+                    cycle.storedCaptureIDs.formUnion(committedIDs)
+                    guard let currentCore = run.core, run.generation == generation, run.cancelReason == 0,
+                          !run.stopped, self.ownerActive(run), !LockStateMonitor.shared().isLocked else { return }
+                    if !durable {
+                        cycle.failure = lostAuthority ? "irregular_authority_changed" : "irregular_storage_commit_failed"
+                        if !lostAuthority {
+                            _ = ng2_controller_irregular_storage_failed(currentCore, state.episode_id, Self.now())
+                        }
+                        return
+                    }
+                    if kind == "irregular_checkpoint" {
+                        _ = ng2_controller_irregular_durable(currentCore, state.episode_id, state.trigger_capture_id, state.prefix, Self.now())
+                    } else if let command {
+                        shouldDispatch = ng2_controller_irregular_intent_commit(currentCore, state.episode_id,
+                            command.id, command.source_capture_id, state.prefix, Self.now()) == 1
+                    } else {
+                        let action: Int32 = kind == "irregular_continue_outcome" ? 5 : 3
+                        let commandID = action == 5 ? state.continue_command_id : state.restart_command_id
+                        let captureID = action == 5 ? state.continue_capture_id : state.next_floor_capture_id
+                        let committed = ng2_controller_irregular_outcome_commit(currentCore, state.episode_id,
+                            action, commandID, captureID, state.prefix, Self.now())
+                        completedRestart = action == 3 && committed == 1
+                    }
+                }
+                self.refreshCycleEvidence(run)
+                self.refreshIrregularEvidence(run)
+                if completedRestart { self.releaseIrregularReservation(run) }
+                if shouldDispatch, let command, let currentCore = run.core {
+                    _ = self.dispatchReserved(run, command: command, core: currentCore)
+                }
+                self.cycle(run)
+            }
+        }
     }
 
     private func cycleCommand(_ value: NG2Command) -> [String: JSONValue] {
@@ -1075,10 +1531,33 @@ final class NG2Runtime {
 
     private func persistCycleTerminal(_ run: NG2Run) {
         guard let cycle = run.cycle else { return }
+        if run.irregular != nil {
+            let drained = run.lock.ng2Locked {
+                !cycle.workerBusy && run.captureWorkerDone && !run.captureOutstanding
+                    && run.capturePipelineIDs.isEmpty && !run.mainOutstanding
+            }
+            guard drained else { return }
+            // Logical UNKNOWN remains poisoned; only its actual callbacks have
+            // returned. Releasing unused credits grants no input permission.
+            releaseIrregularReservation(run, allowDrainedPoison: true)
+        }
         let admission: (NG2CycleSpool, [NG2Frame], Set<UInt64>, NG2ControllerSnapshot?, NG2ControllerCycleStatus)? = run.lock.ng2Locked {
             guard !cycle.terminalPersistenceStarted, !cycle.workerBusy, let spool = cycle.spool else { return nil }
             cycle.terminalPersistenceStarted = true; cycle.persistenceOutstanding = true
-            return (spool, selectedExportFrames(run), cycle.storedCaptureIDs, run.controllerSnapshot, cycle.companion)
+            var selected = selectedExportFrames(run)
+            if let irregular = run.irregular, irregular.checkpointEpisode != 0,
+               irregular.companion.outcome_ns == 0 {
+                var required = Set(irregular.roles.values)
+                required.formUnion([irregular.companion.before_capture_id, irregular.companion.proof_capture_id,
+                    irregular.companion.trigger_capture_id, irregular.companion.live_baseline_capture_id,
+                    cycle.companion.capture_id, cycle.companion.queued_capture_id,
+                    cycle.companion.pause_source_capture_id, cycle.companion.pause_capture_id].filter { $0 != 0 })
+                if let terminal = run.images.last { required.insert(terminal.id) }
+                // The reserved terminal role is one new raster; incidental
+                // animation captures are not extra unreserved episode roles.
+                selected = selected.filter { required.contains($0.id) || cycle.storedCaptureIDs.contains($0.id) }
+            }
+            return (spool, selected, cycle.storedCaptureIDs, run.controllerSnapshot, cycle.companion)
         }
         guard let (spool, frames, stored, snapshot, state) = admission else {
             run.lock.ng2Locked { if cycle.spool == nil && !cycle.workerBusy { cycle.terminalPersisted = true } }
@@ -1086,18 +1565,26 @@ final class NG2Runtime {
         }
         let assessment = run.lock.ng2Locked { cycle.assessment }
         let adopted = run.lock.ng2Locked { cycle.assessmentAdopted }
+        let irregularProjection: [String: JSONValue]? = run.lock.ng2Locked {
+            guard let irregular = run.irregular else { return nil }
+            return irregular.recoveredProjection ?? (try? NG2CycleWire.irregular(irregular.companion))
+        }
         persistenceQueue.async {
             var saved = Set<UInt64>()
             var failure: String?
             do {
                 let fresh = frames.filter { !stored.contains($0.id) }
-                try spool.reserveCheckpoint(frames: fresh.count, metadataBytes: 256 * 1024)
+                try spool.reserveCheckpoint(frames: fresh.count, metadataBytes: 256 * 1024, finalization: run.irregular != nil)
                 for frame in fresh {
                     _ = try spool.commitFrame(captureID: frame.id, rgba: frame.rgba, metadata: self.cycleFrameMetadata(frame)); saved.insert(frame.id)
                 }
-                let body: [String: JSONValue] = ["cycle": .object(NG2CycleWire.companion(state)),
+                var body: [String: JSONValue] = ["cycle": .object(NG2CycleWire.companion(state)),
                     "assessment": assessment.map { .object($0) } ?? .null, "assessment_adopted": .bool(adopted),
                     "controller": snapshot.map { .object(self.encodeCycleSnapshot($0, origin: "cycle_terminal")) } ?? .null]
+                if run.irregular != nil {
+                    guard let irregularProjection else { throw NG2CycleSpool.Failure.invalid("irregular-terminal-status") }
+                    body["irregular"] = .object(irregularProjection)
+                }
                 _ = try spool.commitRecord(kind: "terminal", cycle: UInt64(max(state.completed_shops, 0)), payload: NG2CycleWire.object(body))
             } catch { failure = "terminal_commit_failed" }
             self.controlQueue.async {
@@ -1117,9 +1604,10 @@ final class NG2Runtime {
             guard !cycle.recovered, !cycle.notificationRequested, ownerActive(run) else { return nil }
             let positive = run.controllerSnapshot?.status.paused == 1 && run.cancelReason == 0
                 && (cycle.companion.outcome == 1 || cycle.companion.outcome == 2)
+            let hintHeld = run.irregular?.companion.stage == 9 && run.irregular?.companion.held_reason == 4
             guard positive || (run.terminal && cycleWorkersDrainedLocked(run, cycle)) else { return nil }
             cycle.notificationRequested = true; cycle.notificationState = "pending"
-            return positive ? cycle.companion.outcome : -1
+            return positive ? cycle.companion.outcome : (hintHeld ? 3 : -1)
         }
         guard let outcome else { return }
         #if NG2_RUNTIME_HOST_TEST
@@ -1132,7 +1620,8 @@ final class NG2Runtime {
             content.body = "iSHで保存を確認してください。"
         } else {
             content.title = outcome == 2 ? "のろいのゆびわを確認" : "のろいのゆびわの候補を保持"
-            content.body = "ゲームをポーズしました。商品を確認してください。"
+            content.body = outcome == 3 ? "未採用の解析結果に候補があるため停止しました。iSHで記録を確認してください。"
+                : "ゲームをポーズしました。商品を確認してください。"
         }
         content.sound = .default
         let request = UNNotificationRequest(identifier: "necro-cycle-" + run.id, content: content, trigger: nil)
@@ -1208,9 +1697,10 @@ final class NG2Runtime {
         run.lock.ng2Locked { cycle.persistenceOutstanding = true }
         persistenceQueue.async {
             do {
-                let provenance: [String: Any] = ["clock_id": run.clock, "accepted_started_ns": run.acceptedStarted,
+                var provenance: [String: Any] = ["clock_id": run.clock, "accepted_started_ns": run.acceptedStarted,
                     "generation": run.generation, "runtime_instance_id": self.runtimeInstanceID,
                     "system_uptime_ns": UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000_000)]
+                if run.irregular != nil { provenance["native_profile"] = run.profile }
                 let spool: NG2CycleSpool
                 #if NG2_RUNTIME_HOST_TEST
                 if let root = NG2RuntimeCycleTestHooks.spoolRoot {
@@ -1257,11 +1747,16 @@ final class NG2Runtime {
             let status = run.controllerSnapshot?.status
             let cycle = run.cycle!
             let drained = cycleWorkersDrainedLocked(run, cycle)
-            return ["state": .string(run.terminal ? (run.lease ? "draining" : "stopped") : "running"),
+            var payload: [String: JSONValue] = ["state": .string(run.terminal ? (run.lease ? "draining" : "stopped") : "running"),
                 "terminal": .bool(run.terminal), "workers_drained": .bool(drained),
                 "input_state": .int(Int(status?.input_state ?? cycle.recoveredInputState)), "ui_frozen": .bool(run.uiFrozen),
                 "native_inflight": .bool(run.inFlight && !drained), "cycle": .object(NG2CycleWire.companion(cycle.companion)),
                 "notification": .object(["authorization": .string(permission), "state": .string(cycle.notificationState)])]
+            if let irregular = run.irregular {
+                payload["irregular"] = .object(irregular.recoveredProjection
+                    ?? (try? NG2CycleWire.irregular(irregular.companion)) ?? [:])
+            }
+            return payload
         }
     }
 
@@ -1288,16 +1783,28 @@ final class NG2Runtime {
                 spool = try NG2CycleSpool.recover(runID: id, owner: owner)
                 #endif
                 var clock: String?
+                var recoveredProfile = Self.cycleProfile
                 if let header = try? spool.sessionBytes(),
                    let object = try? JSONSerialization.jsonObject(with: header) as? [String: Any],
-                   let provenance = object["provenance"] as? [String: Any],
-                   let original = provenance["clock_id"] as? String, self.lowerHexIdentity(original) { clock = original }
-                let run = NG2Run(owner: owner, id: id, now: Self.now(), profile: Self.cycleProfile, clock: clock)
+                   let provenance = object["provenance"] as? [String: Any] {
+                    if let storedProfile = provenance["native_profile"] {
+                        guard let name = storedProfile as? String,
+                              NG2CycleWire.ProtocolSpec.forProfile(name) != nil else {
+                            throw NG2CycleSpool.Failure.invalid("recovery-native-profile")
+                        }
+                        recoveredProfile = name
+                    }
+                    if let original = provenance["clock_id"] as? String, self.lowerHexIdentity(original) { clock = original }
+                }
+                let run = NG2Run(owner: owner, id: id, now: Self.now(), profile: recoveredProfile, clock: clock)
                 let cycle = run.cycle!
                 cycle.spool = spool; cycle.recovered = true; cycle.terminalPersisted = true
                 cycle.companion.state = 8
                 run.terminal = true; run.stopped = true; run.lease = false; run.captureWorkerDone = true
                 let records = try spool.records()
+                guard run.irregular != nil || !records.contains(where: { $0.kind.hasPrefix("irregular_") }) else {
+                    throw NG2CycleSpool.Failure.invalid("recovery-record-profile")
+                }
                 let intents = records.filter { $0.kind == "restart_intent" }
                 let outcomes = records.filter { $0.kind == "restart_outcome" }
                 let dangling = intents.contains { intent in
@@ -1310,12 +1817,81 @@ final class NG2Runtime {
                         return completed.uint64Value == commandID.uint64Value
                     }
                 }
-                let unknown = records.contains { record in
+                var unknown = records.contains { record in
                     let controller = record.payload["controller"] as? [String: Any]
                     return (controller?["input_state"] as? NSNumber)?.intValue == 4
                 }
+                var irregularDangling = false
+                if let irregular = run.irregular {
+                    // Recovery is read-only. Numeric identity must not accept
+                    // booleans, floating point truncation or a foreign episode.
+                    func u(_ value: Any?) -> UInt64? {
+                        guard let number = value as? NSNumber,
+                              ["s", "i", "l", "q", "S", "I", "L", "Q"].contains(String(cString: number.objCType)),
+                              number.int64Value >= 0, number.uint64Value < UInt64(Int64.max) else { return nil }
+                        return number.uint64Value
+                    }
+                    for (intentKind, outcomeKind, action, captureKey, commandKey, captureRole) in [
+                        ("irregular_continue_intent", "irregular_continue_outcome", UInt64(5), "continue_capture_id", "continue_command_id", "continue_outcome"),
+                        ("irregular_restart_intent", "irregular_restart_outcome", UInt64(3), "next_floor_capture_id", "restart_command_id", "new_floor")
+                    ] {
+                        for intent in records where intent.kind == intentKind {
+                            guard let command = intent.payload["command"] as? [String: Any],
+                                  let commandID = u(command["id"]), commandID > 0, u(command["kind"]) == action,
+                                  let original = intent.payload["irregular"] as? [String: Any],
+                                  let episode = u(original["episode_id"]), episode > 0,
+                                  u(original[commandKey]) == commandID,
+                                  let generation = u(intent.payload["generation"]) else {
+                                irregularDangling = true; continue
+                            }
+                            let complete = records.contains { outcome in
+                                guard outcome.kind == outcomeKind, outcome.sequence > intent.sequence,
+                                      u(outcome.payload["generation"]) == generation,
+                                      let state = outcome.payload["irregular"] as? [String: Any],
+                                      u(state["episode_id"]) == episode, u(state["prefix"]) == commandID,
+                                      u(state[commandKey]) == commandID,
+                                      let capture = u(state[captureKey]), capture > 0,
+                                      let frames = outcome.payload["frames"] as? [[String: Any]],
+                                      frames.contains(where: { $0["role"] as? String == captureRole
+                                          && u($0["capture_id"]) == capture && u($0["prefix"]) == commandID
+                                          && u($0["generation"]) == generation }),
+                                      let savedCommand = outcome.payload["command"] as? [String: Any],
+                                      u(savedCommand["id"]) == commandID, u(savedCommand["kind"]) == action,
+                                      let ack = outcome.payload["ack"] as? [String: Any],
+                                      u(ack["command_id"]) == commandID, u(ack["kind"]) == action,
+                                      ack["outcome"] as? String == "acked",
+                                      let started = u(ack["started_ns"]), started > 0,
+                                      let ended = u(ack["completed_ns"]), ended >= started else { return false }
+                                return true
+                            }
+                            if !complete { irregularDangling = true }
+                        }
+                    }
+                    unknown = unknown || records.contains { record in
+                        if let ack = record.payload["ack"] as? [String: Any], ack["outcome"] as? String == "unknown" { return true }
+                        if let state = record.payload["irregular"] as? [String: Any],
+                           state["held_reason"] as? String == "unknown_input" { return true }
+                        let controller = record.payload["controller"] as? [String: Any]
+                        let events = controller?["events"] as? [[String: Any]] ?? []
+                        return events.contains { u($0["outcome"]) == 4 }
+                    }
+                    if let raw = records.last(where: { $0.payload["irregular"] != nil })?.payload["irregular"] as? [String: Any] {
+                        let reference = try NG2CycleWire.irregular(irregular.companion)
+                        let numeric = reference.keys.filter { !["enabled", "kind", "stage", "held_reason"].contains($0) }
+                        let value = try NG2CycleWire.decode(raw)
+                        guard Set(value.keys) == Set(reference.keys),
+                              let enabled = value["enabled"], case .bool = enabled,
+                              u(raw["abi_version"]) == 1, numeric.allSatisfy({ u(raw[$0]) != nil }),
+                              ["none", "stalled", "death"].contains(raw["kind"] as? String ?? ""),
+                              ["idle", "quiesce", "checkpoint", "pause", "death_continue", "wait_menu", "restart_ready", "wait_restart", "outcome", "held"].contains(raw["stage"] as? String ?? ""),
+                              ["none", "menu_unrecognized", "deadline", "storage", "candidate", "unknown_input", "invalid_ui", "classification", "baseline_unavailable", "limit", "control_invalid"].contains(raw["held_reason"] as? String ?? "") else {
+                            throw NG2CycleSpool.Failure.invalid("recovery-irregular-status")
+                        }
+                        irregular.recoveredProjection = value
+                    }
+                }
                 let noTerminal = !records.contains(where: { $0.kind == "terminal" })
-                if noTerminal || dangling || unknown { cycle.recoveredInputState = 4; run.uiFrozen = true }
+                if noTerminal || dangling || irregularDangling || unknown { cycle.recoveredInputState = 4; run.uiFrozen = true }
                 if let payload = records.last(where: { $0.payload["cycle"] != nil })?.payload,
                    let value = payload["cycle"] as? [String: Any] {
                     func n(_ key: String) -> UInt64 { (value[key] as? NSNumber)?.uint64Value ?? 0 }
@@ -1337,13 +1913,14 @@ final class NG2Runtime {
         let status = cyclePayload(run)
         let exporter: NG2CycleExport? = run.lock.ng2Locked {
             guard run.terminal, !run.lease, !cycle.workerBusy, cycle.exporter == nil, let spool = cycle.spool else { return nil }
-            let value = NG2CycleExport(spool: spool, status: status, recovered: cycle.recovered, owner: run.owner)
+            let value = NG2CycleExport(spool: spool, status: status, recovered: cycle.recovered, owner: run.owner,
+                spec: NG2CycleWire.ProtocolSpec.forProfile(run.profile)!)
             cycle.exporter = value; return value
         }
         exporter?.prepare()
     }
 
-    private func handleCycle(owner: String, id: String, params: [String: JSONValue]) -> ([String: JSONValue]?, JSONRPCError?) {
+    private func handleCycle(owner: String, id: String, params: [String: JSONValue], spec: NG2CycleWire.ProtocolSpec = .standard) -> ([String: JSONValue]?, JSONRPCError?) {
         let mode = params["mode"]?.stringValue ?? "status"
         let base: Set<String> = ["run_id", "mode", Self.ownerParam]
         let extra: Set<String>
@@ -1366,7 +1943,7 @@ final class NG2Runtime {
             let payload: [String: JSONValue] = ["stop_detail_schema": .string("ngg2-stop-detail-v1"),
                 "handoff_schema": .string("ngg2-trial-handoff-v1"), "maximum_run_ids": .int(128),
                 "pin_limit": .int(Self.cycleEvidencePinLimit)]
-            return (NG2CycleWire.envelope(runID: id, mode: mode, payload: payload), nil)
+            return (NG2CycleWire.envelope(runID: id, mode: mode, payload: payload, spec: spec), nil)
         }
         if mode == "prepare" {
             guard params["request_authorization"] == nil || params["request_authorization"]?.boolValue != nil else {
@@ -1381,7 +1958,7 @@ final class NG2Runtime {
                     "notification_authorization": .string(notificationAuthorization), "recovery_scan": .string(cycleScanState),
                     "unpublished_run_ids": .array(unpublishedCycles.sorted().map { .string($0) }), "reason": .string(reason)]
             }
-            return (NG2CycleWire.envelope(runID: id, mode: mode, payload: payload), nil)
+            return (NG2CycleWire.envelope(runID: id, mode: mode, payload: payload, spec: spec), nil)
         }
         let existing = lock.ng2Locked { current }
         let run: NG2Run?
@@ -1396,13 +1973,14 @@ final class NG2Runtime {
             beginCycleRecovery(owner: owner, id: id)
             return failure("Native cycle read-only recovery is pending.", -32094)
         }
+        guard run.profile == spec.profile else { return failure("Cycle query profile differs from immutable session.", -32602) }
         if mode == "status" {
             guard params["keepalive"] == nil || params["keepalive"]?.boolValue != nil else { return failure("keepalive must be boolean.", -32602) }
             run.lock.ng2Locked {
                 if !cycle.recovered && NG2TicketGuard.renewsHeartbeat(keepalive: params["keepalive"]?.boolValue ?? false,
                     ownerActive: ownerActive(run), cancelled: run.cancelReason != 0) { run.heartbeat = Self.now() }
             }
-            return (NG2CycleWire.envelope(runID: id, mode: mode, payload: cyclePayload(run)), nil)
+            return (NG2CycleWire.envelope(runID: id, mode: mode, payload: cyclePayload(run), spec: spec), nil)
         }
         guard run.lock.ng2Locked({ run.terminal && !run.lease && !cycle.workerBusy }) else {
             return failure("Cycle export requires terminal, drained workers.")
@@ -1455,7 +2033,7 @@ final class NG2Runtime {
             let pending = answer.1 == "pending"
             return failure(answer.1 ?? "Native cycle export is pending.", pending ? -32094 : -32004)
         }
-        return (NG2CycleWire.envelope(runID: id, mode: mode, payload: payload), nil)
+        return (NG2CycleWire.envelope(runID: id, mode: mode, payload: payload, spec: spec), nil)
     }
 
     private func isSHA256(_ value: String) -> Bool {
@@ -1738,6 +2316,15 @@ final class NG2Runtime {
         guard let run = lock.ng2Locked({ current }), run.id == id else { return nil }
         return run.lock.ng2Locked { run.reportSnapshot?.status.last_capture_id }
     }
+    func testIrregularRetentionIDs(_ id: String) -> [String: [UInt64]]? {
+        guard let run = lock.ng2Locked({ current }), run.id == id else { return nil }
+        return run.lock.ng2Locked {
+            ["pinned": run.pinned.keys.sorted(), "irregular": run.irregular?.frames.keys.sorted() ?? [],
+             "cycle": run.cycle?.frames.keys.sorted() ?? [], "recent": run.images.map { $0.id },
+             "initial_found": [run.initial?.id, run.found?.id].compactMap { $0 },
+             "capture_pipeline": run.capturePipelineIDs.sorted()]
+        }
+    }
     func testOriginalFrameEvidence(_ id: String, captureIDs: [UInt64]) -> [UInt64: (Data, [String: JSONValue])]? {
         guard let run = lock.ng2Locked({ current }), run.id == id else { return nil }
         let frames = run.lock.ng2Locked {
@@ -1878,6 +2465,11 @@ final class NG2Runtime {
             run.cancel(15); run.lock.ng2Locked { run.terminal = true; run.captureWorkerDone = true; run.lease = false }; return
         }
         run.core = core
+        if run.irregular != nil && ng2_controller_enable_irregular(core) != 1 {
+            run.cancel(17)
+            run.lock.ng2Locked { run.captureWorkerDone = true }
+            ng2_controller_cancel(core, Self.now(), 17); self.cycle(run); return
+        }
         // This independent timer starts before the main-thread barrier and
         // activation. It invalidates a queued bootstrap even if main is stuck.
         let watchdog = DispatchSource.makeTimerSource(queue: watchdogQueue)
@@ -1942,7 +2534,7 @@ final class NG2Runtime {
         // recovered portrait is never published as a failed game raster.
         var startupPortrait: (generation: UInt64, id: UInt64, start: UInt64, end: UInt64, failure: NG2Raster.Failure)?
         defer {
-            run.lock.ng2Locked { run.captureWorkerDone = true }
+            run.lock.ng2Locked { run.captureWorkerDone = true; run.capturePipelineIDs.removeAll() }
             controlQueue.async {
                 self.cycle(run)
                 #if NG2_RUNTIME_HOST_TEST
@@ -1951,7 +2543,9 @@ final class NG2Runtime {
             }
         }
         while !run.lock.ng2Locked({ run.stopped }) {
-            if !streamsDrained { Thread.sleep(forTimeInterval: 0.005); continue }
+            if !streamsDrained || run.lock.ng2Locked({ run.irregularCapturePaused }) {
+                Thread.sleep(forTimeInterval: 0.005); continue
+            }
             let finished = DispatchSemaphore(value: 0)
             let replyLock = NSLock()
             var answered = false
@@ -1963,18 +2557,21 @@ final class NG2Runtime {
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.beforeCaptureAdmission?()
             #endif
-            var startupDenied = false
+            var startupDenied = false, pausedAdmission = false
             let admission: (UInt64, UInt64, Bool, UInt64, UInt64)? = run.lock.ng2Locked {
                 guard !run.stopped, run.cancelReason == 0, self.ownerActive(run) else { return nil }
+                if run.irregularCapturePaused { pausedAdmission = true; return nil }
                 if let prior = startupPortrait, !run.startupRasterReady,
                    !self.startupPortraitGateLocked(run, generation: prior.generation, now: Self.now()) {
                     startupDenied = run.generation == prior.generation && run.cancelReason == 0 && !run.stopped
                     return nil
                 }
                 run.captureID += 1; run.captureOutstanding = true
+                if run.irregular != nil { run.capturePipelineIDs.insert(run.captureID) }
                 return (run.captureID, run.prefix, run.inFlight, run.generation, Self.now())
             }
             guard let before = admission else {
+                if pausedAdmission { Thread.sleep(forTimeInterval: 0.005); continue }
                 if startupDenied, let prior = startupPortrait {
                     commitCaptureFailure(run, generation: prior.generation, id: prior.id,
                         start: prior.start, end: prior.end, failure: prior.failure)
@@ -2005,6 +2602,9 @@ final class NG2Runtime {
                 return
             }
             if run.lock.ng2Locked({ run.stopped || run.generation != before.3 }) { return }
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeTestHooks.beforeCaptureDecode?(before.0)
+            #endif
             let decoding: NG2Raster.DecodeResult
             if captureEnd <= start {
                 decoding = .failure(.init(stage: .interval, code: .invalidInterval, encodedBytes: raw?.count))
@@ -2026,6 +2626,7 @@ final class NG2Runtime {
                 if waitForStartupPortrait(run, generation: before.3, startPrefix: before.1,
                     endPrefix: endPrefix, startInFlight: before.2, endInFlight: endInFlight, failure: failure) {
                     startupPortrait = (before.3, before.0, start, captureEnd, failure)
+                    run.lock.ng2Locked { run.capturePipelineIDs.remove(before.0) }
                     Thread.sleep(forTimeInterval: 0.05)
                     continue
                 }
@@ -2047,13 +2648,43 @@ final class NG2Runtime {
             #endif
             let analyzed = analysisRGBA.withUnsafeBytes { ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress,
                 analysisRGBA.count, NG2Raster.stride, scene) }
+            var irregularAnalyzed: Int32 = 0
+            if run.irregular != nil {
+                let flags: UInt32 = run.lock.ng2Locked { run.irregular!.scanRestart ? 1 : 0 }
+                #if NG2_RUNTIME_HOST_TEST
+                let companionRGBA = NG2RuntimeCycleTestHooks.irregularRGBA?(frameRGBA) ?? frameRGBA
+                #else
+                let companionRGBA = frameRGBA
+                #endif
+                irregularAnalyzed = companionRGBA.withUnsafeBytes {
+                    ng2_analyze_irregular_rgba($0.bindMemory(to: UInt8.self).baseAddress,
+                        companionRGBA.count, NG2Raster.stride, flags, &analysis.irregular)
+                }
+            }
             let frame = NG2Frame(id: before.0, start: start, end: captureEnd, decodeEnd: decodeEnd,
                 generation: before.3, analysisStart: analysisStart, analysisEnd: Self.now(), analysis: analysis,
                 startPrefix: before.1, prefix: endPrefix, startInFlight: before.2, endInFlight: endInFlight,
                 stable: !before.2 && !endInFlight && before.1 == endPrefix, rgba: frameRGBA,
                 rasterTrace: decoded.trace, encodedBytes: raw?.count ?? 0,
                 diagnosticOrientation: decoded.diagnosticOrientation)
-            if analyzed != 0 {
+            #if NG2_RUNTIME_HOST_TEST
+            if run.irregular != nil && analyzed == 0 && irregularAnalyzed == 0 {
+                NG2RuntimeCycleTestHooks.afterIrregularAnalysis?(frame.id, frame.rgba, analysis.irregular)
+            }
+            #endif
+            if analyzed != 0 || irregularAnalyzed != 0 {
+                if analyzed == 0 && irregularAnalyzed != 0 {
+                    // The normal raster is valid diagnostic evidence. A failed
+                    // companion is never supplied to C as an inspected NONE.
+                    run.lock.ng2Locked {
+                        if run.generation == before.3 && run.cancelReason == 0 && !run.stopped && self.ownerActive(run) {
+                            if run.initial == nil && (run.irregular?.archivedInitialID ?? 0) == 0 { run.initial = frame }
+                            run.images.append(frame)
+                            if run.images.count > 4 { run.images.removeFirst() }
+                            run.terminalCaptureID = frame.id
+                        }
+                    }
+                }
                 let trace = frame.rasterTrace
                 commitCaptureFailure(run, generation: before.3, id: frame.id, start: frame.start, end: frame.end,
                     failure: .init(stage: .analysis, code: .invalidRGBA, encodedBytes: frame.encodedBytes,
@@ -2062,8 +2693,12 @@ final class NG2Runtime {
             }
             run.lock.ng2Locked {
                 if run.generation == before.3 && !run.stopped {
-                    if run.latest != nil { run.replacedFrames += 1 }
+                    if let previous = run.latest {
+                        run.replacedFrames += 1; run.capturePipelineIDs.remove(previous.id)
+                    }
                     run.latest = frame
+                } else {
+                    run.capturePipelineIDs.remove(frame.id)
                 }
             }
             controlQueue.async { self.cycle(run) }
@@ -2099,6 +2734,16 @@ final class NG2Runtime {
         }
     }
 
+    private func waitForIrregularPostCheckpointUI(_ run: NG2Run, status: NG2ControllerStatus) -> Bool {
+        run.lock.ng2Locked {
+            guard let irregular = run.irregular else { return false }
+            let state = irregular.companion
+            guard (state.stage == 3 || state.stage == 4), state.durable_ns != 0 else { return false }
+            return status.last_capture_id == 0 || status.last_capture_start_ns < state.durable_ns
+                || status.last_completed_id != state.prefix
+        }
+    }
+
     private func cycle(_ run: NG2Run) {
         guard let core = run.core else { return }
         let now = Self.now()
@@ -2122,7 +2767,13 @@ final class NG2Runtime {
                     NG2RuntimeObserveTestHooks.beforeObserve?()
                     #endif
                     let observeStart = Self.now()
-                    ng2_controller_observe_at(core, scene, frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0, observeStart)
+                    if run.irregular != nil {
+                        ng2_controller_observe_irregular_at(core, scene, &frame.analysis.irregular,
+                            frame.id, frame.start, frame.end, frame.prefix, frame.stable ? 1 : 0, observeStart)
+                    } else {
+                        ng2_controller_observe_at(core, scene, frame.id, frame.start, frame.end,
+                            frame.prefix, frame.stable ? 1 : 0, observeStart)
+                    }
                     #if NG2_RUNTIME_HOST_TEST
                     NG2RuntimeObserveTestHooks.afterObserve?()
                     #endif
@@ -2133,8 +2784,8 @@ final class NG2Runtime {
                         run.rasterSamples.remove(at: 1)
                         run.rasterSamplesDropped += 1
                     }
-                    if run.initial == nil { run.initial = frame }
-                    if scene.pointee.goods == 2 && run.found == nil { run.found = frame }
+                    if run.initial == nil && (run.irregular?.archivedInitialID ?? 0) == 0 { run.initial = frame }
+                    if scene.pointee.goods == 2 && run.found == nil && (run.irregular?.archivedFoundID ?? 0) == 0 { run.found = frame }
                     run.analyzedFrames += 1
                     run.images.append(frame)
                     if run.images.count > 4 {
@@ -2147,6 +2798,7 @@ final class NG2Runtime {
                     var observedStatus = NG2ControllerStatus(); ng2_controller_status(core, &observedStatus)
                     cache(run, observedStatus)
                     refreshCycleEvidence(run, frame: frame)
+                    refreshIrregularEvidence(run, frame: frame)
                 } else {
                     // A generation-only replacement discards this old frame;
                     // it must not cancel or mutate the current generation.
@@ -2156,9 +2808,11 @@ final class NG2Runtime {
                         ng2_controller_cancel(core, Self.now(), reason)
                     }
                 }
+                run.lock.ng2Locked { run.capturePipelineIDs.remove(frame.id) }
         }
         var status = NG2ControllerStatus(); ng2_controller_status(core, &status)
         serviceCycleAssessment(run)
+        serviceIrregularPersistence(run)
         if status.terminal != 0 {
             run.lock.ng2Locked {
                 run.terminal = true
@@ -2209,13 +2863,39 @@ final class NG2Runtime {
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeTestHooks.beforeControlTick?()
             #endif
-            if !waitForCycleAssessmentBeforePause(run, status: status) {
+            if !waitForCycleAssessmentBeforePause(run, status: status)
+                && !waitForIrregularPostCheckpointUI(run, status: status) {
                 var command = NG2Command()
                 let ticket = ng2_controller_tick(core, Self.now(), run.foreground ? 1 : 0,
                     LockStateMonitor.shared().isLocked ? 1 : 0, ownerActive(run) ? 1 : 0, &command)
                 if ticket == 1 {
                     if run.cycle != nil && command.kind == 3 {
                         refreshCycleEvidence(run)
+                    }
+                    if let irregular = run.irregular, command.kind == 2, irregularOwnsInput(irregular.companion) {
+                        let retained = run.lock.ng2Locked { () -> Bool in
+                            guard let source = (run.images + Array(irregular.frames.values))
+                                .first(where: { $0.id == command.source_capture_id }),
+                                  source.generation == run.generation, source.stable,
+                                  !source.startInFlight, !source.endInFlight,
+                                  source.start == command.source_start_ns,
+                                  source.prefix == irregular.companion.prefix,
+                                  source.startPrefix == source.prefix else { return false }
+                            irregular.roles["live_pause_source"] = source.id
+                            irregular.frames[source.id] = source
+                            irregular.observations[source.id] = source.analysis.irregular
+                            return true
+                        }
+                        if !retained {
+                            _ = ng2_controller_irregular_storage_failed(core, irregular.companion.episode_id, Self.now())
+                            refreshIrregularEvidence(run); self.cycle(run); return
+                        }
+                    }
+                    if run.irregular != nil && (command.kind == 3 || command.kind == 5) {
+                        refreshIrregularEvidence(run)
+                        if irregularOwnsInput(run.irregular!.companion) {
+                            persistIrregularIntent(run, command: command); return
+                        }
                     }
                     if let cycle = run.cycle, command.kind == 3, cycle.companion.state == 6,
                        cycle.companion.restart_command_id == command.id {
@@ -2401,6 +3081,7 @@ final class NG2Runtime {
                     return false
                 }
                 run.inFlight = true
+                if command.kind == 3 { run.irregular?.scanRestart = false }
                 return true
             }
             guard permitted else { return }
@@ -2508,7 +3189,7 @@ final class NG2Runtime {
     // authority, movement credit, recovery permission or a synthesized frame.
     private func retainInitialRejectionLocked(_ run: NG2Run, _ snapshot: NG2ControllerSnapshot) {
         let status = snapshot.status
-        guard (run.profile == Self.evidenceProfile || run.profile == Self.cycleProfile), run.cancelReason == 0, !run.stopped,
+        guard (run.profile == Self.evidenceProfile || Self.isCycleProfile(run.profile)), run.cancelReason == 0, !run.stopped,
               !run.terminal, !run.inFlight, ownerActive(run),
               let previous = run.controllerSnapshot else { return }
         let old = previous.status
@@ -2547,21 +3228,21 @@ final class NG2Runtime {
               source.analysis.scene.pointee.goods == 0 else { return }
         run.initialRejectedCaptureID = frame.id
         run.references.insert(frame.id)
-        if run.profile == Self.cycleProfile {
+        if Self.isCycleProfile(run.profile) {
             run.initialRejectedSourceCaptureID = source.id
             run.references.insert(source.id)
         }
         // Reserve the one existing slot even when the rest of pin work is
         // deferred until after dispatch. The previous snapshot is not reused.
         pinDispatchSourceLocked(run, frame.id)
-        if run.profile == Self.cycleProfile { pinDispatchSourceLocked(run, source.id) }
+        if Self.isCycleProfile(run.profile) { pinDispatchSourceLocked(run, source.id) }
     }
 
     // Call under run.lock, before a dispatch snapshot can defer pin work.
     // A replacement within one level cannot add an unbounded evidence slot.
     private func retainRestartDecisionLocked(_ run: NG2Run, _ snapshot: NG2ControllerSnapshot) {
         let status = snapshot.status
-        guard (run.profile == Self.evidenceProfile || run.profile == Self.cycleProfile), run.cancelReason == 0, !run.stopped,
+        guard (run.profile == Self.evidenceProfile || Self.isCycleProfile(run.profile)), run.cancelReason == 0, !run.stopped,
               !run.terminal, !run.inFlight, ownerActive(run),
               status.restarts >= 0, status.restarts < 12, status.input_state == 1,
               status.reason == 0, status.goods == 0, status.terminal == 0,
@@ -2586,7 +3267,7 @@ final class NG2Runtime {
     // frames; this reserves its existing slot before AX preparation can wait.
     private func pinVictimLocked(_ run: NG2Run, incoming: UInt64, protected: Set<UInt64>) -> UInt64? {
         if let ordinary = run.pinned.keys.sorted().first(where: { !protected.contains($0) }) { return ordinary }
-        guard run.profile == Self.cycleProfile, let optional = run.initialRejectedSourceCaptureID,
+        guard Self.isCycleProfile(run.profile), let optional = run.initialRejectedSourceCaptureID,
               optional != incoming, run.pinned[optional] != nil,
               !priorityCaptureIDs(run, includingInitialSource: false).contains(optional) else { return nil }
         return optional
@@ -2621,6 +3302,10 @@ final class NG2Runtime {
     // Call under run.lock. Every value comes from the same immutable C snapshot.
     private func retainEvidenceLocked(_ run: NG2Run, _ snapshot: NG2ControllerSnapshot) {
             let s = snapshot.status, events = snapshot.events, changes = snapshot.changes
+            if let irregular = run.irregular, irregularOwnsInput(irregular.companion) {
+                run.terminalCaptureID = s.terminal != 0 && s.last_capture_id != 0 ? s.last_capture_id : nil
+                return // Exact episode roles retain pixels; historical pins cannot steal future credits.
+            }
             let motionReferences = snapshot.motionReferences
             var required = Set<UInt64>()
             var diagnosticIDs: [UInt64] = []
@@ -2634,7 +3319,7 @@ final class NG2Runtime {
             if let source = events.last(where: { $0.command.kind == 4 })?.command.source_capture_id,
                source != 0 && !diagnosticIDs.contains(source) { diagnosticIDs.append(source) }
             run.diagnosticCaptureIDs = diagnosticIDs
-            if run.profile == Self.cycleProfile {
+            if Self.isCycleProfile(run.profile) {
                 let stop = snapshot.stopDetail, handoff = snapshot.handoff
                 var cycleIDs: [UInt64] = []
                 for id in [stop.source_capture_id, stop.observed_capture_id, stop.anchor_capture_id,

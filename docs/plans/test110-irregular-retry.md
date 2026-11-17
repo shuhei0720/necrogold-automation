@@ -18,11 +18,11 @@
 
 FSMは `quiesce -> checkpoint durable -> UI qualification -> restart intent durable -> RESTART -> changed normal floor -> outcome durable`。旧MOVE/slot/model/proofを撤回し、開始済callback/workerが実際にdrainするまで入力しない。pending Ringの正の対象/候補が来たら保持を優先する。障害/不明を商品陰性にせず、completed_shopsを増やさない。
 
-生存時は新しいFLOORから通常PAUSEを1回、実ACKとfresh PAUSE/実restart labelの後だけRESTARTする。死亡時は全prompt・HUDと空のheart領域等の独立証拠から、専用action `DEATH_CONTINUE` kind5を1回だけ許す。promptの実観測点へtapし、RESUME/PAUSEへ偽装しない。ACKはリスタート成功ではない。
+生存時は新しいFLOORから通常PAUSEを1回、実ACKとfresh PAUSE/実restart labelの後だけRESTARTする。死亡時は全prompt・HUDと空のheart領域等の独立証拠から、専用action `DEATH_CONTINUE` kind5を1回だけ許す。promptの実観測点へtapし、RESUME/PAUSEへ偽装しない。ACKはリスタート成功ではない。保存済STALLEDからPAUSE未予約の間に強DEATHへ変化した場合だけ、同episode/親D/証拠・予算を保つ限定切替を認め、continue intentへ新死亡sourceを保存する。予約/開始/PAUSE ACK待ちへは広げない。
 
 死亡続行後は新しいPAUSE/label、又は生きた通常1-1 FLOORからのPAUSEを認める。別result menuの場合は、有限の中央ROI内で既Quick Restart全glyphの唯一の一致clusterを探し、独立2枚のstable/current-prefix画像で同じ実bboxを確認して座標を導く。元glyph/visibility/色の正の支持を検査し、欠け/全面白/複数候補/別scale/残った死亡promptは拒否する。実メニューを認識できない場合は `irregular_menu_unrecognized` で画面を保持する。旧PAUSE座標の流用で成功扱いしない。
 
-episode親Dをtrigger時に元transition/walk/sessionの最小で固定。保存・再観測で延長せず、各UI ticketも新しいsource/期限を持つ。12restart/16方向/45秒walk/180秒session、heartbeat/取消/前面/lock、UNKNOWN synthの凍結と無再送を保持する。再試行の新しいcampaign handoffを今回勝手に作らない。
+episode親Dをtrigger時に元transition/walk/sessionの最小で固定。保存・再観測で延長せず、各UI ticketも新しいsource/期限を持つ。通常観測で満杯になる歴史pinは、実drain/上限検査・raw/meta fsync・同owner/generation等の再検査後にSpoolへ移送し、原本を保持したままactive以外のmemory pinだけ解放して将来枠を予約する。12restart/16方向/45秒walk/180秒session、heartbeat/取消/前面/lock、UNKNOWN synthの凍結と無再送を保持する。再試行の新しいcampaign handoffを今回勝手に作らない。
 
 ## 4. 影響・互換
 

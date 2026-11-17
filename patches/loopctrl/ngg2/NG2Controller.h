@@ -7,7 +7,7 @@
 #include "NG2Ring.h"
 typedef struct NG2Controller NG2Controller;
 enum { NG2_ACTION_NONE=0, NG2_ACTION_RESUME=1, NG2_ACTION_PAUSE=2,
-       NG2_ACTION_RESTART=3, NG2_ACTION_MOVE=4 };
+       NG2_ACTION_RESTART=3, NG2_ACTION_MOVE=4, NG2_ACTION_DEATH_CONTINUE=5 };
 enum { NG2_PHASE_SEARCH=0, NG2_PHASE_FLOOR=1, NG2_PHASE_PAUSE=2,
        NG2_PHASE_RESTART=3, NG2_PHASE_SYNC=4, NG2_PHASE_WALK=5,
        NG2_PHASE_FINISH=6, NG2_PHASE_DONE=7 };
@@ -144,6 +144,44 @@ typedef struct {
     uint64_t continuation_deadline_ns;
     uint64_t queued_capture_id, queued_capture_start_ns, queued_prefix;
 } NG2ControllerCycleStatus;
+
+/* Explicit opt-in companion. Existing Scene/Status/Event/CycleStatus retain
+ * their layouts and old profiles never obtain kind5 authority. */
+enum { NG2_IRREGULAR_NONE=0, NG2_IRREGULAR_STALLED=1, NG2_IRREGULAR_DEATH=2 };
+enum { NG2_IRREGULAR_IDLE=0, NG2_IRREGULAR_QUIESCE=1, NG2_IRREGULAR_CHECKPOINT=2,
+       NG2_IRREGULAR_PAUSE=3, NG2_IRREGULAR_DEATH_CONTINUE=4, NG2_IRREGULAR_WAIT_MENU=5,
+       NG2_IRREGULAR_RESTART_READY=6, NG2_IRREGULAR_WAIT_RESTART=7,
+       NG2_IRREGULAR_OUTCOME=8, NG2_IRREGULAR_HELD=9 };
+enum { NG2_IRREGULAR_HOLD_NONE=0, NG2_IRREGULAR_MENU_UNRECOGNIZED=1,
+       NG2_IRREGULAR_DEADLINE=2, NG2_IRREGULAR_STORAGE=3,
+       NG2_IRREGULAR_CANDIDATE=4, NG2_IRREGULAR_UNKNOWN_INPUT=5,
+       NG2_IRREGULAR_INVALID_UI=6, NG2_IRREGULAR_CLASSIFICATION=7,
+       NG2_IRREGULAR_BASELINE_UNAVAILABLE=8, NG2_IRREGULAR_LIMIT=9,
+       NG2_IRREGULAR_CONTROL_INVALID=10 };
+typedef struct {
+    uint32_t abi_version,struct_size;
+    int32_t enabled,kind,stage,held_reason,episodes;
+    uint64_t episode_id,trigger_capture_id,before_capture_id,live_baseline_capture_id,prefix;
+    uint64_t trigger_ns,parent_deadline_ns,proof_capture_id;
+    uint64_t continue_command_id,continue_capture_id,pause_capture_id;
+    uint64_t restart_command_id,next_floor_capture_id;
+    uint64_t durable_ns,continue_intent_ns,continue_outcome_ns;
+    uint64_t restart_intent_ns,outcome_ns;
+} NG2ControllerIrregularStatus;
+int ng2_controller_enable_irregular(NG2Controller *);
+void ng2_controller_observe_irregular_at(NG2Controller *,const NG2Scene *,
+    const NG2IrregularObservation *,uint64_t id,uint64_t start,uint64_t end,
+    uint64_t prefix,int32_t stable,uint64_t commit_ns);
+int ng2_controller_irregular_status(const NG2Controller *,NG2ControllerIrregularStatus *);
+int ng2_controller_irregular_ring_settled(NG2Controller *,uint64_t episode,
+    uint64_t job,uint64_t source_capture,uint64_t prefix,const NG2RingResult *,uint64_t now);
+int ng2_controller_irregular_durable(NG2Controller *,uint64_t episode,
+    uint64_t trigger_capture,uint64_t prefix,uint64_t now);
+int ng2_controller_irregular_intent_commit(NG2Controller *,uint64_t episode,
+    uint64_t command,uint64_t source_capture,uint64_t prefix,uint64_t now);
+int ng2_controller_irregular_outcome_commit(NG2Controller *,uint64_t episode,
+    int32_t action_kind,uint64_t command,uint64_t capture,uint64_t prefix,uint64_t now);
+int ng2_controller_irregular_storage_failed(NG2Controller *,uint64_t episode,uint64_t now);
 
 /* TEST099 read-only companions. No existing public layout or input contract
  * changes. A live stop snapshot may name a wait anchor before valid becomes1. */

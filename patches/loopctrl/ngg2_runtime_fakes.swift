@@ -213,6 +213,7 @@ enum NG2Fake {
     static var walkGoodsEnabled = true
     static var walkPixelInset: Int32 = 0
     static var walkPaused = false
+    static var applyShopGesture: ((UInt64) -> Bool)?
     static var shopWorld: SmallShopWorld?
     static var shopFailNextDirection = false
     static var phaseBase: UInt64 = 0
@@ -283,6 +284,7 @@ enum NG2Fake {
         NG2RuntimeCycleTestHooks.rgba = nil
         #endif
         cycleTap = nil
+        applyShopGesture = nil
         NG2RuntimeTestHooks.afterWatchdogCheck = nil
         LockStateMonitor.monitor.isLocked = false
         NG2RuntimeTestHooks.clock = nil
@@ -602,7 +604,7 @@ final class FastActionHandler {
             NG2Fake.shopFailNextDirection = false
             return (NG2Fake.shopWorld, failure)
         }
-        shop.0?.gesture(fingers, at: now)
+        if NG2Fake.applyShopGesture?(now) ?? true { shop.0?.gesture(fingers, at: now) }
         NG2Fake.lock.fixtureLocked {
             NG2Fake.gesturePaths.append(fingers)
             if NG2Fake.mode == .walk, let point = fingers.first?.first?.point {

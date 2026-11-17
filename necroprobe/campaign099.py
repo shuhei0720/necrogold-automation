@@ -85,16 +85,16 @@ def _new(until_target):
         runs=[],intent=None,pending_run_id=None,complete=False,pending_publication=False,pending_archive=None)
 
 
-def _row(base,record,archive):
-    evidence=inspect_run(base,record)
+def _row(base,record,archive,*,protocol_spec=cycle.STANDARD_PROTOCOL):
+    evidence=inspect_run(base,record,protocol_spec=protocol_spec)
     count,digest=_digest(Path(archive),lambda:False)
     cycle.require(digest==record['archive_sha256'],'campaign_archive_changed')
     return dict(run_id=record['run_id'],archive_name=publication._label(base)+'-'+record['run_id']+'.zip',
                 archive_sha256=digest,archive_bytes=count,**evidence)
 
 
-def _bind(base,ledger,record,archive):
-    row=_row(base,record,archive)
+def _bind(base,ledger,record,archive,*,protocol_spec=cycle.STANDARD_PROTOCOL):
+    row=_row(base,record,archive,protocol_spec=protocol_spec)
     known=[old for old in ledger['runs'] if old['run_id']==record['run_id']]
     if known:
         cycle.require(known==[ledger['runs'][-1]] and known[0]==row,'campaign_run_changed')
@@ -114,14 +114,14 @@ def _bind(base,ledger,record,archive):
     return row
 
 
-def _verify_predecessor(base,ledger):
+def _verify_predecessor(base,ledger,*,protocol_spec=cycle.STANDARD_PROTOCOL):
     last=ledger['runs'][-1]
     folder=Path(base)/('cycle-'+last['run_id'])
     cycle.require(not folder.is_symlink() and not (folder/'records').is_symlink(),'cycle_local_symlink')
     old=cycle.json_object(cycle._read(folder/'journal.json',512*1024),512*1024)
     cycle.require(old.get('run_id')==last['run_id'] and old.get('published') is True
                   and old.get('resolved') is True,'campaign_unpublished_run')
-    row=_row(base,old,_last_archive(base,ledger))
+    row=_row(base,old,_last_archive(base,ledger),protocol_spec=protocol_spec)
     cycle.require(row==last and row['stop_reason']=='handoff','campaign_run_changed')
 
 
@@ -142,13 +142,13 @@ def _result(base,destination,ledger,record,archive,reason,*,pending=False):
     return dict(record=record,archive=archive,campaign_archive=final,ledger=ledger,stop_reason=reason)
 
 
-def _publish(client,destination,base,*,recovery_only=False,cancelled,notice):
+def _publish(client,destination,base,*,recovery_only=False,cancelled,notice,protocol_spec=cycle.STANDARD_PROTOCOL):
     try:
         record,archive=publication.run(client,destination,spool=base,recovery_only=recovery_only,
-            cancelled=cancelled,notice=notice)
+            cancelled=cancelled,notice=notice,protocol_spec=protocol_spec)
         return record,archive,None
     except ProbeError as error:
-        record=cycle.load_journal(base)
+        record=cycle.load_journal(base,protocol_spec=protocol_spec)
         if record is None:raise
         code=error.code if re.fullmatch('[a-z_0-9]{1,64}',error.code) else 'campaign_publication_failed'
         return record,None,code
@@ -173,19 +173,21 @@ def _pending(base,destination,ledger,record,error):
 
 
 def run(client,destination,*,spool,until_target=False,recovery_only=False,
-        cancelled=lambda:False,notice=print):
+        cancelled=lambda:False,notice=print,protocol_spec=cycle.STANDARD_PROTOCOL):
     """Opt-in automatic *new* starts follow only validated immutable C proofs.
 
     A start intent is durable before normal publication is entered. On retry,
     the active native journal distinguishes an unstarted local attempt from an
     already started/uncertain run; that run is recovered, never skipped.
     """
+    protocol=cycle._spec(protocol_spec)
+    cycle.require(cycle.client_protocol(client) is protocol,'cycle_protocol_invalid')
     cycle.require(not (until_target and recovery_only),'campaign_mode_conflict')
     base=Path(spool);base.mkdir(mode=0o700,parents=True,exist_ok=True)
     cycle.require(not base.is_symlink(),'cycle_local_symlink')
     lock=base/'campaign.lock';cycle.require(not lock.is_symlink(),'cycle_local_symlink')
     with cycle.device_lock(lock):
-        ledger=_load(base);active=cycle.load_journal(base)
+        ledger=_load(base);active=cycle.load_journal(base,protocol_spec=protocol)
         if recovery_only:
             cycle.require(active is not None and active['start_intent'],'cycle_recovery_record_missing')
         # An explicit new invocation may start a new campaign after a completed
@@ -193,9 +195,9 @@ def run(client,destination,*,spool,until_target=False,recovery_only=False,
         explicit_after=None;already_reconciled=False
         if ledger is not None and ledger['state']=='stopped' and not recovery_only:
             cycle.require(active is not None and active['published'],'campaign_active_missing')
-            old,old_zip,error=_publish(client,destination,base,recovery_only=True,cancelled=cancelled,notice=notice)
+            old,old_zip,error=_publish(client,destination,base,recovery_only=True,cancelled=cancelled,notice=notice,protocol_spec=protocol)
             if old_zip is None:return _pending(base,destination,ledger,old,error)
-            _bind(base,ledger,old,old_zip)
+            _bind(base,ledger,old,old_zip,protocol_spec=protocol)
             explicit_after=old['run_id'];already_reconciled=True;ledger=None
         if ledger is None:
             ledger=_new(until_target);_save(base,ledger)
@@ -203,9 +205,9 @@ def run(client,destination,*,spool,until_target=False,recovery_only=False,
             ledger['intent']=dict(kind='explicit',after_run_id=explicit_after);_save(base,ledger)
         record=active;archive=None;row=None
         if active is not None and active['start_intent'] and not already_reconciled:
-            record,archive,error=_publish(client,destination,base,recovery_only=True,cancelled=cancelled,notice=notice)
+            record,archive,error=_publish(client,destination,base,recovery_only=True,cancelled=cancelled,notice=notice,protocol_spec=protocol)
             if archive is None:return _pending(base,destination,ledger,record,error)
-            row=_bind(base,ledger,record,archive)
+            row=_bind(base,ledger,record,archive,protocol_spec=protocol)
             if recovery_only:
                 reason=ledger['stop_reason'] if ledger['state']=='stopped' else row['stop_reason']
                 if reason=='handoff':reason='recovery'
@@ -228,12 +230,12 @@ def run(client,destination,*,spool,until_target=False,recovery_only=False,
                 _save(base,ledger)
             # A resumed next-intent must still name the active published
             # predecessor, or the new unstarted journal created by that intent.
-            current=cycle.load_journal(base);intent=ledger['intent']
+            current=cycle.load_journal(base,protocol_spec=protocol);intent=ledger['intent']
             if current is not None and current['published']:
                 cycle.require(current['run_id']==intent['after_run_id'],'campaign_intent_changed')
             elif current is not None and current['start_intent']:
                 raise ProbeError('campaign_unreconciled_run')
-            if intent['kind']=='handoff':_verify_predecessor(base,ledger)
-            record,archive,error=_publish(client,destination,base,cancelled=cancelled,notice=notice)
+            if intent['kind']=='handoff':_verify_predecessor(base,ledger,protocol_spec=protocol)
+            record,archive,error=_publish(client,destination,base,cancelled=cancelled,notice=notice,protocol_spec=protocol)
             if archive is None:return _pending(base,destination,ledger,record,error)
-            row=_bind(base,ledger,record,archive)
+            row=_bind(base,ledger,record,archive,protocol_spec=protocol)

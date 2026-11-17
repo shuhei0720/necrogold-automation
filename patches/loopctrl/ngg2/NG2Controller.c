@@ -150,6 +150,19 @@ struct NG2Controller {
     int cycle_full_source_valid,cycle_full_data_active,cycle_full_data_blocked;
     uint64_t cycle_full_source_id,cycle_full_source_start,cycle_full_source_prefix,cycle_full_parent;
     NG2Scene cycle_full_source;
+    NG2ControllerIrregularStatus irregular;
+    NG2IrregularObservation irregular_observation,irregular_first_enemy,irregular_menu;
+    NG2Scene irregular_live,irregular_move_before,irregular_floor,irregular_goods;
+    uint64_t irregular_observation_id,irregular_live_id,irregular_first_id;
+    uint64_t irregular_first_start,irregular_first_end,irregular_first_command;
+    uint64_t irregular_menu_id,irregular_menu_end,irregular_trigger_prefix;
+    uint64_t irregular_ring_job,irregular_ring_capture,irregular_ring_prefix,irregular_ring_deadline;
+    uint64_t irregular_death_wait_capture;
+    uint64_t irregular_floor_start,irregular_floor_end,irregular_floor_prefix;
+    uint64_t irregular_goods_id,irregular_goods_start,irregular_goods_end,irregular_goods_prefix;
+    uint8_t irregular_baseline[48];
+    int irregular_observation_valid,irregular_call,irregular_lead_before;
+    int irregular_ring_pending,irregular_menu_ready,irregular_death_wait,irregular_restart_ui;
     NG2EntryEpisode entry;
     NG2LowerObservation lower;
     uint64_t cycle_credit_prefix,cycle_consumed_prefix,cycle_sync_deadline;
@@ -958,6 +971,13 @@ enum { PASSAGE_WAIT_GOAL=1,PASSAGE_WAIT_BLOCKED=2,PASSAGE_WAIT_GOLD=3,PASSAGE_WA
 static void post_move_recover(NG2Controller *p,uint64_t now,int reason);
 static int recover_unsent_continuous_scene(NG2Controller *p,uint64_t now,
     const NG2Scene *scene,uint64_t start,uint64_t end,uint64_t prefix);
+static int irregular_blocked(NG2Controller *,const NG2Scene *,uint64_t,uint64_t,uint64_t,const NG2Motion *);
+static int irregular_observe(NG2Controller *,const NG2Scene *,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t);
+static int irregular_tick(NG2Controller *,uint64_t,NG2Command *);
+static int irregular_begin(NG2Controller *,uint64_t,uint64_t,int,int,int);
+static void irregular_hold(NG2Controller *,uint64_t,int);
+static void irregular_clear_first(NG2Controller *);
+static int reserve(NG2Controller *,uint64_t,int,int,uint64_t,NG2Command *);
 static const NG2ControllerEvent *passage_move_ack(const NG2Controller *p){
     const NG2ControllerEvent *e=p->event_count?&p->events[p->event_count-1]:NULL;
     if(!p->passage_active||p->passage_bit<0||p->passage_bit>=10
@@ -2460,7 +2480,9 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
     p->motion_retry_last_ns=start;
     ++p->motion_wait.attempts;p->motion_wait.last_capture_id=id;p->motion_wait.last_motion=motion.kind;
     if(e){e->observed_capture_id=id;e->motion=motion.kind;e->dx=motion.dx;e->dy=motion.dy;}
+    if(irregular_blocked(p,scene,id,start,end,&motion))return;
     if((motion.kind==NG2_TWEEN||motion.kind==NG2_MOTION_UNKNOWN)&&p->motion_wait.attempts<MOTION_ASSESSMENTS)return;
+    irregular_clear_first(p);
     end_visual_wait(p);
     if(motion.kind==NG2_MOVED){
         if(motion.dx!=dx[direction]||motion.dy!=dy[direction]){finish(p,end,NG2_REASON_MOVEMENT);return;}
@@ -4249,6 +4271,8 @@ static int cycle_observe_hold(NG2Controller *p,const NG2Scene *scene,uint64_t id
     return 1;
 }
 int ng2_controller_cycle_worker_begin(NG2Controller *p,uint64_t job,uint64_t capture,uint64_t prefix,uint64_t now){
+    if(p&&p->irregular.enabled&&p->irregular.stage!=NG2_IRREGULAR_IDLE
+        &&!(p->irregular.stage==NG2_IRREGULAR_OUTCOME&&p->irregular.outcome_ns))return 0;
     if(!cycle_current(p,job,now)||!p->cycle.pending||p->cycle.state!=NG2_CYCLE_HOLD
         ||!capture||capture!=p->cycle.capture_id||prefix!=p->cycle.prefix)return 0;
     p->last_now=now;
@@ -4258,6 +4282,8 @@ int ng2_controller_cycle_worker_begin(NG2Controller *p,uint64_t job,uint64_t cap
 }
 int ng2_controller_cycle_assess(NG2Controller *p,uint64_t job,uint64_t capture,uint64_t prefix,
     uint64_t now,const NG2RingResult *result){
+    if(p&&p->irregular.enabled&&p->irregular.stage!=NG2_IRREGULAR_IDLE
+        &&!(p->irregular.stage==NG2_IRREGULAR_OUTCOME&&p->irregular.outcome_ns))return 0;
     if(!cycle_current(p,job,now)||!p->cycle.pending||p->cycle.state!=NG2_CYCLE_ASSESS
         ||capture!=p->cycle.capture_id||prefix!=p->cycle.prefix)return 0;
     p->last_now=now;
@@ -4418,6 +4444,434 @@ int ng2_controller_cycle_storage_failed(NG2Controller *p,uint64_t job,uint64_t n
     if(p->cycle.next_floor_capture_id)p->cycle_pause_attempted=0;
     cycle_failure(p,now,NG2_RING_KERNEL,NG2_REASON_CAPTURE);return 1;
 }
+
+/* Opt-in irregular observations are immutable, same-call companions. They
+ * never replace normal Scene/Motion, and NONE grants no input authority. */
+static int irregular_observation_ok(const NG2IrregularObservation *o){
+    int i;
+    if(!o||o->abi_version!=1||o->struct_size!=sizeof(*o)||o->kind<0||o->kind>3
+        ||o->glyph_intersection<0||o->glyph_union<o->glyph_intersection||o->glyph_union>6480
+        ||o->hud_mask<0||o->hud_mask>15||o->empty_hearts<0||o->empty_hearts>3
+        ||o->matches<0||o->matches>2||o->left<0||o->top<0||o->width<0||o->height<0
+        ||o->left>896||o->top>414||o->width>896-o->left||o->height>414-o->top
+        ||o->enemy_mask>15)return 0;
+    for(i=0;i<3;++i)if(o->heart_inter[i]<0||o->heart_union[i]<o->heart_inter[i]
+        ||o->heart_inter[i]>382||o->heart_union[i]>625||o->heart_red[i]<0||o->heart_red[i]>306
+        ||o->heart_dark[i]<0||o->heart_dark[i]>306
+        ||o->heart_bright[i]<0||o->heart_bright[i]>306)return 0;
+    for(i=0;i<4;++i)if(o->enemy_matches[i]<0||o->enemy_matches[i]>2
+        ||o->enemy_inter[i]<0||o->enemy_union[i]<o->enemy_inter[i]||o->enemy_union[i]>5304
+        ||o->enemy_left[i]<0||o->enemy_left[i]>896||o->enemy_top[i]<0||o->enemy_top[i]>414
+        ||o->enemy_width[i]<0||o->enemy_width[i]>896-o->enemy_left[i]
+        ||o->enemy_height[i]<0||o->enemy_height[i]>414-o->enemy_top[i]
+        ||o->enemy_body_luma[i]<0||o->enemy_body_luma[i]>696
+        ||o->enemy_body_saturation[i]<0||o->enemy_body_saturation[i]>696
+        ||o->enemy_red_outside[i]<0||o->enemy_red_outside[i]>5304
+        ||o->enemy_heart_count[i]<0||o->enemy_heart_count[i]>3)return 0;
+    return 1;
+}
+static int irregular_death_present(const NG2IrregularObservation *o){
+    return irregular_observation_ok(o)&&(o->matches==1||o->matches==2)
+        &&o->left==312&&o->top==312&&o->width==270&&o->height==24
+        &&o->glyph_intersection<=522&&o->glyph_union>=522&&100*o->glyph_intersection>=64*o->glyph_union
+        &&(o->matches==2||100*o->glyph_intersection>=90*522);
+}
+static int irregular_death(const NG2IrregularObservation *o){
+    int i;
+    if(!irregular_death_present(o)||o->kind!=NG2_IRREGULAR_IMAGE_DEATH
+        ||o->matches!=1||o->hud_mask!=15||o->empty_hearts!=3
+        ||o->left!=312||o->top!=312||o->width!=270||o->height!=24
+        ||o->glyph_union<522||100*o->glyph_intersection<64*o->glyph_union
+        ||100*o->glyph_intersection<90*522)return 0;
+    for(i=0;i<3;++i)if(o->heart_union[i]<382
+        ||100*o->heart_inter[i]<90*o->heart_union[i]||100*o->heart_inter[i]<95*382
+        ||o->heart_red[i]<225||o->heart_dark[i]<192||o->heart_bright[i]>48)return 0;
+    return 1;
+}
+static int irregular_restart(const NG2IrregularObservation *o){
+    return irregular_observation_ok(o)&&o->kind==NG2_IRREGULAR_IMAGE_RESTART&&o->matches==1
+        &&o->left>=160&&o->left<=555&&o->top>=60&&o->top<=332
+        &&o->width==181&&o->height==28&&o->glyph_intersection<=223&&o->glyph_union>=223
+        &&o->glyph_union-223+o->glyph_intersection>=212
+        &&o->glyph_union-223+o->glyph_intersection<=237
+        &&100*o->glyph_intersection>=94*o->glyph_union&&100*o->glyph_intersection>=95*223;
+}
+static int irregular_enemy(const NG2IrregularObservation *o,int d){
+    int j=d-1,n,cx,cy,w,h,l,t;
+    if(d<1||d>4||!irregular_observation_ok(o)||o->kind!=NG2_IRREGULAR_IMAGE_ENEMY
+        ||o->hud_mask!=15||!(o->enemy_mask&(1u<<j))||o->enemy_matches[j]!=1)return 0;
+    n=o->enemy_heart_count[j];cx=448+36*dx[d];cy=207+36*dy[d];
+    w=o->enemy_width[j];h=o->enemy_height[j];l=o->enemy_left[j];t=o->enemy_top[j];
+    return n>=1&&n<=3&&w>=15+17*(n-1)&&w<=15+19*(n-1)&&h>=13&&h<=14
+        &&l>=cx-68&&l+w<=cx+68&&t>=cy-43&&t+h<=cy-4
+        &&abs(2*l+w-2*cx)<=12&&2*t+h-2*cy>=-64&&2*t+h-2*cy<=-24
+        &&o->enemy_inter[j]<=137*n&&o->enemy_union[j]>=137*n&&o->enemy_red_outside[j]==o->enemy_union[j]-137*n
+        &&o->enemy_red_outside[j]<=64&&100*o->enemy_inter[j]>=90*o->enemy_union[j]
+        &&100*o->enemy_inter[j]>=93*137*n
+        &&o->enemy_body_luma[j]>=48&&o->enemy_body_saturation[j]>=96;
+}
+static int irregular_active(const NG2Controller *p){
+    return p->irregular.enabled&&p->irregular.stage!=NG2_IRREGULAR_IDLE;
+}
+static void irregular_clear_first(NG2Controller *p){
+    p->irregular_first_id=p->irregular_first_start=p->irregular_first_end=p->irregular_first_command=0;
+    if(!irregular_active(p))p->irregular.proof_capture_id=p->irregular.before_capture_id=0;
+}
+static void irregular_frame(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+                            uint64_t start,uint64_t end,uint64_t prefix){
+    p->scene=*scene;p->have_scene=1;p->last_observed_prefix=prefix;
+    p->s.last_capture_id=id;p->s.last_capture_start_ns=start;p->s.last_capture_end_ns=end;
+    p->s.paused=scene->state==NG2_PAUSE;++p->s.accepted_frames;p->irregular.prefix=prefix;
+}
+static void irregular_keep_goods(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+                                  uint64_t start,uint64_t end,uint64_t prefix){
+    if(p->irregular_goods_id||scene->state!=NG2_FLOOR||scene->goods==NG2_GOODS_UNKNOWN)return;
+    p->irregular_goods=*scene;p->irregular_goods_id=id;p->irregular_goods_start=start;
+    p->irregular_goods_end=end;p->irregular_goods_prefix=prefix;
+    /* In OUTCOME this triple is only a bounded raw-image retention hint.
+     * There is no normal job, pending worker, or input permission yet. */
+    p->cycle.queued_capture_id=id;p->cycle.queued_capture_start_ns=start;p->cycle.queued_prefix=prefix;
+    p->cycle_queued_valid=0;
+}
+static void irregular_hold(NG2Controller *p,uint64_t now,int held){
+    if(!p->irregular.enabled)return;
+    p->irregular.stage=NG2_IRREGULAR_HELD;
+    if(!p->irregular.held_reason||held==NG2_IRREGULAR_CANDIDATE||held==NG2_IRREGULAR_UNKNOWN_INPUT)
+        p->irregular.held_reason=held;
+    p->irregular.prefix=p->s.last_completed_id;p->preparation_epoch=0;
+    if(p->s.input_state==1)not_sent(p,now,NG2_REASON_SCREEN);
+    clear_slots(p);clear_model(p);p->proof_capture_id=p->proof_deadline=0;
+    if(p->s.input_state==3)end_visual_wait(p);
+    if(!p->irregular_ring_pending&&p->s.input_state!=2&&!p->s.terminal)
+        terminal(p,now,held==NG2_IRREGULAR_UNKNOWN_INPUT?NG2_REASON_UNKNOWN_INPUT:
+            held==NG2_IRREGULAR_CANDIDATE?NG2_REASON_GOODS:
+            held==NG2_IRREGULAR_STORAGE?NG2_REASON_CAPTURE:
+            held==NG2_IRREGULAR_LIMIT?NG2_REASON_LIMIT:NG2_REASON_SCREEN);
+}
+static void irregular_start(NG2Controller *p,int kind,uint64_t id,uint64_t now){
+    int episodes=p->irregular.episodes+1;uint64_t first=p->irregular_first_id;
+    uint64_t before=p->command.kind==NG2_ACTION_MOVE?p->command.source_capture_id:p->irregular_live_id;
+    uint64_t parent=minimum(now+TRANSITION,p->s.started_ns+180*SECOND);
+    if(p->s.walk_started_ns)parent=minimum(parent,p->s.walk_started_ns+45*SECOND);
+    memset(&p->irregular,0,sizeof(p->irregular));p->irregular.abi_version=1;
+    p->irregular.struct_size=sizeof(p->irregular);p->irregular.enabled=1;
+    p->irregular.kind=kind;p->irregular.episodes=episodes;p->irregular.episode_id=(uint64_t)episodes;
+    p->irregular.trigger_capture_id=id;p->irregular.before_capture_id=before;
+    p->irregular.live_baseline_capture_id=p->irregular_live_id;
+    p->irregular.proof_capture_id=kind==NG2_IRREGULAR_STALLED?first:0;
+    p->irregular.prefix=p->irregular_trigger_prefix=p->s.last_completed_id;
+    p->irregular.trigger_ns=now;p->irregular.parent_deadline_ns=parent;
+    p->irregular_floor_start=p->irregular_floor_end=p->irregular_floor_prefix=0;
+    p->irregular_goods_id=p->irregular_goods_start=p->irregular_goods_end=p->irregular_goods_prefix=0;
+    p->irregular_restart_ui=0;
+    memcpy(p->irregular_baseline,p->irregular_live.fingerprint,48);
+    p->irregular_move_before=p->before;
+    p->irregular_ring_pending=p->cycle.pending!=0;
+    p->irregular_ring_job=p->cycle.job_id;p->irregular_ring_capture=p->cycle.capture_id;
+    p->irregular_ring_prefix=p->cycle.prefix;p->irregular_ring_deadline=p->cycle.deadline_ns;
+    p->irregular.stage=p->irregular_ring_pending?NG2_IRREGULAR_QUIESCE:NG2_IRREGULAR_CHECKPOINT;
+    not_sent(p,now,NG2_REASON_SCREEN);if(p->s.input_state==3)end_visual_wait(p);
+    clear_slots(p);clear_model(p);clear_stationary_wait(p);
+    p->proof_capture_id=p->proof_deadline=p->preparation_epoch=0;
+    p->entry.active=p->lower.active=0;p->cycle_partial_credit=p->cycle_framing_credit=0;
+    p->cycle_full_framing=p->cycle_full_source_valid=p->cycle_full_data_active=0;
+    p->passage_wait_kind=0;p->gate_refresh_state=0;p->terrain_refresh_active=p->observation_refresh_active=0;
+    p->restart_intent=p->restart_pending=0;p->s.phase=NG2_PHASE_FINISH;
+    p->cycle.state=NG2_CYCLE_HELD;
+    if(p->cycle.candidate_latched)irregular_hold(p,now,NG2_IRREGULAR_CANDIDATE);
+    else if(!p->irregular_live_id)irregular_hold(p,now,NG2_IRREGULAR_BASELINE_UNAVAILABLE);
+    else if(p->s.restarts>=12||p->s.inputs>=16||episodes>12||now>=parent)
+        irregular_hold(p,now,NG2_IRREGULAR_LIMIT);
+}
+static int irregular_blocked(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+                             uint64_t start,uint64_t end,const NG2Motion *motion){
+    const NG2ControllerEvent *e=event(p);int i,d=p->command.direction;
+    uint64_t earliest=maximum(p->ack_ns,p->command.target_ns+80000000);
+    if(!p->irregular.enabled||irregular_active(p))return 0;
+    if(motion->kind!=NG2_BLOCKED||motion->dx||motion->dy){
+        if(motion->kind==NG2_MOVED)irregular_clear_first(p);
+        return 0;
+    }
+    if(!p->irregular_call||!p->irregular_observation_valid||p->irregular_observation_id!=id
+        ||!irregular_enemy(&p->irregular_observation,d)||!p->irregular_lead_before
+        ||!p->s.lead_confirmed||!p->command_period||p->s.input_state!=3
+        ||!p->motion_wait.active||p->finish_requested||p->cycle.candidate_latched
+        ||p->s.last_completed_id!=p->command.id||p->last_observed_prefix!=p->command.id
+        ||!e||e->outcome!=2||!e->begin_ns||e->end_ns!=p->ack_ns
+        ||p->before.state!=NG2_FLOOR||scene->state!=NG2_FLOOR
+        ||tile(&p->before,0,0)!=NG2_TILE_FLOOR||tile(scene,0,0)!=NG2_TILE_FLOOR
+        ||tile(&p->before,dx[d],dy[d])!=NG2_TILE_FLOOR
+        ||(tile(scene,dx[d],dy[d])!=NG2_TILE_FLOOR&&tile(scene,dx[d],dy[d])!=NG2_TILE_UNKNOWN)
+        ||protected_at(&p->before,0,0)||protected_at(&p->before,dx[d],dy[d])
+        ||protected_at(scene,0,0)||protected_at(scene,dx[d],dy[d])){
+        irregular_clear_first(p);return 0;
+    }
+    for(i=0;i<NG2_TILE_COUNT;++i)if(p->before.protected_cells[i]!=scene->protected_cells[i]
+        ||((p->before.tiles[i]==NG2_TILE_GOLD||p->before.tiles[i]==NG2_TILE_ITEM
+                ||scene->tiles[i]==NG2_TILE_GOLD||scene->tiles[i]==NG2_TILE_ITEM)
+            &&p->before.tiles[i]!=scene->tiles[i])){irregular_clear_first(p);return 0;}
+    if(!p->irregular_first_id){
+        if(p->motion_wait.attempts>=MOTION_ASSESSMENTS||start>p->motion_wait.deadline_ns
+            ||p->command_period>p->motion_wait.deadline_ns-start){irregular_clear_first(p);return 0;}
+        p->irregular_first_id=id;p->irregular_first_start=start;p->irregular_first_end=end;
+        p->irregular_first_command=p->command.id;p->irregular_first_enemy=p->irregular_observation;
+        p->irregular.proof_capture_id=id;p->irregular.before_capture_id=p->command.source_capture_id;
+        p->irregular.live_baseline_capture_id=p->irregular_live_id;return 1;
+    }
+    if(p->irregular_first_command!=p->command.id||id<=p->irregular_first_id
+        ||start<=p->irregular_first_end){irregular_clear_first(p);return 0;}
+    if(start-p->irregular_first_start<p->command_period||start-earliest<p->command_period){
+        if(p->motion_wait.attempts<MOTION_ASSESSMENTS)return 1;
+        irregular_clear_first(p);return 0;
+    }
+    irregular_start(p,NG2_IRREGULAR_STALLED,id,p->observe_now);return 1;
+}
+int ng2_controller_enable_irregular(NG2Controller *p){
+    if(!p||!p->cycle_enabled||p->irregular.enabled||p->s.capture_count||p->have_scene||p->event_count)return 0;
+    p->irregular.abi_version=1;p->irregular.struct_size=sizeof(p->irregular);p->irregular.enabled=1;return 1;
+}
+int ng2_controller_irregular_status(const NG2Controller *p,NG2ControllerIrregularStatus *out){
+    if(!p||!out)return 0;
+    *out=p->irregular;out->abi_version=1;out->struct_size=sizeof(*out);return 1;
+}
+static int irregular_current(NG2Controller *p,uint64_t episode,uint64_t now){
+    return p&&p->irregular.enabled&&episode&&episode==p->irregular.episode_id
+        &&valid_time(now)&&now>=p->last_now&&!p->s.terminal;
+}
+int ng2_controller_irregular_ring_settled(NG2Controller *p,uint64_t episode,uint64_t job,
+    uint64_t capture,uint64_t prefix,const NG2RingResult *r,uint64_t now){
+    int positive;
+    if(!p||!p->irregular.enabled||episode!=p->irregular.episode_id||!episode
+        ||!p->irregular_ring_pending||job!=p->irregular_ring_job
+        ||capture!=p->irregular_ring_capture||prefix!=p->irregular_ring_prefix
+        ||p->s.terminal||p->irregular.held_reason==NG2_IRREGULAR_CONTROL_INVALID
+        ||p->irregular.held_reason==NG2_IRREGULAR_UNKNOWN_INPUT
+        ||!valid_time(now)||now<p->last_now)return 0;
+    p->last_now=now;p->irregular_ring_pending=0;p->cycle.pending=0;
+    if(!r||r->abi!=NG2_RING_ABI||r->size!=sizeof(*r)||r->status>NG2_RING_KERNEL
+        ||r->outcome>NG2_RING_NEGATIVE||r->coverage>NG2_RING_COVERAGE_COMPLETE
+        ||r->row_count<0||r->row_count>4||r->partial_count<0||r->partial_count>12
+        ||r->selected_row < -1||r->selected_row>=r->row_count
+        ||r->selected_partial < -1||r->selected_partial>=r->partial_count
+        ||r->partial_safe_no_positive>1
+        ||r->started_ns<p->cycle.worker_started_ns||r->finished_ns<r->started_ns||r->finished_ns>now){
+        irregular_hold(p,now,NG2_IRREGULAR_CLASSIFICATION);return 1;}
+    positive=r->status==NG2_RING_OK&&(r->outcome==NG2_RING_TARGET||r->outcome==NG2_RING_CANDIDATE);
+    if(positive){p->cycle.candidate_latched=1;irregular_hold(p,now,NG2_IRREGULAR_CANDIDATE);return 1;}
+    if(r->status!=NG2_RING_OK||now>p->irregular_ring_deadline||now>p->irregular.parent_deadline_ns){
+        irregular_hold(p,now,NG2_IRREGULAR_CLASSIFICATION);return 1;}
+    if(p->irregular.stage==NG2_IRREGULAR_QUIESCE)p->irregular.stage=NG2_IRREGULAR_CHECKPOINT;
+    else if(p->irregular.stage==NG2_IRREGULAR_HELD)irregular_hold(p,now,p->irregular.held_reason);
+    return 1;
+}
+int ng2_controller_irregular_durable(NG2Controller *p,uint64_t episode,uint64_t capture,
+                                     uint64_t prefix,uint64_t now){
+    if(!irregular_current(p,episode,now)||p->irregular.stage!=NG2_IRREGULAR_CHECKPOINT
+        ||p->irregular_ring_pending||p->cycle.candidate_latched||p->irregular.durable_ns
+        ||capture!=p->irregular.trigger_capture_id||prefix!=p->irregular_trigger_prefix
+        ||prefix!=p->s.last_completed_id||p->s.input_state)return 0;
+    p->last_now=now;
+    if(now>p->irregular.parent_deadline_ns){irregular_hold(p,now,NG2_IRREGULAR_DEADLINE);return 0;}
+    p->irregular.durable_ns=now;p->irregular.stage=p->irregular.kind==NG2_IRREGULAR_DEATH?
+        NG2_IRREGULAR_DEATH_CONTINUE:NG2_IRREGULAR_PAUSE;return 1;
+}
+static int irregular_ui(const NG2Controller *p,int kind){
+    const NG2IrregularObservation *o=&p->irregular_observation;
+    if(!p->have_scene||p->last_observed_prefix!=p->s.last_completed_id
+        ||!p->irregular_observation_valid||p->irregular_observation_id!=p->s.last_capture_id)return 0;
+    if(kind==NG2_ACTION_DEATH_CONTINUE)return p->irregular_observation_valid&&irregular_death(o);
+    if(p->irregular_observation_valid&&irregular_death_present(o))return 0;
+    if(kind==NG2_ACTION_PAUSE)return p->scene.state==NG2_FLOOR
+        &&!(p->irregular_observation_valid&&irregular_death(o));
+    if(kind!=NG2_ACTION_RESTART)return 0;
+    if(p->scene.state==NG2_PAUSE&&p->scene.restart_label)return 1;
+    return p->irregular.kind==NG2_IRREGULAR_DEATH&&p->irregular_menu_ready
+        &&p->irregular_observation_valid&&irregular_restart(o)
+        &&abs(o->left-p->irregular_menu.left)<=2&&abs(o->top-p->irregular_menu.top)<=2;
+}
+static int irregular_restart_ticket(const NG2Controller *p){
+    if(p->command.kind!=NG2_ACTION_RESTART||p->command.id!=p->irregular.restart_command_id
+        ||!irregular_ui(p,NG2_ACTION_RESTART))return 0;
+    /* Equal points do not make two different UI kinds interchangeable. */
+    if(p->irregular_restart_ui==1)return p->scene.state==NG2_PAUSE&&p->scene.restart_label
+        &&p->command.x==144&&p->command.y==448;
+    return p->irregular_restart_ui==2&&p->scene.state!=NG2_PAUSE
+        &&p->command.x==400-p->irregular_observation.top
+        &&p->command.y==p->irregular_observation.left+91;
+}
+int ng2_controller_irregular_intent_commit(NG2Controller *p,uint64_t episode,uint64_t command,
+    uint64_t source,uint64_t prefix,uint64_t now){
+    int kind;
+    if(!irregular_current(p,episode,now)||p->irregular.stage==NG2_IRREGULAR_HELD
+        ||!p->irregular.durable_ns||p->irregular_ring_pending||p->cycle.candidate_latched
+        ||p->s.input_state!=1||command!=p->command.id||source!=p->command.source_capture_id
+        ||prefix!=p->s.last_completed_id||prefix!=p->last_observed_prefix
+        ||now>p->command.deadline_ns||now>p->irregular.parent_deadline_ns||!fresh(p,now))return 0;
+    kind=p->command.kind;
+    if(!irregular_ui(p,kind))return 0;
+    if(kind==NG2_ACTION_DEATH_CONTINUE&&p->irregular.stage==NG2_IRREGULAR_DEATH_CONTINUE
+        &&command==p->irregular.continue_command_id&&!p->irregular.continue_intent_ns)
+        p->irregular.continue_intent_ns=now;
+    else if(kind==NG2_ACTION_RESTART&&p->irregular.stage==NG2_IRREGULAR_RESTART_READY
+        &&command==p->irregular.restart_command_id&&!p->irregular.restart_intent_ns
+        &&(p->irregular.kind!=NG2_IRREGULAR_DEATH||p->irregular.continue_outcome_ns)
+        &&irregular_restart_ticket(p))
+        p->irregular.restart_intent_ns=now;
+    else return 0;
+    p->last_now=now;return 1;
+}
+int ng2_controller_irregular_outcome_commit(NG2Controller *p,uint64_t episode,int32_t kind,
+    uint64_t command,uint64_t capture,uint64_t prefix,uint64_t now){
+    if(!irregular_current(p,episode,now)||p->irregular.stage==NG2_IRREGULAR_HELD
+        ||p->cycle.candidate_latched||p->s.input_state||prefix!=p->s.last_completed_id
+        ||prefix!=p->last_observed_prefix||now>p->irregular.parent_deadline_ns)return 0;
+    if(kind==NG2_ACTION_DEATH_CONTINUE&&p->irregular.stage==NG2_IRREGULAR_WAIT_MENU
+        &&command==p->irregular.continue_command_id&&capture==p->irregular.continue_capture_id
+        &&capture&&p->irregular.continue_intent_ns&&!p->irregular.continue_outcome_ns){
+        p->irregular.continue_outcome_ns=now;
+        if(fresh(p,now)&&irregular_ui(p,NG2_ACTION_PAUSE))p->irregular.stage=NG2_IRREGULAR_PAUSE;
+        else if(fresh(p,now)&&irregular_ui(p,NG2_ACTION_RESTART))p->irregular.stage=NG2_IRREGULAR_RESTART_READY;
+    }else if(kind==NG2_ACTION_RESTART&&p->irregular.stage==NG2_IRREGULAR_OUTCOME
+        &&command==p->irregular.restart_command_id&&capture==p->irregular.next_floor_capture_id
+        &&capture&&p->irregular.restart_intent_ns&&!p->irregular.outcome_ns
+        &&p->irregular_floor.state==NG2_FLOOR&&p->irregular_floor_prefix==prefix
+        &&p->irregular_floor_end>p->irregular_floor_start
+        &&ng2_fingerprint_changed(p->irregular_baseline,p->irregular_floor.fingerprint)){
+        p->irregular.outcome_ns=now;++p->s.restarts;++p->cycle.level_id;
+        reset_level(p,now);remember_level_restart(p,command,capture,prefix);
+        begin_initial_view(p,&p->irregular_floor,capture,p->irregular_floor_start,p->irregular_floor_end);
+        p->irregular_live=p->irregular_floor;p->irregular_live_id=capture;
+        p->s.goods=0;p->cycle.state=NG2_CYCLE_SEARCH;p->cycle.pending=0;
+        p->cycle_pause_attempted=p->cycle_storage_error=0;
+        /* The accepted first floor is immutable evidence while the writer
+         * drains. A later UNKNOWN is no permission to discard its products.
+         * Binding retains the source's own clocks and normal worker bounds;
+         * this never installs old pixels as current UI authority. */
+        if(p->irregular_goods_id){
+            cycle_latch(p,&p->irregular_goods,now);
+            cycle_bind(p,&p->irregular_goods,p->irregular_goods_id,
+                p->irregular_goods_start,p->irregular_goods_prefix);
+        }
+    }else return 0;
+    p->last_now=now;return 1;
+}
+int ng2_controller_irregular_storage_failed(NG2Controller *p,uint64_t episode,uint64_t now){
+    if(!irregular_current(p,episode,now)||!irregular_active(p)
+        ||p->irregular.outcome_ns||p->irregular.stage==NG2_IRREGULAR_HELD)return 0;
+    p->last_now=now;irregular_hold(p,now,NG2_IRREGULAR_STORAGE);return 1;
+}
+static int irregular_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+                             uint64_t start,uint64_t end,uint64_t prefix,uint64_t now){
+    int qualified=p->irregular_call&&p->irregular_observation_valid&&p->irregular_observation_id==id
+        &&now>=start&&now-start<=FRESH;
+    int death=qualified
+        &&irregular_death(&p->irregular_observation);
+    int death_present=qualified
+        &&irregular_death_present(&p->irregular_observation);
+    if(!p->irregular.enabled)return 0;
+    p->irregular.prefix=prefix;
+    if(!qualified){
+        if(irregular_active(p)){irregular_frame(p,scene,id,start,end,prefix);return 1;}
+        return 0;
+    }
+    if(p->irregular.stage==NG2_IRREGULAR_OUTCOME&&p->irregular.outcome_ns){
+        p->irregular.stage=NG2_IRREGULAR_IDLE;p->irregular.kind=NG2_IRREGULAR_NONE;
+        p->irregular.held_reason=0;p->irregular_menu_ready=0;irregular_clear_first(p);
+    }
+    if(!irregular_active(p)){
+        if(death&&!p->finish_requested){
+            if(p->s.input_state==3&&start<p->ack_ns)return 0;
+            irregular_frame(p,scene,id,start,end,prefix);
+            if(p->s.input_state==1){p->irregular_death_wait=1;p->irregular_death_wait_capture=id;return 1;}
+            if(p->s.input_state==2||p->s.input_state==4)return 1;
+            if(p->irregular_death_wait&&id<=p->irregular_death_wait_capture)return 1;
+            p->irregular_death_wait=0;irregular_start(p,NG2_IRREGULAR_DEATH,id,now);return 1;
+        }
+        if(death_present){irregular_frame(p,scene,id,start,end,prefix);
+            irregular_hold(p,now,NG2_IRREGULAR_INVALID_UI);return 1;}
+        if(p->irregular_death_wait){
+            if(p->s.input_state)return 1;
+            p->irregular_death_wait=0;finish(p,now,NG2_REASON_SCREEN);return 1;
+        }
+        if(scene->state==NG2_FLOOR&&!death_present){p->irregular_live=*scene;p->irregular_live_id=id;
+            p->irregular.live_baseline_capture_id=id;}
+        return 0;
+    }
+    irregular_frame(p,scene,id,start,end,prefix);
+    if(p->cycle.candidate_latched){irregular_hold(p,now,NG2_IRREGULAR_CANDIDATE);return 1;}
+    if(now>p->irregular.parent_deadline_ns){
+        irregular_hold(p,now,p->irregular.stage==NG2_IRREGULAR_WAIT_MENU?
+            NG2_IRREGULAR_MENU_UNRECOGNIZED:NG2_IRREGULAR_DEADLINE);return 1;}
+    if(p->irregular.stage==NG2_IRREGULAR_HELD)return 1;
+    if(p->irregular.stage==NG2_IRREGULAR_RESTART_READY&&p->s.input_state==1
+        &&p->command.kind==NG2_ACTION_RESTART&&!irregular_restart_ticket(p)){
+        irregular_hold(p,now,NG2_IRREGULAR_INVALID_UI);return 1;
+    }
+    if(p->irregular.stage==NG2_IRREGULAR_OUTCOME&&!p->irregular.outcome_ns&&!death_present)
+        irregular_keep_goods(p,scene,id,start,end,prefix);
+    if(death&&p->irregular.kind==NG2_IRREGULAR_STALLED){
+        if(p->irregular.stage==NG2_IRREGULAR_PAUSE&&p->irregular.durable_ns&&!p->s.input_state){
+            /* The existing checkpoint and all original proof/D identities
+             * survive. Runtime persists this fresh DEATH with its distinct
+             * continue intent; no new episode or reservation is created. */
+            p->irregular.kind=NG2_IRREGULAR_DEATH;
+            p->irregular.stage=NG2_IRREGULAR_DEATH_CONTINUE;
+        }else irregular_hold(p,now,NG2_IRREGULAR_INVALID_UI);
+        return 1;
+    }
+    if(p->s.input_state==3&&start>=p->ack_ns){
+        NG2ControllerEvent *e=event(p);
+        if(p->command.kind==NG2_ACTION_DEATH_CONTINUE&&p->irregular.stage==NG2_IRREGULAR_WAIT_MENU){
+            if(!p->irregular.continue_capture_id){p->irregular.continue_capture_id=id;
+                e->observed_capture_id=id;end_visual_wait(p);}
+        }else if(p->command.kind==NG2_ACTION_PAUSE&&p->irregular.stage==NG2_IRREGULAR_PAUSE
+            &&scene->state==NG2_PAUSE&&scene->restart_label&&!death_present){
+            p->irregular.pause_capture_id=id;e->observed_capture_id=id;end_visual_wait(p);
+            p->s.paused=1;p->irregular.stage=NG2_IRREGULAR_RESTART_READY;
+        }else if(p->command.kind==NG2_ACTION_RESTART&&p->irregular.stage==NG2_IRREGULAR_WAIT_RESTART
+            &&scene->state==NG2_FLOOR&&!death_present&&p->irregular.live_baseline_capture_id
+            &&ng2_fingerprint_changed(p->irregular_baseline,scene->fingerprint)){
+            p->irregular.next_floor_capture_id=id;e->observed_capture_id=id;end_visual_wait(p);
+            p->irregular_floor=*scene;p->irregular_floor_start=start;
+            p->irregular_floor_end=end;p->irregular_floor_prefix=prefix;
+            p->irregular.stage=NG2_IRREGULAR_OUTCOME;
+            irregular_keep_goods(p,scene,id,start,end,prefix);return 1;
+        }
+    }
+    if(p->irregular.stage==NG2_IRREGULAR_WAIT_MENU&&!p->s.input_state&&!death_present){
+        const NG2IrregularObservation *o=&p->irregular_observation;
+        if(p->irregular_observation_valid&&irregular_restart(o)){
+            if(!p->irregular_menu_id){p->irregular_menu=*o;p->irregular_menu_id=id;
+                p->irregular_menu_end=end;
+            }else if(id>p->irregular_menu_id&&start>p->irregular_menu_end
+                &&abs(o->left-p->irregular_menu.left)<=2&&abs(o->top-p->irregular_menu.top)<=2)
+                p->irregular_menu_ready=1;
+            else {p->irregular_menu_id=0;p->irregular_menu_ready=0;}
+        }else if(scene->state!=NG2_PAUSE){p->irregular_menu_id=0;p->irregular_menu_ready=0;}
+        if(p->irregular.continue_outcome_ns){
+            if(scene->state==NG2_FLOOR)p->irregular.stage=NG2_IRREGULAR_PAUSE;
+            else if(irregular_ui(p,NG2_ACTION_RESTART))p->irregular.stage=NG2_IRREGULAR_RESTART_READY;
+        }
+    }
+    return 1;
+}
+void ng2_controller_observe_irregular_at(NG2Controller *p,const NG2Scene *scene,
+    const NG2IrregularObservation *observation,uint64_t id,uint64_t start,uint64_t end,
+    uint64_t prefix,int32_t stable,uint64_t commit){
+    NG2IrregularObservation previous;uint64_t previous_id;int previous_valid,accepted;
+    if(!p)return;
+    previous=p->irregular_observation;previous_id=p->irregular_observation_id;
+    previous_valid=p->irregular_observation_valid;
+    p->irregular_call=p->irregular.enabled;
+    p->irregular_observation_valid=p->irregular.enabled&&irregular_observation_ok(observation);
+    p->irregular_observation_id=id;
+    if(p->irregular_observation_valid)p->irregular_observation=*observation;
+    else memset(&p->irregular_observation,0,sizeof(p->irregular_observation));
+    accepted=ng2_controller_observe_at(p,scene,id,start,end,prefix,stable,commit);
+    if(accepted!=1){p->irregular_observation=previous;p->irregular_observation_id=previous_id;
+        p->irregular_observation_valid=previous_valid;}
+    p->irregular_call=0;
+}
 int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id,
     uint64_t start,uint64_t end,uint64_t prefix,int32_t stable,uint64_t commit){
     int pending_kind,initial_wait=0,mask=0,changed_tiles=0,changed_protected=0;
@@ -4435,6 +4889,9 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
         ++p->s.discarded_frames;terminal(p,end,NG2_REASON_GEOMETRY);return 0;
     }
     p->last_now=commit;
+    if(p->irregular.enabled&&stable==1&&prefix==p->s.last_completed_id
+        &&p->s.input_state!=2&&p->s.input_state!=4
+        &&irregular_observe(p,scene,id,start,end,prefix,commit))return 1;
     if(p->cycle_enabled&&!p->finish_requested){
         int partial=scene->goods==NG2_GOODS_PARTIAL;
         int draining_partial=partial&&p->s.input_state==2&&prefix==p->cycle_consumed_prefix;
@@ -4662,6 +5119,7 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
     }else if(!p->finish_requested){
         if(!initial_wait&&p->s.phase==NG2_PHASE_SEARCH&&scene->state==NG2_FLOOR)start_floor(p,scene,id,end);
     }
+    if(irregular_active(p))return 1;
     if(!p->stationary_wait_active)update_passage_progress(p,scene,id,start,end,commit);
     if(!p->finish_requested&&p->s.walk_started_ns&&scene->state==NG2_FLOOR
         &&p->s.input_state!=3&&!passage_moved_uncertain_wait(p))add_sample(p,scene,id,start,end);
@@ -4814,6 +5272,77 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
         }
     }
     *out=p->command;return 1;
+}
+static int irregular_tick(NG2Controller *p,uint64_t now,NG2Command *out){
+    int kind,ready;
+    if(!p->irregular.enabled)return -2;
+    if(!irregular_active(p)){
+        if(p->irregular_first_id&&(now>p->motion_wait.deadline_ns||!p->motion_wait.active))
+            irregular_clear_first(p);
+        return p->irregular_death_wait?0:-2;
+    }
+    if(p->irregular.stage==NG2_IRREGULAR_OUTCOME&&p->irregular.outcome_ns)return 0;
+    if(p->cycle.candidate_latched){irregular_hold(p,now,NG2_IRREGULAR_CANDIDATE);return 0;}
+    if(now>p->irregular.parent_deadline_ns){irregular_hold(p,now,
+        p->irregular.stage==NG2_IRREGULAR_WAIT_MENU?NG2_IRREGULAR_MENU_UNRECOGNIZED:NG2_IRREGULAR_DEADLINE);return 0;}
+    if(p->irregular.stage==NG2_IRREGULAR_HELD||p->irregular_ring_pending
+        ||p->irregular.stage==NG2_IRREGULAR_QUIESCE||p->irregular.stage==NG2_IRREGULAR_CHECKPOINT
+        ||p->s.input_state==2||p->s.input_state==3||p->s.input_state==4)return 0;
+    if(p->s.input_state==1){
+        if(now>p->command.deadline_ns)irregular_hold(p,now,NG2_IRREGULAR_DEADLINE);
+        return 0;
+    }
+    if(!p->irregular.durable_ns||!fresh(p,now)||p->s.restarts>=12||p->s.inputs>=16)return 0;
+    kind=p->irregular.stage==NG2_IRREGULAR_PAUSE?NG2_ACTION_PAUSE:
+        p->irregular.stage==NG2_IRREGULAR_DEATH_CONTINUE?NG2_ACTION_DEATH_CONTINUE:
+        p->irregular.stage==NG2_IRREGULAR_RESTART_READY?NG2_ACTION_RESTART:0;
+    if(!kind||!irregular_ui(p,kind)||(kind==NG2_ACTION_PAUSE&&!pause_ui_ready(p,now)))return 0;
+    if(kind==NG2_ACTION_DEATH_CONTINUE&&p->irregular.continue_command_id)return 0;
+    if(kind==NG2_ACTION_RESTART&&(p->irregular.restart_command_id
+        ||(p->irregular.kind==NG2_IRREGULAR_DEATH&&!p->irregular.continue_outcome_ns)))return 0;
+    ready=reserve(p,now,kind,0,now,out);
+    if(!ready){irregular_hold(p,now,NG2_IRREGULAR_CONTROL_INVALID);return 0;}
+    p->command.deadline_ns=minimum(p->command.deadline_ns,p->irregular.parent_deadline_ns);
+    if(kind==NG2_ACTION_DEATH_CONTINUE){
+        p->command.x=90;p->command.y=447;p->irregular.continue_command_id=p->command.id;
+    }else if(kind==NG2_ACTION_RESTART){
+        p->irregular.restart_command_id=p->command.id;
+        p->irregular_restart_ui=p->scene.state==NG2_PAUSE?1:2;
+        if(p->scene.state!=NG2_PAUSE){p->command.x=400-p->irregular_observation.top;
+            p->command.y=p->irregular_observation.left+91;}
+    }
+    event(p)->command=p->command;*out=p->command;return 1;
+}
+static int irregular_begin(NG2Controller *p,uint64_t id,uint64_t now,int front,int locked,int owner){
+    int kind=p->command.kind,guard=guards(front,locked,owner);
+    if(!irregular_active(p)||p->irregular.stage==NG2_IRREGULAR_HELD||p->s.terminal
+        ||p->s.input_state!=1||id!=p->command.id)return 0;
+    if(guard){ng2_controller_cancel(p,now,guard);return 0;}
+    if(p->cycle.candidate_latched){irregular_hold(p,now,NG2_IRREGULAR_CANDIDATE);return 0;}
+    if(now>p->irregular.parent_deadline_ns||now>p->command.deadline_ns){
+        irregular_hold(p,now,NG2_IRREGULAR_DEADLINE);return 0;}
+    if(!p->irregular.durable_ns||p->irregular_ring_pending||now<p->last_now
+        ||now>p->irregular.parent_deadline_ns||now>p->command.deadline_ns
+        ||now<p->command.not_before_ns||!fresh(p,now)||!irregular_ui(p,kind))return 0;
+    if(kind==NG2_ACTION_PAUSE){
+        if(p->irregular.stage!=NG2_IRREGULAR_PAUSE||!pause_ui_ready(p,now))return 0;
+    }else if(kind==NG2_ACTION_DEATH_CONTINUE){
+        if(p->irregular.stage!=NG2_IRREGULAR_DEATH_CONTINUE
+            ||id!=p->irregular.continue_command_id||!p->irregular.continue_intent_ns
+            ||p->command.x!=90||p->command.y!=447)return 0;
+    }else if(kind==NG2_ACTION_RESTART){
+        if(p->irregular.stage!=NG2_IRREGULAR_RESTART_READY
+            ||id!=p->irregular.restart_command_id||!p->irregular.restart_intent_ns
+            ||(p->irregular.kind==NG2_IRREGULAR_DEATH&&!p->irregular.continue_outcome_ns))return 0;
+        if(!irregular_restart_ticket(p)){
+            irregular_hold(p,now,NG2_IRREGULAR_INVALID_UI);return 0;
+        }
+    }else return 0;
+    if(p->s.restarts>=12||p->s.inputs>=16||now-p->s.started_ns>=180*SECOND
+        ||(p->s.walk_started_ns&&now-p->s.walk_started_ns>=45*SECOND)){
+        irregular_hold(p,now,NG2_IRREGULAR_LIMIT);return 0;}
+    p->last_now=now;p->s.input_state=2;p->preparation_epoch=0;
+    event(p)->begin_ns=now;event(p)->outcome=1;return 1;
 }
 static void post_move_recover(NG2Controller *p,uint64_t now,int reason){
     if(p->recovery.mode!=NG2_RECOVERY_POST_MOVE){
@@ -5123,6 +5652,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
     if(p->s.walk_started_ns&&now-p->s.walk_started_ns>=45*SECOND)finish(p,now,NG2_REASON_LIMIT);
     if(p->stationary_wait_active&&now>=(p->gate_refresh_state==NG2_GATE_REFRESH_OBSERVE?
         p->gate_refresh_deadline:p->stationary_wait_parent))finish(p,now,NG2_REASON_BEAT);
+    {int handled=irregular_tick(p,now,out);if(handled!=-2)return handled;}
     if(p->s.input_state==2||p->s.input_state==4)return 0;
     if(p->lower.active&&!p->finish_requested){int handled=lower_tick(p,now,out);if(handled!= -2)return handled;}
     if(p->entry.active&&!p->finish_requested){int handled=entry_tick(p,now,out);if(handled!= -2)return handled;}
@@ -5348,6 +5878,9 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
 int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front,int32_t locked,int32_t owner){
     int reason;NG2ControllerEvent *e;uint64_t tail,horizon,aligned;
     if(!p||!valid_time(now)||p->s.terminal||p->s.input_state!=1||id!=p->command.id)return 0;
+    if(irregular_active(p))return irregular_begin(p,id,now,front,locked,owner);
+    if(p->command.kind==NG2_ACTION_DEATH_CONTINUE)return 0;
+    if(p->irregular.enabled&&p->irregular_death_wait)return 0;
     revoke_clear_handoff(p,NULL,now);
     if(p->cycle_enabled&&p->cycle.state==NG2_CYCLE_NEGATIVE_RESTART
         &&p->command.kind==NG2_ACTION_RESTART&&!p->cycle.intent_ns)return 0;
@@ -5458,7 +5991,8 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
     if(p->command.kind==NG2_ACTION_MOVE&&p->entry.active){++p->entry.inputs;p->entry.stage=4;}
     if(p->command.kind==NG2_ACTION_MOVE&&p->lower.active){++p->lower.inputs;p->lower.stage=4;}
     p->preparation_epoch=0;
-    if(p->command.kind==NG2_ACTION_MOVE)p->passage_release_proof_id=0;
+    if(p->command.kind==NG2_ACTION_MOVE){p->passage_release_proof_id=0;
+        p->irregular_lead_before=p->s.lead_confirmed;irregular_clear_first(p);}
     if(p->command.kind==NG2_ACTION_MOVE&&p->command_choice.reason==9)p->edge_sent=1;
     p->edge_validated_capture_id=0;
     p->stationary_gate_retry_waiting=NG2_GATE_RETRY_NONE;p->stationary_gate_retry_proof_id=0;
@@ -5478,6 +6012,16 @@ int ng2_controller_complete(NG2Controller *p,uint64_t id,uint64_t now,int32_t ou
     e=event(p);
     p->last_now=maximum(p->last_now,now);
     if(outcome==0&&(p->s.input_state==1||p->s.input_state==2)){
+        if(p->irregular.enabled&&p->irregular_death_wait&&!irregular_active(p)){
+            e->outcome=3;e->end_ns=now;e->reason=NG2_REASON_CAPTURE;
+            p->s.input_state=0;p->s.current_command_id=0;clear_slots(p);clear_model(p);
+            return 1;
+        }
+        if(irregular_active(p)){
+            e->outcome=3;e->end_ns=now;e->reason=NG2_REASON_CAPTURE;
+            p->s.input_state=0;p->s.current_command_id=0;
+            irregular_hold(p,now,NG2_IRREGULAR_CONTROL_INVALID);return 1;
+        }
         if(p->s.input_state==1&&recover_unsent_continuous(p,now))return 1;
         if(p->s.input_state==1&&initial_recoverable(p)&&now>p->command.deadline_ns){
             initial_recover(p,NG2_RECOVERY_UNSENT_DEADLINE,NG2_RECOVERY_ACTUAL_TICK,now,p->s.last_capture_id);return 1;
@@ -5487,7 +6031,9 @@ int ng2_controller_complete(NG2Controller *p,uint64_t id,uint64_t now,int32_t ou
     if(p->s.input_state!=2||now<e->begin_ns)return 0;
     e->end_ns=now;
     if(p->command.kind==NG2_ACTION_MOVE)++p->s.inputs;
-    if(outcome==-1){e->outcome=4;e->reason=NG2_REASON_UNKNOWN_INPUT;p->s.input_state=4;terminal(p,now,NG2_REASON_UNKNOWN_INPUT);return 1;}
+    if(outcome==-1){e->outcome=4;e->reason=NG2_REASON_UNKNOWN_INPUT;p->s.input_state=4;
+        if(irregular_active(p)){p->irregular.stage=NG2_IRREGULAR_HELD;p->irregular.held_reason=NG2_IRREGULAR_UNKNOWN_INPUT;}
+        terminal(p,now,NG2_REASON_UNKNOWN_INPUT);return 1;}
     e->outcome=2;p->ack_ns=now;p->transition_ns=now;p->s.last_completed_id=id;p->s.input_state=3;
     if(p->command.kind==NG2_ACTION_MOVE){p->motion_wait.active=1;p->recovery.ack_ns=now;}
     if(p->command.kind==NG2_ACTION_MOVE&&p->motion_reference_count<MOTION_REFERENCE_CAP){
@@ -5502,6 +6048,15 @@ int ng2_controller_complete(NG2Controller *p,uint64_t id,uint64_t now,int32_t ou
         row->reference_eligible=motion_reference_eligible(p,now);
     }
     p->s.paused=0;
+    if(irregular_active(p)){
+        p->irregular.prefix=id;p->s.phase=NG2_PHASE_FINISH;
+        if(p->irregular.stage==NG2_IRREGULAR_HELD){
+            irregular_hold(p,now,p->irregular.held_reason);return 1;
+        }
+        if(p->command.kind==NG2_ACTION_DEATH_CONTINUE)p->irregular.stage=NG2_IRREGULAR_WAIT_MENU;
+        else if(p->command.kind==NG2_ACTION_RESTART)p->irregular.stage=NG2_IRREGULAR_WAIT_RESTART;
+        return 1;
+    }
     if(p->command.kind==NG2_ACTION_RESUME)p->s.phase=NG2_PHASE_FLOOR;
     else if(p->command.kind==NG2_ACTION_PAUSE)p->s.phase=p->finish_requested?NG2_PHASE_FINISH:NG2_PHASE_PAUSE;
     else if(p->command.kind==NG2_ACTION_RESTART)p->s.phase=NG2_PHASE_RESTART;
@@ -5512,6 +6067,11 @@ void ng2_controller_cancel(NG2Controller *p,uint64_t now,int32_t reason){
     if(!p||p->s.terminal||!valid_time(now))return;
     p->last_now=maximum(p->last_now,now);
     if(reason<1||reason>NG2_REASON_GEOMETRY)reason=NG2_REASON_CANCELLED;
+    if(irregular_active(p)){
+        p->irregular.stage=NG2_IRREGULAR_HELD;
+        p->irregular.held_reason=p->s.input_state==2?NG2_IRREGULAR_UNKNOWN_INPUT:NG2_IRREGULAR_CONTROL_INVALID;
+    }
+    irregular_clear_first(p);
     if(p->s.input_state==2){e=event(p);e->outcome=4;e->reason=NG2_REASON_UNKNOWN_INPUT;e->end_ns=now;
         if(p->command.kind==NG2_ACTION_MOVE)++p->s.inputs;
         p->s.input_state=4;terminal(p,now,NG2_REASON_UNKNOWN_INPUT);return;}

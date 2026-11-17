@@ -15,6 +15,27 @@ enum { NG2_GOODS_UNKNOWN=0, NG2_GOODS_PARTIAL=1, NG2_GOODS_VISIBLE=2 };
 enum { NG2_TILE_UNKNOWN=0, NG2_TILE_FLOOR=1, NG2_TILE_GOLD=2, NG2_TILE_STONE=3,
        NG2_TILE_DIRT=4, NG2_TILE_DOOR=5, NG2_TILE_ITEM=6 };
 enum { NG2_DIR_NONE=0, NG2_LEFT=1, NG2_RIGHT=2, NG2_UP=3, NG2_DOWN=4 };
+#define NG2_IRREGULAR_ABI_VERSION 1u
+enum { NG2_IRREGULAR_IMAGE_NONE=0, NG2_IRREGULAR_IMAGE_DEATH=1,
+       NG2_IRREGULAR_IMAGE_RESTART=2, NG2_IRREGULAR_IMAGE_ENEMY=3 };
+enum { NG2_IRREGULAR_SCAN_RESTART=1 };
+/* A separate, copied certificate from the same immutable normalized pixels.
+ * It does not change Scene or turn occluded terrain into walkable FLOOR.
+ * enemy index/bit is direction-1; matches saturates at2 for ambiguity.
+ * NONE may retain DEATH support with its fixed bbox: matches1 is the new
+ * full glyph, matches2 the older conservative mask. Both veto UI/live-floor
+ * qualification; neither grants DEATH_CONTINUE authority. */
+typedef struct {
+    uint32_t abi_version,struct_size;
+    int32_t kind,glyph_intersection,glyph_union,hud_mask;
+    int32_t empty_hearts,matches,left,top,width,height;
+    int32_t heart_inter[3],heart_union[3],heart_red[3],heart_dark[3],heart_bright[3];
+    uint32_t enemy_mask;
+    int32_t enemy_matches[4],enemy_inter[4],enemy_union[4];
+    int32_t enemy_left[4],enemy_top[4],enemy_body_luma[4];
+    int32_t enemy_body_saturation[4],enemy_red_outside[4];
+    int32_t enemy_heart_count[4],enemy_width[4],enemy_height[4];
+} NG2IrregularObservation;
 typedef struct {
     uint32_t abi_version, struct_size;
     int32_t state, restart_label, gold_state, gold_peak, goods;
@@ -49,6 +70,11 @@ size_t ng2_orient_rgba(const uint8_t *source, size_t source_length,
  * Padding is ignored. Input is immutable for this call. Output is copied and
  * initialized to unknown on failure. No global mutable state. */
 int ng2_analyze_rgba(const uint8_t *rgba, size_t length, size_t stride, NG2Scene *out);
+/* Same opaque RGBA/stride contract as analyze_rgba; flags is0 or1. The finite
+ * translated restart search is opt-in only after a DEATH_CONTINUE ACK.
+ * Invalid input/allocation returns-1 with a copied NONE observation. */
+int ng2_analyze_irregular_rgba(const uint8_t *rgba,size_t length,size_t stride,
+                              uint32_t flags,NG2IrregularObservation *out);
 int ng2_fingerprint_changed(const uint8_t *before, const uint8_t *after);
 /* tiles index = (y+5)*23+x+11; visits world index = (y+16)*33+x+16. */
 int ng2_choose(const NG2Scene *scene, int32_t x, int32_t y,

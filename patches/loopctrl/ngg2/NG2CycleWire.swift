@@ -7,14 +7,26 @@ enum NG2CycleWire {
     static let profile = "normal-1-1-cycle-v1"
     static let chunkBytes = 64 * 1024
     enum Failure: Error { case invalidAssessment, invalidJSON }
+    // Locally selected immutable protocol identity. Reply data never selects it.
+    struct ProtocolSpec: Equatable {
+        let profile, schema, method: String
+        static let standard = ProtocolSpec(profile: NG2CycleWire.profile, schema: NG2CycleWire.schema,
+            method: "necro_native_cycle")
+        static let irregular = ProtocolSpec(profile: "normal-1-1-irregular-v1",
+            schema: "ngg2-irregular-cycle-v1", method: "necro_native_irregular")
+        static func forProfile(_ profile: String) -> ProtocolSpec? {
+            profile == standard.profile ? standard : (profile == irregular.profile ? irregular : nil)
+        }
+    }
 
     static func number(_ value: UInt64) -> JSONValue { .int(Int(min(value, UInt64(Int64.max)))) }
     static func integer(_ value: Int32) -> JSONValue { .int(Int(value)) }
     static func hash(_ bytes: Data) -> String {
         SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
     }
-    static func envelope(runID: String, mode: String, payload: [String: JSONValue]) -> [String: JSONValue] {
-        ["schema": .string(schema), "run_id": .string(runID), "profile": .string(profile),
+    static func envelope(runID: String, mode: String, payload: [String: JSONValue],
+                         spec: ProtocolSpec = .standard) -> [String: JSONValue] {
+        ["schema": .string(spec.schema), "run_id": .string(runID), "profile": .string(spec.profile),
          "mode": .string(mode), "payload": .object(payload)]
     }
     static func canonical(_ object: [String: JSONValue]) throws -> Data {
@@ -79,6 +91,59 @@ enum NG2CycleWire {
             "release_after_ns": number(value.release_after_ns), "continuation_deadline_ns": number(value.continuation_deadline_ns),
             "queued_capture_id": number(value.queued_capture_id), "queued_capture_start_ns": number(value.queued_capture_start_ns),
             "queued_prefix": number(value.queued_prefix)]
+    }
+    static func irregular(_ value: NG2ControllerIrregularStatus) throws -> [String: JSONValue] {
+        let kinds = ["none", "stalled", "death"]
+        let stages = ["idle", "quiesce", "checkpoint", "pause", "death_continue", "wait_menu",
+                      "restart_ready", "wait_restart", "outcome", "held"]
+        let reasons = ["none", "menu_unrecognized", "deadline", "storage", "candidate", "unknown_input",
+                       "invalid_ui", "classification", "baseline_unavailable", "limit", "control_invalid"]
+        let clocks = [value.episode_id, value.trigger_capture_id, value.before_capture_id,
+            value.live_baseline_capture_id, value.prefix, value.trigger_ns, value.parent_deadline_ns,
+            value.proof_capture_id, value.continue_command_id, value.continue_capture_id,
+            value.pause_capture_id, value.restart_command_id, value.next_floor_capture_id,
+            value.durable_ns, value.continue_intent_ns, value.continue_outcome_ns,
+            value.restart_intent_ns, value.outcome_ns]
+        guard value.abi_version == 1, value.struct_size == UInt32(MemoryLayout<NG2ControllerIrregularStatus>.size),
+              value.enabled == 0 || value.enabled == 1, (0...2).contains(value.kind),
+              (0...9).contains(value.stage), (0...10).contains(value.held_reason),
+              value.episodes >= 0, clocks.allSatisfy({ $0 < UInt64(Int64.max) }) else {
+            throw Failure.invalidJSON
+        }
+        let names = ["episode_id", "trigger_capture_id", "before_capture_id", "live_baseline_capture_id", "prefix",
+            "trigger_ns", "parent_deadline_ns", "proof_capture_id", "continue_command_id", "continue_capture_id",
+            "pause_capture_id", "restart_command_id", "next_floor_capture_id", "durable_ns", "continue_intent_ns",
+            "continue_outcome_ns", "restart_intent_ns", "outcome_ns"]
+        var answer: [String: JSONValue] = ["abi_version": .int(1), "enabled": .bool(value.enabled == 1),
+            "kind": .string(kinds[Int(value.kind)]), "stage": .string(stages[Int(value.stage)]),
+            "held_reason": .string(reasons[Int(value.held_reason)]), "episodes": .int(Int(value.episodes))]
+        for (name, clock) in zip(names, clocks) { answer[name] = number(clock) }
+        return answer
+    }
+    static func irregularObservation(_ value: NG2IrregularObservation) throws -> [String: JSONValue] {
+        guard value.abi_version == 1, value.struct_size == UInt32(MemoryLayout<NG2IrregularObservation>.size),
+              (0...3).contains(value.kind), (0...2).contains(value.matches), value.enemy_mask <= 15 else {
+            throw Failure.invalidJSON
+        }
+        var answer: [String: JSONValue] = ["abi_version": .int(1), "struct_size": .int(Int(value.struct_size)),
+            "kind": integer(value.kind), "glyph_intersection": integer(value.glyph_intersection),
+            "glyph_union": integer(value.glyph_union), "hud_mask": integer(value.hud_mask),
+            "empty_hearts": integer(value.empty_hearts), "matches": integer(value.matches),
+            "left": integer(value.left), "top": integer(value.top), "width": integer(value.width),
+            "height": integer(value.height), "enemy_mask": .int(Int(value.enemy_mask))]
+        let hearts: [(String, [JSONValue])] = [("heart_inter", ints(value.heart_inter, count: 3)),
+            ("heart_union", ints(value.heart_union, count: 3)), ("heart_red", ints(value.heart_red, count: 3)),
+            ("heart_dark", ints(value.heart_dark, count: 3)), ("heart_bright", ints(value.heart_bright, count: 3))]
+        let enemies: [(String, [JSONValue])] = [("enemy_matches", ints(value.enemy_matches, count: 4)),
+            ("enemy_inter", ints(value.enemy_inter, count: 4)), ("enemy_union", ints(value.enemy_union, count: 4)),
+            ("enemy_left", ints(value.enemy_left, count: 4)), ("enemy_top", ints(value.enemy_top, count: 4)),
+            ("enemy_body_luma", ints(value.enemy_body_luma, count: 4)),
+            ("enemy_body_saturation", ints(value.enemy_body_saturation, count: 4)),
+            ("enemy_red_outside", ints(value.enemy_red_outside, count: 4)),
+            ("enemy_heart_count", ints(value.enemy_heart_count, count: 4)),
+            ("enemy_width", ints(value.enemy_width, count: 4)), ("enemy_height", ints(value.enemy_height, count: 4))]
+        for (name, array) in hearts + enemies { answer[name] = .array(array) }
+        return answer
     }
     private static func slot(_ value: NG2RingSlot, targetOnly: Bool) throws -> JSONValue {
         let scores = [value.icon_score, value.icon_upper_bound, value.word_iou, value.word_coverage,
