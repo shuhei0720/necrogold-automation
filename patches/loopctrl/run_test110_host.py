@@ -271,7 +271,8 @@ PRESERVED_LOCAL_PYTHON = (
 )
 PRODUCT_PATHS = ('necroprobe/test110.py', 'test_110.sh', 'necroprobe/irregular.py',
     'necroprobe/native_cycle.py', 'necroprobe/cycle_publication.py', 'necroprobe/campaign099.py',
-    'necroprobe/trial_evidence099.py', 'necroprobe/test099.py', 'patches/loopctrl/apply_ngg2.py')
+    'necroprobe/trial_evidence099.py', 'necroprobe/test099.py', 'patches/loopctrl/apply_ngg2.py',
+    'patches/loopctrl/ngg2.patch')
 LEGACY_FIXTURE_EXCEPTION = None
 PRESERVED_REPOSITORY = (*shared.PRESERVED_REPOSITORY,*shared.PRODUCT_PATHS,*PRESERVED_LOCAL_PYTHON,
     'patches/loopctrl/run_test107_host.py','patches/loopctrl/test_device_ci107.py',
@@ -287,6 +288,7 @@ EXPECTED_NATIVE_ADDITIONS = frozenset()
 APPROVED_CHANGED_REPOSITORY = frozenset({
     'necroprobe/native_cycle.py', 'necroprobe/cycle_publication.py', 'necroprobe/campaign099.py',
     'necroprobe/trial_evidence099.py', 'necroprobe/test099.py', 'patches/loopctrl/apply_ngg2.py',
+    'patches/loopctrl/ngg2.patch',
     'patches/loopctrl/ngg2_runtime_fakes.swift', 'patches/loopctrl/ngg2_cycle_runtime_tests.swift',
 })
 
@@ -326,6 +328,12 @@ def native_delta(before,current,allowed,added=None):
     if changed!=allowed or not added<=changed:
         raise ValueError('TEST110 exact native changed-source set differs')
     return changed
+
+def approved_patch_identity(current,original,manifest,before):
+    if (sha(current)!=manifest['patch_sha256'] or sha(original)!=before['patch_sha256']
+            or current==original):
+        raise ValueError('TEST110 approved G2 patch/manifest source differs')
+    return sha(current)
 
 def preserved_fixture_identity(path, current, original):
     """Preserve every old byte except a separately approved, source-bound method."""
@@ -402,6 +410,8 @@ def source_identity(driver, sealed):
     if len(old) != 36 or len(current) != 36:
         raise ValueError('baseline native inventory is not 36')
     changed = native_delta(old, current, EXPECTED_NATIVE_CHANGES)
+    approved_patch_identity(pinned_bytes(driver,'patches/loopctrl/ngg2.patch',code),
+        git(driver,'show',NATIVE_BASELINE+':patches/loopctrl/ngg2.patch'),manifest,before)
     expected_meta = {'api_version':'1.98.16-ngg2', 'client_capability':'necrogold_native_v15',
                      'cycle_capability':'necrogold_native_cycle_v1', 'cycle_profile':'normal-1-1-cycle-v1',
                      'compiler_profile_version':3, 'irregular_capability':'necrogold_native_irregular_v1',

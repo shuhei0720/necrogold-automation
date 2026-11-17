@@ -81,6 +81,15 @@ class DeviceHostSelection110Tests(unittest.TestCase):
         self.assertEqual('c2f76243c77a51682c24a4e059002cd732fd547d', runner.NATIVE_BASELINE)
         self.assertEqual(10, len(runner.EXPECTED_NATIVE_CHANGES))
         self.assertFalse(runner.EXPECTED_NATIVE_ADDITIONS)
+        self.assertIn('patches/loopctrl/ngg2.patch', runner.APPROVED_CHANGED_REPOSITORY)
+        self.assertIn('patches/loopctrl/ngg2.patch', runner.PRODUCT_PATHS)
+        patch_now,patch_old=b'current G2 patch',b'baseline G2 patch'
+        manifests=({'patch_sha256':runner.sha(patch_now)},{'patch_sha256':runner.sha(patch_old)})
+        self.assertEqual(runner.sha(patch_now),runner.approved_patch_identity(patch_now,patch_old,*manifests))
+        for current,original in ((patch_now+b'x',patch_old),(patch_now,patch_old+b'x'),(patch_old,patch_old)):
+            with self.assertRaises(ValueError):runner.approved_patch_identity(current,original,*manifests)
+        changed=set(runner.git(HERE.parents[1],'diff','--name-only',runner.NATIVE_BASELINE,'HEAD').decode().splitlines())
+        self.assertFalse((changed & set(runner.PRESERVED_REPOSITORY))-runner.APPROVED_CHANGED_REPOSITORY)
         before = {'changed': 'a', 'retained': 'r'}
         self.assertEqual({'changed'}, runner.native_delta(before, {'changed': 'b', 'retained': 'r'}, {'changed'}))
         for current in ({'changed': 'b'}, {'changed': 'b', 'retained': 'x'},
