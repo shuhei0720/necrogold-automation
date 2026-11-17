@@ -1,0 +1,168 @@
+{
+  "schema": "test111-historical-source-exception-v1",
+  "baseline": "d169d5bbdb4c73b01e6764f8d6a628766da7684c",
+  "files": [
+    {
+      "path": "tests/test_native_target_only095.py",
+      "old_file_sha256": "b87f4ac184a62a1c8a53d624612711e5af4d4853a1e793480d96f2075aed913a",
+      "new_file_sha256": "0cd9ca044f7011be743e543da70716d394049f6b7ae611cd6720319be9fefd69",
+      "methods": [
+        {
+          "name": "TargetOnly095Tests.test_same_probe_target_icon_candidate_and_observed_word_only_veto",
+          "old_sha256": "124b6955e2eb31ed9ab5d4280daa2fb6f502f2fa376b199867d9331c4058a7e7",
+          "new_sha256": "004e1915f1b401f2a8abf67bf194151b3ed28b6533685a287c6cc63ba18a902b",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_structural_shop096.py",
+      "old_file_sha256": "c0fafba6cadcded57c7325bb7a6b32bc64e72cfe3278105f5876423aa8bc69f6",
+      "new_file_sha256": "df1b6fa40e36759aadb3ca90d900ccc13329d4fbbddf956a534c1a4d9243f07f",
+      "methods": [
+        {
+          "name": "NativeStructuralShop096Tests.test_target_between_prices_and_observed_name_veto_are_never_masked",
+          "old_sha256": "464201b94daae013b2701e0fb2aa7a5ddbb8f74e9922620951d3196ec92bf489",
+          "new_sha256": "9754700e806bdbabd45c71f25e8cdb1a0cbf5273409d6eb97c38203de399ebcb",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_side_shop100.py",
+      "old_file_sha256": "074403c45ec237e5b2f0e847dfdb037dc0c20a955f5b4bce4360f44828c54298",
+      "new_file_sha256": "4a238cf768d1188f49ee5ae1286a22f27da6a79d6df97f04777e071cff38caac",
+      "methods": [
+        {
+          "name": "NativeSideShop100Tests.test_target_icon_candidate_and_strong_name_keep_positive_priority",
+          "old_sha256": "6e17d86990cdd17175b6c9c798adeccee69d7b458a94777042d10ad04e36b684",
+          "new_sha256": "3757c6cc632eac0ab1c749b4962c4308a622994c1c10aaf9192753bb3aeff31e",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_shop_geometry101.py",
+      "old_file_sha256": "3aed82d951741209b048f3b91faafd800fd3becc731f7e94d53316ef66254a97",
+      "new_file_sha256": "85c20db2a8d4011195374989acb2afdb90ab06a47bdc9fe459737426609a6a67",
+      "methods": [
+        {
+          "name": "NativeShopGeometry101Tests.test_full_strip_target_and_strong_word_keep_positive_priority",
+          "old_sha256": "f7530cb3ccbaf346229a5dd66f209659445a3eeed25f2df42d6e9a1b997452ec",
+          "new_sha256": "0f3fd9801da57d446cf7e4207d6cee42314d2ee717c8341e3ced88c06a74020d",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_shop_coverage102.py",
+      "old_file_sha256": "40e71727369ae1a2c32e1070c692195c080663962356ccf12d64caac16008831",
+      "new_file_sha256": "b87eb57b393d6e888f1e77b3c21742fca738407b3a963ce0fa8ce8bc57411e4f",
+      "methods": [
+        {
+          "name": "NativeShopCoverage102Tests.test_target_icon_and_strong_word_keep_positive_priority",
+          "old_sha256": "26410b9333a1c67cf907c1c20cc9add7bedc4a8b004635d05adad7fa4d23158d",
+          "new_sha256": "3650282685534aedeefcbeae092d8b6c6772abcdc857b9ca7d823be5eef4ee18",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_bottom_shop103.py",
+      "old_file_sha256": "0d7bf78da67d697687acc02a39e3042047b00a810bfaeb3b8b7bb85923f52bf9",
+      "new_file_sha256": "a231420628200cdfdfb50bc3a85e44766e3bd3eca57990ff3c22c6213d8fbafe",
+      "methods": [
+        {
+          "name": "NativeBottomShop103Tests.test_full_strip_target_and_strong_word_remain_held",
+          "old_sha256": "15c7d279be9066e4862a752c3c813fa6ab000f57b5aef3115d424d8fa4901f16",
+          "new_sha256": "623ca80002f236f82e7b4909f5e16eb64d03b05bb8f984e13ca21a18ce50c971",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed. The three direct sprite variants are centered on the middle offer and its full own price, not between prices; these now expect target2. The same per-sprite image with its own price erased still expects candidate1."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_single_sign_shop103.py",
+      "old_file_sha256": "bfe207afe963ae23ef3517bbd63a4c13b76d44e7c7db96d681e48b1dd0846986",
+      "new_file_sha256": "70312b6656cb38dd8c3a4ec0a891ef618dcab5ff7cc90c991c4d9c9beccfd8e2",
+      "methods": [
+        {
+          "name": "NativeSingleSignShop103Tests.test_target_full_strip_and_strong_name_keep_positive_priority",
+          "old_sha256": "b9b4ad70449af6f2cab92057e6072dc86955c20b82b019a9c2fcdff2132c46d1",
+          "new_sha256": "354ce515d2ad58fbc1426cd1ba5c9b601737591f06f391c8546797246ccb3d5e",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_offer_coverage104.py",
+      "old_file_sha256": "9b19a606cdbcfe68f5abbe7bbee90634d50ddcc24f627cab744fcf2b43a151a4",
+      "new_file_sha256": "12ec1eddd1f2395aac2a3f4677944c0560b7c85e49996a33223ca392301be787",
+      "methods": [
+        {
+          "name": "NativeOfferCoverage104Tests.test_all_strip_templates_and_strong_name_keep_target_priority",
+          "old_sha256": "0379787060d0779a700aa3646b37079eb3157f8bfec1022a5ef06662a96fbcd6",
+          "new_sha256": "f94c57d034f1906a86ba027ddc81285d4389b7c7db58ae9db425136c1ceed91d",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed. The three direct sprite variants are centered on the middle offer and its full own price, not between prices; these now expect target2. The same per-sprite image with its own price erased still expects candidate1."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_offer_geometry105.py",
+      "old_file_sha256": "cdddfffbc173036193d857bcf67e9fbc7ee913050ee17b5a2c86caf2fda72a8f",
+      "new_file_sha256": "353f28ffc627db2c1a43db85f43f2f8ccc66406d239ffaf583bb4593f2b568b9",
+      "methods": [
+        {
+          "name": "NativeOfferGeometry105Tests.test_same_top_observed_fragment_uses_full_face_row_and_preserves_target_priority",
+          "old_sha256": "866c1951a7a09d7d19bc6c82e5da32bdfabbe6b1e019ed9a05a953835bf193ac",
+          "new_sha256": "4f2254e30a8bfc63328ef1c9846c72fa9b85cc232418c9f85ac3e222a3bb1b05",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_closed_offer105.py",
+      "old_file_sha256": "7be3a01d458c2ede0bef61a31a75d4215eca1a99ebdc469de548dccaccfdced7",
+      "new_file_sha256": "20acbb74338359cd28d47416d21843117c518ad8a7ecdcceefc55d9a2558d93b",
+      "methods": [
+        {
+          "name": "NativeClosedOffer105Tests.test_target_or_candidate_has_priority_over_closed_identity",
+          "old_sha256": "2cf60d46cf499ad4035136b581dbd5e218ce011cda02e40128652acf2c0cbd87",
+          "new_sha256": "8fc18781aa98a1cb7483fd6c12c8b21392e4fda4b53311c4283618713be0f55a",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_offer_controller105.py",
+      "old_file_sha256": "52ca7a60cca352db14987fa04a11198cfd71718c6f50ad4f0ea22237c9d7cf8e",
+      "new_file_sha256": "8aa843caba5205f4c53cda930dace6cf315de6412714ea3f0e363594a31d36dc",
+      "methods": [
+        {
+          "name": "NativeOfferController105Tests.test_normal_target_candidate_and_unobserved_price_never_restart",
+          "old_sha256": "c4eb9edfb3742bb071e5dfaf08393533421fd51151deace6ef2c6ade37db3d67",
+          "new_sha256": "1f7bf876b465fdd10984e44d56368a2a6f9a1072da42d11fcb894df805d4c2f1",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed."
+        },
+        {
+          "name": "NativeOfferController105Tests.test_closed_offer_metrics_ordinary_price_floor_and_target_absence_are_independent",
+          "old_sha256": "dce28b6bd6577240d21840e7c4e7c7ae6224234c5becfbc3fdec0389d09ff78c",
+          "new_sha256": "203ac4128cd6a639b2614be0dcbf47d3b61f4a8ff4c7663b61a540499620611c",
+          "reason": "Latest user instruction: mode2 strong exact target image plus observed own price glyphs is target without mandatory name. Numeric price is not decoded. Existing between-price/name-only/canonical assertions are preserved; 095/105 add own-price-missing candidate coverage where needed."
+        }
+      ]
+    },
+    {
+      "path": "tests/test_native_full_data110.py",
+      "old_file_sha256": "79eba6db8defbe7dcd55d66c19215b25db040ec1eef8dd9dbdf1ca317f2283a3",
+      "new_file_sha256": "16d874975e36c607f8019fc372382f03c7720369f664d4e06bd2b6b8f133dae5",
+      "methods": [
+        {
+          "name": "NativeFullData110Tests.test_normal_target_candidate_win_over_queued_negative_or_later_unsafe_scene",
+          "old_sha256": "6715be526cb394c1ed6b531d3e16eb1b40d8614283f3ffcb2556b657db76f0d8",
+          "new_sha256": "ffaf57bdfa19d52bf4c6b879114931b9b4a27326c208629955524fb7ed113c19",
+          "reason": "Latest user instruction: strong exact target image plus fully observed own price glyphs is target without mandatory name. Retains no-MOVE/pause/candidate latch/queued unsafe-frame priority assertions. Adds name-absent and own-price-missing candidate1 case; numeric price is not decoded."
+        }
+      ]
+    }
+  ]
+}

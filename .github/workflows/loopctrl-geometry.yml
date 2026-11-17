@@ -571,6 +571,10 @@ jobs:
               NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test110_host.py
               DEVICE_PROFILE=110
             fi
+            if [ -f driver/patches/loopctrl/run_test111_host.py ]; then
+              NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test111_host.py
+              DEVICE_PROFILE=111
+            fi
           fi
           "$RUNNER_TEMP/test061-host-venv/bin/python" "$NATIVE_HOST_RUNNER" driver upstream "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/host-command.txt"
           echo "device_profile=$DEVICE_PROFILE" >> "$GITHUB_OUTPUT"
@@ -605,6 +609,37 @@ jobs:
         run: |
           set -euo pipefail
           "${{ steps.python39.outputs.python-path }}" driver/patches/loopctrl/run_test110_python39.py driver "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/python39-command.txt"
+      - name: Select actual Python 3.9 for TEST111 client compatibility
+        if: inputs.native_lane == 'device' && steps.host_contracts.outputs.device_profile == '111'
+        id: python39_111
+        shell: bash
+        run: |
+          set -euo pipefail
+          python39_root="$RUNNER_TEMP/test111-python39"
+          python39_archive="$RUNNER_TEMP/test111-python39.tar.gz"
+          mkdir -p "$python39_root"
+          curl --fail --location --retry 2 --connect-timeout 15 --max-time 120 --output "$python39_archive" 'https://github.com/astral-sh/python-build-standalone/releases/download/20251031/cpython-3.9.25%2B20251031-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz'
+          echo "fe04e8b27bd69ca2144fc542428f8b9b5287b6a2e45516a4acfe2c2bc3102773  $python39_archive" | sha256sum --check
+          tar -xzf "$python39_archive" -C "$python39_root"
+          python39_path="$python39_root/python/bin/python3.9"
+          TEST111_PYTHON_ARCHIVE="$python39_archive" "$python39_path" - <<'PY' | tee "$RUNNER_TEMP/test061-host/test111-python39-provider.json"
+          import ctypes, hashlib, json, os, platform, ssl, sys, zlib
+          from pathlib import Path
+          assert platform.python_implementation() == 'CPython' and sys.version_info[:3] == (3, 9, 25)
+          archive_sha = hashlib.sha256(Path(os.environ['TEST111_PYTHON_ARCHIVE']).read_bytes()).hexdigest()
+          assert archive_sha == 'fe04e8b27bd69ca2144fc542428f8b9b5287b6a2e45516a4acfe2c2bc3102773'
+          print(json.dumps(dict(schema='test111-python39-provider-v1', implementation=platform.python_implementation(),
+              version=list(sys.version_info[:3]), sys_version=sys.version, archive_sha256=archive_sha,
+              executable_sha256=hashlib.sha256(Path(sys.executable).resolve().read_bytes()).hexdigest(),
+              imports=['ssl','hashlib','ctypes','zlib'], openssl_version=ssl.OPENSSL_VERSION)))
+          PY
+          echo "python-path=$python39_path" >> "$GITHUB_OUTPUT"
+      - name: Run TEST111 exact client methods and shell entry using actual Python 3.9
+        if: inputs.native_lane == 'device' && steps.host_contracts.outputs.device_profile == '111'
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${{ steps.python39_111.outputs.python-path }}" driver/patches/loopctrl/run_test111_python39.py driver "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/python39-command.txt"
       - name: Save selected host evidence and explicit test inventory
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -642,27 +677,27 @@ jobs:
           rustc --version
       - name: Install TEST094 focused Swift fixture image decoder
         id: cycle_fixture_env
-        if: inputs.native_lane == 'device' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101' && needs.test061-host-contracts.outputs.device_profile != '102' && needs.test061-host-contracts.outputs.device_profile != '103' && needs.test061-host-contracts.outputs.device_profile != '104' && needs.test061-host-contracts.outputs.device_profile != '105' && needs.test061-host-contracts.outputs.device_profile != '106' && needs.test061-host-contracts.outputs.device_profile != '107' && needs.test061-host-contracts.outputs.device_profile != '108' && needs.test061-host-contracts.outputs.device_profile != '109' && needs.test061-host-contracts.outputs.device_profile != '110'
+        if: inputs.native_lane == 'device' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101' && needs.test061-host-contracts.outputs.device_profile != '102' && needs.test061-host-contracts.outputs.device_profile != '103' && needs.test061-host-contracts.outputs.device_profile != '104' && needs.test061-host-contracts.outputs.device_profile != '105' && needs.test061-host-contracts.outputs.device_profile != '106' && needs.test061-host-contracts.outputs.device_profile != '107' && needs.test061-host-contracts.outputs.device_profile != '108' && needs.test061-host-contracts.outputs.device_profile != '109' && needs.test061-host-contracts.outputs.device_profile != '110' && needs.test061-host-contracts.outputs.device_profile != '111'
         run: |
           python3 -m venv "$RUNNER_TEMP/test094-mac-venv"
           "$RUNNER_TEMP/test094-mac-venv/bin/pip" install Pillow==11.3.0
       - name: Verify TEST094 actual authenticated owner and public cycle schema
-        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101' && needs.test061-host-contracts.outputs.device_profile != '102' && needs.test061-host-contracts.outputs.device_profile != '103' && needs.test061-host-contracts.outputs.device_profile != '104' && needs.test061-host-contracts.outputs.device_profile != '105' && needs.test061-host-contracts.outputs.device_profile != '106' && needs.test061-host-contracts.outputs.device_profile != '107' && needs.test061-host-contracts.outputs.device_profile != '108' && needs.test061-host-contracts.outputs.device_profile != '109' && needs.test061-host-contracts.outputs.device_profile != '110'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101' && needs.test061-host-contracts.outputs.device_profile != '102' && needs.test061-host-contracts.outputs.device_profile != '103' && needs.test061-host-contracts.outputs.device_profile != '104' && needs.test061-host-contracts.outputs.device_profile != '105' && needs.test061-host-contracts.outputs.device_profile != '106' && needs.test061-host-contracts.outputs.device_profile != '107' && needs.test061-host-contracts.outputs.device_profile != '108' && needs.test061-host-contracts.outputs.device_profile != '109' && needs.test061-host-contracts.outputs.device_profile != '110' && needs.test061-host-contracts.outputs.device_profile != '111'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_api094.py upstream "$RUNNER_TEMP/test094-api" --fault-red'
       - name: Verify TEST094 immutable spool and actual filesystem fault boundaries
-        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101' && needs.test061-host-contracts.outputs.device_profile != '102' && needs.test061-host-contracts.outputs.device_profile != '103' && needs.test061-host-contracts.outputs.device_profile != '104' && needs.test061-host-contracts.outputs.device_profile != '105' && needs.test061-host-contracts.outputs.device_profile != '106' && needs.test061-host-contracts.outputs.device_profile != '107' && needs.test061-host-contracts.outputs.device_profile != '108' && needs.test061-host-contracts.outputs.device_profile != '109' && needs.test061-host-contracts.outputs.device_profile != '110'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101' && needs.test061-host-contracts.outputs.device_profile != '102' && needs.test061-host-contracts.outputs.device_profile != '103' && needs.test061-host-contracts.outputs.device_profile != '104' && needs.test061-host-contracts.outputs.device_profile != '105' && needs.test061-host-contracts.outputs.device_profile != '106' && needs.test061-host-contracts.outputs.device_profile != '107' && needs.test061-host-contracts.outputs.device_profile != '108' && needs.test061-host-contracts.outputs.device_profile != '109' && needs.test061-host-contracts.outputs.device_profile != '110' && needs.test061-host-contracts.outputs.device_profile != '111'
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/test094-spool"
           "$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_spool094.py --fault-red 2>&1 | tee "$RUNNER_TEMP/test094-spool/spool-command.txt"
       - name: Verify TEST094 immutable terminal export and exact image roundtrip
-        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101' && needs.test061-host-contracts.outputs.device_profile != '102' && needs.test061-host-contracts.outputs.device_profile != '103' && needs.test061-host-contracts.outputs.device_profile != '104' && needs.test061-host-contracts.outputs.device_profile != '105' && needs.test061-host-contracts.outputs.device_profile != '106' && needs.test061-host-contracts.outputs.device_profile != '107' && needs.test061-host-contracts.outputs.device_profile != '108' && needs.test061-host-contracts.outputs.device_profile != '109' && needs.test061-host-contracts.outputs.device_profile != '110'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101' && needs.test061-host-contracts.outputs.device_profile != '102' && needs.test061-host-contracts.outputs.device_profile != '103' && needs.test061-host-contracts.outputs.device_profile != '104' && needs.test061-host-contracts.outputs.device_profile != '105' && needs.test061-host-contracts.outputs.device_profile != '106' && needs.test061-host-contracts.outputs.device_profile != '107' && needs.test061-host-contracts.outputs.device_profile != '108' && needs.test061-host-contracts.outputs.device_profile != '109' && needs.test061-host-contracts.outputs.device_profile != '110' && needs.test061-host-contracts.outputs.device_profile != '111'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_cycle_export094.py upstream "$RUNNER_TEMP/test094-export" --fault-red'
       - name: Verify TEST094 selected actual Runtime cycle callbacks
         # TEST096/097/098 replace the obsolete PAUSE-before-classifier release fixture.
         # The replacement retains the old intent/cancellation assertions.
-        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '096' && needs.test061-host-contracts.outputs.device_profile != '097' && needs.test061-host-contracts.outputs.device_profile != '098' && needs.test061-host-contracts.outputs.device_profile != '099' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101' && needs.test061-host-contracts.outputs.device_profile != '102' && needs.test061-host-contracts.outputs.device_profile != '103' && needs.test061-host-contracts.outputs.device_profile != '104' && needs.test061-host-contracts.outputs.device_profile != '105' && needs.test061-host-contracts.outputs.device_profile != '106' && needs.test061-host-contracts.outputs.device_profile != '107' && needs.test061-host-contracts.outputs.device_profile != '108' && needs.test061-host-contracts.outputs.device_profile != '109' && needs.test061-host-contracts.outputs.device_profile != '110'
+        if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile != '096' && needs.test061-host-contracts.outputs.device_profile != '097' && needs.test061-host-contracts.outputs.device_profile != '098' && needs.test061-host-contracts.outputs.device_profile != '099' && needs.test061-host-contracts.outputs.device_profile != '100' && needs.test061-host-contracts.outputs.device_profile != '101' && needs.test061-host-contracts.outputs.device_profile != '102' && needs.test061-host-contracts.outputs.device_profile != '103' && needs.test061-host-contracts.outputs.device_profile != '104' && needs.test061-host-contracts.outputs.device_profile != '105' && needs.test061-host-contracts.outputs.device_profile != '106' && needs.test061-host-contracts.outputs.device_profile != '107' && needs.test061-host-contracts.outputs.device_profile != '108' && needs.test061-host-contracts.outputs.device_profile != '109' && needs.test061-host-contracts.outputs.device_profile != '110' && needs.test061-host-contracts.outputs.device_profile != '111'
         run: '"$RUNNER_TEMP/test094-mac-venv/bin/python" driver/patches/loopctrl/check_runtime_cycle094.py upstream "$RUNNER_TEMP/test094-runtime" --fault-red'
       - name: Verify TEST095 target-only Runtime and policy wire callbacks
         if: inputs.native_lane == 'device' && !cancelled() && steps.cycle_fixture_env.outcome == 'success' && needs.test061-host-contracts.outputs.device_profile == '095'
@@ -688,6 +723,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/test110-spool"
           cmp driver/patches/loopctrl/ngg2/NG2CycleSpool.swift upstream/LoopCtrlUITests/NG2CycleSpool.swift
           python3 driver/patches/loopctrl/check_cycle_spool110.py "$RUNNER_TEMP/test110-spool" --fault-red 2>&1 | tee "$RUNNER_TEMP/test110-spool/spool-command.txt"
+      - name: Verify TEST111 current classification source boundaries against exact sealed native sources
+        if: inputs.native_lane == 'device' && needs.test061-host-contracts.outputs.device_profile == '111'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/test111-runtime"
+          python3 driver/patches/loopctrl/check_runtime111.py upstream "$RUNNER_TEMP/test111-runtime" 2>&1 | tee "$RUNNER_TEMP/test111-runtime/runtime-command.txt"
       - name: Generate and inspect actual source-specific project configuration
         run: |
           (cd upstream && xcodegen generate --spec project.yml)
@@ -819,6 +861,7 @@ jobs:
             ${{ runner.temp }}/test099-runtime/
             ${{ runner.temp }}/test110-runtime/
             ${{ runner.temp }}/test110-spool/
+            ${{ runner.temp }}/test111-runtime/
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt
             ${{ runner.temp }}/ngg2/perception-build/

@@ -18,8 +18,8 @@ iSHは終了後の全画像/記録/ZIP照合を担当し、判定を再実行し
 
 | 結果 | 意味 |
 | --- | --- |
-| target | 同一slotでiconと対象名の独立条件を全て満たす |
-| candidate | 対象らしいicon等はあるが対象名を含む全条件は未成立。保持する |
+| target | 旧icon＋対象名の独立条件、または新mode2の厳密な画像＋同slot価格表示の独立条件を満たす |
+| candidate | 対象らしいicon等はあるが確定条件が未成立。名称だけを必須にせず、画像・価格が曖昧な場合も保持する |
 | unknown | 可視/資料/一致/判読が不十分。対象なしとはしない |
 
 実3原309を正例、原225の別ringと他商品を校正に使った。新原寸featureの固定閾値はicon候補≥.80、targetはicon≥.88 AND word IoU≥.82/coverage≥.90。raw原308は飛行中なのでpixel校正でだけcandidate例にし、本番sourceへ入れない。隣接画像・変形を別run未知評価へ数えない。対象なし/自動リスタートを新たに判断しない。
@@ -45,3 +45,11 @@ iSHへの結果表示はOSバックグラウンド通知ではない。今回、
 ## 診断用の原画像回収（TEST088）
 
 対象判定の長時間化で通常ZIPが未完成の場合、既publication lock/certificate下で登録済み全PNGと元active/reportだけを別の証拠ZIPへ出せる。ファイル名はtest-088-evidence-<uuid>.zip、別storage/別schema receiptを使い、通常archive/receiptやsidecarは変更しない。未完成part/未登録資料を混入させず、全CRC/SHA/元bytesの照合を行う。これは診断回収だけで、対象判定/通常出版完了や次run開始の許可ではない。通常の判定はpendingとして保持し、unknownや陰性を捏造しない。
+
+## 2026-11-17 mode2の画像・価格表示による確定
+
+最新ユーザー指定により、名称を必須にしないpositive policy16を追加する。exactな対象画像score≥.94、観測済み非HUD領域、同じ商品の完全な価格表示を独立に要求する。価格は個数・白画素支持・高さ・外周・中心対応を検査し、金額そのもののOCRや250への固定はしない。価格不足/曖昧画像の≥.80候補は保持し、従来のicon＋名称/名称単独の保護も維持する。canonical mode0は変更しない。
+
+word_presentや名称のboxを偽造せず、positive certificate16には実icon/price boxを保存する。coverageはINCOMPLETEで、対象外証明への転用はしない。mode2のpolicy文字列は exposed_cursering_image_price_v3。新TEST111は開始前に専用capability necrogold_native_image_price_v1を同じschema取得で確認し、同API版の旧IPAを取り違えない。
+
+既知陽性1b3e原309と、価格100のカリスマ/価格13のフェージング等を校正に使う。最新115枚に新TARGETなし、既知陽性は名称なしのpolicy16でTARGETとなった。これは校正結果であり、未知の配置・画像劣化や実機速度の受入ではない。旧mode2の「名称なしなら常にcandidate」という試験だけを新要件へ更新し、価格欠落・真の価格間配置・名称単独の候補保持は残す。

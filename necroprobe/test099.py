@@ -17,8 +17,13 @@ REASONS = ('none','goods','cancelled','foreground','locked','owner_paused','capt
            'restart','screen','generation','heartbeat','geometry')
 
 
-def main(argv=None, *, test_number='099', protocol_spec=cycle.STANDARD_PROTOCOL):
+def main(argv=None, *, test_number='099', protocol_spec=cycle.STANDARD_PROTOCOL, client_class=None):
     protocol=cycle._spec(protocol_spec)
+    client_type=client_class if client_class is not None else (
+        IrregularTrialClient110 if protocol.irregular else TrialClient099)
+    if client_class is not None and (not isinstance(client_type,type)
+            or not issubclass(client_type,TrialClient099) or client_type.protocol_spec is not protocol):
+        raise ValueError('invalid trial client')
     if type(test_number) is not str or len(test_number)!=3 or any(char not in '0123456789' for char in test_number):
         raise ValueError('invalid test number')
     prefix='TEST-'+test_number
@@ -30,7 +35,8 @@ def main(argv=None, *, test_number='099', protocol_spec=cycle.STANDARD_PROTOCOL)
     parser.add_argument('--check',action='store_true')
     args=parser.parse_args(argv)
     if args.check:
-        print(('native-irregular-trial-v1' if protocol.irregular else 'native-trial-v1')+' / '+cycle.API_VERSION)
+        print(getattr(client_type,'trial_revision',
+            'native-irregular-trial-v1' if protocol.irregular else 'native-trial-v1')+' / '+cycle.API_VERSION)
         return 0
     cancelled=[False]
     def stop(_signal,_frame):cancelled[0]=True
@@ -39,7 +45,6 @@ def main(argv=None, *, test_number='099', protocol_spec=cycle.STANDARD_PROTOCOL)
     try:
         key,tok=load_pairing(Path.home()/'.loopctrl'/'token.json')
         with OwnedRpcTimer() as timer:
-            client_type=IrregularTrialClient110 if protocol.irregular else TrialClient099
             client=client_type(HttpTransport(),key,tok,timeout=8,
                 crypto=Crypto(native=not args.python_crypto),deadline_owner=timer)
             result=campaign.run(client,Path.cwd(),spool=Path.home()/'.necroprobe'/'runtime'/('test-'+test_number),

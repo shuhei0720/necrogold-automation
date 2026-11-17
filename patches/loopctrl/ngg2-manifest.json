@@ -4,7 +4,7 @@
   "api_version": "1.98.16-ngg2",
   "capability": "necrogold_native_v1",
   "client_capability": "necrogold_native_v15",
-  "patch_sha256": "16dbeb6db1e9cf2d8834d282c6d4c8ec9b439377c6b213e6529187ee4278f15e",
+  "patch_sha256": "8197f0b120d26b0ac9f7ac053e44360bbaabf6e445d0ab1ceaca6b0f597425b3",
   "files": {
     "LoopCtrlUITests/ActionHandler.swift": {
       "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
@@ -19,7 +19,7 @@
     "LoopCtrlKit/RPCMethod.swift": {
       "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
       "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
-      "patched_sha256": "d1224614bc0826e257d1e8f3da897058aef65fa8b10b9d3f6cc199d6733994b5"
+      "patched_sha256": "afb93845a954ed233da877dc3734dd45036fdaaeb0d4d849eb0138568a10d659"
     },
     "LoopCtrlKit/JSONRPCServer.swift": {
       "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
@@ -67,7 +67,7 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "4c91d8253f942172cf929b106ed47ad4c89f5bd0df79b9d0e902deef9d1272b0"
+      "sha256": "366bb3bbbe1cf48b06e0403507ed3d9f7d1f100d328a49bdd50d95c9e9c86d20"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
@@ -107,11 +107,11 @@
     },
     "LoopCtrlUITests/NG2Ring.c": {
       "source": "NG2Ring.c",
-      "sha256": "d5946e2ca98e62577e9875c7a0216c6da10d9cfa507ddce3d0ca7af77179af4e"
+      "sha256": "1017f1d4904c8c66f0d58132ad4553d28190206f0db353b93a1ffeab8c44d6dc"
     },
     "LoopCtrlUITests/NG2Ring.h": {
       "source": "NG2Ring.h",
-      "sha256": "02a04dac3d916ac4616ec4ad8c278f626345961b33e4ac10d3ee6ca8be51d44a"
+      "sha256": "bdcc8b9a27b8953957c090dbb8ec6661d50a76d16d7dc62fd2a157c4fc35f880"
     },
     "LoopCtrlUITests/NG2RingBank.h": {
       "source": "NG2RingBank.h",
@@ -172,6 +172,7 @@
   "cycle_capability": "necrogold_native_cycle_v1",
   "cycle_profile": "normal-1-1-cycle-v1",
   "compiler_profile_version": 3,
+  "image_price_capability": "necrogold_native_image_price_v1",
   "irregular_capability": "necrogold_native_irregular_v1",
   "irregular_profile": "normal-1-1-irregular-v1"
 }

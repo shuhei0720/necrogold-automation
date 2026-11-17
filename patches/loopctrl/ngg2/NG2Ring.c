@@ -53,7 +53,7 @@ const char *ng2_ring_coverage_sha256(void) {
 #endif
 }
 const char *ng2_ring_policy_version(void){return "exposed_cursering_v1";}
-const char *ng2_ring_target_only_policy_version(void){return "exposed_cursering_target_only_v2";}
+const char *ng2_ring_target_only_policy_version(void){return "exposed_cursering_image_price_v3";}
 const char *ng2_ring_coverage_version(void){return R94_COVERAGE_AUTHORITY_VERSION;}
 /* Python round(x,9) rounds the exact binary64 input to a decimal quantum.
  * Multiplying by 1e9 first loses the threshold's low bits. 5^9 fits in 21
@@ -231,6 +231,7 @@ static int candidate_probe(const unsigned char *rgba,int cx,int sy,const NG2Ring
     return checkpoint(options,result);
 }
 #if NG2_HAS_RING_BANK
+static int image_price_witness(const RingObservation *observation,const NG2RingSlot *slot,int32_t box[4]);
 static int binary_slot_word(const RingObservation *observation,int cx,int sy,
                             const NG2RingOptions *options,NG2RingResult *result,NG2RingSlot *slot);
 #endif
@@ -253,8 +254,11 @@ static int score_slot(const unsigned char *rgba,const RingObservation *observati
     slot->icon_score_exact=(uint32_t)potential;slot->icon_upper_bound=upper;
     for(int k=0;k<4;k++)slot->icon_box[k]=box[k];
 #if NG2_HAS_RING_BANK
-    if(options&&options->mode==NG2_RING_MODE_TARGET_ONLY)
+    if(options&&options->mode==NG2_RING_MODE_TARGET_ONLY) {
+        int32_t price[4];
+        if(image_price_witness(observation,slot,price))return checkpoint(options,result);
         return binary_slot_word(observation,cx,sy,options,result,slot);
+    }
 #endif
     /* Raw word work is intentionally unconditional, even below .80 icon.
      * A geometrically empty name window remains an explicit null. */
@@ -788,7 +792,7 @@ static void price_witness(const RingObservation *observation,const NG2RingRow *r
              * pixels for each real price. An icon/name fragment with less
              * support is not a fourth price. The full target sweep and the
              * exact Scene ITEM projection remain independent requirements. */
-            if((out->policy_version==9||out->policy_version==11)&&ink_count<18) {
+            if((out->policy_version==9||out->policy_version==11||out->policy_version==15)&&ink_count<18) {
                 start=-1;continue;
             }
             out->observed_prices++;
@@ -810,6 +814,71 @@ static void price_witness(const RingObservation *observation,const NG2RingRow *r
         }
     }
     if(!baseline)out->unmatched_prices++;
+}
+/* A positive-only image/price witness. The fixed target kernel stays intact;
+ * a conservative upper bound is never an identified target. Prices support
+ * the observed slot association without decoding or fixing their value. */
+static int image_price_witness(const RingObservation *observation,const NG2RingSlot *slot,int32_t box[4]) {
+    int cx=slot->cx,sy=slot->sy;
+    int32_t band[4]={cx-12,sy+68,25,22};
+    if(!slot->icon_score_exact||ng2_ring_round9(slot->icon_score)<.94
+       ||!box_valid(slot->icon_box)||!box_valid(band))return 0;
+    int x0=RING_W,x1=-1,y0=RING_HH,y1=-1,count=0,last=-1;
+    for(int x=cx-12;x<=cx+12;x++) {
+        int column=0;
+        for(int y=sy+68;y<=sy+89;y++) {
+            int ink=(int)((observation->white[y][x/64]>>(x%64))&1);
+            if(!ink)continue;
+            /* An observed empty perimeter is required; clipped or joined
+             * price ink is not complete positive support. */
+            if(x==cx-12||x==cx+12||y==sy+68||y==sy+89)return 0;
+            column=1;count++;
+            if(x<x0)x0=x;
+            if(x>x1)x1=x;
+            if(y<y0)y0=y;
+            if(y>y1)y1=y;
+        }
+        if(column) {
+            /* The existing price grouping allows at most three empty
+             * columns between digits, rather than joining two prices. */
+            if(last>=0&&x-last>4)return 0;
+            last=x;
+        }
+    }
+    if(count<18||y1-y0+1>9)return 0;
+    int32_t price[4]={x0,y0,x1-x0+1,y1-y0+1};
+    if(!box_valid(price)||abs((slot->icon_box[0]*2+slot->icon_box[2])-(x0+x1+1))>16
+       ||(slot->icon_box[0]<price[0]+price[2]&&price[0]<slot->icon_box[0]+slot->icon_box[2]
+          &&slot->icon_box[1]<price[1]+price[3]&&price[1]<slot->icon_box[1]+slot->icon_box[3]))return 0;
+    memcpy(box,price,sizeof(price));return 1;
+}
+static int image_price_promotion(const RingObservation *observation,const NG2RingOptions *options,NG2RingResult *result) {
+    if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY||result->outcome!=NG2_RING_CANDIDATE)
+        return NG2_RING_OK;
+    for(int pass=0;pass<=result->row_count;pass++) {
+        int r=pass<result->row_count?pass:-1;
+        int count=r<0?result->partial_count:3;
+        for(int s=0;s<count;s++) {
+            NG2RingSlot *slot=r<0?&result->partial[s]:&result->rows[r].slots[s];int32_t price[4];
+            if(!image_price_witness(observation,slot,price))continue;
+            NG2RingCoverage *out=&result->certificate;memset(out,0,sizeof(*out));
+            int index=r<0?0:s;
+            out->layout_version=1;out->policy_version=NG2_RING_IMAGE_PRICE_POLICY;out->row_index=r;
+            out->accepted_rows=r<0?0:1;out->observed_items=out->observed_prices=1;
+            out->row[0]=r<0?slot->cx:result->rows[r].left;out->row[1]=slot->sy;
+            memcpy(out->item_boxes[index],slot->icon_box,sizeof(slot->icon_box));
+            memcpy(out->price_boxes[index],price,sizeof(price));
+            slot->outcome=NG2_RING_TARGET;
+            result->outcome=NG2_RING_TARGET;result->reason=NG2_RING_ICON_ONLY;
+            result->coverage=NG2_RING_COVERAGE_INCOMPLETE;
+            result->selected_row=r;result->selected_partial=r<0?s:-1;
+            if(r>=0) {
+                result->rows[r].outcome=NG2_RING_TARGET;result->rows[r].reason=NG2_RING_ICON_ONLY;
+            }
+            return checkpoint(options,result);
+        }
+    }
+    return checkpoint(options,result);
 }
 static void item_witness(const unsigned char *rgba,const NG2RingRow *row,NG2RingCoverage *out) {
     unsigned char mask[180*67]={0};uint16_t queue[180*67];int height=out->strip_box[3];
@@ -957,9 +1026,11 @@ static int binary_primary(const unsigned char *rgba,const NG2RingOptions *option
 }
 static int binary_word_window(const RingObservation *observation,int x0,int x1,int y0,int y1,
                               const NG2RingOptions *options,NG2RingResult *result,NG2RingSlot *slot) {
-    double best=0.0,coverage=0.0;int32_t best_box[4]={0};int status,found=0;
-    /* Both every original partial window and the complete-strip name union
-     * filter full visibility and qualifying thresholds BEFORE maximization. */
+    unsigned best_intersection=0,best_union=1;int32_t best_box[4]={0};int status,found=0,best_qualifies=0;
+    /* IoU denominators are at most 84*11=924. Distinct fractions therefore
+     * differ by at least 1/(924*924), exceeding the round9 quantum. Coverage
+     * increments by 1/239. Exact integer ranking/thresholds select the same
+     * placement; only the selected scores need binary64 round9 conversion. */
     for(int y=y0;y<=y1;y++) {
         if((status=checkpoint(options,result)))return status;
         for(int x=x0;x<=x1;x++) {
@@ -972,16 +1043,19 @@ static int binary_word_window(const RingObservation *observation,int x0,int x1,i
                     total_union+=bank_pop(word_reference[dy][k]|observed[k]);
                 }
             }
-            double iou=ng2_ring_round9(bank_div(intersection,total_union?total_union:1));
-            double cov=ng2_ring_round9(bank_div(intersection,239));
-            int qualifies=iou>=.82&&cov>=.90,old=best>=.82&&coverage>=.90;
-            if(!found||((qualifies!=old)?qualifies:(iou>best||(iou==best&&cov>coverage)))) {
-                found=1;best=iou;coverage=cov;memcpy(best_box,box,sizeof(box));
+            int qualifies=100*intersection>=82*total_union&&10*intersection>=9*239;
+            unsigned cross=intersection*best_union,old_cross=best_intersection*total_union;
+            if(!found||((qualifies!=best_qualifies)?qualifies:
+                (cross>old_cross||(cross==old_cross&&intersection>best_intersection)))) {
+                found=1;best_intersection=intersection;best_union=total_union;
+                best_qualifies=qualifies;memcpy(best_box,box,sizeof(box));
             }
         }
     }
     if(found) {
-        slot->word_present=1;slot->word_iou=best;slot->word_coverage=coverage;
+        slot->word_present=1;
+        slot->word_iou=ng2_ring_round9(bank_div(best_intersection,best_union));
+        slot->word_coverage=ng2_ring_round9(bank_div(best_intersection,239));
         memcpy(slot->word_box,best_box,sizeof(best_box));
     }
     return checkpoint(options,result);
@@ -1704,6 +1778,44 @@ static int offer_footprint_scene_base(const NG2Scene *scene,int left,int sy,int 
 static int offer_footprint_scene_row(const NG2Scene *scene,int left,int sy) {
     return offer_footprint_scene_base(scene,left,sy,NULL);
 }
+/* This distinct fourteen-GOLD enclosure observes an entrance two cells above
+ * the offers. Its complete raw strip has the ordinary box/HUD checks; it
+ * does not widen policy9's central footprint or infer an unseen lower wall. */
+static int upper_side_row_cells(int left,int sy,int *ax,int *ay) {
+    return left>=197&&left<=537&&sy>=21&&sy<=RING_HH-91
+        &&structural_cell(left,448,ax)&&structural_cell(sy+48,207,ay)
+        &&*ax-2>=-11&&*ax+4<=11&&*ay-5>=-5&&*ay+2<=4;
+}
+static int upper_side_scene_row(const NG2Scene *scene,int left,int sy) {
+    int ax,ay,gold=0;
+    if(!scene||scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene)
+       ||scene->state!=NG2_FLOOR||scene->goods!=NG2_GOODS_VISIBLE
+       ||(scene->gold_state!=NG2_GOLD_CANDIDATE&&scene->gold_state!=NG2_GOLD_EDGE_DOWN)
+       ||!upper_side_row_cells(left,sy,&ax,&ay))return 0;
+    for(int i=0;i<NG2_TILE_COUNT;i++) {
+        int x=i%23-11,y=i/23-5;
+        int item=y==ay&&x>=ax&&x<=ax+2;
+        int protected=(y==ay&&x>=ax-1&&x<=ax+3)
+            ||((y==ay-1||y==ay+1)&&x>=ax&&x<=ax+2);
+        if((scene->tiles[i]==NG2_TILE_ITEM&&!item)||scene->protected_cells[i]!=protected)return 0;
+        gold+=scene->tiles[i]==NG2_TILE_GOLD;
+    }
+    if(gold<14)return 0;
+    for(int x=ax;x<=ax+2;x++)if(structural_tile(scene,x,ay)!=NG2_TILE_ITEM
+        ||structural_tile(scene,x,ay+1)!=NG2_TILE_FLOOR)return 0;
+    if(structural_tile(scene,ax-1,ay)!=NG2_TILE_FLOOR||structural_tile(scene,ax+3,ay)!=NG2_TILE_FLOOR)return 0;
+    for(int mirror=0;mirror<2;mirror++) {
+        int solid=mirror?ax+4:ax-2,gate=mirror?ax-2:ax+4,valid=1;
+        for(int y=ay-5;y<=ay+2;y++)valid&=structural_tile(scene,solid,y)==NG2_TILE_GOLD;
+        for(int k=0;k<5;k++)valid&=structural_tile(scene,solid+(mirror?-k:k),ay-5)==NG2_TILE_GOLD;
+        valid&=structural_tile(scene,gate,ay-3)==NG2_TILE_GOLD;
+        valid&=structural_tile(scene,gate,ay-1)==NG2_TILE_GOLD;
+        int opening=structural_tile(scene,gate,ay-2);
+        valid&=opening==NG2_TILE_FLOOR||opening==NG2_TILE_DOOR;
+        if(valid)return 1;
+    }
+    return 0;
+}
 /* One real face is sufficient only with an independently observed enclosure:
  * the solid side, lower rail and opposite post contain fourteen distinct GOLD
  * cells, and the opening is two rows below the offers. Both orientations use
@@ -1781,17 +1893,34 @@ static int offer_endcap_witness(const unsigned char *rgba,const RingObservation 
         material_sample(rgba,out->box[0],out->box[1]+12,25,13));
     return out->floor_upper&&out->floor_lower;
 }
+static int binary_cell_certificate(const NG2RingSlot *slot,int cx,int sy,int index,const int32_t strip[4]);
+/* A preceding independent layout may already have swept this exact five-cell
+ * strip and its complete name union. Reuse only its complete numeric pixel
+ * proof on the same physical row, never a score from an unqualified probe. */
+static int coverage_primary_proven(const NG2RingResult *result,const NG2RingRow *row) {
+    const NG2RingCoverage *w=&result->certificate;
+    int32_t strip[4]={row->left-54,row->sy+24,180,67};
+    if(result->outcome!=NG2_RING_UNKNOWN||result->coverage!=NG2_RING_COVERAGE_INCOMPLETE
+       ||result->partial_count!=2||w->layout_version!=1||w->accepted_rows!=1
+       ||w->row_index<0||w->row_index>=result->row_count||row!=&result->rows[w->row_index]||w->observed_items!=3
+       ||w->row[0]!=row->left||w->row[1]!=row->sy
+       ||memcmp(w->strip_box,strip,sizeof(strip)))return 0;
+    for(int s=0;s<3;s++)if(!binary_cell_certificate(&row->slots[s],row->left+36*s,row->sy,s,strip))return 0;
+    return binary_cell_certificate(&result->partial[0],row->left-36,row->sy,0,strip)
+        &&binary_cell_certificate(&result->partial[1],row->left+108,row->sy,0,strip);
+}
 static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObservation *observation,
                                 const NG2RingSign signs[12],int sign_count,
                                 const NG2RingOptions *options,NG2RingResult *result,int *handled,int kind) {
-    int closed=kind==1,single=kind==2;
+    int closed=kind==1,single=kind==2,upper=kind==3;
     *handled=0;
     if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY||sign_count!=(single?1:2))return NG2_RING_OK;
     int selected=-1,selected_pair[2]={-1,-1},selected_closed=-1,accepted=0;
     for(int r=0;r<result->row_count;r++) {
         const NG2RingRow *row=&result->rows[r];int pair[2]={-1,-1},hits[2]={0,0};
         int missing=-1;
-        if(closed?(!offer_footprint_scene_base(options->scene,row->left,row->sy,&missing)||missing<0)
+        if(upper?!upper_side_scene_row(options->scene,row->left,row->sy)
+                 :closed?(!offer_footprint_scene_base(options->scene,row->left,row->sy,&missing)||missing<0)
                  :single?!single_offer_scene_row(options->scene,row->left,row->sy)
                         :!offer_footprint_scene_row(options->scene,row->left,row->sy))continue;
         for(int side=0;side<2;side++)for(int i=0;i<sign_count;i++)
@@ -1811,7 +1940,8 @@ static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObs
     if(!accepted)return NG2_RING_OK;
     *handled=1;
     NG2RingCoverage *out=&result->certificate;NG2RingRow *row=&result->rows[selected];
-    memset(out,0,sizeof(*out));out->layout_version=1;out->policy_version=out->board_mode=single?11:closed?10:9;
+    int reuse=coverage_primary_proven(result,row);
+    memset(out,0,sizeof(*out));out->layout_version=1;out->policy_version=out->board_mode=upper?15:single?11:closed?10:9;
     out->accepted_rows=accepted;out->row_index=selected;out->row[0]=row->left;out->row[1]=row->sy;
     out->scene_state=options->scene->state;out->scene_goods=options->scene->goods;
     for(int i=0;i<NG2_TILE_COUNT;i++)out->actual_gold_cells+=options->scene->tiles[i]==NG2_TILE_GOLD;
@@ -1825,15 +1955,18 @@ static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObs
     if(accepted!=1){out->failure_flags|=NG2_RING_COV_ROWS;return NG2_RING_OK;}
     int32_t strip[4]={row->left-54,row->sy+24,180,67};memcpy(out->strip_box,strip,sizeof(strip));
     if(!box_valid(strip)){out->failure_flags|=NG2_RING_COV_BOUNDS;return NG2_RING_OK;}
-    int status=binary_primary(rgba,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
-    status=binary_word_veto(observation,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
-    int complete=closed?endcap_witness(rgba,observation,row->left-36,row->sy,&out->endcaps[0])
+    int status=NG2_RING_OK;
+    if(!reuse) {
+        status=binary_primary(rgba,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
+        status=binary_word_veto(observation,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
+    }
+    int complete=(closed||upper)?endcap_witness(rgba,observation,row->left-36,row->sy,&out->endcaps[0])
         :offer_endcap_witness(rgba,observation,options->scene,row->left-36,row->sy,&out->endcaps[0]);
-    complete&=closed?endcap_witness(rgba,observation,row->left+108,row->sy,&out->endcaps[1])
+    complete&=(closed||upper)?endcap_witness(rgba,observation,row->left+108,row->sy,&out->endcaps[1])
         :offer_endcap_witness(rgba,observation,options->scene,row->left+108,row->sy,&out->endcaps[1]);
     if(!complete)out->failure_flags|=NG2_RING_COV_ENDCAP;
     price_witness(observation,row,out);
-    status=closed_price_recover(rgba,observation,options,result,row,out,0);if(status)return status;
+    if(!upper){status=closed_price_recover(rgba,observation,options,result,row,out,0);if(status)return status;}
     if(out->observed_prices!=3||out->unmatched_prices){complete=0;out->failure_flags|=NG2_RING_COV_PRICE;}
     for(int s=0;s<3;s++)memcpy(out->item_boxes[s],row->slots[s].non_target_icon_box,sizeof(out->item_boxes[s]));
     item_witness(rgba,row,out);
@@ -1868,6 +2001,32 @@ static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObs
     return checkpoint(options,result);
 }
 
+/* A layout's incomplete proof is diagnostic, not a veto over a different
+ * complete witness for the same immutable physical row. Keep the first
+ * failure if neither independent footprint succeeds; failed jobs and any
+ * positive target evidence always return immediately. */
+static int independent_coverage(const unsigned char *rgba,const RingObservation *observation,
+                               const NG2RingSign signs[12],int sign_count,
+                               const NG2RingOptions *options,NG2RingResult *result) {
+    const NG2RingCoverage *w=&result->certificate;
+    if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY||result->outcome!=NG2_RING_UNKNOWN
+       ||result->coverage!=NG2_RING_COVERAGE_INCOMPLETE||w->accepted_rows!=1
+       ||w->row_index<0||w->row_index>=result->row_count)return NG2_RING_OK;
+    NG2RingResult first=*result;uint64_t checks=result->checks,finished=result->finished_ns;
+    for(int attempt=0;attempt<2;attempt++) {
+        *result=first;result->checks=checks;result->finished_ns=finished;
+        int handled=0,status=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,
+            options,result,&handled,attempt?3:0);
+        if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
+        if(handled&&result->coverage==NG2_RING_COVERAGE_COMPLETE
+           &&result->certificate.row[0]==first.certificate.row[0]
+           &&result->certificate.row[1]==first.certificate.row[1])return NG2_RING_OK;
+        checks=result->checks;finished=result->finished_ns;
+    }
+    *result=first;result->checks=checks;result->finished_ns=finished;
+    return NG2_RING_OK;
+}
+
 /* Coverage and item identity are separate witnesses. Neither a low target
  * score nor the legacy three-price row alone can authorize NEGATIVE. */
 static int coverage_witness(const unsigned char *rgba,const RingObservation *observation,
@@ -1875,23 +2034,25 @@ static int coverage_witness(const unsigned char *rgba,const RingObservation *obs
                             const NG2RingOptions *options,NG2RingResult *result) {
     if(!options||!options->scene)return NG2_RING_OK;
     int handled=0,structural=structural_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(structural||handled)return structural;
+    if(structural||handled)return structural?structural:independent_coverage(rgba,observation,signs,sign_count,options,result);
     int side=side_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(side||handled)return side;
+    if(side||handled)return side?side:independent_coverage(rgba,observation,signs,sign_count,options,result);
     int lower=lower_side_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(lower||handled)return lower;
+    if(lower||handled)return lower?lower:independent_coverage(rgba,observation,signs,sign_count,options,result);
     int bottom=bottom_door_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(bottom||handled)return bottom;
+    if(bottom||handled)return bottom?bottom:independent_coverage(rgba,observation,signs,sign_count,options,result);
     int single=single_sign_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(single||handled)return single;
+    if(single||handled)return single?single:independent_coverage(rgba,observation,signs,sign_count,options,result);
     int bottom_entry=bottom_entry_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(bottom_entry||handled)return bottom_entry;
+    if(bottom_entry||handled)return bottom_entry?bottom_entry:independent_coverage(rgba,observation,signs,sign_count,options,result);
     int footprint=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,0);
     if(footprint||handled)return footprint;
     int closed_offer=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,1);
     if(closed_offer||handled)return closed_offer;
     int single_offer=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,2);
     if(single_offer||handled)return single_offer;
+    int upper_side=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,3);
+    if(upper_side||handled)return upper_side;
     const NG2Scene *scene=options->scene;NG2RingCoverage *out=&result->certificate;
     if(scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene))return NG2_RING_INVALID;
     out->scene_state=scene->state;out->scene_goods=scene->goods;out->layout_version=1;
@@ -2247,12 +2408,12 @@ static int offer_footprint_negative_certificate(const NG2RingResult *result,int 
        ||result->partial_count!=2||result->selected_row<0||result->selected_row>=result->row_count
        ||result->selected_partial!=-1||result->partial_safe_no_positive)return 0;
     const NG2RingCoverage *w=&result->certificate;const NG2RingRow *row=&result->rows[result->selected_row];int ax,ay;
-    int single=w->policy_version==11,face_count=0;
-    if(!offer_footprint_row_cells(row->left,row->sy,&ax,&ay)
-       ||w->layout_version!=1||(w->policy_version!=9&&!single)||w->board_mode!=w->policy_version||w->failure_flags
+    int single=w->policy_version==11,upper=w->policy_version==15,face_count=0;
+    if(!(upper?upper_side_row_cells(row->left,row->sy,&ax,&ay):offer_footprint_row_cells(row->left,row->sy,&ax,&ay))
+       ||w->layout_version!=1||(w->policy_version!=9&&!single&&!upper)||w->board_mode!=w->policy_version||w->failure_flags
        ||w->accepted_rows!=1||w->row_index!=result->selected_row||w->row[0]!=row->left||w->row[1]!=row->sy
        ||w->scene_state!=NG2_FLOOR||w->scene_goods!=NG2_GOODS_VISIBLE
-       ||w->actual_gold_cells<(single?14:1)||w->actual_gold_cells>NG2_TILE_COUNT
+       ||w->actual_gold_cells<((single||upper)?14:1)||w->actual_gold_cells>NG2_TILE_COUNT
        ||(single&&(ay-3 < -5||ay+3>4))
        ||w->observed_items!=3||w->observed_prices!=3||w->unmatched_prices||w->unmatched_boards
        ||w->unmatched_items<0||w->unmatched_items>(180*67)/24||w->non_target_items!=3||w->ignored_containers
@@ -2410,7 +2571,8 @@ static int closed_color_negative_certificate(const NG2RingResult *result) {
 int ng2_ring_negative_certificate(const NG2RingResult *result) {
     if(result&&result->certificate.layout_version==2)return closed_color_negative_certificate(result);
     if(result&&result->certificate.policy_version==10)return closed_offer_negative_certificate(result);
-    if(result&&(result->certificate.policy_version==9||result->certificate.policy_version==11))return offer_footprint_negative_certificate(result,-1);
+    if(result&&(result->certificate.policy_version==9||result->certificate.policy_version==11
+        ||result->certificate.policy_version==15))return offer_footprint_negative_certificate(result,-1);
     if(result&&result->certificate.policy_version==8)return bottom_entry_negative_certificate(result,-1);
     if(result&&result->certificate.policy_version==7)return single_sign_negative_certificate(result,-1);
     if(result&&(result->certificate.policy_version==3||result->certificate.policy_version==4
@@ -2549,6 +2711,7 @@ int ng2_ring_assess_rgba(const unsigned char *rgba,size_t bytes,size_t stride,
     if(status)goto done;
     status=ng2_ring_aggregate(result);
 #if NG2_HAS_RING_BANK
+    if(!status)status=image_price_promotion(&observation,options,result);
     if(!status&&options&&options->mode==NG2_RING_MODE_TARGET_ONLY)binary_preserve_observed_words(result);
     NG2ContainerMasks containers;
     if(!status&&result->outcome==NG2_RING_UNKNOWN&&(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY))status=container_masks(rgba,options,result,&containers);

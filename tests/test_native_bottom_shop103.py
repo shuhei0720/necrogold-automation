@@ -86,7 +86,8 @@ class NativeBottomShop103Tests(unittest.TestCase):
             self.assertNotEqual(3,self.assess(self.pixels(**kwargs))[1].outcome)
 
     def test_full_strip_target_and_strong_word_remain_held(self):
-        for name,expected in ((True,2),(False,1)):
+        # TEST111 mode2 uses the image and observed price glyphs, without numeric OCR.
+        for name,expected in ((True,2),(False,2)):
             self.assertEqual(expected,self.assess(self.pixels(target=True,target_name=name))[1].outcome)
         for sprite in FEATURES['icons']:
             pixels=bytearray(self.pixels());left=447-sprite['width']//2;top=82
@@ -94,7 +95,12 @@ class NativeBottomShop103Tests(unittest.TestCase):
                 for x in range(left,left+sprite['width']):_put(pixels,x,y,(27,17,12))
             for dx,dy,r,g,b in sprite['bright']:_put(pixels,left+dx,top+dy,(r,g,b))
             for dx,dy in sprite['dark']:_put(pixels,left+dx,top+dy,(0,0,0))
-            self.assertEqual(1,self.assess(bytes(pixels))[1].outcome)
+            # These exact sprites stay centered over the middle offer's own price.
+            self.assertEqual(2,self.assess(bytes(pixels))[1].outcome)
+            for y in range(112,134):
+                for x in range(435,460):_put(pixels,x,y,(27,17,12))
+            self.assertEqual(1,self.assess(bytes(pixels))[1].outcome,
+                'the same image is held as candidate when its own price is unobserved')
         pixels=bytearray(self.pixels())
         for y in range(68,79):
             for x in range(405,489):_put(pixels,x,y,(27,17,12))

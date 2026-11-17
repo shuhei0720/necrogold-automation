@@ -116,9 +116,12 @@ class TargetOnly095Tests(unittest.TestCase):
                 self.assertNotEqual(3,result.outcome)
 
     def test_same_probe_target_icon_candidate_and_observed_word_only_veto(self):
-        for has_name,expected in ((True,2),(False,1)):
+        # TEST111 mode2 uses the image and observed price glyphs, without numeric OCR.
+        for has_name,expected in ((True,2),(False,2)):
             status,result=self.assess(self.shop(target=True,target_name=has_name))
             self.assertEqual((0,expected),(status,result.outcome))
+        status,result=self.assess(self.shop(target=True,target_name=False,missing_price=1))
+        self.assertEqual((0,1),(status,result.outcome),'an unobserved own price still holds the candidate')
         pixels=bytearray(self.shop())
         for y in range(140,151):
             for x in range(354,438):

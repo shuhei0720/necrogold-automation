@@ -137,7 +137,8 @@ class NativeSingleSignShop103Tests(unittest.TestCase):
         self.assertNotEqual(3,self.assess(bytes(pixels))[1].outcome)
 
     def test_target_full_strip_and_strong_name_keep_positive_priority(self):
-        for name,expected in ((True,2),(False,1)):
+        # TEST111 mode2 uses the image and observed price glyphs, without numeric OCR.
+        for name,expected in ((True,2),(False,2)):
             self.assertEqual(expected,self.assess(self.pixels(target=True,target_name=name))[1].outcome)
         for sprite in FEATURES['icons']:
             pixels=bytearray(self.pixels());left=319-sprite['width']//2;top=192

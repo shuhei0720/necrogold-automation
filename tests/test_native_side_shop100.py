@@ -162,7 +162,8 @@ class NativeSideShop100Tests(unittest.TestCase):
         self.assertNotEqual(3, self.assess(bytes(pixels))[1].outcome)
 
     def test_target_icon_candidate_and_strong_name_keep_positive_priority(self):
-        for has_name, expected in ((True,2),(False,1)):
+        # TEST111 mode2 uses the image and observed price glyphs, without numeric OCR.
+        for has_name, expected in ((True,2),(False,2)):
             status, result = self.assess(self.pixels(target=True, target_name=has_name,
                 missing_shop_glyph=True, missing_merchant=True))
             self.assertEqual((0,expected),(status,result.outcome))

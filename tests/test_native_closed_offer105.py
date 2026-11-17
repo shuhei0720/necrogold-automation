@@ -98,7 +98,8 @@ class NativeClosedOffer105Tests(unittest.TestCase):
             self.assertNotEqual(3, self.assess(scene=scene)[1].outcome)
 
     def test_target_or_candidate_has_priority_over_closed_identity(self):
-        for named, expected in ((True, 2), (False, 1)):
+        # TEST111 mode2 uses the image and observed price glyphs, without numeric OCR.
+        for named, expected in ((True, 2), (False, 2)):
             self.assertEqual(expected, self.assess(shop_pixels(target=True, target_name=named))[1].outcome)
         pixels = bytearray(shop_pixels());sprite = offers.FEATURES['icons'][0]
         left, top = 411-sprite['width']//2, 92

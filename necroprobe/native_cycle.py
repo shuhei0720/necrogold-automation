@@ -101,6 +101,7 @@ class _StartNotSent(ProbeError):
 
 class CycleClient(Client):
     protocol_spec = STANDARD_PROTOCOL
+    required_capabilities = frozenset()
 
     def _validate(self, method, params):
         protocol = _spec(self.protocol_spec)
@@ -171,6 +172,7 @@ class CycleClient(Client):
         require(type(capabilities) is list and len(capabilities) <= 256
                 and all(type(item) is str and len(item) <= 128 for item in capabilities)
                 and CAPABILITY in capabilities and _spec(self.protocol_spec).capability in capabilities
+                and self.required_capabilities <= set(capabilities)
                 and type(value.get('protocol_version')) is int
                 and value['protocol_version'] == 1, 'native_capability_missing')
         return {'api_version': API_VERSION, 'capability': _spec(self.protocol_spec).capability}

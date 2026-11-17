@@ -264,6 +264,10 @@ def seal(root):
     if 'LoopCtrlUITests/NG2CycleWire.swift' in additions:
         manifest.update(cycle_capability='necrogold_native_cycle_v1',
                         cycle_profile='normal-1-1-cycle-v1', compiler_profile_version=3)
+    if ('LoopCtrlUITests/NG2Ring.c' in additions
+            and b'exposed_cursering_image_price_v3' in safe_path(ASSETS_ROOT, 'NG2Ring.c').read_bytes()
+            and b'necrogold_native_image_price_v1' in raw_patch):
+        manifest['image_price_capability'] = 'necrogold_native_image_price_v1'
     if ('LoopCtrlUITests/NG2Core.h' in additions
             and b'ng2_analyze_irregular_rgba(' in safe_path(ASSETS_ROOT, 'NG2Core.h').read_bytes()):
         manifest.update(irregular_capability='necrogold_native_irregular_v1',

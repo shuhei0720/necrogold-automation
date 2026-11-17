@@ -194,8 +194,9 @@ class NativeFullData110Tests(unittest.TestCase):
                 self.assertEqual(moves, self.h.status().moves)
 
     def test_normal_target_candidate_win_over_queued_negative_or_later_unsafe_scene(self):
-        for target_name, outcome in ((True, 2), (False, 1)):
-            with self.subTest(target_name=target_name):
+        # TEST111 mode2 uses observed price glyph support, without numeric OCR.
+        for target_name, price, outcome in ((True, None, 2), (False, None, 2), (False, 1, 1)):
+            with self.subTest(target_name=target_name, missing_price=price):
                 self.setUp()
                 source, _, _, moves = self.admitted(normal=True)
                 latest = self.changed(source)
@@ -205,7 +206,7 @@ class NativeFullData110Tests(unittest.TestCase):
                 unsafe.tiles[(8, 3)] = 'item'
                 unsafe.protected.add((8, 3))
                 self.observe(unsafe, 40_000_000)
-                self.finish(job, started, self.normal(latest, target=True, target_name=target_name))
+                self.finish(job, started, self.normal(latest, target=True, target_name=target_name, missing_price=price))
                 self.assertEqual((outcome, 1, 7, 1),
                     (self.q.cycle().outcome, self.q.cycle().candidate_latched,
                      self.q.cycle().state, self.q.cycle().completed_shops))

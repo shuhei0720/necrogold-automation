@@ -222,7 +222,8 @@ class NativeShopCoverage102Tests(unittest.TestCase):
         self.assertEqual(2,result.certificate.accepted_rows)
 
     def test_target_icon_and_strong_word_keep_positive_priority(self):
-        for name,expected in ((True,2),(False,1)):
+        # TEST111 mode2 uses the image and observed price glyphs, without numeric OCR.
+        for name,expected in ((True,2),(False,2)):
             with self.subTest(name=name):
                 self.assertEqual(expected,self.assess(self.pixels(target=True,target_name=name))[1].outcome)
         for sprite in FEATURES['icons']:

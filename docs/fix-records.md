@@ -473,3 +473,18 @@ TEST109/build208確認: CODE270773bの選択CI130件/19scope、同source IPA、�
 
 
 TEST110/build217の実物確認（2026-11-17）: CODEcdff284/run44044340448で選択180件、実Python3.9の108件、Mac Runtime29閉case、Spool production/2故障感度検査が成功。Mac214の製品snapshot不足は修正後の同assert成功、215/216は誤fixtureの資格拒否として保持した。IPA/source1000files/実compiler/全保持sourceと5実物gateを5attemptで照合済み。各行の実機改善未確認・再発数は維持し、単体・callback合格を改善完了にしない。閉じsource2424bb4の全1000files/CRCを照合し、固定test110-build217をpublisher218で公開。IPA/完全source/hash表の匿名GET200・全bytes/SHA一致を確認。実機改善未確認は維持する。
+
+## TEST111の対策（実機改善未確認）
+
+2026-11-17（日本時間）。[計画](plans/test111-device-failures.md)。13添付を重複照合し、4campaign/5run/115 PNG/131記録を既存client/hashchain/RGBAで検証。a4af原309/310の対象外証明と保存→RESTART22→新床337の成功を比較基準にした。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-111-COVERAGE-ORDER | 2026-11-17 | 商品が見えても対象外へ進まない | e5bbは先行policy4の不完全判定が、同じ行の成立するpolicy9を遮断 | 独立した同一source/行の完全証明を検査し、対象候補/異常/期限を優先 | 実原273/274は通常policy9/C証明1。新producerのRed→Green。275/276の床不足はUNKNOWNを維持、実機未確認 | 今回1。同症状継続・同根因通算未集計 |
+| FR-111-UPPER-ROW | 2026-11-17 | 上側入口で全商品が見えても判定不完全 | ef21/17afの観測済み入口は商品行2段上で、旧形状/安全範囲に合わない | 専用policy15で固定GOLD14点・3商品/保護・床/価格・全対象探索を証明しCが独立検査 | 実原280/13の通常producer/C証明1、公開Cの採用→保存→次床のRed→Green。実機未確認 | 今回2。旧上側停止との同根因通算未集計 |
+| FR-111-UNSENT-COMPOSITE | 2026-11-17 | a0f6の実3歩後に未送信停止 | 隣接DIRT→FLOORと遠方DIRT→STONEが同時に起き、既存回復条件外 | 専用静止proofで旧票を撤回。新しい固定経路を独立再証明し、既存の親期限/予算内で再取得 | 実182→183を校正。公開C新assert Red→Green、旧098/108条件維持。未来画像の実機成功は未確認 | 今回1。旧対策削除の回帰とは未実証 |
+| FR-111-UNSENT-QUIET | 2026-11-17 | a4af次床の実2歩後に未送信停止 | 期限切れ回復だけが遠方FLOOR→DIRTを全tile不一致として拒否 | 通常quietの画像資格だけを共有。旧期限の票は送らず、新ID/将来拍/元予算へ | 実493→494の同判断/通常strict零を校正。公開CのRed→Green、独立差分レビュー済。実機未確認 | 今回1。FR063/076の適用条件不足、同根因通算未集計 |
+| FR-111-IMAGE-PRICE | 2026-11-17 | 名称確認を必須にしたくない | 最新ユーザー指定。旧mode2は名称なしを一律candidateにする | 厳密な絵柄と同じ商品の価格表示でpositive16。曖昧なら候補、名称は補助 | 新7件Red→Green、既知陽性/最新115枚校正。旧12ファイル13メソッドの名称必須期待だけ更新。未知精度/実機速度は未確認 | 新要件。実機の誤判定再発数は未評価 |
+| FR-111-SOURCE-BRIDGE | 2026-11-17 | 有効な商品画像が移動確認中に失われる | e5bbの274は完全証明可能だが実MOVEDは275で成立し、275の床材質は不適格 | 移動信用と分類sourceを分離。実275でMOVED確認後、保持274との直接静止/同商品を検査してDATA-only採用 | 原264→274はUNKNOWNを維持し、275だけMOVED。実274の通常Ring陰性をCが採用し、元150msの残71.825375ms/親期限を維持。新6件と最終関連82件Green。実機未確認 | 今回1。FR110保持対策に残る別境界 |
+| FR-111-CLASS-DEADLINE | 2026-11-17 | 17afの初回判定が期限で停止 | worker開始時に元150msの約111msを使用済み | 元の親期限/回数内で最大2回、新しい静止FULLをDATA-only再取得。旧worker終了前は切替/追加入力なし | 受領原13のDEADLINE→実14の通常Ring陰性を公開Cで採用。元source150/worker100ms・親hold/D・credit0を維持。新8件Red→Green、最終関連82件Green。実機未確認 | 今回1。処理回数や期限延長を速度合格にしない |
+| FR-111-CAPABILITY | 2026-11-17 | 同API版の旧IPAを新判定版と誤認し得る | API16だけでは画像・価格判定への更新を区別できない | 111 clientだけ追加capを同じschema取得で要求し、start前に検査 | 実Python3.9で新7＋旧14、assertion Red→21Green。旧entry/defaultを維持。実機未確認 | 予防。実機再発数は未評価 |

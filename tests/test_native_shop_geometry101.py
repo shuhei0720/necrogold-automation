@@ -131,7 +131,8 @@ class NativeShopGeometry101Tests(unittest.TestCase):
         self.assertGreater(result.certificate.unmatched_prices,0)
 
     def test_full_strip_target_and_strong_word_keep_positive_priority(self):
-        for has_name,expected in ((True,2),(False,1)):
+        # TEST111 mode2 uses the image and observed price glyphs, without numeric OCR.
+        for has_name,expected in ((True,2),(False,2)):
             status,result = self.assess(self.blank_identity(target=True,target_name=has_name))
             self.assertEqual((0,expected),(status,result.outcome))
         for sprite in FEATURES['icons']:

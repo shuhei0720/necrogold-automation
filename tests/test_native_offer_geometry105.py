@@ -16,6 +16,7 @@ class NativeOfferGeometry105Tests(unittest.TestCase):
     assess = offers.NativeOfferCoverage104Tests.assess
 
     def test_same_top_observed_fragment_uses_full_face_row_and_preserves_target_priority(self):
+        # TEST111 mode2 uses the image and observed price glyphs, without numeric OCR.
         full = (-15, -14, 30, 29)
         fragment = (-14, -14, 29, 17)
         for faces in ((full, fragment), (fragment, full)):
@@ -25,9 +26,11 @@ class NativeOfferGeometry105Tests(unittest.TestCase):
                     (status, result.outcome, result.coverage, result.certificate.policy_version),
                     'three observed prices/products and anchored positive face geometry authorize absence')
                 self.assertEqual(1, self.lib.ng2_ring_negative_certificate(C.byref(result)))
-                for named, expected in ((True, 2), (False, 1)):
+                for named, expected in ((True, 2), (False, 2)):
                     self.assertEqual(expected,
                         self.assess(self.pixels(faces=faces, target=True, target_name=named))[1].outcome)
+                self.assertEqual(1, self.assess(self.pixels(faces=faces, target=True,
+                    target_name=False, missing_price=1))[1].outcome)
 
     def test_unanchored_shifted_missing_or_subminimum_fragments_remain_unknown(self):
         full = (-15, -14, 30, 29)

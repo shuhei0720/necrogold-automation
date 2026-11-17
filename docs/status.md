@@ -1,11 +1,11 @@
 # 最新状態
 
-更新: 2026-11-17（日本時間）。[TEST110/build217](https://github.com/shuhei0720/necrogold-automation/releases/tag/test110-build217)を固定配布済み。[検証](reviews/test110.md)・[修正表](fix-records.md)。
+更新: 2026-11-17（日本時間）。TEST110の実機結果を受領しTEST111を実装・検証中。[計画](plans/test111-device-failures.md)・[修正表](fix-records.md)。
 
-TEST109の8添付=4固有run/98 PNG/108記録。ACK比較前のgold UNKNOWN拒否、FULLの商品画像待ち、対角DOOR→GOLDによる入店拒否、SHOP表示と重なるpause iconを修正。Ring閾値は維持。原250は未変更Ringで完全陰性/C検査1。
+13添付=9固有ZIP/4campaign/5run、115 PNG/131記録を既存client/hashchain/RGBAで照合。a4afの原309/310は通常Ring/C証明で対象外、保存→RESTART22→次床337を確認した。
 
-新profileの敵/死亡再試行は、正の証拠・各intent/outcome・保存/実drain・UNKNOWN無再送を実装。Mac214のdurable後の公開回数更新漏れも修正。215/216の誤fixtureは資格拒否として保存し、原本不変・凍結回収・実PNG照合を確認した。
+e5bb/ef21はcoverage方策/上側入口、a0f6は未送信時の複合地形変化、a4af次床は回復の遠方材質条件、17afは分類開始遅延を分けて修正。保持source/有界DATA再取得の新14件と関連82件Green、独立レビュー済み。全36nativeのseal/apply一致、変更は4資産。実Macの4callback・IPAを確認中。未知精度・実機改善は未確認。
 
-CODE cdff284/run44044340448/build217でnative173+selector7、実Python3.9の108件、Mac Runtime29、Spool productionと2故障感度検査が成功。IPA18,184,294 bytes/SHA677ce1d1、CODE完全source1000filesを照合。実物5gate/5attempt成功。native36/変更10・保持26、seal f4551161、G1/R12/Ring/Nav/feature/ELF保持。
+最新ユーザー指定: 名称を必須にせず、厳密な絵柄と同じ商品の価格表示を使う。価格数値OCR/250固定はせず、曖昧なら候補保持。旧名義の候補保護とcanonical mode0は維持。新111の開始前に専用capを検査し、旧IPAとの取り違えを防ぐ。
 
-publisher218/run44047487420成功。IPA/完全source/hash表を匿名GET200・全bytes/SHA一致まで確認。メインiPhone11の通常1-1ポーズから test_110.sh --until-target で実機へ返す。110の実機の商品確認到達率、対象外の次周回、敵/死亡、未知精度・毎拍/人超え速度・耐久は未受入。[旧109](https://github.com/shuhei0720/necrogold-automation/releases/tag/test109-build208)を保存。iPhone8/遠隔開発は再開しない。
+111の最終source/seal/CI/IPA/固定配布は未完了。[旧110/build217](https://github.com/shuhei0720/necrogold-automation/releases/tag/test110-build217)と、その実物5gate/匿名配布証跡を保持。G1/R12/既feature/ELFは維持する。メインiPhone11・通常1-1ポーズからの実機方式を継続し、iPhone8/遠隔開発は再開しない。

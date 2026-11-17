@@ -148,7 +148,8 @@ class NativeOfferCoverage104Tests(unittest.TestCase):
         self.assertNotEqual(3,self.assess(bytes(pixels))[1].outcome)
 
     def test_all_strip_templates_and_strong_name_keep_target_priority(self):
-        for name,expected in ((True,2),(False,1)):
+        # TEST111 mode2 uses the image and observed price glyphs, without numeric OCR.
+        for name,expected in ((True,2),(False,2)):
             self.assertEqual(expected,self.assess(self.pixels(target=True,target_name=name))[1].outcome)
         for sprite in FEATURES['icons']:
             pixels=bytearray(self.pixels());left=375-sprite['width']//2;top=81
@@ -156,7 +157,12 @@ class NativeOfferCoverage104Tests(unittest.TestCase):
                 for x in range(left,left+sprite['width']):_put(pixels,x,y,(27,17,12))
             for dx,dy,r,g,b in sprite['bright']:_put(pixels,left+dx,top+dy,(r,g,b))
             for dx,dy in sprite['dark']:_put(pixels,left+dx,top+dy,(0,0,0))
-            self.assertEqual(1,self.assess(bytes(pixels))[1].outcome)
+            # These exact sprites stay centered over the middle offer's own price.
+            self.assertEqual(2,self.assess(bytes(pixels))[1].outcome)
+            for y in range(111,133):
+                for x in range(363,388):_put(pixels,x,y,(27,17,12))
+            self.assertEqual(1,self.assess(bytes(pixels))[1].outcome,
+                'the same image is held as candidate when its own price is unobserved')
         pixels=bytearray(self.pixels())
         for y in range(67,78):
             for x in range(333,417):_put(pixels,x,y,(27,17,12))

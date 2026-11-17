@@ -131,7 +131,7 @@
 
      /// When this binary was built, as "YYYY-MM-DD HH:MM".
      ///
-@@ -569,6 +614,23 @@
+@@ -569,6 +614,24 @@
      /// call (no separate /schema fetch needed). Keep in sync with what the server
      /// actually implements.
      static let capabilityTags: [String] = [
@@ -152,6 +152,7 @@
 +        "necrogold_native_v15", // opt-in paged evidence profile retains every bounded restart decision
 +        "necrogold_native_cycle_v1", // independent bounded native classification and durable negative cycles
 +        "necrogold_native_irregular_v1", // opt-in positively confirmed enemy/death retries
++        "necrogold_native_image_price_v1", // strong target image with its own observed price; names optional
          "envelope_v1",         // /pair + encrypted /rpc envelopes (HMAC-SHA256)
          "stream_ticket",       // stream_ticket RPC → single-use ?ticket= for /stream + /logs
          "video_stream",        // GET /stream (framed H.264, docs/remote-control.md)

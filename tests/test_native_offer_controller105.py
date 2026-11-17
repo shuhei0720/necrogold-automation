@@ -95,8 +95,10 @@ class NativeOfferController105Tests(unittest.TestCase):
                 self.restart_after_durable_intent(job)
 
     def test_normal_target_candidate_and_unobserved_price_never_restart(self):
+        # TEST111 mode2 uses the image and observed price glyphs, without numeric OCR.
         for target, name, price, expected in (
-                (True, True, None, 2), (True, False, None, 1), (False, True, 1, 0)):
+                (True, True, None, 2), (True, False, None, 2),
+                (True, False, 1, 1), (False, True, 1, 0)):
             with self.subTest(target=target, name=name, price=price):
                 self.setUp()
                 _, value = self.normal(target=target, target_name=name, missing_price=price)
@@ -136,6 +138,7 @@ class NativeOfferController105Tests(unittest.TestCase):
                 self.restart_after_durable_intent(job)
 
     def test_closed_offer_metrics_ordinary_price_floor_and_target_absence_are_independent(self):
+        # TEST111 mode2 uses the image and observed price glyphs, without numeric OCR.
         def red(value): return value.rows[value.selected_row].slots[2]
         changes = {
             'icon': lambda r: setattr(red(r), 'ignored_icon_score', .939),
@@ -165,10 +168,10 @@ class NativeOfferController105Tests(unittest.TestCase):
                 self.assertEqual((0, 3, 7),
                     (self.q.cycle().outcome, self.q.cycle().status, self.q.cycle().state))
                 self.held()
-        for named, expected in ((True, 2), (False, 1)):
-            with self.subTest(target_named=named):
+        for named, price, expected in ((True, None, 2), (False, None, 2), (False, 1, 1)):
+            with self.subTest(target_named=named, missing_price=price):
                 self.setUp()
-                _, value = self.normal(closed_slot=2, target=True, target_name=named)
+                _, value = self.normal(closed_slot=2, target=True, target_name=named, missing_price=price)
                 self.assertEqual(expected, value.outcome)
                 self.assertEqual(1, self.q.cycle().candidate_latched)
                 self.held()
