@@ -437,3 +437,15 @@ TEST108/build206確認: CODEe8c4bb8の最終C8f071469/Ring0a767a0d/Nav34f1fae6�
 TEST109/build208確認: CODE270773bの選択CI130件/19scope、同source IPA、完全source977 files、実compiler/5実物gate/5attemptが成功。原275の正常対象なし/C証明と手続き的な保存/次周回連鎖を、実機の未受入と区別する。原522後の追加実画面は未収録、原276/未観測はUNKNOWNを保持。固定配布後の次の実機結果で各行の改善を確認し、過去の対策/補助試験を改善完了にしない。
 
 固定配布確認: test109-build208のIPA/完全source/hash表を匿名GET200・全hash一致まで検証。publisher CI209成功、配布source690ee68のCODEとの差は閉じ文書3件のみ。各対策の実機改善未確認・再発数は維持。
+
+## TEST110の対策（実機改善未確認）
+
+[計画](plans/test110-device-failures.md)。TEST109の4固有run/98 PNG/108記録を照合し、FR108/109の各処理と比較した。最新の敵/死亡再試行を要件へ追加し、通常の4停止とは区別する。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-110-ACK-GOLD | 2026-11-17 | 最初のLEFT送信後に停止し変位比較0回 | 新規入力向けのgold UNKNOWN拒否をACK済MOVEの比較前に実行 | 同known-ACK/current-prefix/元visualD内だけ通常比較を継続。確定後も金壁不明なら新規入力は有界待機、旧clearによる見送り禁止 | 原189はvisualD内約2.418秒、実Motionは半端な変位でUNKNOWNを維持。変更前Red/元8比較・期限/後続資格・無再送を確認予定。未来の実移動/改善は未確認 | 今回1。FR108 Motion証明不足とは別の比較前拒否、同系列通算未集計 |
+| FR-110-FULL-DATA | 2026-11-17 | 開扉後の商品が見えても元画像待ちで期限停止 | 原210から遠方2セルの材質が戻らず、新108待機が完全一致だけを待つ | 元D内の資格付き新FULLをDATA-only再分類。開始したjobは後続paletteで破棄せず候補優先・元source/一用/予算を保持。既存観測一歩を失わない設計を確定する | 原250は未変更Ringで完全陰性/C検査1、同prefix/元Dまで795ms。251〜264はUNKNOWN。Cのpending/adoptとRuntime切替時のqueued画素移送、recent4を越す保持を選択callbackで確認。実機未確認 | 今回1。FR108-FULL-VIEW-CHANGEの元anchor待機に残る不足が継続、同根因通算未集計 |
+| FR-110-DIAGONAL-CLOSURE | 2026-11-17 | 開扉後の未送信LEFT入店を拒否 | 次床の対角bracketed DOOR→GOLDを、3×3外だけ許す既関係が拒否 | 観測origin/next FLOORと実cross足場を不変にし、対角の正の閉鎖だけ別証明。全商品保護/完全同判断/直接strict零/元期限は保持 | 原244→245の通常零/同判断・2差を校正。変更前Red/閉鎖・床/商品/方向/UNKNOWN入力拒否・直接関連を確認予定。実機未確認 | 今回1。FR109遠方床とは別の対角閉鎖条件、同症状継続・通算未集計 |
+| FR-110-ICON-OCCLUSION | 2026-11-17 | 上入口PARTIALの入店credit中にSCREEN停止 | SHOP/商人が重なる原321だけpause icon matcher不成立 | 旧maskへの3×9矩形openingを追加し、細い文字strokeを除く正の証明。full reference/既0.8 IoU、footer/zone/floor/死亡拒否と他画面停止は保持 | 旧最良IoU約.7835→新矩形.8135/.8122。観測mask部分集合を維持。7px縦/無彩色案は不成立で不採用。正常原/拒否fixture/Perception→CでRed→Green予定、実機未確認 | 今回1。旧icon系列の同根因通算未集計 |
+| FR-110-IRREGULAR | 2026-11-17 | 敵で進行不能/ゲームオーバーなら再試行したい | 最新ユーザー指定。現処理は死亡をUNKNOWNとして止め、再試行の正の資格がない | 敵/死亡の正の証拠と別理由を持つ有界再試行を設計中。対象なしへ偽装せず、各UIの新しい資格・実ACK/次状態を要求 | 今回98原画像に死亡/被害の正の証拠なし。R12死亡promptは正例、未保存の死亡後画面は仮定しない。入力境界は選択結合と独立重点レビューを予定 | 新要件。実機の同原因再発は未観測、検出範囲は未受入 |

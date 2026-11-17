@@ -8,7 +8,7 @@ on:
         type: choice
         required: true
         default: device
-        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic, test099-runtime-remaining, test100-runtime-partial, test101-runtime-observation]
+        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic, test099-runtime-remaining, test100-runtime-partial, test101-runtime-observation, test110-runtime-red]
       artifact_id:
         type: string
         required: false
@@ -68,6 +68,67 @@ jobs:
         with:
           name: loopctrl-ngg2-baseline
           path: ${{ runner.temp }}/ngg2-baseline/
+          if-no-files-found: error
+          retention-days: 30
+  test110-runtime-red:
+    if: inputs.native_lane == 'test110-runtime-red'
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Apply the sealed TEST110 normal fixes before Runtime edits
+        run: |
+          mkdir -p "$RUNNER_TEMP/test110-runtime-red"
+          python3 driver/patches/loopctrl/apply_patch.py upstream > "$RUNNER_TEMP/test110-runtime-red/workflow-g1-applied.json"
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream > "$RUNNER_TEMP/test110-runtime-red/workflow-g2-applied.json"
+      - name: Pin the old Runtime and the two reviewed normal native changes
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          baseline = 'c2f76243c77a51682c24a4e059002cd732fd547d'
+          driver = Path('driver')
+          current = json.loads((driver/'patches/loopctrl/ngg2-manifest.json').read_bytes())
+          previous = json.loads(subprocess.check_output(['git', 'show', baseline+':patches/loopctrl/ngg2-manifest.json'], cwd=driver))
+          def sources(value):
+              return {**{path:row['patched_sha256'] for path,row in value['files'].items()},
+                      **{path:row['sha256'] for path,row in value['additions'].items()}}
+          old, new = sources(previous), sources(current)
+          expected = {'LoopCtrlUITests/NG2Controller.c', 'LoopCtrlUITests/NG2Perception.c'}
+          if old.keys() != new.keys() or len(new) != 36 or {path for path in old if old[path] != new[path]} != expected:
+              raise SystemExit('TEST110 Red requires only the two sealed normal native changes')
+          runtime = 'LoopCtrlUITests/NG2Runtime.swift'
+          actual = hashlib.sha256((Path('upstream')/runtime).read_bytes()).hexdigest()
+          wanted = '42f2f88634357083e82be64e56e6ba0806f26454e278b74782caee763c5bb3e8'
+          if actual != wanted or new[runtime] != wanted or old[runtime] != wanted:
+              raise SystemExit('TEST110 Red requires the original unmodified Runtime source')
+          code = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=driver, text=True).strip()
+          if code != os.environ['GITHUB_SHA']:
+              raise SystemExit('TEST110 Red driver source differs from the dispatched commit')
+          report = dict(schema='test110-runtime-red-workflow-source-v1', code=code, baseline=baseline,
+                        native_sources=36, native_changed=sorted(expected), runtime_sha256=actual,
+                        semantic_execution=False, compiler_execution=False)
+          destination = Path(os.environ['RUNNER_TEMP'])/'test110-runtime-red/workflow-source-preconditions.json'
+          destination.write_text(json.dumps(report, indent=2)+'\n')
+          PY
+      - name: Verify only the named TEST110 old-Runtime semantic assertions Red
+        run: python3 driver/patches/loopctrl/check_runtime110.py upstream "$RUNNER_TEMP/test110-runtime-red" --expect-red
+      - name: Save the TEST110 before-source and actual assertion Red evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-test110-runtime-red
+          path: ${{ runner.temp }}/test110-runtime-red/
           if-no-files-found: error
           retention-days: 30
   test099-runtime-red:

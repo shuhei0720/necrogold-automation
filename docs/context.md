@@ -6,7 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
-| TEST109の実機入店/未判定停止 | [計画](plans/test109-device-failures.md)・[旧108](plans/test108-real-failures.md) | 遠方床変化、全商品被覆、観測口の候補 |
+| TEST110の実機4停止/再試行 | [計画](plans/test110-device-failures.md)・[旧109](plans/test109-device-failures.md) | ACK資格、FULL再分類、対角閉鎖、pause icon、敵/死亡 |
 | TEST107の複合変化・初歩前フェード | [計画](plans/test107-partial-composition.md) | top商品投影と既地形関係の合成、元D内の最新2画像による再取得 |
 | TEST106の実機停止/候補見逃し | [計画](plans/test106-real-failures.md)・[検証](reviews/test106.md) | 共通閉容器/価格証明、開扉後の遠方金壁、最上段投影、左側の観測vantage |
 | TEST105の商品判定・開扉後継続 | [計画](plans/test105-goods-and-continuation.md)・[検証](reviews/test105.md) | 看板上部成分、閉容器の正の識別、保護halo上の新GOLD再判定。元期限/対象探索を維持 |

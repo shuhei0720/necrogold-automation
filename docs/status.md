@@ -1,11 +1,11 @@
 # 最新状態
 
-更新: 2026-11-17（日本時間）。TEST109/build208を固定配布済み。[計画](plans/test109-device-failures.md)・[検証](reviews/test109.md)・[修正表](fix-records.md)。
+更新: 2026-11-17（日本時間）。TEST109実機の4停止を受領し、TEST110を修正中。[計画](plans/test110-device-failures.md)・[修正表](fix-records.md)。
 
-TEST108の3固有run/73 PNG/82記録を照合。開扉直後の端partial ROI、入店準備を撤回する遠方床変化、余分な価格/局所床照明差、原323の観測口見送りを修正。実採用原275は通常対象なし/C検査1、未選択276や未観測はUNKNOWNを保持。
+8添付を4固有run/98 PNG/108記録へ照合。時刻順8d78→9bf5→fe54→80c6。ACK比較前のgold UNKNOWN拒否、FULLの古い画像待機、対角DOOR→GOLDでの入店拒否、SHOP表示が重なるpause iconを各別に修正する。原250は既Ringで完全陰性/C検査1、元Dまで約795ms。Ring閾値は変更しない。
 
-CODE270773bの[CI208](https://github.com/shuhei0720/necrogold-automation/actions/runs/44002618293)は130件/19scopeが失敗・skipなし。同source IPA/全977 source・実compiler・5実物gate/5attemptを照合。独立レビュー未解決P0/P1/P2なし。[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test109-build208)のIPA/完全source/hash表は匿名GET200・全hash一致。配布source690ee68は閉じ文書3件だけ追加。
+最新ユーザー指定の敵による進行不能/ゲームオーバー再試行を要件へ追加。対象なしと別の正の証拠/理由・各UI資格・元期限を要求し、今回の4通常停止を敵と断定しない。新入力境界は独立重点レビュー・現在Runtimeの選択結合が必要。
 
-native C/Ring/Nav3件だけ変更、他33とAPI/cap/ABI・Runtime/Raster/Perception/features/canonical15/ELF/G1/R12は保持。旧Runtime/Mac191は歴史証跡。iPhone8/遠隔開発は再開しない。
+基準c2f7624、[旧109検証](reviews/test109.md)・[配布](https://github.com/shuhei0720/necrogold-automation/releases/tag/test109-build208)は保存。109の130件/19scope・IPA照合は補助試験で、今回の実機失敗を改善済みとしない。110のCI/IPA/配布は未実施。rawはGit外、G1/R12/既feature/ELFを保持し、iPhone8/遠隔開発は再開しない。
 
-メインiPhone11で新IPA更新・LoopCtrl完全再起動/Start Server後、通常1-1ポーズからtest_109.sh --until-target。入店→全3商品確認→対象なし次周回を確認し、全照合後のcampaign ZIPを返却、全run原本保持。522後の同prefix実画像は未収録。109の実機到達率・未知精度・毎拍/人超え速度・耐久は未受入。
+次は確認済み原因ごとのRed→最小Green/関連回帰、イレギュラー設計と境界検証、差分レビュー、同source IPA照合、固定配布。テスト依頼へ何をどう修正したかを明記する。主指標は実機の商品確認到達率/対象なし次周回。110の実機到達率・未知精度・毎拍/人超え速度・耐久は未受入。

@@ -49,6 +49,23 @@ static int ng2_icon_overlap(const unsigned char *mask){
         inter+=a&&b;uni+=a||b;}
     return inter>=t->minimum*ng2_max(1,uni);
 }
+/* Long, one-pixel name strokes can survive the vertical-only openings.
+ * Require an observed3x9 bar rectangle instead. Zero padding and symmetric
+ * erosion/dilation keep the result a subset of the full original mask; the
+ * caller still checks the entire36x36 reference and union at the old IoU. */
+static void ng2_icon_rect3x9(const unsigned char *mask,unsigned char *eroded,unsigned char *opened){
+    int x,y,dx,dy;
+    for(y=0;y<36;++y)for(x=0;x<36;++x){int value=1;
+        for(dy=-4;dy<=4;++dy)for(dx=-1;dx<=1;++dx)
+            if(y+dy<0||y+dy>=36||x+dx<0||x+dx>=36||!mask[(y+dy)*36+x+dx])value=0;
+        eroded[y*36+x]=(unsigned char)value;
+    }
+    for(y=0;y<36;++y)for(x=0;x<36;++x){int value=0;
+        for(dy=-4;dy<=4;++dy)for(dx=-1;dx<=1;++dx)
+            if(y+dy>=0&&y+dy<36&&x+dx>=0&&x+dx<36&&eroded[(y+dy)*36+x+dx])value=1;
+        opened[y*36+x]=(unsigned char)value;
+    }
+}
 static int ng2_pause_icon(const unsigned char *rgba,size_t stride,const unsigned char *gray){
     unsigned char masks[2][1296],eroded[1296],opened[1296];int k,x,y,dy,radius;
     for(k=0;k<2;++k){
@@ -69,6 +86,10 @@ static int ng2_pause_icon(const unsigned char *rgba,size_t stride,const unsigned
             for(dy=-radius;dy<=radius;++dy)if(y+dy>=0&&y+dy<36&&eroded[(y+dy)*36+x])value=1;
             opened[y*36+x]=(unsigned char)value;
         }
+        if(ng2_icon_overlap(opened))return 1;
+    }
+    for(k=0;k<2;++k){
+        ng2_icon_rect3x9(masks[k],eroded,opened);
         if(ng2_icon_overlap(opened))return 1;
     }
     return 0;
