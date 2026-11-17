@@ -433,3 +433,5 @@ TEST108/build206確認: CODEe8c4bb8の最終C8f071469/Ring0a767a0d/Nav34f1fae6�
 | ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
 | --- | --- | --- | --- | --- | --- | --- |
 | FR-109-DELIVERY-COUNT | 2026-11-17 | seal/適用成功後の一時集計assertが失敗 | 36 nativeをadditionsだけの件数と誤認。正しくは既patch9＋additions27 | 元manifestと同じ和集合36を照合し、変更3/保持33と全metadataを検証 | 正しい集合で全一致。seal/適用/製品sourceを作り直さず、件数確認だけ修正。native実行0 | 私有確認1。実機再発ではない |
+
+TEST109/build208確認: CODE270773bの選択CI130件/19scope、同source IPA、完全source977 files、実compiler/5実物gate/5attemptが成功。原275の正常対象なし/C証明と手続き的な保存/次周回連鎖を、実機の未受入と区別する。原522後の追加実画面は未収録、原276/未観測はUNKNOWNを保持。固定配布後の次の実機結果で各行の改善を確認し、過去の対策/補助試験を改善完了にしない。

@@ -44,3 +44,13 @@
 同じ独立担当のrunner/selector/workflow補足読取レビューも未解決P0/P1/P2各0。明示124/18集合、共有108 helperの推移source binding、旧108保持、36中3変更/33保持、Runtime歴史証跡と現在実行の分離を確認した。補足レビューでの実行0。
 
 test_109.sh/necroprobe.test109は108から番号だけ変更。sh構文、Python3.9 AST、API軽量checkは成功。クライアント本体・回収/永続化・通信は不変。source/IPAの最終CIと実物照合・固定公開は次工程。
+
+## 最終CIと実物照合
+
+CODE `270773b8def30876aa70078338c716a83fa83406` の[CI208](https://github.com/shuhei0720/necrogold-automation/actions/runs/44002618293)は現在sourceの130method/19scopeが失敗/error/skip/expected failure0で成功し、同source未署名IPAを作成した。旧Runtime42f2/Mac191は歴史証跡のまま、現在callbackの再実行へ昇格していない。
+
+同runの3artifactをGitHub metadataの全bytes/digest/CRC/pathへ照合し、CODE完全source977 filesの全tracked bytes/CRC/pathをGitへ照合した。実package/host/retained/Mach-O/compileの5gateを各1回、計5attemptで全成功。実compiler/36source/9 Mach-O・旧feature/ELF/G1/R12・実行method集合・作者の真のRed/Greenへ結合した。検証器の追加native/分類/compiler実行は0。
+
+IPAは18,066,363 bytes、SHA256 `3bf5ffca98a68766edbe50a1a0753226aeddb9a7b34c115a099c6798c2f9d21d`。bundle `top.ebato.loopctrl` / version0.3.4 / build208 / min iOS16.0。CODE完全sourceは9,386,824 bytes、SHA256 `c8c8a96d7583e8cbd9d0d8adf53713ea2c05a6b57499863eed152795c0695026`。固定Release `test109-build208` への公開は次工程。status/review/fix-recordsの閉じ文書3件だけを加えたclosing sourceを配布し、native/試験の不変を照合する。
+
+実機改善は未確認。次はメインiPhone11で新IPA更新・完全終了/再起動/Start Server、通常VPN/通知、日本版ケイデンス・通常オールゾーン1-1ポーズから `test_109.sh --until-target`。候補探索→開扉後入店→全3商品確認→対象なし次周回を確認し、全画像/ZIPの保存・照合終了後の表示campaign ZIPと状態を受領する。全run原本を保持し、回収済みrunの追加回収だけの再実行を依頼しない。
