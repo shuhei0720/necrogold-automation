@@ -25,4 +25,10 @@ e5bbは同じ行の独立coverageと分類sourceの保持、ef21/17afは上側�
 
 G1/R12全40files、Runtime110の製品bytes、Wire/Spool/Export、Perception、canonical Ring kernel/features/ELFを保持する。旧build217の29 Runtime故障集合・Spool証跡は不変資産に対する過去結果であり、111で実行した結果とは表記しない。
 
-最終source freeze/seal、選択hostと実Python3.9、実Macの4callback、IPA/実compiler/全source/固定Release照合は未完了。実機テストは全商品の可視位置への到達、正しい対象判定、対象外の保存→リスタート、次周回の継続を確認する。
+CODE797448203a61150fe7961b1dbe8c8b4e08239d4b、[CI219/run44069884103](https://github.com/shuhei0720/necrogold-automation/actions/runs/44069884103)は成功。選択host240＋selector7、実CPython3.9の21、実Macのnegative/retention/candidate/fresh_deadline全4ケースを現sourceで確認した。旧110の29Runtime/Spool工程は明示skip。
+
+manifest SHA256 `7be3fcee7d698683231934a7954905d0b88b1a20ffac58425804e174115cf033`。36資産の実apply/hash一致、変更はController/Ring.c/Ring.h/RPCMethodの4つ。IPAは18,191,326 bytes、SHA256 `e43f46a5534b24c0e68dff9a94ad9644c782b08a915e3a49b5d6600772fe61f3`。実compiler/profile、全9 Mach-Oのhost hook不在、保持資産、完全CODE source1016files/CRC/全bytes、同じCODE/run/buildとの5実物gateを照合した。
+
+5gateは6attempt。canonical build scriptの実bytesが不変でも保持リスト所属だけで拒否した配布検査の不備を修正し、全15sourceをmanifest/local/CODE/baselineの4者SHAで検証。独立差分レビュー後、合格済みpackage/hostを再実行せずretainedだけ再開した。semantic/compiler/classifierの追加実行は0。
+
+固定Releaseの公開・匿名照合はこれから。実機テストは全商品の可視位置への到達、正しい対象判定、対象外の保存→リスタート、次周回の継続を確認する。
