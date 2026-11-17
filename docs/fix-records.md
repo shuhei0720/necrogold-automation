@@ -490,4 +490,4 @@ TEST110/build217の実物確認（2026-11-17）: CODEcdff284/run44044340448で�
 | FR-111-CAPABILITY | 2026-11-17 | 同API版の旧IPAを新判定版と誤認し得る | API16だけでは画像・価格判定への更新を区別できない | 111 clientだけ追加capを同じschema取得で要求し、start前に検査 | 実Python3.9で新7＋旧14、assertion Red→21Green。旧entry/defaultを維持。実機未確認 | 予防。実機再発数は未評価 |
 | FR-111-DELIVERY-CANONICAL | 2026-11-17 | build219の配布物照合で保持sourceを拒否 | tools/build_ring_manifest.pyは全bytes不変だが、検査helperがfixture保持一覧への所属を要求 | 全15 canonical sourceをmanifest/local/CODE/baselineのSHA一致で直接検証。manifest/ELF検査を維持 | 独立差分レビュー後に失敗したretained gateのみ再開し合格。先行package/hostは再実行せず、5gate合計6attemptで成功。製品変更なし | 内部検査1。実機障害へ算入しない |
 
-TEST111/build219実物確認（2026-11-17）: CODE7974482/run44069884103で選択host247件、実Python3.9の21件、実Macの4callbackが成功。全36native/IPA/実compiler/保持source/全CODE source1016filesの5gateを照合。各修正の実機改善未確認・再発数は維持する。固定配布の公開/匿名照合はこれから。
+TEST111/build219実物確認（2026-11-17）: CODE7974482/run44069884103で選択host247件、実Python3.9の21件、実Macの4callbackが成功。全36native/IPA/実compiler/保持source/全CODE source1016filesの5gateを照合。閉じsource09b853fの全1016filesを再照合し、固定test111-build219をpublisher220で公開。IPA/source/hash表の匿名GET200・全bytes/SHA一致を確認。各修正の実機改善未確認・再発数は維持する。

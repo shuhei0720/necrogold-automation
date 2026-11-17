@@ -31,4 +31,8 @@ manifest SHA256 `7be3fcee7d698683231934a7954905d0b88b1a20ffac58425804e174115cf03
 
 5gateは6attempt。canonical build scriptの実bytesが不変でも保持リスト所属だけで拒否した配布検査の不備を修正し、全15sourceをmanifest/local/CODE/baselineの4者SHAで検証。独立差分レビュー後、合格済みpackage/hostを再実行せずretainedだけ再開した。semantic/compiler/classifierの追加実行は0。
 
-固定Releaseの公開・匿名照合はこれから。実機テストは全商品の可視位置への到達、正しい対象判定、対象外の保存→リスタート、次周回の継続を確認する。
+完全sourceは09b853fa123f52bdb47c2cdb5b0beaca00fd0ddeの全1016files/CRC/全bytesを再照合。CODEとの差分はdocs3のみ。source ZIPは9,621,562 bytes、SHA256 `83d3078436789e14e0a5d7183dc931fe8e8c1913824eda01ac26eb6a28c3d26c`。
+
+[固定test111-build219](https://github.com/shuhei0720/necrogold-automation/releases/tag/test111-build219)をpublisher220/run44073360888で公開した。release448529580/tag/closing commitと、IPA/source/hash表の匿名GET200・全bytes/SHA・Release digest一致を確認。期限付きartifact URLは配布先にしない。
+
+実機の改善・速度・未知精度は未確認。次の実機テストは全商品の可視位置への到達、正しい対象判定、対象外の保存→リスタート、次周回の継続を確認する。
