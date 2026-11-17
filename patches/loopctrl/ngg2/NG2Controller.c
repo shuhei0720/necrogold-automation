@@ -4027,15 +4027,20 @@ static int restart_yield_observe(NG2Controller *p,const NG2Scene *scene,uint64_t
     if(!y->s.pending)return 0;
     if(!y->pause)y->s.permitted=0;
     cycle_scene(p,scene,id,start,end,prefix);
-    if(y->pause&&p->s.input_state==3&&p->command.id==y->pause
-        &&p->command.kind==NG2_ACTION_PAUSE&&prefix==y->pause&&start>=p->ack_ns){
+    /* A positive/failure retires budget permission, but ordinary finish may
+     * still have its one ACK-known holding PAUSE to observe. Closing that
+     * exact command grants neither another input nor a budget handoff. */
+    if(p->s.input_state==3&&p->command.kind==NG2_ACTION_PAUSE
+        &&prefix==p->command.id&&start>=p->ack_ns
+        &&((y->pause&&p->command.id==y->pause)
+            ||(!y->pause&&y->s.invalid&&p->finish_requested))){
         if(scene->state==NG2_FLOOR&&scene->goods!=NG2_GOODS_UNKNOWN){
             y->required|=scene->goods==NG2_GOODS_PARTIAL?1:2;
             if(y->required&~y->done)restart_yield_invalidate(p);
         }
         if(scene->state==NG2_PAUSE){
             event(p)->observed_capture_id=id;end_visual_wait(p);p->cycle.pause_capture_id=id;
-            if(restart_yield_basis(p,now)&&!(y->required&~y->done)&&!p->cycle.pending){
+            if(y->pause&&restart_yield_basis(p,now)&&!(y->required&~y->done)&&!p->cycle.pending){
                 p->handoff.pause_capture_id=id;terminal(p,now,NG2_REASON_LIMIT);
             }else{restart_yield_invalidate(p);terminal(p,now,p->s.reason?p->s.reason:NG2_REASON_CAPTURE);}
         }

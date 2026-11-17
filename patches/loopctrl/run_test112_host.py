@@ -42,6 +42,7 @@ CASES = (
         'test_optin_after_durable_restart_never_enters_another_level_with_spent_budget',
         'test_optin_initial_floor_or_other_ui_is_input_free_but_old_start_is_unchanged',
         'test_original_budgets_cancellation_and_started_or_unknown_pause_cannot_mint_handoff',
+        'test_positive_invalid_yield_cleanup_pause_ack_is_observed_without_handoff_or_resend',
         'test_retained_goods_cannot_replace_current_ui_scene_or_expired_prefix_source',
         'test_source_bound_permit_requires_live_current_floor_and_real_pause_confirmation',
         'test_stale_first_pause_or_invalid_pause_companion_never_opens_floor_start',

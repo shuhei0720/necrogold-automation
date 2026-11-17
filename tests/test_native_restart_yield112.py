@@ -381,3 +381,39 @@ class NativeRestartYield112Tests(unittest.TestCase):
                     ready,command=self.h.tick();self.assertEqual((1,5),(ready,command.kind),
                         'qualified DEATH keeps the existing checkpoint/continue path after DATA settles')
                 self.assertEqual((0,0),(self.permit(),handoff(self.lib,self.h.engine).allowed))
+
+    def test_positive_invalid_yield_cleanup_pause_ack_is_observed_without_handoff_or_resend(self):
+        # Actual Mac223 commit/capture cases reached a real cleanup PAUSE ACK,
+        # then accepted hundreds of PAUSE frames while input3 stayed open.
+        for label,outcome in (('candidate',1),('target',2),('hint',0)):
+            with self.subTest(label=label):
+                self.engine();_old,restart,floor,ident,start=self.new_floor(goods=2)
+                self.assertEqual(1,self.goods(floor,ident,start,start+1))
+                def hint(result):
+                    if label=='hint':result.row_count=1;result.rows[0].slots[0].icon_upper_bound=.81
+                self.probe(outcome,hint)
+                self.assertEqual((1,1,0),(self.state().pending,self.state().invalid,self.permit()))
+                spent=(self.h.status().inputs,self.h.status().moves,self.h.status().restarts)
+                ready,pause=self.h.tick();self.assertEqual((1,2),(ready,pause.kind))
+                self.assertGreater(pause.id,restart.id)
+                self.assertEqual((0,0),(handoff(self.lib,self.h.engine).kind,handoff(self.lib,self.h.engine).allowed))
+                self.h.ack(pause);self.assertEqual(3,self.h.status().input_state)
+                ack=self.h.now
+                self.f.observe(self.h.scene(state=1),start=ack-2,end=ack-1,commit=ack)
+                self.assertEqual((3,0),(self.h.status().input_state,self.h.events()[-1].observed_capture_id),
+                    'an observation starting before ACK cannot settle the cleanup command')
+                self.h.now+=10_000_000;self.f.observe(self.h.scene(state=1),prefix=restart.id)
+                self.assertEqual((3,0),(self.h.status().input_state,self.h.events()[-1].observed_capture_id),
+                    'an earlier completed prefix cannot settle the cleanup command')
+                self.h.now+=210_000_000;self.h.observe(self.h.scene(state=1));observed=self.h.number
+                self.assertEqual(0,self.h.status().input_state,
+                    'matching independent PAUSE must close the ordinary candidate cleanup ACK, even after budget yield was invalidated')
+                self.h.tick();status=self.h.status();event=self.h.events()[-1]
+                self.assertEqual((1,1,1),(status.terminal,status.paused,status.reason))
+                self.assertEqual((pause.id,2,observed),(event.command.id,event.outcome,event.observed_capture_id))
+                self.assertEqual(1,self.q.cycle().candidate_latched)
+                self.assertEqual(2 if label=='target' else 1,self.q.cycle().outcome)
+                self.assertEqual(spent,(status.inputs,status.moves,status.restarts))
+                self.assertEqual((0,0),(self.permit(),handoff(self.lib,self.h.engine).allowed))
+                count=len(self.h.events());self.h.now+=10_000_000;self.h.observe(self.h.scene(state=1))
+                self.assertEqual((0,count),(self.h.tick()[0],len(self.h.events())),'no second PAUSE or restart is issued')

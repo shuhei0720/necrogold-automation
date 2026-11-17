@@ -509,3 +509,5 @@ TEST111/build219実物確認（2026-11-17）: CODE7974482/run44069884103で選�
 | FR-112-CI-SWIFT-LOCK | 2026-11-17 | Mac221の新112結合fixtureが2箇所でcompile error | 別ファイルのprivate NSLock補助を呼び出した | 新112 fixture内の当該読取だけを明示lock/read/unlockへ。旧資材/全assert/製品sourceを保持 | 221は制御226/実3.9 55成功、API Red正常、現8ケース未実行。独立差分確認後の新ビルドで実行確認する。compile失敗をRedに数えない | 内部試験補助1。実機再発には算入しない |
 
 | FR-112-CI-SUPPORT-ROOT | 2026-11-17 | Mac222は旧方式成功、新7ケースが撮影0で終了 | 新fixtureの子保存先directoryが未作成でSpool openが失敗、C開始前にcancel6 | 新reset内だけmkdir0700と存在/種別/非symlink/権限assertを追加。製品と既assertは保持 | 実222の0取得/旧方式成功と初期化経路を独立照合。差分レビューP0/P1なし、次Macで確認。製品Redではない | 内部試験準備1。実機再発には算入しない |
+
+| FR-112-RT-CANDIDATE-PAUSE | 2026-11-17 | 223の候補保持後、PAUSE ACKはあるが観測完了せずinput3が残る | 新境界のinvalid/pendingが通常停止PAUSEの観測を横取り、専用PAUSE以外を閉じない | 既知ACK/同prefix/ACK後の通常PAUSEだけ閉じる。候補/raw/期限/再送禁止・kind3禁止を維持。watchdog終了の誤合格も拒否 | 実Spool/P39診断で残存input3を検出。旧ebbでRed3/error0→C309169の新17＋関連67Green、独立レビュー0P0/P1。修正後Mac/実機は未確認 | 新境界実装の内部1。実機再発へ算入しない |

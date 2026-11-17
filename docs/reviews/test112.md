@@ -39,3 +39,11 @@ ff8f原147は開扉のみで移動しておらず、下の商品は部分表示�
 CODE915cee9/run44096307751で制御219＋selector7＝226件、実CPython3.9.25の55件は成功。旧Runtime37cのopt-in API assertion Redも正しい単一assert/compile0で成立した。現Runtimeの8ケースは、別Swiftファイルのprivate NSLock補助を新fixtureから呼ぶ2箇所がcompile errorとなり、未実行。製品assertion RedやIPA成功ではない。新112 fixtureの2読み取りだけを明示lock/read/unlockへ直し、assert全体・旧13資材・全36製品sourceを維持して再ビルドする。旧runの成功と未実施はそのsourceに結び付けて保持する。
 
 CI222/CODE1760a5fは制御226/実3.9 55/API Redと旧方式Macが成功。新7ケースはcompile後に全て取得0で停止した。保存先の子directoryを新fixtureが作らず、SpoolのO_DIRECTORY openがsupport失敗し、initializeCycleがcancel6へ入っていた。C開始前であり、C/Runtimeの有効化順序は正常。新reset内だけmkdir0700とdirectory/非symlink/権限の明示assertを追加し、既assert・製品source・旧資材を保持。独立レビュー残P0/P1なし。これも製品assertion Redや実機障害へ算入せず、修正後のMac実行を要する。
+
+## CI223の実callbackで見つかった候補停止
+
+223/CODE35b27c0は開始・通常区切り・producer return等を実行。候補後の通常PAUSEはACK済みでも観測ID0/input3に残った。新境界のinvalid/pendingが通常停止PAUSEを横取りし、専用budget PAUSEだけを閉じる実装が原因。対応する既知ACK・同prefix・ACK以後の有効PAUSEだけを閉じるC修正309169c4を適用し、対象/候補・raw・元期限・再送/区切り禁止を維持した。旧ebbで新1method/3assert失敗(error0)→最終17＋直接67件Green、独立レビュー残P0/P1なし。
+
+旧223のfirst_partialはdriver上Greenでも、実Spool検証がwatchdog reason19/input3を検出して最終資格を拒否した。候補用fixtureもreasonGoods/input0/通常PAUSEの実観測を必須に強める。happyの実24PNG/29記録は実Python3.9で通常parserへ通り、candidateの26PNG/31記録はhashchain/RGBA正常・parser候補保持だが入力待機残存を拒否した。これは診断で、全8ケース/最終5gate/実client ZIP公開/実機の合格ではない。
+
+上側入店の手続き的画像にはstage依存の価格消去があり、通常producerの最初の4部分候補と空結果限定のC資格も不一致だった。物理的なHUD/可視性と実商品の投影を照合してから対策を選び、分類結果の注入や可視価格の消去で合格させない。Mac反復用の専用diagnostic laneを追加し、現8ケースだけを実行する。配布用device laneの制御/実3.9/IPA確認は維持する。

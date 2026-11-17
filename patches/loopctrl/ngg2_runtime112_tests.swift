@@ -187,7 +187,9 @@ final class Runtime112World {
             callback(); return true
         }
         NG2RuntimeTestHooks.beforeControlTick = {
-            let run = self.locked { self.activeID }, current = report(self.locked { self.activeID })
+            let run = self.locked { self.activeID }
+            _ = cycleCall(run, extra: ["keepalive": .bool(true)])
+            let current = report(run)
             let checkPins = self.locked { () -> Bool in
                 guard self.stage == 0, !self.pinPressureChecked, (current["accepted_frames"]?.intValue ?? 0) > 0 else { return false }
                 self.pinPressureChecked = true; return true
@@ -288,6 +290,14 @@ func runtime112FinishCandidate(_ root: URL, _ world: Runtime112World, required: 
     let id = world.locked { world.activeID }
     pump("test112_actual_late_candidate_latched", timeout: 30) { cycleCompanion(id)["candidate_latched"]?.boolValue == true }
     pump("test112_candidate_capture_worker_main_actual_drain", timeout: 30) { cycleDrained(id) }
+    let native = report(id), events = (report(id)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    let restart = events.last { $0["kind"]?.intValue == 3 }?["id"]?.intValue ?? 0
+    let pause = events.last { $0["kind"]?.intValue == 2 && ($0["id"]?.intValue ?? 0) > restart }
+    require(native["reason"]?.intValue == 1 && native["terminal"]?.intValue == 1 &&
+        native["paused"]?.intValue == 1 && native["input_state"]?.intValue == 0 &&
+        native["current_command_id"]?.intValue == 0 && pause?["outcome"]?.intValue == 2 &&
+        (pause?["observed_capture_id"]?.intValue ?? 0) > 0,
+        "test112_candidate_requires_observed_holding_pause_not_watchdog_or_ack_wait")
     require(runtime112Handoff(root, id)["allowed"]?.boolValue == false && world.locked { world.restarts == 1 },
         "test112_candidate_vetoes_restarted_budget_and_second_restart")
     require(world.locked { world.kernelCalls == world.workerCalls }, "test112_each_admitted_worker_has_real_kernel")
@@ -656,6 +666,7 @@ final class Runtime112UpperWorld {
             }, "test112_upper_new_actual_world_pose_after_ack_at_capture_boundary")
         }
         NG2RuntimeTestHooks.beforeControlTick = {
+            _ = cycleCall(self.id, extra: ["keepalive": .bool(true)])
             let current = report(self.id), cycle = cycleCompanion(self.id), state = runtime112State(self.id)
             let realFit = (current["beat_period_ns"]?.intValue ?? 0) > 0
             let align = self.locked { () -> Bool in
