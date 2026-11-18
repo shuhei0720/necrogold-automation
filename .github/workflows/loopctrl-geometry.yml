@@ -8,7 +8,7 @@ on:
         type: choice
         required: true
         default: device
-        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic, test099-runtime-remaining, test100-runtime-partial, test101-runtime-observation, test110-runtime-red, test112-runtime-diagnostic, test115-runtime-red, test116-spool-red]
+        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic, test099-runtime-remaining, test100-runtime-partial, test101-runtime-observation, test110-runtime-red, test112-runtime-diagnostic, test115-runtime-red, test116-spool-red, test116-runtime-red]
       artifact_id:
         type: string
         required: false
@@ -179,6 +179,64 @@ jobs:
         with:
           name: loopctrl-test116-spool-red
           path: ${{ runner.temp }}/test116-spool-red/
+          if-no-files-found: error
+          retention-days: 30
+  test116-runtime-red:
+    if: inputs.native_lane == 'test116-runtime-red'
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Apply sealed sources and pin original TEST115 Runtime for API assertion
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/test116-runtime-red/before-source"
+          python3 driver/patches/loopctrl/apply_patch.py upstream > "$RUNNER_TEMP/test116-runtime-red/workflow-g1-applied.json"
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream > "$RUNNER_TEMP/test116-runtime-red/workflow-g2-applied.json"
+          git -C driver show c17ffd2e4c583b16b322dd9e8a973003e179389c:patches/loopctrl/ngg2/NG2Runtime.swift > "$RUNNER_TEMP/test116-runtime-red/before-source/NG2Runtime.swift"
+          echo "e655aa10f0ba48a9e2f719e25a5cbd9c7f5c69f6e907de0ac1bcae9da228dbe0  $RUNNER_TEMP/test116-runtime-red/before-source/NG2Runtime.swift" | shasum -a 256 --check
+          python3 - <<'PYCODE' | tee "$RUNNER_TEMP/test116-runtime-red/workflow-source-preconditions.json"
+          import ast, hashlib, json, os, subprocess
+          from pathlib import Path
+          code = subprocess.check_output(['git','-C','driver','rev-parse','HEAD'],text=True).strip()
+          if code != os.environ['GITHUB_SHA']:
+              raise SystemExit('TEST116 Runtime Red driver differs from dispatched CODE')
+          tree = ast.parse(Path('driver/patches/loopctrl/check_runtime116.py').read_text())
+          wanted = {'BEFORE_RUNTIME_SHA256':'e655aa10f0ba48a9e2f719e25a5cbd9c7f5c69f6e907de0ac1bcae9da228dbe0',
+              'EXPECTED_RUNTIME_RED_ASSERTION':'FAIL test116_continuous_native_mode_is_admitted_without_old_pause_yield'}
+          controls = {node.targets[0].id:ast.literal_eval(node.value) for node in tree.body
+              if isinstance(node,ast.Assign) and isinstance(node.targets[0],ast.Name) and node.targets[0].id in wanted}
+          if controls != wanted:
+              raise SystemExit('TEST116 Runtime Red author assertion or source differs')
+          print(json.dumps(dict(schema='test116-runtime-red-workflow-source-v1',code=code,
+              before_runtime_sha256=wanted['BEFORE_RUNTIME_SHA256'],
+              expected_assertion=wanted['EXPECTED_RUNTIME_RED_ASSERTION'],assertion_red_only=True,
+              ipa_built=False,linux_host_replayed=False,python39_replayed=False),indent=2))
+          PYCODE
+      - name: Observe TEST116 new-mode assertion Red against exact original Runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 driver/patches/loopctrl/check_runtime116.py upstream "$RUNNER_TEMP/test116-runtime-red" --expect-runtime-red --before-runtime "$RUNNER_TEMP/test116-runtime-red/before-source/NG2Runtime.swift" 2>&1 | tee "$RUNNER_TEMP/test116-runtime-red/runtime-command.txt"
+      - name: Save TEST116 Runtime assertion evidence without IPA or other tests
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-test116-runtime-red
+          path: ${{ runner.temp }}/test116-runtime-red/
           if-no-files-found: error
           retention-days: 30
   test112-runtime-diagnostic:
@@ -528,7 +586,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   native-source-ready:
-    if: inputs.native_lane != 'publish-download' && inputs.native_lane != 'test112-runtime-diagnostic' && inputs.native_lane != 'test115-runtime-red' && inputs.native_lane != 'test116-spool-red'
+    if: inputs.native_lane != 'publish-download' && inputs.native_lane != 'test112-runtime-diagnostic' && inputs.native_lane != 'test115-runtime-red' && inputs.native_lane != 'test116-spool-red' && inputs.native_lane != 'test116-runtime-red'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
