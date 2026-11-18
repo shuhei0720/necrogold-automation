@@ -15,6 +15,7 @@ import zlib
 from typing import NamedTuple
 
 from .native_walk import _atomic, device_lock
+from . import campaign_diagnostics114 as diagnostics
 from .protocol import Client, HttpTransport
 from .rpc_diagnostics import RemoteRpcError
 from .validation import ProbeError, b64, json_object, number
@@ -439,10 +440,16 @@ def _call(client, method, params, *, deadline=None, clock=time.monotonic_ns, sle
     cap = clock()+30_000_000_000
     deadline = cap if deadline is None else min(deadline, cap)
     while True:
+        began = diagnostics.now(client)
         try:
             result = client.call(method, params)
+            diagnostics.notify(client, 'rpc', method, params, result,
+                               start=began, end=diagnostics.now(client) if began is not None else None)
             return result.result if hasattr(result, 'result') else result
         except ProbeError as exc:
+            diagnostics.notify(client, 'rpc', method, params, error=exc,
+                               failure=getattr(client, 'last_failure', None),
+                               start=began, end=diagnostics.now(client) if began is not None else None)
             if (method in (STANDARD_PROTOCOL.query, IRREGULAR_PROTOCOL.query) and getattr(exc, 'rpc_code', None) == -32096
                     and getattr(exc, 'error_shape_valid', False) is True):
                 raise ProbeError('cycle_evidence_storage_unavailable') from None
@@ -544,6 +551,7 @@ def collect(client, base, record, *, cancelled=lambda: False, clock=time.monoton
     saved = sum(item['offset'] == item['bytes'] for item in record['images'])
     notice('画像回収中: 保存済み'+str(saved)+'/'+str(len(record['images']))+'枚。終了表示までお待ちください。')
     for is_record, key in ((True, 'records'), (False, 'images')):
+        phase_started = diagnostics.now(client)
         destination = _file_folder(base, record, is_record)
         parts = destination/'.parts'
         parts.mkdir(mode=0o700, exist_ok=True)
@@ -594,7 +602,8 @@ def collect(client, base, record, *, cancelled=lambda: False, clock=time.monoton
             if is_record:
                 json_object(raw, MAX_RECORD)
             else:
-                verify_png(raw)
+                with diagnostics.span(client, 'evidence_verify', record['run_id']):
+                    verify_png(raw)
             if target.exists():
                 require(_read(target, MAX_RECORD if is_record else MAX_IMAGE) == raw, 'cycle_file_changed')
             else:
@@ -606,7 +615,11 @@ def collect(client, base, record, *, cancelled=lambda: False, clock=time.monoton
                 # Recalculate rather than double count an already completed file.
                 saved = sum(entry['offset'] == entry['bytes'] for entry in record['images'])
                 notice('画像回収中: 保存済み'+str(saved)+'/'+str(len(record['images']))+'枚。終了表示までお待ちください。')
-    verify_evidence(base, record, manifest, protocol_spec=protocol)
+        if phase_started is not None:
+            diagnostics.notify(client, 'phase', 'records_collect' if is_record else 'images_collect',
+                               record['run_id'], phase_started, diagnostics.now(client))
+    with diagnostics.span(client, 'evidence_verify', record['run_id']):
+        verify_evidence(base, record, manifest, protocol_spec=protocol)
     record.update(resolved=True, state='stopped' if manifest['interrupted'] else 'completed',
                   last_error=record['last_error'] if record['cancel_intent'] else None)
     _journal(base, record)
@@ -786,6 +799,7 @@ def run_session(client, base, *, cancelled=lambda: False, clock=time.monotonic_n
             verify_evidence(base, record, protocol_spec=protocol)
             return record
         deadline = clock()+int(session_seconds*1e9)
+        wait_started = diagnostics.now(client)
         while True:
             if cancelled() or clock() >= deadline:
                 record['cancel_intent'] = True
@@ -804,6 +818,9 @@ def run_session(client, base, *, cancelled=lambda: False, clock=time.monotonic_n
             _journal(base, record)
             if reply['terminal'] and reply['workers_drained'] and reply['input_state'] in (0,3,4) \
                     and not reply['native_inflight']:
+                if wait_started is not None:
+                    diagnostics.notify(client, 'phase', 'session_wait', run_id, wait_started, diagnostics.now(client))
+                diagnostics.notify(client, 'terminal', client, run_id, reply)
                 collect(client, base, record, cancelled=cancelled, clock=clock, notice=notice, protocol_spec=protocol)
                 return record
             sleep(.25)

@@ -6,6 +6,7 @@ import uuid
 import zipfile
 
 from . import native_cycle as cycle
+from . import campaign_diagnostics114 as private_diagnostics
 from .protocol import HttpTransport
 from .validation import ProbeError
 
@@ -452,7 +453,7 @@ def irregular_result_notice(base, record, row):
     return '商品判定: '+assessment+'。再試行: '+detail+'。'
 
 
-def bundle(destination, ledger, last_archive, *, label='test-099'):
+def bundle(destination, ledger, last_archive, *, label='test-099', diagnostics=None):
     """Stream an index and the last run ZIP; never load all run images in RAM."""
     from .test069 import _sync_directory
     cycle.require(type(label) is str and re.fullmatch(r'test-[0-9]{3}',label),'campaign_ledger_invalid')
@@ -461,17 +462,32 @@ def bundle(destination, ledger, last_archive, *, label='test-099'):
     index=cycle.canonical(ledger)
     name=label+'-campaign-'+ledger['campaign_id']+'-r'+str(ledger['revision'])+'.zip'
     target=output/name;temporary=output/(name+'.part')
+    cycle.require(not target.is_symlink(),'cycle_local_symlink')
     last=ledger['pending_archive'] or (ledger['runs'][-1] if ledger['runs'] else None)
     member='last-run/'+last['archive_name'] if last else None
+    if diagnostics is not None:
+        if not private_diagnostics.valid_sealed(diagnostics,ledger):
+            diagnostics=private_diagnostics.unavailable(ledger)
+        if target.exists():
+            with zipfile.ZipFile(target) as prior:
+                if private_diagnostics.MEMBER in prior.namelist():
+                    item=prior.getinfo(private_diagnostics.MEMBER)
+                    if item.file_size<=private_diagnostics.MAX_BYTES:
+                        sealed=prior.read(item)
+                        if private_diagnostics.valid_sealed(sealed,ledger): diagnostics=sealed
+    names=['campaign-index.json']+([member] if last else [])+([private_diagnostics.MEMBER] if diagnostics is not None else [])
     if last is not None:
         cycle.require(last_archive is not None and not Path(last_archive).is_symlink()
             and Path(last_archive).stat().st_size==last['archive_bytes'],'campaign_archive_missing')
     def verify(path):
         cycle.require(not path.is_symlink(),'cycle_local_symlink')
         with zipfile.ZipFile(path) as saved:
-            cycle.require(saved.namelist()==(['campaign-index.json',member] if last else ['campaign-index.json']),
+            cycle.require(saved.namelist()==names,
                           'campaign_bundle_changed')
             cycle.require(saved.read('campaign-index.json')==index,'campaign_bundle_changed')
+            if diagnostics is not None:
+                info=saved.getinfo(private_diagnostics.MEMBER)
+                cycle.require(info.file_size==len(diagnostics) and saved.read(info)==diagnostics,'campaign_bundle_changed')
             if last:
                 item=saved.getinfo(member)
                 cycle.require(item.file_size==last['archive_bytes'] and item.compress_type==zipfile.ZIP_STORED,
@@ -503,6 +519,9 @@ def bundle(destination, ledger, last_archive, *, label='test-099'):
                             entry.write(data)
                     cycle.require((count,digest.hexdigest())==(last['archive_bytes'],last['archive_sha256']),
                                   'campaign_archive_changed')
+                if diagnostics is not None:
+                    info=zipfile.ZipInfo(private_diagnostics.MEMBER,date_time=(1980,1,1,0,0,0));info.external_attr=0o600<<16
+                    saved.writestr(info,diagnostics)
             stream.flush();cycle.os.fsync(stream.fileno())
         verify(temporary);cycle.os.replace(temporary,target);_sync_directory(output)
     verify(target)

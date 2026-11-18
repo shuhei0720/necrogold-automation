@@ -538,3 +538,26 @@ TEST113/build230配布前確認（2026-11-18）: CODEa565681/run44154202349で�
 
 
 TEST113の固定公開確認: 配布source8c96c77（CODEとの差はdocs3件のみ）・1053files/全CRCを照合し、test113-build230をpublisher231で公開。IPA/完全source/hash表を匿名GET200・全bytes/SHA一致まで確認した。固定配布物は変更せず、公開後の記録保存もdocsだけとする。実機改善未確認と各再発数は維持する。
+
+## TEST114: TEST113実機結果の対応（2026-11-18）
+
+11ZIP/5campaign/6固有run・144PNG/163記録を照合。添付順ではなく実started時刻で利用者の5周へ対応付けた。全journalは取消なし/last_errorなし。以下の対策は実装・検証中であり、実機の改善完了ではない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-114-SAME-SHOP-PAIR | 2026-11-18 | 1/2周は全商品が見えてもUNKNOWNで停止 | 同じ実SHOP成分対がsy差1/2の複数数値行を作りROWS拒否。2周は先行policy9のhandledで独立探索へ進まず、進んでも数値行一致条件がsy225の完全policy15を遮る | 全数値行と全aliasの対象/文字検査を維持。厳密に同じ成分対/ITEM投影だけ物理行として扱い、選択した元数値行の完全証明を独立探索 | 新10件で旧Ringの6assert失敗/error0→Green。原164→policy9、250/251→policy15の通常完全陰性・既certificate正常を校正。原236は同じcandidate、成功177はpolicy7を保持。250の初回job時刻は未保存で推定と明記。実機改善未確認 | 今回2。同症状は継続、同根因の通算は未集計。過去対策の削除回帰とは未実証 |
+| FR-114-CURRENT-FULL-VIEW | 2026-11-18 | 5周は全商品可視でも停止 | 判定元98と後続99/100が直接静止でなく、100には新GOLDもあり旧画像を正しく無効化。現在100も固定HUDに看板が重なりUNKNOWNで、独立した現在画像の観測資格へ進めない | 旧hard無効/元親期限を保持した別current DATA epoch。実drain保証のあるyield有効profileだけへ限定し、通常再判定・直接静止2枚・新fitで既一回のUP観測。UNKNOWNを陰性にしない | 原98..100の通常結果/直接Motion/元残時間約2.536秒を照合。公開Cの意味あるRed→新12Green、独立差分レビュー残P0/P1/P2なし。未来の静止/UP後画像は未収録、現Mac/実機は未確認 | 今回1。FR113上端HUDの同症状継続、同根因通算未集計 |
+| FR-114-POST-RESTART-PAUSE | 2026-11-18 | 4周は実RS/次UUIDまで成功後、初歩前に停止 | 新runのlive91→PAUSE92を記録。方向入力0、拍取得開始後約1.29秒。追加PAUSE命令なし。発生源と利用者が先に感じた停止との前後関係は未記録 | 利用者は停止まで未操作と記録。Navは実GOLD候補とUP床を正常選択するため変更しない。無根拠の自動再開を加えず、既存の読取診断から次回の前面化/終了工程を記録する案を検討 | 原70..91の通常Navを22枚で校正。旧取消原因の再発ではない。G1前面化経路の存在だけで今回の原因と断定しない。原因未確定・改善未確認 | 今回1、同根因数は不明。0と扱わない |
+| FR-114-PUBLICATION-LATENCY | 2026-11-18 | 正常RS終了から次UUID開始まで約65.14秒 | Ring本体は11〜43ms。回収/照合/ZIP/公開/次startの工程別時刻がなく、遅延の内訳は未確定 | wire/資格を維持した114限定の任意host集計を検討。既RpcReply.timingsと工程境界を私的sidecarへ保存し、追加の入力やlive RPCを行わない | 実native終了/次startの単調時計差と回収量を照合済み。計測追加の単体/実3.9で確認予定。実効速度は未達として残す | 今回1。遅延の同根因数は不明 |
+
+3周の実対象は通常producerでcandidate（exact約.934、既TARGET閾値.94）として再現。実Cで採用・候補保持・PAUSE ACK/新画像241・耐久保存し、以後RSなし。TARGET確定やOS通知配信まで証明したとはしない。新114の手続き的候補/名前なしTARGET保持2件は旧sourceのままGreenで、保持回帰の基準とする。4周の正常RS→別UUIDも成功として残す。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-114-REVIEW-ALIAS-BOUNDS | 2026-11-18 | 未配布532で選択行が正常でも、別aliasがHUDを跨いだまま陰性 | 物理対の同一性に、各元数値行の全strip範囲検査がない | 各aliasの元Bを既box_validで検査。境界外はUNKNOWN | sy229/231の通常producerでassertion Red→修正Green。既10件のassert保持。実機同根因を観測したとはしない | 開発中1、実機再発には加算しない |
+| FR-114-REVIEW-ALIAS-UNION | 2026-11-18 | 未配布ab2で範囲外policyのaliasだけにある対象文字/画像を陰性にする | policy9の行資格で225を先に除外し、223の完全証明だけで終了するため225独自の検査領域を失う | 材質/certificateの行資格と、正の検査領域を分離。同じ元成分対の全aliasを検査し、別投影/欠けはUNKNOWN | 通常producerの文字2/画像3の意味あるRed→新14Green。旧12のassert/AST保持。独立した新領域の差分確認済み、実機未確認 | 開発中1境界・5反例。実機再発には加算しない |
+| FR-114-REVIEW-RESERVED-VIEW | 2026-11-18 | 新currentのMOVE予約後、新静止画像でbegin拒否 | 2証明成立後もproof IDとframingを更新し、予約済み3を2へ戻す | 証明Bと予約を固定。以後は同じimmutable anchorへの再検査と実sampleだけを追加 | 未配布1471の指定assertion Red→修正Green。旧begin guardは緩和せず、新12の中で確認。実機未確認 | 開発中1。実機再発には加算しない |
+| FR-114-REVIEW-DRAIN-PROFILE | 2026-11-18 | 新current経路が実drain tokenのないprofileにも入力権限を公開 | C側は全cycleを許可し、Runtimeのproducer-return/UI gateはyield有効時だけ | 新current経路を既restart_yield enabledへ限定。Runtimeは不変 | 同じ公開初期化/neutral companionでyieldだけ無効にした指定Red1/error0→新12Green。既11methodのAST保持、独立差分再確認済み | 開発中1。実機再発には加算しない |
+| FR-114-REVIEW-DIAGNOSTICS | 2026-11-18 | 任意診断で隠しJSON値・事前symlink読取・時計例外が主処理へ影響し得る | 非canonical JSONの再利用、ZIP読取の順序、helper外の任意時計呼出 | canonical bytes一致、読取前symlink拒否、任意時計のfail-soft化 | 新3methodの意味あるRed3/error0→実Python3.9の3Green。元25を履歴に残し、最終新12/直接16はCIで一度結合。独立差分レビュー残0 | 開発中3境界。実機再発には加算しない |
+| FR-114-ALIAS-DUPLICATE-WORK | 2026-11-18 | 全aliasの安全検査を追加した未配布5e45で、原250/251のホスト時間が約116/118ms | 独立policy探索で同じ225行の5セル/広域文字を再計算 | 同一job内・同じ元行index/left/sy/Bの完了済みpixel proofだけ4枠で再利用。現在時計/checks/取消checkpointと各policyの数値certificateは保持 | 元100ms枠の固定費用モデルで指定Red1/error0→最終新15Green。最終571eaで原250/251は約66/72ms、候補236/成功177はResult全bytes保持。ホスト診断を実機速度達成とはしない | 開発中1。実効速度は実機で未受入 |
+| FR-114-C-FIXTURE-QUALIFICATION | 2026-11-18 | 新profile正例の初期化が進まず、新ctypes constructorで試験processが異常終了 | 初期PAUSEに必要なirregular companionとconstructorのpointer型指定が不足 | 新114 factory内だけで公開opt-in・neutral companion・正しいctypes型を使用。初期PAUSE→RESUMEを実APIで実行 | 型/環境失敗はRedに加算せず保存。同じ最終fixtureで旧D7の無効profile Red1/error0→最終C新12Green。旧11methodのAST・旧helperは保持 | 開発中の試験資格2条件。製品・実機再発ではない |

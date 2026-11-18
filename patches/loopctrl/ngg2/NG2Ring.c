@@ -1859,6 +1859,33 @@ static int offer_footprint_pair(const NG2RingSign *a,const NG2RingSign *b,int le
     }
     return 0;
 }
+/* The observer may seed both measured centers of one physical pair. Keep
+ * both hypotheses and their positive searches; only their physical count is
+ * shared. Equal indices identify the exact original components, including
+ * their pixel count and bounds, not merely two nearby yellow rectangles. */
+static int offer_pair_components(const NG2RingSign signs[12],int sign_count,
+                                 const NG2RingRow *a,const NG2RingRow *b) {
+    int pair[2][2]={{-1,-1},{-1,-1}},hits[2][2]={{0}};
+    const NG2RingRow *rows[2]={a,b};
+    if(sign_count!=2||a->left!=b->left||abs(a->sy-b->sy)>2)return 0;
+    for(int r=0;r<2;r++) {
+        for(int side=0;side<2;side++)for(int i=0;i<sign_count;i++)
+            if(abs(signs[i].cx-rows[r]->left-72*side)<=2){pair[r][side]=i;hits[r][side]++;}
+        if(hits[r][0]!=1||hits[r][1]!=1||pair[r][0]==pair[r][1]
+           ||(rows[r]->sy!=signs[pair[r][0]].sy&&rows[r]->sy!=signs[pair[r][1]].sy)
+           ||!offer_footprint_pair(&signs[pair[r][0]],&signs[pair[r][1]],rows[r]->left,rows[r]->sy))return 0;
+    }
+    return pair[0][0]==pair[1][0]&&pair[0][1]==pair[1][1];
+}
+static int offer_pair_alias(const NG2RingSign signs[12],int sign_count,
+                            const NG2RingRow *a,const NG2RingRow *b) {
+    int ax,ay,bx,by;
+    int32_t strips[2][4]={{a->left-54,a->sy+24,180,67},{b->left-54,b->sy+24,180,67}};
+    return box_valid(strips[0])&&box_valid(strips[1])
+        &&structural_cell(a->left,448,&ax)&&structural_cell(a->sy+48,207,&ay)
+        &&structural_cell(b->left,448,&bx)&&structural_cell(b->sy+48,207,&by)
+        &&ax==bx&&ay==by&&offer_pair_components(signs,sign_count,a,b);
+}
 /* A local lighting witness for an already observed FLOOR endcap. It does not
  * change the material predicate: the independent full 25x25 sample must pass
  * it. A textured, visible half may instead prove the same chromaticity with
@@ -1909,13 +1936,61 @@ static int coverage_primary_proven(const NG2RingResult *result,const NG2RingRow 
     return binary_cell_certificate(&result->partial[0],row->left-36,row->sy,0,strip)
         &&binary_cell_certificate(&result->partial[1],row->left+108,row->sy,0,strip);
 }
+/* Every numerical alias owns its full five-cell and wider name union. An
+ * otherwise complete selected row cannot erase a positive at another alias's
+ * exclusive edge. Reuse retains the old exact numeric-row/strip predicate. */
+typedef struct {
+    int valid,row_index;
+    int32_t strip[4];
+    NG2RingRow row;
+    NG2RingSlot partial[2];
+} OfferSweepProof;
+static int offer_alias_sweep(const unsigned char *rgba,const RingObservation *observation,
+                             const NG2RingOptions *options,NG2RingResult *result,
+                             const NG2RingResult *prior,const int aliases[4],int count,int selected,
+                             OfferSweepProof proofs[4]) {
+    NG2RingSlot selected_partial[2];int saved=0;
+    for(int i=0;i<count;i++) {
+        int r=aliases[i],status=NG2_RING_OK;NG2RingResult work=*result;
+        OfferSweepProof *proof=&proofs[r];
+        int32_t strip[4]={work.rows[r].left-54,work.rows[r].sy+24,180,67};
+        if(proof->valid&&proof->row_index==r&&proof->row.left==work.rows[r].left
+            &&proof->row.sy==work.rows[r].sy&&!memcmp(proof->strip,strip,sizeof(strip))) {
+            work.rows[r]=proof->row;work.partial_count=2;
+            work.partial[0]=proof->partial[0];work.partial[1]=proof->partial[1];
+            status=checkpoint(options,&work);
+        } else if(coverage_primary_proven(prior,&prior->rows[r])) {
+            work.rows[r]=prior->rows[r];work.partial_count=2;
+            work.partial[0]=prior->partial[0];work.partial[1]=prior->partial[1];
+            status=checkpoint(options,&work);
+        } else {
+            status=binary_primary(rgba,options,&work,&work.rows[r]);
+            if(!status&&work.outcome==NG2_RING_UNKNOWN)
+                status=binary_word_veto(observation,options,&work,&work.rows[r]);
+        }
+        if(status||work.outcome!=NG2_RING_UNKNOWN){*result=work;return status;}
+        /* This cache belongs to this one immutable coverage invocation.
+         * It records completed pixel searches, never a numeric certificate. */
+        proof->valid=1;proof->row_index=r;memcpy(proof->strip,strip,sizeof(strip));
+        proof->row=work.rows[r];proof->partial[0]=work.partial[0];proof->partial[1]=work.partial[1];
+        result->checks=work.checks;result->finished_ns=work.finished_ns;
+        result->rows[r]=work.rows[r];
+        if(r==selected) {
+            selected_partial[0]=work.partial[0];selected_partial[1]=work.partial[1];saved=1;
+        }
+    }
+    if(!saved)return NG2_RING_KERNEL;
+    result->partial_count=2;result->partial[0]=selected_partial[0];result->partial[1]=selected_partial[1];
+    return NG2_RING_OK;
+}
 static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObservation *observation,
                                 const NG2RingSign signs[12],int sign_count,
-                                const NG2RingOptions *options,NG2RingResult *result,int *handled,int kind) {
+                                const NG2RingOptions *options,NG2RingResult *result,int *handled,int kind,
+                                OfferSweepProof proofs[4]) {
     int closed=kind==1,single=kind==2,upper=kind==3;
     *handled=0;
     if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY||sign_count!=(single?1:2))return NG2_RING_OK;
-    int selected=-1,selected_pair[2]={-1,-1},selected_closed=-1,accepted=0;
+    int selected=-1,selected_pair[2]={-1,-1},selected_closed=-1,accepted=0,aliases[4],alias_count=0;
     for(int r=0;r<result->row_count;r++) {
         const NG2RingRow *row=&result->rows[r];int pair[2]={-1,-1},hits[2]={0,0};
         int missing=-1;
@@ -1934,13 +2009,18 @@ static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObs
                ||signs[pair[side]].y1-signs[pair[side]].y0!=29)continue;
         } else if(hits[0]!=1||hits[1]!=1||pair[0]==pair[1]
                   ||!offer_footprint_pair(&signs[pair[0]],&signs[pair[1]],row->left,row->sy))continue;
+        if(!closed&&!single&&selected>=0
+           &&offer_pair_alias(signs,sign_count,&result->rows[selected],row)) {
+            aliases[alias_count++]=r;continue;
+        }
         accepted++;
-        if(selected<0){selected=r;selected_pair[0]=pair[0];selected_pair[1]=pair[1];selected_closed=missing;}
+        if(selected<0){selected=r;selected_pair[0]=pair[0];selected_pair[1]=pair[1];selected_closed=missing;
+            aliases[alias_count++]=r;}
     }
     if(!accepted)return NG2_RING_OK;
     *handled=1;
     NG2RingCoverage *out=&result->certificate;NG2RingRow *row=&result->rows[selected];
-    int reuse=coverage_primary_proven(result,row);
+    int reuse=coverage_primary_proven(result,row);NG2RingResult prior=*result;
     memset(out,0,sizeof(*out));out->layout_version=1;out->policy_version=out->board_mode=upper?15:single?11:closed?10:9;
     out->accepted_rows=accepted;out->row_index=selected;out->row[0]=row->left;out->row[1]=row->sy;
     out->scene_state=options->scene->state;out->scene_goods=options->scene->goods;
@@ -1955,8 +2035,23 @@ static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObs
     if(accepted!=1){out->failure_flags|=NG2_RING_COV_ROWS;return NG2_RING_OK;}
     int32_t strip[4]={row->left-54,row->sy+24,180,67};memcpy(out->strip_box,strip,sizeof(strip));
     if(!box_valid(strip)){out->failure_flags|=NG2_RING_COV_BOUNDS;return NG2_RING_OK;}
+    /* A sibling filtered by this policy's material/row domain still owns
+     * positive pixels. Account for the whole original physical pair before
+     * its selected numeric row may certify absence. */
+    if(!closed&&!single)for(int r=0;r<result->row_count;r++) {
+        const NG2RingRow *sibling=&result->rows[r];int found=0;
+        if(!offer_pair_components(signs,sign_count,row,sibling))continue;
+        int32_t sibling_strip[4]={sibling->left-54,sibling->sy+24,180,67};
+        if(!box_valid(sibling_strip)){out->failure_flags|=NG2_RING_COV_BOUNDS;return NG2_RING_OK;}
+        if(!offer_pair_alias(signs,sign_count,row,sibling)){out->failure_flags|=NG2_RING_COV_ROWS;return NG2_RING_OK;}
+        for(int i=0;i<alias_count;i++)found|=aliases[i]==r;
+        if(!found)aliases[alias_count++]=r;
+    }
     int status=NG2_RING_OK;
-    if(!reuse) {
+    if(!closed&&!single&&alias_count>1) {
+        status=offer_alias_sweep(rgba,observation,options,result,&prior,aliases,alias_count,selected,proofs);
+        if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
+    } else if(!reuse) {
         status=binary_primary(rgba,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
         status=binary_word_veto(observation,options,result,row);if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
     }
@@ -2007,7 +2102,8 @@ static int offer_footprint_coverage_mode(const unsigned char *rgba,const RingObs
  * positive target evidence always return immediately. */
 static int independent_coverage(const unsigned char *rgba,const RingObservation *observation,
                                const NG2RingSign signs[12],int sign_count,
-                               const NG2RingOptions *options,NG2RingResult *result) {
+                               const NG2RingOptions *options,NG2RingResult *result,
+                               OfferSweepProof proofs[4]) {
     const NG2RingCoverage *w=&result->certificate;
     if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY||result->outcome!=NG2_RING_UNKNOWN
        ||result->coverage!=NG2_RING_COVERAGE_INCOMPLETE||w->accepted_rows!=1
@@ -2016,11 +2112,16 @@ static int independent_coverage(const unsigned char *rgba,const RingObservation 
     for(int attempt=0;attempt<2;attempt++) {
         *result=first;result->checks=checks;result->finished_ns=finished;
         int handled=0,status=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,
-            options,result,&handled,attempt?3:0);
+            options,result,&handled,attempt?3:0,proofs);
         if(status||result->outcome!=NG2_RING_UNKNOWN)return status;
-        if(handled&&result->coverage==NG2_RING_COVERAGE_COMPLETE
-           &&result->certificate.row[0]==first.certificate.row[0]
-           &&result->certificate.row[1]==first.certificate.row[1])return NG2_RING_OK;
+        if(handled&&result->coverage==NG2_RING_COVERAGE_COMPLETE) {
+            if(result->certificate.row[0]==first.certificate.row[0]
+               &&result->certificate.row[1]==first.certificate.row[1])return NG2_RING_OK;
+            if(first.certificate.policy_version==9&&result->certificate.policy_version==15
+               &&result->selected_row>=0&&result->selected_row<result->row_count
+               &&offer_pair_alias(signs,sign_count,&first.rows[first.certificate.row_index],
+                    &result->rows[result->selected_row]))return NG2_RING_OK;
+        }
         checks=result->checks;finished=result->finished_ns;
     }
     *result=first;result->checks=checks;result->finished_ns=finished;
@@ -2033,25 +2134,33 @@ static int coverage_witness(const unsigned char *rgba,const RingObservation *obs
                             const NG2RingSign signs[12],int sign_count,
                             const NG2RingOptions *options,NG2RingResult *result) {
     if(!options||!options->scene)return NG2_RING_OK;
+    OfferSweepProof proofs[4]={{0}};
     int handled=0,structural=structural_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(structural||handled)return structural?structural:independent_coverage(rgba,observation,signs,sign_count,options,result);
+    if(structural||handled)return structural?structural:independent_coverage(rgba,observation,signs,sign_count,options,result,proofs);
     int side=side_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(side||handled)return side?side:independent_coverage(rgba,observation,signs,sign_count,options,result);
+    if(side||handled)return side?side:independent_coverage(rgba,observation,signs,sign_count,options,result,proofs);
     int lower=lower_side_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(lower||handled)return lower?lower:independent_coverage(rgba,observation,signs,sign_count,options,result);
+    if(lower||handled)return lower?lower:independent_coverage(rgba,observation,signs,sign_count,options,result,proofs);
     int bottom=bottom_door_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(bottom||handled)return bottom?bottom:independent_coverage(rgba,observation,signs,sign_count,options,result);
+    if(bottom||handled)return bottom?bottom:independent_coverage(rgba,observation,signs,sign_count,options,result,proofs);
     int single=single_sign_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(single||handled)return single?single:independent_coverage(rgba,observation,signs,sign_count,options,result);
+    if(single||handled)return single?single:independent_coverage(rgba,observation,signs,sign_count,options,result,proofs);
     int bottom_entry=bottom_entry_coverage(rgba,observation,signs,sign_count,options,result,&handled);
-    if(bottom_entry||handled)return bottom_entry?bottom_entry:independent_coverage(rgba,observation,signs,sign_count,options,result);
-    int footprint=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,0);
-    if(footprint||handled)return footprint;
-    int closed_offer=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,1);
+    if(bottom_entry||handled)return bottom_entry?bottom_entry:independent_coverage(rgba,observation,signs,sign_count,options,result,proofs);
+    int footprint=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,0,proofs);
+    if(footprint||handled) {
+        if(!footprint&&result->certificate.policy_version==9
+           &&result->certificate.row_index>=0&&result->certificate.row_index<result->row_count)
+            for(int r=0;r<result->row_count;r++)if(r!=result->certificate.row_index
+                &&offer_pair_alias(signs,sign_count,&result->rows[result->certificate.row_index],&result->rows[r]))
+                return independent_coverage(rgba,observation,signs,sign_count,options,result,proofs);
+        return footprint;
+    }
+    int closed_offer=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,1,proofs);
     if(closed_offer||handled)return closed_offer;
-    int single_offer=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,2);
+    int single_offer=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,2,proofs);
     if(single_offer||handled)return single_offer;
-    int upper_side=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,3);
+    int upper_side=offer_footprint_coverage_mode(rgba,observation,signs,sign_count,options,result,&handled,3,proofs);
     if(upper_side||handled)return upper_side;
     const NG2Scene *scene=options->scene;NG2RingCoverage *out=&result->certificate;
     if(scene->abi_version!=NG2_ABI_VERSION||scene->struct_size!=sizeof(*scene))return NG2_RING_INVALID;

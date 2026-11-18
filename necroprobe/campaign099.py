@@ -5,6 +5,7 @@ import re
 
 from . import cycle_publication as publication
 from . import native_cycle as cycle
+from . import campaign_diagnostics114 as diagnostics
 from .test069 import _digest
 from .trial_evidence099 import bundle, inspect_run
 from .validation import ProbeError
@@ -136,13 +137,17 @@ def _last_archive(base,ledger):
     return Path(base).parent/('.'+Path(base).name+'-publication')/(last['run_id']+'.zip')
 
 
-def _result(base,destination,ledger,record,archive,reason,*,pending=False):
+def _result(base,destination,ledger,record,archive,reason,*,pending=False,diagnostic=None):
     state='pending' if pending else 'stopped'
     complete=bool(not pending and ledger['runs'] and not ledger['pending_run_id'])
     if ledger['state']!=state or ledger['stop_reason']!=reason or ledger['complete']!=complete:
         ledger.update(state=state,stop_reason=reason,complete=complete)
         _save(base,ledger)
-    final=(bundle(destination,ledger,_last_archive(base,ledger),label=publication._label(base))
+    options = {}
+    if diagnostic is not None:
+        try: options['diagnostics'] = diagnostic.seal(ledger)
+        except Exception: options['diagnostics'] = diagnostics.unavailable(ledger)
+    final=(bundle(destination,ledger,_last_archive(base,ledger),label=publication._label(base),**options)
            if not pending or ledger['pending_archive'] is not None else None)
     return dict(record=record,archive=archive,campaign_archive=final,ledger=ledger,stop_reason=reason)
 
@@ -159,7 +164,7 @@ def _publish(client,destination,base,*,recovery_only=False,cancelled,notice,prot
         return record,None,code
 
 
-def _pending(base,destination,ledger,record,error):
+def _pending(base,destination,ledger,record,error,*,diagnostic=None):
     reason=error or record['last_error'] or 'pending'
     descriptor=None
     if record['resolved'] and cycle.digest(record.get('archive_sha256')):
@@ -174,7 +179,7 @@ def _pending(base,destination,ledger,record,error):
     ledger.update(pending_run_id=record['run_id'],pending_archive=descriptor,
         pending_publication=error is not None,complete=False,state='pending',stop_reason=reason)
     _save(base,ledger)
-    return _result(base,destination,ledger,record,None,reason,pending=True)
+    return _result(base,destination,ledger,record,None,reason,pending=True,diagnostic=diagnostic)
 
 
 def run(client,destination,*,spool,until_target=False,recovery_only=False,
@@ -193,6 +198,7 @@ def run(client,destination,*,spool,until_target=False,recovery_only=False,
     cycle.require(not (until_target and recovery_only),'campaign_mode_conflict')
     base=Path(spool);base.mkdir(mode=0o700,parents=True,exist_ok=True)
     cycle.require(not base.is_symlink(),'cycle_local_symlink')
+    diagnostic=diagnostics.attach(client,base)
     lock=base/'campaign.lock';cycle.require(not lock.is_symlink(),'cycle_local_symlink')
     with cycle.device_lock(lock):
         ledger=_load(base);active=cycle.load_journal(base,protocol_spec=protocol)
@@ -204,7 +210,7 @@ def run(client,destination,*,spool,until_target=False,recovery_only=False,
         if ledger is not None and ledger['state']=='stopped' and not recovery_only:
             cycle.require(active is not None and active['published'],'campaign_active_missing')
             old,old_zip,error=_publish(client,destination,base,recovery_only=True,cancelled=cancelled,notice=notice,protocol_spec=protocol)
-            if old_zip is None:return _pending(base,destination,ledger,old,error)
+            if old_zip is None:return _pending(base,destination,ledger,old,error,diagnostic=diagnostic)
             _bind(base,ledger,old,old_zip,protocol_spec=protocol,allow_restarted_budget=allow_restarted_budget)
             explicit_after=old['run_id'];already_reconciled=True;ledger=None
         if ledger is None:
@@ -214,22 +220,22 @@ def run(client,destination,*,spool,until_target=False,recovery_only=False,
         record=active;archive=None;row=None
         if active is not None and active['start_intent'] and not already_reconciled:
             record,archive,error=_publish(client,destination,base,recovery_only=True,cancelled=cancelled,notice=notice,protocol_spec=protocol)
-            if archive is None:return _pending(base,destination,ledger,record,error)
+            if archive is None:return _pending(base,destination,ledger,record,error,diagnostic=diagnostic)
             row=_bind(base,ledger,record,archive,protocol_spec=protocol,allow_restarted_budget=allow_restarted_budget)
             if recovery_only:
                 reason=ledger['stop_reason'] if ledger['state']=='stopped' else row['stop_reason']
                 if reason=='handoff':reason='recovery'
-                return _result(base,destination,ledger,record,archive,reason)
+                return _result(base,destination,ledger,record,archive,reason,diagnostic=diagnostic)
         elif active is None and ledger['runs']:
-            return _result(base,destination,ledger,record,None,'campaign_active_missing',pending=True)
+            return _result(base,destination,ledger,record,None,'campaign_active_missing',pending=True,diagnostic=diagnostic)
         while True:
-            if cancelled():return _result(base,destination,ledger,record,archive,'cancelled')
+            if cancelled():return _result(base,destination,ledger,record,archive,'cancelled',diagnostic=diagnostic)
             if row is not None:
                 reason=row['stop_reason']
-                if reason!='handoff':return _result(base,destination,ledger,record,archive,reason)
-                if not until_target:return _result(base,destination,ledger,record,archive,'single')
+                if reason!='handoff':return _result(base,destination,ledger,record,archive,reason,diagnostic=diagnostic)
+                if not until_target:return _result(base,destination,ledger,record,archive,'single',diagnostic=diagnostic)
                 if len(ledger['runs'])>=MAX_RUNS:
-                    return _result(base,destination,ledger,record,archive,'campaign_run_limit')
+                    return _result(base,destination,ledger,record,archive,'campaign_run_limit',diagnostic=diagnostic)
                 notice('正常な区切りの全記録を保存しました。次の有限runへ進みます。')
                 ledger['intent']=dict(kind='handoff',after_run_id=row['run_id'])
                 ledger.update(state='running',stop_reason=None);_save(base,ledger)
@@ -243,7 +249,9 @@ def run(client,destination,*,spool,until_target=False,recovery_only=False,
                 cycle.require(current['run_id']==intent['after_run_id'],'campaign_intent_changed')
             elif current is not None and current['start_intent']:
                 raise ProbeError('campaign_unreconciled_run')
-            if intent['kind']=='handoff':_verify_predecessor(base,ledger,protocol_spec=protocol,allow_restarted_budget=allow_restarted_budget)
+            if intent['kind']=='handoff':
+                with diagnostics.span(client,'predecessor',intent['after_run_id']):
+                    _verify_predecessor(base,ledger,protocol_spec=protocol,allow_restarted_budget=allow_restarted_budget)
             record,archive,error=_publish(client,destination,base,cancelled=cancelled,notice=notice,protocol_spec=protocol)
-            if archive is None:return _pending(base,destination,ledger,record,error)
+            if archive is None:return _pending(base,destination,ledger,record,error,diagnostic=diagnostic)
             row=_bind(base,ledger,record,archive,protocol_spec=protocol,allow_restarted_budget=allow_restarted_budget)

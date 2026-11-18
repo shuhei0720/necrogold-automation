@@ -5,6 +5,7 @@ import re
 import zipfile
 
 from . import native_cycle as cycle
+from . import campaign_diagnostics114 as diagnostics
 from .native_walk import _atomic
 from .test069 import _copy, _digest, _sync_directory
 
@@ -14,8 +15,9 @@ def _label(base):
     return name if re.fullmatch(r'test-[0-9]{3}', name) else 'test-094'
 
 
-def _inventory(base, record, cancelled, *, protocol_spec=cycle.STANDARD_PROTOCOL):
-    manifest = cycle.verify_evidence(base, record, protocol_spec=protocol_spec)
+def _inventory(base, record, cancelled, *, protocol_spec=cycle.STANDARD_PROTOCOL, diagnostic_client=None):
+    with diagnostics.span(diagnostic_client, 'evidence_verify', record['run_id']):
+        manifest = cycle.verify_evidence(base, record, protocol_spec=protocol_spec)
     folder = base/('cycle-'+record['run_id'])
     snapshot = folder/'archive-journal.json'
     if not snapshot.exists():
@@ -32,8 +34,9 @@ def _inventory(base, record, cancelled, *, protocol_spec=cycle.STANDARD_PROTOCOL
     paths += [folder/'images'/item['name'] for item in manifest['images']]
     # The inventory is derived only from the immutable native registry, never
     # an unbounded rglob that could admit a private or unrelated file.
-    return [((_label(base)+'/'+path.relative_to(base).as_posix()), path,
-             *_digest(path, cancelled)) for path in paths]
+    with diagnostics.span(diagnostic_client, 'inventory', record['run_id']):
+        return [((_label(base)+'/'+path.relative_to(base).as_posix()), path,
+                 *_digest(path, cancelled)) for path in paths]
 
 
 def _verify(path, inventory, cancelled):
@@ -58,33 +61,36 @@ def _verify(path, inventory, cancelled):
             cycle.require((count, sha.hexdigest()) == (size, digest), 'cycle_archive_changed')
 
 
-def build_archive(base, record, storage, *, cancelled=lambda: False, protocol_spec=cycle.STANDARD_PROTOCOL):
+def build_archive(base, record, storage, *, cancelled=lambda: False, protocol_spec=cycle.STANDARD_PROTOCOL, diagnostic_client=None):
     cycle.require(record['resolved'], 'cycle_files_incomplete')
-    inventory = _inventory(base, record, cancelled, protocol_spec=protocol_spec)
+    inventory = _inventory(base, record, cancelled, protocol_spec=protocol_spec, diagnostic_client=diagnostic_client)
     archive = storage/(record['run_id']+'.zip')
     if archive.exists():
-        _verify(archive, inventory, cancelled)
+        with diagnostics.span(diagnostic_client, 'zip_verify', record['run_id']):
+            _verify(archive, inventory, cancelled)
         return archive
     temporary = storage/(record['run_id']+'.zip.building')
     cycle.require(not temporary.is_symlink(), 'cycle_local_symlink')
-    with temporary.open('wb') as target:
-        with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as result:
-            for name, source, _size, _sha in inventory:
-                cycle.require(not cancelled(), 'cancel_requested')
-                info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
-                info.compress_type = zipfile.ZIP_DEFLATED
-                info._compresslevel = 6
-                info.external_attr = 0o600 << 16
-                with source.open('rb') as original, result.open(info, 'w') as entry:
-                    while True:
-                        cycle.require(not cancelled(), 'cancel_requested')
-                        raw = original.read(256*1024)
-                        if not raw:
-                            break
-                        entry.write(raw)
-        target.flush()
-        cycle.os.fsync(target.fileno())
-    _verify(temporary, inventory, cancelled)
+    with diagnostics.span(diagnostic_client, 'zip_build', record['run_id']):
+        with temporary.open('wb') as target:
+            with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as result:
+                for name, source, _size, _sha in inventory:
+                    cycle.require(not cancelled(), 'cancel_requested')
+                    info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    info._compresslevel = 6
+                    info.external_attr = 0o600 << 16
+                    with source.open('rb') as original, result.open(info, 'w') as entry:
+                        while True:
+                            cycle.require(not cancelled(), 'cancel_requested')
+                            raw = original.read(256*1024)
+                            if not raw:
+                                break
+                            entry.write(raw)
+            target.flush()
+            cycle.os.fsync(target.fileno())
+    with diagnostics.span(diagnostic_client, 'zip_verify', record['run_id']):
+        _verify(temporary, inventory, cancelled)
     cycle.require(not archive.exists(), 'cycle_archive_exists')
     cycle.os.replace(temporary, archive)
     _sync_directory(storage)
@@ -99,8 +105,10 @@ def publish(client, base, destination, record, *, cancelled=lambda: False,
     storage.mkdir(mode=0o700, exist_ok=True)
     cycle.require(not storage.is_symlink(), 'cycle_local_symlink')
     notice('全画像と実行記録を照合し、返却用ZIPを保存しています。')
-    source = build_archive(base, record, storage, cancelled=cancelled, protocol_spec=protocol)
-    signature = _digest(source, cancelled)
+    options = {'diagnostic_client':client} if diagnostics.observer(client) is not None else {}
+    source = build_archive(base, record, storage, cancelled=cancelled, protocol_spec=protocol, **options)
+    with diagnostics.span(client, 'archive_hash', record['run_id']):
+        signature = _digest(source, cancelled)
     if record['archive_sha256'] is not None:
         cycle.require(record['archive_sha256'] == signature[1], 'cycle_archive_changed')
     output = destination/'runtime'
@@ -109,17 +117,21 @@ def publish(client, base, destination, record, *, cancelled=lambda: False,
     final = output/(_label(base)+'-'+record['run_id']+'.zip')
     if not final.exists():
         part = final.with_name(final.name+'.part')
-        _copy(source, part, cancelled)
-        cycle.require(_digest(part, cancelled) == signature, 'cycle_archive_copy_changed')
+        with diagnostics.span(client, 'copy', record['run_id']):
+            _copy(source, part, cancelled)
+        with diagnostics.span(client, 'copy_hash', record['run_id']):
+            cycle.require(_digest(part, cancelled) == signature, 'cycle_archive_copy_changed')
         cycle.require(not final.exists(), 'cycle_archive_exists')
         cycle.os.replace(part, final)
         _sync_directory(output)
-    cycle.require(_digest(final, cancelled) == signature, 'cycle_archive_copy_changed')
+    with diagnostics.span(client, 'copy_hash', record['run_id']):
+        cycle.require(_digest(final, cancelled) == signature, 'cycle_archive_copy_changed')
     record['archive_sha256'] = signature[1]
     cycle._journal(base, record)
     # This is an acknowledgement of the client's durable publication.  It is
     # not a claim that the native server independently inspected ZIP bytes.
     deadline = clock()+30_000_000_000
+    publication_started = diagnostics.now(client)
     while not record['published']:
         cycle._checked(cancelled, clock, deadline)
         params = {'run_id':record['run_id'], 'mode':'published', 'export_id':record['export_id'],
@@ -142,6 +154,8 @@ def publish(client, base, destination, record, *, cancelled=lambda: False,
             cycle._journal(base, record)
             break
         sleep(.25)
+    if publication_started is not None:
+        diagnostics.notify(client, 'phase', 'publish_ack', record['run_id'], publication_started, diagnostics.now(client))
     return final
 
 
