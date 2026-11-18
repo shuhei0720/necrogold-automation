@@ -41,10 +41,10 @@ func make116() throws -> (NG2CycleSpool.CampaignQuota, NG2CycleSpool, String) {
 }
 func controller116(qualified: Bool = false) -> [String: Any] {
     ["abi_version": 1, "enabled": true, "successor_floor": false, "qualified": qualified,
-     "root_deadline_ns": deadline116, "qualified_ns": qualified ? start116+1 : 0,
-     "parent_deadline_ns": qualified ? start116+2 : 0, "old_job_id": qualified ? 1 : 0,
+     "root_deadline_ns": deadline116, "qualified_ns": qualified ? start116+5 : 0,
+     "parent_deadline_ns": qualified ? start116+6 : 0, "old_job_id": qualified ? 1 : 0,
      "restart_command_id": qualified ? 2 : 0, "new_floor_capture_id": qualified ? 3 : 0,
-     "source_capture_id": qualified ? 4 : 0, "source_start_ns": qualified ? start116+1 : 0,
+     "source_capture_id": qualified ? 4 : 0, "source_start_ns": qualified ? start116+3 : 0,
      "source_prefix": qualified ? 2 : 0]
 }
 func terminal116(_ store: NG2CycleSpool) throws -> NG2CycleSpool.RecordRef {
@@ -148,9 +148,11 @@ func pair116() throws -> (String, String) {
     let secondID=id116(), secondClock=id116()
     let next=try quota.reserveNext(runID:secondID,index:1,predecessorID:first.runID)
     _ = try first.commitRecord(kind:"continuation_reservation",cycle:0,payload:next.payload)
-    let metadata:[String:Any] = ["generation":1,"stable_prefix":true,"capture_start_ns":start116+1,
-        "completed_prefix_start":2,"completed_prefix_end":2,"inflight_start":false,"inflight_end":false]
+    var metadata:[String:Any] = ["generation":1,"stable_prefix":true,"capture_start_ns":start116+1,
+        "capture_end_ns":start116+2,"completed_prefix_start":2,"completed_prefix_end":2,
+        "inflight_start":false,"inflight_end":false]
     _ = try first.commitFrame(captureID:3,rgba:raw116,metadata:metadata)
+    metadata["capture_start_ns"] = start116+3; metadata["capture_end_ns"] = start116+4
     _ = try first.commitFrame(captureID:4,rgba:raw116,metadata:metadata)
     let terminal=try first.commitRecord(kind:"terminal",cycle:0,
         payload:["controller":["terminal":1,"input_state":0,"current_command_id":0]])
