@@ -595,6 +595,7 @@ func testRuntime116QualifiedCancel(_ root: URL) {
 func testRuntime116SuccessorExternal(_ root: URL, variant: String) {
     runtime116Reset(root); let id = identity(), _ = runtime116InstallFaultWorld(id), state = Runtime116State()
     var touches = 0, paths = 0
+    var lossApplied = false
     NG2RuntimeContinuousTestHooks.afterChildAdmitted = { _, _, child, _ in state.locked { state.child = child; state.admitted += 1 } }
     NG2RuntimeContinuousTestHooks.beforeBootstrapAdmission = { _, index in
         guard index == 1 else { return }
@@ -606,14 +607,33 @@ func testRuntime116SuccessorExternal(_ root: URL, variant: String) {
             else { NG2Fake.frontPID = 99 }
             NG2Fake.lock.unlock()
         }
+        state.locked { lossApplied = true }
     }
     runtime116Begin(id)
+    if variant == "owner" {
+        pump("test116_owner_loss_drains_known_child_while_campaign_status_stays_unauthorized", timeout: 45) {
+            let observed = state.locked { (lossApplied, state.child) }
+            guard observed.0 && !observed.1.isEmpty else { return false }
+            let denied = runtime116Status(id, keepalive: false)
+            require(denied.0 == nil && denied.1?.code == -32602,
+                "test116_inactive_owner_cannot_query_authenticated_campaign_status")
+            return !runtime.hasLease && drained(observed.1)
+        }
+        require(NG2Fake.countTouches() == touches && NG2Fake.paths().count == paths &&
+            NG2Fake.countActivations() == 1,
+            "test116_owner_remains_inactive_until_all_real_callbacks_drain_without_ui")
+        NG2Fake.lock.lock(); NG2Fake.authenticatedOwnerActive = true; NG2Fake.lock.unlock()
+    }
     pump("test116_successor_external_guard_drains_"+variant, timeout: 45) { runtime116Drained(id) }
     require(state.locked({ state.admitted == 1 && !state.child.isEmpty }) && NG2Fake.countTouches() == touches &&
         NG2Fake.countActivations() == 1 && NG2Fake.paths().count == paths,
         "test116_successor_external_loss_never_reactivates_game_or_issues_another_input")
     let reason = runtime116Payload(id, keepalive: false)["stop_reason"]?.stringValue
     require(reason == (variant == "locked" ? "locked" : "owner"), "test116_external_loss_has_its_own_stop_reason")
+    let final = runtime116Payload(id, keepalive: false)
+    require(final["input_state"]?.intValue == 0 && final["native_inflight"]?.boolValue == false &&
+        final["ui_frozen"]?.boolValue == false && final["workers_drained"]?.boolValue == true,
+        "test116_external_loss_is_known_input_and_fully_drained_after_observation_authority_returns")
     // Restore external test state solely after actual gameplay drain.
     NG2Fake.lock.lock(); NG2Fake.authenticatedOwnerActive = true; NG2Fake.frontPID = 42; NG2Fake.lock.unlock()
     LockStateMonitor.monitor.isLocked = false

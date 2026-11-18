@@ -1496,6 +1496,15 @@ final class NG2Runtime {
         if run.cycle?.companion.outcome == 1 { return "candidate" }
         return run.controllerSnapshot?.status.reason == 14 ? "native_limit" : "unknown"
     }
+    private func continuousBootstrapLoss(_ run: NG2Run) -> Int32 {
+        guard let root = run.campaign else { return 0 }
+        let now = Self.now()
+        if root.cancelReason != 0 { return root.cancelReason }
+        if !root.permits(now) { return 15 }
+        if !ownerActive(run) { return 5 }
+        if LockStateMonitor.shared().isLocked { return 4 }
+        return 0
+    }
     private func advanceContinuous(_ root: NG2ContinuousCampaign, from old: NG2Run,
                                    reservation: NG2CycleSpool.Reservation?) {
         let now = Self.now()
@@ -3524,15 +3533,20 @@ final class NG2Runtime {
             #if NG2_RUNTIME_HOST_TEST
             NG2RuntimeContinuousTestHooks.beforeBootstrapAdmission?(run.id, run.campaignIndex)
             #endif
+            let lost = self.continuousBootstrapLoss(run)
+            if lost != 0 { run.cancel(lost); return }
             if run.lock.ng2Locked({ run.cancelReason == 0 }) && self.ownerActive(run) && !LockStateMonitor.shared().isLocked
                 && (run.campaign?.permits(Self.now()) ?? true) {
                 // One nonblocking LaunchServices activation also launches the
                 // game when needed. No Options/calibration screen is opened.
                 let allowed = run.lock.ng2Locked { () -> Bool in
                     if run.cancelReason != 0 || !(run.campaign?.permits(Self.now()) ?? true) { return false }
+                    let lost = self.continuousBootstrapLoss(run)
+                    if lost != 0 { run.cancelLocked(lost); return false }
                     run.bootstrapUIStarted = true
                     return true
                 }
+                if run.campaign != nil && !allowed { return }
                 if allowed && run.campaignIndex == 0 { _ = ForegroundApp.openBundleID(Self.game) }
                 let observedPID = ForegroundApp.processID(forBundleID: Self.game)
                 run.expectedPID = run.campaignIndex > 0 ? run.successorPID : observedPID
@@ -3547,9 +3561,13 @@ final class NG2Runtime {
         let activationDeadline = Self.now() + 3_000_000_000
         run.lock.ng2Locked { run.startupRasterDeadline = activationDeadline }
         while !run.foreground && !run.lock.ng2Locked({ run.stopped }) && Self.now() < activationDeadline {
+            let lost = continuousBootstrapLoss(run)
+            if lost != 0 { run.cancel(lost); break }
             Thread.sleep(forTimeInterval: 0.05)
             run.lock.ng2Locked { run.bootstrapOutstanding = true }
             DispatchQueue.main.sync {
+                let lost = self.continuousBootstrapLoss(run)
+                if lost != 0 { run.cancel(lost); return }
                 guard run.lock.ng2Locked({ run.cancelReason == 0 }), self.ownerActive(run),
                       !LockStateMonitor.shared().isLocked else { return }
                 run.expectedPID = ForegroundApp.processID(forBundleID: Self.game)

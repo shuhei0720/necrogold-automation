@@ -46,6 +46,22 @@ CI242は新Runtimeのstatic/instance呼出10件のコンパイル失敗で、意
 
 実CPython3.9.25で新client30＋診断10の40methodを確認し、独立R6はP0/P1/P2=0。旧共有5filesはTEST115と同bytesを維持した。ホスト単体と実端末の転送速度・ゲーム受入を区別する。
 
+## 最終Spoolと関連単体
+
+CI245はfixtureのclock重複宣言1件のコンパイル失敗で、Red/Greenには数えない。CI246は中間bbfaddの16ケースが通ったが、active一時予約を別ledgerの実usage refreshが消せる追加境界があり、最終結果へ流用しない。固定16ケース内にその割込みを追加した242cdabf/fixtured8611d6dをCI247(run44263970301/CODE4f3e2bc)で確認し、旧074dの指定7assertion Redと現16全Green・コンパイルエラー0が同fixtureで成立した。各atomic partを開く前に同slotのtemp2MiBと残予約を検査し、原本を削除せず回復できる。実APIのreceipt-only公開、hash/owner破損、未commit orphan、低容量を含む。独立Spool R3残P0/P1/P2=0。実機未確認。
+
+最終CODE c1384e6・seal e4142f29、36native中6変更/30保持、新既存path集合も固定。CI248のhost99(89native＋selector10)/実CPython3.9.25の40が失敗/エラー/skip0で通過した。Spool247は4入力SHAと実installed sourceが同bytesであることを照合して再利用し、同じ試験を形式的に再実行しない。
+
+読取専用crossbind toolの独立reviewはP0/P1=0/P2=1。basename receipt.jsonの除外が全階層へ広がるため、今回の実物は別途、root receiptだけを除いたexact inventory集合・nested未列挙receipt0を確認する。製品source/入力権限の不具合ではなく、tool修正は別のvalidation-only工程へ分離する。
+
+## CI248の具体的な不合格
+
+Runtime36のうち34ケースは指定assertを通過したが、successor_locked/ownerが不合格でIPA作成には進まなかった。正常Ring→実RS→無PAUSE次child/fit/MOVE、冪等ACKとcaptureThread実return境界はこのソースでGreenログを確認した。full passとは扱わない。
+
+lockedはbootstrap main guard失効を取消へ結ばず、後のactivation待機がcancel/lockを見ない製品境界。ownerは認証無効中のcampaign_statusを正しく拒否していたためfixtureが実drainを観測できない境界であり、認証guardの不具合とは断定しない。実lease解放・UI0を先に確認し、認証を戻した後に元の全root terminal/drain/owner reasonを検査する。
+
+この実行はwriter:checkpoint等のcolonを含む出力名のためGitHub artifact uploadも拒否された。全job logは取得・保持したが、実receipt/Spoolの完全artifact照合は未実施のまま残す。case名とassertを変えず保存pathだけ可逆な安全名へ結ぶ。次の同範囲実行で閉じる。
+
 ## 未完了
 
-最終Spool実FS16case、Runtime新35＋保持時計1caseの実Mac Green、全source scope freeze、native seal/実compiler/IPA・全source・固定公開と実機受入は未完了。途中の件数や単体成功で実機不合格を完了扱いしない。
+Runtime新35＋保持時計1caseの実Mac Green、IPAの実compiler/配布同一性、実Spool→実3.9通常client証明、全source・固定公開と実機受入は未完了。途中の件数や単体成功で実機不合格を完了扱いしない。

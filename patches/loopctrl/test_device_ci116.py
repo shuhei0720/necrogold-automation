@@ -2,6 +2,7 @@
 import argparse
 import ast
 import copy
+import hashlib
 import importlib
 import importlib.util
 from pathlib import Path
@@ -248,6 +249,32 @@ class DeviceHostSelection116Tests(unittest.TestCase):
         self.assertNotIn('NG2RuntimeContinuousTestHooks', checker.fixture_source(admission=True))
         for old_whole_scope in ('passage_fresh', 'partial_view', 'partial_cancel'):
             self.assertNotIn(old_whole_scope, checker.GREEN_CASES)
+        with tempfile.TemporaryDirectory() as directory:
+            output, logical = Path(directory), 'commit:checkpoint'
+            log = b'FAIL actual_assertion_is_not_changed\n'
+            (output/('runtime116-'+logical+'.txt')).write_bytes(log)
+            original = output/'synthetic-runtime-exports'/logical/'child'/'receipt.json'
+            original.parent.mkdir(parents=True)
+            raw = b'{"case":"commit:checkpoint","actual_bytes":true}\n'
+            original.write_bytes(raw)
+            proof = dict(product_pass=False, cases={logical: {'qualified': False}},
+                synthetic_exports={original.relative_to(output).as_posix(): hashlib.sha256(raw).hexdigest()})
+            checker.finalize_artifact_paths(output, proof, (logical,))
+            row = proof['artifact_case_paths'][logical]
+            self.assertEqual(logical, bytes.fromhex(row['slug'].removeprefix('case-')).decode())
+            self.assertEqual(log, (output/row['log']).read_bytes())
+            self.assertEqual(raw, (output/next(iter(proof['synthetic_exports']))).read_bytes())
+            self.assertFalse(proof['product_pass'])
+            self.assertEqual({logical: {'qualified': False}}, proof['cases'])
+            self.assertFalse(any(':' in path.relative_to(output).as_posix() for path in output.rglob('*')))
+            checker.finalize_artifact_paths(output, proof, (logical,))
+            self.assertEqual(raw, (output/next(iter(proof['synthetic_exports']))).read_bytes())
+            collision = 'writer:terminal'
+            safe = checker.artifact_case_slug(collision)
+            for name in ('runtime116-'+collision+'.txt', 'runtime116-'+safe+'.txt'):
+                (output/name).write_bytes(b'never overwrite')
+            with self.assertRaises(ValueError):
+                checker.finalize_artifact_paths(output, {'synthetic_exports': {}}, (collision,))
         args = declared_parser(HERE/'check_runtime115.py').parse_args(tokens[2:])
         self.assertTrue(args.expect_runtime_red)
         self.assertFalse(args.expect_red)
