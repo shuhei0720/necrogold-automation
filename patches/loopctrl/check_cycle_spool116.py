@@ -19,6 +19,8 @@ EXPECTED_RED = {
     'quota': 'FAIL accepted campaign_write_steals_other_slot_reservation',
     'slot': 'FAIL accepted campaign_unpublished_slot17',
     'seal': 'FAIL accepted control_frame_after_continuation_seal',
+    'alias': 'FAIL sealed_original_png_readonly_alias',
+    'recovered_quota': 'FAIL accepted recovered_export_steals_other_slot_reservation',
 }
 
 

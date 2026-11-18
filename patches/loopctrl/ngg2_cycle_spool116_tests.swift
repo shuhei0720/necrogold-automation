@@ -141,6 +141,53 @@ func fault116() throws {
         check116(recovered.readOnly, "failed_seal_recovery_is_readonly_" + boundary)
     }
 }
+// A stopped two-child cohort with one already converted PNG models process
+// loss during export. These are real files, not restored input permissions.
+func pair116() throws -> (String, String) {
+    let (quota, first, firstClock) = try make116()
+    let secondID=id116(), secondClock=id116()
+    let next=try quota.reserveNext(runID:secondID,index:1,predecessorID:first.runID)
+    _ = try first.commitRecord(kind:"continuation_reservation",cycle:0,payload:next.payload)
+    let metadata:[String:Any] = ["generation":1,"stable_prefix":true,"capture_start_ns":start116+1,
+        "completed_prefix_start":2,"completed_prefix_end":2,"inflight_start":false,"inflight_end":false]
+    _ = try first.commitFrame(captureID:3,rgba:raw116,metadata:metadata)
+    _ = try first.commitFrame(captureID:4,rgba:raw116,metadata:metadata)
+    let terminal=try first.commitRecord(kind:"terminal",cycle:0,
+        payload:["controller":["terminal":1,"input_state":0,"current_command_id":0]])
+    _ = try first.sealContinuation(rootID:first.runID,index:0,predecessorID:nil,clockID:firstClock,
+        terminal:terminal,continuation:controller116(qualified:true),successor:next)
+    let png=try NG2CycleSpool.storedPNG(rgba:raw116), ref=try first.frames()[0]
+    _ = try first.commitPNG(captureID:ref.captureID,bytes:png,metadata:["raw_sha256":ref.rawSHA256])
+    let second=try NG2CycleSpool.testCreate(rootURL:root116,runID:secondID,owner:owner116,
+        provenance:provenance116(next,clock:secondClock),quota:quota,reservation:next)
+    let terminalSecond=try terminal116(second)
+    var stopped=controller116(); stopped["successor_floor"] = true
+    _ = try second.sealContinuation(rootID:first.runID,index:1,predecessorID:first.runID,
+        clockID:secondClock,terminal:terminalSecond,continuation:stopped,successor:nil)
+    return (first.runID,second.runID)
+}
+func alias116() throws {
+    let (firstID,_) = try pair116()
+    let source=try NG2CycleSpool.testRecover(rootURL:root116,runID:firstID,owner:owner116)
+    let original=try original116(source)
+    let ledger=try source.createRecoveryExport(owner:owner116)
+    let refs=try ledger.pngs()
+    check116(refs.count == 1 && refs[0].captureID == 3,"sealed_original_png_readonly_alias")
+    check116(try ledger.readPNG(refs[0]) == NG2CycleSpool.storedPNG(rgba:raw116),"alias_reads_exact_whole_original_png")
+    try unchanged116(source,original,"readonly_alias_changes_no_original_file")
+    let exportRoot=root116.appendingPathComponent("NGG2RecoveryExports")
+    let physical=try FileManager.default.subpathsOfDirectory(atPath:exportRoot.path)
+    check116(!physical.contains(where:{$0.hasSuffix(".png")}),"readonly_alias_does_not_copy_or_double_charge_png")
+}
+func recoveredQuota116() throws {
+    let (_,secondID) = try pair116()
+    let source=try NG2CycleSpool.testRecover(rootURL:root116,runID:secondID,owner:owner116)
+    NG2CycleSpoolTestHooks.availableBytes = 200 * 1024 * 1024
+    rejects116("recovered_export_steals_other_slot_reservation") {
+        _ = try source.createRecoveryExport(owner:owner116)
+    }
+    check116(source.readOnly,"recovery_quota_does_not_restore_input_or_writer")
+}
 let selected116 = CommandLine.arguments.dropFirst().first ?? "all"
 switch selected116 {
 case "quota": try quota116()
@@ -148,7 +195,9 @@ case "slot": try slot116()
 case "seal": try seal116()
 case "export": try export116()
 case "fault": try fault116()
-case "all": try quota116(); try slot116(); try seal116(); try export116(); try fault116()
+case "alias": try alias116()
+case "recovered_quota": try recoveredQuota116()
+case "all": try quota116(); try slot116(); try seal116(); try export116(); try fault116(); try alias116(); try recoveredQuota116()
 default: print("FAIL unknown TEST116 Spool case"); exit(1)
 }
 print("PASS TEST116 Spool " + selected116)
