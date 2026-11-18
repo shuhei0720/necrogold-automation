@@ -23,6 +23,18 @@ func testRuntime115Preparation(_ root: URL) {
     var queries = [Int: [UInt64]](), oldID: UInt64 = 0, newID: UInt64 = 0
     var refreshCommit: UInt64 = 0, oldReturn: UInt64 = 0, newMain: UInt64 = 0
     var oldPrepared = [UInt64](), newPrepared = [UInt64]()
+    // Once C has published the third reservation, stop the NEXT camera
+    // admission before its ordinary clock quantum. Main preparation may
+    // then finish while the original ticket and its absolute window stay
+    // frozen. The one explicit refresh below owns the next capture permit.
+    NG2RuntimeTestHooks.beforeCaptureAdmission = {
+        let current = report(id)
+        if current["inputs"]?.intValue == 2 && current["moves"]?.intValue == 2 &&
+            current["input_state"]?.intValue == 1 {
+            NG2Fake.lock.lock(); NG2Fake.captureLimit = NG2Fake.requests; NG2Fake.lock.unlock()
+        }
+        test060_revalidationCaptureBoundary()
+    }
     NG2Fake.lock.lock()
     NG2Fake.beforeForegroundQuery = {
         let command = report(id)["current_command_id"]?.intValue ?? 0
@@ -31,6 +43,13 @@ func testRuntime115Preparation(_ root: URL) {
     NG2Fake.lock.unlock()
     NG2RuntimeTestHooks.afterTicketReturned = { returned in
         NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
+        if oldID == 0 && newID == 0 && report(id)["inputs"]?.intValue == 2 {
+            // The earlier 82ms camera quantum can spend the whole source
+            // refresh interval while main's preparation is returning. Keep
+            // normal moving pixels/HUD, but observe the next known unit at
+            // a 22ms cadence before freezing the published third ticket.
+            NG2Fake.lock.lock(); NG2Fake.fixedCaptureAdvance = 20_000_000; NG2Fake.lock.unlock()
+        }
         if returned == oldID { oldReturn = NG2Fake.virtualClock() }
         if returned == newID && newID != 0 {
             _ = call("necro_native_cancel", id)
@@ -59,6 +78,7 @@ func testRuntime115Preparation(_ root: URL) {
                 if now < at { NG2Fake.advance(at-now) }
                 NG2Fake.lock.lock()
                 NG2Fake.freshRevalidationVariant = 1; NG2Fake.fixedCaptureAdvance = 0
+                NG2Fake.captureLimit = NG2Fake.requests+1
                 NG2Fake.lock.unlock()
             }, "test115_refresh_at_existing_capture_boundary")
         } else {
@@ -286,6 +306,16 @@ func testRuntime115Partial(_ root: URL, cancel: Bool) {
             snapshot["inputs"]?.intValue == 3 && snapshot["moves"]?.intValue == 2 &&
             world.locked({ world.restarts == 0 && world.reservations.count == 3 }),
             "test115_only_first_move_opening_and_one_current_partial_up_are_real")
+        pump("test115_post_up_normal_unknown_and_actual_producer_return_before_cancel", timeout: 30) {
+            let cycle = cycleCompanion(id), drain = runtime112State(id)
+            let normal = world.locked { () -> Bool in
+                guard let job = world.workers.last, job != world.oldJob, job != world.currentJob else { return false }
+                return world.kernelOutcomes[job] == UInt32(NG2_RING_UNKNOWN)
+                    && cycle["job_id"]?.intValue == Int(job)
+            }
+            return normal && cycle["pending"]?.boolValue == false && cycle["outcome"]?.stringValue == "unknown"
+                && cycle["assessment_status"]?.stringValue == "ok" && drain["drain_token_count"]?.intValue == 0
+        }
         // The post-UP future renderer is still PARTIAL. It is deliberately
         // not re-labelled complete or used to claim a phone RS outcome.
         _ = call("necro_native_cancel", id); world.continueCaptures(20_000_000)

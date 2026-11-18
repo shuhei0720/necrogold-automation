@@ -584,3 +584,8 @@ TEST114の固定公開確認: 配布source3e81a16（CODEからdocs3件だけ）�
 | FR-115-FIXTURE-INHERITED-RGBA | 2026-11-18 | CI234の新時計caseがMOVE前の商品停止で失敗 | 既resetCycleFixtureのFULL商品RGBA hookがnativeV1にも残り、walkGoodsEnabled=falseでも歩行画像を置換 | 新115のnativeV1二caseだけreset直後に既hookを解除。R3専用renderer/全assert/製品bytesは保持 | 実234はcompile0・初回PAUSE ACK/商品停止・指定外FAILでありRedには数えない。独立差分確認後に同じ旧Runtimeで指定assertionを再試験 | 新fixture1。実機再発へ算入しない |
 
 TEST115配布前の進捗: C8c740b31/Nav9c872fd8で新19件と、既076の状態別期限＋商店11件の計12件が成功。実Mac235/run44235308732では旧Runtime dc082のcompileエラー0・指定assertion Red1を確認し、期限D+1nsで実gesture1/ACK/input1となる記録を保存した。その後Runtime e655aa10を反映し、同じロック内の送信直前再検査/既知未送信確定を独立確認。現Runtime4case/時計7条件・IPAの最終確認は次工程。234のfixture失敗はRedへ算入しない。JSON割当試作は遅くなったため不採用でvalidation.pyを元bytesに保持し、回収70〜89秒は未改善。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-115-FIXTURE-CAMERA-BOUNDARY | 2026-11-18 | CI236の送信前FRESH caseが指定時刻へ届かず失敗 | 元票の作成後、fake captureの82msが準備中に進み、指定capture開始境界を25.627ms通過。元票自体には108msの余地があった | 新fixtureだけACK2後の取得間隔を22msへし、次取得を予約後に止め、明示的な一枚を元時刻へ許可。時計の巻戻し/元target・D移動はしない | 実236の時刻を独立確認し、元絶対時刻・準備epoch・全assert保持の差分を確認。新実行は次CI、製品bytes不変 | 新fixture1。実機再発へ算入しない |
+| FR-115-FIXTURE-POSTUP-CANCEL | 2026-11-18 | CI236のPARTIAL caseが移動成功後の正常producer assertで失敗 | 実UP/MOVED後のjob3/source58が実行中token1でcancel。raw戻り値の数値は未記録だが、途中取消が厳格なstatus0検査を妨げるfixture順序 | 新fixtureだけ第3の正常UNKNOWN・pending0・実return token0を待ってから明示cancel。既status0 assertは維持 | 236で入力3/実移動2、時計7条件とpartial_cancelの成功、他2case不合格を別記。未記録のCANCELLED数値を観測済みとしない。新実行は次CI | 新fixture1。実機再発へ算入しない |

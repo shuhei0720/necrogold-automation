@@ -35,3 +35,5 @@ R4の初期新試験は票の発行だけを確認し、実行可能性が不足
 回収のJSON割当最適化は、実3.9の同bytes比較で遅くなったため不採用。validation.pyは元bytesへ復元し、新試験/試作はGit外に保存。終了後70〜89秒の回収遅延は残課題である。
 
 送信直前時計の実TDD: CI234は初回に継承したFULL商品fixtureへ入る指定外失敗で、compileエラー0でもRedではない。新nativeV1二caseだけ既RGBA hookを解除し、CI235/run44235308732/CODE3d35a7cでは旧Runtime dc082の指定Red1（D+1nsで実gesture1/ACK/input1）を確認。原artifact138045bytes/SHA8557502eを全取得・CRC・全実ソースと照合後にRuntime e655aa10を反映した。最終製品sourceはC8c740b31/Nav9c872fd8/Runtime e655aa10、36資産中3変更/33保持、seal766070e1。最終4case/時計7条件とIPAはまだ未確認である。
+
+CI236/run44237233905/CODE3faf423: host65（native57/selector8）、実CPython3.9.25の4件、Macの旧C/旧Runtime指定Redは成功。現Macはpartial_cancelと送信時計7条件が成功し、lateD+1の方向入力0/加算0/既知未送信、等号の許可と取消競合を確認した。後続の安全なPAUSEは方向入力の件数とは別で、全UI0とは書かない。他2caseはcameraのfake82ms進行と、postUP第3worker中の明示cancelで不合格。製品3ファイルは保持し、新115Swiftだけ616fba28へ訂正した。全assert/元絶対時刻/厳格な正常producer検査は保持。実4case全体の成功・IPAは未確認である。236のhost/validation ZIPは全bytes/SHA/CRCを保存し、5実物gateは開始していない。
