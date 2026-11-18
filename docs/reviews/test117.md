@@ -1,6 +1,6 @@
 # TEST117 検証記録
 
-更新: 2026-11-18（日本時間）。CODE c5bf0f8 / CI253の限定Mac検査・IPAビルド・実物8gate照合が成功。固定公開準備中。実機改善完了とはしない。
+更新: 2026-11-18（日本時間）。CODE c5bf0f8 / CI253の限定Mac検査・IPAビルド・実物8gate照合と固定公開/匿名全取得が成功。実機改善完了とはしない。
 
 ## 入力と検証工程
 
@@ -64,3 +64,7 @@ CI253原本のhost/validation/packageをGitHub digest・全bytes・CRC/pathで�
 Mac原本5export/56合成PNG/78記録の耐久原本を読み、現clientの連続4childと有限1を検証。両正常caseのPARTIAL/FULLのRLE→raw PNG/ROI→worker採用→durable→RS→continuation sealまで一致する。fixtureのa*64 archive claimは模擬値なので、実client ZIP公開の証明へ使わない。Spool247の旧Red7/Green16は同bytesの保持部品として別labelで再利用し、旧36Runtimeを今回再実行したとはしない。追加compile/classifier/fixture/RPCは0、実機受入はnot_runを維持する。
 
 readerの前段・host順序・Mac header集合の旧3停止はledger/logとともに保持。非同梱patchはCODE/完全source/build manifest/native sealで結合、CASE宣言順、Darwin4objectの一対一path alias、独立case/processのrun identity、Mac対象26の選択式だけを独立レビュー後に訂正した。原本・製品や安全assertを変更して通したものではない。固定Release公開と匿名全取得は次工程。
+
+## 固定公開の確認
+
+SOURCE59def9eはCODEからdocs3件だけの差。公式codeloadの全1132blob/CRC/pathを照合し、完全source.zip10,222,770bytes/SHAb13a89949e1d659c5b9d37e06ba364011913f97525df0f324265785048766387をIPA/hash表とともに[TEST117/build253](https://github.com/shuhei0720/necrogold-automation/releases/tag/test117-build253)（Release450069242）へpublisher254/run44320653473で公開した。3assetの匿名全GET200、全bytes/SHA、ZIP CRC、Release digest、tagのSOURCE59def9eを一致確認。公開後の変更はこのdocs記録だけとし、固定assetを置換しない。実機到達率・毎拍・実効速度と改善受入は未確認を維持する。
