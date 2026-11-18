@@ -44,3 +44,7 @@ A差分レビューでは、新layout3のexact足場不足とvalidatorの参照�
 実iOS compiler/IPA同一性、完全source ZIPと固定Release全取得は未実施。実機での商品確認率・毎拍・人より速い実効速度は未受入のままとする。
 
 CI251/CODEbf6aaed: pinned host165+selector5・実Python3.9の65は成功。Mac5の前に旧094 fallback5条件の117除外漏れがあり、旧API allowlist/旧Runtime publication試験が選択され失敗した。新117 Mac5/IPAの成功へ数えない。native37/C402/Runtime58は変更せず、workflow/selectorの局所修正で再実行する。
+
+CI252/CODEb6709bc: pinned host165+selector6/実3.9の65成功。Macの目的UI feature-off Redと通常2case（初回RS→PARTIAL→実MOVE→通常FULL判定→耐久RS→新child）は成功。root_floorのmalformed metadata oracleが一律-32096を待ち、missing-schemaの拒否層が異なり30秒停止した。全5/IPA成功へ数えない。Spool strict拒否→read-only default profile→irregular query profile mismatchというsource因果を独立確認し、producerを変えずcase別exact oracleを調整する。
+
+同CIのnative構造証跡JSONがPython検証に上書きされる不備も実artifactから検出した。stdout等による限定代替は未採用とし、次CODEでnative/Pythonの閉2書込名へ分離。sentinel保持の意味Red→Greenを確認し、構造証跡を再取得する。native37/C402/Runtime58の変更はない。

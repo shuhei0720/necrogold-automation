@@ -270,7 +270,8 @@ func testRuntime117RootFloor(_ root: URL) {
     let recoveryTouches = NG2Fake.countTouches(), recoveryCaptures = NG2Fake.countRequests()
     var recoveryEvidence = [[String: JSONValue]]()
     func recoverMode(_ label: String, initial: Any?, continuous: Bool, fault: String? = nil,
-            profile: String = "normal-1-1-irregular-v1", rejected: Bool = false) {
+            profile: String = "normal-1-1-irregular-v1", expectedError: Int? = nil,
+            layer: String = "certified_read_only_metadata") {
         let recoveredID = identity(), owner = "fixture-owner", started = NG2Fake.virtualClock()
         var provenance: [String: Any] = ["clock_id": identity(), "native_profile": profile]
         if let initial { provenance["initial_restart"] = initial }
@@ -308,11 +309,63 @@ func testRuntime117RootFloor(_ root: URL) {
             }
         } catch { require(false, "test117_procedural_session_metadata_created"); return }
         var reply: ([String: JSONValue]?, JSONRPCError?) = (nil, nil)
+        let priorDiagnostic = fixtureFailureSnapshot
+        fixtureFailureSnapshot = {
+            var value = priorDiagnostic?() ?? [:]
+            value["recovery_case"] = .string(label); value["recovery_layer"] = .string(layer)
+            value["recovery_expected_error"] = expectedError.map(JSONValue.int) ?? .null
+            value["recovery_actual_error"] = reply.1.map { .int($0.code) } ?? .null
+            value["recovery_actual_reply"] = .object(reply.0 ?? [:])
+            return value
+        }
+        defer { fixtureFailureSnapshot = priorDiagnostic }
         pump("test117_recover_mode_"+label, timeout: 30) {
             reply = ir110Call(recoveredID)
-            return rejected ? reply.1?.code == -32096 : reply.0?["payload"]?.objectValue?["workers_drained"]?.boolValue == true
+            // Only the asynchronous pending response is retried. A terminal
+            // error or a drained payload reaches the case's exact oracle;
+            // an unexpected final response cannot hide in a 30-second poll.
+            if let error = reply.1 { return error.code != -32094 }
+            return reply.0?["payload"]?.objectValue?["workers_drained"]?.boolValue == true
         }
-        if !rejected {
+        var row: [String: JSONValue] = ["case": .string(label),
+            "scope": .string("procedural_read_only_Spool_Runtime_metadata"), "layer": .string(layer),
+            "expected_error_code": expectedError.map(JSONValue.int) ?? .null,
+            "actual_error_code": reply.1.map { .int($0.code) } ?? .null,
+            "actual_error_description": reply.1.map { .string(String(describing: $0)) } ?? .null,
+            "actual_reply": .object(reply.0 ?? [:])]
+        runtime116Emit("RECOVERY117_REPLY", row)
+        do {
+            let source = try NG2CycleSpool.testRecover(rootURL: root, runID: recoveredID, owner: owner)
+            let header = try source.sessionBytes()
+            let certified = layer != "Spool_uncertified_diagnostic_profile"
+            require(source.readOnly && (header != nil) == certified,
+                "test117_recovery_layer_matches_read_only_header_certification_"+label)
+            row["certified_session_header"] = .bool(certified)
+            row["certified_session_sha256"] = header.map { .string(NG2CycleWire.hash($0)) } ?? .null
+        } catch { require(false, "test117_recovery_diagnostic_source_is_readable_"+label) }
+        if let expectedError {
+            require(reply.0 == nil && reply.1?.code == expectedError,
+                "test117_recovery_layer_has_exact_error_"+label)
+            if layer == "Spool_uncertified_diagnostic_profile" {
+                let generic = runtime.handle(method: "necro_native_cycle", params: ["run_id": .string(recoveredID),
+                    "mode": .string("status"), "_necro_owner": .string(owner)])
+                let payload = generic.0?["payload"]?.objectValue ?? [:]
+                row["diagnostic_cycle_reply"] = .object(generic.0 ?? [:])
+                row["diagnostic_cycle_error"] = generic.1.map { .int($0.code) } ?? .null
+                require(generic.1 == nil && generic.0?["profile"]?.stringValue == "normal-1-1-cycle-v1" &&
+                    payload["state"]?.stringValue == "stopped" && payload["terminal"]?.boolValue == true &&
+                    payload["workers_drained"]?.boolValue == true && payload["input_state"]?.intValue == 4 &&
+                    payload["ui_frozen"]?.boolValue == true && payload["native_inflight"]?.boolValue == false &&
+                    payload["irregular"] == nil,
+                    "test117_invalid_root_has_only_frozen_generic_cycle_diagnostics_"+label)
+                let initialRetry = runtime117Start(recoveredID, continuous: continuous)
+                row["original_initial_mode_retry_error"] = initialRetry.1.map { .int($0.code) } ?? .null
+                require(initialRetry.0 == nil && initialRetry.1?.code == -32602,
+                    "test117_invalid_root_cannot_restore_original_initial_mode_"+label)
+            }
+        } else {
+            require(reply.1 == nil && reply.0?["profile"]?.stringValue == "normal-1-1-irregular-v1",
+                "test117_valid_recovery_has_exact_profile_and_no_terminal_error_"+label)
             let payload = reply.0?["payload"]?.objectValue ?? [:]
             let expectedInitial = initial != nil
             let matching = runtime117Start(recoveredID, continuous: continuous,
@@ -333,20 +386,23 @@ func testRuntime117RootFloor(_ root: URL) {
         }
         require(!runtime.hasLease && NG2Fake.countTouches() == recoveryTouches && NG2Fake.countRequests() == recoveryCaptures,
             "test117_recovery_mode_never_restores_capture_controller_or_input")
-        recoveryEvidence.append(["case": .string(label), "scope": .string("procedural_read_only_Spool_Runtime_metadata"),
-            "rejected": .bool(rejected), "error": reply.1.map { .int($0.code) } ?? .null,
-            "new_inputs": .int(0), "new_captures": .int(0)])
+        row["new_inputs"] = .int(0); row["new_captures"] = .int(0); row["has_input_lease"] = .bool(false)
+        recoveryEvidence.append(row)
+        runtime116Emit("RECOVERY117_VERIFIED", row)
     }
     recoverMode("finite_true_CFBoolean", initial: true, continuous: false)
     recoverMode("legacy_omitted_false", initial: nil, continuous: false)
     recoverMode("continuous_true_read_only_root", initial: true, continuous: true)
     for (label, value) in [("false", false as Any), ("integer", 1 as Any), ("floating", 1.0 as Any),
             ("string", "true" as Any), ("null", NSNull() as Any)] {
-        recoverMode("invalid_initial_"+label, initial: value, continuous: false, rejected: true)
+        recoverMode("invalid_initial_"+label, initial: value, continuous: false,
+            expectedError: -32096, layer: "Runtime_rejects_certified_metadata")
     }
-    recoverMode("foreign_profile", initial: true, continuous: false, profile: "normal-1-1-cycle-v1", rejected: true)
+    recoverMode("foreign_profile", initial: true, continuous: false, profile: "normal-1-1-cycle-v1",
+        expectedError: -32096, layer: "Runtime_rejects_certified_metadata")
     for fault in ["missing-schema", "extra", "foreign-root", "index-bool", "index-one", "predecessor", "start-bool", "deadline-zero"] {
-        recoverMode("invalid_root_"+fault, initial: true, continuous: true, fault: fault, rejected: true)
+        recoverMode("invalid_root_"+fault, initial: true, continuous: true, fault: fault,
+            expectedError: -32602, layer: "Spool_uncertified_diagnostic_profile")
     }
     runtime116Emit("BOUNDARY117", ["scope": .string("actual_Runtime_initial_floor_finite_UI"),
         "completed_kinds": .array(kinds.map(JSONValue.int)), "restarts": .int(world.locked { world.restarts }),

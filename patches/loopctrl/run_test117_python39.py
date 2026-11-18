@@ -92,7 +92,8 @@ def main():
         interpreter_executable_sha256=shared.sha(Path(sys.executable).resolve()), python_version=list(sys.version_info[:3]),
         source_sha256=before, shell_syntax=dict(returncode=syntax.returncode, stdout=syntax.stdout, stderr=syntax.stderr),
         entry_check=dict(returncode=check.returncode, stdout=check.stdout, stderr=check.stderr), device_test='not_run')
-    host.run_scope('test117-python39', selected, output, evidence)
+    host.run_scope('test117-python39', selected, output, evidence,
+        receipt_name='test117-python39-scope.json')
     after = {name: shared.sha(driver/name) for name in before}
     evidence.update(sources_unchanged=before == after, product_pass=entry_ok and before == after)
     (output/'test117-python39-scope.json').write_text(json.dumps(evidence, indent=2)+'\n')

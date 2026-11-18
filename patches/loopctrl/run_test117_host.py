@@ -515,7 +515,9 @@ def native_suites(upstream, driver):
     return suites
 
 
-def run_scope(name, cases, output, evidence):
+def run_scope(name, cases, output, evidence, *, receipt_name='test117-host-scope.json'):
+    if type(receipt_name) is not str or receipt_name not in ('test117-host-scope.json', 'test117-python39-scope.json'):
+        raise ValueError('TEST117 scope receipt name is not permitted')
     cases = selected_cases(cases); stream = io.StringIO()
     result = unittest.TextTestRunner(stream=stream, verbosity=2).run(unittest.TestSuite(cases))
     log = stream.getvalue(); (output/(name+'.txt')).write_text(log)
@@ -523,7 +525,7 @@ def run_scope(name, cases, output, evidence):
     evidence[name] = dict(selected=[case.id() for case in cases], tests_run=result.testsRun,
         failures=len(result.failures), errors=len(result.errors), skipped=len(result.skipped),
         expected_failures=len(result.expectedFailures))
-    (output/'test117-host-scope.json').write_text(json.dumps(evidence, indent=2)+'\n')
+    (output/receipt_name).write_text(json.dumps(evidence, indent=2)+'\n')
     if result.testsRun != len(cases) or not result.wasSuccessful() or result.skipped or result.expectedFailures:
         raise RuntimeError(name+': selected methods must all execute Green')
 

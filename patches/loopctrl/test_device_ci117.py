@@ -1,6 +1,7 @@
 """TEST117 selectors fail closed until exact author/source scopes are frozen."""
 import ast
 import importlib.util
+import inspect
 import json
 from pathlib import Path
 import re
@@ -133,6 +134,39 @@ class DeviceHostSelection117Tests(unittest.TestCase):
                 else:
                     with self.assertRaises(RuntimeError): runner.run_scope('fixture', [one_case(outcome)], output, evidence)
                 self.assertEqual(1, evidence['fixture']['tests_run'])
+
+    def test_python_receipt_preserves_existing_native_bytes_even_on_failure(self):
+        runner = module('run_test117_host')
+        for outcome in ('green', 'skip', 'failure', 'error'):
+            with self.subTest(outcome=outcome), tempfile.TemporaryDirectory() as temporary, patch('builtins.print'):
+                output = Path(temporary); native = output/'test117-host-scope.json'
+                original = b'{"scope":"native source-bound sentinel","binding":"must survive"}\n'
+                native.write_bytes(original); evidence = {'scope':'Python-only receipt'}
+                options = ({'receipt_name':'test117-python39-scope.json'}
+                    if 'receipt_name' in inspect.signature(runner.run_scope).parameters else {})
+                if outcome == 'green':
+                    runner.run_scope('python-fixture', [one_case(outcome)], output, evidence, **options)
+                else:
+                    with self.assertRaises(RuntimeError):
+                        runner.run_scope('python-fixture', [one_case(outcome)], output, evidence, **options)
+                self.assertEqual(original, native.read_bytes(),
+                    'Python scope persistence must not erase the native production binding')
+                python = output/'test117-python39-scope.json'
+                self.assertTrue(python.is_file())
+                recorded = json.loads(python.read_bytes())
+                self.assertEqual(evidence, recorded)
+                self.assertEqual(1, recorded['python-fixture']['tests_run'])
+                self.assertTrue((output/'python-fixture.txt').is_file())
+
+    def test_receipt_filename_is_closed_before_any_test_executes(self):
+        runner = module('run_test117_host')
+        for name in ('other.json', '../test117-host-scope.json', '/tmp/test117-host-scope.json', '', None, 0):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:
+                output = Path(temporary)
+                with patch.object(runner, 'selected_cases') as selected, self.assertRaises(ValueError):
+                    runner.run_scope('fixture', [], output, {}, receipt_name=name)
+                selected.assert_not_called()
+                self.assertEqual([], list(output.iterdir()))
 
     def test_device_workflow_selects_117_and_reuses_pinned_actual_python39(self):
         source = (ROOT/'.github/workflows/loopctrl-geometry.yml').read_text()
