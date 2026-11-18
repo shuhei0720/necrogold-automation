@@ -4,7 +4,7 @@
   "api_version": "1.98.16-ngg2",
   "capability": "necrogold_native_v1",
   "client_capability": "necrogold_native_v15",
-  "patch_sha256": "6d618213af3bdb7e130e305c0c7a60b042dc62db92bba30e559002f6a4333922",
+  "patch_sha256": "d17e788f691fa915b8c48c74ffeae0f2a084f062a11985bcf9b6ec9152879393",
   "files": {
     "LoopCtrlUITests/ActionHandler.swift": {
       "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
@@ -19,7 +19,7 @@
     "LoopCtrlKit/RPCMethod.swift": {
       "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
       "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
-      "patched_sha256": "3e046f91363abd387e3b4b9488140a88e17e66603fa9bb6787b3bf264975ab8e"
+      "patched_sha256": "f2ac12ec3fbf4665dcb4b06b67031beec1e5e0873543927b33d5fa44ccbb8aa7"
     },
     "LoopCtrlKit/JSONRPCServer.swift": {
       "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
@@ -67,11 +67,11 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "8c740b3129e06ae8f6c97c2978ee95e59dcd93fd153a9083ef5819986a76629f"
+      "sha256": "a8f92907625741efa8b29bba13828e74e3b5003b6c8dd704c49041fc8ff35541"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
-      "sha256": "ab3c0a3b9904eb34a4bfd32e2b0284ae76a18fd375f820cda8b5dd110db4f4c8"
+      "sha256": "173f6e0e61d57c4c87713d96909c1eb09b0c69255fbe414e2e6a00229f653701"
     },
     "LoopCtrlUITests/NG2Core.h": {
       "source": "NG2Core.h",
@@ -83,7 +83,7 @@
     },
     "LoopCtrlUITests/NG2CycleSpool.swift": {
       "source": "NG2CycleSpool.swift",
-      "sha256": "074d76fc732a2287d14d8dd11256ac4d63462974556006b518f52ee66eefe84f"
+      "sha256": "8d826a83cf9b56c47a16e6ac57e72cd703a064bf4c83a461e27ebcaa1dfe5ec8"
     },
     "LoopCtrlUITests/NG2CycleWire.swift": {
       "source": "NG2CycleWire.swift",
@@ -91,7 +91,7 @@
     },
     "LoopCtrlUITests/NG2Navigation.c": {
       "source": "NG2Navigation.c",
-      "sha256": "9c872fd812b172e55e8713b0141c91b2428a45ffb272320a7283c478e6e52cca"
+      "sha256": "aa284ed0eb417b42898386ce27bb6e1e3843968d60eb9aac3d58b847c3c57b6d"
     },
     "LoopCtrlUITests/NG2Perception.c": {
       "source": "NG2Perception.c",
@@ -123,7 +123,7 @@
     },
     "LoopCtrlUITests/NG2Runtime.swift": {
       "source": "NG2Runtime.swift",
-      "sha256": "e655aa10f0ba48a9e2f719e25a5cbd9c7f5c69f6e907de0ac1bcae9da228dbe0"
+      "sha256": "9e320fb91b372485002a35aa2c8afee566c7e29600e971a26718bcbf42978337"
     },
     "LoopCtrlUITests/NG2Templates.h": {
       "source": "NG2Templates.h",
@@ -176,5 +176,7 @@
   "irregular_capability": "necrogold_native_irregular_v1",
   "irregular_profile": "normal-1-1-irregular-v1",
   "restart_yield_capability": "necrogold_native_restart_yield_v1",
-  "restart_yield_start_flag": "yield_after_restart"
+  "restart_yield_start_flag": "yield_after_restart",
+  "continuous_campaign_capability": "necrogold_native_continuous_campaign_v1",
+  "continuous_campaign_start_flag": "continuous_campaign"
 }

@@ -31,6 +31,16 @@ enum NG2RuntimeTestHooks {
     static var beforeDueDispatch: ((UInt64) -> Void)?
     static var beforeEvidenceRetention: ((UInt64) -> Void)?
 }
+enum NG2RuntimeContinuousTestHooks {
+    static var rootDurationNS: UInt64?
+    static var afterPersistenceEnqueueBeforeReturn: ((String, String) -> Void)?
+    static var beforePersistenceCommitReturn: ((String, String) -> Void)?
+    static var afterSealEnqueueBeforeReturn: ((String) -> Void)?
+    static var beforeSealCommitReturn: ((String) -> Void)?
+    static var beforeSuccessorCommit: ((String, String, String) -> Void)?
+    static var afterChildAdmitted: ((String, String, String, Int) -> Void)?
+    static var beforeBootstrapAdmission: ((String, Int) -> Void)?
+}
 #endif
 
 private extension NSLock {
@@ -66,6 +76,54 @@ private struct NG2Frame {
     let rasterTrace: NG2Raster.Trace
     let encodedBytes: Int
     let diagnosticOrientation: Int?
+}
+
+// One explicit finite native campaign. The cancel flag has a short separate
+// gate: cancellation never waits for a gesture or a disk fsync to return.
+// Child replacement and the metadata index use gate; no I/O holds that gate.
+private final class NG2ContinuousCampaign {
+    struct Child {
+        let id: String, predecessor: String?
+        let index: Int
+        var state = "accepted"
+        var seal: String?
+        var reason: Int32 = 0
+    }
+    let gate = NSLock(), cancelGate = NSLock()
+    let id, owner: String
+    let started, deadline: UInt64
+    let quota: NG2CycleSpool.CampaignQuota
+    var children: [Child]
+    weak var active: NG2Run?
+    var next: NG2CycleSpool.Reservation?
+    var heartbeat: UInt64
+    var reason = "none"
+    var stopped = false, lease = true, pendingIO = false
+    var terminalSafety: (Int32, Bool, Bool)?
+    private var cancellation: Int32 = 0
+    init(id: String, owner: String, now: UInt64, quota: NG2CycleSpool.CampaignQuota) {
+        self.id = id; self.owner = owner; started = now
+        #if NG2_RUNTIME_HOST_TEST
+        deadline = now + min(NG2RuntimeContinuousTestHooks.rootDurationNS ?? 2_880_000_000_000, 2_880_000_000_000)
+        #else
+        deadline = now + 2_880_000_000_000
+        #endif
+        heartbeat = now; self.quota = quota
+        children = [Child(id: id, predecessor: nil, index: 0)]
+    }
+    var cancelReason: Int32 { cancelGate.ng2Locked { cancellation } }
+    func requestCancel(_ reason: Int32) {
+        cancelGate.ng2Locked { if cancellation == 0 { cancellation = reason } }
+    }
+    func permits(_ now: UInt64) -> Bool {
+        now >= started && now < deadline && cancelReason == 0
+    }
+    func commitIfAllowed(_ now: UInt64, _ body: () -> Bool) -> Bool {
+        cancelGate.ng2Locked {
+            guard now >= started, now < deadline, cancellation == 0 else { return false }
+            return body()
+        }
+    }
 }
 
 // A token is released by classificationQueue -> controlQueue serial fences,
@@ -122,6 +180,7 @@ private final class NG2CycleRun {
     var outcomeJob: UInt64 = 0
     var terminalPersistenceStarted = false
     var terminalPersisted = false
+    var terminalRecord: NG2CycleSpool.RecordRef?
     var frames: [UInt64: NG2Frame] = [:]
     var assessment: [String: JSONValue]?
     var assessmentAdopted = false
@@ -341,7 +400,17 @@ private final class NG2Run {
     let profile: String
     let maximumExportBytes: Int
     let yieldAfterRestart: Bool
+    let continuousCampaign: Bool
     let restartYield: NG2RestartYieldRun?
+    let campaign: NG2ContinuousCampaign?
+    let campaignIndex: Int
+    let campaignPredecessor: String?
+    let campaignReservation: NG2CycleSpool.Reservation?
+    let successorPID: pid_t
+    var campaignPersistenceTokens: [UUID: String] = [:]
+    var campaignSealStarted = false
+    var campaignContinuation = NG2ControllerContinuousStatus()
+    var campaignQualifiedGeneration: UInt64 = 0
     let clock: String
     var generation: UInt64 = 1
     var cancelReason: Int32 = 0
@@ -416,10 +485,15 @@ private final class NG2Run {
     let cycle: NG2CycleRun?
     let irregular: NG2IrregularRun?
     init(owner: String, id: String, now: UInt64, profile: String = "normal-1-1-v1", clock: String? = nil,
-         yieldAfterRestart: Bool = false) {
+         yieldAfterRestart: Bool = false, campaign: NG2ContinuousCampaign? = nil,
+         campaignIndex: Int = 0, predecessor: String? = nil,
+         reservation: NG2CycleSpool.Reservation? = nil, successorPID: pid_t = 0) {
         self.owner = owner; self.id = id; self.profile = profile
-        self.yieldAfterRestart = yieldAfterRestart
-        restartYield = yieldAfterRestart ? NG2RestartYieldRun() : nil
+        self.campaign = campaign; self.campaignIndex = campaignIndex
+        continuousCampaign = campaign != nil
+        campaignPredecessor = predecessor; campaignReservation = reservation; self.successorPID = successorPID
+        self.yieldAfterRestart = yieldAfterRestart || campaign != nil
+        restartYield = self.yieldAfterRestart ? NG2RestartYieldRun() : nil
         self.clock = clock ?? UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         cycle = NG2Runtime.isCycleProfile(profile) ? NG2CycleRun() : nil
         irregular = profile == NG2Runtime.irregularProfile ? NG2IrregularRun() : nil
@@ -448,6 +522,7 @@ private struct NG2ResponseProjection {
     let generation, reportGeneration: UInt64
     let id, clock, state, profile: String
     let yieldAfterRestart: Bool
+    let continuousCampaign: Bool
     let inFlight, terminal, cancelled, captureOutstanding, captureTimedOut, bootstrapUIStarted: Bool
     let lease, uiFrozen, mainOutstanding: Bool
     let acceptedStarted, prefix, captureID, replacedFrames, analyzedFrames, evictedFrames: UInt64
@@ -460,7 +535,9 @@ private struct NG2ResponseProjection {
     init(_ run: NG2Run) {
         snapshot = run.controllerSnapshot; reportSnapshot = run.reportSnapshot; cachedReport = run.report
         generation = run.generation; reportGeneration = run.reportGeneration
-        id = run.id; clock = run.clock; profile = run.profile; yieldAfterRestart = run.yieldAfterRestart
+        id = run.id; clock = run.clock; profile = run.profile
+        yieldAfterRestart = run.yieldAfterRestart && run.campaign == nil
+        continuousCampaign = run.campaign != nil
         state = run.terminal ? (run.lease ? "draining" : (run.successful ? "completed" : "stopped"))
             : (run.controllerSnapshot == nil && run.report.isEmpty ? "accepted" : "running")
         inFlight = run.inFlight; terminal = run.terminal; cancelled = run.cancelReason != 0
@@ -507,6 +584,7 @@ final class NG2Runtime {
     private var cycleRecoveryFailures: [String: String] = [:]
     private let runtimeInstanceID = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     private var current: NG2Run?
+    private var campaigns: [String: NG2ContinuousCampaign] = [:]
     private var seen = Set<String>()
     // Metadata for at most 64 drained runs. Only the current run retains raw
     // rasters (legacy20/cycle24 pins plus recent/capture/analysis handoff).
@@ -539,7 +617,11 @@ final class NG2Runtime {
         value.utf8.count == 32 && value.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) })
     }
 
-    var hasLease: Bool { lock.ng2Locked { poisoned || (current?.lock.ng2Locked { current?.lease ?? false } ?? false) } }
+    var hasLease: Bool {
+        let values = lock.ng2Locked { (poisoned, current, Array(campaigns.values)) }
+        return values.0 || values.1?.lock.ng2Locked({ values.1?.lease ?? false }) == true
+            || values.2.contains { root in root.gate.ng2Locked { root.lease } }
+    }
 
     func leaseError(_ method: String) -> JSONRPCError? {
         guard hasLease, !Self.methods.contains(method),
@@ -552,7 +634,8 @@ final class NG2Runtime {
     /// Every legacy stream capture takes this short admission lease. An already
     /// running frame drains before native capture starts; new ones are suspended.
     func beginStreamCapture() -> Bool {
-        lock.ng2Locked {
+        if hasLease { return false }
+        return lock.ng2Locked {
             if poisoned || current?.lock.ng2Locked({ current?.lease ?? false }) == true { return false }
             streamCaptures += 1
             return true
@@ -561,7 +644,71 @@ final class NG2Runtime {
     func endStreamCapture() { lock.ng2Locked { streamCaptures -= 1 } }
     private var streamsDrained: Bool { lock.ng2Locked { streamCaptures == 0 } && NG2CaptureBridge.pendingRequests == 0 }
     func ownerChanged() {
-        if RemoteSession.shared.paused { lock.ng2Locked { current }?.cancel(5) }
+        if RemoteSession.shared.paused {
+            let run = lock.ng2Locked { current }
+            if let root = run?.campaign { cancelCampaign(root, reason: 5) }
+            else { run?.cancel(5) }
+        }
+    }
+
+    private func campaignReply(_ root: NG2ContinuousCampaign) -> [String: JSONValue] {
+        let state = root.gate.ng2Locked { root.stopped ? (root.lease ? "draining" : "stopped") : "running" }
+        return ["run_id": .string(root.id), "profile": .string(Self.irregularProfile),
+            "state": .string(state), "api_version": .string("1.98.16-ngg2"),
+            "report": .object([:]), "continuous_campaign": .bool(true)]
+    }
+    private func campaignOwnsExports(_ owner: String) -> Bool {
+        let roots = lock.ng2Locked { campaigns.values.filter { $0.owner == owner } }
+        return roots.contains { root in root.gate.ng2Locked { root.lease } }
+    }
+    private func cancelCampaign(_ root: NG2ContinuousCampaign, reason: Int32) {
+        root.requestCancel(reason)
+        // Never wait for the old run gate or an executing synchronous synth.
+        controlQueue.async {
+            let run = root.gate.ng2Locked { root.active }
+            root.gate.ng2Locked {
+                root.stopped = true
+                if root.reason == "none" { root.reason = reason == 2 ? "cancelled" : reason == 4 ? "locked" : "owner" }
+            }
+            run?.cancel(reason)
+            if let run, let core = run.core {
+                ng2_controller_cancel(core, Self.now(), reason); self.cycle(run)
+            } else if let run { self.finishContinuousTerminal(run) }
+        }
+    }
+    private func campaignPayload(_ root: NG2ContinuousCampaign, keepalive: Bool) -> [String: JSONValue] {
+        let snapshot = root.gate.ng2Locked { () -> (NG2Run?, [NG2ContinuousCampaign.Child], Bool, Bool, String) in
+            let active = root.active
+            if keepalive, root.permits(Self.now()), !root.stopped,
+               let active, ownerActive(active), !LockStateMonitor.shared().isLocked {
+                root.heartbeat = Self.now()
+                active.lock.ng2Locked {
+                    if NG2TicketGuard.renewsHeartbeat(keepalive: true, ownerActive: ownerActive(active), cancelled: active.cancelReason != 0) {
+                        active.heartbeat = root.heartbeat
+                    }
+                }
+            }
+            return (active, root.children, root.stopped, root.lease, root.reason)
+        }
+        let liveState = snapshot.0?.lock.ng2Locked { () -> (Int32, Bool, Bool) in
+            (snapshot.0!.controllerSnapshot?.status.input_state ?? snapshot.0!.cycle?.recoveredInputState ?? 0,
+             snapshot.0!.inFlight, snapshot.0!.uiFrozen)
+        } ?? (0, false, false)
+        let state = snapshot.2 ? root.gate.ng2Locked({ root.terminalSafety ?? liveState }) : liveState
+        let rows: [JSONValue] = snapshot.1.map { row in
+            .object(["index": .int(row.index), "run_id": .string(row.id),
+                "predecessor_id": row.predecessor.map { .string($0) } ?? .null,
+                "state": .string(row.state), "escrow_sealed": .bool(row.seal != nil),
+                "escrow_sha256": row.seal.map { .string($0) } ?? .null,
+                "terminal_reason": .int(Int(row.reason))])
+        }
+        return ["schema": .string("ngg2-continuous-campaign-v1"), "root_id": .string(root.id),
+            "state": .string(snapshot.2 ? (snapshot.3 ? "draining" : "stopped") : "running"),
+            "active_run_id": .string(snapshot.1.last?.id ?? root.id), "terminal": .bool(snapshot.2),
+            "workers_drained": .bool(!snapshot.3), "input_state": .int(Int(state.0)),
+            "native_inflight": .bool(state.1), "ui_frozen": .bool(state.2),
+            "stop_reason": .string(snapshot.4), "child_limit": .int(16),
+            "deadline_ns": Self.number(root.deadline), "children": .array(rows)]
     }
 
     func handle(method: String, params: [String: JSONValue]?) -> ([String: JSONValue]?, JSONRPCError?) {
@@ -574,6 +721,24 @@ final class NG2Runtime {
             return handleCycle(owner: owner, id: id, params: params ?? [:],
                 spec: method == "necro_native_irregular" ? .irregular : .standard)
         }
+        if method == "necro_native_results", campaignOwnsExports(owner) {
+            return failure("Native campaign evidence is deferred until gameplay drains.", -32094)
+        }
+        if method == "necro_native_cancel", let root = lock.ng2Locked({ campaigns[id] }), root.owner == owner {
+            guard Set((params ?? [:]).keys) == ["run_id", Self.ownerParam] else { return failure("Invalid campaign cancellation.", -32602) }
+            cancelCampaign(root, reason: 2)
+            return (["run_id": .string(root.id), "profile": .string(Self.irregularProfile),
+                "state": .string("draining"), "api_version": .string("1.98.16-ngg2"),
+                "report": .object([:]), "continuous_campaign": .bool(true)], nil)
+        }
+        if method == "necro_native_cancel", let active = lock.ng2Locked({ current }),
+           active.id == id, active.owner == owner, let root = active.campaign {
+            guard Set((params ?? [:]).keys) == ["run_id", Self.ownerParam] else { return failure("Invalid child cancellation.", -32602) }
+            cancelCampaign(root, reason: 2)
+            return (["run_id": .string(id), "profile": .string(Self.irregularProfile),
+                "state": .string("draining"), "api_version": .string("1.98.16-ngg2"),
+                "report": .object([:]), "continuous_campaign": .bool(true)], nil)
+        }
         var exportMode: String?
         if method == "necro_native_results", let value = params?["mode"] {
             guard let mode = value.stringValue, mode == "manifest" || mode == "chunk" else {
@@ -581,7 +746,7 @@ final class NG2Runtime {
             }
             exportMode = mode
         }
-        let allowed: Set<String> = method == "necro_native_start" ? ["run_id", "profile", "yield_after_restart", Self.ownerParam]
+        let allowed: Set<String> = method == "necro_native_start" ? ["run_id", "profile", "yield_after_restart", "continuous_campaign", Self.ownerParam]
             : (method == "necro_native_status" ? ["run_id", "keepalive", Self.ownerParam]
                : (exportMode == "chunk" ? ["run_id", "mode", "export_id", "capture_id", "offset", Self.ownerParam]
                   : (exportMode == "manifest" ? ["run_id", "mode", Self.ownerParam] : ["run_id", Self.ownerParam])))
@@ -598,12 +763,40 @@ final class NG2Runtime {
                 }
                 yieldAfterRestart = true
             } else { yieldAfterRestart = false }
-            guard !RemoteSession.shared.paused else { return failure("Owner paused native control.") }
+            let continuous = params?["continuous_campaign"] != nil
+            if continuous && (params?["continuous_campaign"]?.boolValue != true || profile != Self.irregularProfile || yieldAfterRestart) {
+                return failure("continuous_campaign is true-only and excludes restart yield.", -32602)
+            }
+            if let root = lock.ng2Locked({ campaigns[id] }) {
+                guard root.owner == owner, continuous, profile == Self.irregularProfile else {
+                    return failure("Native campaign mode is immutable.", -32602)
+                }
+                return (campaignReply(root), nil)
+            }
+            guard !RemoteSession.shared.paused else {
+                return continuous ? cycleNotStarted("Owner paused native control before campaign admission.") : failure("Owner paused native control.")
+            }
+            var campaign: NG2ContinuousCampaign?
+            var reservation: NG2CycleSpool.Reservation?
+            if continuous {
+                do {
+                    let quota: NG2CycleSpool.CampaignQuota
+                    #if NG2_RUNTIME_HOST_TEST
+                    if let root = NG2RuntimeCycleTestHooks.spoolRoot {
+                        quota = try NG2CycleSpool.testCreateCampaignQuota(rootURL: root, rootID: id, owner: owner)
+                    } else { quota = try NG2CycleSpool.createCampaignQuota(rootID: id, owner: owner) }
+                    #else
+                    quota = try NG2CycleSpool.createCampaignQuota(rootID: id, owner: owner)
+                    #endif
+                    campaign = NG2ContinuousCampaign(id: id, owner: owner, now: Self.now(), quota: quota)
+                    reservation = try quota.reserveNext(runID: id, index: 0, predecessorID: nil)
+                } catch { return cycleNotStarted("Campaign storage quota is unavailable.") }
+            }
             var created: NG2Run?
             let answer: ([String: JSONValue]?, JSONRPCError?) = lock.ng2Locked {
                 if let old = current, old.owner == owner, old.id == id {
                     guard old.profile == profile else { return failure("Native run profile is immutable.", -32602) }
-                    guard old.yieldAfterRestart == yieldAfterRestart else {
+                    guard old.campaign == nil && !continuous && old.yieldAfterRestart == yieldAfterRestart else {
                         return failure("Native restart yield option is immutable.", -32602)
                     }
                     return (response(old), nil)
@@ -633,12 +826,32 @@ final class NG2Runtime {
                     return Self.isCycleProfile(profile) ? cycleNotStarted("Previous native cycle publication is not acknowledged.")
                         : failure("Previous native cycle publication is not acknowledged.")
                 }
-                if poisoned { return failure("Unknown native input freezes new runs until the runner process restarts.") }
-                if current?.lock.ng2Locked({ current?.lease ?? false }) == true { return failure("Previous native run is still draining.") }
-                if current?.lock.ng2Locked({ current?.exportBuildID != nil }) == true { return failure("Previous native image export is still being prepared.") }
-                if NG2CaptureBridge.pendingRequests != 0 { return failure("Previous daemon capture is still outstanding.") }
-                if seen.contains(id) || seen.count >= 128 { return failure("Run identity was already consumed or process run limit reached.") }
-                let run = NG2Run(owner: owner, id: id, now: Self.now(), profile: profile, yieldAfterRestart: yieldAfterRestart)
+                if poisoned {
+                    return continuous ? cycleNotStarted("Unknown native input prevents campaign admission.")
+                        : failure("Unknown native input freezes new runs until the runner process restarts.")
+                }
+                if current?.lock.ng2Locked({ current?.lease ?? false }) == true {
+                    return continuous ? cycleNotStarted("Previous native run is still draining before campaign admission.")
+                        : failure("Previous native run is still draining.")
+                }
+                if campaigns.values.contains(where: { root in root.gate.ng2Locked { root.lease } }) {
+                    return continuous ? cycleNotStarted("Previous native campaign is still draining.")
+                        : failure("Previous native campaign is still draining.")
+                }
+                if current?.lock.ng2Locked({ current?.exportBuildID != nil }) == true {
+                    return continuous ? cycleNotStarted("Previous native export prevents campaign admission.")
+                        : failure("Previous native image export is still being prepared.")
+                }
+                if NG2CaptureBridge.pendingRequests != 0 {
+                    return continuous ? cycleNotStarted("Previous capture prevents campaign admission.")
+                        : failure("Previous daemon capture is still outstanding.")
+                }
+                if seen.contains(id) || seen.count >= 128 {
+                    return continuous ? cycleNotStarted("Run identity or process limit prevents campaign admission.")
+                        : failure("Run identity was already consumed or process run limit reached.")
+                }
+                let run = NG2Run(owner: owner, id: id, now: campaign?.started ?? Self.now(), profile: profile,
+                    yieldAfterRestart: yieldAfterRestart, campaign: campaign, reservation: reservation)
                 if let old = current {
                     old.lock.ng2Locked {
                         old.exportCache = nil
@@ -648,6 +861,7 @@ final class NG2Runtime {
                     }
                 }
                 current = run; seen.insert(id); created = run
+                if let campaign { campaign.active = run; campaigns[id] = campaign }
                 return (response(run), nil)
             }
             if let run = created {
@@ -1078,6 +1292,7 @@ final class NG2Runtime {
             return
         }
         guard state.pending == 1 else { return }
+        if let root = run.campaign, !root.permits(Self.now()) { run.cancel(root.cancelReason == 0 ? 15 : root.cancelReason); return }
         let missingFloor = run.lock.ng2Locked { boundary.firstFloor == nil }
         if missingFloor { run.cancel(17); ng2_controller_cancel(core, Self.now(), 17); return }
         let goods: NG2Frame? = run.lock.ng2Locked {
@@ -1105,7 +1320,7 @@ final class NG2Runtime {
         let ready = run.lock.ng2Locked { () -> Bool in
             guard state.ready == 1, boundary.firstGoods == nil || boundary.firstGoodsSubmitted,
                   cycle.classificationDrainTokens.isEmpty, !cycle.classificationOutstanding,
-                  !cycle.persistenceOutstanding else { return false }
+                  !cycle.persistenceOutstanding, run.campaignPersistenceTokens.isEmpty else { return false }
             boundary.capturePaused = true
             return true
         }
@@ -1137,7 +1352,210 @@ final class NG2Runtime {
             // their source-bound DATA admission already fails closed above.
             if !permit { boundary.capturePaused = false }
         }
+        if permit, let root = run.campaign {
+            let linked = root.gate.ng2Locked { root.next?.predecessorID == run.id && root.active === run && !root.stopped }
+            if linked {
+                run.lock.ng2Locked {
+                    guard run.cancelReason == 0, root.permits(Self.now()), run.campaignPersistenceTokens.isEmpty,
+                          ng2_controller_continuous_finish(core, state.source_capture_id,
+                            state.source_start_ns, state.source_prefix, Self.now()) == 1 else { return }
+                    ng2_controller_continuous_status(core, &run.campaignContinuation)
+                    run.campaignQualifiedGeneration = run.generation
+                }
+            }
+        }
         if run.lock.ng2Locked({ boundary.failed }) { run.cancel(17); ng2_controller_cancel(core, Self.now(), 17) }
+    }
+
+    private func beginCampaignPersistence(_ run: NG2Run, kind: String) -> UUID? {
+        guard run.campaign != nil else { return nil }
+        let token = UUID(); run.lock.ng2Locked { run.campaignPersistenceTokens[token] = kind }; return token
+    }
+    private func continuousCompanion(_ value: NG2ControllerContinuousStatus) -> [String: JSONValue] {
+        ["abi_version": .int(1), "enabled": .bool(value.enabled == 1),
+         "successor_floor": .bool(value.successor_floor == 1), "qualified": .bool(value.qualified == 1),
+         "root_deadline_ns": Self.number(value.root_deadline_ns), "qualified_ns": Self.number(value.qualified_ns),
+         "parent_deadline_ns": Self.number(value.parent_deadline_ns), "old_job_id": Self.number(value.old_job_id),
+         "restart_command_id": Self.number(value.restart_command_id), "new_floor_capture_id": Self.number(value.new_floor_capture_id),
+         "source_capture_id": Self.number(value.source_capture_id), "source_start_ns": Self.number(value.source_start_ns),
+         "source_prefix": Self.number(value.source_prefix)]
+    }
+    // Called only after all actual run callbacks and its terminal writer have
+    // returned. The root keeps the UI lease while immutable files are sealed.
+    private func finishContinuousTerminal(_ run: NG2Run) {
+        guard let root = run.campaign, let cycle = run.cycle else { return }
+        guard !root.gate.ng2Locked({ root.pendingIO }) else { return }
+        let admission = run.lock.ng2Locked { () -> (NG2CycleSpool, NG2CycleSpool.RecordRef)? in
+            guard run.terminal, !run.lease, run.campaignPersistenceTokens.isEmpty,
+                  !cycle.workerBusy, !run.campaignSealStarted else { return nil }
+            run.campaignSealStarted = true
+            guard let spool = cycle.spool, let terminal = cycle.terminalRecord else { return nil }
+            return (spool, terminal)
+        }
+        guard let (spool, terminal) = admission else {
+            if run.lock.ng2Locked({ run.campaignSealStarted && cycle.terminalRecord == nil }) {
+                stopContinuous(root, run: run, reason: "storage")
+            }
+            return
+        }
+        let next = root.gate.ng2Locked { () -> NG2CycleSpool.Reservation? in
+            root.pendingIO = true
+            if !root.stopped, root.active === run, root.permits(Self.now()), run.campaignContinuation.qualified == 1 {
+                return root.next
+            }
+            return nil
+        }
+        let proof = continuousCompanion(run.campaignContinuation)
+        persistenceQueue.async {
+            var sealed: NG2CycleSpool.RecordRef?
+            do {
+                sealed = try spool.sealContinuation(rootID: root.id, index: run.campaignIndex,
+                    predecessorID: run.campaignPredecessor, clockID: run.clock,
+                    terminal: terminal, continuation: try NG2CycleWire.object(proof), successor: next)
+            } catch { }
+            self.controlQueue.async {
+                if let sealed {
+                    root.gate.ng2Locked {
+                        root.children[run.campaignIndex].seal = sealed.sha256
+                        root.children[run.campaignIndex].state = "stopped"
+                        root.children[run.campaignIndex].reason = run.controllerSnapshot?.status.reason ?? 0
+                    }
+                }
+                // Both the real seal writer and this result callback must
+                // return before any next UUID acquires a gameplay core.
+                self.persistenceQueue.async {
+                    self.controlQueue.async {
+                        guard sealed != nil else { self.stopContinuous(root, run: run, reason: "storage"); return }
+                        self.advanceContinuous(root, from: run, reservation: next)
+                    }
+                }
+                #if NG2_RUNTIME_HOST_TEST
+                NG2RuntimeContinuousTestHooks.beforeSealCommitReturn?(run.id)
+                #endif
+            }
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeContinuousTestHooks.afterSealEnqueueBeforeReturn?(run.id)
+            #endif
+        }
+    }
+    private func stopContinuous(_ root: NG2ContinuousCampaign, run: NG2Run, reason: String) {
+        let safety = run.lock.ng2Locked {
+            (run.controllerSnapshot?.status.input_state ?? run.cycle?.recoveredInputState ?? 0,
+             run.inFlight, run.uiFrozen)
+        }
+        root.gate.ng2Locked {
+            root.stopped = true; root.pendingIO = false; root.lease = false
+            root.terminalSafety = safety
+            if root.reason == "none" { root.reason = reason }
+            if run.campaignIndex < root.children.count {
+                root.children[run.campaignIndex].state = "stopped"
+                if let status = run.controllerSnapshot?.status { root.children[run.campaignIndex].reason = status.reason }
+            }
+        }
+        notifyCycleIfNeeded(run)
+    }
+    private func continuousStopReason(_ root: NG2ContinuousCampaign, run: NG2Run, now: UInt64) -> String {
+        let prior = root.gate.ng2Locked { (root.reason, root.heartbeat) }
+        if prior.0 != "none" { return prior.0 }
+        let lost = run.lock.ng2Locked { run.cancelReason }
+        if root.cancelReason == 2 || lost == 2 { return "cancelled" }
+        if root.cancelReason == 4 || lost == 4 || LockStateMonitor.shared().isLocked { return "locked" }
+        if root.cancelReason == 3 || root.cancelReason == 5 || [3, 5, 19].contains(lost) || !ownerActive(run)
+            || (now >= prior.1 && now - prior.1 >= 5_000_000_000) { return "owner" }
+        if now >= root.deadline || lost == 15 { return "session" }
+        if run.cycle?.companion.outcome == 2 { return "target" }
+        if run.cycle?.companion.outcome == 1 { return "candidate" }
+        return run.controllerSnapshot?.status.reason == 14 ? "native_limit" : "unknown"
+    }
+    private func advanceContinuous(_ root: NG2ContinuousCampaign, from old: NG2Run,
+                                   reservation: NG2CycleSpool.Reservation?) {
+        let now = Self.now()
+        let canPrepare = root.gate.ng2Locked {
+            !root.stopped && root.active === old && root.permits(now)
+                && now >= root.heartbeat && now - root.heartbeat < 5_000_000_000
+                && reservation?.predecessorID == old.id && root.next == reservation
+        }
+        let unchanged = old.lock.ng2Locked { old.cancelReason == 0 && old.generation == old.campaignQualifiedGeneration }
+        guard canPrepare, unchanged, let reservation, ownerActive(old), !LockStateMonitor.shared().isLocked,
+              old.campaignContinuation.qualified == 1 else {
+            stopContinuous(root, run: old, reason: continuousStopReason(root, run: old, now: now)); return
+        }
+        // RAM ownership can retire only after its independently sealed disk
+        // originals exist. Old callbacks have all returned; no source crosses.
+        old.lock.ng2Locked {
+            old.images.removeAll(); old.pinned.removeAll(); old.initial = nil; old.found = nil; old.latest = nil
+            old.restartYield?.classificationSources.removeAll(); old.restartYield?.firstFloor = nil
+            old.restartYield?.firstPartial = nil; old.restartYield?.firstFull = nil
+            old.cycle?.frames.removeAll(); old.irregular?.frames.removeAll(); old.exportCache = nil
+        }
+        lock.ng2Locked { recoveredCycles[old.id] = old }
+        let child = NG2Run(owner: root.owner, id: reservation.runID, now: now, profile: Self.irregularProfile,
+            campaign: root, campaignIndex: reservation.index, predecessor: old.id,
+            reservation: reservation, successorPID: old.expectedPID)
+        initializeCycle(child, continuationFrom: old)
+    }
+    private func commitContinuousChild(_ child: NG2Run, replacing old: NG2Run) {
+        guard let root = child.campaign else { return }
+        #if NG2_RUNTIME_HOST_TEST
+        NG2RuntimeContinuousTestHooks.beforeSuccessorCommit?(root.id, old.id, child.id)
+        #endif
+        let committed = root.gate.ng2Locked {
+            root.commitIfAllowed(Self.now()) {
+                guard !root.stopped, root.active === old, root.next == child.campaignReservation,
+                      root.children.count == child.campaignIndex, ownerActive(old),
+                      !LockStateMonitor.shared().isLocked,
+                      Self.now() >= root.heartbeat, Self.now() - root.heartbeat < 5_000_000_000 else { return false }
+                guard old.lock.ng2Locked({ old.cancelReason == 0 && old.generation == old.campaignQualifiedGeneration }) else { return false }
+                root.children.append(.init(id: child.id, predecessor: old.id, index: child.campaignIndex))
+                root.active = child; root.next = nil; root.pendingIO = false
+                child.heartbeat = root.heartbeat; return true
+            }
+        }
+        guard committed else {
+            abortPreparedChild(child, predecessor: old,
+                reason: continuousStopReason(root, run: old, now: Self.now())); return
+        }
+        lock.ng2Locked { current = child; seen.insert(child.id) }
+        #if NG2_RUNTIME_HOST_TEST
+        NG2RuntimeContinuousTestHooks.afterChildAdmitted?(root.id, old.id, child.id, child.campaignIndex)
+        #endif
+        start(child)
+    }
+    private func abortPreparedChild(_ child: NG2Run, predecessor: NG2Run?, reason: String) {
+        guard let root = child.campaign else { return }
+        child.cancel(root.cancelReason == 0 ? 6 : root.cancelReason)
+        child.lock.ng2Locked {
+            child.terminal = true; child.captureWorkerDone = true; child.lease = false
+            child.cycle?.persistenceOutstanding = false
+            // A partial initialization has no durable terminal proof. Do not
+            // manufacture known-input evidence from a missing disk record.
+            child.cycle?.recoveredInputState = 4; child.cycle?.recovered = true; child.uiFrozen = true
+        }
+        root.gate.ng2Locked {
+            if root.children.count == child.campaignIndex {
+                root.children.append(.init(id: child.id, predecessor: child.campaignPredecessor, index: child.campaignIndex))
+            }
+            root.active = child
+            root.children[child.campaignIndex].state = "stopped"
+            root.children[child.campaignIndex].reason = root.cancelReason == 0 ? 6 : root.cancelReason
+        }
+        lock.ng2Locked { recoveredCycles[child.id] = child; seen.insert(child.id) }
+        stopContinuous(root, run: child, reason: reason)
+    }
+    private func finishCampaignPersistence(_ run: NG2Run, _ token: UUID?) {
+        guard let token else { return }
+        #if NG2_RUNTIME_HOST_TEST
+        let kind = run.lock.ng2Locked { run.campaignPersistenceTokens[token] ?? "" }
+        NG2RuntimeContinuousTestHooks.beforePersistenceCommitReturn?(run.id, kind)
+        #endif
+        // The serial writer and its control commit closure both return before
+        // this following pair of closures can release the actual lease.
+        persistenceQueue.async {
+            self.controlQueue.async {
+                run.lock.ng2Locked { run.campaignPersistenceTokens.removeValue(forKey: token) }
+                self.cycle(run)
+            }
+        }
     }
 
     private func serviceCycleAssessment(_ run: NG2Run) {
@@ -1685,12 +2103,27 @@ final class NG2Runtime {
         guard let (spool, frame, state, generation, stored) = admission else {
             _ = ng2_controller_cycle_storage_failed(core, cycle.companion.job_id, Self.now()); return
         }
+        let persistenceToken = beginCampaignPersistence(run, kind: "intent")
         persistenceQueue.async {
             var success = false
+            var campaignFailure: String?
             do {
                 #if NG2_RUNTIME_HOST_TEST
                 NG2RuntimeCycleTestHooks.beforeIntentWrite?(state.job_id)
                 #endif
+                if let root = run.campaign, root.gate.ng2Locked({ root.next == nil }) {
+                    let nextID = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+                    let namespaceCount = self.lock.ng2Locked { self.seen.count }
+                    guard namespaceCount < 128, root.permits(Self.now()) else {
+                        campaignFailure = "run_limit"; throw NG2CycleSpool.Failure.limit("campaign-identities")
+                    }
+                    let reservation: NG2CycleSpool.Reservation
+                    do { reservation = try root.quota.reserveNext(runID: nextID, index: run.campaignIndex + 1, predecessorID: run.id) }
+                    catch { campaignFailure = "escrow_quota"; throw error }
+                    _ = try spool.commitRecord(kind: "continuation_reservation", cycle: UInt64(max(state.completed_shops, 0)), payload: reservation.payload)
+                    self.lock.ng2Locked { self.seen.insert(reservation.runID) }
+                    root.gate.ng2Locked { if root.next == nil { root.next = reservation } }
+                }
                 if !stored {
                     try spool.reserveCheckpoint(frames: 2, metadataBytes: 64 * 1024)
                     _ = try spool.commitFrame(captureID: frame.id, rgba: frame.rgba, metadata: self.cycleFrameMetadata(frame))
@@ -1703,12 +2136,18 @@ final class NG2Runtime {
             } catch { }
             let durable = success
             self.controlQueue.async {
+                defer { self.finishCampaignPersistence(run, persistenceToken) }
                 var dispatch = false
+                if let campaignFailure, let root = run.campaign {
+                    root.gate.ng2Locked { root.reason = campaignFailure; root.stopped = true }
+                    root.requestCancel(14); run.cancel(14)
+                }
                 run.lock.ng2Locked {
                     cycle.persistenceOutstanding = false
                     if durable { cycle.storedCaptureIDs.insert(frame.id) }
                     guard let currentCore = run.core, run.generation == generation, run.cancelReason == 0,
-                          !run.stopped, self.ownerActive(run), !LockStateMonitor.shared().isLocked else { return }
+                          !run.stopped, self.ownerActive(run), !LockStateMonitor.shared().isLocked,
+                          run.campaign?.permits(Self.now()) ?? true else { return }
                     if durable {
                         dispatch = ng2_controller_cycle_intent_commit(currentCore, state.job_id, command.id, frame.id, frame.prefix, Self.now()) == 1
                     } else {
@@ -1720,6 +2159,9 @@ final class NG2Runtime {
                 if dispatch, let currentCore = run.core { _ = self.dispatchReserved(run, command: command, core: currentCore) }
                 else { self.cycle(run) }
             }
+            #if NG2_RUNTIME_HOST_TEST
+            if run.campaign != nil { NG2RuntimeContinuousTestHooks.afterPersistenceEnqueueBeforeReturn?(run.id, "intent") }
+            #endif
         }
     }
 
@@ -1736,6 +2178,7 @@ final class NG2Runtime {
             return (spool, frame, run.generation, cycle.storedCaptureIDs.contains(frame.id), run.controllerSnapshot)
         }
         guard let (spool, frame, generation, stored, snapshot) = admission else { return }
+        let persistenceToken = beginCampaignPersistence(run, kind: "outcome")
         persistenceQueue.async {
             var success = false
             do {
@@ -1755,6 +2198,7 @@ final class NG2Runtime {
             } catch { }
             let durable = success
             self.controlQueue.async {
+                defer { self.finishCampaignPersistence(run, persistenceToken) }
                 run.lock.ng2Locked {
                     cycle.persistenceOutstanding = false
                     if durable { cycle.storedCaptureIDs.insert(frame.id) }
@@ -1772,6 +2216,9 @@ final class NG2Runtime {
                 }
                 self.refreshCycleEvidence(run); self.cycle(run)
             }
+            #if NG2_RUNTIME_HOST_TEST
+            if run.campaign != nil { NG2RuntimeContinuousTestHooks.afterPersistenceEnqueueBeforeReturn?(run.id, "outcome") }
+            #endif
         }
     }
 
@@ -1799,6 +2246,7 @@ final class NG2Runtime {
         guard let (spool, frames, ids, snapshot, assessment, rawSHA, generation) = admission else { return }
         let previousStored = run.lock.ng2Locked { cycle.storedCaptureIDs }
         let adopted = run.lock.ng2Locked { cycle.assessmentAdopted }
+        let persistenceToken = beginCampaignPersistence(run, kind: "checkpoint")
         persistenceQueue.async {
             var success = false
             do {
@@ -1821,6 +2269,7 @@ final class NG2Runtime {
             } catch { }
             let durable = success
             self.controlQueue.async {
+                defer { self.finishCampaignPersistence(run, persistenceToken) }
                 #if NG2_RUNTIME_HOST_TEST
                 NG2RuntimeCycleTestHooks.beforePersistenceCommit?(state.job_id)
                 #endif
@@ -1837,6 +2286,9 @@ final class NG2Runtime {
                 }
                 self.refreshCycleEvidence(run); self.notifyCycleIfNeeded(run); self.cycle(run)
             }
+            #if NG2_RUNTIME_HOST_TEST
+            if run.campaign != nil { NG2RuntimeContinuousTestHooks.afterPersistenceEnqueueBeforeReturn?(run.id, "checkpoint") }
+            #endif
         }
     }
 
@@ -1893,9 +2345,11 @@ final class NG2Runtime {
             guard let irregular = run.irregular else { return nil }
             return irregular.recoveredProjection ?? (try? NG2CycleWire.irregular(irregular.companion))
         }
+        let persistenceToken = beginCampaignPersistence(run, kind: "terminal")
         persistenceQueue.async {
             var saved = Set<UInt64>()
             var failure: String?
+            var terminalRecord: NG2CycleSpool.RecordRef?
             do {
                 let fresh = frames.filter { !stored.contains($0.id) }
                 try spool.reserveCheckpoint(frames: fresh.count, metadataBytes: 256 * 1024, finalization: run.irregular != nil)
@@ -1909,21 +2363,32 @@ final class NG2Runtime {
                     guard let irregularProjection else { throw NG2CycleSpool.Failure.invalid("irregular-terminal-status") }
                     body["irregular"] = .object(irregularProjection)
                 }
-                _ = try spool.commitRecord(kind: "terminal", cycle: UInt64(max(state.completed_shops, 0)), payload: NG2CycleWire.object(body))
+                if run.campaign != nil, var controller = body["controller"]?.objectValue {
+                    controller["continuous_campaign"] = .object(self.continuousCompanion(run.campaignContinuation))
+                    body["controller"] = .object(controller)
+                }
+                terminalRecord = try spool.commitRecord(kind: "terminal", cycle: UInt64(max(state.completed_shops, 0)), payload: NG2CycleWire.object(body))
             } catch { failure = "terminal_commit_failed" }
             self.controlQueue.async {
+                defer { self.finishCampaignPersistence(run, persistenceToken) }
                 run.lock.ng2Locked {
                     cycle.persistenceOutstanding = false; cycle.terminalPersisted = true
+                    cycle.terminalRecord = terminalRecord
                     cycle.storedCaptureIDs.formUnion(saved)
                     if let failure { cycle.failure = failure }
                 }
                 self.notifyCycleIfNeeded(run); self.cycle(run)
             }
+            #if NG2_RUNTIME_HOST_TEST
+            if run.campaign != nil { NG2RuntimeContinuousTestHooks.afterPersistenceEnqueueBeforeReturn?(run.id, "terminal") }
+            #endif
         }
     }
 
     private func notifyCycleIfNeeded(_ run: NG2Run) {
         guard let cycle = run.cycle else { return }
+        if let root = run.campaign, run.campaignContinuation.qualified == 1,
+           root.permits(Self.now()), root.gate.ng2Locked({ !root.stopped }) { return }
         let outcome: Int32? = run.lock.ng2Locked {
             guard !cycle.recovered, !cycle.notificationRequested, ownerActive(run) else { return nil }
             let positive = run.controllerSnapshot?.status.paused == 1 && run.cancelReason == 0
@@ -2016,8 +2481,9 @@ final class NG2Runtime {
         #endif
     }
 
-    private func initializeCycle(_ run: NG2Run) {
+    private func initializeCycle(_ run: NG2Run, continuationFrom predecessor: NG2Run? = nil) {
         guard let cycle = run.cycle else { return }
+        if let root = run.campaign { root.gate.ng2Locked { root.pendingIO = true } }
         run.lock.ng2Locked { cycle.persistenceOutstanding = true }
         persistenceQueue.async {
             do {
@@ -2025,14 +2491,23 @@ final class NG2Runtime {
                     "generation": run.generation, "runtime_instance_id": self.runtimeInstanceID,
                     "system_uptime_ns": UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000_000)]
                 if run.irregular != nil { provenance["native_profile"] = run.profile }
-                if run.yieldAfterRestart { provenance["yield_after_restart"] = true }
+                if run.yieldAfterRestart && run.campaign == nil { provenance["yield_after_restart"] = true }
+                if let root = run.campaign {
+                    provenance["continuous_campaign"] = ["schema": "ngg2-continuous-child-v1",
+                        "root_id": root.id, "index": run.campaignIndex,
+                        "predecessor_id": run.campaignPredecessor as Any? ?? NSNull(),
+                        "root_started_ns": root.started, "root_deadline_ns": root.deadline]
+                }
                 let spool: NG2CycleSpool
                 #if NG2_RUNTIME_HOST_TEST
                 if let root = NG2RuntimeCycleTestHooks.spoolRoot {
-                    spool = try NG2CycleSpool.testCreate(rootURL: root, runID: run.id, owner: run.owner, provenance: provenance)
-                } else { spool = try NG2CycleSpool.create(runID: run.id, owner: run.owner, provenance: provenance) }
+                    spool = try NG2CycleSpool.testCreate(rootURL: root, runID: run.id, owner: run.owner, provenance: provenance,
+                        quota: run.campaign?.quota, reservation: run.campaignReservation)
+                } else { spool = try NG2CycleSpool.create(runID: run.id, owner: run.owner, provenance: provenance,
+                    quota: run.campaign?.quota, reservation: run.campaignReservation) }
                 #else
-                spool = try NG2CycleSpool.create(runID: run.id, owner: run.owner, provenance: provenance)
+                spool = try NG2CycleSpool.create(runID: run.id, owner: run.owner, provenance: provenance,
+                    quota: run.campaign?.quota, reservation: run.campaignReservation)
                 #endif
                 try spool.reserveCheckpoint(frames: 6, metadataBytes: 256 * 1024)
                 self.controlQueue.async {
@@ -2043,12 +2518,33 @@ final class NG2Runtime {
                             && now >= run.acceptedStarted && now - run.acceptedStarted < 180_000_000_000
                     }
                     self.lock.ng2Locked { if !self.unpublishedCycles.contains(run.id) { self.unpublishedCycles.append(run.id) } }
-                    if active { self.start(run) }
+                    if active, let predecessor {
+                        self.persistenceQueue.async {
+                            self.controlQueue.async { self.commitContinuousChild(run, replacing: predecessor) }
+                        }
+                    } else if active, let root = run.campaign {
+                        self.persistenceQueue.async {
+                            self.controlQueue.async {
+                                root.gate.ng2Locked { root.pendingIO = false }
+                                if root.permits(Self.now()), run.lock.ng2Locked({ run.cancelReason == 0 }) {
+                                    self.start(run)
+                                } else { self.abortPreparedChild(run, predecessor: nil, reason: "cancelled") }
+                            }
+                        }
+                    } else if active { self.start(run) }
                     else {
                         if run.lock.ng2Locked({ run.cancelReason == 0 }) { run.cancel(15) }
                         run.lock.ng2Locked {
                             cycle.companion.state = 8; cycle.companion.status = 2
                             run.terminal = true; run.captureWorkerDone = true; run.lease = false
+                        }
+                        if let root = run.campaign {
+                            self.persistenceQueue.async {
+                                self.controlQueue.async {
+                                    self.abortPreparedChild(run, predecessor: predecessor,
+                                        reason: root.cancelReason == 2 ? "cancelled" : "storage")
+                                }
+                            }
                         }
                     }
                 }
@@ -2059,6 +2555,11 @@ final class NG2Runtime {
                         cycle.persistenceOutstanding = false; cycle.failure = "spool_initialization_failed"
                         cycle.companion.state = 8; cycle.companion.status = 3
                         run.terminal = true; run.captureWorkerDone = true; run.lease = false
+                    }
+                    if run.campaign != nil {
+                        self.persistenceQueue.async {
+                            self.controlQueue.async { self.abortPreparedChild(run, predecessor: predecessor, reason: "storage") }
+                        }
                     }
                     self.lock.ng2Locked { if !self.unpublishedCycles.contains(run.id) { self.unpublishedCycles.append(run.id) } }
                 }
@@ -2092,7 +2593,7 @@ final class NG2Runtime {
             && (run.restartYield?.captureControlTokens.isEmpty ?? true)
     }
 
-    private func beginCycleRecovery(owner: String, id: String) {
+    private func beginCycleRecovery(owner: String, id: String, placeholder: NG2Run? = nil) {
         let admitted = lock.ng2Locked { () -> Bool in
             guard !cycleRecoveryPending.contains(id), recoveredCycles.count < 16 else { return false }
             cycleRecoveryPending.insert(id); return true
@@ -2109,7 +2610,7 @@ final class NG2Runtime {
                 spool = try NG2CycleSpool.recover(runID: id, owner: owner)
                 #endif
                 var clock: String?
-                var recoveredProfile = Self.cycleProfile
+                var recoveredProfile = placeholder?.campaign != nil ? Self.irregularProfile : Self.cycleProfile
                 var recoveredYield = false
                 if let header = try? spool.sessionBytes(),
                    let object = try? JSONSerialization.jsonObject(with: header) as? [String: Any],
@@ -2236,6 +2737,9 @@ final class NG2Runtime {
                     cycle.companion.coverage = Int32(["unknown", "incomplete", "complete"].firstIndex(of: value["coverage"] as? String ?? "unknown") ?? 0)
                 }
                 self.lock.ng2Locked { self.recoveredCycles[id] = run }
+                if let root = placeholder?.campaign {
+                    root.gate.ng2Locked { if root.active?.id == id { root.active = run } }
+                }
             } catch {
                 self.lock.ng2Locked { self.cycleRecoveryFailures[id] = "evidence_storage_unavailable" }
             }
@@ -2259,6 +2763,7 @@ final class NG2Runtime {
         let base: Set<String> = ["run_id", "mode", Self.ownerParam]
         let extra: Set<String>
         switch mode {
+        case "campaign_status": extra = ["keepalive"]
         case "trial_support": extra = []
         case "prepare": extra = ["request_authorization"]
         case "status": extra = ["keepalive"]
@@ -2272,6 +2777,15 @@ final class NG2Runtime {
         guard Set(params.keys).isSubset(of: base.union(extra)),
               AuthManager.shared.clientName(forTokenId: owner) != nil, !RemoteSession.shared.paused else {
             return failure("Invalid or inactive cycle request.", -32602)
+        }
+        if mode == "campaign_status" {
+            guard spec.profile == Self.irregularProfile,
+                  let keepalive = params["keepalive"]?.boolValue,
+                  let root = lock.ng2Locked({ campaigns[id] }), root.owner == owner else {
+                return failure("Native campaign identity is unavailable; recover unpublished evidence.", -32097)
+            }
+            return (NG2CycleWire.envelope(runID: id, mode: mode,
+                payload: campaignPayload(root, keepalive: keepalive), spec: spec), nil)
         }
         if mode == "trial_support" {
             let payload: [String: JSONValue] = ["stop_detail_schema": .string("ngg2-stop-detail-v1"),
@@ -2294,6 +2808,9 @@ final class NG2Runtime {
             }
             return (NG2CycleWire.envelope(runID: id, mode: mode, payload: payload, spec: spec), nil)
         }
+        if mode != "status", campaignOwnsExports(owner) {
+            return failure("Native campaign evidence is deferred until all gameplay callbacks drain.", -32094)
+        }
         let existing = lock.ng2Locked { current }
         let run: NG2Run?
         if let existing, existing.id == id, existing.owner == owner, existing.cycle != nil,
@@ -2311,13 +2828,22 @@ final class NG2Runtime {
         if mode == "status" {
             guard params["keepalive"] == nil || params["keepalive"]?.boolValue != nil else { return failure("keepalive must be boolean.", -32602) }
             run.lock.ng2Locked {
-                if !cycle.recovered && NG2TicketGuard.renewsHeartbeat(keepalive: params["keepalive"]?.boolValue ?? false,
+                if !cycle.recovered && run.campaign == nil && NG2TicketGuard.renewsHeartbeat(keepalive: params["keepalive"]?.boolValue ?? false,
                     ownerActive: ownerActive(run), cancelled: run.cancelReason != 0) { run.heartbeat = Self.now() }
             }
             return (NG2CycleWire.envelope(runID: id, mode: mode, payload: cyclePayload(run), spec: spec), nil)
         }
+        if let root = run.campaign, root.gate.ng2Locked({ root.lease }) {
+            return failure("Native campaign evidence is deferred until all gameplay callbacks drain.", -32094)
+        }
         guard run.lock.ng2Locked({ run.terminal && !run.lease && !cycle.workerBusy }) else {
             return failure("Cycle export requires terminal, drained workers.")
+        }
+        guard run.lock.ng2Locked({ cycle.spool != nil }) else {
+            if let reason = lock.ng2Locked({ cycleRecoveryFailures[id] }) { return failure(reason, -32096) }
+            lock.ng2Locked { recoveredCycles.removeValue(forKey: id) }
+            beginCycleRecovery(owner: owner, id: id, placeholder: run)
+            return failure("Native partial initialization evidence recovery is pending.", -32094)
         }
         let exporter: NG2CycleExport? = run.lock.ng2Locked { cycle.exporter }
         guard let exporter else {
@@ -2340,6 +2866,7 @@ final class NG2Runtime {
                         previous.lock.ng2Locked { if !previous.lease { previous.cycle?.published = true } }
                     }
                     unpublishedCycles.removeAll(where: { $0 == run.id })
+                    if (run.campaign != nil || cycle.recovered) && current !== run { recoveredCycles.removeValue(forKey: run.id) }
                 }
             }
         } else {
@@ -2846,6 +3373,7 @@ final class NG2Runtime {
         var result: [String: JSONValue] = ["run_id": .string(projection.id), "profile": .string(projection.profile), "state": .string(projection.state),
             "api_version": .string("1.98.16-ngg2"), "report": .object(report)]
         if projection.yieldAfterRestart { result["yield_after_restart"] = .bool(true) }
+        if projection.continuousCampaign { result["continuous_campaign"] = .bool(true) }
         return result
     }
 
@@ -2867,9 +3395,11 @@ final class NG2Runtime {
     }
 
     private func start(_ run: NG2Run) {
+        if let root = run.campaign, !root.permits(Self.now()) { run.cancel(root.cancelReason == 0 ? 15 : root.cancelReason) }
         let createdCore = run.cycle == nil ? ng2_controller_create(Self.now()) : ng2_controller_create_cycle(run.acceptedStarted)
         guard let core = createdCore else {
-            run.cancel(15); run.lock.ng2Locked { run.terminal = true; run.captureWorkerDone = true; run.lease = false }; return
+            run.cancel(15); run.lock.ng2Locked { run.terminal = true; run.captureWorkerDone = true; run.lease = false }
+            finishContinuousTerminal(run); return
         }
         run.core = core
         if run.irregular != nil && ng2_controller_enable_irregular(core) != 1 {
@@ -2877,7 +3407,10 @@ final class NG2Runtime {
             run.lock.ng2Locked { run.captureWorkerDone = true }
             ng2_controller_cancel(core, Self.now(), 17); self.cycle(run); return
         }
-        if run.yieldAfterRestart && ng2_controller_enable_restart_yield(core) != 1 {
+        let enabled = run.campaign.map { ng2_controller_enable_continuous(core,
+            run.campaignIndex == 0 ? 0 : 1, $0.deadline) }
+            ?? (run.yieldAfterRestart ? ng2_controller_enable_restart_yield(core) : 1)
+        if enabled != 1 {
             run.cancel(17)
             run.lock.ng2Locked { run.captureWorkerDone = true }
             ng2_controller_cancel(core, Self.now(), 17); self.cycle(run); return
@@ -2890,6 +3423,7 @@ final class NG2Runtime {
             guard let self, let run else { return }
             if !self.ownerActive(run) { run.cancel(5) }
             let time = Self.now()
+            if let root = run.campaign, !root.permits(time) { run.cancel(root.cancelReason == 0 ? 15 : root.cancelReason) }
             if time >= run.acceptedStarted && time - run.acceptedStarted >= 180_000_000_000 { run.cancel(15) }
             let stale = run.lock.ng2Locked { time > run.heartbeat && time - run.heartbeat > 5_000_000_000 }
             if stale { run.cancel(19) }
@@ -2903,17 +3437,24 @@ final class NG2Runtime {
         // Queued legacy calls are independently refused at their execution site.
         run.lock.ng2Locked { run.bootstrapOutstanding = true }
         DispatchQueue.main.sync {
-            if run.lock.ng2Locked({ run.cancelReason == 0 }) && self.ownerActive(run) && !LockStateMonitor.shared().isLocked {
+            #if NG2_RUNTIME_HOST_TEST
+            NG2RuntimeContinuousTestHooks.beforeBootstrapAdmission?(run.id, run.campaignIndex)
+            #endif
+            if run.lock.ng2Locked({ run.cancelReason == 0 }) && self.ownerActive(run) && !LockStateMonitor.shared().isLocked
+                && (run.campaign?.permits(Self.now()) ?? true) {
                 // One nonblocking LaunchServices activation also launches the
                 // game when needed. No Options/calibration screen is opened.
                 let allowed = run.lock.ng2Locked { () -> Bool in
-                    if run.cancelReason != 0 { return false }
+                    if run.cancelReason != 0 || !(run.campaign?.permits(Self.now()) ?? true) { return false }
                     run.bootstrapUIStarted = true
                     return true
                 }
-                if allowed { _ = ForegroundApp.openBundleID(Self.game) }
-                run.expectedPID = ForegroundApp.processID(forBundleID: Self.game)
+                if allowed && run.campaignIndex == 0 { _ = ForegroundApp.openBundleID(Self.game) }
+                let observedPID = ForegroundApp.processID(forBundleID: Self.game)
+                run.expectedPID = run.campaignIndex > 0 ? run.successorPID : observedPID
                 run.foreground = run.expectedPID > 0 && ForegroundApp.frontmostPID() == run.expectedPID
+                    && observedPID == run.expectedPID
+                if run.campaignIndex > 0 && !run.foreground { run.cancel(3); return }
                 run.fast = FastActionHandler(app: XCUIApplication(bundleIdentifier: Self.game))
                 if !NG2CaptureBridge.prepare() { run.cancel(6) }
             }
@@ -3189,6 +3730,10 @@ final class NG2Runtime {
     private func cycle(_ run: NG2Run) {
         guard let core = run.core else { return }
         let now = Self.now()
+        if let root = run.campaign {
+            if root.cancelReason != 0 { run.cancel(root.cancelReason) }
+            else if !root.permits(now) { run.cancel(15) }
+        }
         let cancelled = run.lock.ng2Locked { run.cancelReason }
         if cancelled != 0 { ng2_controller_cancel(core, now, cancelled) }
         let frame: NG2Frame? = run.lock.ng2Locked {
@@ -3275,6 +3820,7 @@ final class NG2Runtime {
                     captureOutstanding: run.captureOutstanding, mainOutstanding: run.mainOutstanding, legacyCaptures: legacy)
                     && !(run.cycle?.workerBusy ?? false) && (run.cycle == nil || run.cycle!.terminalPersisted)
                     && (run.restartYield?.captureControlTokens.isEmpty ?? true)
+                    && run.campaignPersistenceTokens.isEmpty
             }
             if drained {
                 ng2_controller_destroy(core); run.core = nil
@@ -3295,6 +3841,7 @@ final class NG2Runtime {
                     historyOrder.append(run.id)
                     if historyOrder.count > 64 { history.removeValue(forKey: historyOrder.removeFirst()) }
                 }
+                finishContinuousTerminal(run)
             }
             #if NG2_RUNTIME_HOST_TEST
             let workerState = run.lock.ng2Locked {
@@ -3513,7 +4060,10 @@ final class NG2Runtime {
                     start: authority.start, end: authority.end, now: now)
                 // The gate rechecks cancellation/generation/owner and time
                 // immediately before the C begin linearization point.
-                let lostReason: Int32 = !ownerActive ? 5 : (locked ? 4 : (!foreground ? 3 : (!authorityFresh ? 7 : 0)))
+                let campaignLost: Int32 = run.campaign.map { root in
+                    root.cancelReason != 0 ? root.cancelReason : (!root.permits(now) ? 15 : 0)
+                } ?? 0
+                let lostReason: Int32 = campaignLost != 0 ? campaignLost : (!ownerActive ? 5 : (locked ? 4 : (!foreground ? 3 : (!authorityFresh ? 7 : 0))))
                 if run.generation == generation && run.cancelReason == 0 && lostReason != 0 {
                     let code = !ownerActive ? "owner" : (locked ? "locked" : (!foreground ? "foreground" : "authority_stale"))
                     recordDispatchFailure(run, command, generation: generation, authority: authority, entry: mainEntry, now: now, code: code)
@@ -3531,7 +4081,7 @@ final class NG2Runtime {
                     recordDispatchFailure(run, command, generation: generation, authority: authority, entry: mainEntry, now: now, code: code)
                     return false
                 }
-                if command.kind == 4 {
+                if command.kind == 4 || run.campaign != nil {
                     // C may spend the remaining input window on pixel proofs.
                     // Read live external guards first, then the actual clock,
                     // while this same run gate still owns the begun command.
@@ -3543,8 +4093,11 @@ final class NG2Runtime {
                     guard NG2TicketGuard.permits(expectedGeneration: generation, currentGeneration: run.generation,
                         cancelled: run.cancelReason != 0, ownerActive: sendOwner, foreground: foreground,
                         locked: sendLocked, now: sendNow, notBefore: command.not_before_ns, deadline: command.deadline_ns),
-                        sendAuthorityFresh else {
-                        let lost: Int32 = !sendOwner ? 5 : (sendLocked ? 4 : (!sendAuthorityFresh ? 7 : 0))
+                        sendAuthorityFresh, run.campaign?.permits(sendNow) ?? true else {
+                        let campaignLost: Int32 = run.campaign.map { root in
+                            root.cancelReason != 0 ? root.cancelReason : (!root.permits(sendNow) ? 15 : 0)
+                        } ?? 0
+                        let lost: Int32 = campaignLost != 0 ? campaignLost : (!sendOwner ? 5 : (sendLocked ? 4 : (!sendAuthorityFresh ? 7 : 0)))
                         let code = !sendOwner ? "owner" : (sendLocked ? "locked" : (!sendAuthorityFresh ? "authority_stale" :
                             (sendNow < command.not_before_ns ? "too_early" : (sendNow > command.deadline_ns ? "too_late" : "controller_rejected"))))
                         recordDispatchFailure(run, command, generation: generation, authority: authority,
@@ -3633,6 +4186,10 @@ final class NG2Runtime {
             return NG2RecoveryRecord(trace: traces[index], samples: Array(samples.prefix(min(count, samples.count))))
         }
         var stopDetail = NG2ControllerStopDetail(), handoff = NG2ControllerHandoff()
+        if run.campaign != nil {
+            var value = NG2ControllerContinuousStatus(); ng2_controller_continuous_status(core, &value)
+            run.lock.ng2Locked { run.campaignContinuation = value }
+        }
         ng2_controller_stop_detail(core, &stopDetail)
         ng2_controller_handoff(core, &handoff)
         // TEST056 HOST SNAPSHOT BEGIN.

@@ -462,7 +462,22 @@ uint32_t ng2_passage_candidates(const NG2Scene *s) {
         if (mouth==NG2_TILE_FLOOR) {
             if (!first || !second) {
                 int a=tile(s,mx+dy,my-dx),b=tile(s,mx-dy,my+dx);
-                if(!((first&&b==NG2_TILE_UNKNOWN)||(second&&a==NG2_TILE_UNKNOWN))
+                int outer_corner=0,sign,cx=mx+2*dx,cy=my+2*dy;
+                /* A lit FLOOR neck can have two dark mouth flanks while
+                 * its cap and one complete outer wall corner are observed.
+                 * This grants the same bounded FLOOR view, never either
+                 * dark flank or a gold/shop classification. */
+                if(a==NG2_TILE_UNKNOWN&&b==NG2_TILE_UNKNOWN
+                    &&passage_clear(s,mx+dy,my-dx)&&passage_clear(s,mx-dy,my+dx)
+                    &&passage_wall(s,cx,cy)&&passage_clear(s,cx,cy)) {
+                    for(sign=-1;sign<=1;sign+=2) {
+                        int ox=mx+dx+sign*dy,oy=my+dy-sign*dx;
+                        int wx=cx+sign*dy,wy=cy-sign*dx;
+                        if(passage_wall(s,ox,oy)&&passage_wall(s,wx,wy)
+                            &&passage_clear(s,ox,oy)&&passage_clear(s,wx,wy))outer_corner=1;
+                    }
+                }
+                if(!((first&&b==NG2_TILE_UNKNOWN)||(second&&a==NG2_TILE_UNKNOWN)||outer_corner)
                     ||tile(s,mx+dx,my+dy)!=NG2_TILE_FLOOR)continue;
                 for(j=-3;j<=3;++j)walls+=passage_wall(s,side?-3:j,side?j:-3);
                 if(walls<3)continue;

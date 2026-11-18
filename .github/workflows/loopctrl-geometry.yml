@@ -8,7 +8,7 @@ on:
         type: choice
         required: true
         default: device
-        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic, test099-runtime-remaining, test100-runtime-partial, test101-runtime-observation, test110-runtime-red, test112-runtime-diagnostic, test115-runtime-red, test116-spool-red, test116-runtime-red]
+        options: [device, focused, full, publish-download, test058-red, test058-quick, test081-retention-red, test099-runtime-red, test099-runtime-diagnostic, test099-runtime-remaining, test100-runtime-partial, test101-runtime-observation, test110-runtime-red, test112-runtime-diagnostic, test115-runtime-red, test116-spool-red, test116-spool-green, test116-runtime-red, test116-runtime-diagnostic]
       artifact_id:
         type: string
         required: false
@@ -137,7 +137,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   test116-spool-red:
-    if: inputs.native_lane == 'test116-spool-red'
+    if: inputs.native_lane == 'test116-spool-red' || inputs.native_lane == 'test116-spool-green'
     runs-on: macos-26
     timeout-minutes: 10
     steps:
@@ -173,16 +173,22 @@ jobs:
         run: |
           set -euo pipefail
           python3 driver/patches/loopctrl/check_cycle_spool116.py "$RUNNER_TEMP/test116-spool-red" --baseline-only --before-spool "$RUNNER_TEMP/test116-spool-red/before-source/NG2CycleSpool.swift" 2>&1 | tee "$RUNNER_TEMP/test116-spool-red/spool-command.txt"
+      - name: Verify TEST116 current Spool with the same author-frozen filesystem cases
+        if: inputs.native_lane == 'test116-spool-green'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 driver/patches/loopctrl/check_cycle_spool116.py "$RUNNER_TEMP/test116-spool-red/current" 2>&1 | tee "$RUNNER_TEMP/test116-spool-red/current-command.txt"
       - name: Save TEST116 Spool assertion evidence without other tests
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: loopctrl-test116-spool-red
+          name: loopctrl-${{ inputs.native_lane }}
           path: ${{ runner.temp }}/test116-spool-red/
           if-no-files-found: error
           retention-days: 30
   test116-runtime-red:
-    if: inputs.native_lane == 'test116-runtime-red'
+    if: inputs.native_lane == 'test116-runtime-red' || inputs.native_lane == 'test116-runtime-diagnostic'
     runs-on: macos-26
     timeout-minutes: 15
     steps:
@@ -227,15 +233,22 @@ jobs:
               ipa_built=False,linux_host_replayed=False,python39_replayed=False),indent=2))
           PYCODE
       - name: Observe TEST116 new-mode assertion Red against exact original Runtime
+        if: inputs.native_lane == 'test116-runtime-red'
         shell: bash
         run: |
           set -euo pipefail
           python3 driver/patches/loopctrl/check_runtime116.py upstream "$RUNNER_TEMP/test116-runtime-red" --expect-runtime-red --before-runtime "$RUNNER_TEMP/test116-runtime-red/before-source/NG2Runtime.swift" 2>&1 | tee "$RUNNER_TEMP/test116-runtime-red/runtime-command.txt"
+      - name: Diagnose only TEST116 admission and normal-chain callbacks without final acceptance
+        if: inputs.native_lane == 'test116-runtime-diagnostic'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 driver/patches/loopctrl/check_runtime116.py upstream "$RUNNER_TEMP/test116-runtime-red/current-diagnostic" --diagnostic 2>&1 | tee "$RUNNER_TEMP/test116-runtime-red/diagnostic-command.txt"
       - name: Save TEST116 Runtime assertion evidence without IPA or other tests
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: loopctrl-test116-runtime-red
+          name: loopctrl-${{ inputs.native_lane }}
           path: ${{ runner.temp }}/test116-runtime-red/
           if-no-files-found: error
           retention-days: 30
@@ -586,7 +599,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   native-source-ready:
-    if: inputs.native_lane != 'publish-download' && inputs.native_lane != 'test112-runtime-diagnostic' && inputs.native_lane != 'test115-runtime-red' && inputs.native_lane != 'test116-spool-red' && inputs.native_lane != 'test116-runtime-red'
+    if: inputs.native_lane != 'publish-download' && inputs.native_lane != 'test112-runtime-diagnostic' && inputs.native_lane != 'test115-runtime-red' && inputs.native_lane != 'test116-spool-red' && inputs.native_lane != 'test116-spool-green' && inputs.native_lane != 'test116-runtime-red' && inputs.native_lane != 'test116-runtime-diagnostic'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:

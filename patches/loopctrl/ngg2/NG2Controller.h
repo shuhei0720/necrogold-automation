@@ -228,6 +228,23 @@ int ng2_controller_restart_yield_goods(NG2Controller *, const NG2Scene *,
 int ng2_controller_restart_yield_permit(NG2Controller *, uint64_t capture_id,
     uint64_t start_ns, uint64_t prefix, uint64_t now);
 
+/* TEST116 trusted native campaign boundary. Existing POD layouts and old
+ * paused handoff authority remain unchanged. Runtime alone supplies a child
+ * FLOOR bootstrap after its sealed predecessor and real callback drains. */
+typedef struct {
+    uint32_t abi_version, struct_size;
+    int32_t enabled, successor_floor, qualified, reserved;
+    uint64_t root_deadline_ns, qualified_ns, parent_deadline_ns, old_job_id;
+    uint64_t restart_command_id, new_floor_capture_id;
+    uint64_t source_capture_id, source_start_ns, source_prefix;
+} NG2ControllerContinuousStatus;
+int ng2_controller_enable_continuous(NG2Controller *, int32_t successor_floor,
+    uint64_t root_deadline_ns);
+/* DATA-only end, never a UI command or a reusable old handoff. */
+int ng2_controller_continuous_finish(NG2Controller *, uint64_t capture_id,
+    uint64_t start_ns, uint64_t prefix, uint64_t now);
+void ng2_controller_continuous_status(const NG2Controller *, NG2ControllerContinuousStatus *out);
+
 /* Defaults: 16 directions, 12 restarts, 45s walking, 180s session. */
 NG2Controller *ng2_controller_create(uint64_t now);
 NG2Controller *ng2_controller_create_cycle(uint64_t now);

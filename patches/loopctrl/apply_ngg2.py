@@ -280,6 +280,12 @@ def seal(root):
             and b'necrogold_native_restart_yield_v1' in raw_patch):
         manifest.update(restart_yield_capability='necrogold_native_restart_yield_v1',
                         restart_yield_start_flag='yield_after_restart')
+    if ('LoopCtrlUITests/NG2Controller.h' in additions
+            and b'ng2_controller_enable_continuous(' in safe_path(ASSETS_ROOT, 'NG2Controller.h').read_bytes()
+            and b'"continuous_campaign"' in safe_path(ASSETS_ROOT, 'NG2Runtime.swift').read_bytes()
+            and b'necrogold_native_continuous_campaign_v1' in raw_patch):
+        manifest.update(continuous_campaign_capability='necrogold_native_continuous_campaign_v1',
+                        continuous_campaign_start_flag='continuous_campaign')
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2) + '\n')
     return manifest
 

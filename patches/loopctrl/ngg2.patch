@@ -71,7 +71,7 @@
  // Modified for NecroGold NG-G1: opt-in screenshot image geometry, 2026-11-05.
  import Foundation
 
-@@ -26,6 +27,51 @@
+@@ -26,6 +27,52 @@
 
  struct RPCMethodRegistry {
      static let methods: [RPCMethodDef] = [
@@ -79,7 +79,8 @@
 +            description: "Start one bounded native normal-zone1-1 run. UI and capture are exclusively leased until all workers drain. Same owner/run_id is idempotent. No purchase. Native status heartbeat must arrive within 5 seconds.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Fresh 32 lowercase hex UUID; retain before submitting."),
 +                     RPCParamDef(name: "profile", type: "string", required: true, description: "normal-1-1-v1: legacy/paged PNGs up to 4 MiB; normal-1-1-evidence-v2: manifest/chunk only, up to 20 PNGs / 512 KiB each / 10 MiB total; normal-1-1-cycle-v1: independent native classifier and durable bounded multi-shop cycle; normal-1-1-irregular-v1: same cycle plus positively confirmed enemy/death retry"),
-+                     RPCParamDef(name: "yield_after_restart", type: "boolean", required: false, description: "Only true with normal-1-1-irregular-v1: after a walking normal negative restart, pause the actual new floor for full publication and a fresh run. Omit for existing behavior.")],
++                     RPCParamDef(name: "yield_after_restart", type: "boolean", required: false, description: "Only true with normal-1-1-irregular-v1: after a walking normal negative restart, pause the actual new floor for full publication and a fresh run. Omit for existing behavior."),
++                     RPCParamDef(name: "continuous_campaign", type: "boolean", required: false, description: "True only with normal-1-1-irregular-v1 and without yield_after_restart: native-owned bounded fresh-UUID continuation after durable escrow; use campaign_status with the root UUID; collect all children after full drain.")],
 +            returns: "{run_id,profile,state,api_version,report:{schema,clock_id,device_now_ns,input_state,...}}"),
 +        RPCMethodDef(name: "necro_native_status", description: "Image-free cached native status; default is read-only. Only explicit keepalive:true renews an active uncancelled owner heartbeat. Input state 4 means started unknown; never resend.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Previously accepted run UUID"), RPCParamDef(name: "keepalive", type: "boolean", required: false, description: "Default false: read-only; true renews the active uncancelled owner heartbeat")],
@@ -100,10 +101,10 @@
 +                     RPCParamDef(name: "manifest_sha256", type: "string", required: false, description: "published: exact manifest UTF8 hash"),
 +                     RPCParamDef(name: "archive_sha256", type: "string", required: false, description: "published: client durable ZIP hash; native acknowledges receipt, not ZIP contents")],
 +            returns: "{schema:ngg2-cycle-v1,run_id,profile:normal-1-1-cycle-v1,mode,payload}; manifest returns byte-exact manifest_json and its SHA; image chunks <=64KiB, batch raw<=256KiB/wire<=512KiB"),
-+        RPCMethodDef(name: "necro_native_irregular", description: "Read-only opt-in irregular retry status, immutable evidence export and publication receipt; requires normal-1-1-irregular-v1. prepare checks notification readiness before gameplay. No cycle query grants game input.",
++        RPCMethodDef(name: "necro_native_irregular", description: "Read-only opt-in irregular retry status, immutable evidence export and publication receipt; requires normal-1-1-irregular-v1. campaign_status reports an explicit continuous root and its children; heavy export waits for whole-campaign drain. prepare checks notification readiness before gameplay. No cycle query grants game input.",
 +            params: [RPCParamDef(name: "run_id", type: "string", required: true, description: "Persisted 32 lowercase hex run UUID"),
-+                     RPCParamDef(name: "mode", type: "string", required: false, description: "prepare, status (default), manifest, chunk, batch, record or published"),
-+                     RPCParamDef(name: "keepalive", type: "boolean", required: false, description: "status only: explicit current-owner heartbeat"),
++                     RPCParamDef(name: "mode", type: "string", required: false, description: "prepare, status (default), campaign_status, manifest, chunk, batch, record or published"),
++                     RPCParamDef(name: "keepalive", type: "boolean", required: false, description: "status or campaign_status only: explicit current-owner heartbeat"),
 +                     RPCParamDef(name: "request_authorization", type: "boolean", required: false, description: "prepare only: request OS notification permission if the runner is foreground; never synthesize permission taps"),
 +                     RPCParamDef(name: "export_id", type: "string", required: false, description: "Exact immutable export ID"),
 +                     RPCParamDef(name: "capture_id", type: "integer", required: false, description: "chunk/batch: manifest capture ID"),
@@ -123,7 +124,7 @@
          RPCMethodDef(
              name: "config",
              description: "Read or update server settings and manage authorized sessions. With no params: returns current config plus the list of authorized sessions (client name, masked token prefix, granted/expiry times). Pass allow_remote_access and/or listen_port to change settings (persisted; server restarts, dropping the connection — reconnect at the returned address). Pass revoke_session_id to remove one session, or clear_sessions=true to revoke ALL tokens (including your own). Pass stop_server=true to SHUT DOWN the service (stops listening after replying; re-launch the runner to restart — tokens are preserved so no re-auth is needed).",
-@@ -549,7 +595,7 @@
+@@ -549,7 +596,7 @@
      /// release that added the encrypted auth channel plus the docs/Skill,
      /// clear-text, page-source, and reliability improvements. Single source of
      /// truth for /schema AND device_info.
@@ -132,7 +133,7 @@
 
      /// When this binary was built, as "YYYY-MM-DD HH:MM".
      ///
-@@ -569,6 +615,25 @@
+@@ -569,6 +616,26 @@
      /// call (no separate /schema fetch needed). Keep in sync with what the server
      /// actually implements.
      static let capabilityTags: [String] = [
@@ -155,6 +156,7 @@
 +        "necrogold_native_irregular_v1", // opt-in positively confirmed enemy/death retries
 +        "necrogold_native_image_price_v1", // strong target image with its own observed price; names optional
 +        "necrogold_native_restart_yield_v1", // explicit irregular-only pause of a confirmed restarted floor after real drain
++        "necrogold_native_continuous_campaign_v1", // explicit native-owned finite UUID chain with durable escrow and deferred host export
          "envelope_v1",         // /pair + encrypted /rpc envelopes (HMAC-SHA256)
          "stream_ticket",       // stream_ticket RPC → single-use ?ticket= for /stream + /logs
          "video_stream",        // GET /stream (framed H.264, docs/remote-control.md)
