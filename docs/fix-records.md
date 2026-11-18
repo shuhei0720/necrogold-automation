@@ -563,3 +563,5 @@ TEST113の固定公開確認: 配布source8c96c77（CODEとの差はdocs3件の�
 | FR-114-C-FIXTURE-QUALIFICATION | 2026-11-18 | 新profile正例の初期化が進まず、新ctypes constructorで試験processが異常終了 | 初期PAUSEに必要なirregular companionとconstructorのpointer型指定が不足 | 新114 factory内だけで公開opt-in・neutral companion・正しいctypes型を使用。初期PAUSE→RESUMEを実APIで実行 | 型/環境失敗はRedに加算せず保存。同じ最終fixtureで旧D7の無効profile Red1/error0→最終C新12Green。旧11methodのAST・旧helperは保持 | 開発中の試験資格2条件。製品・実機再発ではない |
 
 TEST114/build232配布前確認: CODEd5360e1/run44218410323でhost61・実Python3.9の28件・実Mac旧Cの指定Red1/現2ケースが成功。実Spool2export/48合成PNG、36native中2変更/34保持、実compiler、全1068 CODE sourceを照合した。IPA18,246,786bytes/SHA569e9ed7、5実物gateは5attemptで全成功。crossbinding 1dcb9f54。照合のための追加試験・分類・compileはない。固定公開・匿名取得は次工程。各行の原因未確定・実機改善未確認・再発数は維持する。
+
+TEST114の固定公開確認: 配布source3e81a16（CODEからdocs3件だけ）・全1068files/CRC/pathを照合し、test114-build232/Release449438834をpublisher233で公開。IPA/source/hash表の3assetを匿名GET200・全bytes/SHA・Release digest・tag commitまで確認した。source9,891,521bytes/SHA47696be4。公開後の変更はこのdocs記録だけで、配布assetは置換しない。実機改善未確認・速度未受入・再発数は維持する。

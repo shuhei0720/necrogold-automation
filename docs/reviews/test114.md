@@ -50,4 +50,10 @@ IPAは18,246,786bytes、SHA256 569e9ed7bc10809ffcc97fab1f02e0f6036d27479b0b8ea57
 
 package/host/retained/macho/compileの5実物gateは5attemptで全成功した。crossbinding SHA256 1dcb9f5433e3676b5fc12c8ec93aa35e8f902dbb54d7c33557457ec3af0dcd73。照合のための追加native実行・分類・compileは行っていない。検証readerのgate混同・空inventory・実artifactのsource/marker形式・import/metadata根拠の指摘は実物読取前に修正し、独立sourceレビューを閉じた。
 
-固定[TEST114/build232](https://github.com/shuhei0720/necrogold-automation/releases/tag/test114-build232)は、CODEとの差がdocs3件だけのclosing sourceをCodeload全filesへ照合して公開する。公開・匿名取得は次工程。実機は通常1-1開始直後のPAUSE、IPA更新→LoopCtrl完全終了/再起動→Start Server、新規展開フォルダのtest_114.sh --until-targetを依頼し、campaign ZIPと最後のrun全ZIPを返却、元runtime/全run ZIPを保持する。実機改善と実効速度は未確認。
+## 固定公開の完了
+
+固定[TEST114/build232](https://github.com/shuhei0720/necrogold-automation/releases/tag/test114-build232)、Release449438834をpublisher233/run44221960761で公開した。配布source3e81a168efcdec8199553ac0ab190b5c3d3fd4daはCODEとの差がstatus/検証/修正表のdocs3件だけ。Codeload全1068filesの全bytes/CRC/pathを照合し、9,891,521bytes/SHA256 47696be446277681603afa3bdbb727bd36dda6e044cda05a562b43f88c88aa21を固定した。
+
+IPA/source.zip/SHA256SUMS.txtをAuthorization/Cookie/Rangeなしの公開リンクから全GETし、3件ともHTTP200・全bytes/SHA・Release側digestが一致した。tagは配布sourceの正確なcommitを参照し、assetは3件だけ。実IPAの主bundleはPayload/LoopCtrlAllInOne.app、MinimumOS16.0を確認した。公開後の記録保存はdocsのみとし、固定配布物を置換しない。
+
+実機は通常1-1開始直後のPAUSE、IPA更新→LoopCtrl完全終了/再起動→Start Server、新規展開フォルダのtest_114.sh --until-targetを依頼し、campaign ZIPと最後のrun全ZIPを返却、元runtime/全run ZIPを保持する。実機改善と実効速度は未確認。
