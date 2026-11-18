@@ -1,0 +1,226 @@
+{
+  "schema": "test116-spool-reuse-v1",
+  "run_id": 44263970301,
+  "run_number": 247,
+  "driver_commit": "4f3e2bc526924e7512b28359690cca4694dfc8cb",
+  "artifact_name": "loopctrl-test116-spool-green",
+  "artifact_sha256": "3fafe9e2644a80e188935357a765addeb351a666c4c4cfd139d3b577dee1c315",
+  "source_inputs": {
+    "patches/loopctrl/ngg2/NG2CycleSpool.swift": "242cdabfaa3ce99fdebc34d15a88056dc74140681e692c43d7fad2945795682b",
+    "patches/loopctrl/check_cycle_spool116.py": "960946b03c1775f07c22f62f4c4e88bdb1ed78216e81ce40d0bb38ab1b7b31e6",
+    "patches/loopctrl/ngg2_cycle_spool116_tests.swift": "d8611d6d55099d52d36c90ad445736c55783c87a9a416b5ad74a32b0e1ac86c5",
+    "patches/loopctrl/ngg2_cycle_spool116_before_adapter.swift": "6ae4c66e7e035cd5e04e0245e4e6ed1d29eeee641ff7bcfc8ba8a6398a29aea5"
+  },
+  "before": {
+    "schema": "test116-spool-evidence-v1",
+    "baseline_only": true,
+    "baseline_adapter_is_test_only": true,
+    "green_cases": [
+      "quota",
+      "slot",
+      "seal",
+      "export",
+      "fault",
+      "alias",
+      "recovered_quota",
+      "diagnostic_unknown",
+      "record_integrity",
+      "preseal",
+      "alias_integrity",
+      "published_quota",
+      "orphan_accounting",
+      "orphan_quota",
+      "damaged_owner",
+      "recovery_namespace"
+    ],
+    "source_sha256": "074d76fc732a2287d14d8dd11256ac4d63462974556006b518f52ee66eefe84f",
+    "fixture_sha256": "d8611d6d55099d52d36c90ad445736c55783c87a9a416b5ad74a32b0e1ac86c5",
+    "adapter_sha256": "6ae4c66e7e035cd5e04e0245e4e6ed1d29eeee641ff7bcfc8ba8a6398a29aea5",
+    "compiler": "Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101)\nTarget: arm64-apple-macosx26.0\nswift-driver version: 1.148.6 ",
+    "command": [
+      "/usr/bin/swiftc",
+      "-Onone",
+      "-D",
+      "NG2_RUNTIME_HOST_TEST",
+      "/var/folders/h5/t85nd63d71x27_8gl5gw3l_w0000gn/T/spool116-iyk0g_cd/NG2CycleSpool.swift",
+      "/var/folders/h5/t85nd63d71x27_8gl5gw3l_w0000gn/T/spool116-iyk0g_cd/before-adapter.swift",
+      "/var/folders/h5/t85nd63d71x27_8gl5gw3l_w0000gn/T/spool116-iyk0g_cd/main.swift",
+      "-o",
+      "/var/folders/h5/t85nd63d71x27_8gl5gw3l_w0000gn/T/spool116-iyk0g_cd/fixture"
+    ],
+    "results": {
+      "quota": {
+        "returncode": 1,
+        "compile_errors": 0,
+        "failures": [
+          "FAIL accepted campaign_write_steals_other_slot_reservation"
+        ]
+      },
+      "slot": {
+        "returncode": 1,
+        "compile_errors": 0,
+        "failures": [
+          "FAIL accepted campaign_unpublished_slot17"
+        ]
+      },
+      "seal": {
+        "returncode": 1,
+        "compile_errors": 0,
+        "failures": [
+          "FAIL accepted control_frame_after_continuation_seal"
+        ]
+      },
+      "alias": {
+        "returncode": 1,
+        "compile_errors": 0,
+        "failures": [
+          "FAIL sealed_original_png_readonly_alias"
+        ]
+      },
+      "recovered_quota": {
+        "returncode": 1,
+        "compile_errors": 0,
+        "failures": [
+          "FAIL accepted recovered_export_steals_other_slot_reservation"
+        ]
+      },
+      "orphan_quota": {
+        "returncode": 1,
+        "compile_errors": 0,
+        "failures": [
+          "FAIL accepted partial_child_export_steals_parent_cohort_reservation"
+        ]
+      },
+      "orphan_accounting": {
+        "returncode": 1,
+        "compile_errors": 0,
+        "failures": [
+          "FAIL accepted second_atomic_part_exceeds_same_slot_two_MiB"
+        ]
+      }
+    },
+    "device_acceptance": false,
+    "input_authority": false
+  },
+  "current": {
+    "schema": "test116-spool-evidence-v1",
+    "baseline_only": false,
+    "baseline_adapter_is_test_only": true,
+    "green_cases": [
+      "quota",
+      "slot",
+      "seal",
+      "export",
+      "fault",
+      "alias",
+      "recovered_quota",
+      "diagnostic_unknown",
+      "record_integrity",
+      "preseal",
+      "alias_integrity",
+      "published_quota",
+      "orphan_accounting",
+      "orphan_quota",
+      "damaged_owner",
+      "recovery_namespace"
+    ],
+    "source_sha256": "242cdabfaa3ce99fdebc34d15a88056dc74140681e692c43d7fad2945795682b",
+    "fixture_sha256": "d8611d6d55099d52d36c90ad445736c55783c87a9a416b5ad74a32b0e1ac86c5",
+    "adapter_sha256": "6ae4c66e7e035cd5e04e0245e4e6ed1d29eeee641ff7bcfc8ba8a6398a29aea5",
+    "compiler": "Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101)\nTarget: arm64-apple-macosx26.0\nswift-driver version: 1.148.6 ",
+    "command": [
+      "/usr/bin/swiftc",
+      "-Onone",
+      "-D",
+      "NG2_RUNTIME_HOST_TEST",
+      "/var/folders/h5/t85nd63d71x27_8gl5gw3l_w0000gn/T/spool116-82n8fa4z/NG2CycleSpool.swift",
+      "/var/folders/h5/t85nd63d71x27_8gl5gw3l_w0000gn/T/spool116-82n8fa4z/main.swift",
+      "-o",
+      "/var/folders/h5/t85nd63d71x27_8gl5gw3l_w0000gn/T/spool116-82n8fa4z/fixture"
+    ],
+    "results": {
+      "quota": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "slot": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "seal": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "export": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "fault": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "alias": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "recovered_quota": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "diagnostic_unknown": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "record_integrity": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "preseal": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "alias_integrity": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "published_quota": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "orphan_accounting": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "orphan_quota": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "damaged_owner": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      },
+      "recovery_namespace": {
+        "returncode": 0,
+        "compile_errors": 0,
+        "failures": []
+      }
+    },
+    "device_acceptance": false,
+    "input_authority": false
+  }
+}

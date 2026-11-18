@@ -593,3 +593,24 @@ TEST115配布前の進捗: C8c740b31/Nav9c872fd8で新19件と、既076の状態
 TEST115最終確認: CODE1028137/CI237/run44239484029でhost65・実3.9の4件・現Mac4case/時計7条件・旧C/旧Runtime指定Red各1が成功。修正後fixture616fを用い、236の2件も全assert保持で通過。実Spool2export/48合成PNG、全1082 CODE source、実compiler/MachO9/primary2とhost hook不在を照合。36資産中3変更/33保持、seal766070e1、IPA18,250,993bytes/SHA107e3db9。5実物gateは初回5attempt・失敗0、crossbinding f787c4dc。確認の追加semantic/compile/classifier実行0。各原因の実機改善未確認/同根因通算不明を維持し、単体・Mac・配布物の合格で実機を完了扱いしない。固定公開/匿名全取得は次工程。
 
 TEST115公開確認: docs4件のみを締めたsource4765027・全1082filesを照合し、test115-build237/Release449551269をpublisher238で公開。IPA/source/hash表3assetを匿名全GET200・全bytes/SHA・Release digest・tag targetまで確認。source9,963,234bytes/SHA7e106016。公開後の変更はdocs記録だけで配布assetは置換しない。実機改善未確認・速度未受入・再発数の区別は維持する。
+
+## TEST116: TEST115実機3周の対応（2026-11-18）
+
+7ZIP/3campaign/4固有run、96PNG/110記録を全照合。e0b8は正常完全陰性45.157ms→実RS→新床まで成功し比較基準とする。残る3件の開扉後停止と見逃しを改善完了にしない。[全体計画](plans/test116-device-failures.md)・[商店](plans/test116-shop-continuation.md)・[連続化](plans/test116-continuous-campaign.md)。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-116-CREDIT-CURRENT-PARTIAL | 2026-11-18 | 1周0084は開扉後、全商品を見ず停止 | 元117→120の通常直接零/上端移行は115条件内だが、静止credit獲得後の分岐から現在PARTIALの再判定を呼ばない | 未消費・確実未送信のcredit/予約だけを退役し同じ独立DATAへ。元期限/共有DATA2/潜在商品/一UPを保持 | 実guard校正、変更前の指定assertion Red→新PARTIALケース。正常producerの一UP→全商品陰性→保存RSと直接関連を確認。実機未確認 | 今回1。FR115の適用状態漏れが継続、同症状通算不明 |
+| FR-116-CURRENT-TOP-REVERSAL | 2026-11-18 | 3周36b6は現在PARTIAL再判定後に2商品で停止 | 188→190で115処理は動いたが191で元のtop複製ITEMが戻りcurrentの完全一致検査が失効 | 元current anchorへの直接零と固定下段/元潜在領域内のtop支持を合成。新fit/独立2零/未消費一UPを保持 | 元188/190/191の通常Motion/Ring校正、指定Red→同PARTIALケースと反例。元商品の未観測部分を陰性にしない。実機未確認 | 今回1。上端表示変化の同症状継続、同根因通算不明 |
+| FR-116-EARLY-FULL-LATE-UNIT | 2026-11-18 | 2周最後134eは開扉後のUPに商品FULLが見えた後停止 | 元136→142の移動確認はUNKNOWNで商品優先に切替。144は元136から正常unitだがDATA anchor142からはUNKNOWN/新GOLD | 元ACK/元before/元visualD内の通常同方向unitだけで未creditを単回確定し独立DATAへ。142のUNKNOWNは上書きせず候補優先を維持 | §10/11の限定仕様、新旧指定Redと元event/trace/参照の整合、元期限/新入力/候補/逆方向の反例。実機未確認 | 今回1。早期商品切替と後続unitの境界、同症状通算不明 |
+| FR-116-CAPPED-FLOOR-NECK | 2026-11-18 | 1周capture25の観測通路を見送りRS | 観測済FLOORの口の両脇がUNKNOWNで旧形状外。金色閾値や115対策削除ではない | 外側cap/側壁2点と既部屋壁3点を要求し、既床だけで接近する既候補へ追加 | 同一新6件が旧Navで41assert失敗/error0→新6＋直接旧68成功。元Scene不変、mask0→8/既床5歩。金壁露出/実機到達は未確認 | 今回1。旧観測口の別形状適用外、同症状通算不明 |
+| FR-116-CAMPAIGN-COLLECTION-BARRIER | 2026-11-18 | 正常RS後の新床で意図的PAUSE、次UUIDまで84.306秒 | 旧112の有限run区切りが端末PAUSE→host全回収/検証/公開→新startを逐次要求 | 最新指示に従う新opt-inの端末内耐久保存/実drain→fresh UUID無PAUSE継続を実装。旧上限/旧mode/候補/取消を維持し総quotaも有限化 | 独立設計R2のP0/P1/P2=0。以後のC/Spool/Runtime/実3.9境界試験・IPA・実機は別途確認。回収自体の70〜89秒が速くなったとは扱わない | 今回の意図的区切り1。旧112設計と最新運用要求の不整合、削除回帰ではない |
+
+TEST116開発中の追加境界（実機再発数へ加算しない）:
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-116-DEV-PUBLICATION-RETRY | 2026-11-18 | 実Mac244は正常RS/次child後、公開ACK確認で失敗 | 非current回復objectを公開時に解放し、直後の同じreceipt再送が回復pendingへ戻る。既predicateは成功後も再評価する | 既history64内にowner/profile/export/manifest/archiveの小耐久ACKだけ保持。画像cacheを増やさない | 修正前normal_chainの指定FAIL、最終Macで初回全返信/同ACK/receipt-only再送と異identity拒否を確認する。未配布、実機未確認 | 開発中1。実機発火数不明 |
+| FR-116-DEV-CAPTURE-RETURN | 2026-11-18 | capture deferのdoneflag/queue enqueueを実Thread returnと扱い得る | enqueue後もThread本体のreturnは未完了 | 新modeだけ保持Thread.isFinishedまで終端/lease解放/child開始を遮断し、既timerで再確認。終了後参照を解放 | defer enqueue後のparkでchild0/lease保持、実return後だけ継続するMac境界。旧mode不変、実機未確認 | 開発中1。実機再発へ加算しない |
+| FR-116-DEV-RECOVERY-STORAGE | 2026-11-18 | 新連続modeの回復で破損header原本やreceipt-only公開ledgerを容量会計から外し得る | 通常headerだけのcohort復元/単一ledger内だけの公開proof検査 | 耐久予約・sealのlinkからstorage-only会計を再構成し実manifestとreceiptをcross-bind。原headerを修復せず入力権限も復元しない | 旧Spoolの指定assertion Red→同fixtureの実Mac正常/破損/公開/conflict境界を確認する。実機未確認 | 開発中2境界。実機発火数不明 |
+| FR-116-DEV-ATOMIC-TEMP | 2026-11-18 | 故障時に同slot .part合計2MiBを超えて診断回収も拒否され得る | 既orphanと次atomic一時bytesを併算せず、並行usage refreshがactive予約を上書きし得る | 同slot tempをpart open前に予約、active予約は実usageと分離してrefresh後も保持し、実完了/故障時だけ解除。上限/原本不変 | 実RGBA orphan1.48MiB＋新PNG拒否/原本inventory、予約後の第三ledger refresh割込みを固定16case内で確認する。実機未確認 | 開発中2境界。実機再発へ加算しない |

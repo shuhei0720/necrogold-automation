@@ -6,7 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
-| TEST115の実機4周 | [計画](plans/test115-device-failures.md)・[検証](reviews/test115.md) | 通路/上部入口/現在PARTIAL、状態別W/P、送信直前時計 |
+| TEST115実機→TEST116 | [全体](plans/test116-device-failures.md)・[商店](plans/test116-shop-continuation.md)・[連続化](plans/test116-continuous-campaign.md) | credit後/逆top/元ACK、観測口25、端末保存後の無PAUSE新UUID |
 | 直前の実機・候補保持 | [114](plans/test114-device-failures.md)・[113](plans/test113-device-failures.md)・[112](plans/test112-device-failures.md) | 元対策と未確定原因は各計画/修正表へ |
 | TEST107の複合変化・初歩前フェード | [計画](plans/test107-partial-composition.md) | top商品投影と既地形関係の合成、元D内の最新2画像による再取得 |
 | TEST106の実機停止/候補見逃し | [計画](plans/test106-real-failures.md)・[検証](reviews/test106.md) | 共通閉容器/価格証明、開扉後の遠方金壁、最上段投影、左側の観測vantage |

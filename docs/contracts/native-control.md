@@ -80,6 +80,8 @@ FRESH後の旧referenceは再作成/SAME復活禁止。primary UNKNOWN時だけ�
 
 商品latchを追加入力より優先。適格な同一商品frameの移動確認は1回credit可、UNKNOWN/TWEENも商品保持して終了。earliest前/期限後は移動を捏造せず最終実評価診断を残す。不可視≠対象なし、候補保持/購入禁止/通知を維持。
 
+TEST116の限定例外: 開扉後の既知UP ACKが最初のFULLで通常UNKNOWNになっても、商品を優先して旧入力待機を閉じたまま、元before/同command/prefixから後続FULLへの通常同方向unitを元visualD・評価数/間隔・actualcommit内で一度だけ採用できる。早期FULLからの静止や移動へ置換せず、既候補/未終了worker・開始済みの新入力・不明synthがあれば採用しない。元eventと主MotionReferenceを実際の後続captureへ結び、同じ位置/visit更新を一度だけ行う。新しい入力を再送せず、元親/同期/共用DATA枠内の独立した現在DATA・直接零2枚・新fit・未消費の一回観測UPだけへ進む。早期FULLの通常UNKNOWN結果は保持し、後続の完全陰性を別に証明する。
+
 090の薄鉄検出は既FLOOR/上下金bracket/商品UNKNOWN・非原点/非保護/全ROI非HUDの固定縦線だけをDOORへ回復する。開いたSceneは変えず既DOOR_OPENEDの0歩creditを使う。商人/看板露出やPARTIALは商品確認完了ではない。
 
 ## 11. ABI/診断
@@ -87,6 +89,8 @@ FRESH後の旧referenceは再作成/SAME復活禁止。primary UNKNOWN時だけ�
 Status192B/Event128B/Scene23864Bは不変。MotionWait48B layoutも不変だがdeadline_nsはvisualDへ意味変更（cap13で識別）。SceneDetail.validation=2 SAME/12 FRESH_ALLOWED。MotionReference80B別query/ACK MOVE≤16行（[12key閉schema](../../necroprobe/native_walk.py)）。
 
 観測前observed=全motion=0・attempted=false・selected=authority。reference_prefixは同MOVE前の最終ACK（未送信event除外）。未適格fallbackの評価済表示禁止。通常event/trace observed一致、goods=1最終ACK MOVEだけ未評価/最後のUNKNOWN・TWEEN traceと後の商品event observedとの差を許す。
+
+TEST116の上記late-unitは、元ACK event/主traceのobservedを同じ実後続captureへ更新する。主sourceは元MOVE authorityのままでfallbackは実行しない。早期FULLのRing source/job/raw証拠を後続unitのsourceへ偽装せず、以後の独立DATAは新source/jobとして残す。
 
 RecoveryTrace192B/RecoveryStatus456Bの別getterで消去前model/raw samples≤13をsnapshotしrefit/最終PAUSE/export後も保持。最初/最新≤2件、sequence=1/record_count、dropped_records=record_count−保持件数。mode0通常/1初歩/2確認後、reason1〜8、clock1capture_end/2actual_tick/3actual_commit、episode0の失効記録も可。[061閉schema/enum](../plans/test061-verified-progress.md#診断と互換)の全named fieldを保存し、ns/countは非bool非負int<2^63、model/sample型/有限double/enum/件数/sequenceと余剰key拒否を検査。初期counter/ns=0・mode0・records=[]。accepted空診断の補完は応答copyだけで保存report/lifecycle不変。既存診断/初故障も保持。
 
@@ -101,6 +105,8 @@ RecoveryTrace192B/RecoveryStatus456Bの別getterで消去前model/raw samples≤
 profile1 `normal-1-1-v1` は旧initial/優先・PNG≤20/各512KiB/計4MiB・legacy/paged同一。profile2 `normal-1-1-evidence-v2` は各map最終正常見送りsource≤12＋既critical≤7に、091で一致snapshot/拒否時刻/prefixを証明したlead未確認・原点・CLEAR sourceの未送信MOVE SCREEN拒否raw最大1枚（累積入力/移動不変。level入力0の証明や回復権限にはしない）を追加する。既criticalの順序/保持は維持し合計critical≤8/20pin、PNG≤20/各512KiB/計10MiB、paged-only/bulk拒否。profile/予算はrun固定、wireから拡張禁止。欠落/oversizeを記録。chunk64KiB、manifest wire512KiB/chunk wire256KiB、batch≤4chunk/256KiB。各chunk検証/取消/期限、検証済prefixだけhash/cursorへ反映。atomic fragment→journal順保存、再中断も未検証suffix保持、active journalが回復権限。暗号/HTTP上限不変。
 
 RPC2秒/結果8秒。unsafe/非pagedは90秒を残session180秒内へ。[069](../plans/test069-collection-gate.md)のterminal/drained・input0/3・非inflight/非凍結pagedは独立300秒。同UUID/cursorのread-only、start/入力/keepalive/cancelなし。旧返信cache消去・未知input解決の誤認禁止。local原本保持、全画像検証/ZIP公開前の終了/次start禁止。§3排他。
+
+TEST116の新cap/明示`continuous_campaign:true`だけは[連続化計画](../plans/test116-continuous-campaign.md)を適用する。旧正常完全陰性→実RS/newFLOOR/outcomeの耐久保存・候補veto・全実callback return・端末内全原本の封印と容量予約が揃った時だけ、新UUIDを無PAUSEで開始できる。hostへのPNG転送/ZIP公開を入力資格にせず停止後へ遅延するが、原本をRAMだけに残して継続しない。子ごとの旧予算、root絶対期限/総容量、同owner/取消/前面/lockを検査し、古い画像/位相/入力権限は継承しない。通常mode・旧yield・読取回復の禁止は維持する。再起動後の封印/予約情報は保存容量と読取回収だけに使い、自動再開・入力権限を復活させない。全childのZIP/公開を照合する前に回収完了と表示しない。
 
 ## 14. Compileと封印
 

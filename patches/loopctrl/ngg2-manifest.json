@@ -83,7 +83,7 @@
     },
     "LoopCtrlUITests/NG2CycleSpool.swift": {
       "source": "NG2CycleSpool.swift",
-      "sha256": "0e11a34cd32dfd147cbbc9fb0d5c2674545e42f6a1386a90c4b419216ad1d9e3"
+      "sha256": "242cdabfaa3ce99fdebc34d15a88056dc74140681e692c43d7fad2945795682b"
     },
     "LoopCtrlUITests/NG2CycleWire.swift": {
       "source": "NG2CycleWire.swift",
@@ -123,7 +123,7 @@
     },
     "LoopCtrlUITests/NG2Runtime.swift": {
       "source": "NG2Runtime.swift",
-      "sha256": "64b4bf6c3b7dcf38b48896e9b6c40b38d87eae3b2707b1c890a13c65484432b1"
+      "sha256": "53992a42e19b5300a7f327067537f9a7105122ccba29fd7a95c7ae76ab0e6b16"
     },
     "LoopCtrlUITests/NG2Templates.h": {
       "source": "NG2Templates.h",

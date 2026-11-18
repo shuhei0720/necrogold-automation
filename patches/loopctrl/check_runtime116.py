@@ -14,20 +14,20 @@ import sys
 import check_runtime115 as retained
 
 HERE = Path(__file__).resolve().parent
-CURRENT_SCOPE_FINALIZED = False
+CURRENT_SCOPE_FINALIZED = True
 DIAGNOSTIC_CASES = ('new_mode', 'normal_chain')
-GREEN_CASES = ('new_mode', 'normal_chain', 'candidate', 'late_hint',
+GREEN_CASES = ('new_mode', 'normal_chain', 'history_mode', 'nil_core', 'candidate', 'late_hint',
     'cancel_before_swap', 'cancel_after_swap', 'bootstrap_cancel', 'bootstrap_deadline',
     'qualified_cancel', 'successor_owner', 'successor_locked', 'successor_foreground',
-    'main_return', 'root_clock_before', 'root_clock_equal', 'root_clock_late',
+    'main_return', 'heartbeat', 'root_clock_before', 'root_clock_equal', 'root_clock_late',
     'root_clock_ticket_before', 'producer', 'classification_commit', 'capture_decode',
-    'capture_control', 'seal_producer', 'seal_commit', 'writer:checkpoint',
+    'capture_control', 'capture_thread_return', 'seal_producer', 'seal_commit', 'writer:checkpoint',
     'commit:checkpoint', 'writer:intent', 'commit:intent', 'writer:outcome',
-    'commit:outcome', 'writer:terminal', 'commit:terminal')
-DATA_CASES = ('normal_chain', 'candidate', 'late_hint', 'cancel_before_swap',
+    'commit:outcome', 'writer:terminal', 'commit:terminal', 'post_begin_clock')
+DATA_CASES = ('normal_chain', 'history_mode', 'candidate', 'late_hint', 'cancel_before_swap',
     'cancel_after_swap', 'qualified_cancel', 'successor_owner', 'successor_locked',
     'successor_foreground', 'producer', 'classification_commit', 'capture_decode',
-    'capture_control', 'seal_producer', 'seal_commit', 'writer:checkpoint',
+    'capture_control', 'capture_thread_return', 'seal_producer', 'seal_commit', 'writer:checkpoint',
     'commit:checkpoint', 'writer:intent', 'commit:intent', 'writer:outcome',
     'commit:outcome', 'writer:terminal', 'commit:terminal')
 BEFORE_RUNTIME_SHA256 = 'e655aa10f0ba48a9e2f719e25a5cbd9c7f5c69f6e907de0ac1bcae9da228dbe0'

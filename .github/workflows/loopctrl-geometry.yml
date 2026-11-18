@@ -1216,6 +1216,29 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/test115-runtime"
           python3 driver/patches/loopctrl/check_runtime115.py upstream "$RUNNER_TEMP/test115-runtime" 2>&1 | tee "$RUNNER_TEMP/test115-runtime/runtime-command.txt"
+      - name: Bind reused TEST116 actual Spool proof to the identical sealed source and fixtures
+        if: inputs.native_lane == 'device' && needs.test061-host-contracts.outputs.device_profile == '116'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/test116-spool-proof"
+          python3 - <<'PYCODE' | tee "$RUNNER_TEMP/test116-spool-proof/source-reuse.json"
+          import json
+          from pathlib import Path
+          import sys
+          sys.path.insert(0, str(Path('driver/patches/loopctrl').resolve()))
+          import run_test116_host as selected
+          selected.ensure_scope()
+          proof = selected.reused_spool_proof(Path('driver').resolve(), Path('upstream').resolve())
+          print(json.dumps(proof, indent=2))
+          PYCODE
+      - name: Verify TEST116 current continuous Runtime and retained final-clock callbacks against sealed sources
+        if: inputs.native_lane == 'device' && needs.test061-host-contracts.outputs.device_profile == '116'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/test116-runtime"
+          python3 driver/patches/loopctrl/check_runtime116.py upstream "$RUNNER_TEMP/test116-runtime" 2>&1 | tee "$RUNNER_TEMP/test116-runtime/runtime-command.txt"
       - name: Generate and inspect actual source-specific project configuration
         run: |
           (cd upstream && xcodegen generate --spec project.yml)
@@ -1357,6 +1380,8 @@ jobs:
             ${{ runner.temp }}/test115-runtime-before/
             ${{ runner.temp }}/test115-runtime-before-clock/
             ${{ runner.temp }}/test115-runtime/
+            ${{ runner.temp }}/test116-runtime/
+            ${{ runner.temp }}/test116-spool-proof/
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt
             ${{ runner.temp }}/ngg2/perception-build/
