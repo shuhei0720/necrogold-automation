@@ -1,4 +1,4 @@
-# TEST115 検証記録（配布前）
+# TEST115 検証記録
 
 2026-11-18（日本時間）。[計画](../plans/test115-device-failures.md)・[修正表](../fix-records.md)。TEST114実機4周は不合格であり、この記録のソフト試験は実機改善完了を意味しない。
 
@@ -37,3 +37,19 @@ R4の初期新試験は票の発行だけを確認し、実行可能性が不足
 送信直前時計の実TDD: CI234は初回に継承したFULL商品fixtureへ入る指定外失敗で、compileエラー0でもRedではない。新nativeV1二caseだけ既RGBA hookを解除し、CI235/run44235308732/CODE3d35a7cでは旧Runtime dc082の指定Red1（D+1nsで実gesture1/ACK/input1）を確認。原artifact138045bytes/SHA8557502eを全取得・CRC・全実ソースと照合後にRuntime e655aa10を反映した。最終製品sourceはC8c740b31/Nav9c872fd8/Runtime e655aa10、36資産中3変更/33保持、seal766070e1。最終4case/時計7条件とIPAはまだ未確認である。
 
 CI236/run44237233905/CODE3faf423: host65（native57/selector8）、実CPython3.9.25の4件、Macの旧C/旧Runtime指定Redは成功。現Macはpartial_cancelと送信時計7条件が成功し、lateD+1の方向入力0/加算0/既知未送信、等号の許可と取消競合を確認した。後続の安全なPAUSEは方向入力の件数とは別で、全UI0とは書かない。他2caseはcameraのfake82ms進行と、postUP第3worker中の明示cancelで不合格。製品3ファイルは保持し、新115Swiftだけ616fba28へ訂正した。全assert/元絶対時刻/厳格な正常producer検査は保持。実4case全体の成功・IPAは未確認である。236のhost/validation ZIPは全bytes/SHA/CRCを保存し、5実物gateは開始していない。
+
+## 最終CI237と実物照合
+
+CODE `1028137a0b9db599b32185b728492fdb6fb9b20b`、run `44239484029` は全必須job成功。host65（native57/selector8）、実CPython3.9.25の4件、実Macの現4case（passage_fresh/partial_view/partial_cancel/post_begin_clock）・時計7条件、旧C053b/旧Runtime dc082の指定assertion Red各1を同じCODEへ結合した。未知caseを拒否し、skip/期待失敗で成功にしない。変更のない分類/ヘルパーの過去結果は再利用理由を明記し、不要な全体再実行は加えない。
+
+正常producer/実callbackの手続き的Spool2export/各24PNG、計48PNGを全照合。nativeは36資産中C/Nav/Runtimeの3変更/33保持。Ring/Perception/全header/ABI/G1/R12/feature/ELF（56088bytes）/数値条件/全累積予算を保持した。5gateはpackage/host/retained/macho/compileの初回5attemptで全成功、失敗0。確認のための新しいsemantic/compile/classifier実行は0。
+
+| 配布物・照合 | 結果 |
+| --- | --- |
+| IPA | 18,250,993bytes、SHA256 `107e3db9ee265f6dabdca7b8cfe3a027b603aa8d87b951db073e8f5e062d3990` |
+| 実bundle | `Payload/LoopCtrlAllInOne.app`、build237、最低iOS16.0 |
+| seal | `766070e1b45a3166195360fe6756cdb2266ff07014311802a2ab030a8cbb5d49` |
+| 全CODE source | 1082files、SHA256 `7424a3f5329a9a1e26d3e06aea010fde5ff546913f8081d7bca27e1f88135f4b` |
+| 全実物gate結合 | `f787c4dcdb0a6c9ed7c617a95f7877086eb5ac74e214fa5566a8ee45a19fa2b1` |
+
+最終sourceと固定Releaseはdocsのみの締め後に照合する。実機の商品到達/対象候補精度/毎拍/人より速い受入は未確認。次回は通常1-1のポーズからTEST115を `--until-target` で実行し、campaign索引＋最後のrun全ZIPを返却、全runtime原本を保持する。
