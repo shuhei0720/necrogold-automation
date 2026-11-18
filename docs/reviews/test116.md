@@ -50,7 +50,7 @@ CI242は新Runtimeのstatic/instance呼出10件のコンパイル失敗で、意
 
 CI245はfixtureのclock重複宣言1件のコンパイル失敗で、Red/Greenには数えない。CI246は中間bbfaddの16ケースが通ったが、active一時予約を別ledgerの実usage refreshが消せる追加境界があり、最終結果へ流用しない。固定16ケース内にその割込みを追加した242cdabf/fixtured8611d6dをCI247(run44263970301/CODE4f3e2bc)で確認し、旧074dの指定7assertion Redと現16全Green・コンパイルエラー0が同fixtureで成立した。各atomic partを開く前に同slotのtemp2MiBと残予約を検査し、原本を削除せず回復できる。実APIのreceipt-only公開、hash/owner破損、未commit orphan、低容量を含む。独立Spool R3残P0/P1/P2=0。実機未確認。
 
-最終CODE c1384e6・seal e4142f29、36native中6変更/30保持、新既存path集合も固定。CI248のhost99(89native＋selector10)/実CPython3.9.25の40が失敗/エラー/skip0で通過した。Spool247は4入力SHAと実installed sourceが同bytesであることを照合して再利用し、同じ試験を形式的に再実行しない。
+CI248の凍結CODE c1384e6・seal e4142f29、36native中6変更/30保持、新既存path集合も固定。CI248のhost99(89native＋selector10)/実CPython3.9.25の40が失敗/エラー/skip0で通過した。Spool247は4入力SHAと実installed sourceが同bytesであることを照合して再利用し、同じ試験を形式的に再実行しない。
 
 読取専用crossbind toolの独立reviewはP0/P1=0/P2=1。basename receipt.jsonの除外が全階層へ広がるため、今回の実物は別途、root receiptだけを除いたexact inventory集合・nested未列挙receipt0を確認する。製品source/入力権限の不具合ではなく、tool修正は別のvalidation-only工程へ分離する。
 
@@ -62,6 +62,28 @@ lockedはbootstrap main guard失効を取消へ結ばず、後のactivation待�
 
 この実行はwriter:checkpoint等のcolonを含む出力名のためGitHub artifact uploadも拒否された。全job logは取得・保持したが、実receipt/Spoolの完全artifact照合は未実施のまま残す。case名とassertを変えず保存pathだけ可逆な安全名へ結ぶ。次の同範囲実行で閉じる。
 
+## 修正後CI249と実保存データ
+
+CODE98e2d2d0a694a26571b47162799249816caa378b・seal87918ba8、run44267350921。ロック時のnewmode開始待機とowner試験の観測を限定修正し、独立した当incrementのP0/P1/P2=0を確認。元Auth拒否と旧modeは維持した。出力名は論理case/assertを変えず、8colon caseだけ可逆UTF-8 hexへ写し、map/全log SHAを実receiptへ結合した。
+
+修正後はhost99・実CPython3.9.25の40・実Mac Runtime新35＋保持時計1の36が全合格、コンパイルエラー/意味assertの失敗/skipは0。Runtime36の実log/map/source/compilerと全43child exportを読取り照合し、815記録RPCと実Spool、600原RGBAと600PNGの復号bytes、43耐久公開ACK/3identity/同再送ACKが一致。公開後pending0。owner/locked/Thread実returnと旧時計7条件/新root時計4条件を保持し、source150ms/worker100msや入力予算は増やしていない。Spool247は同じ4入力SHAで再利用した。
+
+通常normal_chainは正常Ring5job・assessment overrideなし、実RS1→新UUID/新fit/実MOVE1、初回activation1で追加activationなし。PAUSE/RESUMEは通常初回/商品の各1で、RS後のhandoff命令は0。正常な陰性だけが継続し、新floorの候補/未知や新入力不明を旧陰性で上書きしない。これらは手続き的なMac worldであり、実ゲーム速度の受入ではない。
+
+実Macの通常2childを実CPython3.9.25へ渡し、48PNG/元RGBAと58記録、root/clock/耐久seal/正常陰性→RSを既verify_evidence→verify_childで一度照合した。入力fieldの補修・再分類・RPCは0。native fixtureの模擬a*64 ZIP申告を実ZIP受入とは認定しない。P2の一覧境界は別々のexactset検査で補完し、root receiptだけを除外した218filesの欠落/余分/未列挙nested receiptは0。
+
+IPAは実iOSビルド成功、18,442,194bytes・SHA551270d19f99a56dbff09b7d756602f3b55edaa78513a2abb48df6050489658d、main bundle build249/minOS16.0を確認した。package/validation/hostの全ZIP SHA/CRC/path/symlinkを確認し、validationは3,104files/1,043,468,413bytes。全source CODE ZIPは1,109filesをGit blobへ全照合した。読取照合のための追加compile/意味試験/分類は行っていない。
+
 ## 未完了
 
-Runtime新35＋保持時計1caseの実Mac Green、IPAの実compiler/配布同一性、実Spool→実3.9通常client証明、全source・固定公開と実機受入は未完了。途中の件数や単体成功で実機不合格を完了扱いしない。
+配布sourceのdocs更新・固定公開と実機受入は未完了。途中の件数や単体成功で実機不合格を完了扱いしない。
+
+## 次の実機受入
+
+新IPAでLoopCtrlを更新し、完全終了・再起動→Start Server。通常オールゾーン1-1のポーズから、展開したsource内で `sh test_116.sh --until-target` を実行する。金壁が見える配置へ手動で揃える依頼はしない。
+
+商品が2個だけ見える上部扉の配置で、全商品が見える位置へ進むこと、正常な対象なし判定から実RSと次フロアの探索へ回収待ちなしで進むこと、対象/候補では保持・通知することを確認する。回数/48分/容量上限は有限停止として区別する。終了後の全周回収が終わるまで原本を保持し、runtime内のTEST116 campaign ZIPと各run ZIPを分けて返却する。実機の改善・速度はこの受入まで未確認である。
+
+## IPA同一性の最終読取り確認
+
+CI由来/package/host/Runtime/Spool/Mach-O/compiler/clientの8gateを実物へ結び、全合格。全9Mach-Oの既存/新host hook不在、新cap/startflag/C API、実iOS C8/Swift5とRSP6/PBX/rawargsを照合した。crossbinding SHA1e37d9679cd5fe617268883b75b99e68e93c4bd93af9a09c7b44b6adde76978d、実3.9別証跡SHA231c3c7b2c6dee4b6e814b569dd53c15dc73ae2661772f0bce5b992387c129ea。私的reader初回はGitHub生jobs形式の読取り型で失敗し、全jobのrun_id/head_sha/結論を検証する型adapterだけを加えた履歴を保持した。製品/input/元artifactは不変。最終8gate読取りで追加compile/意味試験/再分類は0、iPhone受入は未実施。

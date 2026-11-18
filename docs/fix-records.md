@@ -604,7 +604,7 @@ TEST115公開確認: docs4件のみを締めたsource4765027・全1082filesを�
 | FR-116-CURRENT-TOP-REVERSAL | 2026-11-18 | 3周36b6は現在PARTIAL再判定後に2商品で停止 | 188→190で115処理は動いたが191で元のtop複製ITEMが戻りcurrentの完全一致検査が失効 | 元current anchorへの直接零と固定下段/元潜在領域内のtop支持を合成。新fit/独立2零/未消費一UPを保持 | 元188/190/191の通常Motion/Ring校正、指定Red→同PARTIALケースと反例。元商品の未観測部分を陰性にしない。実機未確認 | 今回1。上端表示変化の同症状継続、同根因通算不明 |
 | FR-116-EARLY-FULL-LATE-UNIT | 2026-11-18 | 2周最後134eは開扉後のUPに商品FULLが見えた後停止 | 元136→142の移動確認はUNKNOWNで商品優先に切替。144は元136から正常unitだがDATA anchor142からはUNKNOWN/新GOLD | 元ACK/元before/元visualD内の通常同方向unitだけで未creditを単回確定し独立DATAへ。142のUNKNOWNは上書きせず候補優先を維持 | §10/11の限定仕様、新旧指定Redと元event/trace/参照の整合、元期限/新入力/候補/逆方向の反例。実機未確認 | 今回1。早期商品切替と後続unitの境界、同症状通算不明 |
 | FR-116-CAPPED-FLOOR-NECK | 2026-11-18 | 1周capture25の観測通路を見送りRS | 観測済FLOORの口の両脇がUNKNOWNで旧形状外。金色閾値や115対策削除ではない | 外側cap/側壁2点と既部屋壁3点を要求し、既床だけで接近する既候補へ追加 | 同一新6件が旧Navで41assert失敗/error0→新6＋直接旧68成功。元Scene不変、mask0→8/既床5歩。金壁露出/実機到達は未確認 | 今回1。旧観測口の別形状適用外、同症状通算不明 |
-| FR-116-CAMPAIGN-COLLECTION-BARRIER | 2026-11-18 | 正常RS後の新床で意図的PAUSE、次UUIDまで84.306秒 | 旧112の有限run区切りが端末PAUSE→host全回収/検証/公開→新startを逐次要求 | 最新指示に従う新opt-inの端末内耐久保存/実drain→fresh UUID無PAUSE継続を実装。旧上限/旧mode/候補/取消を維持し総quotaも有限化 | 独立設計R2のP0/P1/P2=0。以後のC/Spool/Runtime/実3.9境界試験・IPA・実機は別途確認。回収自体の70〜89秒が速くなったとは扱わない | 今回の意図的区切り1。旧112設計と最新運用要求の不整合、削除回帰ではない |
+| FR-116-CAMPAIGN-COLLECTION-BARRIER | 2026-11-18 | 正常RS後の新床で意図的PAUSE、次UUIDまで84.306秒 | 旧112の有限run区切りが端末PAUSE→host全回収/検証/公開→新startを逐次要求 | 最新指示に従う新opt-inの端末内耐久保存/実drain→fresh UUID無PAUSE継続を実装。旧上限/旧mode/候補/取消を維持し総quotaも有限化 | 独立設計R2のP0/P1/P2=0。最終C/Spool/Runtime/実3.9境界はCI249等で確認、IPA最終同一性/実機は別途。回収自体の70〜89秒が速くなったとは扱わない | 今回の意図的区切り1。旧112設計と最新運用要求の不整合、削除回帰ではない |
 
 TEST116開発中の追加境界（実機再発数へ加算しない）:
 
@@ -615,3 +615,7 @@ TEST116開発中の追加境界（実機再発数へ加算しない）:
 | FR-116-DEV-RECOVERY-STORAGE | 2026-11-18 | 新連続modeの回復で破損header原本やreceipt-only公開ledgerを容量会計から外し得る | 通常headerだけのcohort復元/単一ledger内だけの公開proof検査 | 耐久予約・sealのlinkからstorage-only会計を再構成し実manifestとreceiptをcross-bind。原headerを修復せず入力権限も復元しない | 旧Spoolの指定assertion Red→同fixtureの実Mac正常/破損/公開/conflict境界を確認する。実機未確認 | 開発中2境界。実機発火数不明 |
 | FR-116-DEV-ATOMIC-TEMP | 2026-11-18 | 故障時に同slot .part合計2MiBを超えて診断回収も拒否され得る | 既orphanと次atomic一時bytesを併算せず、並行usage refreshがactive予約を上書きし得る | 同slot tempをpart open前に予約、active予約は実usageと分離してrefresh後も保持し、実完了/故障時だけ解除。上限/原本不変 | 実RGBA orphan1.48MiB＋新PNG拒否/原本inventory、予約後の第三ledger refresh割込みを固定16case内で確認する。実機未確認 | 開発中2境界。実機再発へ加算しない |
 | FR-116-DEV-BOOTSTRAP-GUARD | 2026-11-18 | 実Mac248のsuccessor_lockedが開始待機から終端へ進まない | 最初のmain guardでlock失格でも取消せず、後続activation待機がcancel/lockを見ない。試験時計はframeなしで静止し、実時計でも不要な3秒待機とforeground理由への誤分類がある | 新modeの開始guardでowner5/locked4を即取消し、待機中も同guardを確認する。旧mode/認証拒否は維持 | 248指定FAILを保持して同36ケースで確認する。successor_ownerは認証無効中statusを正しく拒否していたfixture観測不足として分離し、実lease解放後だけ認証復元して全drain/statusを検査する。実機未確認 | 開発中1製品境界＋1試験観測境界。実機発火数不明 |
+
+TEST116 CI249の結合・回収確認: CODE98e2d2d/run44267350921でhost99・実3.9の40・Mac36が合格。43出力/815記録/600画像の実原本・公開ACKを読取照合し、通常2child/48画像/58記録は実3.9の既client proofにも一致。Spool247の旧7Red→現16Greenは同bytesで再利用。実機改善・毎拍/実効速度は未確認のまま、同症状/同根因の再発数を成功扱いで0へ戻さない。IPA最終同一性/固定公開は次工程。
+
+TEST116の実物8gateも全合格。全9Mach-Oのhook不在/newcap/C API・実iOS compiler/sourceとIPA SHA551270d1を照合、crossbinding1e37d967。追加compile/意味試験/分類0。実機改善・速度・同根因の再発数は未確認を維持し、固定公開/実機受入は次工程。

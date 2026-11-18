@@ -1,9 +1,7 @@
 # 最新状態
 
-更新: 2026-11-18（日本時間）。TEST115の実機結果を受領しTEST116を開発中。[全体計画](plans/test116-device-failures.md)・[商店](plans/test116-shop-continuation.md)・[連続化](plans/test116-continuous-campaign.md)・[修正表](fix-records.md)。メインiPhone11・通常1-1・のろいのゆびわが対象。
+更新: 2026-11-18（日本時間）。[TEST116/build249](https://github.com/shuhei0720/necrogold-automation/releases/tag/test116-build249)の配布準備。iPhone11・通常1-1・のろいのゆびわが対象。**実機改善・毎拍/実効速度は未確認。** [検証](reviews/test116.md)・[修正表](fix-records.md)。
 
-7ZIP/3campaign/4固有run、96PNG/110記録を全照合。1周0084・2周e0b8→134e・3周36b6。e0b8は正常完全陰性45.157ms→実RS→新床まで成功し、旧予算handoffの意図的PAUSE/回収待ちで次UUIDまで84.306秒。残3runは開扉後に停止し実機不合格。
+TEST115の7ZIP/4run・96PNG/110記録を照合。開扉後3停止の原因（現在PARTIAL移行漏れ、上端の表示変化、早期FULL後の移動確認）とcapture25の観測口を修正。正常陰性45.157ms→実RSの成功例は保持。旧回収待ち84.306秒を周回間に挟まない新opt-in連続化は最大16child/48分・有限容量。全周原本は停止後に照合する。
 
-原因はcredit後の現在PARTIAL移行漏れ、逆top投影、早期FULL時の元ACK確認境界。capture25は観測床の口の両脇が暗く既形状外。限定修正と、最新指示に従う端末内保存/新UUIDの無PAUSE連続化を設計・検証する。旧対策の合格を改善完了にしない。
-
-基準は[TEST115/build237](https://github.com/shuhei0720/necrogold-automation/releases/tag/test115-build237)、CODE1028137/source4765027、seal766070e1。IPA SHA107e3db9・実物照合/固定公開の詳細は[115検証](reviews/test115.md)。TEST116のIPA・実機改善・速度はまだ未確認。
+CODE98e2d2d・seal87918ba8、36native中6変更/30保持。CI249の関連99/実3.9の40/Mac36合格、Spool247の旧7Red→現16Greenを同bytesで再利用。600画像/815記録/43公開ACK、通常2childの実3.9証明、9Mach-O/実compiler/IPAの8照合gateも合格。IPA SHA551270d1・minOS16。固定公開と実機受入は次工程。詳細・計画・再発数は検証/修正表へ。
