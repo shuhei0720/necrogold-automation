@@ -591,3 +591,5 @@ TEST115配布前の進捗: C8c740b31/Nav9c872fd8で新19件と、既076の状態
 | FR-115-FIXTURE-POSTUP-CANCEL | 2026-11-18 | CI236のPARTIAL caseが移動成功後の正常producer assertで失敗 | 実UP/MOVED後のjob3/source58が実行中token1でcancel。raw戻り値の数値は未記録だが、途中取消が厳格なstatus0検査を妨げるfixture順序 | 新fixtureだけ第3の正常UNKNOWN・pending0・実return token0を待ってから明示cancel。既status0 assertは維持 | 236で入力3/実移動2、時計7条件とpartial_cancelの成功、他2case不合格を別記。未記録のCANCELLED数値を観測済みとしない。新実行は次CI | 新fixture1。実機再発へ算入しない |
 
 TEST115最終確認: CODE1028137/CI237/run44239484029でhost65・実3.9の4件・現Mac4case/時計7条件・旧C/旧Runtime指定Red各1が成功。修正後fixture616fを用い、236の2件も全assert保持で通過。実Spool2export/48合成PNG、全1082 CODE source、実compiler/MachO9/primary2とhost hook不在を照合。36資産中3変更/33保持、seal766070e1、IPA18,250,993bytes/SHA107e3db9。5実物gateは初回5attempt・失敗0、crossbinding f787c4dc。確認の追加semantic/compile/classifier実行0。各原因の実機改善未確認/同根因通算不明を維持し、単体・Mac・配布物の合格で実機を完了扱いしない。固定公開/匿名全取得は次工程。
+
+TEST115公開確認: docs4件のみを締めたsource4765027・全1082filesを照合し、test115-build237/Release449551269をpublisher238で公開。IPA/source/hash表3assetを匿名全GET200・全bytes/SHA・Release digest・tag targetまで確認。source9,963,234bytes/SHA7e106016。公開後の変更はdocs記録だけで配布assetは置換しない。実機改善未確認・速度未受入・再発数の区別は維持する。

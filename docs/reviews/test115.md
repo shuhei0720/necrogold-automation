@@ -53,3 +53,9 @@ CODE `1028137a0b9db599b32185b728492fdb6fb9b20b`、run `44239484029` は全必須
 | 全実物gate結合 | `f787c4dcdb0a6c9ed7c617a95f7877086eb5ac74e214fa5566a8ee45a19fa2b1` |
 
 最終sourceと固定Releaseはdocsのみの締め後に照合する。実機の商品到達/対象候補精度/毎拍/人より速い受入は未確認。次回は通常1-1のポーズからTEST115を `--until-target` で実行し、campaign索引＋最後のrun全ZIPを返却、全runtime原本を保持する。
+
+## 固定公開と匿名取得
+
+配布source `4765027db5c4a24d9689fa54786099fe282901cd` はCODE1028137との差がstatus/context/本検証/修正表のdocs4件だけで、全製品bytesは不変。完全codeload ZIPの全1082files/CRC/path/各Git blobを照合し、9,963,234bytes/SHA256 `7e1060160844b3cb0f130d230d65c425dfcd3d900901583c2c1586da2f08ef96` を保存した。
+
+[test115-build237](https://github.com/shuhei0720/necrogold-automation/releases/tag/test115-build237)（Release449551269）はpublisher238/run44242624277で公開。空draft/正しいtargetからだけupload/publicへ進め、tag→上記sourceを確認した。IPA/source/SHA表の3assetは匿名の全GETで200、全bytes/SHA/Release digest/hash表一致を確認。SHA表156bytes/SHA256 `895867837aa152eed777da62b041e756abc6ad84c0078b26f1539b8509d87ae7`。公開後の追記はdocsだけでassetを置換せず、検証のための再compile/再分類/再試験も行っていない。実機改善/速度未確認と回収遅延の残課題は維持する。
