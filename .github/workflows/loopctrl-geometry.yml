@@ -1040,7 +1040,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/test114-runtime"
           python3 driver/patches/loopctrl/check_runtime114.py upstream "$RUNNER_TEMP/test114-runtime" 2>&1 | tee "$RUNNER_TEMP/test114-runtime/runtime-command.txt"
-      - name: Verify TEST115 current-PARTIAL before-Controller assertion with retained Runtime
+      - name: Verify TEST115 current-PARTIAL before-Controller assertion with current Runtime
         if: inputs.native_lane == 'device' && needs.test061-host-contracts.outputs.device_profile == '115'
         shell: bash
         run: |
@@ -1049,7 +1049,16 @@ jobs:
           git -C driver show c84e74f8934f88a05b02e4c58a899d2e3ebae519:patches/loopctrl/ngg2/NG2Controller.c > "$RUNNER_TEMP/test115-runtime-before/before-source/NG2Controller.c"
           echo "053b2da0773899a8e19db7d11454c297edcca7cf04422a17210ede2f90195843  $RUNNER_TEMP/test115-runtime-before/before-source/NG2Controller.c" | shasum -a 256 --check
           python3 driver/patches/loopctrl/check_runtime115.py upstream "$RUNNER_TEMP/test115-runtime-before" --expect-red --before-controller "$RUNNER_TEMP/test115-runtime-before/before-source/NG2Controller.c" 2>&1 | tee "$RUNNER_TEMP/test115-runtime-before/runtime-command.txt"
-      - name: Verify TEST115 passage-FRESH and PARTIAL callbacks against sealed sources
+      - name: Verify TEST115 final-clock before-Runtime assertion against original source
+        if: inputs.native_lane == 'device' && needs.test061-host-contracts.outputs.device_profile == '115'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/test115-runtime-before-clock/before-source"
+          git -C driver show c84e74f8934f88a05b02e4c58a899d2e3ebae519:patches/loopctrl/ngg2/NG2Runtime.swift > "$RUNNER_TEMP/test115-runtime-before-clock/before-source/NG2Runtime.swift"
+          echo "dc082fd9658df32924c90423c544030d327c744f4224d4d8c868762a6e2e741f  $RUNNER_TEMP/test115-runtime-before-clock/before-source/NG2Runtime.swift" | shasum -a 256 --check
+          python3 driver/patches/loopctrl/check_runtime115.py upstream "$RUNNER_TEMP/test115-runtime-before-clock" --expect-runtime-red --before-runtime "$RUNNER_TEMP/test115-runtime-before-clock/before-source/NG2Runtime.swift" 2>&1 | tee "$RUNNER_TEMP/test115-runtime-before-clock/runtime-command.txt"
+      - name: Verify TEST115 passage, PARTIAL and final-clock callbacks against sealed sources
         if: inputs.native_lane == 'device' && needs.test061-host-contracts.outputs.device_profile == '115'
         shell: bash
         run: |
@@ -1195,6 +1204,7 @@ jobs:
             ${{ runner.temp }}/test114-runtime-before/
             ${{ runner.temp }}/test114-runtime/
             ${{ runner.temp }}/test115-runtime-before/
+            ${{ runner.temp }}/test115-runtime-before-clock/
             ${{ runner.temp }}/test115-runtime/
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt

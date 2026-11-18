@@ -12,7 +12,7 @@ import sys
 import unittest
 
 HERE = Path(__file__).resolve().parent
-SCOPE_FINALIZED = False
+SCOPE_FINALIZED = True
 CASES = (
     ('patches.loopctrl.test_device_ci115', 'DeviceHostSelection115Tests',
      'test115-python39-entry', frozenset({'test_entry_inherits_114_without_new_authority'}), False),

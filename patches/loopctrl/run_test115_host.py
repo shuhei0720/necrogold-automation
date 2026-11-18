@@ -22,9 +22,9 @@ _spec.loader.exec_module(shared)
 sha, git, pinned_bytes = shared.sha, shared.git, shared.pinned_bytes
 selected_cases, method_cases = shared.selected_cases, shared.method_cases
 NATIVE_BASELINE = 'c84e74f8934f88a05b02e4c58a899d2e3ebae519'
-SCOPE_FINALIZED = False
-RUNTIME_SCOPE_FINALIZED = False
-EXPECTED_NATIVE_CHANGES = frozenset({'LoopCtrlUITests/NG2Controller.c', 'LoopCtrlUITests/NG2Navigation.c'})
+SCOPE_FINALIZED = True
+RUNTIME_SCOPE_FINALIZED = True
+EXPECTED_NATIVE_CHANGES = frozenset({'LoopCtrlUITests/NG2Controller.c', 'LoopCtrlUITests/NG2Navigation.c', 'LoopCtrlUITests/NG2Runtime.swift'})
 EXPECTED_NATIVE_ADDITIONS = frozenset()
 CLIENT_PRODUCT_CHANGES = frozenset()  # Existing Python product bytes are retained.
 # Finalized only after the independent native authors freeze their selectors.
@@ -49,7 +49,14 @@ CASES = (
         'test_candidate_reproof_does_not_extend_original_two_beat_wait',
         'test_independent_candidate_zero_then_blur_waits_without_input_and_reproves',
         'test_issued_but_unbegun_candidate_blur_retires_only_its_permission',
-        'test_issued_candidate_ticket_cannot_begin_beyond_original_wait_bound',
+        'test_issued_candidate_ticket_cannot_begin_beyond_original_parent',
+        'test_ready_before_W_can_prepare_and_begin_after_W_within_original_parent',
+        'test_ready_or_issued_blur_at_W_expires_without_renewing_observation',
+        'test_ready_ticket_keeps_normal_window_and_original_parent_after_W',
+    }), True),
+    ('tests.test_native_shared_zero115', 'NativeSharedPassageZero115Tests', 'test115-native-NativeSharedPassageZero115Tests', frozenset({
+        'test_invalid_layout_and_known_motion_keep_normal_precedence_and_full_result',
+        'test_unknown_positive_reuses_two_views_and_all_original_raw_candidates',
     }), True),
     ('tests.test_native_shop115', 'NativeShop115Tests', 'test115-native-NativeShop115Tests', frozenset({
         'test_partial_forged_complete_negative_cannot_become_a_restart',
@@ -146,6 +153,7 @@ CORE_MODULES = (
     'tests.test_native_restart_yield112',
     'tests.test_native_ring094',
     'tests.test_native_ring_bank094',
+    'tests.test_native_shared_zero115',
     'tests.test_native_shop115',
     'tests.test_native_shop_coverage102',
     'tests.test_native_shop_geometry101',
@@ -163,7 +171,7 @@ CORE_MODULES = (
     'tests.test_native_upper_entry112',
     'tests.test_target_assessment087',
 )
-CURRENT_MAC_CASES = ('passage_fresh', 'partial_view', 'partial_cancel')
+CURRENT_MAC_CASES = ('passage_fresh', 'partial_view', 'partial_cancel', 'post_begin_clock')
 NEW_PATHS = frozenset({
     'necroprobe/test115.py',
     'test_115.sh',
@@ -175,6 +183,8 @@ NEW_PATHS = frozenset({
     'patches/loopctrl/test_device_ci115.py',
     'tests/test_native_passage115.py',
     'tests/test_native_shop115.py',
+    'tests/test_native_shared_zero115.py',
+    'patches/loopctrl/ngg2_runtime115_begin_fixture.c',
 })
 
 BASELINE_RUNTIME_SHA256 = 'dc082fd9658df32924c90423c544030d327c744f4224d4d8c868762a6e2e741f'
@@ -215,19 +225,22 @@ def manifest_sources(manifest):
 def runtime_source_identity(before, current):
     if not RUNTIME_SCOPE_FINALIZED or not CURRENT_MAC_CASES:
         raise ValueError('TEST115 current Mac source scope is pending')
-    for name, wanted in (('NG2Runtime.swift', BASELINE_RUNTIME_SHA256),
-                         ('NG2Ring.c', BASELINE_RING_SHA256)):
-        key = 'LoopCtrlUITests/'+name
-        if before.get(key) != wanted or current.get(key) != wanted:
-            raise ValueError('TEST115 retained native source differs: '+name)
-    return dict(policy='selected_current_runtime_boundaries_required',
+    runtime = 'LoopCtrlUITests/NG2Runtime.swift'
+    if (before.get(runtime) != BASELINE_RUNTIME_SHA256 or current.get(runtime) == BASELINE_RUNTIME_SHA256
+            or not isinstance(current.get(runtime), str) or not re.fullmatch('[0-9a-f]{64}', current[runtime])):
+        raise ValueError('TEST115 approved current Runtime delta differs')
+    ring = 'LoopCtrlUITests/NG2Ring.c'
+    if before.get(ring) != BASELINE_RING_SHA256 or current.get(ring) != BASELINE_RING_SHA256:
+        raise ValueError('TEST115 retained Ring source differs')
+    return dict(policy='changed_current_runtime_boundaries_required',
         baseline_runtime_sha256=before['LoopCtrlUITests/NG2Runtime.swift'],
         current_runtime_sha256=current['LoopCtrlUITests/NG2Runtime.swift'],
         current_controller_sha256=current['LoopCtrlUITests/NG2Controller.c'],
         current_ring_sha256=current['LoopCtrlUITests/NG2Ring.c'],
         current_navigation_sha256=current['LoopCtrlUITests/NG2Navigation.c'],
         current_mac_execution_required=True, expected_current_mac_cases=list(CURRENT_MAC_CASES),
-        before_runtime_api_assertion_required=False, executed_in_host_selector=False)
+        before_runtime_api_assertion_required=False, before_runtime_clock_assertion_required=True,
+        executed_in_host_selector=False)
 
 
 def source_identity(driver, sealed):
@@ -252,7 +265,7 @@ def source_identity(driver, sealed):
     baseline_paths = {p.decode() for p in git(driver, 'ls-tree', '-r', '--name-only', '-z', NATIVE_BASELINE).split(b'\0') if p}
     differences = {p.decode() for p in git(driver, 'diff', '--no-renames', '--name-only', '-z', NATIVE_BASELINE, code, '--').split(b'\0') if p}
     existing = {path for path in differences & baseline_paths if not path.startswith('docs/')}
-    approved = {'patches/loopctrl/ngg2/NG2Controller.c', 'patches/loopctrl/ngg2/NG2Navigation.c',
+    approved = {'patches/loopctrl/ngg2/NG2Controller.c', 'patches/loopctrl/ngg2/NG2Navigation.c', 'patches/loopctrl/ngg2/NG2Runtime.swift',
         manifest_path, '.github/workflows/loopctrl-geometry.yml', *CLIENT_PRODUCT_CHANGES}
     added = {path for path in differences-baseline_paths if not path.startswith('docs/')}
     if existing != approved or added != set(NEW_PATHS):

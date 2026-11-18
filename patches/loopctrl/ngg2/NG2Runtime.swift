@@ -3496,6 +3496,7 @@ final class NG2Runtime {
         guard let core = run.core else { return }
         guard ownsTicket(run, command, generation: generation) else { return }
         var outcome: Int32 = 0
+        var postBeginNoSend = false
         DispatchQueue.main.sync {
             let mainEntry = Self.now()
             #if NG2_RUNTIME_HOST_TEST
@@ -3530,6 +3531,37 @@ final class NG2Runtime {
                     recordDispatchFailure(run, command, generation: generation, authority: authority, entry: mainEntry, now: now, code: code)
                     return false
                 }
+                if command.kind == 4 {
+                    // C may spend the remaining input window on pixel proofs.
+                    // Read live external guards first, then the actual clock,
+                    // while this same run gate still owns the begun command.
+                    let sendOwner = self.ownerActive(run)
+                    let sendLocked = LockStateMonitor.shared().isLocked
+                    let sendNow = Self.now()
+                    let sendAuthorityFresh = NG2TicketGuard.authoritySampleIsFresh(
+                        start: authority.start, end: authority.end, now: sendNow)
+                    guard NG2TicketGuard.permits(expectedGeneration: generation, currentGeneration: run.generation,
+                        cancelled: run.cancelReason != 0, ownerActive: sendOwner, foreground: foreground,
+                        locked: sendLocked, now: sendNow, notBefore: command.not_before_ns, deadline: command.deadline_ns),
+                        sendAuthorityFresh else {
+                        let lost: Int32 = !sendOwner ? 5 : (sendLocked ? 4 : (!sendAuthorityFresh ? 7 : 0))
+                        let code = !sendOwner ? "owner" : (sendLocked ? "locked" : (!sendAuthorityFresh ? "authority_stale" :
+                            (sendNow < command.not_before_ns ? "too_early" : (sendNow > command.deadline_ns ? "too_late" : "controller_rejected"))))
+                        recordDispatchFailure(run, command, generation: generation, authority: authority,
+                            entry: mainEntry, now: sendNow, code: code)
+                        // No physical synth began. Settle state2 as certainly
+                        // not sent BEFORE releasing the gate to cancellation.
+                        ng2_controller_complete(core, command.id, sendNow, 0)
+                        postBeginNoSend = true
+                        if run.generation == generation && run.cancelReason == 0 && lost != 0 {
+                            run.cancelReason = lost; run.generation &+= 1
+                            run.stopped = true; run.latest = nil; run.preparation = nil
+                        }
+                        return false
+                    }
+                    // begin consumed its C preparation epoch; its earlier
+                    // identity check remains owned by this same locked gate.
+                }
                 run.inFlight = true
                 if command.kind == 3 { run.irregular?.scanRestart = false }
                 return true
@@ -3558,7 +3590,7 @@ final class NG2Runtime {
         guard run.lock.ng2Locked({ run.mainCommandID == command.id && (run.generation == generation || run.cancelReason != 0) }) else { return }
         let cancelled = run.lock.ng2Locked { run.cancelReason }
         if outcome == 0 && cancelled != 0 { ng2_controller_cancel(core, Self.now(), cancelled) }
-        ng2_controller_complete(core, command.id, Self.now(), outcome)
+        if !postBeginNoSend { ng2_controller_complete(core, command.id, Self.now(), outcome) }
         run.lock.ng2Locked {
             if command.kind == 2 { run.restartYield?.capturePaused = false }
             if run.mainCommandID == command.id { run.mainCommandID = 0; run.preparation = nil }

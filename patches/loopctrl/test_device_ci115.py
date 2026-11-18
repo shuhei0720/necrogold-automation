@@ -40,12 +40,12 @@ class DeviceHostSelection115Tests(unittest.TestCase):
             with patch.dict(runner.os.environ, {name: ''}), self.assertRaises(ValueError):
                 runner.reject_fixture_overrides()
 
-    def test_native_delta_changes_only_controller_and_navigation_from_test114(self):
+    def test_native_delta_changes_only_controller_navigation_and_runtime_from_test114(self):
         runner = module('run_test115_host')
-        expected = {'LoopCtrlUITests/NG2Controller.c', 'LoopCtrlUITests/NG2Navigation.c'}
+        expected = {'LoopCtrlUITests/NG2Controller.c', 'LoopCtrlUITests/NG2Navigation.c', 'LoopCtrlUITests/NG2Runtime.swift'}
         self.assertEqual(expected, set(runner.EXPECTED_NATIVE_CHANGES))
         self.assertEqual('c84e74f8934f88a05b02e4c58a899d2e3ebae519', runner.NATIVE_BASELINE)
-        names = expected | {'retained-'+str(index) for index in range(34)}
+        names = expected | {'retained-'+str(index) for index in range(33)}
         old = {name: 'a'*64 for name in names}
         new = {name: ('b'*64 if name in expected else value) for name, value in old.items()}
         self.assertEqual(expected, runner.native_delta(old, new))
@@ -53,21 +53,23 @@ class DeviceHostSelection115Tests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 runner.native_delta(old, bad)
 
-    def test_retained_runtime_and_ring_need_exact_current_mac_cases(self):
+    def test_changed_runtime_and_retained_ring_need_exact_current_mac_cases(self):
         runner = module('run_test115_host')
         old = {'LoopCtrlUITests/NG2Runtime.swift': runner.BASELINE_RUNTIME_SHA256,
             'LoopCtrlUITests/NG2Ring.c': runner.BASELINE_RING_SHA256,
             'LoopCtrlUITests/NG2Controller.c': 'a'*64,
             'LoopCtrlUITests/NG2Navigation.c': 'a'*64}
         current = dict(old, **{'LoopCtrlUITests/NG2Controller.c': 'b'*64,
-            'LoopCtrlUITests/NG2Navigation.c': 'b'*64})
+            'LoopCtrlUITests/NG2Navigation.c': 'b'*64, 'LoopCtrlUITests/NG2Runtime.swift': 'b'*64})
         with patch.object(runner, 'RUNTIME_SCOPE_FINALIZED', True), patch.object(runner, 'CURRENT_MAC_CASES', ('passage_fresh',)):
             result = runner.runtime_source_identity(old, current)
             self.assertTrue(result['current_mac_execution_required'])
+            self.assertTrue(result['before_runtime_clock_assertion_required'])
             self.assertFalse(result['executed_in_host_selector'])
-            for name in ('NG2Runtime.swift', 'NG2Ring.c'):
-                with self.assertRaises(ValueError):
-                    runner.runtime_source_identity(old, dict(current, **{'LoopCtrlUITests/'+name: 'c'*64}))
+            with self.assertRaises(ValueError):
+                runner.runtime_source_identity(old, dict(current, **{'LoopCtrlUITests/NG2Runtime.swift': runner.BASELINE_RUNTIME_SHA256}))
+            with self.assertRaises(ValueError):
+                runner.runtime_source_identity(old, dict(current, **{'LoopCtrlUITests/NG2Ring.c': 'c'*64}))
 
     def test_author_native_and_mac_inventories_are_frozen_and_explicit(self):
         runner = module('run_test115_host')
@@ -135,12 +137,16 @@ class DeviceHostSelection115Tests(unittest.TestCase):
         self.assertIn('run_test115_python39.py driver', host)
         self.assertIn('fe04e8b27bd69ca2144fc542428f8b9b5287b6a2e45516a4acfe2c2bc3102773', host)
         build = source.split('  focused-build:\n', 1)[1].split('\n  build:\n', 1)[0]
-        for title in ('Verify TEST115 current-PARTIAL before-Controller assertion with retained Runtime',
-                'Verify TEST115 passage-FRESH and PARTIAL callbacks against sealed sources'):
+        for title in ('Verify TEST115 current-PARTIAL before-Controller assertion with current Runtime',
+                'Verify TEST115 passage, PARTIAL and final-clock callbacks against sealed sources'):
             step = build.split('- name: '+title+'\n', 1)[1].split('      - ', 1)[0]
             self.assertIn("device_profile == '115'", step)
             self.assertIn('set -euo pipefail', step)
             self.assertIn('check_runtime115.py upstream', step)
+        clock = build.split('- name: Verify TEST115 final-clock before-Runtime assertion against original source\n', 1)[1].split('      - ', 1)[0]
+        self.assertIn("device_profile == '115'", clock)
+        self.assertIn('--expect-runtime-red --before-runtime', clock)
+        self.assertIn('${{ runner.temp }}/test115-runtime-before-clock/', build)
         self.assertIn('053b2da0773899a8e19db7d11454c297edcca7cf04422a17210ede2f90195843', build)
         self.assertIn('c84e74f8934f88a05b02e4c58a899d2e3ebae519:patches/loopctrl/ngg2/NG2Controller.c', build)
         self.assertIn('${{ runner.temp }}/test115-runtime-before/', build)

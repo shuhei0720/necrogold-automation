@@ -33,3 +33,5 @@ R4の初期新試験は票の発行だけを確認し、実行可能性が不足
 最終author inventory/独立差分確認、選択した関連回帰、実Macの旧C指定Redと現Runtime3ケース、実Python3.9、seal/実compiler/IPA/完全sourceの同一性、固定Releaseの匿名全GETを未実施のまま成功にしない。実機改善・毎拍歩行・人より速い速度は次の実機で評価する。
 
 回収のJSON割当最適化は、実3.9の同bytes比較で遅くなったため不採用。validation.pyは元bytesへ復元し、新試験/試作はGit外に保存。終了後70〜89秒の回収遅延は残課題である。
+
+送信直前時計の実TDD: CI234は初回に継承したFULL商品fixtureへ入る指定外失敗で、compileエラー0でもRedではない。新nativeV1二caseだけ既RGBA hookを解除し、CI235/run44235308732/CODE3d35a7cでは旧Runtime dc082の指定Red1（D+1nsで実gesture1/ACK/input1）を確認。原artifact138045bytes/SHA8557502eを全取得・CRC・全実ソースと照合後にRuntime e655aa10を反映した。最終製品sourceはC8c740b31/Nav9c872fd8/Runtime e655aa10、36資産中3変更/33保持、seal766070e1。最終4case/時計7条件とIPAはまだ未確認である。
