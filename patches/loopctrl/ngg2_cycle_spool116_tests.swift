@@ -460,6 +460,9 @@ func orphanAccounting116() throws {
         firstDone.signal()
     }
     check116(firstEntered.wait(timeout:.now()+5) == .success,"first_writer_holds_an_active_atomic_reservation_before_part_open")
+    // Re-stat all existing ledgers while A has reserved a part but has not
+    // opened it. Actual usage refresh must not erase the active reservation.
+    _ = try shared.createRecoveryExport(owner:owner116,forceFresh:true)
     rejects116("parallel_writer_cannot_reuse_other_active_atomic_temp") {
         _ = try second.commitPNG(captureID:1,bytes:png,metadata:["raw_sha256":hash116(raw116)])
     }

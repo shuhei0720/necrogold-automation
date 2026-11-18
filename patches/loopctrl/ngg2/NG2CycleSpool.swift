@@ -56,10 +56,17 @@ final class NG2CycleSpool {
             let token: Reservation
             var state = 0 // reserved/creating/created/sealed/published/failed
             var writers: [String: CampaignUsage] = [:]
+            var activeAtomic:[String:(baseline:Int,bytes:Int)]=[:]
             init(_ token: Reservation) { self.token = token }
+            func effective(_ usage:CampaignUsage,writer:String) -> CampaignUsage {
+                var result=usage
+                if let active=activeAtomic[writer] { result.temporary=max(result.temporary,active.baseline+active.bytes) }
+                return result
+            }
             var usage: CampaignUsage {
-                writers.values.reduce(CampaignUsage()) { a, b in
-                    CampaignUsage(raw: a.raw+b.raw, metadata: a.metadata+b.metadata, png: a.png+b.png, temporary:a.temporary+b.temporary)
+                writers.reduce(CampaignUsage()) { a, entry in
+                    let b=effective(entry.value,writer:entry.key)
+                    return CampaignUsage(raw:a.raw+b.raw,metadata:a.metadata+b.metadata,png:a.png+b.png,temporary:a.temporary+b.temporary)
                 }
             }
         }
@@ -156,13 +163,22 @@ final class NG2CycleSpool {
         fileprivate func reserveAtomic(runID:String,writer:String,usage:CampaignUsage,bytes:Int) throws {
             gate.lock();defer { gate.unlock() }
             guard bytes > 0,bytes <= NG2CycleSpool.maximumExportTemporaryBytes,
-                  let slot=slots[runID],slot.state != 0 else { throw Failure.invalid("campaign-atomic") }
+                  let slot=slots[runID],slot.state != 0,slot.activeAtomic[writer] == nil else { throw Failure.invalid("campaign-atomic") }
             var projected=usage;projected.temporary += bytes
             try validate(slot:slot,writer:writer,usage:projected)
             let additional=slot.state == 4 ? max(0,projected.total-(slot.writers[writer]?.total ?? 0))
                 + NG2CycleSpool.maximumExportTemporaryBytes : 0
             try available(required:remaining()+additional)
-            slot.writers[writer]=projected
+            slot.writers[writer]=usage
+            slot.activeAtomic[writer]=(usage.temporary,bytes)
+        }
+        fileprivate func completeAtomic(runID:String,writer:String,usage:CampaignUsage) throws {
+            gate.lock();defer { gate.unlock() }
+            guard let slot=slots[runID] else { throw Failure.invalid("campaign-slot") }
+            let active=slot.activeAtomic.removeValue(forKey:writer)
+            do { try validate(slot:slot,writer:writer,usage:usage) }
+            catch { if let active { slot.activeAtomic[writer]=active };throw error }
+            slot.writers[writer]=usage
         }
         fileprivate func charge(runID: String, writer: String, usage: CampaignUsage) throws {
             gate.lock(); defer { gate.unlock() }
@@ -205,8 +221,9 @@ final class NG2CycleSpool {
         }
         private func validate(slot: Slot, writer: String, usage: CampaignUsage) throws {
             var all = slot.writers; all[writer] = usage
-            let total = all.values.reduce(CampaignUsage()) { a, b in
-                CampaignUsage(raw: a.raw+b.raw, metadata: a.metadata+b.metadata, png: a.png+b.png, temporary:a.temporary+b.temporary)
+            let total = all.reduce(CampaignUsage()) { a, entry in
+                let b=slot.effective(entry.value,writer:entry.key)
+                return CampaignUsage(raw:a.raw+b.raw,metadata:a.metadata+b.metadata,png:a.png+b.png,temporary:a.temporary+b.temporary)
             }
             guard total.raw >= 0, total.raw <= NG2CycleSpool.maximumRawBytes,
                   total.metadata >= 0, total.metadata <= NG2CycleSpool.maximumMetadataBytes,
@@ -1592,11 +1609,11 @@ final class NG2CycleSpool {
         try quota.reserveAtomic(runID:runID,writer:campaignWriter,usage:try storedUsage(),bytes:bytes.count)
         do {
             try atomicBytes(bytes,name:name)
-            try quota.charge(runID:runID,writer:campaignWriter,usage:try storedUsage())
+            try quota.completeAtomic(runID:runID,writer:campaignWriter,usage:try storedUsage())
         } catch {
             // A failed part stays on disk as evidence. Preserve its physical
             // charge before the caller seals this writer for recovery.
-            if let usage=try? storedUsage() { try? quota.charge(runID:runID,writer:campaignWriter,usage:usage) }
+            if let usage=try? storedUsage() { try? quota.completeAtomic(runID:runID,writer:campaignWriter,usage:usage) }
             throw error
         }
     }
