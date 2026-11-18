@@ -38,8 +38,16 @@
 
 前run終了から次UUID開始までは約65.14秒あり、実効速度は未達。Ring本体は今回11〜43msだが、回収・照合・圧縮・公開の内訳は未記録だった。114限定の任意診断をcampaign ZIPへ追加し、既RPC時間と工程時間、実drain後だけの最大2読取から固定の前面化/lifecycleマーカーを残す。本文・URL・token・任意ログは保存せず、32run/64marker/256KiBへ制限する。診断の失敗は主処理の取消・公開・次startの資格を変えない。run journal/index/run ZIPは維持し、既存の同campaign ZIPはsealed bytesを再利用する。自身の最終ZIP末尾時間は未計測と明記する。
 
-診断の新9件と直接16件は実Python3.9でGreen。重複JSON key・ZIP読取前のsymlink・任意診断時計の3境界は別の意味あるRed→Greenを保存し、新12/直接16の最終同一source結合はCIで確認する。独立差分レビューの残P0/P1/P2はない。実cached statusの項目は保持Runtimeのsourceで確認しただけで、今回の端末RPCやPAUSE原因の確認とは区別する。
+診断の新9件と直接16件は実Python3.9でGreen。重複JSON key・ZIP読取前のsymlink・任意診断時計の3境界は別の意味あるRed→Greenを保存し、新12/直接16をCI232の実Python3.9で結合して全成功した。独立差分レビューの残P0/P1/P2はない。実cached statusの項目は保持Runtimeのsourceで確認しただけで、今回の端末RPCやPAUSE原因の確認とは区別する。
 
-## 次の確認
+## CI232と実物照合
 
-最終native合成sourceの選択host/実3.9、変更した現Runtime境界だけの実Mac、IPA/seal/実compiler/完全source、固定Releaseの匿名取得は作業中。完了前に配布済みや実機改善済みとは記録しない。R12/G1/Runtime/Nav/既閾値・全期限/入力予算・既試験assertを保持する。
+CODEd5360e19269c2d25efe5c3fdb1b9d3dc5ac989fb、run44218410323/build232で選択host61（native53＋selector8）・実CPython3.9.25の28件が成功。実Macは旧C1df5の指定assertion Red1件、現C053b2da0/Ring571ea393のcurrent_view/current_cancelの2ケースを実行して全条件を満たした。旧RuntimeのAPI Redや旧全故障集合を再実行したとはしない。
+
+現2ケースは実Runtimeのworker producer/commit-return待機、現在jobの通常判定、直接静止2枚/新fit/新UP、通常完全陰性・fresh PAUSE・保存/RS、および取消中の入力禁止を確認した。実Spool2export/48PNGの原RGBA/PNG/参照も照合した。画像・時計・UIは手続き的で、実ゲーム/iPhone受入や実HTTPの確認とは区別する。owner喪失そのものはこの2ケースの実行項目ではなく、保持source/公開Cの検査範囲である。
+
+IPAは18,246,786bytes、SHA256 569e9ed7bc10809ffcc97fab1f02e0f6036d27479b0b8ea57c5bb3d2a653eded、CFBundleVersion232。36nativeはC/Ringの2変更・34保持、R12全40・canonical15・ELF56,088bytes・G1/Runtime/Nav・閾値/元予算を維持した。CODE全1068tracked filesを全bytes/CRCで照合した。
+
+package/host/retained/macho/compileの5実物gateは5attemptで全成功した。crossbinding SHA256 1dcb9f5433e3676b5fc12c8ec93aa35e8f902dbb54d7c33557457ec3af0dcd73。照合のための追加native実行・分類・compileは行っていない。検証readerのgate混同・空inventory・実artifactのsource/marker形式・import/metadata根拠の指摘は実物読取前に修正し、独立sourceレビューを閉じた。
+
+固定[TEST114/build232](https://github.com/shuhei0720/necrogold-automation/releases/tag/test114-build232)は、CODEとの差がdocs3件だけのclosing sourceをCodeload全filesへ照合して公開する。公開・匿名取得は次工程。実機は通常1-1開始直後のPAUSE、IPA更新→LoopCtrl完全終了/再起動→Start Server、新規展開フォルダのtest_114.sh --until-targetを依頼し、campaign ZIPと最後のrun全ZIPを返却、元runtime/全run ZIPを保持する。実機改善と実効速度は未確認。
