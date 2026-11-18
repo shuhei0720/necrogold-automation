@@ -1,0 +1,44 @@
+name: Run a fixed TEST116 build or publication request
+
+on:
+  push:
+    branches: [work/p1-capture-probe]
+    paths:
+      - .github/test116-request.json
+      - .github/workflows/test116-request.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test116-fixed-request
+  cancel-in-progress: false
+
+jobs:
+  request:
+    if: github.repository == 'shuhei0720/necrogold-automation' && github.ref == 'refs/heads/work/p1-capture-probe' && github.event.deleted == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Exact immutable source tags/drafts and the existing workflow dispatch only.
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_HOST: github.com
+      GH_REPO: shuhei0720/necrogold-automation
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Execute the exact branch request without external scripts
+        run: python3 tools/test116_request.py .github/test116-request.json "$RUNNER_TEMP/test116-request-receipt.json"
+      - name: Retain the hash-bound request receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: test116-request-receipt
+          path: ${{ runner.temp }}/test116-request-receipt.json
+          if-no-files-found: warn
+          retention-days: 30
