@@ -24,6 +24,7 @@ EXPECTED_RED = {
     'alias': 'FAIL sealed_original_png_readonly_alias',
     'recovered_quota': 'FAIL accepted recovered_export_steals_other_slot_reservation',
     'orphan_quota': 'FAIL accepted partial_child_export_steals_parent_cohort_reservation',
+    'orphan_accounting': 'FAIL accepted second_atomic_part_exceeds_same_slot_two_MiB',
 }
 
 

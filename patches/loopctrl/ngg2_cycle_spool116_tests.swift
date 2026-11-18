@@ -286,16 +286,33 @@ func aliasIntegrity116() throws {
         }
     }
 }
-func publishedPair116(_ corrupt:Bool) throws -> (String,String) {
+func publishedPair116(_ corrupt:Bool, receiptOnly:Bool = false) throws -> (String,String) {
     let (firstID,secondID)=try pair116()
     let source=try NG2CycleSpool.testRecover(rootURL:root116,runID:firstID,owner:owner116)
     let ledger=try source.createRecoveryExport(owner:owner116), exportID=ledger.recoveryExportID!
     let bytes=try JSONSerialization.data(withJSONObject:["export_id":exportID],options:[.sortedKeys])
     let manifest=try ledger.commitExportManifest(exportID:exportID,bytes:bytes)
-    let receipt=try ledger.commitPublication(exportID:exportID,manifestSHA256:manifest.sha256,archiveSHA256:String(repeating:"a",count:64))
+    let receipt:NG2CycleSpool.RecordRef
+    let receiptDirectory:String
+    if receiptOnly {
+        rejects116("real_publication_rejects_unmatched_manifest_hash_before_receipt") {
+            _ = try source.commitRecoveredPublication(owner:owner116,exportID:exportID,
+                manifestSHA256:String(repeating:"b",count:64),archiveSHA256:String(repeating:"a",count:64))
+        }
+        receipt=try source.commitRecoveredPublication(owner:owner116,exportID:exportID,manifestSHA256:manifest.sha256,
+            archiveSHA256:String(repeating:"a",count:64))
+        let stores=try source.recoveryExports(owner:owner116)
+        let store=try stores.first(where:{try $0.records().last?.sha256 == receipt.sha256})!
+        receiptDirectory=firstID+"-"+store.recoveryExportID!
+        let storedManifest=try store.exportManifest()
+        check116(storedManifest == nil,"real_recovered_publication_is_an_immutable_receipt_only_sibling")
+    } else {
+        receipt=try ledger.commitPublication(exportID:exportID,manifestSHA256:manifest.sha256,archiveSHA256:String(repeating:"a",count:64))
+        receiptDirectory=firstID+"-"+exportID
+    }
     if corrupt {
         let path=root116.appendingPathComponent("NGG2RecoveryExports")
-            .appendingPathComponent(firstID+"-"+exportID)
+            .appendingPathComponent(receiptDirectory)
             .appendingPathComponent(String(format:"record-%04d-published.json",receipt.sequence))
         var value=try JSONSerialization.jsonObject(with:Data(contentsOf:path)) as! [String:Any]
         var payload=value["payload"] as! [String:Any];payload["manifest_sha256"] = String(repeating:"b",count:64)
@@ -306,8 +323,10 @@ func publishedPair116(_ corrupt:Bool) throws -> (String,String) {
     return (firstID,secondID)
 }
 func publishedQuota116() throws {
-    for corrupt in [false,true] {
-        let (_,secondID)=try publishedPair116(corrupt)
+    for (corrupt,receiptOnly) in [(false,false),(true,false),(false,true),(true,true)] {
+        let (firstID,secondID)=try publishedPair116(corrupt,receiptOnly:receiptOnly)
+        let pending=try NG2CycleSpool.testUnpublishedRunIDs(rootURL:root116)
+        check116(pending.contains(firstID) == corrupt,"prepare_pending_uses_same_verified_recovery_publication_as_quota")
         let source=try NG2CycleSpool.testRecover(rootURL:root116,runID:secondID,owner:owner116)
         NG2CycleSpoolTestHooks.availableBytes = 200 * 1024 * 1024
         if corrupt {
@@ -318,6 +337,48 @@ func publishedQuota116() throws {
         }
         check116(source.readOnly,"publication_accounting_does_not_restore_control")
     }
+    for corrupt in [false,true] {
+        let (_,store,clock)=try make116(), terminal=try terminal116(store)
+        _ = try store.sealContinuation(rootID:store.runID,index:0,predecessorID:nil,clockID:clock,
+            terminal:terminal,continuation:controller116(),successor:nil)
+        let exportID=id116(), bytes=try JSONSerialization.data(withJSONObject:["export_id":exportID],options:[.sortedKeys])
+        let manifest=try store.commitExportManifest(exportID:exportID,bytes:bytes)
+        let receipt=try store.commitPublication(exportID:exportID,manifestSHA256:manifest.sha256,
+            archiveSHA256:String(repeating:"a",count:64))
+        if corrupt {
+            let path=root116.appendingPathComponent("NGG2Cycles").appendingPathComponent(store.runID)
+                .appendingPathComponent(String(format:"record-%04d-published.json",receipt.sequence))
+            var value=try JSONSerialization.jsonObject(with:Data(contentsOf:path)) as! [String:Any]
+            var payload=value["payload"] as! [String:Any];payload["manifest_sha256"] = String(repeating:"b",count:64)
+            value["payload"] = payload
+            try JSONSerialization.data(withJSONObject:value,options:[.sortedKeys,.withoutEscapingSlashes]).write(to:path)
+        }
+        let pending=try NG2CycleSpool.testUnpublishedRunIDs(rootURL:root116)
+        check116(pending.contains(store.runID) == corrupt,"normal_publication_manifest_binding_controls_prepare_pending")
+    }
+    let (_,original,clock)=try make116(), terminal=try terminal116(original)
+    _ = try original.sealContinuation(rootID:original.runID,index:0,predecessorID:nil,clockID:clock,
+        terminal:terminal,continuation:controller116(),successor:nil)
+    let exportID=id116(), bytes=try JSONSerialization.data(withJSONObject:["export_id":exportID],options:[.sortedKeys])
+    let manifest=try original.commitExportManifest(exportID:exportID,bytes:bytes)
+    let source=try NG2CycleSpool.testRecover(rootURL:root116,runID:original.runID,owner:owner116)
+    let before=try original116(source)
+    rejects116("original_manifest_recovery_rejects_wrong_identity_before_receipt") {
+        _ = try source.commitRecoveredPublication(owner:owner116,exportID:id116(),manifestSHA256:manifest.sha256,
+            archiveSHA256:String(repeating:"a",count:64))
+    }
+    let receipt=try source.commitRecoveredPublication(owner:owner116,exportID:exportID,manifestSHA256:manifest.sha256,
+        archiveSHA256:String(repeating:"a",count:64))
+    let repeated=try source.commitRecoveredPublication(owner:owner116,exportID:exportID,manifestSHA256:manifest.sha256,
+        archiveSHA256:String(repeating:"a",count:64))
+    check116(receipt.sha256 == repeated.sha256,"original_readonly_manifest_publication_is_idempotent")
+    rejects116("original_manifest_recovery_rejects_conflicting_archive_receipt") {
+        _ = try source.commitRecoveredPublication(owner:owner116,exportID:exportID,manifestSHA256:manifest.sha256,
+            archiveSHA256:String(repeating:"c",count:64))
+    }
+    let pending=try NG2CycleSpool.testUnpublishedRunIDs(rootURL:root116)
+    check116(!pending.contains(original.runID),"original_readonly_manifest_receipt_removes_pending_with_exact_binding")
+    try unchanged116(source,before,"receipt_only_publication_never_rewrites_original_manifest_or_control_bytes")
 }
 func orphanAccounting116() throws {
     let (quota,source,clock)=try make116(), terminal=try terminal116(source)
@@ -346,6 +407,69 @@ func orphanAccounting116() throws {
     let converted=try ledger.commitPNG(captureID:ref.captureID,bytes:png,metadata:["raw_sha256":ref.rawSHA256])
     check116(try ledger.readPNG(converted) == png,"fallback_uses_remaining_slot_without_promoting_orphan_png")
     try unchanged116(source,before,"fallback_preserves_unregistered_PNG_and_all_original_control_bytes")
+    let (_,partial,_) = try make116()
+    NG2CycleSpoolTestHooks.beforeBoundary = { $0 != "file_sync" }
+    rejects116("raw_atomic_fault_leaves_real_part") {
+        _ = try partial.commitFrame(captureID:1,rgba:raw116,metadata:[:])
+    }
+    NG2CycleSpoolTestHooks.beforeBoundary = nil
+    try partial.sealForRecovery()
+    let partialBefore=try original116(partial)
+    let savedParts=partialBefore.filter { $0.key.hasPrefix(".part-") }
+    check116(savedParts.count == 1 && savedParts.values.first?.count == NG2CycleSpool.rasterBytes,
+        "raw_fault_keeps_one_actual_1_48MiB_part")
+    let recovery=try partial.createRecoveryExport(owner:owner116)
+    let ledgerPath=root116.appendingPathComponent("NGG2RecoveryExports")
+        .appendingPathComponent(partial.runID+"-"+recovery.recoveryExportID!)
+    let filesBefore=try FileManager.default.contentsOfDirectory(atPath:ledgerPath.path).sorted()
+    var pngPartOpened=false
+    NG2CycleSpoolTestHooks.beforeBoundary = { name in
+        if name == "part_open" { pngPartOpened=true }
+        return true
+    }
+    rejects116("second_atomic_part_exceeds_same_slot_two_MiB") {
+        _ = try recovery.commitPNG(captureID:1,bytes:png,metadata:["raw_sha256":hash116(raw116)])
+    }
+    NG2CycleSpoolTestHooks.beforeBoundary = nil
+    check116(!pngPartOpened,"atomic_temp_cap_rejects_before_new_part_open")
+    check116(try FileManager.default.contentsOfDirectory(atPath:ledgerPath.path).sorted() == filesBefore,
+        "atomic_temp_failure_creates_no_second_orphan")
+    try unchanged116(partial,partialBefore,"temp_quota_failure_preserves_original_raw_part_and_metadata")
+    try recovery.sealForRecovery()
+    _ = try recovery.artifacts()
+    let artifact=try partial.artifacts().first(where:{$0.name.hasPrefix(".part-")})!
+    check116(try partial.readArtifact(id:artifact.id,offset:0,length:64) == Data(raw116.prefix(64)),
+        "bounded_temp_failure_keeps_original_inventory_and_bytes_readable")
+    let (_,shared,clock)=try make116(), sharedTerminal=try terminal116(shared)
+    _ = try shared.sealContinuation(rootID:shared.runID,index:0,predecessorID:nil,clockID:clock,
+        terminal:sharedTerminal,continuation:controller116(),successor:nil)
+    try shared.sealForRecovery()
+    let first=try shared.createRecoveryExport(owner:owner116,forceFresh:true)
+    let second=try shared.createRecoveryExport(owner:owner116,forceFresh:true)
+    let firstEntered=DispatchSemaphore(value:0), releaseFirst=DispatchSemaphore(value:0), firstDone=DispatchSemaphore(value:0)
+    let stateGate=NSLock();var blocked=false;var firstError:Error?
+    NG2CycleSpoolTestHooks.beforeBoundary = { name in
+        guard name == "part_open" else { return true }
+        stateGate.lock();let shouldBlock = !blocked;blocked=true;stateGate.unlock()
+        if shouldBlock { firstEntered.signal();releaseFirst.wait() }
+        return true
+    }
+    DispatchQueue.global().async {
+        do { _ = try first.commitPNG(captureID:1,bytes:png,metadata:["raw_sha256":hash116(raw116)]) }
+        catch { stateGate.lock();firstError=error;stateGate.unlock() }
+        firstDone.signal()
+    }
+    check116(firstEntered.wait(timeout:.now()+5) == .success,"first_writer_holds_an_active_atomic_reservation_before_part_open")
+    rejects116("parallel_writer_cannot_reuse_other_active_atomic_temp") {
+        _ = try second.commitPNG(captureID:1,bytes:png,metadata:["raw_sha256":hash116(raw116)])
+    }
+    releaseFirst.signal()
+    check116(firstDone.wait(timeout:.now()+5) == .success,"first_atomic_writer_returns_after_release")
+    NG2CycleSpoolTestHooks.beforeBoundary = nil
+    stateGate.lock();let completedWithoutError = firstError == nil;stateGate.unlock()
+    check116(completedWithoutError,"first_reserved_atomic_completes_without_other_writer_stealing_capacity")
+    let firstPNG=try first.pngs()[0]
+    check116(try first.readPNG(firstPNG) == png,"parallel_temp_rejection_preserves_first_whole_png")
 }
 func failedPair116() throws -> (String,String) {
     let (quota,first,clock)=try make116(), child=id116()
@@ -380,19 +504,52 @@ func orphanQuota116() throws {
     }
 }
 func damagedOwner116() throws {
-    for selected in [0,1] {
-        let (first,second)=try pair116(), target=selected == 0 ? first:second
+    for damage in ["owner0","owner1","root_id","missing_header"] {
+        let (first,second)=try pair116(), target=damage == "owner1" ? second:first
         let path=root116.appendingPathComponent("NGG2Cycles").appendingPathComponent(target).appendingPathComponent("session.json")
-        var header=try JSONSerialization.jsonObject(with:Data(contentsOf:path)) as! [String:Any]
-        header["owner_sha256"] = String(repeating:"f",count:64)
-        try JSONSerialization.data(withJSONObject:header,options:[.sortedKeys,.withoutEscapingSlashes]).write(to:path)
+        if damage == "missing_header" { try FileManager.default.removeItem(at:path) }
+        else {
+            var header=try JSONSerialization.jsonObject(with:Data(contentsOf:path)) as! [String:Any]
+            if damage == "root_id" {
+                var provenance=header["provenance"] as! [String:Any]
+                var continuous=provenance["continuous_campaign"] as! [String:Any]
+                continuous["root_id"] = id116();provenance["continuous_campaign"] = continuous;header["provenance"] = provenance
+            } else { header["owner_sha256"] = String(repeating:"f",count:64) }
+            try JSONSerialization.data(withJSONObject:header,options:[.sortedKeys,.withoutEscapingSlashes]).write(to:path)
+        }
         let source:NG2CycleSpool
         do { source=try NG2CycleSpool.testRecover(rootURL:root116,runID:target,owner:owner116) }
         catch { print("FAIL damaged_owner_keeps_readonly_forensic_recovery");exit(1) }
         check116(source.readOnly && source.diagnosticInterrupted,"damaged_owner_is_evidence_not_authority")
         let before=try original116(source)
-        _ = try source.createRecoveryExport(owner:owner116)
+        NG2CycleSpoolTestHooks.availableBytes = 200 * 1024 * 1024
+        rejects116("damaged_header_keeps_other_child_reservation_"+damage) {
+            _ = try source.createRecoveryExport(owner:owner116)
+        }
+        NG2CycleSpoolTestHooks.availableBytes = 4 * 1024 * 1024 * 1024
+        let ledger=try source.createRecoveryExport(owner:owner116)
+        let originals=try source.pngs(), aliases=try ledger.pngs()
+        check116(originals.count == (target == first ? 1:0) && aliases.count == originals.count,
+            "damaged_header_keeps_independently_valid_original_png_aliases")
+        if let ref=aliases.first {
+            check116(try ledger.readPNG(ref) == NG2CycleSpool.storedPNG(rgba:raw116),
+                "damaged_header_png_alias_rechecks_original_metadata_and_whole_png")
+        }
         try unchanged116(source,before,"damaged_owner_forensic_export_repairs_no_original_header")
+    }
+    let (first,second)=try pair116()
+    let base=root116.appendingPathComponent("NGG2Cycles")
+    try FileManager.default.removeItem(at:base.appendingPathComponent(first).appendingPathComponent("session.json"))
+    for name in try FileManager.default.contentsOfDirectory(atPath:base.appendingPathComponent(second).path)
+        where name.hasSuffix("-continuation_seal.json") {
+        try FileManager.default.removeItem(at:base.appendingPathComponent(second).appendingPathComponent(name))
+    }
+    let unresolved=try NG2CycleSpool.testRecover(rootURL:root116,runID:first,owner:owner116)
+    let artifacts=try unresolved.artifacts()
+    check116(unresolved.readOnly && unresolved.diagnosticInterrupted && artifacts.contains(where:{$0.name.hasSuffix("-continuation_reservation.json")}),
+        "unresolved_missing_header_keeps_readable_original_new_mode_markers")
+    rejects116("unresolved_new_mode_never_falls_back_to_standalone_export") {
+        _ = try unresolved.createRecoveryExport(owner:owner116)
     }
 }
 func recoveryNamespace116() throws {

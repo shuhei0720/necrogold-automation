@@ -150,6 +150,20 @@ final class NG2CycleSpool {
                 + NG2CycleSpool.maximumExportTemporaryBytes : 0
             try available(required: remaining()+additional)
         }
+        // The part is reserved under the same quota gate as every writer.
+        // Its bytes remain charged until the actual rename/fault inventory
+        // replaces them; another writer cannot pass the same transient space.
+        fileprivate func reserveAtomic(runID:String,writer:String,usage:CampaignUsage,bytes:Int) throws {
+            gate.lock();defer { gate.unlock() }
+            guard bytes > 0,bytes <= NG2CycleSpool.maximumExportTemporaryBytes,
+                  let slot=slots[runID],slot.state != 0 else { throw Failure.invalid("campaign-atomic") }
+            var projected=usage;projected.temporary += bytes
+            try validate(slot:slot,writer:writer,usage:projected)
+            let additional=slot.state == 4 ? max(0,projected.total-(slot.writers[writer]?.total ?? 0))
+                + NG2CycleSpool.maximumExportTemporaryBytes : 0
+            try available(required:remaining()+additional)
+            slot.writers[writer]=projected
+        }
         fileprivate func charge(runID: String, writer: String, usage: CampaignUsage) throws {
             gate.lock(); defer { gate.unlock() }
             guard let slot = slots[runID] else { throw Failure.invalid("campaign-slot") }
@@ -310,6 +324,7 @@ final class NG2CycleSpool {
     private var lastReservedEpisode: UInt64 = 0
     private var campaignQuota: CampaignQuota?
     private var campaignReservation: Reservation?
+    private var campaignAccountingBlocked = false
     private var continuousProvenance: [String: Any]?
     private var committedSessionSHA256: String?
     private var inheritedPNGSource:NG2CycleSpool?
@@ -408,8 +423,20 @@ final class NG2CycleSpool {
                     try quota.charge(runID:runID,writer:campaignWriter,usage:campaignUsage)
                 }
             }
-            if recover && attachCampaignRecovery && rootName == "NGG2Cycles" && continuousProvenance != nil {
-                try restoreCampaignAccounting()
+            if recover && attachCampaignRecovery && rootName == "NGG2Cycles" {
+                do {
+                    try restoreCampaignAccounting()
+                    if campaignQuota != nil && continuousProvenance == nil && diagnosticInterrupted {
+                        // Membership was proven from a saved peer link; keep
+                        // the missing/damaged original header untouched.
+                        try salvageInterruptedPNGs(names:Set(try entryNames()),verifyRasters:verifyRasters)
+                    }
+                }
+                catch {
+                    // Ambiguous/unreadable accounting never reverts to the
+                    // standalone writer. Original artifacts remain readable.
+                    campaignAccountingBlocked=true;diagnosticInterrupted=true
+                }
             } else if recover,let quota=campaignQuota {
                 try quota.charge(runID:runID,writer:campaignWriter,usage:try storedUsage())
             }
@@ -470,8 +497,11 @@ final class NG2CycleSpool {
         }
         var pending: [String] = []
         for id in ids.sorted() {
-            let spool = try NG2CycleSpool(rootURL: rootURL, runID: id, owner: "read-only-scan", recover: true, verifyRasters: false,attachCampaignRecovery:false)
-            if !spool.diagnosticInterrupted && spool.recordList.last?.kind == "published" { continue }
+            let spool = try NG2CycleSpool(rootURL: rootURL, runID: id, owner: "read-only-scan", recover: true, verifyRasters: false)
+            if !spool.diagnosticInterrupted && spool.recordList.last?.kind == "published" {
+                if spool.campaignQuota == nil && spool.continuousProvenance == nil { continue }
+                if try spool.verifiedOwnPublication() { continue }
+            }
             if try spool.hasRecoveryPublication() { continue }
             pending.append(id)
         }
@@ -1064,6 +1094,7 @@ final class NG2CycleSpool {
     func createRecoveryExport(owner: String, forceFresh: Bool = false) throws -> NG2CycleSpool {
         gate.lock(); defer { gate.unlock() }
         guard !writable else { throw Failure.invalid("live-recovery") }
+        guard !campaignAccountingBlocked else { throw Failure.invalid("campaign-accounting-blocked") }
         if snapshotSHA256 == nil { try buildSnapshot() }
         if !forceFresh, let existing = try matchingRecoveryExports(owner: owner).last(where: {
             !$0.diagnosticInterrupted && $0.manifestRef != nil
@@ -1071,7 +1102,13 @@ final class NG2CycleSpool {
         return try newRecoveryExport(owner: owner)
     }
     private func newRecoveryExport(owner: String) throws -> NG2CycleSpool {
+        guard !campaignAccountingBlocked else { throw Failure.invalid("campaign-accounting-blocked") }
         try refreshCampaignUsage()
+        if campaignQuota != nil || continuousProvenance != nil {
+            guard try Self.namespaceIDs(rootURL:supportURL,rootName:"NGG2RecoveryExports").count < 128 else {
+                throw Failure.limit("recovery-namespace")
+            }
+        }
         let exportID = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         let ledger = try NG2CycleSpool(rootURL: supportURL, runID: runID, owner: owner, recover: false,
             rootName: "NGG2RecoveryExports", directoryName: runID + "-" + exportID,exportQuota:campaignQuota)
@@ -1106,7 +1143,14 @@ final class NG2CycleSpool {
         gate.lock(); defer { gate.unlock() }
         guard !writable else { throw Failure.invalid("live-recovery") }
         if snapshotSHA256 == nil { try buildSnapshot() }
-        for ledger in try matchingRecoveryExports(owner: owner) {
+        let ledgers=try matchingRecoveryExports(owner:owner)
+        if campaignQuota != nil || continuousProvenance != nil || campaignAccountingBlocked {
+            guard !campaignAccountingBlocked,
+                  try manifestMatches(exportID:exportID,sha256:manifestSHA256,ledgers:ledgers) else {
+                throw Failure.invalid("recovery-publication-manifest")
+            }
+        }
+        for ledger in ledgers {
             if let receipt = ledger.recordList.last, receipt.kind == "published",
                receipt.payload["export_id"] as? String == exportID,
                receipt.payload["manifest_sha256"] as? String == manifestSHA256 {
@@ -1115,11 +1159,16 @@ final class NG2CycleSpool {
             }
         }
         let ledger = try newRecoveryExport(owner: owner)
-        return try ledger.commitPublication(exportID: exportID, manifestSHA256: manifestSHA256, archiveSHA256: archiveSHA256)
+        let receipt=try ledger.commitPublication(exportID: exportID, manifestSHA256: manifestSHA256, archiveSHA256: archiveSHA256)
+        campaignQuota?.published(runID:runID)
+        return receipt
     }
     private func hasRecoveryPublication() throws -> Bool {
         gate.lock(); defer { gate.unlock() }
-        // Check namespace existence before hashing a potentially large source.
+        if campaignQuota != nil || continuousProvenance != nil || campaignAccountingBlocked {
+            return try verifiedRecoveryPublicationLocked()
+        }
+        // Preserve the legacy publication boundary outside continuous mode.
         let path = supportURL.appendingPathComponent("NGG2RecoveryExports").path
         var value = stat()
         if lstat(path, &value) != 0 && errno == ENOENT { return false }
@@ -1128,20 +1177,46 @@ final class NG2CycleSpool {
             !$0.diagnosticInterrupted && $0.recordList.last?.kind == "published"
         })
     }
+    // Caller owns this source gate. Candidates already belong to this exact
+    // immutable source snapshot; a receipt may live in a different sibling.
+    private func manifestMatches(exportID:String,sha256:String,ledgers:[NG2CycleSpool]) throws -> Bool {
+        if let ref=manifestRef,ref.exportID == exportID,ref.sha256 == sha256 {
+            let bytes=try read("export-"+exportID+".json",maximum:Self.maximumMetadataBytes)
+            if bytes.count == ref.bytes && Self.sha(bytes) == sha256 { return true }
+        }
+        for ledger in ledgers {
+            guard let ref=ledger.manifestRef,ref.exportID == exportID,ref.sha256 == sha256 else { continue }
+            let bytes=try ledger.readExportManifest(ref)
+            if bytes.count == ref.bytes && Self.sha(bytes) == sha256 { return true }
+        }
+        return false
+    }
+    private func verifiedOwnPublication() throws -> Bool {
+        gate.lock();defer { gate.unlock() }
+        guard !diagnosticInterrupted,let receipt=recordList.last,receipt.kind == "published",
+              let manifest=manifestRef,Self.validReceipt(receipt.payload),
+              receipt.payload["export_id"] as? String == manifest.exportID,
+              receipt.payload["manifest_sha256"] as? String == manifest.sha256 else { return false }
+        // The archive itself lives on the host. This validates the durable
+        // manifest/receipt binding, not a native re-hash of that host ZIP.
+        let bytes=try read("export-"+manifest.exportID+".json",maximum:Self.maximumMetadataBytes)
+        return bytes.count == manifest.bytes && Self.sha(bytes) == manifest.sha256
+    }
     private func verifiedRecoveryPublication() throws -> Bool {
         gate.lock();defer { gate.unlock() }
+        return try verifiedRecoveryPublicationLocked()
+    }
+    private func verifiedRecoveryPublicationLocked() throws -> Bool {
         let path=supportURL.appendingPathComponent("NGG2RecoveryExports").path
         var value=stat()
         if lstat(path,&value) != 0 && errno == ENOENT { return false }
         if snapshotSHA256 == nil { try buildSnapshot() }
-        for ledger in try matchingRecoveryExports(owner:"storage-only-publication") {
+        let ledgers=try matchingRecoveryExports(owner:"storage-only-publication")
+        for ledger in ledgers {
             guard !ledger.diagnosticInterrupted,let receipt=ledger.recordList.last,receipt.kind == "published",
-                  let manifest=ledger.manifestRef,
-                  receipt.payload["export_id"] as? String == manifest.exportID,
-                  receipt.payload["manifest_sha256"] as? String == manifest.sha256,
-                  Self.validReceipt(receipt.payload) else { continue }
-            let bytes=try ledger.readExportManifest(manifest)
-            if bytes.count == manifest.bytes && Self.sha(bytes) == manifest.sha256 { return true }
+                  Self.validReceipt(receipt.payload),let exportID=receipt.payload["export_id"] as? String,
+                  let manifestSHA=receipt.payload["manifest_sha256"] as? String else { continue }
+            if try manifestMatches(exportID:exportID,sha256:manifestSHA,ledgers:ledgers) { return true }
         }
         return false
     }
@@ -1182,7 +1257,16 @@ final class NG2CycleSpool {
             try attachInheritedPNGs(to:ledger)
             if !ledger.diagnosticInterrupted,
                ledger.recordList.first?.kind == "recovery_source",
-               ledger.recordList.first?.payload["snapshot_sha256"] as? String == snapshotSHA256 { ledgers.append(ledger) }
+               let payload=ledger.recordList.first?.payload,
+               payload["snapshot_sha256"] as? String == snapshotSHA256 {
+                if campaignQuota != nil || continuousProvenance != nil || campaignAccountingBlocked {
+                    let expected:Any=originalOwnerSHA256 as Any? ?? NSNull()
+                    let actual:Any=payload["original_owner_sha256"] as Any? ?? NSNull()
+                    guard (try Self.canonical(["owner":expected])) == (try Self.canonical(["owner":actual])),
+                          Self.strictBool(payload["input_authority"]) == false else { continue }
+                }
+                ledgers.append(ledger)
+            }
         }
         return ledgers
     }
@@ -1197,7 +1281,12 @@ final class NG2CycleSpool {
             let result = try body()
             if let quota = campaignQuota {
                 try quota.charge(runID: runID, writer: campaignWriter, usage: campaignUsage)
-                if recordList.last?.kind == "published" { quota.published(runID: runID) }
+                if let receipt=recordList.last,receipt.kind == "published",let manifest=manifestRef,
+                   receipt.payload["export_id"] as? String == manifest.exportID,
+                   receipt.payload["manifest_sha256"] as? String == manifest.sha256,
+                   try manifestMatches(exportID:manifest.exportID,sha256:manifest.sha256,ledgers:[]) {
+                    quota.published(runID:runID)
+                }
             }
             return result
         } catch { damaged = true; writable = false; diagnosticInterrupted = true; incompleteEntries = true; throw error }
@@ -1361,30 +1450,103 @@ final class NG2CycleSpool {
         }
     }
     private func restoreCampaignAccounting() throws {
-        guard let provenance=continuousProvenance,let identity=Self.continuousIdentity(provenance) else { return }
+        typealias Identity=(root:String,index:Int,predecessor:String?,started:UInt64,deadline:UInt64)
+        if continuousProvenance == nil,
+           let bytes=try? read("session.json",maximum:Self.maximumMetadataBytes),
+           let header=Self.validSessionHeader(bytes,runID:runID),
+           let provenance=header["provenance"] as? [String:Any],provenance["continuous_campaign"] == nil {
+            return // The legacy intact-session accounting path is unchanged.
+        }
+        // This scan establishes storage membership only. It does not repair a
+        // missing session or reconstruct any token, clock, or input authority.
+        var sources:[String:NG2CycleSpool]=[:]
+        var identities:[String:Identity]=[:]
+        for id in try Self.namespaceIDs(rootURL:supportURL).sorted() {
+            let source:NG2CycleSpool
+            if id == runID { source=self }
+            else { source=try NG2CycleSpool(rootURL:supportURL,runID:id,owner:"storage-only-scan",recover:true,
+                verifyRasters:false,attachCampaignRecovery:false) }
+            sources[id]=source
+            if let p=source.continuousProvenance,let identity=Self.continuousIdentity(p),
+               (identity.index == 0 ? id == identity.root : identity.predecessor != id) {
+                identities[id]=identity
+            }
+        }
+        func same(_ a:Identity,_ b:Identity) -> Bool {
+            a.root == b.root && a.index == b.index && a.predecessor == b.predecessor
+                && a.started == b.started && a.deadline == b.deadline
+        }
+        // A normal sealed index-one child's saved root/predecessor both name
+        // slot zero. This reverse storage-only link preserves forensic root
+        // recovery when root session bytes were lost or changed after sealing.
+        for (_,source) in sources where source.contentSealed {
+            guard let child=identities[source.runID],child.index == 1,
+                  child.predecessor == child.root else { continue }
+            let root:Identity=(child.root,0,nil,child.started,child.deadline)
+            if identities[child.root] == nil { identities[child.root]=root }
+        }
+        var conflictedRoots:Set<String>=[]
+        for (id,source) in sources {
+            // A validated saved seal and its preceding canonical record chain
+            // bind next UUID/root/index/pred even if that child failed before
+            // session.json existed. Current raw-pixel validity is separate
+            // forensic evidence; it never changes this stored identity link.
+            guard source.contentSealed,let parent=identities[id],
+                  let seal=source.recordList.first(where:{$0.kind == "continuation_seal"}),
+                  let next=seal.payload["next_run_id"] as? String,
+                  let token=source.recordList.compactMap({ref -> Reservation? in
+                    guard ref.kind == "continuation_reservation" else { return nil }
+                    return Self.reservationValue(ref.payload)
+                  }).first(where:{$0.runID == next && $0.rootID == parent.root
+                    && $0.index == parent.index+1 && $0.predecessorID == id}) else { continue }
+            let child:Identity=(parent.root,token.index,id,parent.started,parent.deadline)
+            if let previous=identities[next],!same(previous,child) {
+                // Ambiguous stored membership may be read as evidence but
+                // must not open an export writer with standalone capacity.
+                conflictedRoots.insert(previous.root);conflictedRoots.insert(child.root)
+                continue
+            }
+            identities[next]=child
+        }
+        guard let identity=identities[runID] else {
+            if continuousProvenance != nil || recordList.contains(where:{
+                $0.kind == "continuation_reservation" || $0.kind == "continuation_seal"
+            }) { throw Failure.invalid("campaign-recovery-unresolved") }
+            if let bytes=try? read("session.json",maximum:Self.maximumMetadataBytes),
+               let header=Self.validSessionHeader(bytes,runID:runID),
+               let provenance=header["provenance"] as? [String:Any],provenance["continuous_campaign"] != nil {
+                throw Failure.invalid("campaign-recovery-unresolved")
+            }
+            return
+        }
+        guard !conflictedRoots.contains(identity.root) else { throw Failure.invalid("campaign-recovery-link-conflict") }
         let key=supportURL.standardizedFileURL.path + "/" + identity.root
         Self.recoveredQuotaGate.lock();defer { Self.recoveredQuotaGate.unlock() }
         if let cached=Self.recoveredQuotas[key]?.value { campaignQuota=cached;return }
         let quota=try CampaignQuota(rootURL:supportURL,rootID:identity.root,owner:"storage-only-recovery",storageOnly:true)
         var cohort:[String:NG2CycleSpool]=[:]
-        for id in try Self.namespaceIDs(rootURL:supportURL).sorted() {
-            let source=try NG2CycleSpool(rootURL:supportURL,runID:id,owner:"storage-only-scan",recover:true,
-                verifyRasters:false,attachCampaignRecovery:false)
-            guard let p=source.continuousProvenance,let child=Self.continuousIdentity(p),child.root == identity.root else { continue }
-            guard source.ownerSHA256 == ownerSHA256 else { throw Failure.invalid("campaign-recovery-owner") }
-            try quota.restore(runID:id,identity:child,writer:source.campaignWriter,usage:try source.storedUsage(),
-                published:source.recordList.last?.kind == "published")
-            cohort[id]=source
+        for (id,child) in identities where child.root == identity.root {
+            guard child.started == identity.started && child.deadline == identity.deadline else {
+                throw Failure.invalid("campaign-recovery-time")
+            }
+            let source=sources[id]
+            // Owner/header corruption remains in the diagnostic inventory;
+            // it cannot erase another child's storage reservation or grant
+            // recovered input ownership. Missing namespaces reserve zero
+            // actual bytes without being created here.
+            let published=try source?.verifiedOwnPublication() ?? false
+            try quota.restore(runID:id,identity:child,writer:"NGG2Cycles/"+id,
+                usage:try source?.storedUsage() ?? CampaignUsage(),published:published)
+            if let source { cohort[id]=source }
         }
-        guard cohort[runID] != nil else { throw Failure.invalid("campaign-recovery-source") }
         for name in try Self.namespaceIDs(rootURL:supportURL,rootName:"NGG2RecoveryExports").sorted() {
             let id=String(name.prefix(32))
-            guard cohort[id] != nil else { continue }
+            guard identities[id]?.root == identity.root else { continue }
             let ledger=try NG2CycleSpool(rootURL:supportURL,runID:id,owner:"storage-only-ledger-scan",recover:true,
                 verifyRasters:false,rootName:"NGG2RecoveryExports",directoryName:name,attachCampaignRecovery:false)
             try quota.charge(runID:id,writer:ledger.campaignWriter,usage:try ledger.storedUsage())
         }
-        for source in cohort.values where source.recordList.last?.kind != "published" {
+        for source in cohort.values {
             if try source.verifiedRecoveryPublication() { quota.published(runID:source.runID) }
         }
         campaignQuota=quota;Self.recoveredQuotas[key]=WeakCampaignQuota(quota)
@@ -1424,6 +1586,21 @@ final class NG2CycleSpool {
         #endif
     }
     private func atomic(_ bytes: Data, name: String) throws {
+        guard let quota=campaignQuota else { try atomicBytes(bytes,name:name);return }
+        // Re-stat this writer between atomics too: publication-pending and a
+        // prior failed part may have changed inside the same writing body.
+        try quota.reserveAtomic(runID:runID,writer:campaignWriter,usage:try storedUsage(),bytes:bytes.count)
+        do {
+            try atomicBytes(bytes,name:name)
+            try quota.charge(runID:runID,writer:campaignWriter,usage:try storedUsage())
+        } catch {
+            // A failed part stays on disk as evidence. Preserve its physical
+            // charge before the caller seals this writer for recovery.
+            if let usage=try? storedUsage() { try? quota.charge(runID:runID,writer:campaignWriter,usage:usage) }
+            throw error
+        }
+    }
+    private func atomicBytes(_ bytes: Data, name: String) throws {
         let part = ".part-" + UUID().uuidString.lowercased()
         try boundary("part_open")
         let descriptor = openat(directoryFD, part, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
@@ -1785,6 +1962,28 @@ final class NG2CycleSpool {
                                   "artifacts": artifactList.map { Self.artifactValue($0) }]
         snapshotSHA256 = Self.sha(try Self.canonical(value))
     }
+    private func salvageInterruptedPNGs(names:Set<String>,verifyRasters:Bool) throws {
+        for name in names.sorted() where name.hasPrefix("png-") && name.hasSuffix(".json") {
+            guard let bytes=try? read(name,maximum:Self.maximumMetadataBytes),
+                  let value=(try? JSONSerialization.jsonObject(with:bytes)) as? [String:Any],
+                  Set(value.keys) == ["schema","run_id","capture_id","png_sha256","png_bytes","metadata"],
+                  value["schema"] as? String == "ngg2-cycle-png-v1",value["run_id"] as? String == runID,
+                  let id=Self.unsigned(value["capture_id"]),let raw=registered[id],
+                  let digest=value["png_sha256"] as? String,Self.isHex(digest,count:64),
+                  let size=Self.unsigned(value["png_bytes"]),size > 0,size <= UInt64(Self.maximumExportTemporaryBytes),
+                  let metadata=value["metadata"] as? [String:Any],metadata["raw_sha256"] as? String == raw.rawSHA256,
+                  (try? Self.canonical(value)) == bytes,name == pngName(id,suffix:"json"),
+                  names.contains(pngName(id,suffix:"png")),registeredPNGs.count < Self.maximumFrames,
+                  Int(size) <= Self.maximumPNGBytes-pngBytes else { continue }
+            if verifyRasters {
+                guard let png=try? read(pngName(id,suffix:"png"),maximum:Self.maximumExportTemporaryBytes),
+                      (try? Self.validatePNG(png)) != nil,png.count == Int(size),Self.sha(png) == digest else { continue }
+            }
+            registeredPNGs[id]=PNGRef(captureID:id,sha256:digest,bytes:Int(size),
+                metadataSHA256:Self.sha(bytes),metadata:metadata)
+            pngBytes += Int(size)
+        }
+    }
     private func loadInterrupted(verifyRasters: Bool) throws {
         let entries = try artifactEntries(hashes: false)
         let names = Set(entries.map { $0.name })
@@ -1815,28 +2014,7 @@ final class NG2CycleSpool {
             registered[id] = FrameRef(captureID: id, rawSHA256: digest, bytes: Self.rasterBytes,
                                        metadataSHA256: Self.sha(bytes))
         }
-        if continuousProvenance != nil {
-            for name in names.sorted() where name.hasPrefix("png-") && name.hasSuffix(".json") {
-                guard let bytes=try? read(name,maximum:Self.maximumMetadataBytes),
-                      let value=(try? JSONSerialization.jsonObject(with:bytes)) as? [String:Any],
-                      Set(value.keys) == ["schema","run_id","capture_id","png_sha256","png_bytes","metadata"],
-                      value["schema"] as? String == "ngg2-cycle-png-v1",value["run_id"] as? String == runID,
-                      let id=Self.unsigned(value["capture_id"]),let raw=registered[id],
-                      let digest=value["png_sha256"] as? String,Self.isHex(digest,count:64),
-                      let size=Self.unsigned(value["png_bytes"]),size > 0,size <= UInt64(Self.maximumExportTemporaryBytes),
-                      let metadata=value["metadata"] as? [String:Any],metadata["raw_sha256"] as? String == raw.rawSHA256,
-                      (try? Self.canonical(value)) == bytes,name == pngName(id,suffix:"json"),
-                      names.contains(pngName(id,suffix:"png")),registeredPNGs.count < Self.maximumFrames,
-                      Int(size) <= Self.maximumPNGBytes-pngBytes else { continue }
-                if verifyRasters {
-                    guard let png=try? read(pngName(id,suffix:"png"),maximum:Self.maximumExportTemporaryBytes),
-                          (try? Self.validatePNG(png)) != nil,png.count == Int(size),Self.sha(png) == digest else { continue }
-                }
-                registeredPNGs[id]=PNGRef(captureID:id,sha256:digest,bytes:Int(size),
-                    metadataSHA256:Self.sha(bytes),metadata:metadata)
-                pngBytes += Int(size)
-            }
-        }
+        if continuousProvenance != nil { try salvageInterruptedPNGs(names:names,verifyRasters:verifyRasters) }
         for name in names.sorted() where name.hasPrefix("record-") && name.hasSuffix(".json") {
             guard let bytes = try? read(name, maximum: Self.maximumMetadataBytes),
                   let value = (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any],
