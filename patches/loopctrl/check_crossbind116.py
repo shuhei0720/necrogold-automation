@@ -227,7 +227,8 @@ def verify(normal_chain, runtime_proof):
     proof_raw = read(runtime_proof.parent, runtime_proof.name, 8 * 1024 * 1024)
     proof = object_bytes(proof_raw, 8 * 1024 * 1024)
     normal = proof.get('cases', {}).get('normal_chain', {})
-    require(proof.get('compile_errors') == 0 and normal.get('qualified') is True
+    require(proof.get('schema') == 'ngg2-runtime116-host-proof-v1'
+            and proof.get('compile_errors') == 0 and normal.get('qualified') is True
             and normal.get('returncode') == 0, 'actual_mac_normal_chain_not_green')
     receipts = list(normal_chain.glob('normal_chain_child*/*/receipt.json'))
     folders = {p.parent.name: p.parent for p in receipts}
@@ -259,6 +260,7 @@ def verify(normal_chain, runtime_proof):
         scope='Actual Mac procedural Runtime/Spool/RPC bytes -> actual Python client proof; no phone acceptance',
         root_id=native['root_id'], root_status_sha256=digest(roots[0]),
         runtime_proof_sha256=digest(proof_raw), native_sources=native_sources,
+        validator_sha256=digest(Path(__file__).read_bytes()),
         client_sources=sources, python_version=list(sys.version_info[:3]),
         children=rows, all_children_verified=True, input_or_rpc_sent=False,
         archive_claim='Native fixture uses simulated a*64 claim; no actual client ZIP publication is certified')

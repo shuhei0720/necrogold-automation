@@ -86,7 +86,7 @@ struct Runtime116PreparedExport {
     let destination: URL?
 }
 func runtime116PrepareSyntheticExport(_ id: String, label: String,
-        rootReply: [String: JSONValue]) -> Runtime116PreparedExport? {
+        rootReplyBytes: Data) -> Runtime116PreparedExport? {
     guard let manifest = cycleCall(id, "manifest").0?["payload"]?.objectValue,
           let text = manifest["manifest_json"]?.stringValue, let bytes = text.data(using: .utf8),
           let value = try? JSONDecoder().decode([String: JSONValue].self, from: bytes),
@@ -146,7 +146,7 @@ func runtime116PrepareSyntheticExport(_ id: String, label: String,
             try JSONEncoder().encode(manifest).write(to: folder.appendingPathComponent("manifest-rpc.json"), options: .atomic)
             try JSONEncoder().encode(status).write(to: folder.appendingPathComponent("runtime-status.json"), options: .atomic)
             try JSONEncoder().encode(records).write(to: folder.appendingPathComponent("records-rpc.json"), options: .atomic)
-            try JSONEncoder().encode(rootReply).write(to: folder.appendingPathComponent("root-status-rpc.json"), options: .atomic)
+            try rootReplyBytes.write(to: folder.appendingPathComponent("root-status-rpc.json"), options: .atomic)
             destination = folder
         } catch { require(false, "test116_prepublication_verified_export_saved_before_ack") }
     }
@@ -261,7 +261,8 @@ func runtime116PreserveSyntheticExport(_ root: URL, _ id: String, label: String,
 func runtime116ExportAll(_ root: URL, _ id: String, label: String, normal: Bool = true) {
     require(runtime116Drained(id) && !runtime.hasLease, "test116_full_campaign_actually_drained_before_export")
     let rootStatus = runtime116Status(id, keepalive: false)
-    guard rootStatus.1 == nil, let rootReply = rootStatus.0 else {
+    guard rootStatus.1 == nil, let rootReply = rootStatus.0,
+          let rootReplyBytes = try? JSONEncoder().encode(rootReply) else {
         require(false, "test116_stopped_root_actual_rpc_is_available_for_client_crossbind"); return
     }
     let children = runtime116Children(id)
@@ -288,7 +289,7 @@ func runtime116ExportAll(_ root: URL, _ id: String, label: String, normal: Bool 
         if normal { require(child["escrow_sealed"]?.boolValue == true,
             "test116_normal_child_has_durable_escrow_not_only_ram") }
         let childLabel = label+"_child"+String(index)
-        guard let prepared = runtime116PrepareSyntheticExport(childID, label: childLabel, rootReply: rootReply) else { return }
+        guard let prepared = runtime116PrepareSyntheticExport(childID, label: childLabel, rootReplyBytes: rootReplyBytes) else { return }
         let publication = runtime116PublishFixtureClaim(childID, manifest: prepared.manifest,
             retired: index+1 < children.count)
         runtime116PreserveSyntheticExport(root, childID, label: childLabel, prepared: prepared, published: publication)
