@@ -42,3 +42,5 @@ A差分レビューでは、新layout3のexact足場不足とvalidatorの参照�
 最終Cの元counter付き8採用順cut・guard5も再確認した。内訳は新189/247へDATA再bind6、先188陰性を保持する2。Ring/Shop関連41件は直前C74の結果であり、最終C402は初回postACK条件1個だけの差と8+5cut再実行で別に記録する。最終CODEの選択host/実Python3.9・Mac5は次にsourceを固定して実行する。
 
 実iOS compiler/IPA同一性、完全source ZIPと固定Release全取得は未実施。実機での商品確認率・毎拍・人より速い実効速度は未受入のままとする。
+
+CI251/CODEbf6aaed: pinned host165+selector5・実Python3.9の65は成功。Mac5の前に旧094 fallback5条件の117除外漏れがあり、旧API allowlist/旧Runtime publication試験が選択され失敗した。新117 Mac5/IPAの成功へ数えない。native37/C402/Runtime58は変更せず、workflow/selectorの局所修正で再実行する。

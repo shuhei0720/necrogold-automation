@@ -1,6 +1,9 @@
 """TEST117 selectors fail closed until exact author/source scopes are frozen."""
+import ast
 import importlib.util
+import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -22,6 +25,57 @@ def one_case(outcome='green'):
             if outcome == 'failure': self.fail('procedural boundary')
             if outcome == 'error': raise ValueError('procedural boundary')
     return Fixture()
+
+
+def focused_steps(source):
+    """Read every step in the existing single-line-if focused job format."""
+    body = source.split('  focused-build:\n', 1)[1].split('\n  build:\n', 1)[0]
+    rows = []
+    for line in body.splitlines():
+        if line.startswith('      - '):
+            rows.append(dict(name=line.split(':', 1)[1].strip(), condition='', source=[]))
+        if rows:
+            rows[-1]['source'].append(line)
+            if line.startswith('        if:'):
+                condition = line[len('        if:'):].strip()
+                if not condition or condition in ('|', '>'):
+                    raise ValueError('the selector must explicitly handle multiline conditions')
+                rows[-1]['condition'] = condition
+    if not rows:
+        raise ValueError('focused job contains no steps')
+    return rows
+
+
+def condition_selected(condition, profile, lane='device'):
+    """Evaluate only the job's closed expression subset, with prerequisites green."""
+    if not condition:
+        return True
+    values = {'needs.test061-host-contracts.outputs.device_profile': profile,
+        'inputs.native_lane': lane, 'steps.cycle_fixture_env.outcome': 'success'}
+    for key, value in values.items():
+        condition = condition.replace(key, repr(value))
+    condition = re.sub(r'!(?!=)', ' not ', condition.replace('&&', ' and ').replace('||', ' or ')).strip()
+    tree = ast.parse(condition, mode='eval')
+    functions = {'contains': lambda values, value:value in values,
+        'fromJSON': json.loads, 'cancelled': lambda:False, 'always': lambda:True}
+    allowed = (ast.Expression, ast.BoolOp, ast.Compare, ast.UnaryOp, ast.Call,
+        ast.Name, ast.Load, ast.Constant, ast.And, ast.Or, ast.Not, ast.Eq, ast.NotEq)
+    for node in ast.walk(tree):
+        if not isinstance(node, allowed) or isinstance(node, ast.Name) and node.id not in functions:
+            raise ValueError('unhandled focused-job expression')
+        if isinstance(node, ast.Call) and (not isinstance(node.func, ast.Name) or node.keywords):
+            raise ValueError('unhandled focused-job call')
+    return bool(eval(compile(tree, '<focused-job-condition>', 'eval'), {'__builtins__': {}}, functions))
+
+
+def historical_test_step(row):
+    source = '\n'.join(row['source'])
+    versions = re.findall(r'\bTEST(\d{3})\b', row['name'])
+    versions += [version for match in re.findall(
+        r'(?:check_runtime(?:_[A-Za-z_]+)?|check_cycle_(?:api|spool|export))(\d{3})\.py|\brun_test(\d{3})_host\b|--test(\d{3})', source)
+        for version in match if version]
+    return (any(version != '117' for version in versions) or 'world16' in row['name']
+        or 'actual LoopCtrlKit API and capability' in row['name'] or 'check_ngg2_rpc.py' in source)
 
 
 class DeviceHostSelection117Tests(unittest.TestCase):
@@ -103,6 +157,45 @@ class DeviceHostSelection117Tests(unittest.TestCase):
         self.assertNotIn('--before-runtime', current)
         self.assertNotIn('git -C driver show', current)
         self.assertNotIn('check_runtime116.py', current)
+        self.assertIn('python3 -m venv "$RUNNER_TEMP/test117-mac-venv"', current)
+        self.assertIn('"$RUNNER_TEMP/test117-mac-venv/bin/pip" install Pillow==11.3.0', current)
+        self.assertEqual(2, current.count('"$RUNNER_TEMP/test117-mac-venv/bin/python" driver/patches/loopctrl/check_runtime117.py upstream'))
+        self.assertNotIn('test094-mac-venv', current)
+        self.assertNotRegex(current, r'(?m)^\s*python3\s+driver/patches/loopctrl/check_runtime117.py')
+
+    def test_every_focused_step_excludes_unrelated_history_for_117_and_unknown_profiles(self):
+        rows = focused_steps((ROOT/'.github/workflows/loopctrl-geometry.yml').read_text())
+        for profile in ('117', '118', '', 'unknown'):
+            selected = [row for row in rows if condition_selected(row['condition'], profile)]
+            legacy = [row['name'] for row in selected if historical_test_step(row)]
+            self.assertEqual([], legacy,
+                'a new device profile must not fall into any historical Runtime/Spool/API branch')
+        selected = [row for row in rows if condition_selected(row['condition'], '117')]
+        current = [row for row in selected if 'check_runtime117.py upstream' in '\n'.join(row['source'])]
+        self.assertEqual(1, len(current))
+        self.assertIn('--expect-initial-ui-red', '\n'.join(current[0]['source']))
+        selected_names = {row['name'] for row in selected}
+        self.assertTrue({'Configure unsigned build', 'Build and package unsigned IPA',
+            'Verify actual source-specific Perception compiler profile', 'Verify package and record provenance'} <= selected_names)
+        # These are the exact historical positive domains of the five former
+        # exclusion chains. Every supported old profile retains its selection.
+        common = frozenset(('094', '095', '096', '097', '098', '099'))
+        expected = {
+            'Install TEST094 focused Swift fixture image decoder': common,
+            'Verify TEST094 actual authenticated owner and public cycle schema': common,
+            'Verify TEST094 immutable spool and actual filesystem fault boundaries': common,
+            'Verify TEST094 immutable terminal export and exact image roundtrip': common,
+            'Verify TEST094 selected actual Runtime cycle callbacks': frozenset(('094', '095')),
+        }
+        by_name = {row['name']: row for row in rows}
+        renamed = dict(by_name['Verify TEST094 selected actual Runtime cycle callbacks'], name='generic native checker')
+        self.assertTrue(historical_test_step(renamed), 'renaming a historical checker cannot hide its source invocation')
+        for name, profiles in expected.items():
+            for profile in [str(value).zfill(3) for value in range(94, 119)]:
+                for lane in ('device', 'focused', 'full'):
+                    with self.subTest(step=name, profile=profile, lane=lane):
+                        self.assertIs(profile in profiles and lane == 'device',
+                            condition_selected(by_name[name]['condition'], profile, lane))
 
 
 if __name__ == '__main__':
