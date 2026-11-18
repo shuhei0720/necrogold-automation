@@ -32,7 +32,12 @@ enum NG2RuntimeTestHooks {
     static var beforeEvidenceRetention: ((UInt64) -> Void)?
 }
 enum NG2RuntimeContinuousTestHooks {
-    static var rootDurationNS: UInt64?
+    // One HOST-only oracle supplies both the Runtime bound and Spool's
+    // provenance validator. Release builds keep the exact 2880s contract.
+    static var rootDurationNS: UInt64? {
+        get { NG2CycleSpoolTestHooks.campaignDurationNS }
+        set { NG2CycleSpoolTestHooks.campaignDurationNS = newValue }
+    }
     static var afterPersistenceEnqueueBeforeReturn: ((String, String) -> Void)?
     static var beforePersistenceCommitReturn: ((String, String) -> Void)?
     static var afterSealEnqueueBeforeReturn: ((String) -> Void)?
@@ -708,7 +713,7 @@ final class NG2Runtime {
             "workers_drained": .bool(!snapshot.3), "input_state": .int(Int(state.0)),
             "native_inflight": .bool(state.1), "ui_frozen": .bool(state.2),
             "stop_reason": .string(snapshot.4), "child_limit": .int(16),
-            "deadline_ns": Self.number(root.deadline), "children": .array(rows)]
+            "deadline_ns": number(root.deadline), "children": .array(rows)]
     }
 
     func handle(method: String, params: [String: JSONValue]?) -> ([String: JSONValue]?, JSONRPCError?) {
@@ -891,7 +896,7 @@ final class NG2Runtime {
             if let value = params?["keepalive"], value.boolValue == nil { return failure("keepalive must be boolean.", -32602) }
             let active = ownerActive(run)
             run.lock.ng2Locked {
-                if NG2TicketGuard.renewsHeartbeat(keepalive: params?["keepalive"]?.boolValue ?? false,
+                if run.campaign == nil && NG2TicketGuard.renewsHeartbeat(keepalive: params?["keepalive"]?.boolValue ?? false,
                     ownerActive: active, cancelled: run.cancelReason != 0) { run.heartbeat = Self.now() }
             }
             return (response(run), nil)
@@ -1374,11 +1379,11 @@ final class NG2Runtime {
     private func continuousCompanion(_ value: NG2ControllerContinuousStatus) -> [String: JSONValue] {
         ["abi_version": .int(1), "enabled": .bool(value.enabled == 1),
          "successor_floor": .bool(value.successor_floor == 1), "qualified": .bool(value.qualified == 1),
-         "root_deadline_ns": Self.number(value.root_deadline_ns), "qualified_ns": Self.number(value.qualified_ns),
-         "parent_deadline_ns": Self.number(value.parent_deadline_ns), "old_job_id": Self.number(value.old_job_id),
-         "restart_command_id": Self.number(value.restart_command_id), "new_floor_capture_id": Self.number(value.new_floor_capture_id),
-         "source_capture_id": Self.number(value.source_capture_id), "source_start_ns": Self.number(value.source_start_ns),
-         "source_prefix": Self.number(value.source_prefix)]
+         "root_deadline_ns": number(value.root_deadline_ns), "qualified_ns": number(value.qualified_ns),
+         "parent_deadline_ns": number(value.parent_deadline_ns), "old_job_id": number(value.old_job_id),
+         "restart_command_id": number(value.restart_command_id), "new_floor_capture_id": number(value.new_floor_capture_id),
+         "source_capture_id": number(value.source_capture_id), "source_start_ns": number(value.source_start_ns),
+         "source_prefix": number(value.source_prefix)]
     }
     // Called only after all actual run callbacks and its terminal writer have
     // returned. The root keeps the UI lease while immutable files are sealed.
@@ -2390,7 +2395,8 @@ final class NG2Runtime {
         if let root = run.campaign, run.campaignContinuation.qualified == 1,
            root.permits(Self.now()), root.gate.ng2Locked({ !root.stopped }) { return }
         let outcome: Int32? = run.lock.ng2Locked {
-            guard !cycle.recovered, !cycle.notificationRequested, ownerActive(run) else { return nil }
+            let preparedDiagnostic = run.campaign != nil && cycle.terminalRecord == nil
+            guard (!cycle.recovered || preparedDiagnostic), !cycle.notificationRequested, ownerActive(run) else { return nil }
             let positive = run.controllerSnapshot?.status.paused == 1 && run.cancelReason == 0
                 && (cycle.companion.outcome == 1 || cycle.companion.outcome == 2)
             let hintHeld = run.irregular?.companion.stage == 9 && run.irregular?.companion.held_reason == 4
@@ -3017,6 +3023,15 @@ final class NG2Runtime {
         return retry
     }
     #if NG2_RUNTIME_HOST_TEST
+    // Read-only oracle for heartbeat routing; it grants no clock, source or
+    // input authority and uses the same root -> active-run lock order.
+    func testContinuousHeartbeats(_ rootID: String) -> [UInt64]? {
+        guard let root = lock.ng2Locked({ campaigns[rootID] }) else { return nil }
+        return root.gate.ng2Locked {
+            guard let active = root.active else { return nil }
+            return active.lock.ng2Locked { [root.heartbeat, active.heartbeat, root.deadline] }
+        }
+    }
     // TEST056 HOST METHOD BEGIN.
     // Configure retained rasters and a diagnostic snapshot only after actual
     // workers drain. A temporary core makes the unchanged cache query path

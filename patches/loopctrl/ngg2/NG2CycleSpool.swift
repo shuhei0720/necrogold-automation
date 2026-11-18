@@ -12,6 +12,7 @@ enum NG2CycleSpoolTestHooks {
     static var beforeBoundary: ((String) -> Bool)?
     static var writeLimit: Int?
     static var availableBytes: UInt64?
+    static var campaignDurationNS: UInt64?
 }
 #endif
 
@@ -1305,14 +1306,19 @@ final class NG2CycleSpool {
     }
     private static func continuousIdentity(_ provenance: [String: Any]) ->
         (root: String, index: Int, predecessor: String?, started: UInt64, deadline: UInt64)? {
-        guard let value = provenance["continuous_campaign"] as? [String: Any],
+        #if NG2_RUNTIME_HOST_TEST
+        let duration=min(NG2CycleSpoolTestHooks.campaignDurationNS ?? 2_880_000_000_000,2_880_000_000_000)
+        #else
+        let duration:UInt64 = 2_880_000_000_000
+        #endif
+        guard duration > 0,let value = provenance["continuous_campaign"] as? [String: Any],
               Set(value.keys) == ["schema", "root_id", "index", "predecessor_id", "root_started_ns", "root_deadline_ns"],
               value["schema"] as? String == "ngg2-continuous-child-v1",
               let root = value["root_id"] as? String, isHex(root, count: 32),
               let index = unsigned(value["index"]), index < 128,
               let started = unsigned(value["root_started_ns"]), started > 0,
-              started < UInt64(Int64.max) - 2_880_000_000_000,
-              let deadline = unsigned(value["root_deadline_ns"]), deadline == started + 2_880_000_000_000 else { return nil }
+              started < UInt64(Int64.max) - duration,
+              let deadline = unsigned(value["root_deadline_ns"]), deadline == started + duration else { return nil }
         let predecessor = value["predecessor_id"] as? String
         guard (index == 0 ? value["predecessor_id"] is NSNull : predecessor.map({ isHex($0,count:32) }) == true) else { return nil }
         return (root, Int(index), predecessor, started, deadline)
