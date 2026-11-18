@@ -639,6 +639,10 @@ TEST116固定公開確認: source974dc18・全1109filesを照合した公式ZIP 
 
 利用者の最新指示（2026-11-18）で初回もRSへ変更する。旧条件付き案を採用しない判断は上書きし、初回専用flag/資格でroot一度だけRS→新floorへ進める。既述4失敗の原因修正や再発数をこの開始仕様変更で完了にしない。
 
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-117-INITIAL-ROOT-RESTART | 2026-11-18 | 初回もリスタートから開始する指定 | 利用者の明示的な開始仕様変更。実機4停止の共通原因とはしない | true-only initial_restartをTEST117 rootへ一度だけ設定。PAUSEはRESUMEせずRS、FLOORは商品優先後PAUSE→RS。自動successorへ継承しない | 公開callerの早い35ms商品画像と有限/連続を検査。実Mac root FLOORのRS1/RESUME0、通常2chainの初回RS→陰性RS→次childと17復元拒否境界を確認。実機未確認 | 仕様変更であり再発集計対象外。既停止の再発数は維持 |
+
 ### TEST117 配布前に検出した不足（実機再発と分離）
 
 | ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
@@ -654,3 +658,11 @@ TEST116固定公開確認: source974dc18・全1109filesを照合した公式ZIP 
 | FR-117-DEV-BEGIN-COST | 2026-11-18 | 実Cbeginが検証機で13〜15msかかり、元10ms gateで入力拒否 | observeで検証済みの同C-owned Sceneをtick/beginでも重複解析。費用0のclock cutでは現れない | 元期限を延ばさず、現在のimmutable source/元wait/owner/prefixへ資格を固定し、新Sceneで必ず撤回・再計算する限定設計 | observe/tick/begin各実費を分け、旧bodyの10ms超過時synth0を確認。token後GCCではtick/begin約0.04〜0.11msで原期限内。Mac実費は未確認、実機未確認 | 配布前1。実機の同機構発火数は不明 |
 
 既PerceptionのPillow oracleとの93subassert差は、今回のA新規差と分離した。出荷116と新Aを同じ既知203画像へ通した全Scene bytesは203/203一致。旧assertを削除/skip/弱化せず、今回の変更境界と直接関連を選ぶ。旧oracle未追随を新規Green/実機改善へ数えない。
+
+TEST117最終CODE c5bf0f8 / CI253（run44311471578）ではhost165＋selector8、実CPython3.9.25の65、目的UI feature-off Red＋実Mac5case、IPA作成が成功。表の「確認予定/統合中」は設計時点の記録であり、最終native37/C402/Runtime58で元counter付き採用順8cut/guard5を確認し、Mac通常2caseもPARTIAL→実MOVE→通常FULL陰性→耐久RS→新childまで接続した。初回FLOORはPAUSE→RS1/RESUME0、復元17件は層別exact応答と入力/撮影0を確認。C Scene2caseのbegin実費は約0.042/0.052msで元10ms枠内。実機改善・毎拍・実効速度の受入と各再発数は未確認のまま維持する。実物IPAの最終8gateと固定公開は別工程。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-117-DEV-DELIVERY-READER | 2026-11-18 | 完成原本の配布照合が前段・host・Mac source集合で停止 | 私的readerが非同梱rawpatch、Py65のglobal sortを仮定。先読みでもDarwin /var aliasと独立processの同run_idを扱わない2条件を検出。Mac producerの直下8headerとsealed全9headerも混同 | rawpatchはCODE/完全source/build manifest/native sealで閉結合。唯一のproducer順、成分限定4object一対一alias、case/process付き5export一意性、CODE直下8headerからのMac26exact集合へ訂正。全37native/hash/argv/親子/安全検査を保持 | 原本・製品を書き換えず、旧3attemptのledger/logを保持。各最小差分を独立レビュー後、別fresh出力で読取8gate。fixture/compiler/classifierの追加実行0。結果は配布記録へ追記 | 配布前3起動停止＋先読み2仮定。実機再発へ加算しない |
+
+TEST117実物8gateはattempt4で全合格、crossbinding7f6d815c。原本5export/56合成PNG/78記録と現client連続4child/有限1、両正常caseのPARTIAL/FULL ROI・採用・耐久RS列、全1132CODE blob、37native、実iOS C8/Swift5/RSP6/PBX、全9Mach-O/3107禁止markerを照合。IPA18,466,759bytes/SHAa2e77d4b。旧3reader停止と各修正を保持し、追加compile/classifier/fixture/RPC0。Spool247は保持部品、模擬archive claimは実ZIP公開証明へ使わない。実機改善・実効速度・再発数の未確認は維持し、固定公開/匿名全取得を次工程とする。
