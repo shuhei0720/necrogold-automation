@@ -8,6 +8,9 @@ func runtime115Emit(_ kind: String, _ value: [String: JSONValue]) {
 }
 func testRuntime115Preparation(_ root: URL) {
     runtime112Reset(root)
+    // The shared cycle reset installs a FULL-goods RGBA override. This case
+    // uses the native walking renderer and must keep its real no-goods view.
+    NG2RuntimeCycleTestHooks.rgba = nil
     NG2Fake.lock.lock()
     NG2Fake.walkPaused = false; NG2Fake.walkY = 2; NG2Fake.walkGoodsEnabled = false
     NG2Fake.freshRevalidationWorld = true
@@ -358,6 +361,7 @@ func runtime115SavePostBeginReport(_ value: [String: JSONValue], variant: String
 }
 func testRuntime115PostBeginVariant(_ root: URL, variant: String) {
     runtime112Reset(root)
+    NG2RuntimeCycleTestHooks.rgba = nil
     NG2Fake.lock.lock(); NG2Fake.walkPaused = false; NG2Fake.walkGoodsEnabled = false; NG2Fake.lock.unlock()
     let id = identity(), state = Runtime115BeginClock(id, variant)
     diagnoseFixture(id); alignInitialFixtureMove(id)
