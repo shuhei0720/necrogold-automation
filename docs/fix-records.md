@@ -565,3 +565,19 @@ TEST113の固定公開確認: 配布source8c96c77（CODEとの差はdocs3件の�
 TEST114/build232配布前確認: CODEd5360e1/run44218410323でhost61・実Python3.9の28件・実Mac旧Cの指定Red1/現2ケースが成功。実Spool2export/48合成PNG、36native中2変更/34保持、実compiler、全1068 CODE sourceを照合した。IPA18,246,786bytes/SHA569e9ed7、5実物gateは5attemptで全成功。crossbinding 1dcb9f54。照合のための追加試験・分類・compileはない。固定公開・匿名取得は次工程。各行の原因未確定・実機改善未確認・再発数は維持する。
 
 TEST114の固定公開確認: 配布source3e81a16（CODEからdocs3件だけ）・全1068files/CRC/pathを照合し、test114-build232/Release449438834をpublisher233で公開。IPA/source/hash表の3assetを匿名GET200・全bytes/SHA・Release digest・tag commitまで確認した。source9,891,521bytes/SHA47696be4。公開後の変更はこのdocs記録だけで、配布assetは置換しない。実機改善未確認・速度未受入・再発数は維持する。
+
+## TEST115: TEST114実機4周の対応（2026-11-18）
+
+8ZIP/4固有run、96PNG/106記録を照合。[計画](plans/test115-device-failures.md)。以下は原因確認と実装中の対策で、実機改善完了ではない。同症状の通算と同根因数を混同しない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-115-PASSAGE-PRESEND-SOURCE | 2026-11-18 | 1周は通路でLEFT後停止 | 元128→後続の通常MotionはUNKNOWN。送信前129は元128への直接零/同Decisionを持ち、129→同後続は通常unit。quietが古いsourceを保持しpassageは既referenceの対象外 | 確実未送信中だけ同じ凍結票のFRESH更新を検証。新ID/実sourceを記録し、後付reference/UNKNOWN再送をしない | 実128/129/135..141とbegin時刻を校正。新assertion/実Runtime境界/関連回帰を予定。実機改善未確認 | 今回1。同系停止は継続、同根因通算不明 |
+| FR-115-OCCLUDED-FLOOR-FRINGE | 2026-11-18 | 1周capture30の通路候補を見送り | 実GOLDセル0。上左遮蔽口の外側が観測FLOORで、既cornerが要求する壁と異なる | 壁支持/観測vantageを持つ限定FLOOR縁の候補を検証。金色閾値を変えない | 原30の通常Navと形状反例を確認予定。未知口へ直接移動しない。実機未確認 | 今回1。候補見逃しの継続、同根因通算不明 |
+| FR-115-UPPER-PLANNING-RESERVE | 2026-11-18 | 2周は上部横扉を開けた後停止 | 記録target/周期/元親期限で4歩予約が23.286ms超過。全歩後の最早visualに加えDATA最大150msを最低所要として先取り。private stageは未保存 | 4歩見通し/最早visual80msを保持し、実MOVE親期限とDATA自身の最大枠を分離する案を検証 | 正常producerの全HHDDを実機相当275ms ACKで確認予定。初歩だけで合格にしない。実機未確認 | 今回1。FR112上部入口と同症状継続、同根因通算不明 |
+| FR-115-CURRENT-PARTIAL-VIEW | 2026-11-18 | 3周は開扉後2商品だけで停止 | 上端重複ITEM消失/新GOLDで旧framingが失効。既top_aliasはframingを除外し、現在150の独立PARTIALからやり直せない | 旧hard/元親期限/潜在商品保護を維持した現在DATAを検証。既未使用一回だけ移し、直接2零/新fit/実drainを要求 | 元148→150の通常Motion/Scene/結果を校正。開始済PAUSE/不明MOVE/予算等の反例と実Runtime結合を予定。実機未確認 | 今回1。FR113/114上端観測と同症状継続、同根因通算不明 |
+| FR-115-UNLOCALIZED-STATIONARY | 2026-11-18 | 4周はLEFT一歩後停止 | 実GOLD0のCANDIDATEが既CLEAR数値零の対象外。88は零成立、89..96は元blur上限超過でREADY後の再観測が終了条件になる | 固定anchor/未解決の元2拍W/確認後の元親Pを既076と同じ状態別に保持。途中不成立はW内だけ未送信資格を外して待ち、W内に再確認すればP内の新拍へ進む。閾値/期限を増やさない | 原84→86..107を直接校正。早いfit/実begin/ACK/MOVEDの手続き的検査と、W後READY継続/P終了・W後不明の拒否を確認する。実機未確認 | 今回1。FR113未送信静止と別分類、同根因通算不明 |
+| FR-115-JSON-STRING-ALLOCATION | 2026-11-18 | 終端観測から公開まで70〜89秒 | JSON前検査が非escape base64値を復号・破棄しjson.loadsでも割当。全遅延の寄与率/端末providerは未確定 | 既fallback/全JSON・認証制限を維持し不要割当の削減を検証。遅くなる案は採用しない | 割当Red→実Python3.9の関連境界/同bytesベンチを予定。端末速度は未確認、全遅延解消とはしない | ソースで1境界。実機同根因数は不明 |
+| FR-115-REVIEW-W-PHASE | 2026-11-18 | 未配布115の新候補が再確認後も2拍Wで止まる | 115初案がREADY/ISSUEDにもWを強制。既076正本/単体では未解決OBSERVEがW、READY後の新ID/拍は元Pを継承する | 既状態別期限へ訂正。W内の再確認後はP内の次拍へ。W以降の再度不明は即終了。追加したW入力clampを除去し、期限値は増やさない | 初案/旧assert/logを私的保存し、初案に対する新Red→訂正Green。既076assertは無変更。実機の再発とは分ける | 開発中1。配布前の対策、実機再発に算入しない |
+| FR-115-STATIONARY-DUPLICATE-WORK | 2026-11-18 | 通常Motionと補助零の計算が最早準備・10ms入力窓を圧迫 | 同じ2画像のView/raw73候補を別々に計算。ホスト約10〜13ms、同じ現画像で公開/beginにも費用がある | 一呼出しの局所View.blur/候補だけ共有。通常全25段/全出力/優先順を保持しUNKNOWN時だけ元数値零を補助。global cacheは加えない | primitive呼出4View/146候補のRed→2/73、37実pairの通常出力全bytes一致、関連の動き/無効/保護反例。ホスト約6〜7ms、実機速度未確認 | ソースで1境界。端末上の同根因発火数は不明 |
+| FR-115-POST-BEGIN-CLOCK | 2026-11-18 | C.begin検査中に10ms入力期限を越えても実送信し得る | RuntimeはC.begin前の時計だけで最終許可し、その後gesture前に再取得しない | 同じ最終run.lock内でC.begin後の時計/入力窓/owner/lock/authority鮮度を再検査。物理未送信ならそこでcomplete0を確定し、同時取消によるUNKNOWN/入力加算を防ぐ | 新旧Runtimeで同じtest-only begin-return時計遅延を用い、実Mac旧bodyの遅延gesture Red→新bodyの送信0/加算0/無再送、等号/取消等を確認予定 | 配布前レビュー1境界。実機の同根因数は不明 |

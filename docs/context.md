@@ -6,6 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
+| TEST115の実機4周/通路・上部入口停止 | [計画](plans/test115-device-failures.md) | TEST114の8ZIP/96PNG、送信前source/現在PARTIAL/固定anchor待機 |
 | TEST114の実機5周/候補保持・正常RS後停止 | [計画](plans/test114-device-failures.md) | TEST113の11ZIP/6run、商品UNKNOWN3・実候補1・次UUID後停止 |
 | TEST113の実機9回/周回継続 | [計画](plans/test113-device-failures.md)・[旧112](plans/test112-device-failures.md) | 終了待ちclient、FULL再確認/上端HUD、未送信/初歩前/実移動の個別証明 |
 | TEST107の複合変化・初歩前フェード | [計画](plans/test107-partial-composition.md) | top商品投影と既地形関係の合成、元D内の最新2画像による再取得 |

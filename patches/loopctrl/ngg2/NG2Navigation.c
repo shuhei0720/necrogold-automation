@@ -307,14 +307,17 @@ static uint32_t passage_occluded_corner_vantage(const NG2Scene *s,const Path rou
     if(!((route[upper].cost!=INF_COST&&route[upper].length==3)
         ||(route[side].cost!=INF_COST&&route[side].length==3)))return 0;
     if(tile(s,-2,-3)==NG2_TILE_UNKNOWN&&tile(s,-2,-4)==NG2_TILE_UNKNOWN
-        &&passage_wall(s,-3,-4)) {
+        &&(passage_wall(s,-3,-4)||tile(s,-3,-4)==NG2_TILE_FLOOR)) {
         for(x=-1;x<=2;++x)roof+=passage_wall(s,x,-3);
         for(y=-3;y<=3;++y)left+=passage_wall(s,-3,y);
         for(i=0;i<(int)(sizeof(inside)/sizeof(inside[0]));++i) {
             int kind=tile(s,inside[i][0],inside[i][1]);
             if(kind!=NG2_TILE_UNKNOWN&&kind!=NG2_TILE_FLOOR)break;
         }
-        if(roof>=2&&left>=2&&(passage_wall(s,1,-3)||passage_wall(s,2,-3))
+        /* A visible exterior FLOOR is weaker than the historical wall end.
+         * Require the whole observed roof/left boundary for that fringe. */
+        if((passage_wall(s,-3,-4)?roof>=2&&left>=2:roof==4&&left==7)
+            &&(passage_wall(s,1,-3)||passage_wall(s,2,-3))
             &&i==(int)(sizeof(inside)/sizeof(inside[0])))result|=UINT32_C(1);
     }
     if(tile(s,-3,-2)==NG2_TILE_FLOOR&&tile(s,-4,-2)==NG2_TILE_UNKNOWN
@@ -2195,6 +2198,45 @@ int ng2_clear_plural_palette_stationary_zero(const NG2Scene *a,const NG2Scene *b
         &&(clear_singleton_zero_numeric(&evidence)||clear_plural_zero_numeric(candidates,&evidence));
     free(views);return result;
 }
+/* Private zero-only evidence for an owned, definitely-unsent passage wait.
+ * A positive clipped hint is retained verbatim, never relabeled as CLEAR.
+ * Real GOLD, goods, protected cells and non-floor endpoints stay excluded. */
+static int unlocalized_passage_zero_scene(const NG2Scene *a,const NG2Scene *b,int direction) {
+    int i,x,y,center,dx,dy;
+    if(!valid_scene(a)||!valid_scene(b)||direction<1||direction>4
+        ||!unlocalized_passage_view(a)||!unlocalized_passage_view(b)
+        ||a->goods!=NG2_GOODS_UNKNOWN||b->goods!=NG2_GOODS_UNKNOWN)return 0;
+    dx=ddx[direction];dy=ddy[direction];
+    if(tile(a,0,0)!=NG2_TILE_FLOOR||tile(b,0,0)!=NG2_TILE_FLOOR
+        ||tile(a,dx,dy)!=NG2_TILE_FLOOR||tile(b,dx,dy)!=NG2_TILE_FLOOR)return 0;
+    for(i=0;i<CELLS;++i)if(a->protected_cells[i]||b->protected_cells[i]
+        ||a->tiles[i]==NG2_TILE_GOLD||b->tiles[i]==NG2_TILE_GOLD
+        ||a->tiles[i]==NG2_TILE_DOOR||b->tiles[i]==NG2_TILE_DOOR
+        ||a->tiles[i]==NG2_TILE_ITEM||b->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(center=0;center<2;++center)for(y=-1;y<=1;++y)for(x=-1;x<=1;++x){
+        int old=tile(a,x+center*dx,y+center*dy),now=tile(b,x+center*dx,y+center*dy);
+        if(old!=now&&!((old==NG2_TILE_FLOOR&&now==NG2_TILE_DIRT)
+            ||(old==NG2_TILE_DIRT&&now==NG2_TILE_FLOOR)))return 0;
+    }
+    return unique_visible_terrain_translation(a,b,0,0);
+}
+int ng2_unlocalized_passage_stationary_zero(const NG2Scene *a,const NG2Scene *b,int32_t direction) {
+    View *views;Candidate candidates[73];ClearSingletonZeroEvidence evidence;
+    int amount,d,n=1,result;
+    if(!unlocalized_passage_zero_scene(a,b,direction))return 0;
+    views=(View*)malloc(2*sizeof(*views));if(!views)return 0;
+    view(a->signature,views);view(b->signature,views+1);
+    candidates[0].sx=candidates[0].sy=0;candidates[0].score=intensity(views,views+1,0,0);
+    for(amount=1;amount<=18;++amount)for(d=1;d<=4;++d){
+        candidates[n].sx=amount*ddx[d];candidates[n].sy=amount*ddy[d];
+        candidates[n].score=intensity(views,views+1,candidates[n].sx,candidates[n].sy);++n;
+    }
+    qsort(candidates,73,sizeof(*candidates),ranked);
+    result=clear_singleton_zero_raw(candidates)
+        &&clear_singleton_zero_evidence(a,b,views,candidates,&evidence)
+        &&(clear_singleton_zero_numeric(&evidence)||clear_plural_zero_numeric(candidates,&evidence));
+    free(views);return result;
+}
 /* A unit may reveal a side gate while only one old STONE remains observable.
  * Gold/stone/dirt identify the unique old-world placement; new cells never
  * supply anchors. This recognizes a past step, not another input or entry. */
@@ -2565,10 +2607,11 @@ static void first_gold_supported_phase_motion(const NG2Scene *before,const NG2Sc
     out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
 }
 
-int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out) {
+static int motion_with_unlocalized_zero(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out,int32_t *zero) {
     View *views;
     Candidate candidates[73];
     int n=1,amount,d;
+    if(zero)*zero=0;
     if (!out) return 0;
     memset(out,0,sizeof(*out));
     if (!valid_scene(before) || !valid_scene(after) || direction<1 || direction>4) return 0;
@@ -2605,7 +2648,22 @@ int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG
     first_gold_supported_phase_motion(before,after,direction,views,candidates,out);
     revealed_dependency_unit_motion(before,after,direction,views,candidates,out);
     revealed_domain2_dependency_motion(before,after,direction,views,candidates,out);
+    if(zero&&out->kind==NG2_MOTION_UNKNOWN&&!out->dx&&!out->dy
+        &&unlocalized_passage_zero_scene(before,after,direction)){
+        ClearSingletonZeroEvidence evidence;
+        *zero=clear_singleton_zero_raw(candidates)
+            &&clear_singleton_zero_evidence(before,after,views,candidates,&evidence)
+            &&(clear_singleton_zero_numeric(&evidence)||clear_plural_zero_numeric(candidates,&evidence));
+    }
     free(views);return 1;
+}
+int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out){
+    return motion_with_unlocalized_zero(before,after,direction,out,NULL);
+}
+int ng2_unlocalized_passage_motion_zero(const NG2Scene *before,const NG2Scene *after,
+    int32_t direction,NG2Motion *out,int32_t *zero){
+    if(!zero)return 0;
+    return motion_with_unlocalized_zero(before,after,direction,out,zero);
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,
                      int32_t x,int32_t y,int32_t motion,NG2Entrance *out) {
