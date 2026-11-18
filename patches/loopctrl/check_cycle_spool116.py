@@ -15,12 +15,15 @@ import tempfile
 
 HERE = Path(__file__).resolve().parent
 BASELINE_SHA = '074d76fc732a2287d14d8dd11256ac4d63462974556006b518f52ee66eefe84f'
+GREEN_CASES = ('quota','slot','seal','export','fault','alias','recovered_quota',
+    'diagnostic_unknown','record_integrity','preseal','alias_integrity','published_quota','orphan_accounting','orphan_quota','damaged_owner','recovery_namespace')
 EXPECTED_RED = {
     'quota': 'FAIL accepted campaign_write_steals_other_slot_reservation',
     'slot': 'FAIL accepted campaign_unpublished_slot17',
     'seal': 'FAIL accepted control_frame_after_continuation_seal',
     'alias': 'FAIL sealed_original_png_readonly_alias',
     'recovered_quota': 'FAIL accepted recovered_export_steals_other_slot_reservation',
+    'orphan_quota': 'FAIL accepted partial_child_export_steals_parent_cohort_reservation',
 }
 
 
@@ -57,7 +60,7 @@ def main():
         (output/'compile.txt').write_text(result.stdout+result.stderr)
         if result.returncode:
             raise SystemExit('Compile failure is not assertion Red:\n'+result.stdout+result.stderr)
-        for case in EXPECTED_RED if args.baseline_only else ('all',):
+        for case in EXPECTED_RED if args.baseline_only else GREEN_CASES:
             value = subprocess.run([str(stage/'fixture'), case], text=True, capture_output=True, timeout=180)
             (output/(case+'.txt')).write_text(value.stdout+value.stderr)
             failures = [line for line in value.stdout.splitlines() if line.startswith('FAIL ')]
@@ -65,11 +68,11 @@ def main():
             if args.baseline_only:
                 if value.returncode != 1 or failures != [EXPECTED_RED[case]]:
                     raise SystemExit('Wrong TEST116 Spool assertion Red for '+case+':\n'+value.stdout+value.stderr)
-            elif value.returncode or value.stdout.strip().splitlines()[-1:] != ['PASS TEST116 Spool all']:
+            elif value.returncode or value.stdout.strip().splitlines()[-1:] != ['PASS TEST116 Spool '+case]:
                 raise SystemExit(value.stdout+value.stderr or 'TEST116 Spool assertion failure')
             print(value.stdout, end='')
     receipt = dict(schema='test116-spool-evidence-v1', baseline_only=args.baseline_only,
-        baseline_adapter_is_test_only=True, source_sha256=hashlib.sha256(original).hexdigest(),
+        baseline_adapter_is_test_only=True, green_cases=list(GREEN_CASES), source_sha256=hashlib.sha256(original).hexdigest(),
         fixture_sha256=hashlib.sha256((HERE/'ngg2_cycle_spool116_tests.swift').read_bytes()).hexdigest(),
         adapter_sha256=hashlib.sha256((HERE/'ngg2_cycle_spool116_before_adapter.swift').read_bytes()).hexdigest(),
         compiler=identity.stdout+identity.stderr, command=command, results=rows,

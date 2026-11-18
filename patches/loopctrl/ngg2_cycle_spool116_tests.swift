@@ -47,10 +47,12 @@ func controller116(qualified: Bool = false) -> [String: Any] {
      "source_capture_id": qualified ? 4 : 0, "source_start_ns": qualified ? start116+3 : 0,
      "source_prefix": qualified ? 2 : 0]
 }
-func terminal116(_ store: NG2CycleSpool) throws -> NG2CycleSpool.RecordRef {
+func terminal116(_ store: NG2CycleSpool, continuation: [String:Any]? = nil,
+                 inputState: UInt64 = 0, commandID: UInt64 = 0) throws -> NG2CycleSpool.RecordRef {
     _ = try store.commitFrame(captureID: 1, rgba: raw116, metadata: ["generation": 1])
     return try store.commitRecord(kind: "terminal", cycle: 0,
-        payload: ["controller": ["terminal": 1, "input_state": 0, "current_command_id": 0]])
+        payload: ["controller": ["terminal": 1, "input_state": inputState, "current_command_id": commandID,
+            "continuous_campaign":continuation ?? controller116()]])
 }
 func original116(_ store: NG2CycleSpool) throws -> [String: Data] {
     let directory = root116.appendingPathComponent("NGG2Cycles").appendingPathComponent(store.runID)
@@ -155,15 +157,16 @@ func pair116() throws -> (String, String) {
     metadata["capture_start_ns"] = start116+3; metadata["capture_end_ns"] = start116+4
     _ = try first.commitFrame(captureID:4,rgba:raw116,metadata:metadata)
     let terminal=try first.commitRecord(kind:"terminal",cycle:0,
-        payload:["controller":["terminal":1,"input_state":0,"current_command_id":0]])
+        payload:["controller":["terminal":1,"input_state":0,"current_command_id":0,
+            "continuous_campaign":controller116(qualified:true)]])
     _ = try first.sealContinuation(rootID:first.runID,index:0,predecessorID:nil,clockID:firstClock,
         terminal:terminal,continuation:controller116(qualified:true),successor:next)
     let png=try NG2CycleSpool.storedPNG(rgba:raw116), ref=try first.frames()[0]
     _ = try first.commitPNG(captureID:ref.captureID,bytes:png,metadata:["raw_sha256":ref.rawSHA256])
     let second=try NG2CycleSpool.testCreate(rootURL:root116,runID:secondID,owner:owner116,
         provenance:provenance116(next,clock:secondClock),quota:quota,reservation:next)
-    let terminalSecond=try terminal116(second)
     var stopped=controller116(); stopped["successor_floor"] = true
+    let terminalSecond=try terminal116(second,continuation:stopped)
     _ = try second.sealContinuation(rootID:first.runID,index:1,predecessorID:first.runID,
         clockID:secondClock,terminal:terminalSecond,continuation:stopped,successor:nil)
     return (first.runID,second.runID)
@@ -190,6 +193,223 @@ func recoveredQuota116() throws {
     }
     check116(source.readOnly,"recovery_quota_does_not_restore_input_or_writer")
 }
+func diagnosticUnknown116() throws {
+    for state:UInt64 in [3,4] {
+        let (_,store,clock)=try make116(), terminal=try terminal116(store,inputState:state,commandID:23)
+        let before=try original116(store)
+        do {
+            _ = try store.sealContinuation(rootID:store.runID,index:0,predecessorID:nil,clockID:clock,
+                terminal:terminal,continuation:controller116(),successor:nil)
+        } catch { print("FAIL diagnostic_unknown_seal_preserves_unresolved_input"); exit(1) }
+        try unchanged116(store,before,"diagnostic_seal_preserves_original_unknown_command")
+        let saved=try store.records().first(where:{$0.kind == "terminal"})!
+        let controller=saved.payload["controller"] as! [String:Any]
+        check116((controller["input_state"] as? NSNumber)?.uint64Value == state &&
+            (controller["current_command_id"] as? NSNumber)?.uint64Value == 23,"diagnostic_seal_does_not_erase_unknown")
+        let recovered=try NG2CycleSpool.testRecover(rootURL:root116,runID:store.runID,owner:owner116)
+        check116(recovered.readOnly && recovered.controlContentSealed,"diagnostic_seal_never_restores_authority")
+    }
+}
+func recordIntegrity116() throws {
+    for fault in ["old_record","passed_terminal","passed_controller","session"] {
+        let (_,store,clock)=try make116()
+        _ = try store.commitRecord(kind:"checkpoint",cycle:0,payload:["marker":"a"])
+        let terminal=try terminal116(store)
+        var passed=terminal, companion=controller116()
+        if fault == "old_record" {
+            let path=root116.appendingPathComponent("NGG2Cycles").appendingPathComponent(store.runID)
+                .appendingPathComponent("record-0001-checkpoint.json")
+            let text=String(data:try Data(contentsOf:path),encoding:.utf8)!
+            let damaged=text.replacingOccurrences(of:"\"marker\":\"a\"",with:"\"marker\":\"b\"")
+            check116(damaged != text,"record_corruption_fixture_changes_actual_bytes")
+            try Data(damaged.utf8).write(to:path)
+        } else if fault == "session" {
+            let path=root116.appendingPathComponent("NGG2Cycles").appendingPathComponent(store.runID).appendingPathComponent("session.json")
+            var header=try JSONSerialization.jsonObject(with:Data(contentsOf:path)) as! [String:Any]
+            header["owner_sha256"] = String(repeating:"f",count:64)
+            try JSONSerialization.data(withJSONObject:header,options:[.sortedKeys,.withoutEscapingSlashes]).write(to:path)
+        } else if fault == "passed_terminal" {
+            var payload=terminal.payload;payload["forged"] = true
+            passed=NG2CycleSpool.RecordRef(sequence:terminal.sequence,kind:terminal.kind,cycle:terminal.cycle,
+                sha256:terminal.sha256,previous:terminal.previous,payload:payload)
+        } else { companion["source_prefix"] = 7 }
+        let before=try original116(store)
+        rejects116("seal_integrity_"+fault) {
+            _ = try store.sealContinuation(rootID:store.runID,index:0,predecessorID:nil,clockID:clock,
+                terminal:passed,continuation:companion,successor:nil)
+        }
+        try unchanged116(store,before,"failed_integrity_seal_writes_no_new_control_record_"+fault)
+        check116(store.readOnly,"failed_integrity_seal_freezes_original_writer_"+fault)
+    }
+}
+func unsealedPredecessor116() throws {
+    let (quota,store,_)=try make116(), next=try quota.reserveNext(runID:id116(),index:1,predecessorID:store.runID)
+    let before=try original116(store)
+    rejects116("create_before_predecessor_seal") {
+        _ = try NG2CycleSpool.testCreate(rootURL:root116,runID:next.runID,owner:owner116,
+            provenance:provenance116(next,clock:id116()),quota:quota,reservation:next)
+    }
+    let path=root116.appendingPathComponent("NGG2Cycles").appendingPathComponent(next.runID)
+    check116(!FileManager.default.fileExists(atPath:path.path),"reservation_creates_no_prepared_child_namespace")
+    try unchanged116(store,before,"preseal_child_rejection_preserves_parent")
+}
+func aliasIntegrity116() throws {
+    for fault in ["metadata","png","orphan"] {
+        let (firstID,_) = try pair116()
+        let directory=root116.appendingPathComponent("NGG2Cycles").appendingPathComponent(firstID)
+        var orphan:String?
+        if fault == "orphan" {
+            orphan=".part-"+UUID().uuidString.lowercased()
+            check116(FileManager.default.createFile(atPath:directory.appendingPathComponent(orphan!).path,
+                contents:Data("uncommitted".utf8),attributes:[.posixPermissions:NSNumber(value:0o600)]),"orphan_fixture_created")
+        }
+        let source=try NG2CycleSpool.testRecover(rootURL:root116,runID:firstID,owner:owner116)
+        let ledger=try source.createRecoveryExport(owner:owner116), refs=try ledger.pngs()
+        check116(refs.count == 1,"integrity_fixture_retains_one_verified_original_alias")
+        if fault == "orphan" {
+            check116(source.diagnosticInterrupted && source.readOnly,"orphan_is_diagnostic_not_new_input_authority")
+            check116(try source.artifacts().contains(where:{$0.name == orphan! && $0.role == "uncommitted"}),"orphan_original_bytes_are_in_inventory")
+            check116(try ledger.readPNG(refs[0]) == NG2CycleSpool.storedPNG(rgba:raw116),"orphan_never_hides_verified_committed_png")
+        } else {
+            let path=directory.appendingPathComponent(String(format:"png-%016llx.",refs[0].captureID)+(fault == "png" ? "png":"json"))
+            if fault == "metadata" {
+                var envelope=try JSONSerialization.jsonObject(with:Data(contentsOf:path)) as! [String:Any]
+                var metadata=envelope["metadata"] as! [String:Any]
+                metadata["raw_sha256"] = String(repeating:"0",count:64);envelope["metadata"] = metadata
+                try JSONSerialization.data(withJSONObject:envelope,options:[.sortedKeys,.withoutEscapingSlashes]).write(to:path)
+            } else {
+                var bytes=try Data(contentsOf:path);bytes[100] ^= 1;try bytes.write(to:path)
+            }
+            let before=try original116(source)
+            rejects116("alias_read_revalidates_original_"+fault) { _ = try ledger.readPNG(refs[0]) }
+            try unchanged116(source,before,"alias_integrity_failure_changes_no_original_file_"+fault)
+        }
+    }
+}
+func publishedPair116(_ corrupt:Bool) throws -> (String,String) {
+    let (firstID,secondID)=try pair116()
+    let source=try NG2CycleSpool.testRecover(rootURL:root116,runID:firstID,owner:owner116)
+    let ledger=try source.createRecoveryExport(owner:owner116), exportID=ledger.recoveryExportID!
+    let bytes=try JSONSerialization.data(withJSONObject:["export_id":exportID],options:[.sortedKeys])
+    let manifest=try ledger.commitExportManifest(exportID:exportID,bytes:bytes)
+    let receipt=try ledger.commitPublication(exportID:exportID,manifestSHA256:manifest.sha256,archiveSHA256:String(repeating:"a",count:64))
+    if corrupt {
+        let path=root116.appendingPathComponent("NGG2RecoveryExports")
+            .appendingPathComponent(firstID+"-"+exportID)
+            .appendingPathComponent(String(format:"record-%04d-published.json",receipt.sequence))
+        var value=try JSONSerialization.jsonObject(with:Data(contentsOf:path)) as! [String:Any]
+        var payload=value["payload"] as! [String:Any];payload["manifest_sha256"] = String(repeating:"b",count:64)
+        value["payload"] = payload
+        try JSONSerialization.data(withJSONObject:value,options:[.sortedKeys,.withoutEscapingSlashes]).write(to:path)
+    }
+    // Scope ends here: no source/quota/ledger process reference is returned.
+    return (firstID,secondID)
+}
+func publishedQuota116() throws {
+    for corrupt in [false,true] {
+        let (_,secondID)=try publishedPair116(corrupt)
+        let source=try NG2CycleSpool.testRecover(rootURL:root116,runID:secondID,owner:owner116)
+        NG2CycleSpoolTestHooks.availableBytes = 200 * 1024 * 1024
+        if corrupt {
+            rejects116("unmatched_receipt_cannot_release_other_slot_reservation") { _ = try source.createRecoveryExport(owner:owner116) }
+        } else {
+            do { _ = try source.createRecoveryExport(owner:owner116) }
+            catch { print("FAIL verified_recovered_publication_releases_unused_reservation");exit(1) }
+        }
+        check116(source.readOnly,"publication_accounting_does_not_restore_control")
+    }
+}
+func orphanAccounting116() throws {
+    let (quota,source,clock)=try make116(), terminal=try terminal116(source)
+    _ = try quota.reserveNext(runID:id116(),index:1,predecessorID:source.runID)
+    _ = try source.sealContinuation(rootID:source.runID,index:0,predecessorID:nil,clockID:clock,
+        terminal:terminal,continuation:controller116(),successor:nil)
+    let png=try NG2CycleSpool.storedPNG(rgba:raw116), ref=try source.frames()[0]
+    var boundaries=0
+    NG2CycleSpoolTestHooks.beforeBoundary = { name in
+        if name == "directory_sync" { boundaries += 1;return boundaries != 1 }
+        return true
+    }
+    rejects116("png_rename_without_metadata") {
+        _ = try source.commitPNG(captureID:ref.captureID,bytes:png,metadata:["raw_sha256":ref.rawSHA256])
+    }
+    NG2CycleSpoolTestHooks.beforeBoundary = nil
+    let savedPNGs=try source.pngs()
+    check116(source.readOnly && savedPNGs.isEmpty,"failed_png_remains_physical_but_unregistered")
+    let before=try original116(source), used=before.values.reduce(0) {$0+$1.count}
+    check116(before.keys.contains(where:{$0.hasSuffix(".png")}),"PNG_fault_fixture_left_real_uncommitted_original")
+    NG2CycleSpoolTestHooks.availableBytes = UInt64(2 * 156 * 1024 * 1024 - used + 512 * 1024)
+    try source.sealForRecovery()
+    let ledger:NG2CycleSpool
+    do { ledger=try source.createRecoveryExport(owner:owner116) }
+    catch { print("FAIL in_process_orphan_is_charged_before_fallback");exit(1) }
+    let converted=try ledger.commitPNG(captureID:ref.captureID,bytes:png,metadata:["raw_sha256":ref.rawSHA256])
+    check116(try ledger.readPNG(converted) == png,"fallback_uses_remaining_slot_without_promoting_orphan_png")
+    try unchanged116(source,before,"fallback_preserves_unregistered_PNG_and_all_original_control_bytes")
+}
+func failedPair116() throws -> (String,String) {
+    let (quota,first,clock)=try make116(), child=id116()
+    let next=try quota.reserveNext(runID:child,index:1,predecessorID:first.runID)
+    _ = try first.commitRecord(kind:"continuation_reservation",cycle:0,payload:next.payload)
+    var metadata:[String:Any] = ["generation":1,"stable_prefix":true,"capture_start_ns":start116+1,
+        "capture_end_ns":start116+2,"completed_prefix_start":2,"completed_prefix_end":2,
+        "inflight_start":false,"inflight_end":false]
+    _ = try first.commitFrame(captureID:3,rgba:raw116,metadata:metadata)
+    metadata["capture_start_ns"] = start116+3; metadata["capture_end_ns"] = start116+4
+    _ = try first.commitFrame(captureID:4,rgba:raw116,metadata:metadata)
+    let terminal=try first.commitRecord(kind:"terminal",cycle:0,payload:["controller":[
+        "terminal":1,"input_state":0,"current_command_id":0,"continuous_campaign":controller116(qualified:true)]])
+    _ = try first.sealContinuation(rootID:first.runID,index:0,predecessorID:nil,clockID:clock,
+        terminal:terminal,continuation:controller116(qualified:true),successor:next)
+    NG2CycleSpoolTestHooks.writeLimit = 0
+    rejects116("child_session_header_write_failure") {
+        _ = try NG2CycleSpool.testCreate(rootURL:root116,runID:child,owner:owner116,
+            provenance:provenance116(next,clock:id116()),quota:quota,reservation:next)
+    }
+    NG2CycleSpoolTestHooks.writeLimit = nil
+    return (first.runID,child)
+}
+func orphanQuota116() throws {
+    let (_,child)=try failedPair116()
+    let source=try NG2CycleSpool.testRecover(rootURL:root116,runID:child,owner:owner116)
+    check116(try source.sessionBytes() == nil,"failed_child_header_is_not_repaired_or_forged")
+    check116(source.readOnly && source.diagnosticInterrupted,"failed_child_stays_readonly_diagnostic")
+    NG2CycleSpoolTestHooks.availableBytes = 200 * 1024 * 1024
+    rejects116("partial_child_export_steals_parent_cohort_reservation") {
+        _ = try source.createRecoveryExport(owner:owner116)
+    }
+}
+func damagedOwner116() throws {
+    for selected in [0,1] {
+        let (first,second)=try pair116(), target=selected == 0 ? first:second
+        let path=root116.appendingPathComponent("NGG2Cycles").appendingPathComponent(target).appendingPathComponent("session.json")
+        var header=try JSONSerialization.jsonObject(with:Data(contentsOf:path)) as! [String:Any]
+        header["owner_sha256"] = String(repeating:"f",count:64)
+        try JSONSerialization.data(withJSONObject:header,options:[.sortedKeys,.withoutEscapingSlashes]).write(to:path)
+        let source:NG2CycleSpool
+        do { source=try NG2CycleSpool.testRecover(rootURL:root116,runID:target,owner:owner116) }
+        catch { print("FAIL damaged_owner_keeps_readonly_forensic_recovery");exit(1) }
+        check116(source.readOnly && source.diagnosticInterrupted,"damaged_owner_is_evidence_not_authority")
+        let before=try original116(source)
+        _ = try source.createRecoveryExport(owner:owner116)
+        try unchanged116(source,before,"damaged_owner_forensic_export_repairs_no_original_header")
+    }
+}
+func recoveryNamespace116() throws {
+    let (_,store,clock)=try make116(), terminal=try terminal116(store)
+    _ = try store.sealContinuation(rootID:store.runID,index:0,predecessorID:nil,clockID:clock,
+        terminal:terminal,continuation:controller116(),successor:nil)
+    let source=try NG2CycleSpool.testRecover(rootURL:root116,runID:store.runID,owner:owner116)
+    let base=root116.appendingPathComponent("NGG2RecoveryExports")
+    try FileManager.default.createDirectory(at:base,withIntermediateDirectories:false,
+        attributes:[.posixPermissions:NSNumber(value:0o700)])
+    for index in 0..<128 {
+        try FileManager.default.createDirectory(at:base.appendingPathComponent(store.runID+"-"+String(format:"%032x",index)),
+            withIntermediateDirectories:false,attributes:[.posixPermissions:NSNumber(value:0o700)])
+    }
+    rejects116("recovery_namespace129") { _ = try source.createRecoveryExport(owner:owner116,forceFresh:true) }
+    check116(try FileManager.default.contentsOfDirectory(atPath:base.path).count == 128,"recovery_cap_checked_before_mkdir")
+}
 let selected116 = CommandLine.arguments.dropFirst().first ?? "all"
 switch selected116 {
 case "quota": try quota116()
@@ -199,7 +419,16 @@ case "export": try export116()
 case "fault": try fault116()
 case "alias": try alias116()
 case "recovered_quota": try recoveredQuota116()
-case "all": try quota116(); try slot116(); try seal116(); try export116(); try fault116(); try alias116(); try recoveredQuota116()
+case "diagnostic_unknown": try diagnosticUnknown116()
+case "record_integrity": try recordIntegrity116()
+case "preseal": try unsealedPredecessor116()
+case "alias_integrity": try aliasIntegrity116()
+case "published_quota": try publishedQuota116()
+case "orphan_accounting": try orphanAccounting116()
+case "orphan_quota": try orphanQuota116()
+case "damaged_owner": try damagedOwner116()
+case "recovery_namespace": try recoveryNamespace116()
+case "all": try quota116(); try slot116(); try seal116(); try export116(); try fault116(); try alias116(); try recoveredQuota116(); try diagnosticUnknown116(); try recordIntegrity116(); try unsealedPredecessor116(); try aliasIntegrity116(); try publishedQuota116(); try orphanAccounting116(); try orphanQuota116(); try damagedOwner116(); try recoveryNamespace116()
 default: print("FAIL unknown TEST116 Spool case"); exit(1)
 }
 print("PASS TEST116 Spool " + selected116)
