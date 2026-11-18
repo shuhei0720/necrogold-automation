@@ -76,7 +76,7 @@ IPAは実iOSビルド成功、18,442,194bytes・SHA551270d19f99a56dbff09b7d75660
 
 ## 未完了
 
-配布sourceのdocs更新・固定公開と実機受入は未完了。途中の件数や単体成功で実機不合格を完了扱いしない。
+実機受入・実効速度の確認のみ未完了。単体/Mac/配布の合格で実機改善を完了扱いしない。途中の件数や単体成功で実機不合格を完了扱いしない。
 
 ## 次の実機受入
 
@@ -87,3 +87,9 @@ IPAは実iOSビルド成功、18,442,194bytes・SHA551270d19f99a56dbff09b7d75660
 ## IPA同一性の最終読取り確認
 
 CI由来/package/host/Runtime/Spool/Mach-O/compiler/clientの8gateを実物へ結び、全合格。全9Mach-Oの既存/新host hook不在、新cap/startflag/C API、実iOS C8/Swift5とRSP6/PBX/rawargsを照合した。crossbinding SHA1e37d9679cd5fe617268883b75b99e68e93c4bd93af9a09c7b44b6adde76978d、実3.9別証跡SHA231c3c7b2c6dee4b6e814b569dd53c15dc73ae2661772f0bce5b992387c129ea。私的reader初回はGitHub生jobs形式の読取り型で失敗し、全jobのrun_id/head_sha/結論を検証する型adapterだけを加えた履歴を保持した。製品/input/元artifactは不変。最終8gate読取りで追加compile/意味試験/再分類は0、iPhone受入は未実施。
+
+## 固定公開・匿名取得
+
+文書3件のみを締めたsource974dc1883494eb2376ba27dbae8aa6b639ae8820を、公式codeload ZIPの全1,109files/CRC/path/Git blobへ照合。source.zipは10,113,450bytes・SHA2ac556729ce15b78ed66c3e8eec9ab610de668b2e0c33f24be71250a58341ad5。直接uploadはHTTP401でdraft assets0のまま止まり、既存の配布laneだけをCI250/run44272952412で実行して検証済みの同じIPA/source/hash表を公開した。意味試験/compile/分類の再実行は0。
+
+[test116-build249](https://github.com/shuhei0720/necrogold-automation/releases/tag/test116-build249)・Release449734852の3assetを認証なしの全GETで取得し、各HTTP200・全bytes/SHA・ZIP CRC、Release digestとtag target=source974dc18まで一致した。IPA SHA551270d19f99a56dbff09b7d756602f3b55edaa78513a2abb48df6050489658d、hash表SHAe12f23659cb3a85539c31a87828a21d1ff176cfba6e7abdb4c72259071365b1e。固定assetを置換せず、この公開確認だけを後続の文書commitへ記録する。実機は未受入。

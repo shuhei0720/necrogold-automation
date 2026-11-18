@@ -619,3 +619,5 @@ TEST116開発中の追加境界（実機再発数へ加算しない）:
 TEST116 CI249の結合・回収確認: CODE98e2d2d/run44267350921でhost99・実3.9の40・Mac36が合格。43出力/815記録/600画像の実原本・公開ACKを読取照合し、通常2child/48画像/58記録は実3.9の既client proofにも一致。Spool247の旧7Red→現16Greenは同bytesで再利用。実機改善・毎拍/実効速度は未確認のまま、同症状/同根因の再発数を成功扱いで0へ戻さない。IPA最終同一性/固定公開は次工程。
 
 TEST116の実物8gateも全合格。全9Mach-Oのhook不在/newcap/C API・実iOS compiler/sourceとIPA SHA551270d1を照合、crossbinding1e37d967。追加compile/意味試験/分類0。実機改善・速度・同根因の再発数は未確認を維持し、固定公開/実機受入は次工程。
+
+TEST116固定公開確認: source974dc18・全1109filesを照合した公式ZIP SHA2ac55672、IPA SHA551270d1/hash表と共にtest116-build249/Release449734852へpublisher250で保存。3assetの匿名全GET200・全bytes/SHA・CRC・Release digest/tag targetを一致確認。公開後assetは置換しない。実機改善・実効速度は未確認、再発数も前記のまま維持する。
