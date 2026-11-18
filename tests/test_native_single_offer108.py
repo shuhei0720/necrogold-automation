@@ -133,10 +133,24 @@ class NativeSingleOffer108Tests(unittest.TestCase):
         for kwargs in ({'missing_price': 1}, {'missing_wall': True}, {'extra_object': True}):
             with self.subTest(kwargs=kwargs):
                 self.assertNotEqual(3, self.assess(shop_pixels(**kwargs))[1].outcome)
-        for target_name, outcome in ((True, 2), (False, 1)):
+        # TEST111 permits an exact target image with its own observed price.
+        for target_name, outcome in ((True, 2), (False, 2)):
             with self.subTest(target_name=target_name):
-                self.assertEqual(outcome,
-                    self.assess(shop_pixels(target=True, target_name=target_name))[1].outcome)
+                status, result = self.assess(shop_pixels(target=True, target_name=target_name))
+                self.assertEqual(outcome, result.outcome)
+                if not target_name:
+                    self.assertEqual((0, 2, 1), (status, result.outcome, result.coverage))
+                    self.assertGreaterEqual(result.selected_row, 0)
+                    slot = result.rows[result.selected_row].slots[1]
+                    self.assertEqual((2, 1), (slot.outcome, slot.icon_score_exact))
+                    self.assertGreaterEqual(slot.icon_score, .94)
+                    self.assertEqual(16, result.certificate.policy_version)
+                    self.assertEqual((1, 1), (result.certificate.observed_items,
+                                              result.certificate.observed_prices))
+                    self.assertEqual(tuple(slot.icon_box), tuple(result.certificate.item_boxes[1]))
+                    self.assertEqual((334, 165, 11, 7), tuple(result.certificate.price_boxes[1]))
+                    self.assertEqual((0, 0, 0, 0), tuple(result.certificate.name_boxes[1]))
+                    self.assertEqual(0, self.lib.ng2_ring_negative_certificate(C.byref(result)))
 
     @staticmethod
     def certificate_mutations():

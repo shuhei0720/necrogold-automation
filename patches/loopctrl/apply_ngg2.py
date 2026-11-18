@@ -268,6 +268,15 @@ def seal(root):
             and b'exposed_cursering_image_price_v3' in safe_path(ASSETS_ROOT, 'NG2Ring.c').read_bytes()
             and b'necrogold_native_image_price_v1' in raw_patch):
         manifest['image_price_capability'] = 'necrogold_native_image_price_v1'
+    if ('LoopCtrlUITests/NG2Ring.c' in additions
+            and 'LoopCtrlUITests/NG2ShopPriceGeometry.h' in additions
+            and b'lower_entry=w->policy_version==17' in safe_path(ASSETS_ROOT, 'NG2Ring.c').read_bytes()
+            and b'ng2_single_gold_dirt_motion_zero(' in safe_path(ASSETS_ROOT, 'NG2Core.h').read_bytes()
+            and b'ng2_controller_enable_initial_restart(' in safe_path(ASSETS_ROOT, 'NG2Controller.h').read_bytes()
+            and b'"initial_restart"' in safe_path(ASSETS_ROOT, 'NG2Runtime.swift').read_bytes()
+            and b'necrogold_native_visible_goods_v1' in raw_patch):
+        manifest.update(visible_goods_capability='necrogold_native_visible_goods_v1',
+                        initial_restart_start_flag='initial_restart')
     if ('LoopCtrlUITests/NG2Core.h' in additions
             and b'ng2_analyze_irregular_rgba(' in safe_path(ASSETS_ROOT, 'NG2Core.h').read_bytes()):
         manifest.update(irregular_capability='necrogold_native_irregular_v1',

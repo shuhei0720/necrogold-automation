@@ -139,7 +139,7 @@ class NativeCurrentView114Tests(goods.Goods113Base):
         return queued
 
     def current_result(self, *, target=False):
-        value = self.producer(self.current, left=375, sy=44, target=target)
+        value = self.producer(self.current, left=375, sy=44, target=target, unknown=not target)
         self.assertIn(value.outcome, (1, 2) if target else (0,))
         self.commit(value)
         return value

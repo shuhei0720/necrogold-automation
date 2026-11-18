@@ -295,6 +295,13 @@ class NativePluralWait103Tests(unittest.TestCase):
                         self.observe(after)
                     else:
                         self.now = max(self.now, new.not_before_ns)
+                        # A new capture must consume this changed assessment;
+                        # begin revalidates the exact already qualified source.
+                        previous_capture = self.number
+                        self.assertEqual(1, self.observe(after))
+                        self.assertEqual(previous_capture + 1, self.status().last_capture_id)
+                        self.assertEqual(self.number, self.status().last_capture_id)
+                        self.assertGreaterEqual(self.lib.test_motion_calls(), 1)
                         self.assertEqual(0, self.lib.ng2_controller_begin(self.engine, new.id,
                             self.now, 1, 0, 1))
                     self.assertEqual((2, 2), (self.status().inputs, self.status().moves))

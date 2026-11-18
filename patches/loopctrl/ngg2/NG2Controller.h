@@ -240,6 +240,9 @@ typedef struct {
 } NG2ControllerContinuousStatus;
 int ng2_controller_enable_continuous(NG2Controller *, int32_t successor_floor,
     uint64_t root_deadline_ns);
+/* Fresh irregular root only, configured after continuous/finite-yield mode.
+ * One explicit first UI restart; no changed-world or negative-shop credit. */
+int ng2_controller_enable_initial_restart(NG2Controller *);
 /* DATA-only end, never a UI command or a reusable old handoff. */
 int ng2_controller_continuous_finish(NG2Controller *, uint64_t capture_id,
     uint64_t start_ns, uint64_t prefix, uint64_t now);

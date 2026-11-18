@@ -98,6 +98,7 @@ private final class NG2ContinuousCampaign {
     }
     let gate = NSLock(), cancelGate = NSLock()
     let id, owner: String
+    let initialRestart: Bool
     let started, deadline: UInt64
     let quota: NG2CycleSpool.CampaignQuota
     var children: [Child]
@@ -108,8 +109,9 @@ private final class NG2ContinuousCampaign {
     var stopped = false, lease = true, pendingIO = false
     var terminalSafety: (Int32, Bool, Bool)?
     private var cancellation: Int32 = 0
-    init(id: String, owner: String, now: UInt64, quota: NG2CycleSpool.CampaignQuota) {
+    init(id: String, owner: String, now: UInt64, quota: NG2CycleSpool.CampaignQuota, initialRestart: Bool = false) {
         self.id = id; self.owner = owner; started = now
+        self.initialRestart = initialRestart
         #if NG2_RUNTIME_HOST_TEST
         deadline = now + min(NG2RuntimeContinuousTestHooks.rootDurationNS ?? 2_880_000_000_000, 2_880_000_000_000)
         #else
@@ -408,6 +410,7 @@ private final class NG2Run {
     let maximumExportBytes: Int
     let yieldAfterRestart: Bool
     let continuousCampaign: Bool
+    let initialRestart: Bool
     let restartYield: NG2RestartYieldRun?
     let campaign: NG2ContinuousCampaign?
     let campaignIndex: Int
@@ -493,12 +496,14 @@ private final class NG2Run {
     let cycle: NG2CycleRun?
     let irregular: NG2IrregularRun?
     init(owner: String, id: String, now: UInt64, profile: String = "normal-1-1-v1", clock: String? = nil,
-         yieldAfterRestart: Bool = false, campaign: NG2ContinuousCampaign? = nil,
+         yieldAfterRestart: Bool = false, initialRestart: Bool = false,
+         readOnlyContinuousMode: Bool = false, campaign: NG2ContinuousCampaign? = nil,
          campaignIndex: Int = 0, predecessor: String? = nil,
          reservation: NG2CycleSpool.Reservation? = nil, successorPID: pid_t = 0) {
         self.owner = owner; self.id = id; self.profile = profile
         self.campaign = campaign; self.campaignIndex = campaignIndex
-        continuousCampaign = campaign != nil
+        continuousCampaign = campaign != nil || readOnlyContinuousMode
+        self.initialRestart = initialRestart
         campaignPredecessor = predecessor; campaignReservation = reservation; self.successorPID = successorPID
         self.yieldAfterRestart = yieldAfterRestart || campaign != nil
         restartYield = self.yieldAfterRestart ? NG2RestartYieldRun() : nil
@@ -531,6 +536,7 @@ private struct NG2ResponseProjection {
     let id, clock, state, profile: String
     let yieldAfterRestart: Bool
     let continuousCampaign: Bool
+    let initialRestart: Bool
     let inFlight, terminal, cancelled, captureOutstanding, captureTimedOut, bootstrapUIStarted: Bool
     let lease, uiFrozen, mainOutstanding: Bool
     let acceptedStarted, prefix, captureID, replacedFrames, analyzedFrames, evictedFrames: UInt64
@@ -545,7 +551,8 @@ private struct NG2ResponseProjection {
         generation = run.generation; reportGeneration = run.reportGeneration
         id = run.id; clock = run.clock; profile = run.profile
         yieldAfterRestart = run.yieldAfterRestart && run.campaign == nil
-        continuousCampaign = run.campaign != nil
+        continuousCampaign = run.continuousCampaign
+        initialRestart = run.initialRestart
         state = run.terminal ? (run.lease ? "draining" : (run.successful ? "completed" : "stopped"))
             : (run.controllerSnapshot == nil && run.report.isEmpty ? "accepted" : "running")
         inFlight = run.inFlight; terminal = run.terminal; cancelled = run.cancelReason != 0
@@ -673,9 +680,11 @@ final class NG2Runtime {
 
     private func campaignReply(_ root: NG2ContinuousCampaign) -> [String: JSONValue] {
         let state = root.gate.ng2Locked { root.stopped ? (root.lease ? "draining" : "stopped") : "running" }
-        return ["run_id": .string(root.id), "profile": .string(Self.irregularProfile),
+        var result: [String: JSONValue] = ["run_id": .string(root.id), "profile": .string(Self.irregularProfile),
             "state": .string(state), "api_version": .string("1.98.16-ngg2"),
             "report": .object([:]), "continuous_campaign": .bool(true)]
+        if root.initialRestart { result["initial_restart"] = .bool(true) }
+        return result
     }
     private func campaignOwnsExports(_ owner: String) -> Bool {
         let roots = lock.ng2Locked { campaigns.values.filter { $0.owner == owner } }
@@ -747,17 +756,21 @@ final class NG2Runtime {
         if method == "necro_native_cancel", let root = lock.ng2Locked({ campaigns[id] }), root.owner == owner {
             guard Set((params ?? [:]).keys) == ["run_id", Self.ownerParam] else { return failure("Invalid campaign cancellation.", -32602) }
             cancelCampaign(root, reason: 2)
-            return (["run_id": .string(root.id), "profile": .string(Self.irregularProfile),
+            var result: [String: JSONValue] = ["run_id": .string(root.id), "profile": .string(Self.irregularProfile),
                 "state": .string("draining"), "api_version": .string("1.98.16-ngg2"),
-                "report": .object([:]), "continuous_campaign": .bool(true)], nil)
+                "report": .object([:]), "continuous_campaign": .bool(true)]
+            if root.initialRestart { result["initial_restart"] = .bool(true) }
+            return (result, nil)
         }
         if method == "necro_native_cancel", let active = lock.ng2Locked({ current }),
            active.id == id, active.owner == owner, let root = active.campaign {
             guard Set((params ?? [:]).keys) == ["run_id", Self.ownerParam] else { return failure("Invalid child cancellation.", -32602) }
             cancelCampaign(root, reason: 2)
-            return (["run_id": .string(id), "profile": .string(Self.irregularProfile),
+            var result: [String: JSONValue] = ["run_id": .string(id), "profile": .string(Self.irregularProfile),
                 "state": .string("draining"), "api_version": .string("1.98.16-ngg2"),
-                "report": .object([:]), "continuous_campaign": .bool(true)], nil)
+                "report": .object([:]), "continuous_campaign": .bool(true)]
+            if active.initialRestart { result["initial_restart"] = .bool(true) }
+            return (result, nil)
         }
         var exportMode: String?
         if method == "necro_native_results", let value = params?["mode"] {
@@ -766,7 +779,7 @@ final class NG2Runtime {
             }
             exportMode = mode
         }
-        let allowed: Set<String> = method == "necro_native_start" ? ["run_id", "profile", "yield_after_restart", "continuous_campaign", Self.ownerParam]
+        let allowed: Set<String> = method == "necro_native_start" ? ["run_id", "profile", "yield_after_restart", "continuous_campaign", "initial_restart", Self.ownerParam]
             : (method == "necro_native_status" ? ["run_id", "keepalive", Self.ownerParam]
                : (exportMode == "chunk" ? ["run_id", "mode", "export_id", "capture_id", "offset", Self.ownerParam]
                   : (exportMode == "manifest" ? ["run_id", "mode", Self.ownerParam] : ["run_id", Self.ownerParam])))
@@ -783,12 +796,20 @@ final class NG2Runtime {
                 }
                 yieldAfterRestart = true
             } else { yieldAfterRestart = false }
+            let initialRestart: Bool
+            if let value = params?["initial_restart"] {
+                guard profile == Self.irregularProfile, value.boolValue == true else {
+                    return failure("initial_restart is true-only and requires the irregular profile.", -32602)
+                }
+                initialRestart = true
+            } else { initialRestart = false }
             let continuous = params?["continuous_campaign"] != nil
             if continuous && (params?["continuous_campaign"]?.boolValue != true || profile != Self.irregularProfile || yieldAfterRestart) {
                 return failure("continuous_campaign is true-only and excludes restart yield.", -32602)
             }
             if let root = lock.ng2Locked({ campaigns[id] }) {
-                guard root.owner == owner, continuous, profile == Self.irregularProfile else {
+                guard root.owner == owner, continuous, profile == Self.irregularProfile,
+                      root.initialRestart == initialRestart else {
                     return failure("Native campaign mode is immutable.", -32602)
                 }
                 return (campaignReply(root), nil)
@@ -799,6 +820,17 @@ final class NG2Runtime {
                 // An archived child cannot become a different input root or
                 // be projected as a legacy-mode start under the same UUID.
                 return failure("Native campaign mode and root identity are immutable.", -32602)
+            }
+            // Only TEST117's new root mode needs this read-only retry check.
+            // Recovered objects have no campaign, controller, lease or quota;
+            // matching an old UUID cannot recreate input authority.
+            if let recovered = lock.ng2Locked({ recoveredCycles[id] }), recovered.owner == owner,
+               recovered.initialRestart || initialRestart {
+                guard recovered.profile == profile, recovered.yieldAfterRestart == yieldAfterRestart,
+                      recovered.initialRestart == initialRestart, recovered.continuousCampaign == continuous else {
+                    return failure("Native initial restart mode is immutable.", -32602)
+                }
+                return (response(recovered, includeInitialRestart: true), nil)
             }
             guard !RemoteSession.shared.paused else {
                 return continuous ? cycleNotStarted("Owner paused native control before campaign admission.") : failure("Owner paused native control.")
@@ -815,7 +847,8 @@ final class NG2Runtime {
                     #else
                     quota = try NG2CycleSpool.createCampaignQuota(rootID: id, owner: owner)
                     #endif
-                    campaign = NG2ContinuousCampaign(id: id, owner: owner, now: Self.now(), quota: quota)
+                    campaign = NG2ContinuousCampaign(id: id, owner: owner, now: Self.now(), quota: quota,
+                        initialRestart: initialRestart)
                     reservation = try quota.reserveNext(runID: id, index: 0, predecessorID: nil)
                 } catch { return cycleNotStarted("Campaign storage quota is unavailable.") }
             }
@@ -823,22 +856,26 @@ final class NG2Runtime {
             let answer: ([String: JSONValue]?, JSONRPCError?) = lock.ng2Locked {
                 if let old = current, old.owner == owner, old.id == id {
                     guard old.profile == profile else { return failure("Native run profile is immutable.", -32602) }
-                    guard old.campaign == nil && !continuous && old.yieldAfterRestart == yieldAfterRestart else {
+                    guard old.campaign == nil && !continuous && old.yieldAfterRestart == yieldAfterRestart
+                        && old.initialRestart == initialRestart else {
                         return failure("Native restart yield option is immutable.", -32602)
                     }
-                    return (response(old), nil)
+                    return (response(old, includeInitialRestart: true), nil)
                 }
                 if let recovered = recoveredCycles[id], recovered.owner == owner,
-                   recovered.yieldAfterRestart || yieldAfterRestart {
-                    guard recovered.profile == profile && recovered.yieldAfterRestart == yieldAfterRestart else {
+                   recovered.yieldAfterRestart || yieldAfterRestart || recovered.initialRestart || initialRestart {
+                    guard recovered.profile == profile && recovered.yieldAfterRestart == yieldAfterRestart
+                        && recovered.initialRestart == initialRestart
+                        && (!initialRestart || recovered.continuousCampaign == continuous) else {
                         return failure("Native run profile and restart yield option are immutable.", -32602)
                     }
-                    return (response(recovered), nil)
+                    return (response(recovered, includeInitialRestart: true), nil)
                 }
                 if let archived = history[id], archived.owner == owner {
                     guard let response = archived.response,
                         response["profile"]?.stringValue == profile &&
-                        (response["yield_after_restart"]?.boolValue ?? false) == yieldAfterRestart else {
+                        (response["yield_after_restart"]?.boolValue ?? false) == yieldAfterRestart &&
+                        (response["initial_restart"]?.boolValue ?? false) == initialRestart else {
                         return failure("Native run profile is immutable.", -32602)
                     }
                     return (historical(response), nil)
@@ -879,7 +916,8 @@ final class NG2Runtime {
                         : failure("Run identity was already consumed or process run limit reached.")
                 }
                 let run = NG2Run(owner: owner, id: id, now: campaign?.started ?? Self.now(), profile: profile,
-                    yieldAfterRestart: yieldAfterRestart, campaign: campaign, reservation: reservation)
+                    yieldAfterRestart: yieldAfterRestart, initialRestart: initialRestart,
+                    campaign: campaign, reservation: reservation)
                 if let old = current {
                     old.lock.ng2Locked {
                         old.exportCache = nil
@@ -890,7 +928,7 @@ final class NG2Runtime {
                 }
                 current = run; seen.insert(id); created = run
                 if let campaign { campaign.active = run; campaigns[id] = campaign }
-                return (response(run), nil)
+                return (response(run, includeInitialRestart: true), nil)
             }
             if let run = created {
                 if run.cycle != nil { initializeCycle(run) }
@@ -906,6 +944,7 @@ final class NG2Runtime {
                 return failure("keepalive must be boolean.", -32602)
             }
             var result = historical(snapshot)
+            if method != "necro_native_cancel" { result.removeValue(forKey: "initial_restart") }
             if method == "necro_native_results" {
                 guard snapshot["profile"]?.stringValue != Self.evidenceProfile else {
                     return failure("Evidence profile requires paged image export.")
@@ -925,7 +964,7 @@ final class NG2Runtime {
             }
             return (response(run), nil)
         }
-        if method == "necro_native_cancel" { run.cancel(2); return (response(run), nil) }
+        if method == "necro_native_cancel" { run.cancel(2); return (response(run, includeInitialRestart: true), nil) }
         if run.cycle != nil { return failure("Cycle profile requires the dedicated cycle query.") }
         if exportMode == "manifest" { return exportManifest(run) }
         if exportMode == "chunk" { return exportChunk(run, params ?? [:]) }
@@ -1528,7 +1567,7 @@ final class NG2Runtime {
         }
         lock.ng2Locked { recoveredCycles[old.id] = old }
         let child = NG2Run(owner: root.owner, id: reservation.runID, now: now, profile: Self.irregularProfile,
-            campaign: root, campaignIndex: reservation.index, predecessor: old.id,
+            initialRestart: false, campaign: root, campaignIndex: reservation.index, predecessor: old.id,
             reservation: reservation, successorPID: old.expectedPID)
         initializeCycle(child, continuationFrom: old)
     }
@@ -2531,6 +2570,7 @@ final class NG2Runtime {
                     "system_uptime_ns": UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000_000)]
                 if run.irregular != nil { provenance["native_profile"] = run.profile }
                 if run.yieldAfterRestart && run.campaign == nil { provenance["yield_after_restart"] = true }
+                if run.initialRestart { provenance["initial_restart"] = true }
                 if let root = run.campaign {
                     provenance["continuous_campaign"] = ["schema": "ngg2-continuous-child-v1",
                         "root_id": root.id, "index": run.campaignIndex,
@@ -2661,6 +2701,8 @@ final class NG2Runtime {
                 var clock: String?
                 var recoveredProfile = placeholder?.campaign != nil ? Self.irregularProfile : Self.cycleProfile
                 var recoveredYield = false
+                var recoveredInitial = false
+                var readOnlyContinuousMode = false
                 if let header = try? spool.sessionBytes(),
                    let object = try? JSONSerialization.jsonObject(with: header) as? [String: Any],
                    let provenance = object["provenance"] as? [String: Any] {
@@ -2678,9 +2720,39 @@ final class NG2Runtime {
                         }
                         recoveredYield = true
                     }
+                    if let value = provenance["initial_restart"] {
+                        guard recoveredProfile == Self.irregularProfile,
+                              let bool = value as? NSNumber, CFGetTypeID(bool) == CFBooleanGetTypeID(), bool.boolValue else {
+                            throw NG2CycleSpool.Failure.invalid("recovery-initial-restart")
+                        }
+                        recoveredInitial = true
+                        if let value = provenance["continuous_campaign"] {
+                            // A TEST117 root mode marker is metadata only. It
+                            // never creates a campaign/quota or restores input.
+                            func unsigned(_ value: Any?) -> UInt64? {
+                                guard let number = value as? NSNumber,
+                                      ["s", "i", "l", "q", "S", "I", "L", "Q"].contains(String(cString: number.objCType)),
+                                      number.int64Value >= 0, number.uint64Value < UInt64(Int64.max) else { return nil }
+                                return number.uint64Value
+                            }
+                            guard let mode = value as? [String: Any],
+                                  Set(mode.keys) == ["schema", "root_id", "index", "predecessor_id", "root_started_ns", "root_deadline_ns"],
+                                  mode["schema"] as? String == "ngg2-continuous-child-v1",
+                                  mode["root_id"] as? String == id, self.lowerHexIdentity(id),
+                                  unsigned(mode["index"]) == 0, mode["predecessor_id"] is NSNull,
+                                  let started = unsigned(mode["root_started_ns"]), started > 0,
+                                  let deadline = unsigned(mode["root_deadline_ns"]), deadline > started,
+                                  deadline - started <= 2_880_000_000_000 else {
+                                throw NG2CycleSpool.Failure.invalid("recovery-initial-root-mode")
+                            }
+                            readOnlyContinuousMode = true
+                        }
+                    }
                     if let original = provenance["clock_id"] as? String, self.lowerHexIdentity(original) { clock = original }
                 }
-                let run = NG2Run(owner: owner, id: id, now: Self.now(), profile: recoveredProfile, clock: clock, yieldAfterRestart: recoveredYield)
+                let run = NG2Run(owner: owner, id: id, now: Self.now(), profile: recoveredProfile, clock: clock,
+                    yieldAfterRestart: recoveredYield, initialRestart: recoveredInitial,
+                    readOnlyContinuousMode: readOnlyContinuousMode)
                 let cycle = run.cycle!
                 cycle.spool = spool; cycle.recovered = true; cycle.terminalPersisted = true
                 cycle.companion.state = 8
@@ -3397,7 +3469,7 @@ final class NG2Runtime {
         }
     }
     #endif
-    private func response(_ run: NG2Run) -> [String: JSONValue] {
+    private func response(_ run: NG2Run, includeInitialRestart: Bool = false) -> [String: JSONValue] {
         let projection = run.lock.ng2Locked { NG2ResponseProjection(run) }
         var report = controllerReport(run, projection: projection)
         if report.isEmpty {
@@ -3458,6 +3530,7 @@ final class NG2Runtime {
             "api_version": .string("1.98.16-ngg2"), "report": .object(report)]
         if projection.yieldAfterRestart { result["yield_after_restart"] = .bool(true) }
         if projection.continuousCampaign { result["continuous_campaign"] = .bool(true) }
+        if includeInitialRestart && projection.initialRestart { result["initial_restart"] = .bool(true) }
         return result
     }
 
@@ -3504,6 +3577,11 @@ final class NG2Runtime {
             run.campaignIndex == 0 ? 0 : 1, $0.deadline) }
             ?? (run.yieldAfterRestart ? ng2_controller_enable_restart_yield(core) : 1)
         if enabled != 1 {
+            run.cancel(17)
+            run.lock.ng2Locked { run.captureWorkerDone = true }
+            ng2_controller_cancel(core, Self.now(), 17); self.cycle(run); return
+        }
+        if run.initialRestart && ng2_controller_enable_initial_restart(core) != 1 {
             run.cancel(17)
             run.lock.ng2Locked { run.captureWorkerDone = true }
             ng2_controller_cancel(core, Self.now(), 17); self.cycle(run); return
@@ -3934,7 +4012,7 @@ final class NG2Runtime {
                 run.watchdog?.cancel(); run.watchdog = nil
                 run.lock.ng2Locked { run.lease = false }
                 notifyCycleIfNeeded(run)
-                var snapshot = response(run)
+                var snapshot = response(run, includeInitialRestart: true)
                 let retained = run.lock.ng2Locked {
                     Set(run.pinned.keys).union(run.images.map { $0.id })
                         .union(run.restartYield?.classificationSources.keys.map { $0 } ?? []).count

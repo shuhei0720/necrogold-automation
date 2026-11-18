@@ -92,6 +92,14 @@ int ng2_motion(const NG2Scene *before, const NG2Scene *after, int32_t direction,
 /* Read-only zero qualification for the caller's definitely-unsent fixed-world
  * CLEAR passage wait. It grants no motion credit or input authority. */
 int ng2_clear_plural_stationary_zero(const NG2Scene *before, const NG2Scene *after, int32_t direction);
+/* Unchanged normal Motion and separate zero-only evidence share local work.
+ * The caller alone owns the definitely-unsent fixed-source GOLD1/DIRT wait. */
+int ng2_single_gold_dirt_motion_zero(const NG2Scene *before, const NG2Scene *after,
+                                    int32_t direction, NG2Motion *out, int32_t *zero);
+/* The caller must have earned and frozen support directly from original.
+ * Both original geometry relations and strict support/current zero remain required. */
+int ng2_single_gold_dirt_support_zero(const NG2Scene *original, const NG2Scene *support,
+                                     const NG2Scene *current, int32_t direction);
 int ng2_entered_gate(const NG2Scene *before, const NG2Scene *after, int32_t direction,
                      int32_t x, int32_t y, int32_t motion, NG2Entrance *out);
 int ng2_make_sample(double q, double spacing, double center, uint64_t start, uint64_t end, NG2BeatSample *out);

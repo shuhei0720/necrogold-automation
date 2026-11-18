@@ -76,6 +76,13 @@ def restart_yield_enabled(client):
     return enabled
 
 
+def initial_restart_enabled(client):
+    enabled = getattr(client, 'initial_restart', False)
+    require(type(enabled) is bool and (not enabled or client_protocol(client) is IRREGULAR_PROTOCOL),
+            'cycle_protocol_invalid')
+    return enabled
+
+
 def require(value, reason='invalid_cycle_response'):
     if not value:
         raise ProbeError(reason)
@@ -111,15 +118,19 @@ class CycleClient(Client):
     protocol_spec = STANDARD_PROTOCOL
     required_capabilities = frozenset()
     yield_after_restart = False
+    initial_restart = False
 
     def _validate(self, method, params):
         protocol = _spec(self.protocol_spec)
         require(type(params) is dict and identifier(params.get('run_id')), 'method_not_allowed')
         if method == 'necro_native_start':
             enabled = restart_yield_enabled(self)
-            closed(params, ('run_id', 'profile') + (('yield_after_restart',) if enabled else ()), 'method_not_allowed')
+            initial = initial_restart_enabled(self)
+            closed(params, ('run_id', 'profile') + (('yield_after_restart',) if enabled else ())
+                   + (('initial_restart',) if initial else ()), 'method_not_allowed')
             require(params['profile'] == protocol.profile
-                    and (not enabled or params['yield_after_restart'] is True), 'method_not_allowed')
+                    and (not enabled or params['yield_after_restart'] is True)
+                    and (not initial or params['initial_restart'] is True), 'method_not_allowed')
             return
         if method == 'necro_native_cancel':
             closed(params, ('run_id',), 'method_not_allowed')
@@ -220,12 +231,15 @@ def prepare(value, run_id, *, protocol_spec=STANDARD_PROTOCOL):
     return result
 
 
-def start_reply(value, run_id, *, protocol_spec=STANDARD_PROTOCOL, yield_after_restart=False):
+def start_reply(value, run_id, *, protocol_spec=STANDARD_PROTOCOL, yield_after_restart=False, initial_restart=False):
     protocol = _spec(protocol_spec)
     require(type(yield_after_restart) is bool and (not yield_after_restart or protocol is IRREGULAR_PROTOCOL))
+    require(type(initial_restart) is bool and (not initial_restart or protocol is IRREGULAR_PROTOCOL))
     closed(value, ('run_id', 'profile', 'state', 'api_version', 'report')
-           + (('yield_after_restart',) if yield_after_restart else ()))
+           + (('yield_after_restart',) if yield_after_restart else ())
+           + (('initial_restart',) if initial_restart else ()))
     require(not yield_after_restart or value['yield_after_restart'] is True)
+    require(not initial_restart or value['initial_restart'] is True)
     require(value['run_id'] == run_id and value['profile'] == protocol.profile
             and value['api_version'] == API_VERSION and value['state'] in STATES
             and type(value['report']) is dict)
@@ -666,6 +680,9 @@ def verify_evidence(base, record, manifest=None, *, protocol_spec=STANDARD_PROTO
                 if 'yield_after_restart' in provenance:
                     require(protocol is IRREGULAR_PROTOCOL and provenance['yield_after_restart'] is True,
                             'cycle_record_identity')
+                if 'initial_restart' in provenance:
+                    require(protocol is IRREGULAR_PROTOCOL and provenance['initial_restart'] is True,
+                            'cycle_record_identity')
                 session_count += 1
             elif item['kind'] == 'frame':
                 require(body.get('schema') == 'ngg2-cycle-frame-v1' and body.get('run_id') == record['run_id']
@@ -722,6 +739,7 @@ def run_session(client, base, *, cancelled=lambda: False, clock=time.monotonic_n
     protocol = _spec(protocol_spec)
     require(client_protocol(client) is protocol, 'cycle_protocol_invalid')
     yield_after_restart = restart_yield_enabled(client)
+    initial_restart = initial_restart_enabled(client)
     base = Path(base)
     base.mkdir(mode=0o700, parents=True, exist_ok=True)
     require(not base.is_symlink(), 'cycle_local_symlink')
@@ -775,8 +793,11 @@ def run_session(client, base, *, cancelled=lambda: False, clock=time.monotonic_n
                     params = {'run_id':run_id, 'profile':protocol.profile}
                     if yield_after_restart:
                         params['yield_after_restart'] = True
+                    if initial_restart:
+                        params['initial_restart'] = True
                     record['state'] = start_reply(_call(client, 'necro_native_start', params),
-                        run_id, protocol_spec=protocol, yield_after_restart=yield_after_restart)
+                        run_id, protocol_spec=protocol, yield_after_restart=yield_after_restart,
+                        initial_restart=initial_restart)
                 except _StartNotSent:
                     record.update(start_intent=False, state='stopped')
                     _journal(base, record)
@@ -806,7 +827,8 @@ def run_session(client, base, *, cancelled=lambda: False, clock=time.monotonic_n
                 _journal(base, record)
                 try:
                     start_reply(_call(client, 'necro_native_cancel', {'run_id':run_id}), run_id,
-                                protocol_spec=protocol, yield_after_restart=yield_after_restart)
+                                protocol_spec=protocol, yield_after_restart=yield_after_restart,
+                                initial_restart=initial_restart)
                 except ProbeError:
                     pass
                 record['last_error'] = 'cancel_requested' if cancelled() else 'host_deadline'

@@ -331,6 +331,17 @@ static uint32_t passage_occluded_corner_vantage(const NG2Scene *s,const Path rou
         &&passage_wall(s,-3,-3)&&passage_wall(s,-2,-3)&&passage_wall(s,-1,-3)
         &&passage_wall(s,-3,-2)&&passage_wall(s,-3,-1)
         &&tile(s,-2,-2)==NG2_TILE_FLOOR)result|=UINT32_C(1)<<5;
+    /* A wall-separated exterior FLOOR bend can justify the current inside
+     * view. Keep both opaque cells and the dark lower flank nontraversable;
+     * the outside L, cap and roof authorize only the existing three floors. */
+    if(passage_wall(s,-3,-1)&&passage_wall(s,-3,-2)
+        &&passage_wall(s,-3,-3)&&passage_wall(s,-2,-3)&&passage_wall(s,-1,-3)
+        &&tile(s,-4,-1)==NG2_TILE_FLOOR&&tile(s,-4,-2)==NG2_TILE_FLOOR
+        &&tile(s,-5,-2)==NG2_TILE_FLOOR&&passage_wall(s,-5,-1)
+        &&(tile(s,-3,0)==NG2_TILE_UNKNOWN||passage_wall(s,-3,0))
+        &&tile(s,-2,-1)==NG2_TILE_FLOOR
+        &&route[side].cost!=INF_COST&&route[side].length==3
+        &&route[index_of(-4,-1)].cost==INF_COST)result|=UINT32_C(1)<<6;
     return result;
 }
 /* An observed upper-left FLOOR mouth can remain disconnected by a dark
@@ -2136,6 +2147,52 @@ static int clear_plural_zero_numeric(const Candidate candidates[73],const ClearS
         e->axis_other_support[i],e->axis_other_bad[i]))return 0;
     return 1;
 }
+/* A single old GOLD is insufficient by itself. The complete old DIRT wall
+ * footprint must independently select zero, with exact noncollinear DIRT
+ * retained on all four sides of the actor. New-only terrain is never support. */
+static int single_gold_dirt_translation(const NG2Scene *a,const NG2Scene *b,int tx,int ty) {
+    int i,count=0;
+    for(i=0;i<CELLS;++i)if(a->tiles[i]==NG2_TILE_DIRT){
+        int x=px(i),y=py(i),latest=tile(b,x+tx,y+ty);
+        if(hud_sample_hidden(x,y)||hud_sample_hidden(x+tx,y+ty)
+            ||(latest!=NG2_TILE_DIRT&&latest!=NG2_TILE_STONE))return 0;
+        ++count;
+    }
+    return count>=9;
+}
+static int single_gold_dirt_zero_scene(const NG2Scene *a,const NG2Scene *b,int direction) {
+    int i,x,y,center,dx,dy,first=-1,second=-1,dirt=0,noncollinear=0,sides=0;
+    int amount,d,matches=0,zx=0,zy=0,gold_matches=0,gx=0,gy=0;
+    if(!valid_scene(a)||!valid_scene(b)||direction<1||direction>4
+        ||a->gold_state!=NG2_GOLD_CANDIDATE||b->gold_state!=NG2_GOLD_CANDIDATE
+        ||a->goods!=NG2_GOODS_UNKNOWN||b->goods!=NG2_GOODS_UNKNOWN
+        ||gold_count(a)!=1||gold_count(b)!=1)return 0;
+    dx=ddx[direction];dy=ddy[direction];
+    if(tile(a,0,0)!=NG2_TILE_FLOOR||tile(b,0,0)!=NG2_TILE_FLOOR
+        ||tile(a,dx,dy)!=NG2_TILE_FLOOR||tile(b,dx,dy)!=NG2_TILE_FLOOR)return 0;
+    for(i=0;i<CELLS;++i){
+        int old=a->tiles[i],latest=b->tiles[i];x=px(i);y=py(i);
+        if(a->protected_cells[i]||b->protected_cells[i]||old==NG2_TILE_STONE
+            ||old==NG2_TILE_DOOR||latest==NG2_TILE_DOOR
+            ||old==NG2_TILE_ITEM||latest==NG2_TILE_ITEM)return 0;
+        if(old==NG2_TILE_GOLD&&(latest!=NG2_TILE_GOLD||hud_sample_hidden(x,y)))return 0;
+        if(old!=NG2_TILE_DIRT||latest!=NG2_TILE_DIRT||hud_sample_hidden(x,y))continue;
+        ++dirt;if(x<0)sides|=1;if(x>0)sides|=2;if(y<0)sides|=4;if(y>0)sides|=8;
+        if(first<0)first=i;
+        else if(second<0)second=i;
+        else if((px(second)-px(first))*(y-py(first))
+            !=(py(second)-py(first))*(x-px(first)))noncollinear=1;
+    }
+    if(dirt<9||!noncollinear||sides!=15)return 0;
+    for(center=0;center<2;++center)for(y=-1;y<=1;++y)for(x=-1;x<=1;++x)
+        if(tile(a,x+center*dx,y+center*dy)!=tile(b,x+center*dx,y+center*dy))return 0;
+    for(amount=0;amount<=2;++amount)for(d=1;d<=(amount?4:1);++d){
+        int tx=amount*ddx[d],ty=amount*ddy[d];
+        if(single_gold_dirt_translation(a,b,tx,ty)){++matches;zx=tx;zy=ty;}
+        if(translated_gold(a,b,tx,ty,1)){++gold_matches;gx=tx;gy=ty;}
+    }
+    return matches==1&&!zx&&!zy&&gold_matches==1&&!gx&&!gy;
+}
 int ng2_clear_plural_stationary_zero(const NG2Scene *a,const NG2Scene *b,int32_t direction) {
     View *views;Candidate candidates[73];ClearSingletonZeroEvidence evidence;
     int amount,d,n=1,result;
@@ -2622,7 +2679,7 @@ static void first_gold_supported_phase_motion(const NG2Scene *before,const NG2Sc
     out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
 }
 
-static int motion_with_unlocalized_zero(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out,int32_t *zero) {
+static int motion_with_unlocalized_zero(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out,int32_t *zero,int gold_dirt) {
     View *views;
     Candidate candidates[73];
     int n=1,amount,d;
@@ -2664,21 +2721,36 @@ static int motion_with_unlocalized_zero(const NG2Scene *before,const NG2Scene *a
     revealed_dependency_unit_motion(before,after,direction,views,candidates,out);
     revealed_domain2_dependency_motion(before,after,direction,views,candidates,out);
     if(zero&&out->kind==NG2_MOTION_UNKNOWN&&!out->dx&&!out->dy
-        &&unlocalized_passage_zero_scene(before,after,direction)){
+        &&(gold_dirt?single_gold_dirt_zero_scene(before,after,direction):
+            unlocalized_passage_zero_scene(before,after,direction))){
         ClearSingletonZeroEvidence evidence;
         *zero=clear_singleton_zero_raw(candidates)
             &&clear_singleton_zero_evidence(before,after,views,candidates,&evidence)
-            &&(clear_singleton_zero_numeric(&evidence)||clear_plural_zero_numeric(candidates,&evidence));
+            &&((!gold_dirt&&clear_singleton_zero_numeric(&evidence))
+                ||clear_plural_zero_numeric(candidates,&evidence));
     }
     free(views);return 1;
 }
 int ng2_motion(const NG2Scene *before,const NG2Scene *after,int32_t direction,NG2Motion *out){
-    return motion_with_unlocalized_zero(before,after,direction,out,NULL);
+    return motion_with_unlocalized_zero(before,after,direction,out,NULL,0);
 }
 int ng2_unlocalized_passage_motion_zero(const NG2Scene *before,const NG2Scene *after,
     int32_t direction,NG2Motion *out,int32_t *zero){
     if(!zero)return 0;
-    return motion_with_unlocalized_zero(before,after,direction,out,zero);
+    return motion_with_unlocalized_zero(before,after,direction,out,zero,0);
+}
+int ng2_single_gold_dirt_motion_zero(const NG2Scene *before,const NG2Scene *after,
+    int32_t direction,NG2Motion *out,int32_t *zero){
+    if(!zero)return 0;
+    return motion_with_unlocalized_zero(before,after,direction,out,zero,1);
+}
+int ng2_single_gold_dirt_support_zero(const NG2Scene *original,const NG2Scene *support,
+    const NG2Scene *current,int32_t direction){
+    NG2Motion still;
+    return single_gold_dirt_zero_scene(original,support,direction)
+        &&single_gold_dirt_zero_scene(original,current,direction)
+        &&ng2_motion(support,current,direction,&still)
+        &&still.kind==NG2_BLOCKED&&!still.dx&&!still.dy;
 }
 int ng2_entered_gate(const NG2Scene *before,const NG2Scene *after,int32_t direction,
                      int32_t x,int32_t y,int32_t motion,NG2Entrance *out) {

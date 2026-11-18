@@ -3,6 +3,7 @@
  * No image scaling, interpolation, shared mutable state or external assets. */
 #include "NG2Core.h"
 #include "NG2Templates.h"
+#include "NG2ShopPriceGeometry.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -356,7 +357,20 @@ static int ng2_merchandise(const unsigned char *rgba,size_t stride,const unsigne
             }
         }
     }
-    if(any){out->goods=NG2_GOODS_PARTIAL;ng2_protect(out,partial);}return 0;
+    if(any){
+        NG2ShopPriceGeometry price_row;
+        if(ng2_shop_lower_price_geometry(rgba,(size_t)W*H*4,stride,&price_row)){
+            memset(visible,0,sizeof(visible));
+            for(int slot=0;slot<3;++slot){
+                int tx=ng2_even_round((price_row.left+36*slot-448)/36.0);
+                int ty=ng2_even_round((price_row.sy+48-207)/36.0);
+                visible[(ty+6)*27+tx+13]=1;
+            }
+            out->goods=NG2_GOODS_VISIBLE;ng2_protect(out,visible);return 0;
+        }
+        out->goods=NG2_GOODS_PARTIAL;ng2_protect(out,partial);
+    }
+    return 0;
 }
 /* Raw paired gold can extend below the map or behind its coarse HUD mask.
  * An external row is a hint only; never shift its cells into the map. An

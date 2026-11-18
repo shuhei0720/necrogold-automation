@@ -621,3 +621,33 @@ TEST116 CI249の結合・回収確認: CODE98e2d2d/run44267350921でhost99・実
 TEST116の実物8gateも全合格。全9Mach-Oのhook不在/newcap/C API・実iOS compiler/sourceとIPA SHA551270d1を照合、crossbinding1e37d967。追加compile/意味試験/分類0。実機改善・速度・同根因の再発数は未確認を維持し、固定公開/実機受入は次工程。
 
 TEST116固定公開確認: source974dc18・全1109filesを照合した公式ZIP SHA2ac55672、IPA SHA551270d1/hash表と共にtest116-build249/Release449734852へpublisher250で保存。3assetの匿名全GET200・全bytes/SHA・CRC・Release digest/tag targetを一致確認。公開後assetは置換しない。実機改善・実効速度は未確認、再発数も前記のまま維持する。
+
+## TEST117: TEST116実機4周の原因確認（2026-11-18）
+
+8ZIP/4campaign/4run・96PNG/110記録を照合。4件全て実機不合格。過去の補助検証成功を完了扱いせず、[今回計画](plans/test117-device-failures.md)の元画像/時刻の反例から修正する。以下は原因と対策設計であり、製品/実機の改善完了ではない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-117-SINGLE-BOARD-FOOTPRINT | 2026-11-18 | 1周962cは3商品を見た後RSなし | 188/189の完全左SHOPと3offer/価格から行はできるが、右看板が文字/HUDで分断。coverageが2看板を要求しBOARD/ROWS258 | 完全1看板と実offer/価格/範囲の独立証明を設計。正の検査領域は保持し、断片看板やUNKNOWNを陰性根拠にしない | 元画像/時刻/通常producerの拒否Red→独立certificate/結果採用→RSの直接関連で確認予定。実機未確認 | 今回1。商品可視後停止の同症状継続、同根因通算不明 |
+| FR-117-PARTIAL-PROTECTION | 2026-11-18 | 2周8efcは開扉後RSせず停止 | PARTIAL choiceは商品保護haloをさらに5cross拡張。245/247のorigin/destは安全でも隣接haloでchoice拒否、ROUTE10 | FULLと同じ実origin/destのexact保護へ限定し、開始済入力・真のITEM/保護destは拒否。新壁露出の独立DATAも確認 | 原245/247の通常Nav/零/保護mask/choiceのRed、次のDATA/一回移動と既FULL/候補保持を確認予定。実機未確認 | 今回1。既FULL対策のPARTIAL適用漏れ、同症状継続 |
+| FR-117-CLOSED-PRICE-BASELINE | 2026-11-18 | 同2周の3商品でrow0 | 中央閉宝箱の価格が他2品より下で、同じ9px窓の3価格inkが15<18。row後の既回復へ到達しない | 各slot18ink/高さ9px以内の3独立価格群（2baseline+1有限lower）をPerception/Ring共有の純幾何で設計。閉template複製/weak依存なし、row.syと全正探索union維持 | 元245と既closed正例の形態を独立同定。原反例と本物上端/四隅・価格未確認の拒否、独立certificateで確認予定。実機未確認 | 今回1。入力拒否とは別の潜在判定原因、同症状通算不明 |
+| FR-117-SINGLE-GOLD-STATIONARY | 2026-11-18 | 3周098fは実2歩後停止 | 遠方材質揺れで通常Motion不明。GOLD1/旧STONE0を既零証明が扱わず元W終了 | GOLD1/旧DIRT独立anchorと既数値を用いるzero-only資格を設計。MOVED/全体Motion/期限を緩めない | 元67→88/90の既数値合格と70/89/91/92不合格を保持したRed、元W/P内の再観測/新fit/一回入力を確認予定。実機未確認 | 今回1。旧2GOLD/STONE証明の形状適用外 |
+| FR-117-CLEAR-READY-LOSS | 2026-11-18 | 4周3b28は実2歩後SCREEN | 219でREADY、222で零資格一時消失。既unlocalized回復がCLEARを対象外とし元W/P内でも終了 | 未送信資格を撤回し同anchor/元2拍W/親PでOBSERVEへ戻す。開始済/期限後は回復しない | 原215→219→220/221→222順のRed、後続独立zero/fitの同じ元期限境界と反例を確認予定。実機未確認 | 今回1。FR115の状態適用漏れ継続、回帰削除ではない |
+| FR-117-DIRT-L-VANTAGE | 2026-11-18 | 同4周capture128の通路候補を見送り | DIRT境界外側の床L/石capは既116 FLOOR口形状外。実GOLD0でmask0 | 独立屋根壁を加えた限定fringeから既床3歩vantageだけ候補化。壁/未知床/閾値は変更しない | 元128＋公開疎形状の旧Nav指定Red2、支持欠落40反例等。未来の金露出・実機到達は未確認 | 今回1。候補見逃し同症状継続、別形状適用外 |
+| FR-117-CURRENT-FULL-DATA | 2026-11-18 | 元1/2周の観測が先に届くと既DATAがsticky拒否 | 全商品可視でも、遠方材質差/newGOLDが旧zero/関係条件外。元private状態未出力のため既DATA有無2文脈を区別したcutで確認 | 同FULL3/厳密halo/cap/下床/元GOLD・近傍外材質限定の新DATA mode2。Motion/MOVE信用0、旧候補先/実return/元parent/既2DATA/current一回、新UNKNOWN HELD | 原188結果先→189は既17で採用、観測先の既DATA/R2両順の計5拒否cutをRed固定。private最小Green・現版統合を確認中。実機未確認 | 限定cut5拒否。元実機の同根因発火数はprivate状態未出力につき不明 |
+| FR-117-PROCESS-REAL-CUT | 2026-11-18 | 前回補助試験合格でも実機4周全失敗 | 単一正常world/位相補助とbyte照合が、実際の看板分断・価格差・状態適用漏れを含まない | 実source/時刻/producer/拒否guard→旧Red→同cutGreen→未来独立モデルを分離し、必要helper状態適用表を配布前に確認 | 工程独立レビューP1の3点を今回手順へ反映。検査件数や完全トレース再生未実装を品質達成としない | 今回の工程不備1。過去の同機構数は未集計 |
+
+利用者の最新指示（2026-11-18）で初回もRSへ変更する。旧条件付き案を採用しない判断は上書きし、初回専用flag/資格でroot一度だけRS→新floorへ進める。既述4失敗の原因修正や再発数をこの開始仕様変更で完了にしない。
+
+### TEST117 配布前に検出した不足（実機再発と分離）
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-117-DEV-PRICE-DOMAIN | 2026-11-18 | 新layout3が下床未知・余剰ITEM/保護でも完全陰性 | 旧single-sign形状だけを流用し、新設計必須のexact footprintを合成していない | 新layout3 producerだけ全3ITEM/正確halo/3下床FLOORを必須化。Cも別に同条件検査。旧7layout1/2不変 | 独立public3異常の実拒否Red→新拒否method Green、実247の足場は正常。C統合は別確認。実機未確認 | 配布前1。実機再発へ加算しない |
+| FR-117-DEV-CERT-BOUNDS | 2026-11-18 | 新certificate validatorが破損row範囲を先に参照し得る | 共通ABI/size/status/row_count上限の検査順不足 | 参照前の構造・row_count1..4/selected bounds検査を先行 | 巨大rowCount等の新拒否反例と独立差分確認が成功。compile障害を意味Redとしない | 配布前1。実機発火は不明 |
+| FR-117-DEV-INITIAL-EARLY-GOODS | 2026-11-18 | 初回RS ACKから35ms後の商品画像でHELD停止 | 既ACK後の正HUD/FLOORにも余分な200msを要求し、早期PARTIAL/FULLを恒久保持にした | postRS追加待機だけ除去。元ACK/prefix/鮮度/正HUD/FLOOR/親Pと同first画像の商品優先を維持し、preRS/次PAUSEの200msは保持 | 公開callerの元35ms反例を固定しPARTIAL/FULL/positive保持のRed→Green確認中。実機未確認 | 配布前1。実機再発へ加算しない |
+| FR-117-DEV-RESPONSE-CHECK | 2026-11-18 | 封印37sourceの検査がresponse署名で拒否 | 初回flagの既定false引数を追加したのに2checkerが旧Swift署名literalだけを認めた | 旧/新のreview済exact署名合計1だけ許可、historical後端順/API version body一意を保持 | 新2意味Red→新2＋旧負例4 Green、再applyなしの37source検査成功。Runtime変更なし | 配布前1。実機再発ではない |
+| FR-117-DEV-MAC-WORLD | 2026-11-18 | Mac正常モデルがchildへ到達できない | 固定shop/MOVE0で既walking-yield条件を満たさず、newfloor描画もchild生成後へ依存していた | 製品条件を維持し実gestureでactorを動かすPARTIAL→MOVE→FULLと実2回目RS後のnewfloorへモデル修正 | 通常producer/caller両variantがinputs1/moves1/restarts2/Tqualified1。Mac実行は別未確認 | 配布前2条件。実機再発へ加算しない |
+| FR-117-DEV-BEGIN-COST | 2026-11-18 | 実Cbeginが検証機で13〜15msかかり、元10ms gateで入力拒否 | observeで検証済みの同C-owned Sceneをtick/beginでも重複解析。費用0のclock cutでは現れない | 元期限を延ばさず、現在のimmutable source/元wait/owner/prefixへ資格を固定し、新Sceneで必ず撤回・再計算する限定設計 | observe/tick/begin各実費を分け、旧bodyの10ms超過時synth0を確認。token後GCCではtick/begin約0.04〜0.11msで原期限内。Mac実費は未確認、実機未確認 | 配布前1。実機の同機構発火数は不明 |
+
+既PerceptionのPillow oracleとの93subassert差は、今回のA新規差と分離した。出荷116と新Aを同じ既知203画像へ通した全Scene bytesは203/203一致。旧assertを削除/skip/弱化せず、今回の変更境界と直接関連を選ぶ。旧oracle未追随を新規Green/実機改善へ数えない。

@@ -21,6 +21,8 @@ from .validation import ProbeError
 
 SPEC = cycle.IRREGULAR_PROTOCOL
 CAPABILITY = 'necrogold_native_continuous_campaign_v1'
+LEDGER_SCHEMAS = {'116': 'necroprobe-continuous-campaign116-v1',
+    '117': 'necroprobe-continuous-campaign117-v1'}
 ROOT_DURATION_NS = 2_880_000_000_000
 CHILD_LIMIT = 16
 ROOT_KEYS = frozenset(('schema','root_id','state','active_run_id','terminal','workers_drained',
@@ -42,11 +44,14 @@ ROW_KEYS = frozenset(('run_id','index','predecessor_id','escrow_sha256','archive
     'controller_reason','restarts','moves','verified','diagnostic_only','verification_error','diagnostic_collection'))
 
 
-def start_reply(value, root):
-    cycle.closed(value,('run_id','profile','state','api_version','report','continuous_campaign'))
+def start_reply(value, root, *, initial_restart=False):
+    cycle.require(type(initial_restart) is bool)
+    cycle.closed(value,('run_id','profile','state','api_version','report','continuous_campaign')
+        + (('initial_restart',) if initial_restart else ()))
     cycle.require(value['run_id']==root and value['profile']==SPEC.profile
         and type(value['state']) is str and value['state'] in cycle.STATES and value['api_version']==cycle.API_VERSION
-        and type(value['report']) is dict and value['continuous_campaign'] is True)
+        and type(value['report']) is dict and value['continuous_campaign'] is True
+        and (not initial_restart or value['initial_restart'] is True))
     return value['state']
 
 
@@ -106,10 +111,26 @@ def transition(previous, current):
     return current
 
 
-def _validate(ledger):
+def _number(test_number):
+    cycle.require(type(test_number) is str and test_number in LEDGER_SCHEMAS,
+                  'campaign_test_number_invalid')
+    return test_number
+
+
+def _label(ledger):
+    schema=ledger.get('schema')
+    cycle.require(type(schema) is str and schema in LEDGER_SCHEMAS.values(),
+                  'campaign_ledger_invalid')
+    return 'test-'+next(number for number,value in LEDGER_SCHEMAS.items() if value==schema)
+
+
+def _validate(ledger, *, test_number=None):
     cycle.closed(ledger,LEDGER_KEYS,'campaign_ledger_invalid')
-    cycle.require(ledger['schema']=='necroprobe-continuous-campaign116-v1'
-        and cycle.identifier(ledger['campaign_id']) and ledger['mode']=='continuous_until_target'
+    label=_label(ledger)
+    if test_number is not None:
+        cycle.require(ledger['schema']==LEDGER_SCHEMAS[_number(test_number)],
+                      'campaign_test_number_mismatch')
+    cycle.require(cycle.identifier(ledger['campaign_id']) and ledger['mode']=='continuous_until_target'
         and type(ledger['revision']) is int and 0<=ledger['revision']<2**63
         and ledger['state'] in ('prepared','running','pending','stopped')
         and ledger['index_source'] in ('live','recovered_readonly','unavailable')
@@ -130,7 +151,7 @@ def _validate(ledger):
             and type(row['index']) is int and 0<=row['index']<128
             and (row['predecessor_id'] is None or cycle.identifier(row['predecessor_id']))
             and (row['escrow_sha256'] is None or cycle.digest(row['escrow_sha256']))
-            and row['archive_name']=='test-116-'+row['run_id']+'.zip'
+            and row['archive_name']==label+'-'+row['run_id']+'.zip'
             and cycle.digest(row['archive_sha256']) and type(row['archive_bytes']) is int
             and 0<row['archive_bytes']<=100*1024*1024
             and row['outcome'] in ('target','candidate','negative','unknown','unassessed')
@@ -161,8 +182,8 @@ def _validate(ledger):
     return ledger
 
 
-def _fresh(root=None):
-    return dict(schema='necroprobe-continuous-campaign116-v1',campaign_id=root or uuid.uuid4().hex,
+def _fresh(root=None, *, test_number='116'):
+    return dict(schema=LEDGER_SCHEMAS[_number(test_number)],campaign_id=root or uuid.uuid4().hex,
         revision=0,mode='continuous_until_target',state='prepared',start_intent=False,
         cancel_intent=False,complete=False,collection_complete=False,stop_reason=None,native_status=None,runs=[],last_error=None,
         recovery_ids=[],index_source='unavailable')
@@ -176,7 +197,8 @@ def _save(base, ledger):
     cycle._atomic(base/'continuous-campaign.json',raw)
 
 
-def _load(base):
+def _load(base, *, test_number='116'):
+    _number(test_number)
     selector=base/'continuous-campaign.json'
     if not selector.exists():
         # A lost selector does not discard the durable per-root start intent.
@@ -186,7 +208,7 @@ def _load(base):
         cycle.require(not history.is_symlink(),'cycle_local_symlink')
         pending=[];closed=[]
         for path in history.glob('*.json'):
-            value=_validate(cycle.json_object(cycle._read(path,512*1024),512*1024))
+            value=_validate(cycle.json_object(cycle._read(path,512*1024),512*1024),test_number=test_number)
             if value['start_intent'] and not value['collection_complete']:
                 pending.append(value)
             elif value['collection_complete']:
@@ -201,9 +223,9 @@ def _load(base):
             if len(closed)==1:return closed[0]
             raise ProbeError('campaign_recovery_ambiguous')
         return None
-    selected=_validate(cycle.json_object(cycle._read(selector,512*1024),512*1024))
+    selected=_validate(cycle.json_object(cycle._read(selector,512*1024),512*1024),test_number=test_number)
     path=base/'continuous-campaigns'/(selected['campaign_id']+'.json')
-    value=_validate(cycle.json_object(cycle._read(path,512*1024),512*1024))
+    value=_validate(cycle.json_object(cycle._read(path,512*1024),512*1024),test_number=test_number)
     cycle.require(value['campaign_id']==selected['campaign_id'] and value['revision']>=selected['revision'],
                   'campaign_ledger_invalid')
     return value
@@ -228,7 +250,8 @@ def _cancel(client, base, ledger):
             _save(base,ledger)
         except OSError as error:
             save_failure=error
-    start_reply(cycle._call(client,'necro_native_cancel',dict(run_id=ledger['campaign_id'])),ledger['campaign_id'])
+    start_reply(cycle._call(client,'necro_native_cancel',dict(run_id=ledger['campaign_id'])),ledger['campaign_id'],
+        initial_restart=cycle.initial_restart_enabled(client))
     if save_failure is not None:
         raise save_failure
 
@@ -451,7 +474,7 @@ def _bundle(base, destination, ledger):
         return None
     output=Path(destination)/'runtime';output.mkdir(mode=0o700,exist_ok=True)
     cycle.require(not output.is_symlink(),'cycle_local_symlink')
-    name='test-116-campaign-'+ledger['campaign_id']+'-r'+str(ledger['revision'])+'.zip'
+    name=_label(ledger)+'-campaign-'+ledger['campaign_id']+'-r'+str(ledger['revision'])+'.zip'
     target=output/name;part=output/(name+'.part')
     cycle.require(not target.is_symlink() and not part.is_symlink(),'cycle_local_symlink')
     last=ledger['runs'][-1]
@@ -573,7 +596,7 @@ def _finish_collect(client, base, destination, ledger, *, notice, clock, sleep, 
         row=dict(run_id=run_id,index=descriptor['index'] if descriptor else len(ledger['runs']),
             predecessor_id=descriptor['predecessor_id'] if descriptor else None,
             escrow_sha256=descriptor['escrow_sha256'] if descriptor else None,
-            archive_name='test-116-'+run_id+'.zip',archive_bytes=size,archive_sha256=digest,
+            archive_name=_label(ledger)+'-'+run_id+'.zip',archive_bytes=size,archive_sha256=digest,
             verified=verified,diagnostic_only=diagnostic,verification_error=verification_error,
             diagnostic_collection=copy.deepcopy(forensic.COLLECTION_SCOPE) if diagnostic else None,**evidence)
         row.pop('handoff',None)
@@ -605,16 +628,23 @@ def _finish_collect(client, base, destination, ledger, *, notice, clock, sleep, 
         stop_reason=ledger['stop_reason'],record=cycle.load_journal(base,protocol_spec=SPEC))
 
 
-def run(client, destination, *, spool, until_target=True, recovery_only=False,
+def run(client, destination, *, spool, until_target=True, recovery_only=False, test_number='116',
         cancelled=lambda:False, notice=print, clock=time.monotonic_ns, sleep=time.sleep):
+    _number(test_number)
+    initial_restart=cycle.initial_restart_enabled(client)
     cycle.require(cycle.client_protocol(client) is SPEC and not client.yield_after_restart,
                   'cycle_protocol_invalid')
     cycle.require(not(until_target and recovery_only),'campaign_mode_conflict')
     cycle.require(until_target or recovery_only,'campaign_mode_required')
-    base=Path(spool);base.mkdir(mode=0o700,parents=True,exist_ok=True)
+    base=Path(spool)
+    # Publication derives its label from the spool directory.  The new
+    # namespace must match before any native request, not after collection.
+    if test_number=='117':
+        cycle.require(base.name=='test-117','campaign_test_number_mismatch')
+    base.mkdir(mode=0o700,parents=True,exist_ok=True)
     cycle.require(not base.is_symlink(),'cycle_local_symlink')
     with cycle.device_lock():
-        ledger=_load(base)
+        ledger=_load(base,test_number=test_number)
         recovering=bool(ledger is not None and ledger['start_intent'] and not ledger['collection_complete'])
         if ledger is not None and ledger['collection_complete'] and recovery_only:
             return _finish_collect(client,base,destination,ledger,notice=notice,clock=clock,sleep=sleep)
@@ -626,7 +656,7 @@ def run(client, destination, *, spool, until_target=True, recovery_only=False,
             prepared=cycle.prepare(cycle._call(client,SPEC.query,dict(run_id=probe,mode='prepare',
                 request_authorization=False)),probe,protocol_spec=SPEC)
             if prepared['unpublished_run_ids']:
-                ledger=_fresh(prepared['unpublished_run_ids'][0]);ledger.update(start_intent=True,
+                ledger=_fresh(prepared['unpublished_run_ids'][0],test_number=test_number);ledger.update(start_intent=True,
                     state='pending',recovery_ids=prepared['unpublished_run_ids'])
                 _save(base,ledger);recovering=True
                 notice('端末の未回収記録を確認しました。新しいゲームは開始しません。')
@@ -634,7 +664,7 @@ def run(client, destination, *, spool, until_target=True, recovery_only=False,
                 cycle.require(not recovery_only,'campaign_recovery_record_missing')
                 cycle.require(prepared['ready'],'cycle_notification_permission')
                 if ledger is None or ledger['collection_complete']:
-                    ledger=_fresh()
+                    ledger=_fresh(test_number=test_number)
                 _save(base,ledger)
         root=ledger['campaign_id']
         try:
@@ -652,8 +682,10 @@ def run(client, destination, *, spool, until_target=True, recovery_only=False,
                 client._before_start_post=start_guard
                 try:
                     start_guard()
-                    state=start_reply(cycle._call(client,'necro_native_start',dict(run_id=root,
-                        profile=SPEC.profile,continuous_campaign=True)),root)
+                    params=dict(run_id=root,profile=SPEC.profile,continuous_campaign=True)
+                    if initial_restart:params['initial_restart']=True
+                    state=start_reply(cycle._call(client,'necro_native_start',params),root,
+                        initial_restart=initial_restart)
                 except cycle._StartNotSent:
                     ledger.update(start_intent=False,state='prepared');_save(base,ledger)
                     raise

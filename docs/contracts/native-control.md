@@ -115,3 +115,9 @@ profilev2はPerception/Navigation strict O2（-fno-fast-math/-ffp-contract=off�
 ## 15. 検証
 
 [試験区分](../testing.md)。画像不足/hash不一致はlocal失敗、CI除外と区別。模擬/未測定は実機成功/速度達成にせず、run別評価。
+
+## TEST117の指定初回リスタート
+
+2026-11-18の利用者の明示指定を受け、`initial_restart:true`をirregular profileのstartへopt-inする。省略の旧開始契約は維持する。同owner/UUIDのmodeはimmutable。初回rootだけ、現在のPAUSEからRS、または有効FLOORの商品候補保持を優先したPAUSE→RSを行う。初回専用の状態で元UI資格・ACK・新floor確認を経て通常処理へ戻す。商品陰性の耐久保存/yieldとは混同せず、既新floorを継ぐcontinuous successorへflagを渡さない。期限/予算/取消/UNKNOWN無再送を維持する。
+
+TEST117 current DATA mode2は同FULL3ITEM/正確halo/両cap/全下床/元GOLDを保ち、商品/実player近傍外の有限material変化だけで最新DATAを取り直す。元parent/2DATA/current一回・同prefix・旧worker候補先/実returnを保つ。通常Motionをzeroとせず、MOVE/UP/移動信用を与えない。新UNKNOWNはHELD、最新画像の完全陰性/独立C証明/耐久保存ができてから既UI資格でRSする。

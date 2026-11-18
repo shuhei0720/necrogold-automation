@@ -93,8 +93,23 @@ class NativeClosedPrice106Tests(unittest.TestCase):
                         self.assertEqual(before,bytes(scene))
 
     def test_target_missing_extra_price_and_damaged_closed_identity_are_held(self):
-        for named,expected in ((True,2),(False,1)):
-            self.assertEqual(expected,self.assess(shop_pixels(target=True,target_name=named,price_height=8))[1].outcome)
+        # TEST111 permits an exact target image with its own observed price.
+        for named,expected in ((True,2),(False,2)):
+            status,result=self.assess(shop_pixels(target=True,target_name=named,price_height=8))
+            self.assertEqual(expected,result.outcome)
+            if not named:
+                self.assertEqual((0,2,1),(status,result.outcome,result.coverage))
+                self.assertGreaterEqual(result.selected_row,0)
+                slot=result.rows[result.selected_row].slots[1]
+                self.assertEqual((2,1),(slot.outcome,slot.icon_score_exact))
+                self.assertGreaterEqual(slot.icon_score,.94)
+                self.assertEqual(16,result.certificate.policy_version)
+                self.assertEqual((1,1),(result.certificate.observed_items,
+                    result.certificate.observed_prices))
+                self.assertEqual(tuple(slot.icon_box),tuple(result.certificate.item_boxes[1]))
+                self.assertEqual((297,231,11,7),tuple(result.certificate.price_boxes[1]))
+                self.assertEqual((0,0,0,0),tuple(result.certificate.name_boxes[1]))
+                self.assertEqual(0,self.lib.ng2_ring_negative_certificate(C.byref(result)))
         for missing in range(3):
             self.assertNotEqual(3,self.assess(shop_pixels(missing_price=missing,price_height=8))[1].outcome)
         for damage in ('lid','recolor','band_shift'):

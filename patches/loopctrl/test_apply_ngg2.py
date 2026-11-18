@@ -606,5 +606,47 @@ class NGG2ApplyTests(unittest.TestCase):
             verifier.inspect_native_sources(self.root, driver)
 
 
+class RuntimeResponseSignature117Tests(unittest.TestCase):
+    legacy = '    private func response(_ run: NG2Run) -> [String: JSONValue] {\n'
+    reviewed = '    private func response(_ run: NG2Run, includeInitialRestart: Bool = false) -> [String: JSONValue] {\n'
+    boundary = '    private func historical(_ snapshot: [String: JSONValue]) -> [String: JSONValue] {\n'
+    api = '"api_version": .string("1.98.16-ngg2")'
+
+    def source(self, signature):
+        return signature+'        return ['+self.api+']\n    }\n'+self.boundary+'        return snapshot\n    }\n'
+
+    def validators(self):
+        spec = importlib.util.spec_from_file_location('response117_focused_checker', HERE/'check_ngg2.py')
+        checker = importlib.util.module_from_spec(spec); spec.loader.exec_module(checker)
+        return ((verifier.require_runtime_response_api, 'native_runtime_response_api'),
+            (lambda source, expected:checker.require_test061_runtime_api(source), 'runtime_test061_response_api16_required'))
+
+    def test_reviewed_optional_signature_keeps_the_same_actual_api_boundary(self):
+        for validate, reason in self.validators():
+            for signature in (self.legacy, self.reviewed):
+                accepted = True
+                try:
+                    validate(self.source(signature), '1.98.16-ngg2')
+                except ValueError:
+                    accepted = False
+                with self.subTest(checker=reason, signature=signature):
+                    self.assertTrue(accepted, 'both exact reviewed response signatures must bind the real envelope')
+
+    def test_signatures_versions_duplicates_comments_and_historical_bounds_stay_closed(self):
+        for validate, reason in self.validators():
+            for signature in (self.legacy, self.reviewed):
+                source = self.source(signature)
+                stale = source.replace('1.98.16-ngg2', '1.98.15-ngg2')
+                invalid = (stale, stale+'// '+self.api+'\n', source.replace(self.api, self.api+', '+self.api),
+                    source+source, self.boundary+'}\n'+source.split(self.boundary, 1)[0],
+                    source.replace(self.boundary, ''), source+self.source(self.reviewed if signature==self.legacy else self.legacy),
+                    source.replace(signature, signature.replace(' -> ', ' async -> ')))
+                for index, value in enumerate(invalid):
+                    with self.subTest(checker=reason, signature=signature, index=index), self.assertRaisesRegex(ValueError, reason):
+                        validate(value, '1.98.16-ngg2')
+            with self.assertRaisesRegex(ValueError, reason):
+                validate(self.source(self.reviewed.replace('= false', '= true')), '1.98.16-ngg2')
+
+
 if __name__ == '__main__':
     unittest.main()

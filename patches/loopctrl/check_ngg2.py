@@ -240,11 +240,17 @@ def test061_producer_reports(stdout, output):
 
 
 def require_test061_runtime_api(source):
-    begin = '    private func response(_ run: NG2Run) -> [String: JSONValue] {\n'
+    beginnings = ('    private func response(_ run: NG2Run) -> [String: JSONValue] {\n',
+        '    private func response(_ run: NG2Run, includeInitialRestart: Bool = false) -> [String: JSONValue] {\n')
     end = '    private func historical('
-    if source.count(begin) != 1 or source.count(end) != 1:
+    if (sum(source.count(begin) for begin in beginnings) != 1
+            or source.count('    private func response(') != 1 or source.count(end) != 1):
         raise ValueError('runtime_test061_response_api16_required')
-    response = source.split(begin, 1)[1].split(end, 1)[0]
+    begin = next(value for value in beginnings if value in source)
+    start, stop = source.index(begin)+len(begin), source.index(end)
+    if stop <= start:
+        raise ValueError('runtime_test061_response_api16_required')
+    response = source[start:stop]
     if (response.count('"api_version"') != 1
         or response.count('"api_version": .string("1.98.16-ngg2")') != 1):
         raise ValueError('runtime_test061_response_api16_required')

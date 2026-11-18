@@ -1,7 +1,7 @@
 # 最新状態
 
-更新: 2026-11-18（日本時間）。[TEST116/build249](https://github.com/shuhei0720/necrogold-automation/releases/tag/test116-build249)を固定公開済み。iPhone11・通常1-1・のろいのゆびわが対象。**実機改善・毎拍/実効速度は未確認。** [検証](reviews/test116.md)・[修正表](fix-records.md)。
+更新: 2026-11-18（日本時間）。TEST116実機4周の不合格を基準にTEST117を統合中。[計画](plans/test117-device-failures.md)・[検証](reviews/test117.md)・[修正表](fix-records.md)。iPhone11・通常1-1・のろいのゆびわが対象。
 
-TEST115の7ZIP/4run・96PNG/110記録を照合。開扉後3停止の原因（現在PARTIAL移行漏れ、上端の表示変化、早期FULL後の移動確認）とcapture25の観測口を修正。正常陰性45.157ms→実RSの成功例は保持。旧回収待ち84.306秒を周回間に挟まない新opt-in連続化は最大16child/48分・有限容量。全周原本は停止後に照合する。
+8ZIP/4run・96PNG/110記録を照合。片看板/別baseline価格の完全確認、PARTIALの二重halo、最新FULL DATA、GOLD1の固定補助静止/CLEAR再観測、候補128の床Lを修正。元counter/event付き採用順8cutと3周目の限定元時計cutも確認。同C-owned画像の重複解析を省き、GCCのbegin約14ms→約0.05ms。実機速度の達成ではない。
 
-CODE98e2d2d・seal87918ba8、36native中6変更/30保持。CI249の関連99/実3.9の40/Mac36合格、Spool247の旧7Red→現16Greenを同bytesで再利用。600画像/815記録/43公開ACK、通常2childの実3.9証明、9Mach-O/実compiler/IPAの8照合gateも合格。IPA SHA551270d1・minOS16。固定公開・3asset匿名全取得を確認。実機受入は次工程。詳細・計画・再発数は検証/修正表へ。
+最新指定で初回もRS（root一回、successor継承なし）。postACK35msの最初の商品画像を保持停止にしていた接続不足も修正し、通常画像→実MOVE→判定→RSの部品接続を確認。新版は未ビルド/未配布、実Mac・実機未受入。現公開版は[TEST116/build249](https://github.com/shuhei0720/necrogold-automation/releases/tag/test116-build249)。37source封印928d38aaは照合済み。限定Mac5・実compiler/IPA/全source固定公開は次工程。
