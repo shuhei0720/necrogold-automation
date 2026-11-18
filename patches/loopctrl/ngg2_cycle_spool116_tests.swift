@@ -440,8 +440,8 @@ func orphanAccounting116() throws {
     let artifact=try partial.artifacts().first(where:{$0.name.hasPrefix(".part-")})!
     check116(try partial.readArtifact(id:artifact.id,offset:0,length:64) == Data(raw116.prefix(64)),
         "bounded_temp_failure_keeps_original_inventory_and_bytes_readable")
-    let (_,shared,clock)=try make116(), sharedTerminal=try terminal116(shared)
-    _ = try shared.sealContinuation(rootID:shared.runID,index:0,predecessorID:nil,clockID:clock,
+    let (_,shared,sharedClock)=try make116(), sharedTerminal=try terminal116(shared)
+    _ = try shared.sealContinuation(rootID:shared.runID,index:0,predecessorID:nil,clockID:sharedClock,
         terminal:sharedTerminal,continuation:controller116(),successor:nil)
     try shared.sealForRecovery()
     let first=try shared.createRecoveryExport(owner:owner116,forceFresh:true)
