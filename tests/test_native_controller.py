@@ -1781,7 +1781,37 @@ void test055_mutate(NG2Controller *p,int which,uint64_t value){
         self.assertEqual([rows[0],rows[-2],rows[-1]],[d.observed_capture_id for d in details])
         self.assertEqual([d.observed_capture_id for d in details],[c.observed_capture_id for c in changes])
         self.assertEqual((5,8,0),(details[-1].validation,details[-1].continuous_count,details[-1].chain_count))
-        self.assertEqual((17,6,6),(self.status().reason,self.status().inputs,self.status().moves))
+        # The closed door is now two cells ahead. Existing independent
+        # observation recovery may retire this exhausted ticket and wait;
+        # it cannot spend a ninth SAME update or revive its old permission.
+        self.assertEqual((4,0,0,0,6,6),(self.status().phase,self.status().reason,
+            self.status().input_state,self.status().current_command_id,
+            self.status().inputs,self.status().moves))
+        self.assertEqual((2,1),(self.recovery().mode,self.recovery().post_move_reacquisitions))
+        retired=self.events()[-1]
+        self.assertEqual((current.id,3,17,0),(retired.command.id,retired.outcome,
+            retired.reason,retired.begin_ns))
+        self.assertEqual(0,self.preparation_epoch(current))
+        fixed_events=b''.join(bytes(row) for row in self.events())
+        capture_start=self.status().last_capture_start_ns
+        for at in (self.now,current.deadline_ns,current.deadline_ns+1):
+            self.now=at;before=bytes(self.status())
+            self.assertEqual(0,self.lib.ng2_controller_begin(self.engine,current.id,self.now,1,0,1))
+            self.assertEqual(0,self.lib.ng2_controller_complete(self.engine,current.id,self.now,1))
+            self.assertEqual(before,bytes(self.status()),'retired callbacks are inert')
+            ready,command=self.tick()
+            self.assertEqual((0,0),(ready,command.kind))
+            self.assertEqual(fixed_events,b''.join(bytes(row) for row in self.events()))
+            self.assertEqual((0,6,6),(self.status().reason,self.status().inputs,self.status().moves))
+        # No new image arrives. This observation wait must close at source
+        # freshness, even though its separate recovery parent is longer.
+        self.now=capture_start+3*SECOND+2
+        ready,command=self.tick()
+        self.assertEqual((0,0),(ready,command.kind))
+        self.assertEqual((6,7,0,6,6),(self.status().phase,self.status().reason,
+            self.status().input_state,self.status().inputs,self.status().moves))
+        self.assertEqual(8,self.scene_details()[-1].continuous_count)
+        self.assertEqual(fixed_events,b''.join(bytes(row) for row in self.events()))
     def test_continuous_guards_reject_changed_world_and_strict_motion(self):
         cases=('unknown','pause','partial','visible','gold_set','gold_state','remote_protected',
                'origin_protected','near_protected','obstacle','motion_moved','motion_tween','motion_unknown')

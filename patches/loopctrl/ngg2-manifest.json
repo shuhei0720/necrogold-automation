@@ -4,7 +4,7 @@
   "api_version": "1.98.16-ngg2",
   "capability": "necrogold_native_v1",
   "client_capability": "necrogold_native_v15",
-  "patch_sha256": "a05865743170eb32cce4891de6c94c49a04ee63f80de39b0dc54277f3a2d4c61",
+  "patch_sha256": "367d894336fcda55b9bb423cd28eb6ef198837b301a8df1f1404576f929c0878",
   "files": {
     "LoopCtrlUITests/ActionHandler.swift": {
       "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
@@ -19,7 +19,7 @@
     "LoopCtrlKit/RPCMethod.swift": {
       "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
       "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
-      "patched_sha256": "277847e3a63e26cec397f4924d4678035f0ac4ccd846da91671a9fdebd98bdb1"
+      "patched_sha256": "9191889ac66544d5b1affa324fbd3be0be4520c9f8422ef815dc62314a0e9376"
     },
     "LoopCtrlKit/JSONRPCServer.swift": {
       "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
@@ -67,7 +67,7 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "40277b1ab48c8388f35a57a1b7ebc1a26e7c75a2e0ab69f47bb42d4a5abd92c9"
+      "sha256": "6571f98ad428f136defe4b673081f4dec3b57fb2526fee03391990ddb95fa120"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
@@ -107,7 +107,7 @@
     },
     "LoopCtrlUITests/NG2Ring.c": {
       "source": "NG2Ring.c",
-      "sha256": "375a82b402e2012b61e021f33472bb0e7ea882492aff2f2d1f5ca5d2fe4d1602"
+      "sha256": "f62e1aa7bd25257ed71d24d2c85c4a591bf908613d44c3ab60a8528d0b8c0adc"
     },
     "LoopCtrlUITests/NG2Ring.h": {
       "source": "NG2Ring.h",
@@ -184,5 +184,6 @@
   "restart_yield_capability": "necrogold_native_restart_yield_v1",
   "restart_yield_start_flag": "yield_after_restart",
   "continuous_campaign_capability": "necrogold_native_continuous_campaign_v1",
-  "continuous_campaign_start_flag": "continuous_campaign"
+  "continuous_campaign_start_flag": "continuous_campaign",
+  "device_fixes_capability": "necrogold_native_device_fixes118_v1"
 }

@@ -668,3 +668,16 @@ TEST117最終CODE c5bf0f8 / CI253（run44311471578）ではhost165＋selector8�
 TEST117実物8gateはattempt4で全合格、crossbinding7f6d815c。原本5export/56合成PNG/78記録と現client連続4child/有限1、両正常caseのPARTIAL/FULL ROI・採用・耐久RS列、全1132CODE blob、37native、実iOS C8/Swift5/RSP6/PBX、全9Mach-O/3107禁止markerを照合。IPA18,466,759bytes/SHAa2e77d4b。旧3reader停止と各修正を保持し、追加compile/classifier/fixture/RPC0。Spool247は保持部品、模擬archive claimは実ZIP公開証明へ使わない。実機改善・実効速度・再発数の未確認は維持し、固定公開/匿名全取得を次工程とする。
 
 TEST117固定公開確認: SOURCE59def9eはCODEからdocs3件のみ。全1132blobを照合した公式source.zip10,222,770bytes/SHAb13a8994とIPA/hash表をtest117-build253/Release450069242へpublisher254/run44320653473で公開。3assetを匿名全GET200・全bytes/SHA・CRC・Release digest/tagまで照合した。公開後assetは置換せず、実機改善・速度・同根因の再発数の未確認は維持する。
+
+## TEST118: TEST117実機4不合格の対応（2026-11-24）
+
+8ZIP/4run・96PNG/110記録を全照合。[計画](plans/test118-device-failures.md)。全4件child0停止であり、117の補助検証を改善完了の根拠にしない。下表は確認した機構と実装/検証中の対策で、実機受入未完了。ユーザー観察歩数とnative creditを混同しない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-118-PREINPUT-AUTHORITY | 2026-11-24 | 1周3歩・2周通路でMOVEMENT停止 | 元106/135からACK後はUNKNOWN。確実preinputの108/109・137/138から同後続へは通常unit。旧比較元を固定し、新しい同位置sourceを使わない | 通常閾値を保持し、同MOVE/準備epoch/元全時刻と既予算で独立SAME新authorityへ一度だけ再発行。開始済/UNKNOWN入力は再送しない | 旧assertion Red→新11件・直接関連合格。元時刻cutで旧ID失効/新ID begin1/実ACKとunit、遅れは既再同期。未保存画像/モデル以後の継続は未証明。Runtime queue境界は別検証、実機未確認 | 今回2。同症状継続、117未送信静止とは別経路。同根因通算不明 |
+| FR-118-POLICY17-PRICE-FRAGMENT | 2026-11-24 | 3周商品が見えるがUNKNOWN | FR109の18ink未満の白断片除外が新policy17へ未継承。余分な第4/5価格と数える | policy17だけ既価格支持を継承。全対象正探索と真正余剰価格の拒否を保持 | 原106の通常完全陰性/Ring数値証明1、旧Red→新4件・関連合格。原107/108の別cap問題は下行。耐久保存/RSは独立C境界で確認、実機未確認 | 今回1。過去対策の適用漏れ、同症状継続。通算未集計 |
+| FR-118-FULL-DATA-STICKY | 2026-11-24 | 同3周の未完了jobが後でSCREEN | actualjob3/source107→108の遠方(4,4)FLOOR→DIRTでvalidation9。元private modeは未記録、mode0宣言cutでsticky拒否、既mode2 DATA証明は成立 | pending FULL/current・元worker identity/source/parent・正確な保護/商品/局所床・既DATA pairが保つ時だけDATA-onlyへ降格。MOVE/UP資格を増やさない | 旧assertion Red→新8件合格、実worker開始/陰性耐久RS・UNKNOWN保持・候補優先・局所/保護/期限/sticky反例。直接関連含む30件合格。未保存job1/2の順序を復元したとは扱わない。実機未確認 | 今回1機構を限定cutで確認。実機元mode未記録、同根因数不明 |
+| FR-118-FLOOR-CAP-LIGHTING | 2026-11-24 | 同3周107/108の右capだけ不成立 | 全floor/可視支持があっても旧median色比が3.94/5.35%で既3%外。明暗混合に中央値比だけでは対応しない | 旧証明を保持し、同policyだけraw RGB総和比と各画素比中央値の両方が既3%以内の別証明を追加。625px/上下両half/可視/texture/赤gain/価格の全条件を維持 | 旧Red→新6件・関連合格。原106/107/108全て通常完全陰性/Ring数値証明1。平均だけ合う異色混合/厳密3%境界を拒否確認。閾値引上げなし。実機未確認 | 今回2source。実機1run内の症状であり2runと数えない。同根因通算不明 |
+| FR-118-UPPER-COMPOSED-REFRESH | 2026-11-24 | 4周上部開扉後ROUTE停止 | 固定147→149の遠方壁露出と遮蔽対角の材質差が同時に起き、既quiet/current DATAが互いに拒否 | 全oldGOLD/ITEM/保護/同choice/元anchorとstrict零のまま2既関係を合成して新DATAへ。元parent・共有DATA2・level内一回性を保持 | 旧同条件のDATA未発行Red→新DATAのGreen、counter再arm/保護/支持欠落の拒否を確認。移動・陰性信用は与えず、候補を優先。実機未確認 | 今回1。旧対策の合成適用漏れ、上部停止は継続。通算不明 |
+| FR-118-UPPER-VARIANT-AND-TIME | 2026-11-24 | 同4周が下まで進み3商品を見ない | 既7幅@y3形状外の実5幅@y4。release差約2msの独立画像を捨てると1拍遅れる。HHDD4後row2は3商品が見えても第3下床がHUDでUNKNOWN | V1のHHDD4/元Pを保持。凍結source-end/worker実returnの初回独立画像を限定利用。別計画のV2だけHHDDD5/初回1period配分と独立sync等のclamp、固定route cap/各job短縮を実装。片面policy18は14以上の観測GOLDと全3下床等をRing/Cが独立証明 | 元Pの4歩clockと新5歩componentを分離。新7/旧V1関連3・割当14条件がGreen。初期832,790nsを含む実C費用と最終総worker100ms後417.972ms残。host begin15.387msの不合格も保持し端末10ms保証としない。正常Ring/RS結合は別検証、実機未確認 | 今回1。上部形状・時間・全帯観測位置を分離。過去の同根因通算不明 |

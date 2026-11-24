@@ -1,0 +1,697 @@
+// TEST118 changed callback boundaries only. The captures and physical world
+// are public procedural fixtures. Relative incoming capture cuts come from
+// normal source refresh; this is not a recorded-game or full Runtime fault replay.
+func runtime118Fake<T>(_ body: () -> T) -> T {
+    NG2Fake.lock.lock(); defer { NG2Fake.lock.unlock() }; return body()
+}
+final class Runtime118Cost {
+    var observeStart: UInt64 = 0, totalObserveCost: UInt64 = 0, totalTickCost: UInt64 = 0
+    var beginStart: UInt64 = 0, beginCost: UInt64 = 0, beginReturn: UInt64 = 0
+    var beginCalls = 0
+    func install() {
+        NG2RuntimeObserveTestHooks.beforeObserve = { self.observeStart = DispatchTime.now().uptimeNanoseconds }
+        NG2RuntimeObserveTestHooks.afterObserve = {
+            let elapsed = DispatchTime.now().uptimeNanoseconds-self.observeStart
+            require(elapsed > 0, "test118_actual_C_observe_has_measured_cost")
+            self.totalObserveCost += elapsed; NG2Fake.advance(elapsed)
+        }
+        ng2_fixture_begin115_install(runtime118BeginReturned, Unmanaged.passUnretained(self).toOpaque())
+        ng2_fixture_tick118_install(runtime118TickReturned, Unmanaged.passUnretained(self).toOpaque())
+    }
+    func uninstall() {
+        ng2_fixture_begin115_install(nil, nil); ng2_fixture_tick118_install(nil, nil)
+        NG2RuntimeObserveTestHooks.beforeObserve = nil; NG2RuntimeObserveTestHooks.afterObserve = nil
+    }
+}
+func runtime118TickReturned(_ context: UnsafeMutableRawPointer?, _ elapsed: UInt64) {
+    guard let context else { return }
+    let value = Unmanaged<Runtime118Cost>.fromOpaque(context).takeUnretainedValue()
+    require(elapsed > 0, "test118_actual_C_tick_has_measured_cost")
+    value.totalTickCost += elapsed; NG2Fake.advance(elapsed)
+}
+func runtime118BeginReturned(_ context: UnsafeMutableRawPointer?, _ id: UInt64, _ now: UInt64, _ result: Int32) {
+    guard let context else { return }
+    let value = Unmanaged<Runtime118Cost>.fromOpaque(context).takeUnretainedValue()
+    guard value.beginStart != 0 else { return }
+    require(result == 1, "test118_actual_current_C_begin_accepts_new_ID")
+    value.beginCost = DispatchTime.now().uptimeNanoseconds-value.beginStart
+    value.beginCalls += 1; NG2Fake.advance(value.beginCost); value.beginReturn = NG2Fake.virtualClock()
+    value.beginStart = 0
+}
+func runtime118Emit(_ kind: String, _ value: [String: JSONValue]) {
+    if let bytes = try? JSONEncoder().encode(value), let text = String(data: bytes, encoding: .utf8) {
+        print("EVIDENCE TEST118 " + kind + " " + text)
+    } else { require(false, "test118_typed_evidence_encodes") }
+}
+func testRuntime118Preinput(_ root: URL) {
+    runtime112Reset(root)
+    // The shared cycle reset installs a FULL-goods RGBA override. This case
+    // uses the native walking renderer and must keep its real no-goods view.
+    NG2RuntimeCycleTestHooks.rgba = nil
+    NG2Fake.lock.lock()
+    NG2Fake.walkPaused = false; NG2Fake.walkY = 0; NG2Fake.walkGoodsEnabled = false
+    NG2Fake.freshRevalidationWorld = false
+    NG2Fake.lock.unlock()
+    let id = identity()
+    let captureOffset: UInt64 = 30_000_000, captureDuration: UInt64 = 10_000_000
+    let beforeNotBefore: UInt64 = 15_000_000, afterNotBefore: UInt64 = 3_610_361
+    let cost = Runtime118Cost(); cost.install()
+    defer { cost.uninstall() }
+    var oldNotBefore: UInt64 = 0, refreshCapture = false, frozenPeriod: UInt64 = 0
+    var refreshStart: UInt64 = 0, refreshEnd: UInt64 = 0
+    var oldSourceStart: UInt64 = 0, oldSourceEnd: UInt64 = 0
+    var pixelStart: UInt64 = 0, pixelEnd: UInt64 = 0
+    diagnoseFixture(id); alignInitialFixtureMove(id)
+    let physicalEpoch = runtime118Fake { NG2Fake.phaseBase }
+    NG2RuntimeCycleTestHooks.rgba = { original in
+        let actor = runtime118Fake { (NG2Fake.walkPaused, NG2Fake.walkX) }
+        if actor.0 { return original }
+        let midpoint = pixelStart+(pixelEnd-pixelStart)/2
+        require(pixelEnd >= pixelStart && midpoint >= physicalEpoch, "test118_fixed_physical_epoch_precedes_every_capture")
+        let elapsed = midpoint-physicalEpoch
+        let q = Double(519_999_999-(elapsed % 520_000_000))/520_000_000.0
+        var bytes = Data(count: 896*414*4); let count = bytes.count
+        bytes.withUnsafeMutableBytes {
+            require(ng2_fixture_walk118_rgba($0.bindMemory(to: UInt8.self).baseAddress,
+                count, actor.1/36, q) == 1, "test118_normal_RGBA_fixed_corridor_world")
+        }
+        return bytes
+    }
+    var queries = [Int: [UInt64]](), oldID: UInt64 = 0, newID: UInt64 = 0
+    var refreshCommit: UInt64 = 0, oldReturn: UInt64 = 0, newMain: UInt64 = 0
+    var oldPrepared = [UInt64](), newPrepared = [UInt64]()
+    // Once C has published the third reservation, stop the NEXT camera
+    // admission before its ordinary clock quantum. Main preparation may
+    // then finish while the original ticket and its absolute window stay
+    // frozen. The one explicit refresh below owns the next capture permit.
+    NG2RuntimeTestHooks.beforeCaptureAdmission = {
+        let current = report(id)
+        if current["inputs"]?.intValue == 2 && current["moves"]?.intValue == 2 &&
+            current["input_state"]?.intValue == 1 {
+            NG2Fake.lock.lock(); NG2Fake.captureLimit = NG2Fake.requests; NG2Fake.lock.unlock()
+        }
+        test060_revalidationCaptureBoundary()
+        pixelStart = NG2Fake.virtualClock()
+    }
+    NG2RuntimeTestHooks.afterCaptureBackendReply = { _ in pixelEnd = NG2Fake.virtualClock() }
+    NG2Fake.lock.lock()
+    NG2Fake.beforeForegroundQuery = {
+        let command = report(id)["current_command_id"]?.intValue ?? 0
+        queries[command, default: []].append(NG2Fake.virtualClock())
+    }
+    NG2Fake.lock.unlock()
+    NG2RuntimeTestHooks.afterTicketReturned = { returned in
+        NG2Fake.lock.lock(); NG2Fake.returnedTickets.insert(returned); NG2Fake.lock.unlock()
+        if oldID == 0 && newID == 0 && report(id)["inputs"]?.intValue == 2 {
+            NG2Fake.lock.lock(); NG2Fake.fixedCaptureAdvance = 20_000_000; NG2Fake.lock.unlock()
+        }
+        if returned == oldID { oldReturn = NG2Fake.virtualClock() }
+        if returned == newID && newID != 0 {
+            _ = call("necro_native_cancel", id)
+            NG2Fake.lock.lock(); NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
+        }
+    }
+    NG2RuntimeTestHooks.scheduleTicket = { command, callback in
+        let snapshot = report(id)
+        let events = (snapshot["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+        guard let event = events.first(where: { $0["id"]?.intValue == Int(command) }),
+              event["kind"]?.intValue == 4 else { return false }
+        if (snapshot["inputs"]?.intValue ?? 0) < 2 {
+            NG2RuntimeTestHooks.beforeMainAuthority = { admitFirstFixtureMove(id, expectedID: command) }
+            callback(); return true
+        }
+        NG2Fake.holdTicket(command, callback)
+        if oldID == 0 {
+            oldID = command
+            oldPrepared = runtime.testPreparedAuthority(id, commandID: command) ?? []
+            guard let boundary = event["not_before_ns"]?.intValue else {
+                require(false, "test118_original_ticket_has_not_before"); return true
+            }
+            oldNotBefore = UInt64(boundary)
+            oldSourceStart = UInt64(event["source_start_ns"]?.intValue ?? 0)
+            guard let oldSourceID = event["source_capture_id"]?.intValue,
+                  let metadata = runtime.testOriginalFrameEvidence(id, captureIDs: [UInt64(oldSourceID)])?[UInt64(oldSourceID)]?.1,
+                  let end = metadata["capture_end_ns"]?.intValue,
+                  let period = snapshot["beat_period_ns"]?.intValue else {
+                require(false, "test118_original_queued_ticket_source_metadata_present"); return true
+            }
+            oldSourceEnd = UInt64(end); frozenPeriod = UInt64(period)
+            require(NG2Fake.changeClockAtCaptureBoundary {
+                let at = UInt64(boundary)-captureOffset, now = NG2Fake.virtualClock()
+                require(now <= at && at >= oldSourceEnd &&
+                    at-oldSourceStart >= frozenPeriod/10,
+                    "test118_actual_independent_source_gap_before_unchanged_window")
+                if now < at { NG2Fake.advance(at-now) }
+                refreshCapture = true; refreshStart = at
+                NG2Fake.lock.lock(); NG2Fake.fixedCaptureAdvance = 0
+                NG2Fake.captureTimeProvider = {
+                    let start = NG2Fake.virtualClock()
+                    NG2Fake.advance(captureDuration); refreshEnd = NG2Fake.virtualClock()
+                    return start+captureDuration/2
+                }
+                NG2Fake.captureLimit = NG2Fake.requests+1
+                NG2Fake.lock.unlock()
+            }, "test118_refresh_at_existing_capture_boundary")
+        } else {
+            newID = command; refreshCommit = NG2Fake.virtualClock()
+            newPrepared = runtime.testPreparedAuthority(id, commandID: command) ?? []
+            NG2Fake.lock.lock(); NG2Fake.captureLimit = NG2Fake.requests; NG2Fake.lock.unlock()
+        }
+        return true
+    }
+    NG2RuntimeTestHooks.beforeAnalysisFrameCommit = { _, _, _, _, _ in
+        guard refreshCapture else { return }
+        let at = oldNotBefore-beforeNotBefore, now = NG2Fake.virtualClock()
+        require(now <= at, "test118_original_analysis_cut_not_moved_for_native_cost")
+        if now < at { NG2Fake.advance(at-now) }
+    }
+    require(call("necro_native_start", id).1 == nil, "test118_existing_fresh_callback_public_start")
+    pump("test118_two_confirmed_moves_then_new_fresh_id", timeout: 30) {
+        newID != 0 || report(id)["terminal"]?.intValue == 1
+    }
+    let before = report(id)
+    let events = (before["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    guard let old = events.first(where: { $0["id"]?.intValue == Int(oldID) }),
+          let fresh = events.first(where: { $0["id"]?.intValue == Int(newID) }) else {
+        require(false, "test118_real_old_and_new_fresh_events_exist"); return
+    }
+    require(oldID != 0 && newID > oldID && before["inputs"]?.intValue == 2 && before["moves"]?.intValue == 2 &&
+        old["outcome"]?.intValue == 3 && old["begin_ns"]?.intValue == 0 &&
+        ["target_ns", "not_before_ns", "deadline_ns", "ordinal"].allSatisfy({ old[$0] == fresh[$0] }) &&
+        old["source_capture_id"] != fresh["source_capture_id"],
+        "test118_latest_fresh_id_keeps_original_window_and_no_old_input_credit")
+    let metadataIDs = [UInt64(old["source_capture_id"]!.intValue!), UInt64(fresh["source_capture_id"]!.intValue!)]
+    guard let frames = runtime.testOriginalFrameEvidence(id, captureIDs: metadataIDs),
+          let firstMetadata = frames[metadataIDs[0]]?.1, let lastMetadata = frames[metadataIDs[1]]?.1 else {
+        require(false, "test118_both_sources_belong_to_same_actual_run"); return
+    }
+    require([firstMetadata,lastMetadata].allSatisfy {
+        $0["stable_prefix"]?.boolValue == true && $0["inflight_start"]?.boolValue == false &&
+        $0["inflight_end"]?.boolValue == false &&
+        $0["completed_prefix_start"] == firstMetadata["completed_prefix_start"] &&
+        $0["completed_prefix_end"] == firstMetadata["completed_prefix_start"]
+    } && runtime118Fake { NG2Fake.frontPID == 42 && NG2Fake.authenticatedOwnerActive &&
+        NG2Fake.authorizedOwners == Set(["fixture-owner"]) },
+        "test118_same_run_owner_PID_prefix_and_nonsent_generation_lease")
+    require(oldPrepared.count == 4 && newPrepared == oldPrepared &&
+        queries[Int(oldID)]?.count == 1 && queries[Int(newID)] == nil,
+        "test118_actual_runtime_reuses_opaque_epoch_and_original_ax_sample")
+    let count = NG2Fake.countTouches(), paths = NG2Fake.paths().count
+    NG2RuntimeTestHooks.beforeMainAuthority = { require(false, "test118_stale_callback_never_reaches_final_gate") }
+    NG2Fake.releaseTicket(oldID)
+    pump("test118_actual_old_callback_returns_before_new_main") { oldReturn != 0 }
+    require(NG2Fake.countTouches() == count && NG2Fake.paths().count == paths &&
+        report(id)["events"] == before["events"] && report(id)["current_command_id"]?.intValue == Int(newID),
+        "test118_old_return_cannot_touch_or_complete_new_reservation")
+    NG2RuntimeTestHooks.beforeMainAuthority = {
+        admitFirstFixtureMove(id, expectedID: newID, afterAlignment: { at in
+            let actual = UInt64(fresh["not_before_ns"]!.intValue!)+afterNotBefore
+            require(at <= actual, "test118_actual_begin_offset_not_rescheduled")
+            if at < actual { NG2Fake.advance(actual-at) }
+        })
+        newMain = NG2Fake.virtualClock(); cost.beginStart = DispatchTime.now().uptimeNanoseconds
+        require(oldReturn <= newMain &&
+            refreshCommit >= UInt64(fresh["not_before_ns"]!.intValue!)-beforeNotBefore &&
+            newMain <= UInt64(fresh["deadline_ns"]!.intValue!),
+            "test118_actual_new_main_after_measured_cost_inside_unchanged_deadline")
+    }
+    NG2Fake.releaseTicket(newID)
+    pump("test118_new_actual_ack_and_all_callbacks_drained", timeout: 30) { drained(id) }
+    let final = report(id)
+    let finalEvents = (final["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    let sent = finalEvents.first(where: { $0["id"]?.intValue == Int(newID) }) ?? [:]
+    require(final["inputs"]?.intValue == 3 && final["moves"]?.intValue == 2 &&
+        sent["outcome"]?.intValue == 2 && sent["motion"]?.intValue == 0 &&
+        old["begin_ns"]?.intValue == 0 && NG2Fake.paths().count == paths+1,
+        "test118_one_new_gesture_no_invented_motion_or_unknown_resend")
+    var evidence = [String: JSONValue]()
+    for (prefix, event) in [("old", old), ("new", fresh)] {
+        for key in ["source_capture_id", "target_ns", "not_before_ns", "deadline_ns", "ordinal"] {
+            evidence[prefix+"_"+key] = event[key]
+        }
+    }
+    evidence["old_command_id"] = .int(Int(oldID)); evidence["new_command_id"] = .int(Int(newID))
+    evidence["refresh_commit_ns"] = .int(Int(refreshCommit)); evidence["old_return_ns"] = .int(Int(oldReturn))
+    evidence["new_main_admission_ns"] = .int(Int(newMain))
+    for (prefix, prepared) in [("old", oldPrepared), ("new", newPrepared)] {
+        for (index, key) in ["query_start_ns", "query_end_ns", "prepared_command_id", "epoch"].enumerated() {
+            evidence[prefix+"_"+key] = .int(Int(prepared[index]))
+        }
+    }
+    evidence["old_begin_count"] = .int(finalEvents.filter { $0["id"]?.intValue == Int(oldID) && ($0["begin_ns"]?.intValue ?? 0) > 0 }.count)
+    evidence["new_begin_count"] = .int(finalEvents.filter { $0["id"]?.intValue == Int(newID) && ($0["begin_ns"]?.intValue ?? 0) > 0 }.count)
+    evidence["old_source_start_ns"] = .int(Int(oldSourceStart))
+    evidence["old_source_end_ns"] = .int(Int(oldSourceEnd))
+    evidence["frozen_period_ns"] = .int(Int(frozenPeriod))
+    evidence["refresh_start_ns"] = .int(Int(refreshStart)); evidence["refresh_end_ns"] = .int(Int(refreshEnd))
+    evidence["refresh_analysis_cut_ns"] = .int(Int(oldNotBefore-beforeNotBefore))
+    evidence["begin_return_ns"] = .int(Int(cost.beginReturn))
+    evidence["begin_cost_ns"] = .int(Int(cost.beginCost))
+    evidence["observe_cost_ns"] = .int(Int(cost.totalObserveCost))
+    evidence["tick_cost_ns"] = .int(Int(cost.totalTickCost))
+    evidence["fit_phase_adjustments"] = .int(0)
+    require(cost.beginCost > 0 && cost.beginReturn <= UInt64(fresh["deadline_ns"]!.intValue!) &&
+        cost.beginCalls == 1 && refreshEnd-refreshStart == captureDuration,
+        "test118_real_native_elapsed_charged_before_Runtime_post_begin_gate")
+    runtime118Emit("PREPARATION", evidence)
+    let sources = Set([old["source_capture_id"]!.intValue!, fresh["source_capture_id"]!.intValue!])
+    let result = call("necro_native_results", id)
+    let exported = Set((result.0?["images"]?.arrayValue ?? []).compactMap { $0.objectValue?["capture_id"]?.intValue })
+    require(result.1 == nil && sources.isSubset(of: exported), "test118_fresh_actual_export_retains_both_sources_after_drain")
+    guard let payload = result.0, let exportRoot = ProcessInfo.processInfo.environment["NG2_RUNTIME112_EVIDENCE"],
+          let selected = ProcessInfo.processInfo.environment["NG2_RUNTIME112_CASE"] else {
+        require(false, "test118_native_results_evidence_output_is_explicit"); return
+    }
+    let destination = URL(fileURLWithPath: exportRoot).appendingPathComponent(selected)
+        .appendingPathComponent("native-results").appendingPathComponent(id)
+    do {
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true,
+            attributes: [.posixPermissions: NSNumber(value: 0o700)])
+        let encoded = try JSONEncoder().encode(payload)
+        try encoded.write(to: destination.appendingPathComponent("native-results.json"))
+        var saved = [JSONValue]()
+        for sourceID in metadataIDs {
+            guard let row = (payload["images"]?.arrayValue ?? []).compactMap({ $0.objectValue })
+                    .first(where: { $0["capture_id"]?.intValue == Int(sourceID) }),
+                  let base64 = row["data_base64"]?.stringValue, let png = Data(base64Encoded: base64),
+                  let rgba = NG2Raster.decode(png), let original = frames[sourceID],
+                  let originalRGBA = NG2Raster.decode(original.0) else {
+                require(false, "test118_both_native_result_source_images_decode"); return
+            }
+            require(rgba == originalRGBA && row["sha256"]?.stringValue == NG2CycleWire.hash(png),
+                "test118_exported_native_PNG_is_exact_original_RGBA")
+            let stem = "capture-"+String(sourceID)
+            try png.write(to: destination.appendingPathComponent(stem+".png"))
+            try rgba.write(to: destination.appendingPathComponent(stem+".rgba"))
+            let metadata = try JSONEncoder().encode(original.1)
+            try metadata.write(to: destination.appendingPathComponent(stem+".metadata.json"))
+            saved.append(.object(["capture_id": .int(Int(sourceID)), "stem": .string(stem),
+                "png_sha256": .string(NG2CycleWire.hash(png)), "raw_sha256": .string(NG2CycleWire.hash(rgba)),
+                "metadata_sha256": .string(NG2CycleWire.hash(metadata))]))
+        }
+        let receipt: [String: JSONValue] = ["schema": .string("test118-native-results-evidence-v1"),
+            "scope": .string("actual_noncycle_native_results_and_original_runtime_sources_not_Spool"),
+            "run_id": .string(id), "old_command_id": .int(Int(oldID)), "new_command_id": .int(Int(newID)),
+            "native_results_sha256": .string(NG2CycleWire.hash(encoded)), "sources": .array(saved)]
+        try JSONEncoder().encode(receipt).write(to: destination.appendingPathComponent("receipt.json"))
+    } catch { require(false, "test118_actual_native_results_export_write") }
+    fixtureFailureSnapshot = nil
+}
+
+
+func runtime118Start(_ id: String) -> ([String: JSONValue]?, JSONRPCError?) {
+    runtime.handle(method: "necro_native_start", params: ["run_id": .string(id),
+        "profile": .string("normal-1-1-irregular-v1"), "_necro_owner": .string("fixture-owner"),
+        "continuous_campaign": .bool(true), "initial_restart": .bool(true)])
+}
+func runtime118Events(_ id: String) -> [[String: JSONValue]] {
+    (report(id)["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+}
+final class Runtime118UpperWorld {
+    let gate = NSLock(), rootID: String, physicalEpoch: UInt64
+    var x: Int32 = 2, y: Int32 = 0, opened = false
+    var captureStart: UInt64 = 0, captureEnd: UInt64 = 0
+    var restarts = 0, child = "", gestures = [Int](), partialJobs = 0, fullJobs = 0
+    var workerStart: UInt64 = 0, normalCalls = 0, negativeCalls = 0
+    var parents = [UInt64](), jobs = [UInt64](), workerDurations = [UInt64]()
+    var baseParent: UInt64 = 0, allocatedParent: UInt64 = 0, allocationPeriod: UInt64 = 0
+    var originalSources = [UInt64: Data](), metadata = [UInt64: [String: JSONValue]]()
+    init(_ id: String) { rootID = id; physicalEpoch = NG2Fake.virtualClock() }
+    func locked<T>(_ body: () -> T) -> T { gate.lock(); defer { gate.unlock() }; return body() }
+    func install() {
+        NG2RuntimeTestHooks.beforeCaptureAdmission = { self.locked { self.captureStart = NG2Fake.virtualClock() } }
+        NG2RuntimeTestHooks.afterCaptureBackendReply = { _ in self.locked { self.captureEnd = NG2Fake.virtualClock() } }
+        NG2RuntimeCycleTestHooks.rgba = { original in
+            let paused = runtime118Fake { NG2Fake.walkPaused }
+            if paused { return original }
+            let pose = self.locked { (self.x, self.y, self.opened, self.captureStart, self.captureEnd, self.restarts) }
+            let midpoint = pose.3+(pose.4 >= pose.3 ? (pose.4-pose.3)/2 : 0)
+            let elapsed = midpoint >= self.physicalEpoch ? midpoint-self.physicalEpoch : 0
+            let q = Double(519_999_999-(elapsed % 520_000_000))/520_000_000.0
+            var bytes = Data(count: 896*414*4); let count = bytes.count
+            bytes.withUnsafeMutableBytes {
+                let valid = pose.5 >= 2
+                    ? ng2_fixture_floor_pixels_rgba($0.bindMemory(to: UInt8.self).baseAddress, count, 0, 0, q, 0)
+                    : ng2_fixture_upper118_rgba($0.bindMemory(to: UInt8.self).baseAddress,
+                        count, pose.0, pose.1, pose.2 ? 1 : 0, q)
+                require(valid == 1, "test118_same_physical_upper_world_at_actual_gesture_pose")
+            }
+            return bytes
+        }
+        NG2Fake.cycleTap = { x, y in
+            require(!(x == 297 && y == 448), "test118_initial_and_successor_never_resume_old_floor")
+            if x == 144 && y == 448 {
+                self.locked { self.restarts += 1 }
+                NG2Fake.lock.lock(); NG2Fake.walkPaused = false; NG2Fake.lock.unlock()
+            }
+        }
+        NG2Fake.applyShopGesture = { _ in
+            let events = runtime118Events(self.rootID)
+            let current = report(self.rootID)["current_command_id"]?.intValue ?? 0
+            guard let event = events.first(where: { $0["id"]?.intValue == current }),
+                  let direction = event["direction"]?.intValue else {
+                require(false, "test118_actual_gesture_has_current_C_direction"); return false
+            }
+            self.locked {
+                self.gestures.append(direction)
+                if !self.opened && self.x > 0 {
+                    require(direction == 1 && self.y == 0, "test118_actual_observed_outside_lead_in")
+                    self.x -= 1
+                } else if !self.opened {
+                    require(direction == 1 && self.x == 0 && self.y == 0,
+                        "test118_first_LEFT_opens_door_without_displacement")
+                    self.opened = true
+                } else {
+                    if direction == 1 { self.x -= 1 }
+                    else if direction == 4 { self.y += 1 }
+                    else { require(false, "test118_upper_route_uses_observed_LEFT_or_DOWN") }
+                }
+            }
+            // Recorded touch ACK duration is charged to the wall clock; it
+            // grants no movement credit. Only normal later pixels do that.
+            Thread.sleep(forTimeInterval: 0.278756083)
+            return true
+        }
+        NG2RuntimeCycleTestHooks.beforeClassification = { job in
+            let state = cycleCompanion(self.rootID)
+            runtime112RecordAdmission(self.rootID, state, label: "test118_upper_normal_wall_clock")
+            let capture = UInt64(state["capture_id"]?.intValue ?? 0)
+            guard let actual = runtime.testOriginalFrameEvidence(self.rootID, captureIDs: [capture])?[capture],
+                  let rgba = NG2Raster.decode(actual.0) else {
+                require(false, "test118_worker_uses_immutable_original_source"); return
+            }
+            require(actual.1["stable_prefix"]?.boolValue == true &&
+                actual.1["inflight_start"]?.boolValue == false && actual.1["inflight_end"]?.boolValue == false &&
+                actual.1["completed_prefix_start"] == state["prefix"] &&
+                actual.1["completed_prefix_end"] == state["prefix"],
+                "test118_data_source_original_prefix_noninflight")
+            let scene = UnsafeMutablePointer<NG2Scene>.allocate(capacity: 1)
+            scene.initialize(to: NG2Scene()); defer { scene.deinitialize(count: 1); scene.deallocate() }
+            let status = rgba.withUnsafeBytes {
+                ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress, rgba.count, 896*4, scene)
+            }
+            let items = withUnsafeBytes(of: scene.pointee.tiles) { $0.filter { $0 == 6 }.count }
+            require(status == 0 && scene.pointee.state == 2 &&
+                (scene.pointee.goods == 1 && items == 5 || scene.pointee.goods == 2 && items == 3),
+                "test118_real_Perception_partial_five_then_full_three")
+            self.locked {
+                if scene.pointee.goods == 1 { self.partialJobs += 1 } else { self.fullJobs += 1 }
+                self.jobs.append(job); self.originalSources[capture] = rgba; self.metadata[capture] = actual.1
+                let parent = UInt64(state["continuation_deadline_ns"]?.intValue ?? 0)
+                self.parents.append(parent)
+                if self.baseParent == 0 { self.baseParent = parent }
+                if self.x < 0 {
+                    require(self.allocatedParent > 0 && parent > 0 && parent <= self.allocatedParent,
+                        "test118_each_fresh_job_parent_stays_within_one_frozen_route_cap")
+                }
+                self.workerStart = NG2Fake.virtualClock()
+            }
+        }
+        NG2RuntimeCycleTestHooks.afterClassificationCall = { mode, status, outcome in
+            require(mode == Int32(NG2_RING_MODE_TARGET_ONLY) && status == 0,
+                "test118_actual_normal_Ring_target_worker")
+            self.locked {
+                self.normalCalls += 1
+                if outcome == UInt32(NG2_RING_NEGATIVE) { self.negativeCalls += 1 }
+                self.workerDurations.append(NG2Fake.virtualClock()-self.workerStart)
+            }
+        }
+        NG2RuntimeCycleTestHooks.beforeClassificationCommitReturn = { _ in
+            let state = cycleCompanion(self.rootID), snapshot = report(self.rootID)
+            let parent = UInt64(state["continuation_deadline_ns"]?.intValue ?? 0)
+            let period = UInt64(snapshot["beat_period_ns"]?.intValue ?? 0)
+            self.locked {
+                if self.allocatedParent == 0 && self.baseParent > 0 && parent > self.baseParent &&
+                    self.x == 0 && self.y == 0 && self.opened {
+                    require(period > 0 && parent <= self.baseParent+period,
+                        "test118_initial_V2_allocation_adds_at_most_one_frozen_period")
+                    self.allocatedParent = parent; self.allocationPeriod = period
+                }
+            }
+        }
+        NG2RuntimeTestHooks.beforeControlTick = { _ = runtime116Status(self.rootID) }
+    }
+}
+func testRuntime118Upper(_ root: URL) {
+    runtime116Reset(root)
+    NG2Fake.lock.lock(); NG2Fake.fixedClock = nil; NG2Fake.offset = 0; NG2Fake.lock.unlock()
+    NG2RuntimeTestHooks.scheduleTicket = nil
+    NG2RuntimeCycleTestHooks.classificationResult = nil
+    let id = identity()
+    let actual = Runtime118UpperWorld(id)
+    actual.install()
+    fixtureFailureSnapshot = { ["report": .object(report(id)), "cycle": .object(cyclePayload(id)),
+        "campaign": .object(runtime116Payload(id, keepalive: false)),
+        "directions": .array(actual.locked { actual.gestures.map { .int($0) } }),
+        "pose": .array(actual.locked { [.int(Int(actual.x)), .int(Int(actual.y))] })] }
+    NG2RuntimeContinuousTestHooks.afterChildAdmitted = { rootID, old, child, index in
+        require(rootID == id && old == id && child != id && index == 1 &&
+            ir110Record(root, id, "continuation_seal") != nil,
+            "test118_original_parent_disk_seal_precedes_actual_fresh_child")
+        actual.locked { actual.child = child }
+    }
+    require(runtime118Start(id).1 == nil, "test118_upper_actual_initial_RS_continuous_start")
+    pump("test118_normal_upper_all_goods_negative_RS_then_child", timeout: 60) {
+        let child = actual.locked { actual.child }
+        return !child.isEmpty && (report(child)["last_capture_id"]?.intValue ?? 0) > 0 || runtime116Drained(id)
+    }
+    let terminal = ir110Record(root, id, "terminal")?["controller"]?.objectValue ?? [:]
+    let events = (terminal["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    let acknowledged = events.filter { $0["kind"]?.intValue == 4 && $0["outcome"]?.intValue == 2 }
+    let moved = acknowledged.filter { $0["motion"]?.intValue == 1 }
+    let child = actual.locked { actual.child }
+    require(!child.isEmpty && actual.locked { actual.restarts == 2 && actual.negativeCalls > 0 &&
+        actual.partialJobs > 0 && actual.fullJobs > 0 && actual.gestures == [1,1,1,1,1,4,4,4] } &&
+        moved.count == 7 && acknowledged.count == 8 &&
+        acknowledged.map { $0["motion"]?.intValue ?? 0 } == [1,1,3,1,1,1,1,1],
+        "test118_open_then_actual_HHDDD_five_MOTION_then_normal_negative_restart")
+    require(actual.locked { actual.workerDurations.allSatisfy { $0 > 0 && $0 < 100_000_000 } &&
+        actual.baseParent > 0 && actual.allocatedParent >= actual.baseParent } &&
+        terminal["moves"]?.intValue == 7 && terminal["door_changes"]?.intValue == 1,
+        "test118_real_ACK_is_not_MOTION_credit_and_worker_cost_is_charged")
+    require(ir110Record(root, id, "checkpoint") != nil && ir110Record(root, id, "restart_intent") != nil &&
+        ir110Record(root, id, "restart_outcome") != nil &&
+        runtime118Events(child).allSatisfy { $0["kind"]?.intValue != 3 },
+        "test118_normal_negative_durable_checkpoint_intent_ACK_then_successor_without_duplicate_RS")
+    _ = call("necro_native_cancel", id); NG2Fake.release()
+    pump("test118_upper_root_and_child_drained", timeout: 40) { runtime116Drained(id) }
+    for (capture, rgba) in actual.locked({ actual.originalSources }) {
+        runtime111PersistedPixels(root, capture: capture, expected: rgba)
+    }
+    runtime118Emit("UPPER", ["root_id": .string(id), "child_id": .string(child),
+        "scope": .string("procedural_RGBA_actual_Runtime_Ring_Spool_wall_clock_future"),
+        "gesture_directions": .array(actual.locked { actual.gestures.map { .int($0) } }),
+        "verified_moves": .int(moved.count), "initial_and_goods_restarts": .int(actual.locked { actual.restarts }),
+        "normal_calls": .int(actual.locked { actual.normalCalls }),
+        "negative_calls": .int(actual.locked { actual.negativeCalls }),
+        "classification_override": .bool(false), "fit_phase_adjustments": .int(0),
+        "physical_period_ns": .int(520_000_000), "physical_epoch_ns": .int(Int(actual.physicalEpoch)),
+        "wall_clock_charged": .bool(true), "ACK_model_ns": .int(278_756_083),
+        "base_parent_ns": .int(Int(actual.locked { actual.baseParent })),
+        "allocated_parent_ns": .int(Int(actual.locked { actual.allocatedParent })),
+        "allocation_period_ns": .int(Int(actual.locked { actual.allocationPeriod })),
+        "parent_history_ns": .array(actual.locked { actual.parents.map { .int(Int($0)) } })])
+    runtime116ExportAll(root, id, label: "upper_side_hhddd")
+}
+
+// Normal FULL source -> one current DATA job -> only a far FLOOR changes
+// while that immutable worker is pending. All ordering below is procedural;
+// it is not the iPhone's unrecorded job1/job2 history.
+func testRuntime118Palette(_ root: URL) {
+    runtime116Reset(root)
+    let id = identity()
+    let actual = Runtime114CurrentWorld(id), cost = Runtime118Cost()
+    let oldRelease = DispatchSemaphore(value: 0), paletteRelease = DispatchSemaphore(value: 0)
+    let gate = NSLock()
+    var oldReleased = false, paletteRequested = false, palette = false, paletteReleased = false
+    var paletteIDs = Set<UInt64>(), paletteID: UInt64 = 0, currentBefore = [String: JSONValue]()
+    var child = "", initialReturned = false, workerEntry: UInt64 = 0, ringStarted: UInt64 = 0
+    func locked<T>(_ body: () -> T) -> T { gate.lock(); defer { gate.unlock() }; return body() }
+    actual.install(); cost.install()
+    defer { oldRelease.signal(); paletteRelease.signal(); actual.releaseAll(); cost.uninstall() }
+    // Reuse the exact public 114 physical world and ordinary producers. Its
+    // stage2 is FULL/UNKNOWN; after the independent material view, stage3 is
+    // FULL/normal NEGATIVE under the corrected policy17 producer.
+    let originalPixels = NG2RuntimeCycleTestHooks.rgba
+    NG2RuntimeCycleTestHooks.rgba = { original in
+        var bytes = originalPixels?(original) ?? original
+        if locked({ palette }) && actual.locked({ actual.stage == 3 }) {
+            let count = bytes.count
+            bytes.withUnsafeMutableBytes {
+                require(ng2_fixture_palette118($0.bindMemory(to: UInt8.self).baseAddress, count) == 1,
+                    "test118_only_declared_far_material_changes_in_RGBA")
+            }
+            locked { paletteIDs.insert(actual.locked { actual.decodeID }) }
+        }
+        return bytes
+    }
+    let originalCapture = NG2RuntimeTestHooks.beforeCaptureAdmission
+    NG2RuntimeTestHooks.beforeCaptureAdmission = {
+        originalCapture?()
+        locked { if paletteRequested { palette = true } }
+    }
+    let originalAfter = NG2RuntimeTestHooks.afterTicketReturned
+    NG2RuntimeTestHooks.afterTicketReturned = { command in
+        let event = runtime118Events(id).first { $0["id"]?.intValue == Int(command) } ?? [:]
+        if event["kind"]?.intValue == 3 && !locked({ initialReturned }) {
+            locked { initialReturned = true }; return
+        }
+        originalAfter?(command)
+    }
+    NG2Fake.cycleTap = { x, y in
+        require(!(x == 297 && y == 448), "test118_current_DATA_root_never_RESUMEs_old_floor")
+        if x == 144 && y == 448 {
+            actual.locked { actual.restarts += 1 }
+            NG2Fake.lock.lock(); NG2Fake.walkPaused = false; NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
+        }
+    }
+    // No held producer return or commit fabricates a drain. Only the two
+    // necessary camera-order fences park the worker, and actual native time
+    // is charged before it calls the unchanged Ring producer.
+    NG2RuntimeCycleTestHooks.afterClassificationEnqueueBeforeReturn = nil
+    NG2RuntimeCycleTestHooks.beforeClassificationCommitReturn = nil
+    NG2RuntimeCycleTestHooks.beforeClassification = { job in
+        let entered = DispatchTime.now().uptimeNanoseconds
+        let state = cycleCompanion(id), capture = UInt64(state["capture_id"]?.intValue ?? 0)
+        runtime112RecordAdmission(id, state, label: "test118_current_FULL_palette")
+        guard let frame = runtime.testOriginalFrameEvidence(id, captureIDs: [capture])?[capture],
+              let raw = NG2Raster.decode(frame.0) else {
+            require(false, "test118_current_DATA_immutable_source_available"); return
+        }
+        let first = actual.locked { () -> Bool in
+            actual.activeJob = job; actual.workers.append(job); actual.sources[capture] = raw
+            actual.sourceMetadata[capture] = frame.1
+            if actual.oldJob == 0 { actual.oldJob = job; actual.oldState = state; actual.stage = 3; return true }
+            require(actual.currentJob == 0, "test118_exactly_one_current_FULL_DATA_worker")
+            actual.currentJob = job; actual.currentState = state; return false
+        }
+        NG2Fake.lock.lock(); NG2Fake.fixedCaptureAdvance = 20_000_000; NG2Fake.lock.unlock()
+        if first {
+            require(oldRelease.wait(timeout: .now()+10) == .success,
+                "test118_old_NORMAL_worker_has_actual_later_current_captures")
+        } else {
+            let old = actual.locked { actual.oldState }
+            require(state["job_id"] != old["job_id"] && state["capture_id"] != old["capture_id"] &&
+                state["prefix"] == old["prefix"] && state["level_id"] == old["level_id"] &&
+                state["hold_started_ns"] == old["hold_started_ns"] &&
+                state["continuation_deadline_ns"] == old["continuation_deadline_ns"],
+                "test118_real_current_DATA_job_keeps_original_parent_prefix_and_level")
+            locked { currentBefore = state; paletteRequested = true; workerEntry = NG2Fake.virtualClock() }
+            actual.continueCaptures(20_000_000)
+            require(paletteRelease.wait(timeout: .now()+10) == .success,
+                "test118_current_worker_waits_for_actual_far_material_observation")
+        }
+        let elapsed = DispatchTime.now().uptimeNanoseconds-entered
+        // Capture and C wrappers already advanced logical time; charge at
+        // least the whole actual hook elapsed without counting it twice.
+        let logical = UInt64(state["worker_started_ns"]?.intValue ?? 0)
+        let now = NG2Fake.virtualClock()
+        if now < logical+elapsed { NG2Fake.advance(logical+elapsed-now) }
+        require(NG2Fake.virtualClock() <= UInt64(state["deadline_ns"]?.intValue ?? 0),
+            "test118_procedural_order_fence_does_not_extend_worker_deadline")
+        locked { ringStarted = DispatchTime.now().uptimeNanoseconds }
+    }
+    let originalRingReturn = NG2RuntimeCycleTestHooks.afterClassificationCall
+    NG2RuntimeCycleTestHooks.afterClassificationCall = { mode, status, outcome in
+        let elapsed = DispatchTime.now().uptimeNanoseconds-locked { ringStarted }
+        require(elapsed > 0 && elapsed < 100_000_000, "test118_normal_Ring_computation_measured_within_worker_bound")
+        NG2Fake.advance(elapsed); originalRingReturn?(mode, status, outcome)
+    }
+    let originalTick = NG2RuntimeTestHooks.beforeControlTick
+    NG2RuntimeTestHooks.beforeControlTick = {
+        _ = runtime116Status(id); originalTick?()
+        if actual.locked({ actual.oldReady }) && !locked({ oldReleased }) {
+            locked { oldReleased = true }; oldRelease.signal()
+        }
+        let snapshot = report(id), last = UInt64(snapshot["last_capture_id"]?.intValue ?? 0)
+        if locked({ paletteIDs.contains(last) && !paletteReleased }) {
+            let state = cycleCompanion(id), before = locked { currentBefore }
+            require(!before.isEmpty && ["job_id","capture_id","capture_start_ns","prefix","level_id",
+                "worker_started_ns","deadline_ns","hold_started_ns","continuation_deadline_ns"].allSatisfy {
+                    state[$0] == before[$0]
+                } && state["pending"]?.boolValue == true,
+                "test118_only_DATA_relation_preserves_pending_source_worker_deadline_and_parent")
+            let proofStart = DispatchTime.now().uptimeNanoseconds
+            let sourceID = UInt64(before["capture_id"]?.intValue ?? 0)
+            guard let evidence = runtime.testOriginalFrameEvidence(id, captureIDs: [sourceID,last]),
+                  let source = evidence[sourceID], let later = evidence[last],
+                  let sourcePixels = NG2Raster.decode(source.0), let laterPixels = NG2Raster.decode(later.0) else {
+                require(false, "test118_palette_pair_immutable_original_pixels_available"); return
+            }
+            let a = runtime114Scene(sourcePixels), b = runtime114Scene(laterPixels)
+            let first = withUnsafeBytes(of: a.pointee.tiles) { Array($0) }
+            let second = withUnsafeBytes(of: b.pointee.tiles) { Array($0) }
+            let oldMask = withUnsafeBytes(of: a.pointee.protected_cells) { Array($0) }
+            let newMask = withUnsafeBytes(of: b.pointee.protected_cells) { Array($0) }
+            let changed = first.indices.filter { first[$0] != second[$0] }
+            let far = 6*23+14 // relative tile (3,1), outside both local 3x3 neighborhoods.
+            require(a.pointee.goods == 2 && b.pointee.goods == 2 && changed == [far] &&
+                first[far] == 1 && second[far] == 4 && oldMask == newMask && oldMask[far] == 0 &&
+                (later.1["capture_start_ns"]?.intValue ?? 0) >= (source.1["capture_end_ns"]?.intValue ?? Int.max) &&
+                later.1["completed_prefix_start"] == before["prefix"] &&
+                later.1["completed_prefix_end"] == before["prefix"],
+                "test118_normal_Perception_exactly_one_far_FLOOR_to_DIRT_no_item_mask_or_local_change")
+            a.deinitialize(count: 1); a.deallocate(); b.deinitialize(count: 1); b.deallocate()
+            let probeCost = DispatchTime.now().uptimeNanoseconds-proofStart
+            require(probeCost > 0, "test118_palette_guard_measurement_has_real_cost")
+            NG2Fake.advance(probeCost)
+            locked { paletteID = last; paletteReleased = true }
+            actual.freezeCaptures(); paletteRelease.signal()
+        }
+        if actual.locked({ actual.kernelOutcomes[actual.currentJob] == UInt32(NG2_RING_NEGATIVE) }) {
+            actual.continueCaptures(20_000_000)
+        }
+    }
+    NG2RuntimeContinuousTestHooks.afterChildAdmitted = { rootID, old, next, index in
+        require(rootID == id && old == id && next != id && index == 1 &&
+            ir110Record(root, id, "continuation_seal") != nil,
+            "test118_current_DATA_durable_seal_precedes_actual_child")
+        locked { child = next }
+    }
+    fixtureFailureSnapshot = { ["report": .object(report(id)), "cycle": .object(cyclePayload(id)),
+        "campaign": .object(runtime116Payload(id, keepalive: false)),
+        "stage": .int(actual.locked { actual.stage }), "palette_capture": .int(Int(locked { paletteID }))] }
+    require(runtime118Start(id).1 == nil, "test118_current_DATA_initial_RS_continuous_start")
+    pump("test118_normal_current_FULL_negative_palette_then_RS_child", timeout: 60) {
+        let next = locked { child }
+        return !next.isEmpty && (report(next)["last_capture_id"]?.intValue ?? 0) > 0 || runtime116Drained(id)
+    }
+    let terminal = ir110Record(root, id, "terminal")?["controller"]?.objectValue ?? [:]
+    let events = (terminal["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+    let directions = events.filter { $0["kind"]?.intValue == 4 && $0["outcome"]?.intValue == 2 }
+    let pair = actual.locked { (actual.oldState,actual.currentState,actual.kernelOutcomes[actual.oldJob],actual.kernelOutcomes[actual.currentJob]) }
+    require(!locked({ child.isEmpty }) && locked { paletteID > 0 && paletteReleased && workerEntry > 0 } &&
+        pair.2 == 0 && pair.3 == UInt32(NG2_RING_NEGATIVE) &&
+        actual.locked { actual.workers.count == 2 && actual.restarts == 2 } &&
+        directions.count == 2 && directions.map { $0["motion"]?.intValue ?? 0 } == [3,1],
+        "test118_current_normal_negative_has_no_extra_observation_UP_and_restarts")
+    require(ir110Record(root,id,"checkpoint") != nil && ir110Record(root,id,"restart_intent") != nil &&
+        ir110Record(root,id,"restart_outcome") != nil,
+        "test118_current_DATA_negative_reaches_actual_durable_restart_records")
+    _ = call("necro_native_cancel", id); actual.releaseAll(); NG2Fake.release()
+    pump("test118_current_DATA_root_child_all_callbacks_drained", timeout: 40) { runtime116Drained(id) }
+    for (capture, raw) in actual.locked({ actual.sources }) { runtime111PersistedPixels(root,capture:capture,expected:raw) }
+    runtime118Emit("CURRENT_DATA", ["root_id": .string(id), "child_id": .string(locked { child }),
+        "old_source": pair.0["capture_id"] ?? .null, "current_source": pair.1["capture_id"] ?? .null,
+        "palette_capture": .int(Int(locked { paletteID })), "normal_current_outcome": .int(Int(pair.3 ?? 0)),
+        "directional_inputs": .int(directions.count), "extra_observation_inputs": .int(0),
+        "classification_override": .bool(false), "observe_tick_Ring_cost_charged": .bool(true),
+        "scope": .string("procedural_current_FULL_normal_Ring_palette_DATA_actual_Runtime_Spool")])
+    runtime116ExportAll(root,id,label:"full_data_palette")
+}
+
+let root118 = FileManager.default.temporaryDirectory.appendingPathComponent("runtime118-"+UUID().uuidString)
+try FileManager.default.createDirectory(at: root118, withIntermediateDirectories: true,
+    attributes: [.posixPermissions: NSNumber(value: 0o700)])
+defer { try? FileManager.default.removeItem(at: root118) }
+NG2RuntimeCycleTestHooks.spoolRoot = root118
+cycleFixtureProfile = "normal-1-1-irregular-v1"
+let case118 = CommandLine.arguments.last ?? ""
+pump("test118_irregular_prepare_ready") { cycleCall(identity(), "prepare").0?["payload"]?.objectValue?["ready"]?.boolValue == true }
+switch case118 {
+case "preinput_refresh": testRuntime118Preinput(root118.appendingPathComponent(case118))
+case "upper_side_hhddd": testRuntime118Upper(root118.appendingPathComponent(case118))
+case "full_data_palette": testRuntime118Palette(root118.appendingPathComponent(case118))
+default: require(false, "test118_unknown_case_is_not_another_fixture")
+}
+print("PASS TEST118 CASE "+case118)

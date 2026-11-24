@@ -847,6 +847,10 @@ jobs:
               NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test117_host.py
               DEVICE_PROFILE=117
             fi
+            if [ -f driver/patches/loopctrl/run_test118_host.py ]; then
+              NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test118_host.py
+              DEVICE_PROFILE=118
+            fi
           fi
           "$RUNNER_TEMP/test061-host-venv/bin/python" "$NATIVE_HOST_RUNNER" driver upstream "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/host-command.txt"
           echo "device_profile=$DEVICE_PROFILE" >> "$GITHUB_OUTPUT"
@@ -1037,7 +1041,7 @@ jobs:
           set -euo pipefail
           "${{ steps.python39_115.outputs.python-path }}" driver/patches/loopctrl/run_test115_python39.py driver "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/python39-command.txt"
       - name: Select actual Python 3.9 for TEST116 client compatibility
-        if: inputs.native_lane == 'device' && (steps.host_contracts.outputs.device_profile == '116' || steps.host_contracts.outputs.device_profile == '117')
+        if: inputs.native_lane == 'device' && (steps.host_contracts.outputs.device_profile == '116' || steps.host_contracts.outputs.device_profile == '117' || steps.host_contracts.outputs.device_profile == '118')
         id: python39_116
         shell: bash
         run: |
@@ -1073,6 +1077,12 @@ jobs:
         run: |
           set -euo pipefail
           "${{ steps.python39_116.outputs.python-path }}" driver/patches/loopctrl/run_test117_python39.py driver "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/python39-command.txt"
+      - name: Run TEST118 exact client methods and shell entry using actual Python 3.9
+        if: inputs.native_lane == 'device' && steps.host_contracts.outputs.device_profile == '118'
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${{ steps.python39_116.outputs.python-path }}" driver/patches/loopctrl/run_test118_python39.py driver "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/python39-command.txt"
       - name: Save selected host evidence and explicit test inventory
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -1260,6 +1270,16 @@ jobs:
           "$RUNNER_TEMP/test117-mac-venv/bin/python" driver/patches/loopctrl/check_runtime117.py upstream "$RUNNER_TEMP/test117-runtime-red" --expect-initial-ui-red 2>&1 | tee "$RUNNER_TEMP/test117-runtime-red/runtime-command.txt"
           mkdir -p "$RUNNER_TEMP/test117-runtime"
           "$RUNNER_TEMP/test117-mac-venv/bin/python" driver/patches/loopctrl/check_runtime117.py upstream "$RUNNER_TEMP/test117-runtime" 2>&1 | tee "$RUNNER_TEMP/test117-runtime/runtime-command.txt"
+      - name: Verify TEST118 selected Runtime boundaries against sealed sources
+        if: inputs.native_lane == 'device' && needs.test061-host-contracts.outputs.device_profile == '118'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e "$RUNNER_TEMP/test118-mac-venv"
+          python3 -m venv "$RUNNER_TEMP/test118-mac-venv"
+          "$RUNNER_TEMP/test118-mac-venv/bin/pip" install Pillow==11.3.0
+          mkdir -p "$RUNNER_TEMP/test118-runtime"
+          "$RUNNER_TEMP/test118-mac-venv/bin/python" driver/patches/loopctrl/check_runtime118.py upstream "$RUNNER_TEMP/test118-runtime" 2>&1 | tee "$RUNNER_TEMP/test118-runtime/runtime-command.txt"
       - name: Generate and inspect actual source-specific project configuration
         run: |
           (cd upstream && xcodegen generate --spec project.yml)
@@ -1404,6 +1424,7 @@ jobs:
             ${{ runner.temp }}/test116-runtime/
             ${{ runner.temp }}/test117-runtime-red/
             ${{ runner.temp }}/test117-runtime/
+            ${{ runner.temp }}/test118-runtime/
             ${{ runner.temp }}/test116-spool-proof/
             ${{ runner.temp }}/ngg2/*.json
             ${{ runner.temp }}/ngg2/*.txt

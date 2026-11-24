@@ -103,7 +103,27 @@ def inspect_native_sources(upstream, driver):
                 or manifest.get('compiler_profile_version') != 3):
             raise ValueError('native_cycle_compiler_identity')
         cycle_fields = {key: manifest[key] for key in ('cycle_capability', 'cycle_profile', 'compiler_profile_version')}
-    return {**cycle_fields, 'api_version': manifest['api_version'], 'capability': manifest['capability'],
+    implementation = {}
+    cap = b'necrogold_native_device_fixes118_v1'
+    rpc = ((upstream/'LoopCtrlKit/RPCMethod.swift').read_bytes()
+        if 'LoopCtrlKit/RPCMethod.swift' in expected else b'')
+    raw_patch = patch.read_bytes()
+    if 'device_fixes_capability' in manifest or cap in raw_patch or cap in rpc:
+        declaration = b'    static let capabilityTags: [String] = [\n'
+        entry = b'        "'+cap+b'",'
+        if (manifest.get('device_fixes_capability') != cap.decode('ascii')
+                or manifest.get('visible_goods_capability') != 'necrogold_native_visible_goods_v1'
+                or manifest.get('initial_restart_start_flag') != 'initial_restart'
+                or manifest.get('compiler_profile_version') != 3
+                or raw_patch.count(b'+'+entry) != 1 or raw_patch.count(b'"'+cap+b'"') != 1
+                or rpc.count(declaration) != 1 or rpc.count(b'"'+cap+b'"') != 1):
+            raise ValueError('native_device_fixes118_binding')
+        body = rpc.split(declaration, 1)[1]
+        lines = [line.split(b'//', 1)[0].rstrip() for line in body.split(b'\n    ]', 1)[0].splitlines()]
+        if b'\n    ]' not in body or lines.count(entry) != 1:
+            raise ValueError('native_device_fixes118_binding')
+        implementation['device_fixes_capability'] = cap.decode('ascii')
+    return {**cycle_fields, **implementation, 'api_version': manifest['api_version'], 'capability': manifest['capability'],
         'client_capability': manifest.get('client_capability', 'necrogold_native_v1'),
         'native_manifest_sha256': hashlib.sha256(manifest_raw).hexdigest(),
         'native_source_sha256': expected}

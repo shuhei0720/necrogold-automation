@@ -28,6 +28,24 @@ ALLOWED_TARGETS = {
     'LoopCtrlKit/RemoteSession.swift',
     'project.yml',
 }
+DEVICE_FIXES118_CAPABILITY = b'necrogold_native_device_fixes118_v1'
+
+
+def device_fixes118_metadata(patch_bytes, rpc_source):
+    """Bind the opt-in implementation tag to its actual RPC array entry."""
+    cap = DEVICE_FIXES118_CAPABILITY
+    if cap not in patch_bytes and cap not in rpc_source:
+        return {}
+    entry = b'        "'+cap+b'",'
+    declaration = b'    static let capabilityTags: [String] = [\n'
+    if (patch_bytes.count(b'+'+entry) != 1 or patch_bytes.count(b'"'+cap+b'"') != 1
+            or rpc_source.count(declaration) != 1 or rpc_source.count(b'"'+cap+b'"') != 1):
+        raise ValueError('device_fixes118_capability_binding')
+    body = rpc_source.split(declaration, 1)[1]
+    lines = [line.split(b'//', 1)[0].rstrip() for line in body.split(b'\n    ]', 1)[0].splitlines()]
+    if b'\n    ]' not in body or lines.count(entry) != 1:
+        raise ValueError('device_fixes118_capability_binding')
+    return {'device_fixes_capability': cap.decode('ascii')}
 
 
 def digest(raw):
@@ -242,6 +260,8 @@ def seal(root):
         run_patch(stage, raw_patch)
         for name in files:
             files[name]['patched_sha256'] = digest((stage / name).read_bytes())
+        rpc_source = ((stage/'LoopCtrlKit/RPCMethod.swift').read_bytes()
+            if 'LoopCtrlKit/RPCMethod.swift' in files else b'')
     additions = {}
     for source in sorted(ASSETS_ROOT.iterdir()):
         if source.name.startswith('NG2') and source.suffix in ('.swift', '.c', '.h', '.m'):
@@ -295,6 +315,12 @@ def seal(root):
             and b'necrogold_native_continuous_campaign_v1' in raw_patch):
         manifest.update(continuous_campaign_capability='necrogold_native_continuous_campaign_v1',
                         continuous_campaign_start_flag='continuous_campaign')
+    implementation = device_fixes118_metadata(raw_patch, rpc_source)
+    if implementation and (manifest.get('visible_goods_capability') != 'necrogold_native_visible_goods_v1'
+            or manifest.get('initial_restart_start_flag') != 'initial_restart'
+            or manifest.get('compiler_profile_version') != 3):
+        raise ValueError('device_fixes118_prerequisites')
+    manifest.update(implementation)
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2) + '\n')
     return manifest
 

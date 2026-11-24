@@ -56,10 +56,10 @@ class ContinuousClientNamespace117Tests(unittest.TestCase):
     def test_old_default_retains_116_schema_and_number_is_a_closed_set(self):
         self.assertEqual('necroprobe-continuous-campaign116-v1', campaign._fresh()['schema'])
         self.assertEqual('necroprobe-continuous-campaign117-v1', campaign._fresh(test_number='117')['schema'])
-        for value in ('118', '0117', '../117', '', 117, True, None, ['117']):
+        for value in ('119', '0117', '../117', '', 117, True, None, ['117']):
             with self.subTest(value=value), self.assertRaisesRegex(ProbeError, 'campaign_test_number_invalid'):
                 campaign._fresh(test_number=value)
-        for schema in ('necroprobe-continuous-campaign118-v1', [], None):
+        for schema in ('necroprobe-continuous-campaign119-v1', [], None):
             ledger = campaign._fresh(); ledger['schema'] = schema
             with self.subTest(schema=schema), self.assertRaisesRegex(ProbeError, 'campaign_ledger_invalid'):
                 campaign._validate(ledger)

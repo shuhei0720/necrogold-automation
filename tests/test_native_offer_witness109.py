@@ -129,10 +129,23 @@ class NativeOfferWitness109Tests(unittest.TestCase):
         self.assertNotEqual(3, self.assess(scene=scene)[1].outcome)
 
     def test_target_candidate_and_missing_visibility_are_never_negative(self):
-        for target_name, expected in ((True, 2), (False, 1)):
+        # GOODS-02/TEST111 promotes the strong image with its own price even
+        # without a name. This expectation predates that explicit requirement.
+        for target_name, expected in ((True, 2), (False, 2)):
             with self.subTest(target_name=target_name):
-                self.assertEqual(expected, self.assess(
-                    witnessed_pixels(target=True, target_name=target_name))[1].outcome)
+                status, value = self.assess(
+                    witnessed_pixels(target=True, target_name=target_name))
+                self.assertEqual((0, expected), (status, value.outcome))
+                if not target_name:
+                    slot = value.rows[value.selected_row].slots[1]
+                    self.assertEqual((16, 1), (value.certificate.policy_version, value.coverage))
+                    self.assertEqual((1, 1), (value.certificate.observed_items,
+                        value.certificate.observed_prices))
+                    self.assertEqual((2, 1, 0), (slot.outcome, slot.icon_score_exact,
+                        slot.word_present))
+                    self.assertGreaterEqual(slot.icon_score, .94)
+                    self.assertGreater(value.certificate.price_boxes[1][2], 0)
+                    self.assertEqual(0, self.lib.ng2_ring_negative_certificate(C.byref(value)))
         self.assertNotEqual(3, self.assess(witnessed_pixels(missing_wall=True))[1].outcome)
 
     def test_single_offer_uses_same_local_witness_without_extending_legacy_modes(self):
