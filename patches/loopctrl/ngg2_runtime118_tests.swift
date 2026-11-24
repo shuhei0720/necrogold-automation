@@ -6,6 +6,7 @@ func runtime118Fake<T>(_ body: () -> T) -> T {
 }
 final class Runtime118Cost {
     var observeStart: UInt64 = 0, totalObserveCost: UInt64 = 0, totalTickCost: UInt64 = 0
+    var tickCalls = 0, zeroTickCalls = 0
     var beginStart: UInt64 = 0, beginCost: UInt64 = 0, beginReturn: UInt64 = 0
     var beginCalls = 0
     func install() {
@@ -26,8 +27,17 @@ final class Runtime118Cost {
 func runtime118TickReturned(_ context: UnsafeMutableRawPointer?, _ elapsed: UInt64) {
     guard let context else { return }
     let value = Unmanaged<Runtime118Cost>.fromOpaque(context).takeUnretainedValue()
-    require(elapsed > 0, "test118_actual_C_tick_has_measured_cost")
+    // Darwin may quantize an empty early-return tick to exactly zero. Keep
+    // that observed zero; never substitute an invented positive duration.
+    value.tickCalls += 1
+    if elapsed == 0 { value.zeroTickCalls += 1 }
     value.totalTickCost += elapsed; NG2Fake.advance(elapsed)
+}
+func runtime118TickEvidence(_ value: Runtime118Cost) {
+    require(value.tickCalls > 0 && value.zeroTickCalls <= value.tickCalls && value.totalTickCost > 0,
+        "test118_meaningful_case_has_measured_aggregate_tick_cost")
+    runtime118Emit("TICK_COST", ["tick_calls": .int(value.tickCalls),
+        "zero_duration_calls": .int(value.zeroTickCalls), "total_tick_cost_ns": .int(Int(value.totalTickCost))])
 }
 func runtime118BeginReturned(_ context: UnsafeMutableRawPointer?, _ id: UInt64, _ now: UInt64, _ result: Int32) {
     guard let context else { return }
@@ -253,6 +263,7 @@ func testRuntime118Preinput(_ root: URL) {
     require(cost.beginCost > 0 && cost.beginReturn <= UInt64(fresh["deadline_ns"]!.intValue!) &&
         cost.beginCalls == 1 && refreshEnd-refreshStart == captureDuration,
         "test118_real_native_elapsed_charged_before_Runtime_post_begin_gate")
+    runtime118TickEvidence(cost)
     runtime118Emit("PREPARATION", evidence)
     let sources = Set([old["source_capture_id"]!.intValue!, fresh["source_capture_id"]!.intValue!])
     let result = call("necro_native_results", id)
@@ -315,7 +326,7 @@ final class Runtime118UpperWorld {
     var workerStart: UInt64 = 0, normalCalls = 0, negativeCalls = 0
     var parents = [UInt64](), jobs = [UInt64](), workerDurations = [UInt64]()
     var baseParent: UInt64 = 0, allocatedParent: UInt64 = 0, allocationPeriod: UInt64 = 0
-    var originalSources = [UInt64: Data](), metadata = [UInt64: [String: JSONValue]]()
+    var sourceStates = [UInt64: [String: JSONValue]]()
     init(_ id: String) { rootID = id; physicalEpoch = NG2Fake.virtualClock() }
     func locked<T>(_ body: () -> T) -> T { gate.lock(); defer { gate.unlock() }; return body() }
     func install() {
@@ -376,27 +387,17 @@ final class Runtime118UpperWorld {
             let state = cycleCompanion(self.rootID)
             runtime112RecordAdmission(self.rootID, state, label: "test118_upper_normal_wall_clock")
             let capture = UInt64(state["capture_id"]?.intValue ?? 0)
-            guard let actual = runtime.testOriginalFrameEvidence(self.rootID, captureIDs: [capture])?[capture],
-                  let rgba = NG2Raster.decode(actual.0) else {
-                require(false, "test118_worker_uses_immutable_original_source"); return
-            }
-            require(actual.1["stable_prefix"]?.boolValue == true &&
-                actual.1["inflight_start"]?.boolValue == false && actual.1["inflight_end"]?.boolValue == false &&
-                actual.1["completed_prefix_start"] == state["prefix"] &&
-                actual.1["completed_prefix_end"] == state["prefix"],
-                "test118_data_source_original_prefix_noninflight")
-            let scene = UnsafeMutablePointer<NG2Scene>.allocate(capacity: 1)
-            scene.initialize(to: NG2Scene()); defer { scene.deinitialize(count: 1); scene.deallocate() }
-            let status = rgba.withUnsafeBytes {
-                ng2_analyze_rgba($0.bindMemory(to: UInt8.self).baseAddress, rgba.count, 896*4, scene)
-            }
-            let items = withUnsafeBytes(of: scene.pointee.tiles) { $0.filter { $0 == 6 }.count }
-            require(status == 0 && scene.pointee.state == 2 &&
-                (scene.pointee.goods == 1 && items == 5 || scene.pointee.goods == 2 && items == 3),
-                "test118_real_Perception_partial_five_then_full_three")
+            require(state["job_id"]?.intValue == Int(job) && state["pending"]?.boolValue == true,
+                "test118_actual_pending_worker_owns_same_immutable_job")
+            // Runtime already analyzed this exact immutable source before
+            // worker admission. Record its actual C flags now; inspect the
+            // persisted original RAW/PNG after all inputs have stopped.
+            let partial = state["partial"]?.boolValue == true
+            require(partial || state["full_seen"]?.boolValue == true,
+                "test118_actual_worker_has_partial_or_full_source_flags")
             self.locked {
-                if scene.pointee.goods == 1 { self.partialJobs += 1 } else { self.fullJobs += 1 }
-                self.jobs.append(job); self.originalSources[capture] = rgba; self.metadata[capture] = actual.1
+                if partial { self.partialJobs += 1 } else { self.fullJobs += 1 }
+                self.jobs.append(job); self.sourceStates[capture] = state
                 let parent = UInt64(state["continuation_deadline_ns"]?.intValue ?? 0)
                 self.parents.append(parent)
                 if self.baseParent == 0 { self.baseParent = parent }
@@ -417,6 +418,7 @@ final class Runtime118UpperWorld {
             }
         }
         NG2RuntimeCycleTestHooks.beforeClassificationCommitReturn = { _ in
+            guard self.locked({ self.allocatedParent == 0 }) else { return }
             let state = cycleCompanion(self.rootID), snapshot = report(self.rootID)
             let parent = UInt64(state["continuation_deadline_ns"]?.intValue ?? 0)
             let period = UInt64(snapshot["beat_period_ns"]?.intValue ?? 0)
@@ -430,6 +432,78 @@ final class Runtime118UpperWorld {
             }
         }
         NG2RuntimeTestHooks.beforeControlTick = { _ = runtime116Status(self.rootID) }
+    }
+}
+
+// Diagnostic copies are original stopped Spool bytes, separate from normal
+// synthetic exports. Preserve them before a terminal assertion can exit.
+func runtime118ArchiveStoppedSpool(_ root: URL, _ id: String,
+        sourceStates: [UInt64: [String: JSONValue]], snapshot: [String: JSONValue]) {
+    guard let output = ProcessInfo.processInfo.environment["NG2_RUNTIME112_EVIDENCE"],
+          let selected = ProcessInfo.processInfo.environment["NG2_RUNTIME112_CASE"] else {
+        require(false, "test118_stopped_evidence_output_is_explicit"); return
+    }
+    let source = root.appendingPathComponent("NGG2Cycles").appendingPathComponent(id)
+    let destination = URL(fileURLWithPath: output).deletingLastPathComponent()
+        .appendingPathComponent("stopped-runtime-evidence").appendingPathComponent(selected).appendingPathComponent(id)
+    do {
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true,
+            attributes: [.posixPermissions: NSNumber(value: 0o700)])
+        let sources = Dictionary(uniqueKeysWithValues: sourceStates.map { (String($0.key), JSONValue.object($0.value)) })
+        let diagnostic: [String: JSONValue] = ["schema": .string("test118-stopped-original-spool-v1"),
+            "run_id": .string(id), "snapshot": .object(snapshot), "worker_sources": .object(sources)]
+        try JSONEncoder().encode(diagnostic).write(to: destination.appendingPathComponent("diagnostic.json"))
+        guard let files = FileManager.default.enumerator(at: source, includingPropertiesForKeys: nil) else {
+            require(false, "test118_original_stopped_Spool_exists"); return
+        }
+        let byteLimit = NG2CycleSpool.maximumRawBytes + NG2CycleSpool.maximumMetadataBytes
+            + NG2CycleSpool.maximumPNGBytes + NG2CycleSpool.maximumExportTemporaryBytes
+        // Four files per retained frame, the store's512 sequenced records,
+        // and32 bounded session/manifest/reservation/escrow control files.
+        let fileLimit = 4*NG2CycleSpool.maximumFrames+512+32
+        var total = 0, count = 0
+        for case let url as URL in files {
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            let kind = attributes[.type] as? FileAttributeType
+            if kind == .typeDirectory { continue }
+            require(kind == .typeRegular && url.path.hasPrefix(source.path+"/"), "test118_stopped_Spool_regular_original_file")
+            let relative = String(url.path.dropFirst(source.path.count+1))
+            require(!relative.isEmpty && !relative.split(separator: "/").contains(".."), "test118_stopped_Spool_safe_relative_path")
+            let bytes = try Data(contentsOf: url); total += bytes.count; count += 1
+            require(count <= fileLimit && total <= byteLimit, "test118_stopped_Spool_bounded_original_copy")
+            let target = destination.appendingPathComponent("spool").appendingPathComponent(relative)
+            try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try bytes.write(to: target)
+        }
+        require(count > 0, "test118_stopped_original_Spool_copy_nonempty")
+    } catch { require(false, "test118_stopped_original_Spool_write") }
+}
+func runtime118CheckStoppedSources(_ root: URL, _ id: String, _ sources: [UInt64: [String: JSONValue]]) {
+    require(!sources.isEmpty && runtime116Drained(id), "test118_source_verification_after_all_callbacks_drain")
+    let folder = root.appendingPathComponent("NGG2Cycles").appendingPathComponent(id)
+    for capture in sources.keys.sorted() {
+        let state = sources[capture]!, stem = String(format: "frame-%016llx", capture)
+        guard let raw = try? Data(contentsOf: folder.appendingPathComponent(stem+".rgba")),
+              let encoded = try? Data(contentsOf: folder.appendingPathComponent(stem+".json")),
+              let body = try? JSONDecoder().decode([String: JSONValue].self, from: encoded),
+              let metadata = body["metadata"]?.objectValue else {
+            require(false, "test118_original_worker_source_persisted_before_postdrain_check"); return
+        }
+        require(body["run_id"]?.stringValue == id && body["capture_id"]?.intValue == Int(capture) &&
+            body["raw_sha256"]?.stringValue == NG2CycleWire.hash(raw) &&
+            metadata["capture_start_ns"] == state["capture_start_ns"] &&
+            metadata["stable_prefix"]?.boolValue == true && metadata["inflight_start"]?.boolValue == false &&
+            metadata["inflight_end"]?.boolValue == false && metadata["completed_prefix_start"] == state["prefix"] &&
+            metadata["completed_prefix_end"] == state["prefix"],
+            "test118_actual_worker_original_RAW_metadata_prefix_and_source_time")
+        let scene = runtime114Scene(raw)
+        let items = withUnsafeBytes(of: scene.pointee.tiles) { $0.filter { $0 == 6 }.count }
+        let partial = state["partial"]?.boolValue == true
+        require(scene.pointee.state == 2 &&
+            (partial && scene.pointee.goods == 1 && items == 5 || !partial && scene.pointee.goods == 2 && items == 3),
+            "test118_real_Perception_partial_five_then_full_three")
+        scene.deinitialize(count: 1); scene.deallocate()
+        runtime111PersistedPixels(folder, capture: capture, expected: raw)
     }
 }
 func testRuntime118Upper(_ root: URL) {
@@ -460,6 +534,15 @@ func testRuntime118Upper(_ root: URL) {
     let acknowledged = events.filter { $0["kind"]?.intValue == 4 && $0["outcome"]?.intValue == 2 }
     let moved = acknowledged.filter { $0["motion"]?.intValue == 1 }
     let child = actual.locked { actual.child }
+    let stoppedSnapshot = fixtureFailureSnapshot?() ?? [:]
+    _ = call("necro_native_cancel", id); NG2Fake.release()
+    pump("test118_upper_root_and_child_drained", timeout: 40) { runtime116Drained(id) }
+    let originalStates = actual.locked { actual.sourceStates }
+    runtime118ArchiveStoppedSpool(root,id,sourceStates:originalStates,snapshot:stoppedSnapshot)
+    // The normal export API creates PNGs. Drained alone promises only RAW;
+    // preserve that original stopped Spool above before asking for export.
+    runtime111Manifest(id, required: Set(originalStates.keys.map { Int($0) }))
+    runtime118CheckStoppedSources(root,id,originalStates)
     require(!child.isEmpty && actual.locked { actual.restarts == 2 && actual.negativeCalls > 0 &&
         actual.partialJobs > 0 && actual.fullJobs > 0 && actual.gestures == [1,1,1,1,1,4,4,4] } &&
         moved.count == 7 && acknowledged.count == 8 &&
@@ -473,11 +556,6 @@ func testRuntime118Upper(_ root: URL) {
         ir110Record(root, id, "restart_outcome") != nil &&
         runtime118Events(child).allSatisfy { $0["kind"]?.intValue != 3 },
         "test118_normal_negative_durable_checkpoint_intent_ACK_then_successor_without_duplicate_RS")
-    _ = call("necro_native_cancel", id); NG2Fake.release()
-    pump("test118_upper_root_and_child_drained", timeout: 40) { runtime116Drained(id) }
-    for (capture, rgba) in actual.locked({ actual.originalSources }) {
-        runtime111PersistedPixels(root, capture: capture, expected: rgba)
-    }
     runtime118Emit("UPPER", ["root_id": .string(id), "child_id": .string(child),
         "scope": .string("procedural_RGBA_actual_Runtime_Ring_Spool_wall_clock_future"),
         "gesture_directions": .array(actual.locked { actual.gestures.map { .int($0) } }),
@@ -671,6 +749,7 @@ func testRuntime118Palette(_ root: URL) {
     _ = call("necro_native_cancel", id); actual.releaseAll(); NG2Fake.release()
     pump("test118_current_DATA_root_child_all_callbacks_drained", timeout: 40) { runtime116Drained(id) }
     for (capture, raw) in actual.locked({ actual.sources }) { runtime111PersistedPixels(root,capture:capture,expected:raw) }
+    runtime118TickEvidence(cost)
     runtime118Emit("CURRENT_DATA", ["root_id": .string(id), "child_id": .string(locked { child }),
         "old_source": pair.0["capture_id"] ?? .null, "current_source": pair.1["capture_id"] ?? .null,
         "palette_capture": .int(Int(locked { paletteID })), "normal_current_outcome": .int(Int(pair.3 ?? 0)),

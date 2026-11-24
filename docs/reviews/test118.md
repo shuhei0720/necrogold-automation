@@ -1,6 +1,6 @@
 # TEST118: TEST117実機4失敗への限定修正
 
-2026-11-24（日本時間）。[計画](../plans/test118-device-failures.md)・[上部5歩](../plans/test118-upper-five-step.md)・[修正表](../fix-records.md)。現在は実装/関連検証済み、実Mac結合・IPA作成/配布前。iPhone受入は未実施。
+2026-11-24（日本時間）。[計画](../plans/test118-device-failures.md)・[上部5歩](../plans/test118-upper-five-step.md)・[修正表](../fix-records.md)。現在は実装/関連検証済み、実Mac結合を修正・再確認中でIPA作成/配布前。iPhone受入は未実施。
 
 ## 元の失敗と変更
 
@@ -38,3 +38,11 @@
 ## 配布前の残工程
 
 選択したMac3境界は、旧queueの失効/同準備epoch、上部5歩の通常RGBA→Ring/C→耐久RS→次child、pending FULL DATAの同job受渡し。全Runtime故障集合の再実行とは区別する。現時点では実Mac結果、最終IPA/実compiler/全source照合、固定Release匿名全取得が未完了。
+
+## 実Mac255の不合格と試験側の切り分け
+
+CODE5db3148/run45398540174では、source封印・host105件・実Python3.9の76件が合格し、Swift/Cの結合コンパイルも成功した。Mac3ケースは不合格で、IPA作成へは進んでいない。この結果・原artifactを保持し、成功へ読み替えない。
+
+preinput/current DATAは、ほぼ即returnするtickの実測がDarwinの時計量子で0nsとなり、各callを正値必須とした試験assertが止めた。0は0のまま課金し、実呼出数と終了時の合計実費を確認する形へ直す。架空の1usを付けない。
+
+上部は2実lead→OPENED→H2まで到達。H2のworker結果を7.185ms跨ぐ画像82は初回用例外の対象外で、次画像では準備に遅れ、1拍後退すると残3DOWNが固定capを418.931ms超える。これは記録/既式で整合するが、未出力の全private分岐を完全除外したとは扱わない。分類前の検証hookがRuntimeで済んだPNG decode/Perceptionを重複実行して約15msの余分な負荷を加えていたため、同じ原画像の検査を終了後へ移して再確認する。カメラ/ACK/物理phase/元T・D/製品route capは動かさない。各jobの早期snapshotを一般化する製品案は保留し、まず検証処理が製品の実行時間へ混入する点を正す。

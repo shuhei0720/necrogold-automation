@@ -66,7 +66,8 @@ int ng2_fixture_walk118_rgba(uint8_t *out,size_t length,int32_t px,double q){
 
 #ifdef NG2_RUNTIME118_TIMING_BRIDGE
 /* HOST only: return the actual tick result unchanged, then charge its measured
- * native computation to the procedural clock before Swift sees the ticket. */
+ * native computation to the procedural clock before Swift sees the ticket.
+ * A clock-quantized zero for an empty tick remains zero in the host ledger. */
 #include "ngg2/NG2Controller.h"
 #include <time.h>
 typedef void (*NG2Tick118Callback)(void *,uint64_t);
