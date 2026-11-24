@@ -911,10 +911,85 @@ func runtime118CheckPaletteSources(_ root: URL, _ id: String, current: [String: 
     runtime111PersistedPixels(folder,capture:sourceID,expected:source.0)
     runtime111PersistedPixels(folder,capture:palette,expected:later.0)
 }
+// DATA-only cache: the C callback copies POD values and never releases a worker
+// or advances time. The original afterObserve cost hook runs before release.
+final class Runtime118DataSnapshot {
+    static let keys = ["job_id","capture_id","capture_start_ns","prefix","level_id",
+        "worker_started_ns","deadline_ns","hold_started_ns","continuation_deadline_ns"]
+    let id: String
+    let lock = NSLock()
+    var armed = false, accepted = false, responded = false, matching = false, emitted = false
+    var requestID: UInt64 = 0, requestStart: UInt64 = 0, requestEnd: UInt64 = 0, requestPrefix: UInt64 = 0
+    var rootStarted: UInt64 = 0, actualID: UInt64 = 0, actualStart: UInt64 = 0, actualEnd: UInt64 = 0
+    var actualPrefix: UInt64 = 0, commit: UInt64 = 0, charged: UInt64 = 0
+    var status = NG2ControllerStatus(), cycle = NG2ControllerCycleStatus()
+    init(_ id: String) { self.id = id }
+    func install() { ng2_fixture_data118_install(runtime118DataSnapshotReturned, Unmanaged.passUnretained(self).toOpaque()) }
+    func uninstall() { ng2_fixture_data118_install(nil, nil) }
+    func arm(_ capture: UInt64, _ start: UInt64, _ end: UInt64, _ prefix: UInt64,
+             rootStarted: UInt64, expected: [String: JSONValue]) {
+        lock.lock()
+        guard !armed else { lock.unlock(); return }
+        armed = true; requestID = capture; requestStart = start; requestEnd = end
+        requestPrefix = prefix; self.rootStarted = rootStarted
+        lock.unlock()
+        let values = Self.keys.map { UInt64(max(0, expected[$0]?.intValue ?? 0)) }
+        let result = values.withUnsafeBufferPointer {
+            ng2_fixture_data118_request(capture,start,end,prefix,rootStarted,$0.baseAddress,$0.count)
+        }
+        lock.lock(); accepted = result == 1; lock.unlock()
+    }
+    func copy(_ capture: UInt64, _ start: UInt64, _ end: UInt64, _ prefix: UInt64, _ commit: UInt64,
+              _ match: Int32, _ status: NG2ControllerStatus, _ cycle: NG2ControllerCycleStatus) {
+        lock.lock(); defer { lock.unlock() }
+        actualID = capture; actualStart = start; actualEnd = end; actualPrefix = prefix; self.commit = commit
+        self.status = status; self.cycle = cycle; matching = match == 1; responded = true
+    }
+    func afterChargedObserve(_ capture: UInt64, _ now: UInt64) {
+        lock.lock(); defer { lock.unlock() }
+        if responded && requestID == capture && actualID == capture && charged == 0 { charged = now }
+    }
+    func snapshot() -> (NG2ControllerStatus, NG2ControllerCycleStatus, Bool) {
+        lock.lock(); defer { lock.unlock() }
+        return (status,cycle,accepted && responded && matching && charged > 0)
+    }
+    // Cold failure/postdrain diagnostics only. Its presence is never a pass.
+    func emitOnce() {
+        lock.lock()
+        guard !emitted else { lock.unlock(); return }; emitted = true
+        let value: [String: JSONValue] = ["root_id": .string(id), "root_started_ns": .int(Int(rootStarted)),
+            "request_capture_id": .int(Int(requestID)), "request_start_ns": .int(Int(requestStart)),
+            "request_end_ns": .int(Int(requestEnd)), "request_prefix": .int(Int(requestPrefix)),
+            "actual_capture_id": .int(Int(actualID)), "actual_start_ns": .int(Int(actualStart)),
+            "actual_end_ns": .int(Int(actualEnd)), "actual_prefix": .int(Int(actualPrefix)),
+            "observe_commit_ns": .int(Int(commit)), "status_started_ns": .int(Int(status.started_ns)),
+            "last_capture_id": .int(Int(status.last_capture_id)),
+            "last_capture_start_ns": .int(Int(status.last_capture_start_ns)),
+            "last_capture_end_ns": .int(Int(status.last_capture_end_ns)),
+            "job_id": .int(Int(cycle.job_id)), "capture_id": .int(Int(cycle.capture_id)),
+            "capture_start_ns": .int(Int(cycle.capture_start_ns)), "prefix": .int(Int(cycle.prefix)),
+            "level_id": .int(Int(cycle.level_id)), "worker_started_ns": .int(Int(cycle.worker_started_ns)),
+            "deadline_ns": .int(Int(cycle.deadline_ns)), "hold_started_ns": .int(Int(cycle.hold_started_ns)),
+            "continuation_deadline_ns": .int(Int(cycle.continuation_deadline_ns)),
+            "pending": .bool(cycle.pending == 1), "request_accepted": .bool(accepted),
+            "responded": .bool(responded), "matching": .bool(matching),
+            "after_observe_charged_ns": .int(Int(charged))]
+        lock.unlock(); runtime118Emit("CURRENT_SNAPSHOT", value)
+    }
+}
+func runtime118DataSnapshotReturned(_ context: UnsafeMutableRawPointer?, _ capture: UInt64, _ start: UInt64,
+    _ end: UInt64, _ prefix: UInt64, _ commit: UInt64, _ matching: Int32,
+    _ status: UnsafePointer<NG2ControllerStatus>?, _ cycle: UnsafePointer<NG2ControllerCycleStatus>?) {
+    guard let context, let status, let cycle else { return }
+    Unmanaged<Runtime118DataSnapshot>.fromOpaque(context).takeUnretainedValue()
+        .copy(capture,start,end,prefix,commit,matching,status.pointee,cycle.pointee)
+}
+
 func testRuntime118Palette(_ root: URL) {
     runtime116Reset(root)
     let id = identity()
     let actual = Runtime114CurrentWorld(id), cost = Runtime118Cost(), watch = Runtime118CampaignWatch(id)
+    let dataSnapshot = Runtime118DataSnapshot(id)
     let paletteRelease = DispatchSemaphore(value: 0), oldObservationRelease = DispatchSemaphore(value: 0)
     let gate = NSLock()
     var paletteRequested = false, palette = false, paletteReleased = false
@@ -922,11 +997,12 @@ func testRuntime118Palette(_ root: URL) {
     var child = "", initialReturned = false, workerEntry: UInt64 = 0, ringStarted: UInt64 = 0
     var observedPaletteID: UInt64 = 0, committingID: UInt64 = 0
     var lastHeartbeat: UInt64 = 0, oldObservationID: UInt64 = 0
+    var rootStarted: UInt64 = 0
     var oldOrder = [String: JSONValue]()
     var sourceStates = [UInt64: [String: JSONValue]]()
     func locked<T>(_ body: () -> T) -> T { gate.lock(); defer { gate.unlock() }; return body() }
-    actual.install(); cost.install()
-    defer { paletteRelease.signal(); oldObservationRelease.signal(); actual.releaseAll(); cost.uninstall() }
+    actual.install(); cost.install(); dataSnapshot.install()
+    defer { paletteRelease.signal(); oldObservationRelease.signal(); actual.releaseAll(); cost.uninstall(); dataSnapshot.uninstall() }
     // Reuse the exact public 114 physical world and ordinary producers. Its
     // stage2 is FULL/UNKNOWN; after the independent material view, stage3 is
     // FULL/normal NEGATIVE under the corrected policy17 producer.
@@ -952,9 +1028,12 @@ func testRuntime118Palette(_ root: URL) {
     }
     let originalAfter = NG2RuntimeTestHooks.afterTicketReturned
     NG2RuntimeTestHooks.afterTicketReturned = { command in
-        let event = runtime118Events(id).first { $0["id"]?.intValue == Int(command) } ?? [:]
+        // Reuse the existing report response for the root's immutable start.
+        let snapshot = report(id)
+        let event = (snapshot["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
+            .first { $0["id"]?.intValue == Int(command) } ?? [:]
         if event["kind"]?.intValue == 3 && !locked({ initialReturned }) {
-            locked { initialReturned = true }; return
+            locked { initialReturned = true; rootStarted = UInt64(max(0, snapshot["started_ns"]?.intValue ?? 0)) }; return
         }
         originalAfter?(command)
     }
@@ -1047,6 +1126,8 @@ func testRuntime118Palette(_ root: URL) {
     NG2RuntimeTestHooks.beforeAnalysisFrameCommit = { capture,start,end,prefix,stable in
         originalFrameCommit?(capture,start,end,prefix,stable)
         locked { committingID = capture }
+        let request = locked { (paletteIDs.contains(capture),currentBefore,rootStarted) }
+        if request.0 { dataSnapshot.arm(capture,start,end,prefix,rootStarted:request.2,expected:request.1) }
     }
     let originalObserveReturn = NG2RuntimeObserveTestHooks.afterObserve
     NG2RuntimeObserveTestHooks.afterObserve = {
@@ -1054,6 +1135,7 @@ func testRuntime118Palette(_ root: URL) {
         // This callback holds the actual run lock: record only the ID whose
         // real C observe just returned. No report, decode or classifier here.
         let capture = locked { committingID }
+        dataSnapshot.afterChargedObserve(capture,NG2Fake.virtualClock())
         locked { if paletteIDs.contains(capture) { observedPaletteID = capture } }
         let proof = actual.locked { () -> [String: JSONValue]? in
             let old = actual.oldState, sourceID = UInt64(old["capture_id"]?.intValue ?? 0)
@@ -1104,9 +1186,9 @@ func testRuntime118Palette(_ root: URL) {
         }
         let observed = locked { observedPaletteID }
         if observed > 0 && locked({ !paletteReleased }) {
-            let snapshot = report(id), last = UInt64(snapshot["last_capture_id"]?.intValue ?? 0)
-            let state = cycleCompanion(id), before = locked { currentBefore }
-            require(last == observed && !before.isEmpty && ["job_id","capture_id","capture_start_ns","prefix","level_id",
+            let snapshot = dataSnapshot.snapshot(), last = snapshot.0.last_capture_id
+            let state = NG2CycleWire.companion(snapshot.1), before = locked { currentBefore }
+            require(snapshot.2 && last == observed && !before.isEmpty && ["job_id","capture_id","capture_start_ns","prefix","level_id",
                 "worker_started_ns","deadline_ns","hold_started_ns","continuation_deadline_ns"].allSatisfy {
                     state[$0] == before[$0]
                 } && state["pending"]?.boolValue == true,
@@ -1124,7 +1206,7 @@ func testRuntime118Palette(_ root: URL) {
             "test118_current_DATA_durable_seal_precedes_actual_child")
         locked { child = next }
     }
-    fixtureFailureSnapshot = { ["report": .object(report(id)), "cycle": .object(cyclePayload(id)),
+    fixtureFailureSnapshot = { dataSnapshot.emitOnce(); return ["report": .object(report(id)), "cycle": .object(cyclePayload(id)),
         "campaign": .object(runtime116Payload(id, keepalive: false)),
         "stage": .int(actual.locked { actual.stage }), "palette_capture": .int(Int(locked { paletteID }))] }
     require(runtime118Start(id).1 == nil, "test118_current_DATA_initial_RS_continuous_start")

@@ -73,6 +73,53 @@ int ng2_fixture_walk118_rgba(uint8_t *out,size_t length,int32_t px,double q){
 typedef void (*NG2Tick118Callback)(void *,uint64_t);
 static NG2Tick118Callback tick118_callback;
 static void *tick118_context;
+/* DATA only: one exact observation request. Neither a Controller pointer nor
+ * a pointer to either stack snapshot survives this synchronous wrapper. */
+typedef void (*NG2Data118SnapshotCallback)(void *,uint64_t,uint64_t,uint64_t,uint64_t,
+    uint64_t,int32_t,const NG2ControllerStatus *,const NG2ControllerCycleStatus *);
+static NG2Data118SnapshotCallback data118_callback;
+static void *data118_context;
+static uint64_t data118_request[5],data118_expected[9];
+static int data118_armed,data118_consumed;
+void ng2_fixture_data118_install(NG2Data118SnapshotCallback callback,void *context){
+    data118_callback=callback;data118_context=context;
+    data118_armed=0;data118_consumed=0;
+}
+int ng2_fixture_data118_request(uint64_t id,uint64_t start,uint64_t end,uint64_t prefix,
+    uint64_t root_started,const uint64_t *expected,size_t count){
+    size_t i;
+    if(!data118_callback||data118_armed||!id||!start||start>=end||!root_started||!expected||count!=9)return 0;
+    for(i=0;i<9;++i)if(!expected[i])return 0;
+    data118_request[0]=id;data118_request[1]=start;data118_request[2]=end;
+    data118_request[3]=prefix;data118_request[4]=root_started;
+    for(i=0;i<9;++i)data118_expected[i]=expected[i];
+    data118_armed=1;return 1;
+}
+void ng2_controller_observe_irregular_at118_actual(NG2Controller *,const NG2Scene *,
+    const NG2IrregularObservation *,uint64_t,uint64_t,uint64_t,uint64_t,int32_t,uint64_t);
+void ng2_controller_observe_irregular_at(NG2Controller *p,const NG2Scene *scene,
+    const NG2IrregularObservation *observation,uint64_t id,uint64_t start,uint64_t end,
+    uint64_t prefix,int32_t stable,uint64_t commit){
+    ng2_controller_observe_irregular_at118_actual(p,scene,observation,id,start,end,prefix,stable,commit);
+    if(!data118_callback||!data118_armed||data118_consumed||id<data118_request[0])return;
+    NG2ControllerStatus status={0};NG2ControllerCycleStatus cycle={0};
+    uint64_t actual[9];size_t i;int32_t matching;
+    NG2Data118SnapshotCallback callback;
+    data118_consumed=1;
+    ng2_controller_status(p,&status);ng2_controller_cycle_status(p,&cycle);
+    actual[0]=cycle.job_id;actual[1]=cycle.capture_id;actual[2]=cycle.capture_start_ns;
+    actual[3]=cycle.prefix;actual[4]=cycle.level_id;actual[5]=cycle.worker_started_ns;
+    actual[6]=cycle.deadline_ns;actual[7]=cycle.hold_started_ns;actual[8]=cycle.continuation_deadline_ns;
+    matching=id==data118_request[0]&&start==data118_request[1]&&end==data118_request[2]
+        &&prefix==data118_request[3]&&stable==1&&status.started_ns==data118_request[4]
+        &&status.last_capture_id==id&&status.last_capture_start_ns==start
+        &&status.last_capture_end_ns==end&&cycle.pending==1;
+    for(i=0;i<9;++i)if(actual[i]!=data118_expected[i])matching=0;
+    callback=data118_callback;
+    /* POD copy only. The original Swift afterObserve charges this wrapper's
+     * whole actual duration before the original beforeControlTick release. */
+    callback(data118_context,id,start,end,prefix,commit,matching,&status,&cycle);
+}
 /* Upper-only read-only diagnostics. The original callbacks below keep their
  * existing clock-charging behavior; these extra callbacks never change it. */
 typedef void (*NG2Trace118TickCallback)(void *,uint64_t,uint64_t,int32_t,const NG2Command *);

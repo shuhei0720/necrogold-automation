@@ -14,7 +14,7 @@ import check_runtime115 as retained
 import check_runtime116 as prefix116
 
 HERE = Path(__file__).resolve().parent
-CURRENT_SCOPE_FINALIZED = True  # Upper diagnostics source-reviewed; same three case assertions; Mac execution is separate.
+CURRENT_SCOPE_FINALIZED = True  # DATA synchronous snapshot source review pending; Mac execution is separate.
 SWIFT_CASES = ('preinput_refresh', 'upper_side_hhddd', 'full_data_palette')
 GREEN_CASES = SWIFT_CASES
 DATA_CASES = ('upper_side_hhddd', 'full_data_palette')
@@ -104,7 +104,10 @@ def runtime_main():
         "            'void ng2_fixture_tick118_install(NG2Tick118Callback,void *);\\n'\n"
         "            'typedef void (*NG2Trace118TickCallback)(void *,uint64_t,uint64_t,int32_t,const NG2Command *);\\n'\n"
         "            'typedef void (*NG2Trace118EpochCallback)(void *,uint64_t,uint64_t,uint64_t,uint64_t);\\n'\n"
-        "            'void ng2_fixture_trace118_install(NG2Trace118TickCallback,NG2Trace118EpochCallback,void *);\\n')")
+        "            'void ng2_fixture_trace118_install(NG2Trace118TickCallback,NG2Trace118EpochCallback,void *);\\n'\n"
+        "            'typedef void (*NG2Data118SnapshotCallback)(void *,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,int32_t,const NG2ControllerStatus *,const NG2ControllerCycleStatus *);\\n'\n"
+        "            'void ng2_fixture_data118_install(NG2Data118SnapshotCallback,void *);\\n'\n"
+        "            'int ng2_fixture_data118_request(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,const uint64_t *,size_t);\\n')")
     source = replace_once(source,
         "shutil.copyfile(stage / 'runtime112_upper_shop.h', output / 'runtime112_upper_shop.h')",
         "shutil.copyfile(stage / 'runtime112_upper_shop.h', output / 'runtime112_upper_shop.h')\n"
@@ -125,6 +128,7 @@ def runtime_main():
         "flags.append('-Dng2_controller_begin='+CONTROLLER_BEGIN_ALIAS)\n"
         "                flags.append('-Dng2_controller_tick=ng2_controller_tick118_actual')\n"
         "                flags.append('-Dng2_controller_preparation_epoch=ng2_controller_preparation_epoch118_actual')\n"
+        "                flags.append('-Dng2_controller_observe_irregular_at=ng2_controller_observe_irregular_at118_actual')\n"
         "            if source.name == 'ngg2_runtime118_fixture.c':\n"
         "                flags += ['-DNG2_RUNTIME118_TIMING_BRIDGE', '-D_POSIX_C_SOURCE=200809L']")
     source = replace_once(source,
@@ -135,7 +139,7 @@ def runtime_main():
         "        symbols = subprocess.run(['nm','-g',str(stage / 'runtime118')],capture_output=True,text=True,check=True)\n"
         "        (output / 'runtime118-linked-symbols.txt').write_text(symbols.stdout+symbols.stderr)\n"
         "        actual_symbols = {line.split()[-1].lstrip('_') for line in symbols.stdout.splitlines() if line.split()}\n"
-        "        required_symbols = {'ng2_controller_tick118_actual','ng2_controller_tick','ng2_controller_begin115_actual','ng2_controller_begin','ng2_controller_preparation_epoch118_actual','ng2_controller_preparation_epoch','ng2_controller_observe_at','ng2_analyze_rgba','ng2_ring_assess_rgba'}\n"
+        "        required_symbols = {'ng2_controller_tick118_actual','ng2_controller_tick','ng2_controller_begin115_actual','ng2_controller_begin','ng2_controller_preparation_epoch118_actual','ng2_controller_preparation_epoch','ng2_controller_observe_irregular_at118_actual','ng2_controller_observe_irregular_at','ng2_controller_observe_at','ng2_analyze_rgba','ng2_ring_assess_rgba'}\n"
         "        if not required_symbols.issubset(actual_symbols):\n"
         "            raise ValueError('TEST118 linked actual product C symbols missing')")
     source = replace_once(source,
@@ -154,7 +158,9 @@ def runtime_main():
         HOST_ALIASES=retained.HOST_ALIASES+('NG2RuntimeContinuousTestHooks',
             'ng2_fixture_upper118_rgba', 'ng2_fixture_walk118_rgba', 'ng2_fixture_palette118',
             'ng2_fixture_tick118_install', 'ng2_controller_tick118_actual',
-            'ng2_fixture_trace118_install', 'ng2_controller_preparation_epoch118_actual'),
+            'ng2_fixture_trace118_install', 'ng2_controller_preparation_epoch118_actual',
+            'ng2_fixture_data118_install', 'ng2_fixture_data118_request',
+            'ng2_controller_observe_irregular_at118_actual'),
         IMMUTABLE_FIXTURES=retained.IMMUTABLE_FIXTURES+('check_runtime115.py','check_runtime116.py',
             'ngg2_runtime116_tests.swift','ngg2_runtime118_tests.swift',
             'ngg2_runtime118_fixture.c','generate_shop118_pixels.py'))
@@ -172,6 +178,7 @@ def main():
     proof = json.loads(receipt.read_bytes())
     proof.update(controller_tick_symbol_alias='ng2_controller_tick118_actual',
         controller_preparation_epoch_symbol_alias='ng2_controller_preparation_epoch118_actual',
+        controller_observe_irregular_symbol_alias='ng2_controller_observe_irregular_at118_actual',
         final_scope_finalized=CURRENT_SCOPE_FINALIZED, phone_acceptance=False,
         scope='selected current Runtime callback/normal RGBA boundaries with public procedural future and charged host native cost; no complete recorded-game replay or old fault suite')
     receipt.write_text(json.dumps(proof, indent=2)+'\n')

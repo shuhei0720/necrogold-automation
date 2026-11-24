@@ -110,3 +110,11 @@ H2後のsource65/job3は正常PARTIAL UNKNOWNで、次66は返却後に撮影を
 [実unit後の統合計画](../plans/test118-upper-postunit-slot.md)は、既定残経路が元Pへ入らない場合に加え、同最新unitの凍結anchor endから求めた実測offsetでも末端がPへ入らない場合だけ、次の未発行future NBを選ぶ。offsetは品質上の必要性filterであり、未来費用の下限や権限にはしない。初回H1/V1/他route・元P/10ms/source200ms/publication100ms/tail50msは保持する。左右×3shapeの旧RedはfutureNB/元80msの見通し適合/観測lagの前提を通して成立。別のCI261相対clockを使う独立modelでPへ3.669ms収まった条件はsetup失敗としてRedへ数えず、既定slotを保持するnegativeへ移し、Pを縮めていない。
 
 新postunit3＋独立入力へ継承した最後D3の3＋直接関連21の計27件が合格。旧D3 fixture/Red/Green原本は保存し、継承fixtureでは次NB自体が過去となる明示的な別遅延を使って、一拍lostと後段全assertを維持した。新Cは2関数とprivate stack型だけ、持続field/ABI追加なし。通常Ring/Runtime/phaseは不変。独立差分レビューは2関数とprivate stack型、新旧テスト・契約を確認しP0/P1なし。新Macの全経路とIPAを確認してから配布する。
+
+## 実Mac262: 上部の実chain合格とDATA観測器の負荷
+
+CODE42c26a5/run45438870971でhost122/Python3.9の76件が合格。preinputとupperは実Macでも合格した。upperは開扉を含む8方向ACK・正常MOVED7、通常Ringの最後92でpolicy18/3商品/3価格の完全陰性、耐久記録、実RS12、新floor100、seal、次childまで原記録を連結した。ただし各予約のNB余裕は55.39ms以上で、短窓分岐の採用は0回。この分岐の動的実証は公開Cの独立modelに限る。worker6のRAWは検査できるが一部の直接authority RAWは未保持で、全入力元RAWを独立再現したとは扱わない。
+
+DATAだけはcurrent job2/source46の通常NEGATIVE/complete/policy17/flags0まで成立しても、元期限208467119465に対しC採用208484165340で17.045875ms遅れた。source age63.994958msのためworker入場残86.005042ms、待機・確認からproducer開始まで65.145625ms、そこからC採用まで37.905292msだった。元pending DATA/遠方1材質差・2worker・方向入力2本（開扉/MOVED）・余分UPなしは保持し、期限後の陰性は採用しない。各RPCの個別遅延は未記録で、full reportだけを唯一の遅延原因と断定しない。
+
+元nativeC535/Runtime/Ringと成功2経路は固定し、DATAの期限内に行う補助report/companion確認を同じ実Cの安いPOD snapshotへ置き換える計画を進める。pending9fields/元source・worker・親期限/last captureの同じ確認と、全実費課金・通常陰性/耐久RS/次childの全assertは維持する。IPA・実機受入は未完了。
