@@ -3174,3 +3174,12 @@ codeeb48c1479d3662bda10812af8c604f5f619228c9/run43439504944/build173。選択137
 2026-11-14（日本時間）。[計画](../plans/test098-route-observation.md)・[受領/検証](../reviews/test098.md)・[修正表](../fix-records.md)。097の3ZIP/64PNGを照合。角の外床を持つ候補、未送信時の直交進路変更、実開扉後だけの遠方FLOOR消失/限定UNKNOWN待機、新FULL分類引継ぎを追加。初回拒否の既画像保持と現APIのMOTION診断を接続。実1最初の原因は未確定で、部分結果を対象なしへ変えない。
 
 code7b7d7515cd1a394d1215f1c619c4e41bf7b9fe16/run43537002612/build175。最終sourceのhost111/20＋selector5＝116件/21scope、現Mac API/spool/Export・Runtime096の12callback/旧source意味Redと実物5種類を照合。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-build175/LoopCtrl.ipa)・[全コード](https://github.com/shuhei0720/necrogold-automation/releases/download/test098-build175/source.zip)。IPA更新/完全再起動/Start Server/通知許可/通常VPN、test_098.shで通常1-1ポーズから候補探索→入店→3商品可視→のろいのゆびわ判定→対象なしの次周回まで確認。停止通知後iSHへ戻り、全保存/ZIP照合終了後の表示run ZIP全体を返却。実機改善・到達率/速度/未知精度は未受入。
+
+
+## TEST117受領とTEST118: 歩行source・商品陰性・上部入口の継続
+
+2026-11-25（日本時間）。[計画](../plans/test118-device-failures.md)・[検証](../reviews/test118.md)・[修正表](../fix-records.md)。TEST117の8ZIP/4run・96PNG/110記録を全照合し、元4周は全て不合格のまま保持。歩行前の同位置source更新、policy17価格断片の継承漏れ/床照明、同pending FULL DATAの受渡し、上部V2の内壁沿いHHDDD5歩と元期限内の未発行次拍予約を修正した。初回RS/対象だけの判定/対象外の連続周回を維持する。
+
+CODEdca8ca38dde55cd4bf261a4678d410675c19b30a、[Mac263/run45446666904](https://github.com/shuhei0720/necrogold-automation/actions/runs/45446666904)。選択host122/実Python3.9の76/Mac3境界が合格。上部全3商品→通常完全陰性→耐久RS→次child、別DATAも通常陰性→実RS→次childを確認。独立read-only8gateは各1回全PASS、実iOS compiler/profile3・37seal/残34不変・Runtime/R12/G1・全9Mach-O/完全1160blobを照合した。過去spool故障集合の再利用を新規実行へ数えない。IPA18,467,675B/SHA `5be4d1ca977cd65f33dd992152007a13747afbb9247b352ccf669f26d4668444`。
+
+[固定IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test118-build263/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test118-build263/source.zip)へ保存し、公開後の匿名全取得/全SHAは最終追記する。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN、新sourceのtest_118.shをiSHへmount。通常ケイデンス・オールゾーン1-1ポーズから`sh test_118.sh --until-target`で一連を実施し、上部入口も全3商品可視→対象外なら回収を挟まず次周回を確認する。停止後に全画像/ZIP照合終了を待ち、`runtime/test-118*.zip`を全て返却してもらう。iPhone到達率/毎拍・人超え/新条件の精度は未受入であり、Mac成功を元実機不合格の解消とはしない。

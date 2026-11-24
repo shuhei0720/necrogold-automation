@@ -1,7 +1,9 @@
 # 最新状態
 
-更新: 2026-11-25（日本時間）。TEST117実機4周は全て不合格。Mac262で歩行更新と上部HHDDDの全確認→正常陰性→実RS/次childが合格。短窓分岐は今回未行使。DATA別検証は正常陰性の採用が元期限17ms後で停止し、補助確認の負荷を削減中。nativeC/Runtime/Ringと成功2経路は固定する。[計画](plans/test118-device-failures.md)・[検証](reviews/test118.md)・[修正表](fix-records.md)。初回RSを維持する。
+更新: 2026-11-25（日本時間）。TEST118/build263の実IPAを作成し、配布前8照合は各1回で全PASS。TEST117実機4周の停止へ、歩行前source更新、価格断片/床照明、pending FULL DATA受渡し、上部入口の内壁沿いHHDDD5歩と予約継続を実装した。[計画](plans/test118-device-failures.md)・[検証](reviews/test118.md)・[修正表](fix-records.md)。初回リスタートと`--until-target`の連続周回を維持する。
 
-8ZIP/4run・96PNG/110記録を全照合。歩行前source更新、価格断片/床照明、pending FULL DATA受渡し、上部V2の内壁沿い5歩/policy18を実装。単体/モデル合格は実機改善完了ではない。37native中Controller/Ring/RPCだけ変更、残34/R12/G1/Runtimeは保持。
+[CODEdca8ca3/Mac263](https://github.com/shuhei0720/necrogold-automation/actions/runs/45446666904)で選択host122件、実Python3.9の76件、Macの3結合ケースが合格。上部は全3商品判定→耐久保存→実RS→次child、別DATAも正常陰性→実RS→次childを確認した。これは手続き生成画像/実RuntimeによるMac検証であり、iPhone受入・到達率・毎拍/人超え速度は未確認。元4周の不合格は閉じない。
 
-配布基準は[TEST117/build253](https://github.com/shuhei0720/necrogold-automation/releases/tag/test117-build253)（CODEc5bf0f8/source59def9e/保存419b558）。TEST118の実IPA・固定Release・iPhone受入は未完了。
+IPAは18,467,675B、SHA `5be4d1ca977cd65f33dd992152007a13747afbb9247b352ccf669f26d4668444`。固定配布先は[TEST118/build263](https://github.com/shuhei0720/necrogold-automation/releases/tag/test118-build263)（公開後の匿名全取得は最終記録で確定）。
+
+新IPA更新→LoopCtrl完全終了/起動→Start Server。完全sourceの`test_118.sh`をiSHへmountし、通常1-1ポーズから`sh test_118.sh --until-target`。上部入口で全3商品確認、対象外の連続RSを試験し、終了後`runtime/test-118*.zip`を全て返す。

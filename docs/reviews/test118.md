@@ -1,6 +1,6 @@
 # TEST118: TEST117実機4失敗への限定修正
 
-2026-11-24（日本時間）。[計画](../plans/test118-device-failures.md)・[上部5歩](../plans/test118-upper-five-step.md)・[修正表](../fix-records.md)。現在は実装/関連検証済み、実Mac結合を修正・再確認中でIPA作成/配布前。iPhone受入は未実施。
+2026-11-25（日本時間）。[計画](../plans/test118-device-failures.md)・[上部5歩](../plans/test118-upper-five-step.md)・[修正表](../fix-records.md)。CODEdca8ca3/build263で実Mac3境界と実IPA/配布前8照合が合格。固定Releaseの最終公開/匿名取得を残す。iPhone受入は未実施。過去各節の未完了はその実行時点の記録であり、最新結果は末尾に記す。
 
 ## 元の失敗と変更
 
@@ -37,7 +37,7 @@
 
 ## 配布前の残工程
 
-選択したMac3境界は、旧queueの失効/同準備epoch、上部5歩の通常RGBA→Ring/C→耐久RS→次child、pending FULL DATAの同job受渡し。全Runtime故障集合の再実行とは区別する。現時点では実Mac結果、最終IPA/実compiler/全source照合、固定Release匿名全取得が未完了。
+選択したMac3境界は、旧queueの失効/同準備epoch、上部5歩の通常RGBA→Ring/C→耐久RS→次child、pending FULL DATAの同job受渡し。全Runtime故障集合の再実行とは区別する。この時点で残した実Mac/IPA/実compiler/全sourceの確認は末尾の263で完了。固定Release匿名全取得は公開後に記録する。
 
 ## 実Mac255の不合格と試験側の切り分け
 
@@ -118,3 +118,18 @@ CODE42c26a5/run45438870971でhost122/Python3.9の76件が合格。preinputとupp
 DATAだけはcurrent job2/source46の通常NEGATIVE/complete/policy17/flags0まで成立しても、元期限208467119465に対しC採用208484165340で17.045875ms遅れた。source age63.994958msのためworker入場残86.005042ms、待機・確認からproducer開始まで65.145625ms、そこからC採用まで37.905292msだった。元pending DATA/遠方1材質差・2worker・方向入力2本（開扉/MOVED）・余分UPなしは保持し、期限後の陰性は採用しない。各RPCの個別遅延は未記録で、full reportだけを唯一の遅延原因と断定しない。
 
 元nativeC535/Runtime/Ringと成功2経路は固定し、DATAの期限内に行う補助report/companion確認を同じ実Cの安いPOD snapshotへ置き換える計画を進める。pending9fields/元source・worker・親期限/last captureの同じ確認と、全実費課金・通常陰性/耐久RS/次childの全assertは維持する。IPA・実機受入は未完了。
+
+
+## 実Mac263・最終配布前照合
+
+[CODEdca8ca38dde55cd4bf261a4678d410675c19b30a/run45446666904](https://github.com/shuhei0720/necrogold-automation/actions/runs/45446666904)、標準macos-26/ubuntu-latest。選択host122件・実Python3.9の76件、実Macのpreinput_refresh/upper_side_hhddd/full_data_paletteが全PASS。全Runtime故障集合の新規再実行ではなく、今回選択した3境界の検証である。元255〜262の不合格原本/欠測は保持する。
+
+DATA補助観測はnativeを変えず、同じ実C observeの同期範囲でStatus/Cycleの読取専用PODを一度コピーする形へ実装した。全実費を元observeCostへ計上した後、同pending9fields/last captureを検査して旧releaseを行う。入力の29typed項目は原RAW/meta/report/root/workerへ結合した。入場source age42.910292ms、元残D100ms、通常NEG採用は元D前22.044750ms。正常陰性→durable176296608748→RS5 ACK176450805331→floor58→seal→次childを原記録で確認し、余分なUP/child重複RSは0。262との改善を個々の未計測RPCへ単一帰属しない。
+
+上部は全7MOVED/方向ACK8、通常Ring6呼出、source86のpolicy18完全陰性（全3商品/3価格）→durable168051082125→RS12→floor93→鎖/seal→次child、重複RS0。D2/D3は元NBまで13.863890/35.483385msで予約された。最初の新規source75/81のPOST_MOVEで既slotを消した後の初tick発行であり、固定Cの通常50ms経路では同NBを選べないことから新短窓経路の採用を推論できる。これはsource/ledgerによる必要推論で、直接branch flagや未保存private modelの再構築とは区別する。該当74/75/80/81 RAWは保持・hash/meta/適格性を照合し、他の欠測は補完していない。
+
+root専用の独立read-only readerを実原本へ1回実行し、ci/package/host/runtime/crossbind/spool/macho/compileの8gate全PASS。追加の分類/製品compile/試験再実行は0。37seal/実ソース・ordered object/実compilerの対応、iOS profile3、全9Mach-Oへの3159禁止marker非混入、全1160Git blobのbytes/CRCを結合した。spoolの故障集合は247原本/253受入の過去証跡の再利用であり、今回の新規実行とは数えない。CODE8からCODE9でnative37と成功2case本体は不変、DATA補助検証だけを変更した。
+
+実未署名IPAはbuild263、18,467,675B/SHA `5be4d1ca977cd65f33dd992152007a13747afbb9247b352ccf669f26d4668444`。package原ZIPはSHA `d9bee78817ccedf71badc04133e63de2dbe83c09f4e4219a82de76a3329764ff`。独立レビューは残P0/P1なし。SOURCEは配布結果のdocs-only追記から作り、公式codeload全Git bytes/同nativeを照合して[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test118-build263)へ保存する。公開後の匿名3asset全取得/SHAは別の最終追記で確定する。
+
+初回RS/連続周回/候補保持/自動購入なしを維持。Mac上の手続き生成画像と実Runtime/Spoolの成功を、実ゲーム操作・iPhone到達率・毎拍/人超え速度の受入へ読み替えない。元TEST117実機4件の改善は未確認として、更新IPA/完全sourceで上部入口を含む一連の端末試験と全ZIP返却を依頼する。
