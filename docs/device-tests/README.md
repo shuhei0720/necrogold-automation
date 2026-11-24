@@ -3183,3 +3183,6 @@ code7b7d7515cd1a394d1215f1c619c4e41bf7b9fe16/run43537002612/build175。最終sou
 CODEdca8ca38dde55cd4bf261a4678d410675c19b30a、[Mac263/run45446666904](https://github.com/shuhei0720/necrogold-automation/actions/runs/45446666904)。選択host122/実Python3.9の76/Mac3境界が合格。上部全3商品→通常完全陰性→耐久RS→次child、別DATAも通常陰性→実RS→次childを確認。独立read-only8gateは各1回全PASS、実iOS compiler/profile3・37seal/残34不変・Runtime/R12/G1・全9Mach-O/完全1160blobを照合した。過去spool故障集合の再利用を新規実行へ数えない。IPA18,467,675B/SHA `5be4d1ca977cd65f33dd992152007a13747afbb9247b352ccf669f26d4668444`。
 
 [固定IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test118-build263/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test118-build263/source.zip)へ保存し、公開後の匿名全取得/全SHAは最終追記する。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN、新sourceのtest_118.shをiSHへmount。通常ケイデンス・オールゾーン1-1ポーズから`sh test_118.sh --until-target`で一連を実施し、上部入口も全3商品可視→対象外なら回収を挟まず次周回を確認する。停止後に全画像/ZIP照合終了を待ち、`runtime/test-118*.zip`を全て返却してもらう。iPhone到達率/毎拍・人超え/新条件の精度は未受入であり、Mac成功を元実機不合格の解消とはしない。
+
+
+TEST118公開後確認: SOURCE7dc68c2（CODEからdocs4件のみ）、全1160blob/bytes/CRC/同nativeを公式ZIPへ照合。固定3assetの匿名全GET/SHA/GitHub digest/実tagも一致。source10,363,441B/SHAb1d0eccc227097009ac03005d264082548123ec2d085a55cfc7cce865c45f57c、SHA表c38e820859a157325e60163f65817321ec92684df06891c01d7bdb2332dc47e7。IPAはbuild263のまま、公開job264は再ビルドではない。iPhoneの結果は未受領。

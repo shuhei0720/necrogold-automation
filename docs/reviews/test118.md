@@ -1,6 +1,6 @@
 # TEST118: TEST117実機4失敗への限定修正
 
-2026-11-25（日本時間）。[計画](../plans/test118-device-failures.md)・[上部5歩](../plans/test118-upper-five-step.md)・[修正表](../fix-records.md)。CODEdca8ca3/build263で実Mac3境界と実IPA/配布前8照合が合格。固定Releaseの最終公開/匿名取得を残す。iPhone受入は未実施。過去各節の未完了はその実行時点の記録であり、最新結果は末尾に記す。
+2026-11-25（日本時間）。[計画](../plans/test118-device-failures.md)・[上部5歩](../plans/test118-upper-five-step.md)・[修正表](../fix-records.md)。CODEdca8ca3/build263で実Mac3境界と実IPA/配布前8照合が合格。固定Releaseも公開し、匿名全取得/SHAを照合済み。iPhone受入は未実施。過去各節の未完了はその実行時点の記録であり、最新結果は末尾に記す。
 
 ## 元の失敗と変更
 
@@ -133,3 +133,10 @@ root専用の独立read-only readerを実原本へ1回実行し、ci/package/hos
 実未署名IPAはbuild263、18,467,675B/SHA `5be4d1ca977cd65f33dd992152007a13747afbb9247b352ccf669f26d4668444`。package原ZIPはSHA `d9bee78817ccedf71badc04133e63de2dbe83c09f4e4219a82de76a3329764ff`。独立レビューは残P0/P1なし。SOURCEは配布結果のdocs-only追記から作り、公式codeload全Git bytes/同nativeを照合して[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test118-build263)へ保存する。公開後の匿名3asset全取得/SHAは別の最終追記で確定する。
 
 初回RS/連続周回/候補保持/自動購入なしを維持。Mac上の手続き生成画像と実Runtime/Spoolの成功を、実ゲーム操作・iPhone到達率・毎拍/人超え速度の受入へ読み替えない。元TEST117実機4件の改善は未確認として、更新IPA/完全sourceで上部入口を含む一連の端末試験と全ZIP返却を依頼する。
+
+
+## 固定配布の公開後確認
+
+SOURCE `7dc68c2b6ab23d5fe9d3327d3386279e8625c3a1`はCODEdca8ca3から文書4件だけの差分。公式codeloadの全1160Git blob/全bytes/CRC/同native manifestを照合した。完全sourceは10,363,441B/SHA `b1d0eccc227097009ac03005d264082548123ec2d085a55cfc7cce865c45f57c`。公開処理[run45451964775](https://github.com/shuhei0720/necrogold-automation/actions/runs/45451964775)は保存だけのbuild264であり、IPAの実build263と区別する。
+
+[固定Release](https://github.com/shuhei0720/necrogold-automation/releases/tag/test118-build263)のIPA/source.zip/SHA256SUMS.txtを認証なしで全GETし、元配布bytes・全SHA・GitHub asset digest・CRC・実tag/sourceの一致を確認した。SHA表は156B/SHA `c38e820859a157325e60163f65817321ec92684df06891c01d7bdb2332dc47e7`、改行も標準LFで照合。公開後文書の追記でassetは置き換えない。端末の改善/速度は引き続き未受入。
