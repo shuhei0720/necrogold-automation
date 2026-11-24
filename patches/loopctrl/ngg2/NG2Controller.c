@@ -49,6 +49,15 @@ typedef struct {
     int box[4],parent_box[4];
     NG2ControllerStopDetail bridge_stop;
 } NG2LowerObservation;
+/* A direct normal-zero fact owns one exact immutable anchor/current pair.
+ * It saves no command or clock authority and never chains through a third
+ * image. Full copies also cover signatures, HUD fields and every mask byte. */
+typedef struct {
+    int valid,direction,horizontal,down,inputs,rebound;
+    uint64_t owner,level,opening,job,anchor_id,anchor_start,anchor_end,anchor_prefix;
+    uint64_t current_id,current_start,current_end,current_prefix;
+    NG2Scene anchor,current;
+} NG2UpperStaticProof;
 /* A bounded horizontal entry followed by individually observed DOWN steps.
  * V1 retains four starts/base parent. V2 allocates one extra observed step
  * and one frozen period only at its first admission; neither can renew. */
@@ -56,8 +65,10 @@ typedef struct {
     int active,stage,valid,direction,inputs,horizontal,down,rebound,x,y,variant,row,steps;
     uint64_t parent,hold,sync,level,opening,job,capture,prefix,issued,ordinal;
     uint64_t base_parent,allocated_parent,allocation_period;
+    uint64_t anchor_end;
     uint64_t first_owner,first_level,first_job,first_capture,first_start,first_end,first_prefix;
     uint64_t first_worker,first_assessment,first_proof;
+    NG2UpperStaticProof static_proof;
     NG2Scene world;
 } NG2UpperObservation;
 /* One composed PARTIAL data refinement belongs to the original level and
@@ -5790,6 +5801,7 @@ static int upper_result(const NG2Controller *p,const NG2RingResult *result){
     return 1;
 }
 static void upper_hold(NG2Controller *p){
+    p->upper.static_proof.valid=0;
     p->upper.stage=6;p->upper.valid=0;p->cycle.state=NG2_CYCLE_HELD;
     p->cycle_queued_valid=0;p->s.reason=NG2_REASON_GOODS;++p->cycle.completed_shops;
 }
@@ -5856,6 +5868,7 @@ static int upper_admit(NG2Controller *p,const NG2RingResult *result,uint64_t now
         p->upper.first_start=p->cycle.capture_start_ns;p->upper.first_end=p->s.last_capture_end_ns;
         p->upper.first_prefix=p->cycle.prefix;
         p->upper.first_worker=p->cycle.worker_started_ns;p->upper.first_assessment=now;
+        p->upper.anchor_end=p->s.last_capture_end_ns;
     }
     /* Initial partial probes belong to the original ITEM cells themselves.
      * No row means upper_result cannot grant its later coherent-row halo. */
@@ -5870,10 +5883,13 @@ static int upper_admit(NG2Controller *p,const NG2RingResult *result,uint64_t now
 static void upper_bind(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint64_t start,
                        uint64_t prefix,uint64_t now,int bridge){
     NG2Motion still={0};int seen=p->cycle.full_seen,d=upper_direction(p);
+    p->upper.static_proof.valid=0;
     if(!d)d=NG2_DOWN;
     if(!upper_world(p,scene)||(bridge&&(!ng2_motion(&p->cycle_anchor,scene,d,&still)
         ||still.kind!=NG2_BLOCKED||still.dx||still.dy)))p->upper.valid=0;
     cycle_latch(p,scene,now);cycle_bind(p,scene,id,start,prefix);
+    p->upper.anchor_end=p->s.last_capture_id==id&&p->s.last_capture_start_ns==start
+        &&p->s.last_capture_end_ns>=start?p->s.last_capture_end_ns:0;
     p->cycle.hold_started_ns=p->upper.hold;p->cycle_sync_deadline=minimum(p->cycle_sync_deadline,p->upper.sync);
     p->cycle.continuation_deadline_ns=minimum(p->cycle.continuation_deadline_ns,p->upper.parent);
     p->cycle.full_seen|=seen;p->upper.job=p->cycle.job_id;p->upper.capture=id;p->upper.prefix=prefix;
@@ -5899,13 +5915,60 @@ static int upper_assess(NG2Controller *p,const NG2RingResult *result,uint64_t no
         ||now>p->upper.parent||p->upper.inputs>=p->upper.steps){upper_hold(p);return 1;}
     p->upper.stage=1;p->cycle.state=NG2_CYCLE_OBSERVE_MORE;p->cycle.release_after_ns=now;return 1;
 }
-static int upper_static(const NG2Controller *p,const NG2Scene *scene,NG2Motion *motion){
-    if(!upper_identity(p)||!upper_floor(p,scene)||scene->goods!=p->cycle_anchor.goods
-        ||memcmp(p->cycle_anchor.tiles,scene->tiles,NG2_TILE_COUNT)
-        ||memcmp(p->cycle_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT))return NG2_REVALIDATE_PROTECTED;
+static int upper_static_footprint(const NG2Controller *p,const NG2Scene *scene){
+    return upper_identity(p)&&upper_floor(p,scene)&&scene->goods==p->cycle_anchor.goods
+        &&!memcmp(p->cycle_anchor.tiles,scene->tiles,NG2_TILE_COUNT)
+        &&!memcmp(p->cycle_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT);
+}
+static int upper_normal_zero(const NG2Controller *p,const NG2Scene *scene,NG2Motion *motion){
     if(!ng2_motion(&p->cycle_anchor,scene,upper_direction(p),motion)
         ||motion->kind!=NG2_BLOCKED||motion->dx||motion->dy)return NG2_REVALIDATE_MOTION;
     return NG2_REVALIDATE_NONE;
+}
+static int upper_static(const NG2Controller *p,const NG2Scene *scene,NG2Motion *motion){
+    if(!upper_static_footprint(p,scene))return NG2_REVALIDATE_PROTECTED;
+    return upper_normal_zero(p,scene,motion);
+}
+static void upper_remember_zero(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    uint64_t start,uint64_t end,uint64_t prefix){
+    NG2UpperStaticProof *z=&p->upper.static_proof;
+    if(p->upper.variant!=2||!p->upper.anchor_end
+        ||p->upper.anchor_end<p->cycle.capture_start_ns||p->upper.anchor_end>start
+        ||id!=p->s.last_capture_id||start!=p->s.last_capture_start_ns||end!=p->s.last_capture_end_ns
+        ||id!=p->seen_id||start!=p->seen_start||end!=p->seen_end
+        ||prefix!=p->last_observed_prefix||memcmp(scene,&p->scene,sizeof(*scene)))return;
+    z->valid=1;z->owner=p->s.started_ns;z->level=p->upper.level;z->opening=p->upper.opening;
+    z->job=p->upper.job;z->anchor_id=p->cycle.capture_id;z->anchor_start=p->cycle.capture_start_ns;
+    z->anchor_end=p->upper.anchor_end;z->anchor_prefix=p->cycle.prefix;
+    z->current_id=id;z->current_start=start;z->current_end=end;z->current_prefix=prefix;
+    z->direction=upper_direction(p);z->horizontal=p->upper.horizontal;z->down=p->upper.down;
+    z->inputs=p->upper.inputs;z->rebound=p->upper.rebound;
+    z->anchor=p->cycle_anchor;z->current=*scene;
+}
+static int upper_same_zero(const NG2Controller *p,const NG2Scene *scene){
+    const NG2UpperStaticProof *z=&p->upper.static_proof;
+    return p->upper.variant==2&&z->valid&&!p->finish_requested&&!p->s.terminal
+        &&!p->cycle.pending&&!p->cycle_assessing&&!p->cycle.candidate_latched
+        &&z->owner==p->s.started_ns&&z->level==p->upper.level&&z->level==p->cycle.level_id
+        &&z->opening==p->upper.opening&&z->job==p->upper.job&&z->job==p->cycle.job_id
+        &&z->anchor_id==p->upper.capture&&z->anchor_id==p->cycle.capture_id
+        &&z->anchor_start==p->cycle.capture_start_ns&&z->anchor_end==p->upper.anchor_end
+        &&z->anchor_prefix==p->upper.prefix&&z->anchor_prefix==p->cycle.prefix
+        &&z->anchor_prefix==p->s.last_completed_id&&z->current_prefix==p->last_observed_prefix
+        &&z->current_prefix==z->anchor_prefix&&z->current_id==p->s.last_capture_id
+        &&z->current_start==p->s.last_capture_start_ns&&z->current_end==p->s.last_capture_end_ns
+        &&z->current_id==p->seen_id&&z->current_start==p->seen_start&&z->current_end==p->seen_end
+        &&z->direction==upper_direction(p)&&z->horizontal==p->upper.horizontal&&z->down==p->upper.down
+        &&z->inputs==p->upper.inputs&&z->rebound==p->upper.rebound
+        &&!memcmp(&z->anchor,&p->cycle_anchor,sizeof(z->anchor))
+        &&!memcmp(&z->current,scene,sizeof(z->current));
+}
+static int upper_begin_static(const NG2Controller *p,const NG2Scene *scene,NG2Motion *motion){
+    if(!upper_static_footprint(p,scene))return NG2_REVALIDATE_PROTECTED;
+    /* This is the exact earlier normal-zero fact, not a synthetic Motion
+     * result. All command, model, fresh/time and external guards remain. */
+    if(upper_same_zero(p,scene))return NG2_REVALIDATE_NONE;
+    return upper_normal_zero(p,scene,motion);
 }
 static int upper_first_snapshot(const NG2Controller *p,uint64_t id,uint64_t start,
     uint64_t end,uint64_t prefix,uint64_t now){
@@ -5931,6 +5994,7 @@ static int upper_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
                           uint64_t end,uint64_t prefix,uint64_t now){
     NG2Motion still={0};int validation,d;
     if(!p->upper.active||p->upper.stage>=6)return 0;
+    p->upper.static_proof.valid=0;
     cycle_scene(p,scene,id,start,end,prefix);
     if(p->upper.stage==5){
         /* New accepted geometry can revoke the old source's MOVE/negative
@@ -5987,6 +6051,7 @@ static int upper_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
         p->sync_ns=p->latest_verified_ns;
         if(p->upper.sync>=12*SECOND)p->sync_ns=minimum(p->sync_ns,p->upper.sync-12*SECOND);
     }
+    upper_remember_zero(p,scene,id,start,end,prefix);
     add_sample(p,scene,id,start,end);return 1;
 }
 
@@ -8383,7 +8448,7 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
         NG2Motion still={0};
         if(p->upper.stage!=3||p->upper.inputs>=p->upper.steps||p->command.id!=p->upper.issued
             ||p->command.direction!=upper_direction(p)||now>p->upper.parent
-            ||!upper_budget(p,now,p->command.target_ns)||upper_static(p,&p->scene,&still))reason=NG2_REASON_SCREEN;
+            ||!upper_budget(p,now,p->command.target_ns)||upper_begin_static(p,&p->scene,&still))reason=NG2_REASON_SCREEN;
     }
     if(!reason&&p->command.kind==NG2_ACTION_MOVE&&p->entry.active){
         NG2Motion still={0};
@@ -8480,7 +8545,9 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
     }
     if(p->command.kind==NG2_ACTION_MOVE&&p->entry.active){++p->entry.inputs;p->entry.stage=4;}
     if(p->command.kind==NG2_ACTION_MOVE&&p->lower.active){++p->lower.inputs;p->lower.stage=4;}
-    if(p->command.kind==NG2_ACTION_MOVE&&p->upper.active){++p->upper.inputs;p->upper.stage=4;}
+    if(p->command.kind==NG2_ACTION_MOVE&&p->upper.active){
+        p->upper.static_proof.valid=0;++p->upper.inputs;p->upper.stage=4;
+    }
     p->preparation_epoch=0;
     if(p->command.kind==NG2_ACTION_MOVE){p->passage_release_proof_id=0;
         p->irregular_lead_before=p->s.lead_confirmed;irregular_clear_first(p);}

@@ -770,17 +770,18 @@ func testRuntime118Palette(_ root: URL) {
     runtime116Reset(root)
     let id = identity()
     let actual = Runtime114CurrentWorld(id), cost = Runtime118Cost(), watch = Runtime118CampaignWatch(id)
-    let paletteRelease = DispatchSemaphore(value: 0)
+    let paletteRelease = DispatchSemaphore(value: 0), oldObservationRelease = DispatchSemaphore(value: 0)
     let gate = NSLock()
     var paletteRequested = false, palette = false, paletteReleased = false
     var paletteIDs = Set<UInt64>(), paletteID: UInt64 = 0, currentBefore = [String: JSONValue]()
     var child = "", initialReturned = false, workerEntry: UInt64 = 0, ringStarted: UInt64 = 0
     var observedPaletteID: UInt64 = 0, committingID: UInt64 = 0
-    var lastHeartbeat: UInt64 = 0
+    var lastHeartbeat: UInt64 = 0, oldObservationID: UInt64 = 0
+    var oldOrder = [String: JSONValue]()
     var sourceStates = [UInt64: [String: JSONValue]]()
     func locked<T>(_ body: () -> T) -> T { gate.lock(); defer { gate.unlock() }; return body() }
     actual.install(); cost.install()
-    defer { paletteRelease.signal(); actual.releaseAll(); cost.uninstall() }
+    defer { paletteRelease.signal(); oldObservationRelease.signal(); actual.releaseAll(); cost.uninstall() }
     // Reuse the exact public 114 physical world and ordinary producers. Its
     // stage2 is FULL/UNKNOWN; after the independent material view, stage3 is
     // FULL/normal NEGATIVE under the corrected policy17 producer.
@@ -819,8 +820,11 @@ func testRuntime118Palette(_ root: URL) {
             NG2Fake.lock.lock(); NG2Fake.walkPaused = false; NG2Fake.captureLimit = nil; NG2Fake.lock.unlock()
         }
     }
-    // The old UNKNOWN producer returns naturally. Only the current immutable
-    // worker waits for the one far material observation needed by this case.
+    // One real stage3 C observation must precede the old normal Ring call.
+    // This is only a procedural ordering fence inside its original 100ms
+    // worker: the old UNKNOWN result then returns normally, without a result
+    // override or any producer/commit parking. The current worker separately
+    // waits for this case's one far material observation.
     NG2RuntimeCycleTestHooks.afterClassificationEnqueueBeforeReturn = nil
     NG2RuntimeCycleTestHooks.beforeClassificationCommitReturn = nil
     NG2RuntimeCycleTestHooks.beforeClassification = { job in
@@ -842,7 +846,22 @@ func testRuntime118Palette(_ root: URL) {
             actual.currentJob = job; actual.currentState = state; return false
         }
         NG2Fake.lock.lock(); NG2Fake.fixedCaptureAdvance = 20_000_000; NG2Fake.lock.unlock()
-        if !first {
+        if first {
+            let deadline = UInt64(state["deadline_ns"]?.intValue ?? 0), now = NG2Fake.virtualClock()
+            require(deadline > now && oldObservationRelease.wait(
+                timeout: .now() + .nanoseconds(Int(deadline-now))) == .success,
+                "test118_old_worker_waits_for_one_actual_new_source_C_observation_within_original_deadline")
+            let current = cycleCompanion(id), proof = locked { oldOrder }
+            require(["job_id","capture_id","capture_start_ns","prefix","level_id","worker_started_ns",
+                "deadline_ns","hold_started_ns","continuation_deadline_ns"].allSatisfy { current[$0] == state[$0] } &&
+                current["pending"]?.boolValue == true && current["candidate_latched"]?.boolValue == false &&
+                proof["proof_count"]?.intValue == 1 && (proof["new_capture_id"]?.intValue ?? 0) > Int(capture) &&
+                proof["prefix"] == state["prefix"] &&
+                (proof["old_source_end_ns"]?.intValue ?? Int.max) <= (proof["new_start_ns"]?.intValue ?? 0) &&
+                (proof["new_start_ns"]?.intValue ?? 0) < (proof["new_end_ns"]?.intValue ?? 0) &&
+                (proof["new_end_ns"]?.intValue ?? Int.max) <= (proof["observe_return_ns"]?.intValue ?? 0),
+                "test118_one_new_observation_preserves_exact_pending_old_source_worker_prefix_and_parent")
+        } else {
             let old = actual.locked { actual.oldState }
             require(state["job_id"] != old["job_id"] && state["capture_id"] != old["capture_id"] &&
                 state["prefix"] == old["prefix"] && state["level_id"] == old["level_id"] &&
@@ -862,13 +881,22 @@ func testRuntime118Palette(_ root: URL) {
         if now < logical+elapsed { NG2Fake.advance(logical+elapsed-now) }
         require(NG2Fake.virtualClock() <= UInt64(state["deadline_ns"]?.intValue ?? 0),
             "test118_procedural_order_fence_does_not_extend_worker_deadline")
+        if first { locked {
+            oldOrder["release_ns"] = .int(Int(NG2Fake.virtualClock()))
+            oldOrder["fence_elapsed_ns"] = .int(Int(elapsed))
+        } }
         locked { ringStarted = DispatchTime.now().uptimeNanoseconds }
     }
     let originalRingReturn = NG2RuntimeCycleTestHooks.afterClassificationCall
     NG2RuntimeCycleTestHooks.afterClassificationCall = { mode, status, outcome in
         let elapsed = DispatchTime.now().uptimeNanoseconds-locked { ringStarted }
         require(elapsed > 0 && elapsed < 100_000_000, "test118_normal_Ring_computation_measured_within_worker_bound")
-        NG2Fake.advance(elapsed); originalRingReturn?(mode, status, outcome)
+        NG2Fake.advance(elapsed)
+        if actual.locked({ actual.activeJob == actual.oldJob }) {
+            require(mode == Int32(NG2_RING_MODE_TARGET_ONLY) && status == 0 && outcome == UInt32(NG2_RING_UNKNOWN),
+                "test118_old_normal_UNKNOWN_returns_without_result_override_or_post_producer_parking")
+        }
+        originalRingReturn?(mode, status, outcome)
     }
     let originalFrameCommit = NG2RuntimeTestHooks.beforeAnalysisFrameCommit
     NG2RuntimeTestHooks.beforeAnalysisFrameCommit = { capture,start,end,prefix,stable in
@@ -880,7 +908,32 @@ func testRuntime118Palette(_ root: URL) {
         originalObserveReturn?()
         // This callback holds the actual run lock: record only the ID whose
         // real C observe just returned. No report, decode or classifier here.
-        locked { if paletteIDs.contains(committingID) { observedPaletteID = committingID } }
+        let capture = locked { committingID }
+        locked { if paletteIDs.contains(capture) { observedPaletteID = capture } }
+        let proof = actual.locked { () -> [String: JSONValue]? in
+            let old = actual.oldState, sourceID = UInt64(old["capture_id"]?.intValue ?? 0)
+            guard actual.oldJob > 0, actual.currentJob == 0, actual.rendered[capture]?.0 == 3,
+                let source = actual.consumed[sourceID], let fresh = actual.consumed[capture],
+                capture > sourceID, source.stable, fresh.stable, source.prefix == fresh.prefix,
+                fresh.prefix == UInt64(old["prefix"]?.intValue ?? Int.max),
+                source.start == UInt64(old["capture_start_ns"]?.intValue ?? 0),
+                source.end <= fresh.start, fresh.start < fresh.end else { return nil }
+            return ["old_job_id": old["job_id"] ?? .null, "old_source_id": .int(Int(sourceID)),
+                "old_source_end_ns": .int(Int(source.end)), "new_capture_id": .int(Int(capture)),
+                "new_start_ns": .int(Int(fresh.start)), "new_end_ns": .int(Int(fresh.end)),
+                "prefix": old["prefix"] ?? .null, "observe_return_ns": .int(Int(NG2Fake.virtualClock())),
+                "worker_started_ns": old["worker_started_ns"] ?? .null,
+                "deadline_ns": old["deadline_ns"] ?? .null, "proof_count": .int(1)]
+        }
+        if let proof, locked({ () -> Bool in
+            guard oldObservationID == 0 else { return false }
+            oldObservationID = capture; oldOrder = proof; return true
+        }) {
+            // This hook follows the real C return. stable is the Runtime's
+            // exact !inflightStart && !inflightEnd && equal-prefix predicate.
+            // No PNG, secondary Perception or report builder runs under it.
+            actual.freezeCaptures(); oldObservationRelease.signal()
+        }
     }
     NG2RuntimeTestHooks.beforeControlTick = {
         let now = NG2Fake.virtualClock()
@@ -944,11 +997,15 @@ func testRuntime118Palette(_ root: URL) {
     pump("test118_current_DATA_root_child_all_callbacks_drained", timeout: 40) { watch.stopped() }
     let originalStates = locked { sourceStates }, actualPaletteID = locked { paletteID }
     runtime118ArchiveStoppedSpool(root,id,sourceStates:originalStates,snapshot:stoppedSnapshot)
-    runtime111Manifest(id,required:Set(originalStates.keys.map { Int($0) } + (actualPaletteID > 0 ? [Int(actualPaletteID)] : [])))
+    runtime111Manifest(id,required:Set(originalStates.keys.map { Int($0) } + (actualPaletteID > 0 ? [Int(actualPaletteID)] : []) +
+        (locked { oldObservationID } > 0 ? [Int(locked { oldObservationID })] : [])))
     runtime118CheckStoppedSources(root,id,originalStates)
     for (capture,raw) in actual.locked({ actual.sources }) {
         runtime111PersistedPixels(root.appendingPathComponent("NGG2Cycles").appendingPathComponent(id),capture:capture,expected:raw)
     }
+    require(!pair.1.isEmpty && (pair.1["job_id"]?.intValue ?? 0) > (pair.0["job_id"]?.intValue ?? Int.max) &&
+        (pair.1["capture_id"]?.intValue ?? 0) >= Int(locked { oldObservationID }) && locked { oldObservationID > 0 },
+        "test118_current_DATA_worker_exists_after_one_actual_new_source_observation")
     runtime118CheckPaletteSources(root,id,current:pair.1,palette:actualPaletteID,
         expected:actual.locked { actual.rendered[actualPaletteID]?.1 })
     require(!locked({ child.isEmpty }) && locked { paletteID > 0 && paletteReleased && workerEntry > 0 } &&
@@ -959,6 +1016,7 @@ func testRuntime118Palette(_ root: URL) {
     require(ir110Record(root,id,"checkpoint") != nil && ir110Record(root,id,"restart_intent") != nil &&
         ir110Record(root,id,"restart_outcome") != nil,
         "test118_current_DATA_negative_reaches_actual_durable_restart_records")
+    runtime118Emit("DATA_ORDER", locked { oldOrder })
     runtime118TickEvidence(cost)
     runtime118Emit("CURRENT_DATA", ["root_id": .string(id), "child_id": .string(locked { child }),
         "old_source": pair.0["capture_id"] ?? .null, "current_source": pair.1["capture_id"] ?? .null,

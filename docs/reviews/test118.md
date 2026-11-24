@@ -58,3 +58,13 @@ DATAは、最初の正常UNKNOWN producerを2枚の後続画像が揃うまで�
 上部はOPENED/H1までで、full routeは未確認。次画像80の終了自体が直前拍の準備に間に合わず、保存next targetでは残経路が固定上限を超える。新per-job例外はこの不足を直さないため製品案を保留する。入力中の2回の全文report取得と過剰な試験pollを、実gesture pathの一回消費/撮影ごとのpose凍結と通常の有界heartbeatへ置換して検証する。撮影・ACK待ち・物理phase・元期限は保つ。停止Spoolの型/包含guardも分離してMacの既知path aliasを限定正規化し、原資料が欠けたまま成功扱いしない。
 
 CODE3の上部モデルは、入力中のC再照会をやめ、実際に渡ったgesture pathを撮影境界で一度だけ消費する。旧版は278ms待機前にposeを更新していたため、破棄対象のinflight画像は変わり得る。この差を全pixel不変とは書かない。権限を持つstable/noninflight sourceは実ACK済path/prefixとposeを照合し、8実入力のsource/実変位画像が全て検査対象に入ることを要求する。普通のcampaign_statusは小さな応答であり、2回の全文reportと混同しない。
+
+## 実Mac257の原因確定と追加修正
+
+CODE3229fc9/run45407428441ではhost105/Python3.9の76件・Swift/C compileが合格。preinputは実Runtimeでも先行2MOVED、旧予約の失効、同準備epochの新予約、実beginを確認した。残る上部/DATAは不合格で、IPAは未作成。原artifactと停止Spoolを保存した。
+
+上部はH2のC begin成功後、実送信直前の時計検査が元Dを249,740ns超過した。main入場はnot-beforeから7.730ms後、C begin時の残り2.270msに対し、C beginと後続guardの実費が2.520msだった。同じanchor62/current64の通常Motionをobserveとbeginで二度計算していたため、[限定計画](../plans/test118-upper-begin-cost.md)に従い、C所有の全画像bytes/metadata/episodeが一致する場合だけ確定済みの直接strict零を再利用する。新画像・別anchorは通常Motionを実行し、入力窓/Runtime最終guardは変えない。新8件と上部/V1関連10件が合格。原RAWによるLinux単発のstatic部分は3.277msから0.010msへ短縮したが、Mac全beginから差し引いた成功とは扱わない。
+
+DATAは、旧UNKNOWN結果が新source46の観測開始より20ms先に返り、pending FULLの新画像受渡しを試験が作れていなかった。最初の旧workerだけ新画像の実C observe一件を待ち、全待機/通常Ring/検証費用を元100ms内へ課金する。旧256の二件待ちには戻さない。元source/job/期限・通常UNKNOWN/新陰性・危険差の拒否・実RS/次childのassertを保持し、順序13項目を証跡へ残す。商品判定を強制したり、製品期限を広げたりしない。
+
+追加変更の実Mac結合・IPA・iPhone受入は、まだ未確認である。
