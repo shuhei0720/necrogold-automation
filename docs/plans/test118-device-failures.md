@@ -39,3 +39,13 @@
 5歩後の全3下床を使う片面policy18は、完全1SHOP/3ITEM/halo/両cap/3価格/全正探索を維持し、屋根・側壁・商品4row上の入口を挟む14個以上の観測GOLD支持をRingとCが別々に確認する。未知の下壁や床を補完せず、旧policyの範囲は変えない。
 
 実Mac257でpreinput境界は合格。上部の実send期限超過は[begin重複計算の限定削減](test118-upper-begin-cost.md)、DATAの観測先着を作れていない試験順序は元100ms内の一件fenceで追加検証する。各不合格原本を保持し、新しいMac結合・IPA同一性・実機受入へ進む。私的cutや単体の合格を全過去state再現・実機成功と書かない。
+
+## 2026-11-25: 未送信条件を特定する診断
+
+Mac259のH1/H2はC begin前で拒否された。H1では直列観測処理の期限跨ぎを確認したが、H2は個別main時刻/epochが未記録で、timeと準備資格の区別ができない。製品修正や同じ再試行を重ねる前に、fixture/checkerの三ファイルだけへupper限定の有限整数ledgerを追加する。
+
+既Ctickの実command、既begin/準備getterの無加工返値、実main hook、元観測区間を4096行ringとdrop数へ保存。既scheduleTicket hookはfalseを返して実asyncAfterを維持し、追加の資格getter/RPC/画像処理/時計加算は行わない。Controller TUの第三のhost-only aliasは実getterを一度呼び、結果をそのまま返す。子admission前に記録を止め、旧IDと子IDを混ぜない。
+
+preinput/DATA本体、native37source、元物理phase/期限/全assertは保持する。epoch0はsingle-IDとして有効、cached共有leaseのnilはlocal queued leaseの不存在ではない、main hookは最終gateそのものではない、dropした区間は未確定という制限を記録する。定期poll予測の印も実RPC境界とは扱わない。
+
+型/構文・二つの通過本体とnative bytes・独立差分レビュー、実compilerの第三alias/元source/linked symbolの閉結合を確認して、同じMac3ケースへ戻る。これは診断の追加であり、ゲーム動作の修正完了や実機合格を意味しない。

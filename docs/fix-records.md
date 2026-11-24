@@ -685,10 +685,11 @@ TEST117固定公開確認: SOURCE59def9eはCODEからdocs3件のみ。全1132blo
 | FR-118-UPPER-BEGIN-COST | 2026-11-24 | 補助Mac257でH2のbegin成功後に確実未送信 | main入場がNB+7.730ms。C begin時の残2.270msに対しbegin/後続guardが2.520ms、実sendがD+249,740ns。同anchor/currentへの通常Motionをobserveとbeginで重複計算 | V2だけC所有の全画像bytes・metadata・episodeが同一ならobserveの直接strict零を再利用。新画像は毎回通常Motion、未証明/V1は旧fallback。元10ms/最終実時計guardは保持 | 旧回数assertion Red6subcase→新8件、上部/V1関連10件合格。原RAW static成分はLinux単発3.277→0.010ms。Mac全begin・iPhone速度は別確認 | 補助Macで今回1。実機上部停止と同根因かは未確認、実機再発数へ加算しない |
 | FR-118-UPPER-JOB-FENCE | 2026-11-24 | Mac258でH1後にH2を予約せずUNKNOWN停止 | 正常job2/source68の返却を3.848ms跨ぐ独立画像69が初回限定条件で除外。70では準備cutを過ぎ、一拍遅れで残4歩が固定上限を419.141ms超過 | 実unit後bridge0新jobのV2・既return fence有効時だけ、凍結source-end/owner/level/opening/current prefix/歩数と元worker-returnを結ぶ一回資格。同job再結果/bridge1の再armなし。元parent/窓/予算/通常strict零、旧初回/V1/feature-offを保持 | 原RAW68→69の通常BLOCKED(0,0)、床/保護/全GOLD・potential、UNKNOWN採用を確認。旧Red6条件→新3件・関連21件合格。原時刻metadataと近傍fit約28ms余地はlive完全再現と区別。新Mac・実機未確認 | 補助Macで今回1。257のbegin/sendとは別原因。実機同根因数不明 |
 
-### 補助試験側の不備
+### 補助試験・診断の記録
 
 実機4runの再発数とは別に記録する。製品の期限や判定閾値を、補助試験に合わせて変更しない。
 
 | ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
 | --- | --- | --- | --- | --- | --- | --- |
 | FR-118-MAC-FIXTURE | 2026-11-24 | Mac255/256の3case、257の2caseが不合格、IPA未作成 | 255は0nsへの誤assertと重複画像検証。256はtile単位/capture指定と過大な二件待機。257 DATAは旧UNKNOWNが新観測より20ms先着しpending境界を試せていない。上部257/258は別行の製品境界 | 実費0を保持、検証をdrain後、正しいtile/exact captureを使用。DATAは一件の実C observeを元100ms内で待つ。画像/通常判定/期限は保持 | 各不合格原ZIP/sourceを保持。258でpreinputとDATAが実Runtime合格、DATAは通常陰性/耐久保存/実RS/次childまで確認。iPhone改善とは別 | 補助CI4実行、case不合格数3/3/2/1。実機障害数へ算入しない |
+| FR-118-DISPATCH-DIAGNOSTICS | 2026-11-25 | Mac259初回H1、変更なしの一度の再試行でH2が未送信 | 初回はC観測終了がD+125486ns、その後Runtime prebegin拒否。二回目は観測終了D−23.336ms、begin0/CAPTUREでD+165801ns終了。first-only記録が古い別命令だけを残し、H2のtime/準備epoch失効を識別できない | 製品を推測で変える前に、upper限定・有限整数ledgerで各実予約/main/既begin/getter返値を記録。時計加算/追加資格呼出/hotRPCなし、全元条件を保持 | 原不合格2ZIP/原記録を保存。時計二重加算を否定。通過済みpreinput/DATA本体は固定し、次の同3境界で分岐を確認する。未実施/実機未確認 | 補助Mac259の2試行で各1件。遅延の内訳と同根因通算は未確定。実機件数へ加算しない |

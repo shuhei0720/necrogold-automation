@@ -618,21 +618,162 @@ func runtime118CheckStoppedSources(_ root: URL, _ id: String, _ sources: [UInt64
         runtime111PersistedPixels(folder, capture: capture, expected: raw)
     }
 }
+// Upper-only read-only diagnostics. No hook supplies a clock, Scene, guard,
+// lease or result. A hook marker is not the later Runtime final gate.
+final class Runtime118UpperTrace {
+    let id: String, capacity = 4096
+    private let gate = NSLock()
+    private var rows = [[Int64]?](repeating: nil, count: 4096)
+    private var sequence: UInt64 = 0, active = true
+    private var capture: (UInt64, UInt64, UInt64, UInt64, Bool) = (0,0,0,0,false)
+    private var saved: [String: JSONValue]?
+    init(_ id: String) { self.id = id }
+    func mark(_ kind: Int64, _ ticket: UInt64 = 0, _ values: [Int64] = []) {
+        gate.lock(); defer { gate.unlock() }
+        guard active else { return }
+        sequence += 1
+        // Preserve uint64 bits, rather than trapping in a hot callback.
+        rows[Int((sequence-1) % UInt64(capacity))] = [Int64(bitPattern: sequence),kind,
+            Int64(bitPattern: DispatchTime.now().uptimeNanoseconds),Int64(bitPattern: ticket)] + values
+    }
+    func preparation(_ command: NG2Command) {
+        let ticket = command.id // Immutable identity from this actual C return.
+        NG2RuntimeTestHooks.beforeMainAdmission = { self.mark(2,ticket) }
+        NG2RuntimeTestHooks.afterForegroundQuery = { self.mark(3,ticket) }
+    }
+    func install() {
+        ng2_fixture_trace118_install(runtime118TraceTick, runtime118TraceEpoch, Unmanaged.passUnretained(self).toOpaque())
+        ng2_fixture_begin115_install(runtime118TraceBegin, Unmanaged.passUnretained(self).toOpaque())
+        NG2RuntimeTestHooks.scheduleTicket = { ticket, _ in
+            self.mark(1,ticket)
+            // ownsTicket precedes the main hook, and controlQueue synchronously
+            // waits for main. No later ticket can replace this captured ID.
+            NG2RuntimeTestHooks.beforeMainAuthority = {
+                self.mark(4,ticket)
+                let lease = runtime.testPreparedAuthority(self.id, commandID: ticket)
+                self.mark(5,ticket,[lease == nil ? 0 : 1] + (lease ?? []).map { Int64(bitPattern:$0) })
+            }
+            return false // Preserve actual Runtime dispatch, due-inline or asyncAfter.
+        }
+        NG2RuntimeTestHooks.beforeAnalysisFrameCommit = { ticket,start,end,prefix,stable in
+            self.gate.lock(); self.capture = (ticket,start,end,prefix,stable); self.gate.unlock()
+        }
+        NG2RuntimeObserveTestHooks.beforeObserve = { self.observation(8) }
+        NG2RuntimeObserveTestHooks.afterObserve = { self.observation(9) }
+        NG2RuntimeTestHooks.beforeControlTick = { self.mark(10) }
+    }
+    func observation(_ kind: Int64) {
+        gate.lock(); let value = capture; gate.unlock()
+        mark(kind,value.0,[Int64(bitPattern:value.1),Int64(bitPattern:value.2),
+            Int64(bitPattern:value.3),value.4 ? 1 : 0])
+    }
+    func progress(_ watch: Runtime118CampaignWatch, _ child: String) -> Bool {
+        let now = DispatchTime.now().uptimeNanoseconds
+        let predictedDue = watch.lastPoll == 0 || now-watch.lastPoll >= 1_000_000_000
+        if predictedDue { mark(11) }
+        let result = watch.progress(child) // Same original keepalive/cadence.
+        if predictedDue { mark(12) }
+        // The original watch samples its own later now: absent markers do
+        // not prove that its one-second boundary was not crossed inside it.
+        return result
+    }
+    func stop() {
+        gate.lock(); let wasActive = active; active = false; gate.unlock()
+        guard wasActive else { return }
+        ng2_fixture_trace118_install(nil,nil,nil); ng2_fixture_begin115_install(nil,nil)
+        NG2RuntimeTestHooks.scheduleTicket = nil
+        NG2RuntimeTestHooks.beforeMainAdmission = nil; NG2RuntimeTestHooks.afterForegroundQuery = nil
+        NG2RuntimeTestHooks.beforeMainAuthority = nil; NG2RuntimeTestHooks.beforeAnalysisFrameCommit = nil
+        NG2RuntimeObserveTestHooks.beforeObserve = nil; NG2RuntimeObserveTestHooks.afterObserve = nil
+        NG2RuntimeTestHooks.beforeControlTick = nil
+    }
+    func save() -> [String: JSONValue] {
+        gate.lock()
+        if let saved { gate.unlock(); return saved }
+        let total = sequence, stillActive = active, copy = rows.compactMap { $0 }
+        gate.unlock()
+        let ordered = copy.sorted { $0[0] < $1[0] }
+        let body: [String: JSONValue] = ["schema": .string("test118-upper-ticket-ledger-v1"),"run_id": .string(id),
+            "root_only": .bool(true),"active_at_snapshot": .bool(stillActive),"capacity": .int(capacity),
+            "total_rows": .int(Int(total)),"dropped_rows": .int(max(0,Int(total)-capacity)),
+            "row_prefix": .array(["sequence","kind","Dispatch_uptime_ns","immutable_ID"].map { .string($0) }),
+            "unsigned_encoding": .string("uint64 bits encoded as signed int64; no hot overflow trap"),
+            "kinds": .object(["1": .string("schedule_hook_return_FALSE_actual_dispatch_path_preserved_may_due_inline; no extra values"),
+                "2": .string("prepare_main_hook; no extra values"),"3": .string("AX_return_hook; no extra values"),
+                "4": .string("beforeMainAuthority_hook_not_final_gate; no extra values"),
+                "5": .string("cached_shared_lease_present[,authority_start,end,prepared_ID,epoch]; nil_is_not_local_queued_lease_absence"),
+                "6": .string("actual_C_begin_return; passed_now,result"),
+                "7": .string("actual_C_tick_return; passed_now,native_elapsed,result[,ordinal,target,NB,D,source_ID,source_start,phase_sample,kind,direction,x,y]"),
+                "8": .string("before_actual_C_observe; capture_start,end,prefix,stable"),
+                "9": .string("after_actual_C_observe; capture_start,end,prefix,stable"),
+                "10": .string("before_ControlTick_hook; no extra values"),
+                "11": .string("predicted_due_progress_call_begin; no extra values; absence_does_not_prove_no_actual_poll"),
+                "12": .string("predicted_due_progress_call_end; no extra values; enclosing_call_not_actual_RPC_boundary"),
+                "13": .string("actual_C_preparation_epoch_return; passed_now,actual_epoch,native_elapsed")]),
+            "limits": .string("Read-only diagnostic overhead is real wall time. Epoch0 permits single-ID use. Hook is not final gate; missing gate-epoch/begin cannot uniquely distinguish time/key/cancel. Dropped intervals remain unknown. Predicted-due progress markers are not exact RPC edges; their absence cannot exclude a boundary-crossing actual poll. CLOCK_MONOTONIC is duration only."),
+            "rows": .array(ordered.map { .array($0.map { .int(Int($0)) }) })]
+        var summary: [String: JSONValue] = ["run_id": .string(id),"rows": .int(ordered.count),
+            "total_rows": .int(Int(total)),"dropped_rows": .int(max(0,Int(total)-capacity))]
+        if let output = ProcessInfo.processInfo.environment["NG2_RUNTIME112_EVIDENCE"] {
+            let folder = URL(fileURLWithPath:output).deletingLastPathComponent().appendingPathComponent("upper-ticket-ledger")
+            do {
+                try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
+                let bytes = try JSONEncoder().encode(body), name = "upper-ticket-ledger/"+id+".json"
+                try bytes.write(to:folder.appendingPathComponent(id+".json"),options:.atomic)
+                summary["path"] = .string(name); summary["sha256"] = .string(NG2CycleWire.hash(bytes))
+            } catch { summary["save_error"] = .string("diagnostic_write_failed") }
+        } else { summary["save_error"] = .string("diagnostic_output_unavailable") }
+        gate.lock(); saved = summary; gate.unlock()
+        runtime118Emit("UPPER_LEDGER", summary)
+        return summary
+    }
+}
+func runtime118TraceTick(_ context: UnsafeMutableRawPointer?, _ now: UInt64, _ elapsed: UInt64,
+        _ result: Int32, _ pointer: UnsafePointer<NG2Command>?) {
+    guard let context else { return }
+    let trace = Unmanaged<Runtime118UpperTrace>.fromOpaque(context).takeUnretainedValue()
+    var values = [Int64(bitPattern:now),Int64(bitPattern:elapsed),Int64(result)]
+    var ticket: UInt64 = 0
+    if result == 1, let command = pointer?.pointee {
+        ticket = command.id
+        values += [command.ordinal,command.target_ns,command.not_before_ns,command.deadline_ns,
+            command.source_capture_id,command.source_start_ns,command.phase_sample_ns].map { Int64(bitPattern:$0) }
+        values += [command.kind,command.direction,command.x,command.y].map { Int64($0) }
+        trace.preparation(command) // Copies values; no pointer retained.
+    }
+    trace.mark(7,ticket,values)
+}
+func runtime118TraceEpoch(_ context: UnsafeMutableRawPointer?, _ ticket: UInt64, _ now: UInt64,
+        _ value: UInt64, _ elapsed: UInt64) {
+    guard let context else { return }
+    Unmanaged<Runtime118UpperTrace>.fromOpaque(context).takeUnretainedValue()
+        .mark(13,ticket,[Int64(bitPattern:now),Int64(bitPattern:value),Int64(bitPattern:elapsed)])
+}
+func runtime118TraceBegin(_ context: UnsafeMutableRawPointer?, _ ticket: UInt64, _ now: UInt64, _ result: Int32) {
+    guard let context else { return }
+    Unmanaged<Runtime118UpperTrace>.fromOpaque(context).takeUnretainedValue()
+        .mark(6,ticket,[Int64(bitPattern:now),Int64(result)])
+}
+
 func testRuntime118Upper(_ root: URL) {
     runtime116Reset(root)
     NG2Fake.lock.lock(); NG2Fake.fixedClock = nil; NG2Fake.offset = 0; NG2Fake.lock.unlock()
     NG2RuntimeTestHooks.scheduleTicket = nil
     NG2RuntimeCycleTestHooks.classificationResult = nil
     let id = identity()
-    let actual = Runtime118UpperWorld(id), watch = Runtime118CampaignWatch(id)
-    actual.install()
-    fixtureFailureSnapshot = { ["report": .object(report(id)), "cycle": .object(cyclePayload(id)),
+    let actual = Runtime118UpperWorld(id), watch = Runtime118CampaignWatch(id), trace = Runtime118UpperTrace(id)
+    actual.install(); trace.install()
+    defer { trace.stop() }
+    fixtureFailureSnapshot = {
+        _ = trace.save() // Failure/post-route serialization only, never a hot marker.
+        return ["report": .object(report(id)), "cycle": .object(cyclePayload(id)),
         "campaign": .object(runtime116Payload(id, keepalive: false)),
         "directions": .array(actual.locked { actual.gestures.map { .int($0) } }),
         "pose": .array(actual.locked { [.int(Int(actual.x)), .int(Int(actual.y))] }),
         "capture_models": .object(actual.locked { Dictionary(uniqueKeysWithValues:
             actual.captureModels.map { (String($0.key), JSONValue.object($0.value)) }) })] }
     NG2RuntimeContinuousTestHooks.afterChildAdmitted = { rootID, old, child, index in
+        trace.stop() // This callback precedes start(child); root IDs never mix with child IDs.
         require(rootID == id && old == id && child != id && index == 1 &&
             ir110Record(root, id, "continuation_seal") != nil,
             "test118_original_parent_disk_seal_precedes_actual_fresh_child")
@@ -641,8 +782,9 @@ func testRuntime118Upper(_ root: URL) {
     require(runtime118Start(id).1 == nil, "test118_upper_actual_initial_RS_continuous_start")
     pump("test118_normal_upper_all_goods_negative_RS_then_child", timeout: 60) {
         let child = actual.locked { actual.child }
-        return watch.progress(child)
+        return trace.progress(watch,child)
     }
+    trace.stop(); _ = trace.save()
     let terminal = ir110Record(root, id, "terminal")?["controller"]?.objectValue ?? [:]
     let events = (terminal["events"]?.arrayValue ?? []).compactMap { $0.objectValue }
     let acknowledged = events.filter { $0["kind"]?.intValue == 4 && $0["outcome"]?.intValue == 2 }

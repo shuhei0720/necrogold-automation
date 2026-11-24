@@ -73,6 +73,29 @@ int ng2_fixture_walk118_rgba(uint8_t *out,size_t length,int32_t px,double q){
 typedef void (*NG2Tick118Callback)(void *,uint64_t);
 static NG2Tick118Callback tick118_callback;
 static void *tick118_context;
+/* Upper-only read-only diagnostics. The original callbacks below keep their
+ * existing clock-charging behavior; these extra callbacks never change it. */
+typedef void (*NG2Trace118TickCallback)(void *,uint64_t,uint64_t,int32_t,const NG2Command *);
+typedef void (*NG2Trace118EpochCallback)(void *,uint64_t,uint64_t,uint64_t,uint64_t);
+static NG2Trace118TickCallback trace118_tick;
+static NG2Trace118EpochCallback trace118_epoch;
+static void *trace118_context;
+void ng2_fixture_trace118_install(NG2Trace118TickCallback tick,NG2Trace118EpochCallback epoch,void *context){
+    trace118_tick=tick;trace118_epoch=epoch;trace118_context=context;
+}
+uint64_t ng2_controller_preparation_epoch118_actual(const NG2Controller *,uint64_t,uint64_t);
+uint64_t ng2_controller_preparation_epoch(const NG2Controller *p,uint64_t id,uint64_t now){
+    struct timespec start,end;uint64_t value,elapsed;
+    NG2Trace118EpochCallback callback=trace118_epoch;void *context=trace118_context;
+    if(!callback)return ng2_controller_preparation_epoch118_actual(p,id,now);
+    clock_gettime(CLOCK_MONOTONIC,&start);
+    value=ng2_controller_preparation_epoch118_actual(p,id,now);
+    clock_gettime(CLOCK_MONOTONIC,&end);
+    elapsed=(uint64_t)(end.tv_sec-start.tv_sec)*UINT64_C(1000000000)
+        +(uint64_t)end.tv_nsec-(uint64_t)start.tv_nsec;
+    callback(context,id,now,value,elapsed);
+    return value;
+}
 int ng2_controller_tick118_actual(NG2Controller *,uint64_t,int32_t,int32_t,int32_t,NG2Command *);
 void ng2_fixture_tick118_install(NG2Tick118Callback cb,void *context){
     tick118_callback=cb;tick118_context=context;
@@ -86,6 +109,7 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t foreground,
     elapsed=(uint64_t)(end.tv_sec-start.tv_sec)*UINT64_C(1000000000)
         +(uint64_t)end.tv_nsec-(uint64_t)start.tv_nsec;
     if(tick118_callback)tick118_callback(tick118_context,elapsed);
+    if(trace118_tick)trace118_tick(trace118_context,now,elapsed,result,result==1?out:NULL);
     return result;
 }
 #endif

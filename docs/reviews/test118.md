@@ -78,3 +78,13 @@ CODE8336f22/run45414144439はhost113/Python3.9の76件・Swift/C compileが合�
 各jobの同条件を一度だけ使う限定修正を、独立設計/差分レビュー後に実装。新3件は旧Cで6条件のassertion Red後に合格し、直接関連21件も合格した。実unit後のbridge0新job・V2・既Runtime return fence有効時だけ、凍結source-end/owner/level/opening/current prefix/歩数と元worker-returnを結ぶ。同job再結果や素材bridge1では再armしない。初回旧mode/V1/finite feature-off、元親期限/準備50ms/送信10msを保持する。
 
 原RAW68→69の通常strict零と全床/保護/GOLD支持は別途確認。原metadataは新資格を満たし、新公開testはその相対時刻でprepareへ進む。近傍の保存fitから計算した69commitの準備余地は約28msだが、未保存live modelの完全再現とは扱わない。既合格二境界・未改変のrendererは固定し、追加修正の実Mac/IPA/iPhoneは未確認とする。
+
+## 実Mac259: 未送信境界の診断不足
+
+CODE6548509/run45419240354ではhost116/Python3.9の76件が合格。Macの歩行更新/DATAは二回とも合格したが、上部は初回H1、変更なしの一度の再実行ではH2が未送信で停止した。IPAは未作成で、両不合格の原ZIPを保持した。再実行ではH1実MOVED後、跨ぎ画像69からH2予約を確認しており、各job一回の追加条件は実際に行使された。
+
+初回は同じ直列controlQueueの画像116観測がH1のDを125,486ns超えて終了し、その後の実行は既に期限外。H1はC begin前にCAPTURE/NOT_SENTへ落ちた。二回目H2もbegin0/CAPTUREでD後165,801nsに終了したが、直前観測はDの23.336ms前に完了している。古い別命令のfirst-only dispatchFailureしかなく、H2のmain到着・最終guard時刻・準備epochを識別できない。二回目を同じ観測跨ぎやC begin計算費用が原因とは書かない。
+
+upperは実monotonic時計・offset0で、固定時計用の20ms加算やC費用の二重課金は適用されない。画像生成はbackground、mainの定期keepaliveも軽い応答であり、CPU/queue/mainのどこへ遅延が寄ったかは未確定。汎用asyncAfterの許容遅延というAPI上のリスクと、今回の唯一の原因の確定を分ける。
+
+次は製品条件を変える前に、upperだけの有限整数ledgerで実予約・main到着・既C beginと準備getterの実引数/返値を記録する。元Runtime/Controller/Ring、時計/phase/10ms/全assert、通過済み二ケース本体は保持する。診断を入力資格へ使わず、hot pathのRPC/画像処理や追加の資格getter呼出も加えない。同じ条件の再試行を繰り返す代わりに、失敗分岐を特定する。
