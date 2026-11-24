@@ -45,3 +45,14 @@ newV2だけ最大horizontal2/down3/started5、V1は2/2/4。各歩の新しい実
 ## 8. 対象外
 
 旧V1や他runの期限拡大、動作開始後のrolling延長、6歩以上、未知床/商品を陰性にする補完、撮影のHUD消去、未来画像の実機再現扱い、追加の全体CI。policy18の限定設計を、単面/row制限を一般に外す変更へ広げない。
+
+## 9. CI258: 実移動後の同jobに一回だけ独立snapshotを使う追加計画
+
+1. **目的** — 初回だけのearly150と同じ独立性を、V2の実unit後に既に開始したPARTIAL jobへ一回適用する。入力・DATA回数・route上限は追加しない。旧V1、初回early150の旧mode、通常finite feature-offは変更しない。
+2. **原因** — 原CI258はH1後のsource68を正常UNKNOWN/safeで採用した。次69は旧68 end後36.445ms・worker開始後14.662msに開始し、結果返却を3.848ms跨いだ。原68→69は通常strict BLOCKED零、tiles/保護一致、実床・元GOLD・潜在域/返却4slotも成立する。既helperの入力0制限で69を捨て、次70では直後拍の準備に間に合わない。後ろの候補による残4歩予測は固定capを約419ms超える。CI257の実send窓超過とは別原因で、元117の全private状態再生とは呼ばない。
+3. **詳細設計** — 既`first_*`をそのjobの不変stampとして使い、元opening IDは`upper.opening`に固定する。新しいpost-input stampはV2かつ既`restart_yield.enabled`で、`upper_bind`が実ACK/通常同方向unit MOVEDを受けたbridge0の新jobを作る時だけ凍結する。source endはそのbindで凍結した`upper.anchor_end`を使い、結果時点の最新画像endへ差し替えない。owner/level/opening/job/source ID/start/end/current prefixと、その時のinputs/horizontal/downを結ぶ。後続prefixは実MOVEDのIDでありopening IDとは別。bridge1の素材/FULL rebindは資格を無効化し、再armしない。同じjobの再結果・観測でproofをリセットしない。
+4. **返却と入力の条件** — 同じjobのsafe UNKNOWN採用時にだけworker-start/assessment-releaseを結合する。新画像はstage1・同counter/owner/level/job/source/prefix・非inflight/stableのまま、IDがsourceより新しく、start>=max(source end,worker start)、end/commit>=実result release、元鮮度/route cap内とする。既Runtimeのproducer実return tokenが残る間は全tickを遮断するmodeだけを新post-input資格へ用いる。source不足・候補/対象・FULL/bridge reboundは保持または旧経路へ戻す。通常world/floor/strictzero・新sample/有効model・全begin/send guardの後だけ入力できる。最初の正常stage1→2でjobのproofを消費する。
+5. **新規試験** — 公開Cの実H1→新bind→worker→snapshotにCI258の相対capture/worker/result時刻を与え、旧版の69棄却を意味Redへする。左右と後続DOWNの別job、同job二回目・bridge1・feature-off・source前/worker前/result前・prefix/level/job不一致・候補/target・未知/保護床・期限外を確認する。初回early150/旧V1と、元route cap/counter不増の既assertは保持する。
+6. **順序** — 独立8項目設計レビューP0解消→旧Red→最小C差分→限定Green/関連回帰→原69の資格・prepare余地を別cutで確認→同fixture/時計/ACK/phaseの実Macへ戻す。元rolling modelを捏造せず、最も近い保存fitによる準備余地と実live状態を区別する。
+7. **保存・受入** — 元CI258 raw/meta/通常結果・旧Red、新proofのsource-end/worker-release/入力counter/原cap、全source/seal/compilerを対応付ける。動いた歩数だけで合格にせず、正常FULL判定→耐久RS→次childを実Runtimeで確認する。iPhone受入と速度は別未確認。
+8. **対象外** — renderer/カメラ/ACK/phaseの容易化、親P・worker/source/10ms窓の拡張、bridge1や任意jobへの再arm、初回資格の一般化、finite feature-offへの実return保証の仮定、通常Motionの緩和、UNKNOWN入力の再送、Runtime変更。

@@ -35,6 +35,7 @@ NEW_PATHS = frozenset({
     'tests/test_native_upper118.py', 'tests/test_native_floor_moments118.py',
     'tests/test_native_current_data118.py', 'tests/test_native_upper_single_face118.py',
     'tests/test_native_upper_begin118.py',
+    'tests/test_native_upper_snapshot118.py',
     'tests/test_native_upper_single_controller118.py', 'patches/loopctrl/run_test118_host.py',
     'patches/loopctrl/run_test118_python39.py', 'patches/loopctrl/test_device_ci118.py',
     'patches/loopctrl/check_runtime118.py', 'patches/loopctrl/ngg2_runtime118_tests.swift',
@@ -95,6 +96,11 @@ CASES = (
         'test_owner_cancel_and_original_deadline_still_revoke_begin',
         'test_old_id_is_inert_and_begin_attempt_consumes_only_its_own_proof',
         'test_V1_retains_its_normal_begin_motion_call',
+    }), True),
+    ('tests.test_native_upper_snapshot118', 'NativeUpperSnapshot118Tests', 'test118-upper-snapshot', frozenset({
+        'test_postunit_crossing_snapshot_qualifies_each_new_job_without_renewing_cap',
+        'test_feature_off_and_bad_metadata_or_positive_floor_cannot_use_the_exception',
+        'test_same_job_result_and_bridge_rebind_do_not_rearm_early_qualification',
     }), True),
     ('tests.test_native_floor_moments118', 'NativeFloorMoments118Tests', 'test118-floor-moments', frozenset({
         'test_mottled_floor_uses_both_raw_moments_without_moving_thresholds',

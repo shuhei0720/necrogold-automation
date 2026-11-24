@@ -29,7 +29,7 @@
 
 ## 独立レビューと試験の訂正
 
-差分全域のController変更23関数・Ring変更15関数を独立レビューしP0なし。上部初回配分/5歩とpolicy18は限定8項目設計・レビューを経た。新テストの成功だけで実機不合格を閉じない。
+初回差分のController23関数・Ring15関数に加え、追加cacheの11関数も独立レビューしP0なし。重複を除くController変更は31関数。上部初回配分/5歩とpolicy18は限定8項目設計・レビューを経た。新テストの成功だけで実機不合格を閉じない。
 
 既109の「名前なし正画像＋同商品価格をCANDIDATEにする」期待は、111以降の正画像/価格要件と旧製品出力にも反していた。TARGETへ訂正し、score/実価格/wordなし/候補保持のassertを強化した。既budget8の即reason17期待も旧製品で有限観測待機へ移るため、旧命令側reason17/回数8/再送なし/期限内外入力なし/3秒鮮度切れを検査する形へ訂正した。どちらも製品の旧Redとは数えない。
 
@@ -65,6 +65,16 @@ CODE3229fc9/run45407428441ではhost105/Python3.9の76件・Swift/C compileが�
 
 上部はH2のC begin成功後、実送信直前の時計検査が元Dを249,740ns超過した。main入場はnot-beforeから7.730ms後、C begin時の残り2.270msに対し、C beginと後続guardの実費が2.520msだった。同じanchor62/current64の通常Motionをobserveとbeginで二度計算していたため、[限定計画](../plans/test118-upper-begin-cost.md)に従い、C所有の全画像bytes/metadata/episodeが一致する場合だけ確定済みの直接strict零を再利用する。新画像・別anchorは通常Motionを実行し、入力窓/Runtime最終guardは変えない。新8件と上部/V1関連10件が合格。原RAWによるLinux単発のstatic部分は3.277msから0.010msへ短縮したが、Mac全beginから差し引いた成功とは扱わない。
 
-DATAは、旧UNKNOWN結果が新source46の観測開始より20ms先に返り、pending FULLの新画像受渡しを試験が作れていなかった。最初の旧workerだけ新画像の実C observe一件を待ち、全待機/通常Ring/検証費用を元100ms内へ課金する。旧256の二件待ちには戻さない。元source/job/期限・通常UNKNOWN/新陰性・危険差の拒否・実RS/次childのassertを保持し、順序13項目を証跡へ残す。商品判定を強制したり、製品期限を広げたりしない。
+DATAは、旧UNKNOWN結果が新source46の観測開始より20ms先に返り、pending FULLの新画像受渡しを試験が作れていなかった。最初の旧workerだけ新画像の実C observe一件を待ち、worker内の待機/通常Ring/軽量guard実費を元100ms内へ課金する。旧256の二件待ちには戻さない。元source/job/期限・通常UNKNOWN/新陰性・危険差の拒否・実RS/次childのassertを保持し、順序13項目を証跡へ残す。商品判定を強制したり、製品期限を広げたりしない。
 
 追加変更の実Mac結合・IPA・iPhone受入は、まだ未確認である。
+
+## 実Mac258: 二境界合格と上部の初回限定漏れ
+
+CODE8336f22/run45414144439はhost113/Python3.9の76件・Swift/C compileが合格。歩行予約更新とpending FULL DATAは実Runtimeでも合格し、後者は通常UNKNOWN→新陰性→耐久記録→実RS→次childまで進んだ。上部だけ不合格で、IPAは未作成。
+
+上部はH1後のjob2/source68の通常UNKNOWNを正しく採用したが、直後の画像69は返却3.848ms前に撮影開始していた。69は元68終了後36.445ms・worker開始後14.662msに独立撮影され、終了/commitは返却後。同prefix/非inflightの元資料を確認した。既早期画像条件がinputs0の初回限定のため採用されず、次70では準備cutを過ぎ、一拍後退すると残H2＋DDDが固定上限を419.141ms超える。H2予約は未発行で、257のbegin/send期限超過とは別原因である。
+
+各jobの同条件を一度だけ使う限定修正を、独立設計/差分レビュー後に実装。新3件は旧Cで6条件のassertion Red後に合格し、直接関連21件も合格した。実unit後のbridge0新job・V2・既Runtime return fence有効時だけ、凍結source-end/owner/level/opening/current prefix/歩数と元worker-returnを結ぶ。同job再結果や素材bridge1では再armしない。初回旧mode/V1/finite feature-off、元親期限/準備50ms/送信10msを保持する。
+
+原RAW68→69の通常strict零と全床/保護/GOLD支持は別途確認。原metadataは新資格を満たし、新公開testはその相対時刻でprepareへ進む。近傍の保存fitから計算した69commitの準備余地は約28msだが、未保存live modelの完全再現とは扱わない。既合格二境界・未改変のrendererは固定し、追加修正の実Mac/IPA/iPhoneは未確認とする。

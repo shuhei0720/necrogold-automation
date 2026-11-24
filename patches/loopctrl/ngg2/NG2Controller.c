@@ -66,8 +66,9 @@ typedef struct {
     uint64_t parent,hold,sync,level,opening,job,capture,prefix,issued,ordinal;
     uint64_t base_parent,allocated_parent,allocation_period;
     uint64_t anchor_end;
+    int first_inputs,first_horizontal,first_down;
     uint64_t first_owner,first_level,first_job,first_capture,first_start,first_end,first_prefix;
-    uint64_t first_worker,first_assessment,first_proof;
+    uint64_t first_opening,first_worker,first_assessment,first_proof;
     NG2UpperStaticProof static_proof;
     NG2Scene world;
 } NG2UpperObservation;
@@ -5864,6 +5865,7 @@ static int upper_admit(NG2Controller *p,const NG2RingResult *result,uint64_t now
         &&p->s.last_capture_start_ns==p->cycle.capture_start_ns
         &&p->s.last_capture_end_ns>=p->cycle.capture_start_ns&&p->s.last_capture_end_ns<=now){
         p->upper.first_owner=p->s.started_ns;p->upper.first_level=p->cycle.level_id;
+        p->upper.first_opening=p->upper.opening;
         p->upper.first_job=p->cycle.job_id;p->upper.first_capture=p->cycle.capture_id;
         p->upper.first_start=p->cycle.capture_start_ns;p->upper.first_end=p->s.last_capture_end_ns;
         p->upper.first_prefix=p->cycle.prefix;
@@ -5882,7 +5884,7 @@ static int upper_admit(NG2Controller *p,const NG2RingResult *result,uint64_t now
 }
 static void upper_bind(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint64_t start,
                        uint64_t prefix,uint64_t now,int bridge){
-    NG2Motion still={0};int seen=p->cycle.full_seen,d=upper_direction(p);
+    NG2Motion still={0};int seen=p->cycle.full_seen,d=upper_direction(p);uint64_t oldjob=p->upper.job;
     p->upper.static_proof.valid=0;
     if(!d)d=NG2_DOWN;
     if(!upper_world(p,scene)||(bridge&&(!ng2_motion(&p->cycle_anchor,scene,d,&still)
@@ -5893,6 +5895,22 @@ static void upper_bind(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint64
     p->cycle.hold_started_ns=p->upper.hold;p->cycle_sync_deadline=minimum(p->cycle_sync_deadline,p->upper.sync);
     p->cycle.continuation_deadline_ns=minimum(p->cycle.continuation_deadline_ns,p->upper.parent);
     p->cycle.full_seen|=seen;p->upper.job=p->cycle.job_id;p->upper.capture=id;p->upper.prefix=prefix;
+    if(p->upper.variant==2){
+        /* Only a genuinely new job after this route's actual unit may arm
+         * another first snapshot. Material/FULL bridge1 never rearms it. */
+        p->upper.first_job=0;
+        if(!bridge&&p->restart_yield.s.enabled&&p->cycle.job_id>oldjob
+            &&p->upper.anchor_end&&p->upper.anchor_end>=start&&p->upper.anchor_end<=now
+            &&p->upper.inputs>0&&p->upper.inputs<p->upper.steps
+            &&p->upper.inputs==p->upper.horizontal+p->upper.down){
+            p->upper.first_owner=p->s.started_ns;p->upper.first_level=p->cycle.level_id;
+            p->upper.first_opening=p->upper.opening;p->upper.first_job=p->cycle.job_id;
+            p->upper.first_capture=id;p->upper.first_start=start;p->upper.first_end=p->upper.anchor_end;
+            p->upper.first_prefix=prefix;p->upper.first_inputs=p->upper.inputs;
+            p->upper.first_horizontal=p->upper.horizontal;p->upper.first_down=p->upper.down;
+            p->upper.first_worker=p->upper.first_assessment=p->upper.first_proof=0;
+        }
+    }
     p->upper.stage=5;
 }
 static int upper_assess(NG2Controller *p,const NG2RingResult *result,uint64_t now){
@@ -5913,6 +5931,15 @@ static int upper_assess(NG2Controller *p,const NG2RingResult *result,uint64_t no
     }
     if(!p->upper.valid||!entry_result_safe(result)||!upper_result(p,result)
         ||now>p->upper.parent||p->upper.inputs>=p->upper.steps){upper_hold(p);return 1;}
+    if(p->upper.variant==2&&p->restart_yield.s.enabled&&p->cycle.partial&&!p->cycle.full_seen
+        &&p->upper.first_inputs>0&&!p->upper.first_worker&&!p->upper.first_assessment&&!p->upper.first_proof
+        &&p->upper.first_owner==p->s.started_ns&&p->upper.first_level==p->cycle.level_id
+        &&p->upper.first_opening==p->upper.opening&&p->upper.first_job==p->cycle.job_id
+        &&p->upper.first_capture==p->cycle.capture_id&&p->upper.first_start==p->cycle.capture_start_ns
+        &&p->upper.first_end==p->upper.anchor_end&&p->upper.first_prefix==p->cycle.prefix
+        &&p->cycle.worker_started_ns>=p->upper.first_end&&p->cycle.worker_started_ns<=now){
+        p->upper.first_worker=p->cycle.worker_started_ns;p->upper.first_assessment=now;
+    }
     p->upper.stage=1;p->cycle.state=NG2_CYCLE_OBSERVE_MORE;p->cycle.release_after_ns=now;return 1;
 }
 static int upper_static_footprint(const NG2Controller *p,const NG2Scene *scene){
@@ -5973,13 +6000,18 @@ static int upper_begin_static(const NG2Controller *p,const NG2Scene *scene,NG2Mo
 static int upper_first_snapshot(const NG2Controller *p,uint64_t id,uint64_t start,
     uint64_t end,uint64_t prefix,uint64_t now){
     const NG2UpperObservation *u=&p->upper;
-    return u->variant==2&&u->stage==1&&!u->inputs&&!u->horizontal&&!u->down&&!u->rebound&&!u->first_proof
+    return u->variant==2&&u->stage==1&&!u->rebound&&!u->first_proof
+        &&u->inputs==u->first_inputs&&u->horizontal==u->first_horizontal&&u->down==u->first_down
+        &&u->first_opening==u->opening
+        &&(u->first_inputs==0?(!u->first_horizontal&&!u->first_down&&u->first_prefix==u->opening):
+            (p->restart_yield.s.enabled&&u->first_inputs>0&&u->first_inputs<u->steps
+                &&u->first_inputs==u->first_horizontal+u->first_down))
         &&u->first_owner==p->s.started_ns&&u->first_level==u->level&&u->level==p->cycle.level_id
         &&u->first_job==u->job&&u->job==p->cycle.job_id
         &&u->first_capture==u->capture&&u->capture==p->cycle.capture_id
         &&u->first_start==p->cycle.capture_start_ns&&u->first_end>=u->first_start
         &&u->first_end<=u->first_assessment&&u->first_worker>0&&u->first_worker<=u->first_assessment
-        &&u->first_prefix==u->opening&&prefix==u->first_prefix&&prefix==u->prefix
+        &&prefix==u->first_prefix&&prefix==u->prefix
         &&prefix==p->cycle.prefix&&prefix==p->s.last_completed_id&&prefix==p->last_observed_prefix
         &&u->first_assessment==p->cycle.assessment_ns&&u->first_assessment==p->cycle.release_after_ns
         &&!p->cycle.pending&&!p->cycle_assessing&&!p->cycle.candidate_latched&&!p->cycle.full_seen
