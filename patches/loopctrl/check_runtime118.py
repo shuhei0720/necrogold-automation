@@ -20,7 +20,8 @@ GREEN_CASES = SWIFT_CASES
 DATA_CASES = ('upper_side_hhddd', 'full_data_palette')
 PREPARATION_KEYS = retained.PREPARATION_KEYS | frozenset({
     'old_source_start_ns', 'old_source_end_ns', 'frozen_period_ns', 'refresh_start_ns', 'refresh_end_ns',
-    'refresh_analysis_cut_ns', 'begin_return_ns', 'begin_cost_ns', 'observe_cost_ns',
+    'refresh_analysis_cut_ns', 'refresh_planned_analysis_cut_ns', 'refresh_observe_end_ns',
+    'begin_return_ns', 'begin_cost_ns', 'observe_cost_ns',
     'fit_phase_adjustments', 'tick_cost_ns',
 })
 
@@ -65,10 +66,13 @@ def preparation_evidence(lines, case):
         and 0 < r['old_source_start_ns'] < r['old_source_end_ns'] <= r['refresh_start_ns']
         and r['frozen_period_ns'] > 0
         and r['refresh_start_ns']-r['old_source_start_ns'] >= r['frozen_period_ns']//10
-        and nb-r['refresh_start_ns'] == 30_000_000
-        and r['refresh_end_ns']-r['refresh_start_ns'] == 10_000_000
-        and nb-r['refresh_analysis_cut_ns'] == 15_000_000
-        and r['refresh_analysis_cut_ns'] <= r['refresh_commit_ns'] <= r['old_return_ns']
+        and nb-30_000_000 <= r['refresh_start_ns'] < r['refresh_end_ns']
+        and r['refresh_end_ns']-r['refresh_start_ns'] >= 10_000_000
+        and nb-r['refresh_planned_analysis_cut_ns'] == 15_000_000
+        and r['refresh_end_ns'] <= r['refresh_analysis_cut_ns']
+        and r['refresh_planned_analysis_cut_ns'] <= r['refresh_analysis_cut_ns']
+        and r['refresh_analysis_cut_ns'] < r['refresh_observe_end_ns'] <= r['refresh_commit_ns'] < nb
+        and r['refresh_commit_ns'] <= r['old_return_ns']
         and r['old_return_ns'] <= r['new_main_admission_ns'] < r['begin_return_ns'] <= r['old_deadline_ns']
         and r['new_main_admission_ns']-nb == 3_610_361
         and 0 < r['begin_cost_ns'] == r['begin_return_ns']-r['new_main_admission_ns']

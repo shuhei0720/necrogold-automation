@@ -688,4 +688,4 @@ TEST117固定公開確認: SOURCE59def9eはCODEからdocs3件のみ。全1132blo
 
 | ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
 | --- | --- | --- | --- | --- | --- | --- |
-| FR-118-MAC-FIXTURE | 2026-11-24 | Mac255の3caseが不合格、IPA未作成 | 2caseはDarwinで短いtickを0nsと実測したことへの誤assert。上部caseは分類workerに重複PNG decode/Perception検証を加え、約15msの余分な負荷を作る構成。拍を逃すと残経路が固定capを超える記録に整合 | 実測0を0で保持し呼出数/終了時合計実費を検査。元画像/Scene/来歴の同じ検証はdrain後・PNG生成後へ移し、失敗原本も先に保存 | 原255ログ/ZIP/旧sourceを固定し、カメラ/ACK/物理phase/T/D/製品C・Ring・Runtime不変で再CI。Mac実結果は再確認中、実機改善とは別 | 補助CI今回1実行/3case。実機障害数へ算入しない |
+| FR-118-MAC-FIXTURE | 2026-11-24 | Mac255の3caseが不合格、IPA未作成 | 2caseはDarwinで短いtickを0nsと実測したことへの誤assert。上部caseは分類workerに重複PNG decode/Perception検証を加え、約15msの余分な負荷を作る構成。拍を逃すと残経路が固定capを超える記録に整合 | 実測0を0で保持し呼出数/終了時合計実費を検査。元画像/Scene/来歴の同じ検証はdrain後・PNG生成後へ移し、失敗原本も先に保存 | 原255ログ/ZIP/旧sourceを固定し、カメラ/ACK/物理phase/T/D/製品C・Ring・Runtime不変で再CI。Mac実結果は再確認中、実機改善とは別 | 補助CI2実行が各3case不合格。256では単位/capture ID/人工待機/保存guardの別不備も確認。実機障害数へ算入しない |
