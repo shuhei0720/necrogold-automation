@@ -37,6 +37,7 @@ NEW_PATHS = frozenset({
     'tests/test_native_upper_begin118.py',
     'tests/test_native_upper_snapshot118.py',
     'tests/test_native_upper_last_slot118.py',
+    'tests/test_native_upper_postunit118.py',
     'tests/test_native_upper_single_controller118.py', 'patches/loopctrl/run_test118_host.py',
     'patches/loopctrl/run_test118_python39.py', 'patches/loopctrl/test_device_ci118.py',
     'patches/loopctrl/check_runtime118.py', 'patches/loopctrl/ngg2_runtime118_tests.swift',
@@ -107,6 +108,11 @@ CASES = (
         'test_last_full_D3_uses_only_the_unissued_next_beat_before_original_parent',
         'test_default_preparation_and_current_last_slot_vetoes_remain_closed',
         'test_published_not_sent_or_unknown_D3_cannot_create_another_input',
+    }), True),
+    ('tests.test_native_upper_postunit118', 'NativeUpperPostunit118Tests', 'test118-upper-postunit', frozenset({
+        'test_each_postunit_shape_preserves_the_unissued_next_beat_with_observed_need',
+        'test_viable_default_and_invalid_current_proofs_do_not_spend_a_short_window',
+        'test_a_new_postunit_ticket_never_reissues_after_publication_not_sent_or_unknown',
     }), True),
     ('tests.test_native_floor_moments118', 'NativeFloorMoments118Tests', 'test118-floor-moments', frozenset({
         'test_mottled_floor_uses_both_raw_moments_without_moving_thresholds',

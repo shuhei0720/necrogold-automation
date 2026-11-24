@@ -833,9 +833,12 @@ func testRuntime118Upper(_ root: URL) {
             "test118_each_eligible_original_capture_pose_matches_actual_completed_gesture_prefix")
     }
     let eligibleIDs = Set(eligible.compactMap { $0["id"]?.intValue })
-    require(acknowledged.allSatisfy { eligibleIDs.contains($0["source_capture_id"]?.intValue ?? 0) &&
-        eligibleIDs.contains($0["observed_capture_id"]?.intValue ?? 0) },
-        "test118_inflight_original_frames_never_authorize_route_input_or_motion_credit")
+    require(acknowledged.allSatisfy { event in
+        guard case let .int(source)? = event["source_capture_id"],
+              case let .int(observed)? = event["observed_capture_id"],
+              source > 0, observed >= 0 else { return false }
+        return eligibleIDs.contains(source) && (observed == 0 || eligibleIDs.contains(observed))
+    }, "test118_inflight_original_frames_never_authorize_route_input_or_motion_credit")
     require(!child.isEmpty && actual.locked { actual.restarts == 2 && actual.negativeCalls > 0 &&
         actual.partialJobs > 0 && actual.fullJobs > 0 && actual.gestures == [1,1,1,1,1,4,4,4] } &&
         actual.locked { actual.consumedPaths } == NG2Fake.paths().count &&

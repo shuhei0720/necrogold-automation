@@ -1,8 +1,10 @@
 """V2 last D3: public lifecycle with CI260's relative response clocks.
 
-The physical phase is fixed. Sparse scenes/results are declared procedural
-inputs; these clocks do not reconstruct the missing original rolling model,
-actual Swift AX scheduling, or iPhone acceptance.
+The physical phase is fixed. This retained last-D3 boundary adds an explicit
+post-D1 control callback delay until the next target itself is past. Its
+original future-NB fixture is privately preserved; the updated independent
+fixture is not a replay of CI260's callback timing. Sparse scenes/results do
+not certify actual Swift AX scheduling or iPhone acceptance.
 """
 import ctypes as C
 from copy import deepcopy
@@ -67,12 +69,14 @@ class NativeUpperLastSlot118Tests(unittest.TestCase):
                 if index == 2:
                     self.observe(source, ack+16_992_875, ack+44_647_916, ack+64_750_208)
                     self.assess(source, ack+70_218_666, ack+77_036_375)
-                    # Original frame80's long capture misses D2's default
-                    # preparation cutoff; this preceding step keeps50ms.
+                    # Keep original frame80's relative capture clock, but
+                    # explicitly delay the first control callback beyond the
+                    # next physical target. This independent adverse input
+                    # cannot be rescued by a future-NB post-unit exception.
                     self.observe(source, ack+85_175_000, ack+163_771_791, ack+184_773_208)
-                    self.h.now = ack+188_629_125
+                    self.h.now = command.target_ns+native.PERIOD+20_000_000
                     ready, _ = self.h.tick()
-                    self.assertFalse(ready, 'the last-slot exception must not fund the preceding D2')
+                    self.assertFalse(ready, 'a next physical target already past cannot fund D2')
                     self.d1 = command
                 else:
                     self.assertGreater(command.target_ns-self.d1.target_ns,

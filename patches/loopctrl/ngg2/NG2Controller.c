@@ -7937,17 +7937,20 @@ static void recover_late_verified_source(NG2Controller *p,uint64_t now){
     }
     post_move_recover(p,now,NG2_RECOVERY_VISUAL_SCHEDULE);
 }
-/* A last, never-issued D3 may use its still-future physical beat when the
- * ordinary50ms preparation selected a beat beyond this route's fixed cap.
+/* A proved V2 unit may keep its never-issued next physical beat when50ms
+ * preparation would skip it and the default route has no observed-cost room.
  * This local proposal grants no input and never changes an issued ticket. */
 typedef struct {
     uint64_t target,not_before,period,deadline,schedule,visual;
-} NG2UpperLastSlot;
-static int upper_last_slot(NG2Controller *p,uint64_t now,NG2UpperLastSlot *slot){
+} NG2UpperPostunitSlot;
+static int upper_postunit_slot(NG2Controller *p,uint64_t now,NG2UpperPostunitSlot *slot){
     const NG2ControllerEvent *e=event(p);
-    uint64_t target,aligned,period=p->model.period_ns,not_before,horizon,tail,next,deadline;
+    uint64_t target,aligned,period=p->model.period_ns,not_before,horizon,tail,next,deadline,last,offset;
+    int previous_direction,remaining;
     if(!p->upper.active||p->upper.variant!=2||!p->restart_yield.s.enabled||p->upper.stage!=2
-        ||p->upper.steps!=5||p->upper.inputs!=4||p->upper.horizontal!=2||p->upper.down!=2
+        ||p->upper.steps!=5||p->upper.inputs<1||p->upper.inputs>4
+        ||p->upper.horizontal!=(p->upper.inputs<2?p->upper.inputs:2)
+        ||p->upper.down!=(p->upper.inputs>2?p->upper.inputs-2:0)
         ||p->finish_requested||p->s.terminal||p->s.input_state||p->s.current_command_id
         ||p->s.inputs>=16||p->event_count>=EVENT_CAP||p->restart_yield.s.pending
         ||p->cycle.pending||p->cycle_assessing||p->cycle.candidate_latched
@@ -7957,20 +7960,35 @@ static int upper_last_slot(NG2Controller *p,uint64_t now,NG2UpperLastSlot *slot)
         ||!p->recovery_slot_target||!p->recovery_slot_period||!p->recovery_slot_visual
         ||!fresh(p,now)||!ng2_beat_model_valid(&p->model)||p->beat_failed
         ||now<p->model.last_ns||now-p->model.last_ns>FRESH||p->model_capture_id<p->proof_capture_id
-        ||!upper_identity(p)||!upper_floor(p,&p->scene)||!upper_same_zero(p,&p->scene)
-        ||upper_budget(p,now,p->recovery_slot_target))return 0;
-    /* The exact latest event is the known D2 unit. Any subsequent published,
-     * NOT_SENT or UNKNOWN D3 makes this identity unavailable, even if a
+        ||!upper_identity(p)||!upper_floor(p,&p->scene)||!upper_same_zero(p,&p->scene))return 0;
+    /* The exact latest event is this route's known unit. Any later published,
+     * NOT_SENT or UNKNOWN input makes this identity unavailable, even if a
      * later model nudges its numeric representation of that same beat. */
-    if(!e||e->command.kind!=NG2_ACTION_MOVE||e->command.direction!=NG2_DOWN
-        ||e->outcome!=2||e->motion!=NG2_MOVED||e->dx||e->dy!=1||!e->begin_ns
+    previous_direction=p->upper.inputs<=2?p->upper.direction:NG2_DOWN;
+    if(previous_direction<NG2_LEFT||previous_direction>NG2_DOWN)return 0;
+    if(!e||e->command.kind!=NG2_ACTION_MOVE||e->command.direction!=previous_direction
+        ||e->outcome!=2||e->motion!=NG2_MOVED||e->dx!=dx[previous_direction]
+        ||e->dy!=dy[previous_direction]||!e->begin_ns
         ||e->end_ns!=p->ack_ns||now<e->end_ns||p->s.last_capture_start_ns<e->end_ns
         ||e->command.id!=p->upper.issued||e->command.id!=p->s.last_completed_id
         ||e->command.id!=p->cycle.prefix||e->command.id!=p->upper.prefix
         ||e->command.ordinal!=p->s.last_ordinal||e->command.ordinal!=p->upper.ordinal
-        ||e->observed_capture_id!=p->cycle.capture_id
+        ||e->observed_capture_id!=p->cycle.capture_id||e->observed_capture_id!=p->upper.capture
         ||memcmp(&e->command,&p->command,sizeof(p->command))||!p->command_period
         ||e->command.target_ns>=NS_LIMIT-p->command_period)return 0;
+    if(upper_budget(p,now,p->recovery_slot_target)){
+        /* This observed offset only limits where the short preparation is
+         * tried; it is no future cost bound or extra input authority. */
+        remaining=p->upper.steps-p->upper.horizontal-p->upper.down;
+        if(p->upper.anchor_end<e->command.target_ns||p->upper.anchor_end<p->cycle.capture_start_ns
+            ||p->upper.anchor_end>p->cycle.worker_started_ns
+            ||p->cycle.worker_started_ns>p->cycle.assessment_ns
+            ||p->recovery_slot_target>=NS_LIMIT
+            ||period>(NS_LIMIT-p->recovery_slot_target)/(uint64_t)remaining)return 0;
+        offset=p->upper.anchor_end-e->command.target_ns;
+        last=p->recovery_slot_target+(uint64_t)(remaining-1)*period;
+        if(offset<=p->upper.parent&&last<=p->upper.parent-offset)return 0;
+    }
     target=ng2_next_target(&p->model,now,p->s.lead_ns);
     if(!target||target>=NS_LIMIT-period||target<p->s.lead_ns
         ||!corrected(p,e->command.target_ns+p->command_period,p->command_period,&aligned)
@@ -7999,7 +8017,7 @@ static int upper_last_slot(NG2Controller *p,uint64_t now,NG2UpperLastSlot *slot)
     slot->visual=horizon;return 1;
 }
 static int upper_tick(NG2Controller *p,uint64_t now,NG2Command *out){
-    int d,prepared,last=0;NG2UpperLastSlot slot={0};
+    int d,prepared,postunit=0;NG2UpperPostunitSlot slot={0};
     if(!p->upper.active||p->upper.stage>=6)return -2;
     /* The frozen parent bounds MOVE, not the normal worker's data budget. */
     if(p->cycle.pending){
@@ -8024,11 +8042,11 @@ static int upper_tick(NG2Controller *p,uint64_t now,NG2Command *out){
     }
     if(!fresh(p,now))return 0;
     prepared=prepare_recovery_slot(p,now);
-    if(!p->finish_requested&&upper_last_slot(p,now,&slot)){
+    if(!p->finish_requested&&upper_postunit_slot(p,now,&slot)){
         p->recovery_slot_target=slot.target;p->recovery_slot_not_before=slot.not_before;
         p->recovery_slot_period=slot.period;p->recovery_slot_deadline=slot.deadline;
         p->recovery_slot_schedule=slot.schedule;p->recovery_slot_visual=slot.visual;
-        p->s.next_target_ns=slot.target;prepared=last=1;
+        p->s.next_target_ns=slot.target;prepared=postunit=1;
     }
     if(!prepared)return 0;
     if(!upper_budget(p,now,p->recovery_slot_target)){upper_hold(p);return 0;}
@@ -8038,7 +8056,7 @@ static int upper_tick(NG2Controller *p,uint64_t now,NG2Command *out){
     if(reserve(p,now,NG2_ACTION_MOVE,d,p->recovery_slot_target,out)==1){
         p->upper.stage=3;p->upper.issued=out->id;p->upper.ordinal=out->ordinal;return 1;
     }
-    if(last){clear_recovery_slot(p);p->s.next_target_ns=0;if(!p->finish_requested)upper_hold(p);}
+    if(postunit){clear_recovery_slot(p);p->s.next_target_ns=0;if(!p->finish_requested)upper_hold(p);}
     return 0;
 }
 

@@ -64,7 +64,7 @@ RuntimeはC直前observeStartをobserve_atへ渡す。MOVED/DOOR_OPENED/TERRAIN_
 
 高速確認は元continuous拍を保持。遅い真の移動/開通確認やACK中位相失効は旧次候補/reference/preparationを破棄して再同期（UNKNOWN/TWEEN不可）。新slotはmodel採用HUD ID≥proof ID・将来拍prep≥50ms必須。失効位相は新HUDでfit、episode元12秒は再失効でも不変、walk/sessionで制限。初歩/retune/開通後もprep必須。再取得の拍間隔を毎拍/速度受入と区別。
 
-TEST118の限定例外は[最後D3計画](../plans/test118-upper-last-slot.md)による。V2・既return fence有効・HHDDの4実入力後の最後D3だけ、既定50ms slotが元Pへ入らず、最新eventそのものが保持D2のACK/通常DOWN unitで、現在の直接零/非保護床・同route/現在modelの全証明が揃う場合、D2の次physical beatの未発行NBがまだ未来なら準備50ms未満を許可する。一般の初歩・V1・先行4歩には適用しない。publication100ms/source200ms、tailの50ms鮮度余裕、schedule/visual/元P/入力上限と送信10ms、実AX/Runtimeのguardは保持する。旧ticketやNOT_SENT/UNKNOWNを復活させず、reserve不成立で追加slot状態を残さない。
+TEST118の限定例外は[最後D3](../plans/test118-upper-last-slot.md)から[実unit後の統合計画](../plans/test118-upper-postunit-slot.md)へ改訂する。V2・既return fence有効・正常H1/H2/D1/D2後の次H2/D1/D2/D3だけ、最新eventと保持command/counter/画像が同じ通常unitで、現在の直接零/非保護床・同route/現在modelの全証明が揃い、既定50ms slotがその次physical beatを一拍飛ばす場合に限る。既定の残経路が元Pに入らないか、最新unitの凍結anchor end−不変targetの実測offsetで末端を予測しても元Pを越すことを必要性filterにする。この予測は未来費用の保証でも入力権限でもない。候補自身は元budgetへ適合し、未発行NBがまだ未来なら準備50ms未満を許可する。初回H1・開扉・V1・他routeには適用しない。publication100ms/source200ms、tailの50ms鮮度余裕、schedule/visual/元P/入力上限と送信10ms、実AX/Runtimeのguardは保持する。旧ticketやNOT_SENT/UNKNOWNを復活させず、reserve不成立で追加slot状態を残さない。
 
 [067](../plans/test067-motion-confirmation.md)の追加MOVED証拠/入口BLOCKED再fitは元閾値/予算・消去前snapshot維持。motion全73候補、強度.45/差.08、texture支持300/75%、構造補助95%/全候補15pp差/2領域各100を保つ。MOVEDは同方向unit変位のみ。開扉/茶壁破壊と進入を分け、開通で歩数を増やさない。partial/逆方向/未知/入力数で移動を捏造せず、観測gold/保護/入口を維持。
 

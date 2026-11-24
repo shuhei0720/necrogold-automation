@@ -96,3 +96,17 @@ CODE694231e/run45426550873ではhost116/Python3.9の76件が合格。実Macで�
 D1後の画像80は撮影に78.596791msかかり、D2が一拍後になった。D2後の正常FULL UNKNOWNはsource93/job5で採用され、次94の撮影開始はworker返却後3.926084msだった。原93→94は通常BLOCKED零、床/保護一致と全GOLD保持、次DOWNは観測済み非保護FLOORである。最終保存fit換算では94の次tickが直前拍の準備50ms境界を約4.384ms過ぎた。既定の一拍先target185648580613の公開入口は、lead150ms/publication100msを引いた185398580613で、元P185313080237より85.500376ms遅い。未保存の94当時modelまで再現したとは扱わない。
 
 [最終slot計画](../plans/test118-upper-last-slot.md)は独立設計P0なし、旧Cの公開lifecycleで左右2条件の意味Redを確認した。V2の最後D3だけ、最新D2の通常unit/ACKと現在の直接零・床・modelを結び、未発行の次physical beatがまだ未来なら準備50msの例外を評価する。通常50ms、publication100ms/source200ms、tail鮮度余裕、元Pと送信10ms、実AX/Runtimeの全入力guardは保持する。一般の再同期条件を残し、この限定例外を契約へ明記した。新3＋直接関連21の計24件が合格。guard対応表では新subcase・既比較の再利用・静的検査・専用negative未実施を分けた。独立差分レビューは2関数とprivate stack型を確認しP0/P1なし。Runtime/fixture/phaseを変更せず、新Mac・IPA・iPhone受入へ進む。
+
+## 実Mac261: 先行歩で失う拍と最終確認上限
+
+CODE4b07092/run45433197151ではhost119/Python3.9の76件が合格し、実Macの歩行更新/DATAも合格を維持した。上部は5歩分のHHDDDを実送信したが、最後D3は通常50ms経路で、前節の例外は行使されなかった。D3のACK249279931083が元P249231991163より47.939920ms遅く、motion0/observed0のまま停止した。最初の安定画像94もP後68.788962msである。物理poseや8本のgestureだけで商品確認成功とはしない。
+
+H2後のsource65/job3は正常PARTIAL UNKNOWNで、次66は返却後に撮影を開始した。66のcapture end247323484833、observe終了247346671666、次tick247347271791は、次拍の準備50ms境界約247322msより遅いが、NB約247372msはまだ未来だった。一拍待ったD1以降の最終到達見通しは既80ms計算では元Pへ入るが、実ACK/撮影費用を含めた確認は間に合わなかった。未保存live fitのexact再生ではなく、原時刻/命令/観測の関係として記録する。
+
+65の原RAWは残るが66のRAW/永続metadataは欠測で、66のstable/非inflight/prefix/同poseと時刻だけが診断に残る。原65→66の全Scene/strict零・次床を独立再実行したとは主張しない。[統合計画](../plans/test118-upper-postunit-slot.md)の新資格は各currentの正常C directzeroを必須とし、公開独立modelと次の実Macの実authority画像で別々に確認する。
+
+最初に出たinflight検査のFAILは、全ACKへ非零のobserved IDを要求していたfixture前提の誤りでもあった。全入力sourceと実際にcreditした非零observedは適格画像集合内で、唯一の不一致はD3の未確認0。入力sourceの適格性と、移動未確認の失敗を分ける。後段の7MOVED/8ACK/全HHDDD・完全陰性/実RS/次childの成功条件は維持し、この実行を不合格のまま保存する。IPA/実機受入は未完了。
+
+[実unit後の統合計画](../plans/test118-upper-postunit-slot.md)は、既定残経路が元Pへ入らない場合に加え、同最新unitの凍結anchor endから求めた実測offsetでも末端がPへ入らない場合だけ、次の未発行future NBを選ぶ。offsetは品質上の必要性filterであり、未来費用の下限や権限にはしない。初回H1/V1/他route・元P/10ms/source200ms/publication100ms/tail50msは保持する。左右×3shapeの旧RedはfutureNB/元80msの見通し適合/観測lagの前提を通して成立。別のCI261相対clockを使う独立modelでPへ3.669ms収まった条件はsetup失敗としてRedへ数えず、既定slotを保持するnegativeへ移し、Pを縮めていない。
+
+新postunit3＋独立入力へ継承した最後D3の3＋直接関連21の計27件が合格。旧D3 fixture/Red/Green原本は保存し、継承fixtureでは次NB自体が過去となる明示的な別遅延を使って、一拍lostと後段全assertを維持した。新Cは2関数とprivate stack型だけ、持続field/ABI追加なし。通常Ring/Runtime/phaseは不変。独立差分レビューは2関数とprivate stack型、新旧テスト・契約を確認しP0/P1なし。新Macの全経路とIPAを確認してから配布する。
