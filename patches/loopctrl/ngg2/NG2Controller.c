@@ -7937,8 +7937,69 @@ static void recover_late_verified_source(NG2Controller *p,uint64_t now){
     }
     post_move_recover(p,now,NG2_RECOVERY_VISUAL_SCHEDULE);
 }
+/* A last, never-issued D3 may use its still-future physical beat when the
+ * ordinary50ms preparation selected a beat beyond this route's fixed cap.
+ * This local proposal grants no input and never changes an issued ticket. */
+typedef struct {
+    uint64_t target,not_before,period,deadline,schedule,visual;
+} NG2UpperLastSlot;
+static int upper_last_slot(NG2Controller *p,uint64_t now,NG2UpperLastSlot *slot){
+    const NG2ControllerEvent *e=event(p);
+    uint64_t target,aligned,period=p->model.period_ns,not_before,horizon,tail,next,deadline;
+    if(!p->upper.active||p->upper.variant!=2||!p->restart_yield.s.enabled||p->upper.stage!=2
+        ||p->upper.steps!=5||p->upper.inputs!=4||p->upper.horizontal!=2||p->upper.down!=2
+        ||p->finish_requested||p->s.terminal||p->s.input_state||p->s.current_command_id
+        ||p->s.inputs>=16||p->event_count>=EVENT_CAP||p->restart_yield.s.pending
+        ||p->cycle.pending||p->cycle_assessing||p->cycle.candidate_latched
+        ||p->cycle.status!=NG2_RING_OK||p->cycle.outcome!=NG2_RING_UNKNOWN
+        ||p->cycle.coverage!=NG2_RING_COVERAGE_INCOMPLETE
+        ||p->recovery.mode!=NG2_RECOVERY_POST_MOVE||p->replan_pending||p->continuous_pending
+        ||!p->recovery_slot_target||!p->recovery_slot_period||!p->recovery_slot_visual
+        ||!fresh(p,now)||!ng2_beat_model_valid(&p->model)||p->beat_failed
+        ||now<p->model.last_ns||now-p->model.last_ns>FRESH||p->model_capture_id<p->proof_capture_id
+        ||!upper_identity(p)||!upper_floor(p,&p->scene)||!upper_same_zero(p,&p->scene)
+        ||upper_budget(p,now,p->recovery_slot_target))return 0;
+    /* The exact latest event is the known D2 unit. Any subsequent published,
+     * NOT_SENT or UNKNOWN D3 makes this identity unavailable, even if a
+     * later model nudges its numeric representation of that same beat. */
+    if(!e||e->command.kind!=NG2_ACTION_MOVE||e->command.direction!=NG2_DOWN
+        ||e->outcome!=2||e->motion!=NG2_MOVED||e->dx||e->dy!=1||!e->begin_ns
+        ||e->end_ns!=p->ack_ns||now<e->end_ns||p->s.last_capture_start_ns<e->end_ns
+        ||e->command.id!=p->upper.issued||e->command.id!=p->s.last_completed_id
+        ||e->command.id!=p->cycle.prefix||e->command.id!=p->upper.prefix
+        ||e->command.ordinal!=p->s.last_ordinal||e->command.ordinal!=p->upper.ordinal
+        ||e->observed_capture_id!=p->cycle.capture_id
+        ||memcmp(&e->command,&p->command,sizeof(p->command))||!p->command_period
+        ||e->command.target_ns>=NS_LIMIT-p->command_period)return 0;
+    target=ng2_next_target(&p->model,now,p->s.lead_ns);
+    if(!target||target>=NS_LIMIT-period||target<p->s.lead_ns
+        ||!corrected(p,e->command.target_ns+p->command_period,p->command_period,&aligned)
+        ||target!=aligned||target>=p->recovery_slot_target
+        ||!corrected(p,p->recovery_slot_target,p->recovery_slot_period,&aligned)
+        ||aligned!=target+period||!upper_budget(p,now,target))return 0;
+    not_before=target-p->s.lead_ns;
+    if(not_before<=now||not_before-now>=INITIAL_PREPARATION
+        ||not_before-now>INITIAL_PUBLICATION||not_before>=NS_LIMIT-10000000
+        ||(p->s.last_capture_start_ns<not_before
+            &&not_before-p->s.last_capture_start_ns>CONTINUOUS_SOURCE)
+        ||p->s.last_capture_start_ns>=NS_LIMIT-FRESH||p->model.last_ns>=NS_LIMIT-FRESH
+        ||p->s.lead_ns>=NS_LIMIT-50000000)return 0;
+    tail=p->s.lead_ns+50000000;
+    horizon=minimum(p->recovery_slot_visual,p->s.last_capture_start_ns+FRESH);
+    horizon=minimum(horizon,p->model.last_ns+FRESH);horizon=minimum(horizon,session_bound(p));
+    horizon=minimum(horizon,p->s.walk_started_ns+45*SECOND);
+    horizon=minimum(horizon,p->cycle.continuation_deadline_ns);horizon=minimum(horizon,p->upper.parent);
+    if(horizon<tail||not_before>horizon-tail)return 0;
+    deadline=minimum(not_before+10000000,minimum(p->recovery_slot_deadline,horizon-tail));
+    next=target+period;
+    if(deadline<not_before||now>deadline||next<p->s.lead_ns
+        ||next-p->s.lead_ns>=NS_LIMIT-10000000)return 0;
+    slot->target=target;slot->not_before=not_before;slot->period=period;slot->deadline=deadline;
+    slot->schedule=minimum(p->recovery_slot_schedule,minimum(next-p->s.lead_ns+10000000,horizon));
+    slot->visual=horizon;return 1;
+}
 static int upper_tick(NG2Controller *p,uint64_t now,NG2Command *out){
-    int d;
+    int d,prepared,last=0;NG2UpperLastSlot slot={0};
     if(!p->upper.active||p->upper.stage>=6)return -2;
     /* The frozen parent bounds MOVE, not the normal worker's data budget. */
     if(p->cycle.pending){
@@ -7961,7 +8022,15 @@ static int upper_tick(NG2Controller *p,uint64_t now,NG2Command *out){
     if(!upper_identity(p)||p->upper.inputs>=p->upper.steps||p->s.inputs>=16||!upper_floor(p,&p->scene)){
         upper_hold(p);return 0;
     }
-    if(!fresh(p,now)||!prepare_recovery_slot(p,now))return 0;
+    if(!fresh(p,now))return 0;
+    prepared=prepare_recovery_slot(p,now);
+    if(!p->finish_requested&&upper_last_slot(p,now,&slot)){
+        p->recovery_slot_target=slot.target;p->recovery_slot_not_before=slot.not_before;
+        p->recovery_slot_period=slot.period;p->recovery_slot_deadline=slot.deadline;
+        p->recovery_slot_schedule=slot.schedule;p->recovery_slot_visual=slot.visual;
+        p->s.next_target_ns=slot.target;prepared=last=1;
+    }
+    if(!prepared)return 0;
     if(!upper_budget(p,now,p->recovery_slot_target)){upper_hold(p);return 0;}
     d=upper_direction(p);memset(&p->command_choice,0,sizeof(p->command_choice));
     p->command_choice.direction=d;p->command_choice.reason=5;
@@ -7969,6 +8038,7 @@ static int upper_tick(NG2Controller *p,uint64_t now,NG2Command *out){
     if(reserve(p,now,NG2_ACTION_MOVE,d,p->recovery_slot_target,out)==1){
         p->upper.stage=3;p->upper.issued=out->id;p->upper.ordinal=out->ordinal;return 1;
     }
+    if(last){clear_recovery_slot(p);p->s.next_target_ns=0;if(!p->finish_requested)upper_hold(p);}
     return 0;
 }
 

@@ -36,6 +36,7 @@ NEW_PATHS = frozenset({
     'tests/test_native_current_data118.py', 'tests/test_native_upper_single_face118.py',
     'tests/test_native_upper_begin118.py',
     'tests/test_native_upper_snapshot118.py',
+    'tests/test_native_upper_last_slot118.py',
     'tests/test_native_upper_single_controller118.py', 'patches/loopctrl/run_test118_host.py',
     'patches/loopctrl/run_test118_python39.py', 'patches/loopctrl/test_device_ci118.py',
     'patches/loopctrl/check_runtime118.py', 'patches/loopctrl/ngg2_runtime118_tests.swift',
@@ -101,6 +102,11 @@ CASES = (
         'test_postunit_crossing_snapshot_qualifies_each_new_job_without_renewing_cap',
         'test_feature_off_and_bad_metadata_or_positive_floor_cannot_use_the_exception',
         'test_same_job_result_and_bridge_rebind_do_not_rearm_early_qualification',
+    }), True),
+    ('tests.test_native_upper_last_slot118', 'NativeUpperLastSlot118Tests', 'test118-upper-last-slot', frozenset({
+        'test_last_full_D3_uses_only_the_unissued_next_beat_before_original_parent',
+        'test_default_preparation_and_current_last_slot_vetoes_remain_closed',
+        'test_published_not_sent_or_unknown_D3_cannot_create_another_input',
     }), True),
     ('tests.test_native_floor_moments118', 'NativeFloorMoments118Tests', 'test118-floor-moments', frozenset({
         'test_mottled_floor_uses_both_raw_moments_without_moving_thresholds',

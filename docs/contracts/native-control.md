@@ -64,6 +64,8 @@ RuntimeはC直前observeStartをobserve_atへ渡す。MOVED/DOOR_OPENED/TERRAIN_
 
 高速確認は元continuous拍を保持。遅い真の移動/開通確認やACK中位相失効は旧次候補/reference/preparationを破棄して再同期（UNKNOWN/TWEEN不可）。新slotはmodel採用HUD ID≥proof ID・将来拍prep≥50ms必須。失効位相は新HUDでfit、episode元12秒は再失効でも不変、walk/sessionで制限。初歩/retune/開通後もprep必須。再取得の拍間隔を毎拍/速度受入と区別。
 
+TEST118の限定例外は[最後D3計画](../plans/test118-upper-last-slot.md)による。V2・既return fence有効・HHDDの4実入力後の最後D3だけ、既定50ms slotが元Pへ入らず、最新eventそのものが保持D2のACK/通常DOWN unitで、現在の直接零/非保護床・同route/現在modelの全証明が揃う場合、D2の次physical beatの未発行NBがまだ未来なら準備50ms未満を許可する。一般の初歩・V1・先行4歩には適用しない。publication100ms/source200ms、tailの50ms鮮度余裕、schedule/visual/元P/入力上限と送信10ms、実AX/Runtimeのguardは保持する。旧ticketやNOT_SENT/UNKNOWNを復活させず、reserve不成立で追加slot状態を残さない。
+
 [067](../plans/test067-motion-confirmation.md)の追加MOVED証拠/入口BLOCKED再fitは元閾値/予算・消去前snapshot維持。motion全73候補、強度.45/差.08、texture支持300/75%、構造補助95%/全候補15pp差/2領域各100を保つ。MOVEDは同方向unit変位のみ。開扉/茶壁破壊と進入を分け、開通で歩数を増やさない。partial/逆方向/未知/入力数で移動を捏造せず、観測gold/保護/入口を維持。
 
 090の追加proofだけは、元可視STONEちょうど1個が投影先の心臓HUDでUNKNOWNとなる場合を扱う。残る可視STONE≥2/非共線DIRT≥9・9候補唯一・旧raw/band/world95%/axis75%/全73差を全て要求する。HUD外消失や既知矛盾は許可せず、旧16段の判定/閾値を変更しない。

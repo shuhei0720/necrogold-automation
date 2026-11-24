@@ -88,3 +88,11 @@ CODE6548509/run45419240354ではhost116/Python3.9の76件が合格。Macの歩�
 upperは実monotonic時計・offset0で、固定時計用の20ms加算やC費用の二重課金は適用されない。画像生成はbackground、mainの定期keepaliveも軽い応答であり、CPU/queue/mainのどこへ遅延が寄ったかは未確定。汎用asyncAfterの許容遅延というAPI上のリスクと、今回の唯一の原因の確定を分ける。
 
 次は製品条件を変える前に、upperだけの有限整数ledgerで実予約・main到着・既C beginと準備getterの実引数/返値を記録する。元Runtime/Controller/Ring、時計/phase/10ms/全assert、通過済み二ケース本体は保持する。診断を入力資格へ使わず、hot pathのRPC/画像処理や追加の資格getter呼出も加えない。同じ条件の再試行を繰り返す代わりに、失敗分岐を特定する。
+
+## 実Mac260: 最後の未発行D3を特定
+
+CODE694231e/run45426550873ではhost116/Python3.9の76件が合格。実Macでも歩行予約更新とpending FULL DATAは合格を維持した。upperの有限ledgerは1778行/drop0で、H1/H2/D1/D2の全C beginと実MOVEDを記録した。最後D3だけ未発行で停止しており、この実行の原因を259の未送信やFULL用early snapshot条件とは混同しない。
+
+D1後の画像80は撮影に78.596791msかかり、D2が一拍後になった。D2後の正常FULL UNKNOWNはsource93/job5で採用され、次94の撮影開始はworker返却後3.926084msだった。原93→94は通常BLOCKED零、床/保護一致と全GOLD保持、次DOWNは観測済み非保護FLOORである。最終保存fit換算では94の次tickが直前拍の準備50ms境界を約4.384ms過ぎた。既定の一拍先target185648580613の公開入口は、lead150ms/publication100msを引いた185398580613で、元P185313080237より85.500376ms遅い。未保存の94当時modelまで再現したとは扱わない。
+
+[最終slot計画](../plans/test118-upper-last-slot.md)は独立設計P0なし、旧Cの公開lifecycleで左右2条件の意味Redを確認した。V2の最後D3だけ、最新D2の通常unit/ACKと現在の直接零・床・modelを結び、未発行の次physical beatがまだ未来なら準備50msの例外を評価する。通常50ms、publication100ms/source200ms、tail鮮度余裕、元Pと送信10ms、実AX/Runtimeの全入力guardは保持する。一般の再同期条件を残し、この限定例外を契約へ明記した。新3＋直接関連21の計24件が合格。guard対応表では新subcase・既比較の再利用・静的検査・専用negative未実施を分けた。独立差分レビューは2関数とprivate stack型を確認しP0/P1なし。Runtime/fixture/phaseを変更せず、新Mac・IPA・iPhone受入へ進む。
