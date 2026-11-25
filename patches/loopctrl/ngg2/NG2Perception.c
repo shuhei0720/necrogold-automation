@@ -243,6 +243,56 @@ static void ng2_separated_floor_bands(const unsigned char *rgba,size_t stride,NG
     }
 }
 
+/* Private calibration proposal: current positive floor patches around a
+ * connected warm overlay rising from an independently observed gold rail. */
+static void ng2_torch_overlay_floor119(const unsigned char *rgba,size_t stride,NG2Scene *out){
+    for(int j=-5;j<4;++j)for(int i=-10;i<11;++i){
+        int idx=ng2_index(i,j),cx=448+36*i,cy=207+36*j;
+        NG2MaterialSample full,upper,ul,lr;
+        unsigned char warm[625]={0},seen[625]={0};int queue[625],n=0,start=-1;
+        if(out->tiles[idx]!=NG2_TILE_DIRT||(!i&&!j)
+            ||ng2_hud_overlap(cx-12,cy-12,cx+13,cy+13)
+            ||out->tiles[ng2_index(i-1,j+1)]!=NG2_TILE_GOLD
+            ||out->tiles[ng2_index(i,j+1)]!=NG2_TILE_GOLD
+            ||out->tiles[ng2_index(i+1,j+1)]!=NG2_TILE_GOLD)continue;
+        full=ng2_material_sample(rgba,stride,cx-12,cy-12,25,25);
+        if(!full.spread||full.r<39||full.r>52||100*full.g<45*full.r||100*full.g>68*full.r
+            ||100*full.b<=25*full.r||100*full.b>=55*full.r)continue;
+        upper=ng2_material_sample(rgba,stride,cx-12,cy-12,25,12);
+        ul=ng2_material_sample(rgba,stride,cx-12,cy-12,12,12);
+        lr=ng2_material_sample(rgba,stride,cx,cy,13,13);
+        if(upper.r<16||ul.r<16||lr.r<16||!ng2_material_floor(upper)
+            ||!ng2_material_floor(ul)||!ng2_material_floor(lr))continue;
+        for(int y=0;y<25;++y)for(int x=0;x<25;++x){
+            const unsigned char *p=rgba+(cy-12+y)*stride+4*(cx-12+x);int k=y*25+x;
+            if(p[0]>2*52&&p[1]<p[0]&&100*p[2]<55*p[0]){warm[k]=1;++n;if(start<0)start=k;}
+        }
+        if(n<36)continue;
+        int head=0,tail=1,left=25,right=-1,top=25,bottom=-1;
+        queue[0]=start;seen[start]=1;
+        while(head<tail){
+            int k=queue[head++],x=k%25,y=k/25;
+            if(x<left)left=x;
+            if(x>right)right=x;
+            if(y<top)top=y;
+            if(y>bottom)bottom=y;
+            for(int d=0;d<4;++d){
+                int nx=x+(d==0)-(d==1),ny=y+(d==2)-(d==3);
+                if(nx>=0&&nx<25&&ny>=0&&ny<25){
+                    int q=ny*25+nx;
+                    if(warm[q]&&!seen[q]){seen[q]=1;queue[tail++]=q;}
+                }
+            }
+        }
+        /* Every warm point is in this one4-connected component; the count
+         * means36actual pixels, with both box dimensions6..13 inclusive. */
+        if(tail==n&&right-left+1>=6&&right-left+1<=13
+            &&bottom-top+1>=6&&bottom-top+1<=13&&top>=12&&bottom==24
+            &&2*n>=(right-left+1)*(bottom-top+1))
+            out->tiles[idx]=NG2_TILE_FLOOR;
+    }
+}
+
 static void ng2_tiles(const unsigned char *rgba,size_t stride,NG2Scene *out){
     int i,j,x,y,c,v,k;unsigned hist[3][256],sum[3],squares[3];
     for(j=-5;j<5;++j)for(i=-11;i<12;++i){
@@ -470,7 +520,7 @@ int ng2_analyze_rgba(const uint8_t *rgba,size_t length,size_t stride,NG2Scene *o
         &&!ng2_match(rgba,stride,gray,&ng2_template_death,0)){
         out->state=NG2_FLOOR;
         if(ng2_gold(rgba,stride,gray,work,density,out))result=-1;
-        else {ng2_tiles(rgba,stride,out);ng2_material_proofs(rgba,stride,out);ng2_black_entry_floor(rgba,stride,out);ng2_separated_floor_bands(rgba,stride,out);result=ng2_merchandise(rgba,stride,gray,work,density,out);}
+        else {ng2_tiles(rgba,stride,out);ng2_material_proofs(rgba,stride,out);ng2_black_entry_floor(rgba,stride,out);ng2_separated_floor_bands(rgba,stride,out);ng2_torch_overlay_floor119(rgba,stride,out);result=ng2_merchandise(rgba,stride,gray,work,density,out);}
         if(!result){ng2_thin_gate_doors(rgba,stride,out);ng2_lower_fringe(rgba,stride,out);
             for(y=0;y<H;y+=4)for(x=0;x<W;x+=4)out->signature[(y/4)*224+x/4]=gray[y*W+x];
             ng2_beat_extract(rgba,stride,out);}

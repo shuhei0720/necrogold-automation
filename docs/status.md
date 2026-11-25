@@ -1,9 +1,7 @@
 # 最新状態
 
-更新: 2026-11-25（日本時間）。TEST118/build263の実IPAを作成し、配布前8照合は各1回で全PASS。TEST117実機4周の停止へ、歩行前source更新、価格断片/床照明、pending FULL DATA受渡し、上部入口の内壁沿いHHDDD5歩と予約継続を実装した。[計画](plans/test118-device-failures.md)・[検証](reviews/test118.md)・[修正表](fix-records.md)。初回リスタートと`--until-target`の連続周回を維持する。
+更新: 2026-11-25（日本時間）。TEST118実機9ZIP（4campaign/5run・132PNG/154記録）を全照合し、TEST119の原因別修正を準備。[今回計画](plans/test119-device-failures.md)・[修正表](fix-records.md)。初回RSと`--until-target`を維持。
 
-[CODEdca8ca3/Mac263](https://github.com/shuhei0720/necrogold-automation/actions/runs/45446666904)で選択host122件、実Python3.9の76件、Macの3結合ケースが合格。上部は全3商品判定→耐久保存→実RS→次child、別DATAも正常陰性→実RS→次childを確認した。これは手続き生成画像/実RuntimeによるMac検証であり、iPhone受入・到達率・毎拍/人超え速度は未確認。元4周の不合格は閉じない。
+通路の新床で判断が変わる停止、PARTIAL入口からの観測継続、価格の縦断片/低い配置、松明床、早期FULL後の実入店/新DATA所有を修正。実周回のyield有効時の処理順も因果Red→Greenで修正した。新28件/直接関連と独立差分レビューを確認。3fの実機完全陰性→RS→ef継承成功と判定packetを保持し、efの別停止は別原因として扱う。
 
-IPAは18,467,675B、SHA `5be4d1ca977cd65f33dd992152007a13747afbb9247b352ccf669f26d4668444`。固定配布先は[TEST118/build263](https://github.com/shuhei0720/necrogold-automation/releases/tag/test118-build263)（匿名全取得/SHA照合済み）。
-
-新IPA更新→LoopCtrl完全終了/起動→Start Server。完全sourceの`test_118.sh`をiSHへmountし、通常1-1ポーズから`sh test_118.sh --until-target`。上部入口で全3商品確認、対象外の連続RSを試験し、終了後`runtime/test-118*.zip`を全て返す。
+基準は[TEST118/build263](https://github.com/shuhei0720/necrogold-automation/releases/tag/test118-build263)、CODEdca8ca3/保存64f7b4f。TEST119は37native中4変更/33保持、API/ABI/profile3を保持して再seal/配置を照合。選択host130/client53・新Mac1case/2subrunと実IPA/固定配布をこれから確認する。過去Mac成功や単体合格を新版iPhoneの改善完了とは扱わない。

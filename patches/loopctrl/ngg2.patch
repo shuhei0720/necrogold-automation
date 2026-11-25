@@ -134,7 +134,7 @@
 
      /// When this binary was built, as "YYYY-MM-DD HH:MM".
      ///
-@@ -569,6 +617,28 @@
+@@ -569,6 +617,29 @@
      /// call (no separate /schema fetch needed). Keep in sync with what the server
      /// actually implements.
      static let capabilityTags: [String] = [
@@ -160,6 +160,7 @@
 +        "necrogold_native_continuous_campaign_v1", // explicit native-owned finite UUID chain with durable escrow and deferred host export
 +        "necrogold_native_visible_goods_v1", // complete visible-offer geometry and qualified shop continuation
 +        "necrogold_native_device_fixes118_v1", // reviewed TEST118 input refresh and shop observation fixes
++        "necrogold_native_device_fixes119_v1", // reviewed TEST119 device failure corrections
          "envelope_v1",         // /pair + encrypted /rpc envelopes (HMAC-SHA256)
          "stream_ticket",       // stream_ticket RPC → single-use ?ticket= for /stream + /logs
          "video_stream",        // GET /stream (framed H.264, docs/remote-control.md)

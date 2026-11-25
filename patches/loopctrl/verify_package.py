@@ -123,6 +123,20 @@ def inspect_native_sources(upstream, driver):
         if b'\n    ]' not in body or lines.count(entry) != 1:
             raise ValueError('native_device_fixes118_binding')
         implementation['device_fixes_capability'] = cap.decode('ascii')
+    cap119 = b'necrogold_native_device_fixes119_v1'
+    if 'device_fixes119_capability' in manifest or cap119 in raw_patch or cap119 in rpc:
+        declaration = b'    static let capabilityTags: [String] = [\n'
+        entry = b'        "'+cap119+b'",'
+        if (manifest.get('device_fixes119_capability') != cap119.decode('ascii')
+                or implementation.get('device_fixes_capability') != cap.decode('ascii')
+                or raw_patch.count(b'+'+entry) != 1 or raw_patch.count(b'"'+cap119+b'"') != 1
+                or rpc.count(declaration) != 1 or rpc.count(b'"'+cap119+b'"') != 1):
+            raise ValueError('native_device_fixes119_binding')
+        body = rpc.split(declaration, 1)[1]
+        lines = [line.split(b'//', 1)[0].rstrip() for line in body.split(b'\n    ]', 1)[0].splitlines()]
+        if b'\n    ]' not in body or lines.count(entry) != 1:
+            raise ValueError('native_device_fixes119_binding')
+        implementation['device_fixes119_capability'] = cap119.decode('ascii')
     return {**cycle_fields, **implementation, 'api_version': manifest['api_version'], 'capability': manifest['capability'],
         'client_capability': manifest.get('client_capability', 'necrogold_native_v1'),
         'native_manifest_sha256': hashlib.sha256(manifest_raw).hexdigest(),

@@ -700,3 +700,16 @@ TEST117固定公開確認: SOURCE59def9eはCODEからdocs3件のみ。全1132blo
 
 
 TEST118固定配布確認（2026-11-25）: SOURCE7dc68c2はCODEdca8ca3からdocs4件だけ。全1160blob/同native、IPA5be4d1ca・sourceb1d0eccc・SHA表c38e8208の匿名全GET/実tag/GitHub digest/CRCを照合。元4実機不合格/再発数は変更せず、新版iPhoneは未確認。公開後文書だけを保存しassetを置換しない。
+
+
+## TEST119: TEST118実機4周の再確認（2026-11-25）
+
+9ZIP/4campaign/5run・132PNG/154記録を全照合。実順5fd/a1/893/3f→ef。3fは通常policy17完全陰性→durable→実RS18→新floor221→ef継承が実機で成功。efは別途UNKNOWN停止。成功した同Runtimeの連続化を壊さず、停止を個別に修正する。前回Mac3合格を今回の実機失敗の改善完了にしない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-119-REFINED-PASSAGE-WAIT | 2026-11-25 | 5fdで1LEFT後、次DOWN未開始のまま停止 | 109→110は通常strict零で旧FRESH、110→111もstrict零だが新床露出でDOWNからLEFTへ判断変更。refreshed-source guardが既ROUTE待機より先にSCREEN終了 | 確実未開始/clear/現在strict零の限定条件で旧票を撤回し既元P/W内の無入力ROUTE待機へ。新独立proofと通常model後だけ新routeを予約する | 原109/110/111のSHA/Scene/通常Motion/Decisionを校正。旧109→111 UNKNOWNは変更しない。正式新6件は旧SCREENでassertion Red、修正後＋関連10件Green。独立差分レビューP0/P1なし。元P/W内の無入力waitを確認。実機改善未確認 | 今回1。同じ途中停止でもFR118のACK後比較元とは別段階。同根因通算不明 |
+| FR-119-SIDE-SEPARATE-PRICE | 2026-11-25 | 893で3商品が見えても陰性未成立、最後は期限切れ | 中央100価格と同じx列の上方白1pxが結合し高さ20。中央価格が他より7px低い。FR109/118のx別小断片除外は同x縦分離に適用されない | 旧layout3の独立低価格geometryを2看板policy4へ限定継承。白run全数・小run総ink・exact3価格/全商品・rawSceneの独立C再検査を保持。元期限は変更せず閉容器総走査を避ける | 原322/344の通常Ringは旧UNKNOWN/PRICE64。最終元D+1,875nsと正常完走時の不成立を分離。新8件と関連をGreen、旧Ring/Cでassertion Red。唯一lowerのconsumer不一致も新8件目でRed→Green、独立最終P0/P1なし。成功3fの判定packet一致。実機改善未確認 | 今回2source/1run。既価格断片対策の適用範囲外。同根因通算未集計 |
+| FR-119-PARTIAL-REMOTE-MATERIAL | 2026-11-25 | a1で開扉後、全商品可視へ進まず停止 | 原233→235は同choice/両corridor/正確ITEM・保護/次FLOOR/strict零だが遠方(7,4)DIRT→STONEを旧quietが拒否 | 既framingの同じ全guard下で空corridorの限定遠方材質関係を許し、商品が見える位置への観測を継続。商品未観測は陰性にしない | 原233→235の通常C cutで拒否10→0。新2件は旧assertion Red→修正後Green、直接関連もGreen。独立差分P0/P1なし。実機改善未確認 | 今回1。既遠方材質対策の適用範囲外。同根因通算不明 |
+| FR-119-EARLY-FULL-ENTRY | 2026-11-25 | ef childで商品可視後UNKNOWN停止 | 早期FULL174は元LEFT166に対し通常UNKNOWN、176/177は同元166から通常LEFT unit。既entered refreshはprotected床露出1個を要求し今回0。後続は次床DIRT/新GOLD/遠方材質差もある。実周回のyield有効時には旧current-DATAが実unit確認より先に動く | 現在の床を別行の正の画素証明へ結び、元ACK/元visualD内の実unitを一度だけ反映。protected露出0専用tokenで新DATAを採用し次観測の画像所有元も更新。yield有効時も同じ限定entered確認を旧DATA降格より先に試す。共用DATA2/元親期限/候補優先/送信後token消費を維持 | 新7件は旧Cで15 assertion Red、修正後＋直接旧13件の20件Green。最初の独立差分P0/P1なし。追加yield有効subcaseは旧Cで2件assertion Red→修正後Green、同20件も再確認。増分独立レビューもP0/P1なし。原166/174/176/177限定cutは一回unit/source176/DATA1/queued177、通常判定はUNKNOWNを維持。Mac画像lease確認は別途。178以降や実機改善は未確認 | 今回1child。3f成功後の別停止。旧guard削除の回帰とは未確定 |
+| FR-119-TORCH-CURRENT-FLOOR | 2026-11-25 | efの入店後、実際の床がDIRTとなり次観測を拒否 | 松明が床中央/左下の色を変え旧床条件から外れる。既UR/LLや外側帯の証明も今回画素では成立しない | 現在の非重複UL/LRと上帯の旧floor色/texture、下3GOLD、下端の単一で密な有限warm成分を全て要求する別の正のFLOOR証明。旧非床/商品優先と閾値は保持 | 新5件は旧Perception assertion Red→修正後Green、関連11件Green。132PNGの全Scene bytes比較ではef4画像/5セルだけDIRT→FLOOR、他同bytes。独立最終P0/P1なし。校正画像であり未知端末精度/実機改善は未確認 | 今回4画像/1child。同根因通算不明。既床対策の回帰とは未確定 |

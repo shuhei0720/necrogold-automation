@@ -29,6 +29,7 @@ ALLOWED_TARGETS = {
     'project.yml',
 }
 DEVICE_FIXES118_CAPABILITY = b'necrogold_native_device_fixes118_v1'
+DEVICE_FIXES119_CAPABILITY = b'necrogold_native_device_fixes119_v1'
 
 
 def device_fixes118_metadata(patch_bytes, rpc_source):
@@ -46,6 +47,23 @@ def device_fixes118_metadata(patch_bytes, rpc_source):
     if b'\n    ]' not in body or lines.count(entry) != 1:
         raise ValueError('device_fixes118_capability_binding')
     return {'device_fixes_capability': cap.decode('ascii')}
+
+
+def device_fixes119_metadata(patch_bytes, rpc_source):
+    """Bind the additional 119 tag without replacing the historical 118 field."""
+    cap = DEVICE_FIXES119_CAPABILITY
+    if cap not in patch_bytes and cap not in rpc_source:
+        return {}
+    entry = b'        "'+cap+b'",'
+    declaration = b'    static let capabilityTags: [String] = [\n'
+    if (patch_bytes.count(b'+'+entry) != 1 or patch_bytes.count(b'"'+cap+b'"') != 1
+            or rpc_source.count(declaration) != 1 or rpc_source.count(b'"'+cap+b'"') != 1):
+        raise ValueError('device_fixes119_capability_binding')
+    body = rpc_source.split(declaration, 1)[1]
+    lines = [line.split(b'//', 1)[0].rstrip() for line in body.split(b'\n    ]', 1)[0].splitlines()]
+    if b'\n    ]' not in body or lines.count(entry) != 1:
+        raise ValueError('device_fixes119_capability_binding')
+    return {'device_fixes119_capability': cap.decode('ascii')}
 
 
 def digest(raw):
@@ -321,6 +339,10 @@ def seal(root):
             or manifest.get('compiler_profile_version') != 3):
         raise ValueError('device_fixes118_prerequisites')
     manifest.update(implementation)
+    implementation119 = device_fixes119_metadata(raw_patch, rpc_source)
+    if implementation119 and manifest.get('device_fixes_capability') != DEVICE_FIXES118_CAPABILITY.decode('ascii'):
+        raise ValueError('device_fixes119_prerequisites')
+    manifest.update(implementation119)
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2) + '\n')
     return manifest
 

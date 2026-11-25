@@ -23,7 +23,8 @@ SPEC = cycle.IRREGULAR_PROTOCOL
 CAPABILITY = 'necrogold_native_continuous_campaign_v1'
 LEDGER_SCHEMAS = {'116': 'necroprobe-continuous-campaign116-v1',
     '117': 'necroprobe-continuous-campaign117-v1',
-    '118': 'necroprobe-continuous-campaign118-v1'}
+    '118': 'necroprobe-continuous-campaign118-v1',
+    '119': 'necroprobe-continuous-campaign119-v1'}
 ROOT_DURATION_NS = 2_880_000_000_000
 CHILD_LIMIT = 16
 ROOT_KEYS = frozenset(('schema','root_id','state','active_run_id','terminal','workers_drained',
@@ -640,7 +641,7 @@ def run(client, destination, *, spool, until_target=True, recovery_only=False, t
     base=Path(spool)
     # Publication derives its label from the spool directory.  The new
     # namespace must match before any native request, not after collection.
-    if test_number in ('117', '118'):
+    if test_number in ('117', '118', '119'):
         cycle.require(base.name=='test-'+test_number,'campaign_test_number_mismatch')
     base.mkdir(mode=0o700,parents=True,exist_ok=True)
     cycle.require(not base.is_symlink(),'cycle_local_symlink')

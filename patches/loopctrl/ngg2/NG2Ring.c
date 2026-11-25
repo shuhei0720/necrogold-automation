@@ -1293,6 +1293,74 @@ static void side_price_witness(const RingObservation *observation,const NG2RingR
     }
     if(!baseline||bottom-top>9)out->unmatched_prices++;
 }
+/* Layout3 observes one independently lower price without identifying its
+ * product. A vertically distant sub-eighteen-ink sprite edge cannot join a
+ * complete price through their x projection. Every supported run, including
+ * malformed/extra runs, remains a veto; ignored ink is bounded in total. */
+static int side_separate_price_witness(const RingObservation *observation,
+                                      const NG2RingRow *row,NG2RingCoverage *out) {
+    int left=row->left,sy=row->sy,start=-1,last=-1000,ignored=0;
+    if(left-54<143||left+126>663||sy+24<45||sy+91>315)return 0;
+    NG2RingCoverage prices=*out;prices.observed_prices=prices.unmatched_prices=0;
+    memset(prices.price_boxes,0,sizeof(prices.price_boxes));
+    for(int x=left-54;x<=left+126;++x) {
+        int ink=0;
+        if(x<left+126)for(int y=sy+69;y<sy+91;++y)ink|=price_white(observation,out,x,y);
+        if(ink){if(start<0)start=x;last=x;}
+        if(start>=0&&((!ink&&x-last>3)||x==left+126)) {
+            int first_y=-1,count=0,x0=RING_W,x1=0;
+            for(int y=sy+69;y<=sy+91;++y) {
+                int row_count=0;
+                if(y<sy+91)for(int xx=start;xx<=last;++xx)
+                    if(price_white(observation,out,xx,y)) {
+                        ++row_count;if(xx<x0)x0=xx;if(xx>x1)x1=xx;
+                    }
+                if(row_count){if(first_y<0)first_y=y;count+=row_count;}
+                if(first_y>=0&&!row_count) {
+                    if(count<18)ignored+=count;
+                    else {
+                        int slot=-1;
+                        for(int s=0;s<3;++s)if(x0>=left+36*s-11&&x1<left+36*s+12)slot=s;
+                        if(slot<0||prices.price_boxes[slot][2]||y-first_y<7||y-first_y>9)return 0;
+                        int perimeter=0;
+                        for(int xx=x0;xx<=x1;++xx)
+                            perimeter|=price_white(observation,out,xx,first_y-1)
+                                ||price_white(observation,out,xx,y);
+                        if(perimeter)return 0;
+                        int32_t box[4]={x0,first_y,x1-x0+1,y-first_y};
+                        memcpy(prices.price_boxes[slot],box,sizeof(box));++prices.observed_prices;
+                    }
+                    first_y=-1;count=0;x0=RING_W;x1=0;
+                }
+            }
+            start=-1;
+        }
+    }
+    if(ignored>=18||prices.observed_prices!=3)return 0;
+    int lower_tops=0;
+    for(int s=0;s<3;++s)lower_tops+=prices.price_boxes[s][1]>=sy+82;
+    if(lower_tops!=1)return 0;
+    int choices=0;
+    for(int lower=0;lower<3;++lower) {
+        const int32_t *late=prices.price_boxes[lower];int top=RING_HH,bottom=0,baseline=0;
+        if(late[1]<sy+82||late[1]+late[3]>sy+91)continue;
+        for(int s=0;s<3;++s)if(s!=lower) {
+            const int32_t *box=prices.price_boxes[s];
+            if(box[1]<top)top=box[1];
+            if(box[1]+box[3]>bottom)bottom=box[1]+box[3];
+        }
+        if(top<sy+69||bottom>sy+89||bottom-top>9||late[1]+late[3]<=bottom)continue;
+        for(int k=0;k<12;++k) {
+            int both=1;
+            for(int s=0;s<3;++s)if(s!=lower)both&=white_count(observation,left+36*s,sy,k)>=18;
+            baseline|=both;
+        }
+        if(baseline)++choices;
+    }
+    if(choices!=1)return 0;
+    out->layout_version=3;out->observed_prices=3;out->unmatched_prices=0;
+    memcpy(out->price_boxes,prices.price_boxes,sizeof(out->price_boxes));return 1;
+}
 /* Preserve raw price groups. Only registered neutral trim inside a positively
  * matched gray/purple body is explained; no target-domain mask is used. */
 static int closed_price_white(const RingObservation *observation,
@@ -1474,7 +1542,22 @@ static int side_coverage(const unsigned char *rgba,const RingObservation *observ
     complete&=endcap_witness(rgba,observation,row->left+108,row->sy,&out->endcaps[1]);
     if(!complete)out->failure_flags|=NG2_RING_COV_ENDCAP;
     side_price_witness(observation,row,out);
-    status=closed_price_recover(rgba,observation,options,result,row,out,1);if(status)return status;
+    if(out->observed_prices!=3||out->unmatched_prices) {
+        NG2RingCoverage original=*out;
+        if(side_separate_price_witness(observation,row,out)) {
+            /* Keep the already authenticated closed-object layout2 path.
+             * Only the unique lower price needs this compatibility probe;
+             * unrecognized products retain the generic layout3 evidence. */
+            int lower=-1;
+            for(int s=0;s<3;++s)if(out->price_boxes[s][1]>=row->sy+82)lower=s;
+            if(lower<0)return NG2_RING_KERNEL;
+            NG2ContainerMasks masks;NG2RingSlot found=row->slots[lower];
+            status=container_masks(rgba,options,result,&masks);if(status)return status;
+            status=closed_color_identity(rgba,&masks,options,result,&found);if(status)return status;
+            if(found.ignored_container_id&&!found.non_target_conflict)*out=original;
+        }
+    }
+    if(out->layout_version!=3){status=closed_price_recover(rgba,observation,options,result,row,out,1);if(status)return status;}
     if(out->observed_prices!=3||out->unmatched_prices){complete=0;out->failure_flags|=NG2_RING_COV_PRICE;}
     for(int s=0;s<3;s++)memcpy(out->item_boxes[s],row->slots[s].non_target_icon_box,sizeof(out->item_boxes[s]));
     item_witness(rgba,row,out);
@@ -2889,7 +2972,8 @@ static int separate_price_negative_certificate(const NG2RingResult *result){
         ||result->selected_row<0||result->selected_row>=result->row_count
         ||result->partial_count!=2||result->selected_partial!=-1||result->partial_safe_no_positive)return 0;
     const NG2RingCoverage *w=&result->certificate;
-    if(w->layout_version!=3||w->policy_version!=7||w->board_mode!=7
+    int side=w->policy_version==4;
+    if(w->layout_version!=3||(!side&&w->policy_version!=7)||w->board_mode!=w->policy_version
         ||w->non_target_items!=3||w->ignored_containers||result->selected_row<0
         ||result->selected_row>=result->row_count)return 0;
     const NG2RingRow *row=&result->rows[result->selected_row];int choices=0,selected=-1;
@@ -2898,6 +2982,11 @@ static int separate_price_negative_certificate(const NG2RingResult *result){
         const int32_t *box=w->price_boxes[s];
         if(!box_valid(box)||box[3]<7||box[3]>9||box[0]<row->left+36*s-11
             ||box[0]+box[2]>row->left+36*s+12)return 0;
+    }
+    if(side) {
+        int lower_tops=0;
+        for(int s=0;s<3;++s)lower_tops+=w->price_boxes[s][1]>=row->sy+82;
+        if(lower_tops!=1)return 0;
     }
     for(int lower=0;lower<3;++lower){
         const int32_t *late=w->price_boxes[lower];int top=414,bottom=0;
@@ -2909,7 +2998,8 @@ static int separate_price_negative_certificate(const NG2RingResult *result){
     }
     if(choices!=1)return 0;
     NG2RingResult normalized=*result;normalized.certificate.layout_version=1;
-    return single_sign_negative_certificate(&normalized,selected);
+    return side?structural_negative_certificate(&normalized,selected)
+        :single_sign_negative_certificate(&normalized,selected);
 }
 int ng2_ring_negative_certificate(const NG2RingResult *result) {
     if(result&&result->certificate.layout_version==3)return separate_price_negative_certificate(result);
