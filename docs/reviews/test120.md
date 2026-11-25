@@ -51,3 +51,5 @@ Mac原記録のnormalはbeginのMotion0/getterMotion0・MOVE1/既知ACK、begin�
 readerの独立source reviewでは、継承CI gateがGH digest欠損時に省略するP1を検出。新120だけ3役のname/ID一意・原ZIPへのexact digest必須を前段へ追加し、元gate全assertを保持した。私有原sourceを保存し、純関数1accept/18rejectと独立差分確認で閉鎖。最終6gateでは3原digest全照合に成功した。製品/IPAや実機失敗の件数へ加算しない。
 
 固定配布はTEST120/build268へIPA・完全source・SHA表を置く。公式SOURCEは製品CODEから文書だけを変更し、全Git blobと同nativeを別途照合する。固定公開・匿名全取得は次工程であり、新版iPhone受入はこれから。
+
+固定公開確認完了。SOURCE `a540008aab2d01d8f740b6be932f4939d6d01187` はCODEから文書4件のみ、公式全1201Git blob/同native/CRCを照合。公開job269/run45553051523は元CI268のIPAを再ビルドせず保存した。Release457685720/test120-build268のIPA・source・SHA表を匿名全GET200で取得し、原本全bytes・GitHub digest/size・両ZIP CRC・実tag SOURCEを照合。IPA45fab1d1/source db18a0f1/SHA表6e313491。固定assetは置換せず、公開後文書だけを追記した。iPhone受入はこれから。

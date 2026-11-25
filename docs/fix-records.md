@@ -739,3 +739,5 @@ TEST119公開後確認: SOURCEd8aa39e（CODE617fc248からdocs4件のみ）/公�
 TEST120配布前確認: CODE723c1c6・CI268で公式host122/実Py3964/Mac1case2subrun/実IPAが合格。原3ZIPのGHdigest/CRC、全CODE1201blob、37nativeの3変更34保持、実compilerと全9MachO等6項目はattempt1で合格。IPA45fab1d1。実機改善/速度の受入と各実機再発数は据え置き、固定公開/公式SOURCE/匿名取得は別途確認する。
 
 | FR-120-DEV-DELIVERY-DIGEST | 2026-11-25 | reader source reviewで原GH digest欠損を拒否しない不足 | 継承118 gateはdigestが存在する場合だけ比較 | 新120だけ3原ZIPのname/ID一意・exact digestを必須にしてから元CI gate全assertへ委譲 | 私有旧source保持。純関数1accept/18reject、独立最終P0/P1なし。actual6gateで全原GHdigest照合成功 | 配布前source不足1。実機の再発数へ加算しない |
+
+TEST120公開後確認: SOURCEa540008（CODE723c1c6からdocs4件のみ）/公式1201blob/同native、固定3assetの匿名GET200/全bytes/SHA/GHdigest/size/ZIP CRC/実tagが一致。IPA45fab1d1・source db18a0f1・SHA表6e313491。公開job269/run45553051523はbuild268を保存するだけで再ビルドしていない。固定assetは置換せず文書のみ追記し、実機改善/速度と再発数の未確認を維持する。

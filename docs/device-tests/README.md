@@ -3221,3 +3221,5 @@ cd /mnt/necro_test120 && sh test_120.sh --until-target
 ```
 
 通常1-1ポーズから初回RS→候補/通路→商店→全商品確認→対象なしの正常判定/保存/実RS→次周回を一連で依頼する。対象/候補/障害等の停止後に画像/記録を回収し、終了表示のruntime/test-120の全run ZIPとcampaign ZIPを返してもらう。回収済みrunを追加回収のため再実行しない。
+
+TEST120固定公開確認: SOURCEa540008（CODE723c1c6から文書4件のみ）、公式全1201blob/同nativeを照合。匿名で固定3assetを全GET200、原本全bytes/SHA/GHdigest/size/両ZIP CRC/実tag SOURCEまで確認。IPA18,477,717B/SHA45fab1d140139cfb5e799b30d3e8d843752c3f0ef5bff99e1b181d47d9129cc3、source10,549,923B/SHAdb18a0f12a33b968b58ba3371082b34a0b70a0bf54fa37f0278f2a3e43a82aff、SHA表6e313491f9e12480ad553ef6fc0e1f8006244562eb8ace0ccb8c67f93e422b8b。公開269/run45553051523はIPAを再作成していない。固定assetは置換せず、実機結果は次に受領する。
