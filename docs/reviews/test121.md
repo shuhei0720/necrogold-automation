@@ -1,6 +1,6 @@
 # TEST121: TEST120の扉前・商品確認後の停止と通路候補
 
-2026-11-25（日本時間）。[計画](../plans/test121-device-failures.md)・[修正表](../fix-records.md)。基準はTEST120/build268、CODE723c1c6、保存HEAD55a762f。実装・限定検証中。新IPAとiPhone受入は未完了。
+2026-11-25（日本時間）。[計画](../plans/test121-device-failures.md)・[修正表](../fix-records.md)。基準はTEST120/build268、CODE723c1c6、保存HEAD55a762f。限定実装・関連検証・独立レビューを完了し、CI270と実IPAの5確認が合格。iPhone受入は未完了。
 
 ## 実機で確認した成功と失敗
 
@@ -44,3 +44,14 @@ a084の全3alias確認は同機Linuxで新uncached約96〜97msとなったため
 G2適用・封印は37 native中5変更（RPC/Controller/Nav/Ring.c/header）・32保持・追加0。API1.98.16/native_v15/POD/profile3、G1とR12全40を保持する。実CI/IPA/compiler/全Mach-O・完全sourceの確認は次工程で、この時点では未実施。
 
 Runtime/queue/dispatch境界は変更しないため、新たな全Runtime worldやMacケースを既定にしない。変更したnativeの標準iOSビルド、seal・完全source・実compiler・全Mach-O・配布物同一性は別工程で行う。前回のMac成功を今回の新しい成功として数えない。実機の商品到達・連続周回・毎拍/速度・未知配置の受入は、次の利用者テストまで未確認。
+
+
+## 配布前の実CIと実IPA
+
+製品CODE `457478627d91136c3ff482f08b9a65314671b41e`、標準device CI270/run45566129079が合格。公式host88・実CPython3.9.25の75件は全件failure/error/skip/expected failure0。新Mac Runtimeは0で、前回のMac結果を今回の合格へ転用していない。
+
+元3artifactのGH必須digest/size/CRC、CODE全1215Git blob、37native・5変更32保持・追加0、実iOS compiler/RSP/profileと全9MachO/fixture除外を、read-only5項目でattempt1合格。CODE flat source SHA2b66797b4aa60347687413e6148d33d9782d35da61e8c0f8ffed2df5591dd9dc。IPA18,493,552B、SHA `671bb82f1d14c732e668b7ecd7a7876e381cae0aa2af4d59551bec80cd620d97`。原helper/source/入力/assetは保持した。
+
+[固定IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test121-build270/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test121-build270/source.zip)・[SHA表](https://github.com/shuhei0720/necrogold-automation/releases/download/test121-build270/SHA256SUMS.txt)。公開用SOURCEはCODEから文書4件だけを更新し、公式ZIP全Git bytes/CRC/同nativeと固定3assetの匿名全GETを公開工程で確認する。検証済みIPAを再ビルドせず保存する。
+
+次は通常1-1ポーズから初回RS→通路候補/金壁→商店→全3商品確認→対象なしの正常判定/耐久/RS→次周回を依頼する。対象候補を保持し、回収完了まで待って全runtime/test-121 run/campaign ZIPを返却してもらう。iPhone到達率・毎拍/速度と元実機再発数の未確認を維持する。

@@ -1,9 +1,7 @@
 # 最新状態
 
-更新: 2026-11-25（日本時間）。TEST120実機7ZIP/4run/3campaign・99PNG/117記録を全照合、欠損なし。[TEST121計画](plans/test121-device-failures.md)。限定修正・関連検証・独立レビュー完了。商品2画像の通常陰性/独立C証明を確認。封印済みでCI/IPA照合へ進む。
+更新: 2026-11-25（日本時間）。[TEST121/build270](https://github.com/shuhei0720/necrogold-automation/releases/tag/test121-build270)固定公開準備中。CODE4574786/CI270、host88・実Py39 75・実IPAの5確認が合格。37nativeは5変更32保持、API/native_v15/POD/profile3を維持。
 
-実順3a4a（扉前の後方角DIRT→STONEで取消）→5572（正常policy17陰性→実RS24→新floor306成功）→a084 child（看板分断と床支持でUNKNOWN、capture1別候補形見逃し）→18c0（看板文字の描画差でUNKNOWN）。商品2停止は期限内に通常結果を採用済み。未収録のprivate状態/過去job packetは補完しない。
+[検証](reviews/test121.md)・[計画](plans/test121-device-failures.md)。TEST120実機7ZIP/4run/99PNGを照合し、扉前の壁色差による取消、看板分断/床支持/暖色文字の商品UNKNOWN、capture1左上候補を修正。旧成功5packetと初回RS/連続周回を保持。269画像のNav差は指摘1件だけ。
 
-配布基準は[TEST120/build268](https://github.com/shuhei0720/necrogold-automation/releases/tag/test120-build268)、CODE723c1c6、SOURCEa540008。固定3asset匿名全取得済み。前回host122/実Py3964/Mac1case2subrun/実IPA6照合は過去結果で、今回の改善完了には流用しない。
-
-成功した正常陰性/実RS/同Runtime child、初回RS・全商品観測・候補保持・元期限/UNKNOWN無再送を保持して修正する。実機到達・毎拍/速度の受入は未完了。
+IPA SHA671bb82f。公式SOURCE/固定3assetの匿名全取得は公開工程で確認する。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。通常1-1ポーズから `sh test_121.sh --until-target`。終了表示後の全run/campaign ZIPを返却してもらう。実機到達・毎拍/速度の受入は未完了。

@@ -3223,3 +3223,20 @@ cd /mnt/necro_test120 && sh test_120.sh --until-target
 通常1-1ポーズから初回RS→候補/通路→商店→全商品確認→対象なしの正常判定/保存/実RS→次周回を一連で依頼する。対象/候補/障害等の停止後に画像/記録を回収し、終了表示のruntime/test-120の全run ZIPとcampaign ZIPを返してもらう。回収済みrunを追加回収のため再実行しない。
 
 TEST120固定公開確認: SOURCEa540008（CODE723c1c6から文書4件のみ）、公式全1201blob/同nativeを照合。匿名で固定3assetを全GET200、原本全bytes/SHA/GHdigest/size/両ZIP CRC/実tag SOURCEまで確認。IPA18,477,717B/SHA45fab1d140139cfb5e799b30d3e8d843752c3f0ef5bff99e1b181d47d9129cc3、source10,549,923B/SHAdb18a0f12a33b968b58ba3371082b34a0b70a0bf54fa37f0278f2a3e43a82aff、SHA表6e313491f9e12480ad553ef6fc0e1f8006244562eb8ace0ccb8c67f93e422b8b。公開269/run45553051523はIPAを再作成していない。固定assetは置換せず、実機結果は次に受領する。
+
+
+## TEST120受領とTEST121: 扉前・商品確認後の停止と左上通路
+
+2026-11-25。実機7ZIP/4run/3campaign・99PNG/117記録を全照合。扉前の壁色差、同じ看板の分断と床端支持、暖色SHOP文字の認証、capture1左FLOOR口/分断屋根を修正。[検証](../reviews/test121.md)・[修正表](../fix-records.md)。既成功5packet、初回RS/連続周回/元期限/対象候補保持を維持する。
+
+CODE4574786・CI270/run45566129079、host88/実CPython3.9.25の75件と実IPAが合格。37nativeは5変更32保持、全1215CODE blob・実compiler・全9MachO等の読取5項目もattempt1合格。新Mac0。iPhoneでの商品到達・連続RS・毎拍/速度は次の実機で確認する。
+
+[固定IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test121-build270/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test121-build270/source.zip)・[SHA表](https://github.com/shuhei0720/necrogold-automation/releases/download/test121-build270/SHA256SUMS.txt)。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。完全sourceを展開しtest_121.shがあるフォルダをiSHへmountする。固定公開/公式SOURCE/匿名取得は公開後に追記する。
+
+```sh
+mkdir -p /mnt/necro_test121
+mount -t ios . /mnt/necro_test121
+cd /mnt/necro_test121 && sh test_121.sh --until-target
+```
+
+通常ケイデンス・オールゾーン1-1ポーズから一連で依頼する。上部入口も全3商品が見えるまで進み、対象なしなら画像転送を挟まず次周回、対象候補なら保持/通知を確認する。停止後は回収完了表示まで待ち、途中停止分を含むruntime/test-121の全run ZIPとcampaign ZIPを返却してもらう。回収済みrunを追加回収目的で再実行しない。

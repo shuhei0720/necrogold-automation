@@ -754,3 +754,6 @@ TEST120公開後確認: SOURCEa540008（CODE723c1c6からdocs4件のみ）/公�
 | FR-121-SPLIT-ROOF-FLOOR-MOUTH | 2026-11-25 | a084 capture1の左上候補を見送り | FLOOR口/UNKNOWN inboard/屋根3黒gapで、120全屋根cap形と別。旧119/120 mask0、同原時刻C cutもPAUSE予約 | 旧mask集合優先、0時だけ既bit5へ独立witness。観測済み3床で再観測し、不達口/未知床を保つ | 旧Navの新8件で10assert Red→新8＋旧9の17件Green。269原画はScene不変・旧nonzero5全保持、差はcapture1だけ0→32。原frame Cも候補保持/SYNCへ変化、旧chooser全bytes保持。独立最終P0/P1なし、実機到達未確認 | 今回1。前回cap成立後の退行ではなく別shape。上左系列通算不明 |
 
 両FULL UNKNOWNは元Dより約53/82ms前に正常採用され、PAUSE ACK→durable→GOODS1へ進む。時間切れとして修正しない。ControllerのFULL追加観測MOVEは原ACK observed214/124とjob source215/125の不一致で資格外、実private mode/残DATAは未収録のため補完しない。まずproducerの正しい全被覆→独立C採用を確認する。
+
+
+TEST121配布前確認（2026-11-25）: CODE4574786・CI270/run45566129079、host88/実Py39 75/実IPAが合格。元3artifact必須GHdigest、全1215CODE blob、37nativeの5変更32保持、実compiler/profile/全9MachO等のread-only5項目がattempt1合格。IPA671bb82f。新Mac0、旧成功5packetは同値。実機改善/速度と再発数は未確認、固定公開/公式SOURCE/匿名全取得は別途確認する。
