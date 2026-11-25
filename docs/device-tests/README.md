@@ -3240,3 +3240,6 @@ cd /mnt/necro_test121 && sh test_121.sh --until-target
 ```
 
 通常ケイデンス・オールゾーン1-1ポーズから一連で依頼する。上部入口も全3商品が見えるまで進み、対象なしなら画像転送を挟まず次周回、対象候補なら保持/通知を確認する。停止後は回収完了表示まで待ち、途中停止分を含むruntime/test-121の全run ZIPとcampaign ZIPを返却してもらう。回収済みrunを追加回収目的で再実行しない。
+
+
+TEST121公開後確認（2026-11-25）: SOURCEd2fae5c（CODE4574786から文書4件だけ）/公式全1215blob・同nativeを照合。固定3assetの匿名全GET200、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA18,493,552B/SHA671bb82f1d14c732e668b7ecd7a7876e381cae0aa2af4d59551bec80cd620d97、source10,623,801B/SHA4deec35fecdf562b630da4fcfe18bd07c273ab8aefc214b919d51ad59f07ea7d、SHA表c9e9f422d73b30cdcfa2768c23eedf9459e50d47fafdc6d2b6d49d231f8288a5。公開271/run45569222642は検証済みbuild270を再ビルドせず保存した。公開後は文書のみを更新し、固定asset/実tagは置換しない。実機改善・速度と元再発数は未確認のまま。

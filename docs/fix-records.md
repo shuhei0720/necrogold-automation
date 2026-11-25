@@ -757,3 +757,6 @@ TEST120公開後確認: SOURCEa540008（CODE723c1c6からdocs4件のみ）/公�
 
 
 TEST121配布前確認（2026-11-25）: CODE4574786・CI270/run45566129079、host88/実Py39 75/実IPAが合格。元3artifact必須GHdigest、全1215CODE blob、37nativeの5変更32保持、実compiler/profile/全9MachO等のread-only5項目がattempt1合格。IPA671bb82f。新Mac0、旧成功5packetは同値。実機改善/速度と再発数は未確認、固定公開/公式SOURCE/匿名全取得は別途確認する。
+
+
+TEST121公開後確認（2026-11-25）: SOURCEd2fae5c（CODE4574786から文書4件だけ）/公式全1215blob・同nativeを照合。固定3assetの匿名全GET200、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA18,493,552B/SHA671bb82f1d14c732e668b7ecd7a7876e381cae0aa2af4d59551bec80cd620d97、source10,623,801B/SHA4deec35fecdf562b630da4fcfe18bd07c273ab8aefc214b919d51ad59f07ea7d、SHA表c9e9f422d73b30cdcfa2768c23eedf9459e50d47fafdc6d2b6d49d231f8288a5。公開271/run45569222642は検証済みbuild270を再ビルドせず保存した。公開後は文書のみを更新し、固定asset/実tagは置換しない。実機改善・速度と元再発数は未確認のまま。

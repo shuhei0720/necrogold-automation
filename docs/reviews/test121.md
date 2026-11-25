@@ -55,3 +55,6 @@ Runtime/queue/dispatch境界は変更しないため、新たな全Runtime world
 [固定IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test121-build270/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test121-build270/source.zip)・[SHA表](https://github.com/shuhei0720/necrogold-automation/releases/download/test121-build270/SHA256SUMS.txt)。公開用SOURCEはCODEから文書4件だけを更新し、公式ZIP全Git bytes/CRC/同nativeと固定3assetの匿名全GETを公開工程で確認する。検証済みIPAを再ビルドせず保存する。
 
 次は通常1-1ポーズから初回RS→通路候補/金壁→商店→全3商品確認→対象なしの正常判定/耐久/RS→次周回を依頼する。対象候補を保持し、回収完了まで待って全runtime/test-121 run/campaign ZIPを返却してもらう。iPhone到達率・毎拍/速度と元実機再発数の未確認を維持する。
+
+
+TEST121公開後確認（2026-11-25）: SOURCEd2fae5c（CODE4574786から文書4件だけ）/公式全1215blob・同nativeを照合。固定3assetの匿名全GET200、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA18,493,552B/SHA671bb82f1d14c732e668b7ecd7a7876e381cae0aa2af4d59551bec80cd620d97、source10,623,801B/SHA4deec35fecdf562b630da4fcfe18bd07c273ab8aefc214b919d51ad59f07ea7d、SHA表c9e9f422d73b30cdcfa2768c23eedf9459e50d47fafdc6d2b6d49d231f8288a5。公開271/run45569222642は検証済みbuild270を再ビルドせず保存した。公開後は文書のみを更新し、固定asset/実tagは置換しない。実機改善・速度と元再発数は未確認のまま。
