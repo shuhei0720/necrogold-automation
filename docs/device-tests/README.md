@@ -3186,3 +3186,20 @@ CODEdca8ca38dde55cd4bf261a4678d410675c19b30a、[Mac263/run45446666904](https://g
 
 
 TEST118公開後確認: SOURCE7dc68c2（CODEからdocs4件のみ）、全1160blob/bytes/CRC/同nativeを公式ZIPへ照合。固定3assetの匿名全GET/SHA/GitHub digest/実tagも一致。source10,363,441B/SHAb1d0eccc227097009ac03005d264082548123ec2d085a55cfc7cce865c45f57c、SHA表c38e820859a157325e60163f65817321ec92684df06891c01d7bdb2332dc47e7。IPAはbuild263のまま、公開job264は再ビルドではない。iPhoneの結果は未受領。
+
+
+## TEST118受領とTEST119: 通路・不完全商品・価格・遅延入店
+
+2026-11-25。9ZIP/4campaign/5run・132PNG/154記録を全照合。通路の新床で判断が変わる未送信停止、PARTIAL入口の遠方材質拒否、同列白点/低い価格配置、松明床と早期FULL後の実移動確認/新DATA所有を修正。実周回のyield有効時に旧DATAが先行する追加原因も修正した。[詳細](../reviews/test119.md)・[修正表](../fix-records.md)。初回RS、対象候補保持、対象外の連続周回を維持し、価格/全商品/期限の条件は保持する。
+
+CODE617fc2483d4fbaae6f79764b5c06edca7a2fdf9e、CI266/run45534392534。host130、実CPython3.9.25の53、標準Macのentered_current_queue1case/normal・candidate2subrunと実IPAが合格。実compiler/37native/完全source/全9MachO等の読取6項目も合格。nativeは4変更/33保持、API/native_v15/ABI/profile3は不変。Macは公開手続き画像と実Runtimeのcomponent確認であり、実ゲーム/iPhoneの到達率・毎拍/人超え速度・精度の受入ではない。元3fの実陰性→RS→child成功を保持し、別のef停止を成功扱いしない。
+
+[固定IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test119-build266/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test119-build266/source.zip)・[SHA表](https://github.com/shuhei0720/necrogold-automation/releases/download/test119-build266/SHA256SUMS.txt)。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN、新sourceのtest_119.shがあるフォルダをiSHへmountする。
+
+```sh
+mkdir -p /mnt/necro_test119
+mount -t ios . /mnt/necro_test119
+cd /mnt/necro_test119 && sh test_119.sh --until-target
+```
+
+通常ケイデンス・オールゾーン1-1ポーズから一連を確認する。上部入口も全3商品が見えるまで移動→対象外なら回収を挟まず次周回、対象候補なら保持/通知を確認。終了表示まで画像/ZIP照合を待ち、途中停止分を含む`runtime/test-119*.zip`を全て返却してもらう。公式全sourceと公開3assetの匿名全GET/SHA/CRC/実tagは公開後に追記し、assetは置換しない。

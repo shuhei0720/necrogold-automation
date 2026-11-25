@@ -1,6 +1,6 @@
 # TEST119: TEST118の実機停止への修正
 
-2026-11-25（日本時間）。[計画](../plans/test119-device-failures.md)・[修正表](../fix-records.md)。基準はTEST118/build263（CODEdca8ca3、保存64f7b4f）。実機新資料の原因確認から限定修正/関連検証を進めており、TEST119の実IPA/固定配布/iPhone受入は未完了。
+2026-11-25（日本時間）。[計画](../plans/test119-device-failures.md)・[修正表](../fix-records.md)。基準はTEST118/build263（CODEdca8ca3、保存64f7b4f）。実機資料から原因別に修正し、CI266の実IPAと6項目の照合を完了。固定公開後の匿名取得確認は別記し、iPhone受入は未完了。
 
 ## 実機で分かったこと
 
@@ -33,3 +33,15 @@ TEST119 client/capは実Python3.9で新17件の意味的Red→同testsのGreen�
 専用Runtime結合のsource freezeは公開RGBAの前奏→同じ公開C状態→通常Runtime latest/cycle/画像lease→通常Ring→producer/commit両return・drainへ結合した。Scene/分類結果の注入は使わず、元Runtime本体は不変。normal/candidateの短い2subrunの最終source独立レビューもP0/P1なし。Linuxの公開C前奏校正をMac実行や実機成功とは扱わず、実Macのcompile/callback結果はCI原本で別途確認する。
 
 CI265は旧known-floor選択がGit外のTEST043全画像を要求して停止した。元ログ/ZIP・digestを保持し、旧assert/試験sourceは変更しない。CI普通床1件を既公開`test_floor_quantization_integer_band_boundaries`へ選択変更し、22RGB境界＋flat/HUD/gold優先を欠けたprivate根でGreen確認。旧known-floorは同じ製品sourceのローカル130件でPASS、CIで新規成功と数えない。native37/4変更・seal・他129件は保持し、新CODEでCIを実行する。
+
+## 実ビルドと配布前照合
+
+製品CODE `617fc2483d4fbaae6f79764b5c06edca7a2fdf9e`、CI266/run45534392534。標準ubuntuのhost130（native103/cap6/package8/selector13）と実CPython3.9.25の53、標準macos-26の`entered_current_queue`1case/normal・candidateの2subrun、IPA build266が成功。普通床のCI選択1件以外に、CODE02dから製品sourceは変えていない。
+
+Mac原証跡ではnormalの3workerがsource34→35→36を通常UNKNOWNとして採用し、candidateの2workerはsource35の対象候補をqueued36より先に保持。late-unit一回、元P/hold・source150ms/worker100ms、immutable RGBA/sourceと両return後のdrain/leaseを確認。全5commitは元期限内。公開RGBA/通常Perception・Ringと実Runtimeを使うcomponent試験で、実hardware ACK/撮影backend/未来MOVE・RS/実ゲーム/iPhone速度は未確認。
+
+原3artifactのGH digest/size/CRC/安全で一意なpath、CODE全1181blobのflat ZIPを照合。読取6項目（元CI、source/package、host/Py39、current Runtime、実iOS compiler、全9MachO）も合格。37nativeの正確な4変更/33保持、R12全40/G1/canonical15、API/native_v15/ABI/profile3、実8C/5Swiftとsource/object/argv/RSPを保持。IPA SHA256は`2fa20bf29c5219d76796c92d6f9810b203718fb0cf1f35e1b7c2f698968a80c0`。
+
+最初の読取attemptはworkflowのteeログ1本を一覧へ登録しておらずruntime段階で停止。原source/入力/失敗ledgerを保持し、必須26本と同CODEのtee/pipefail・checkerのexact78B PASSへ結合する限定修正を独立レビュー。原8入力/製品/CI/IPAを変えず、新しいattemptで6項目を一回確認した。分類/コンパイル/過去Runtime・Spool故障集合を読取時に再実行していない。
+
+固定配布は[TEST119/build266](https://github.com/shuhei0720/necrogold-automation/releases/tag/test119-build266)。公開sourceはこの製品CODEから文書だけを変更し、公式ZIPの全Git bytesと同nativeを別途照合する。新版iPhoneの改善確認はこれからであり、元実機の再発数を検証件数で置き換えない。
