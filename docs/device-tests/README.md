@@ -3205,3 +3205,19 @@ cd /mnt/necro_test119 && sh test_119.sh --until-target
 通常ケイデンス・オールゾーン1-1ポーズから一連を確認する。上部入口も全3商品が見えるまで移動→対象外なら回収を挟まず次周回、対象候補なら保持/通知を確認。終了表示まで画像/ZIP照合を待ち、途中停止分を含む`runtime/test-119*.zip`を全て返却してもらう。公式全sourceと公開3assetの匿名全GET/SHA/CRC/実tagは公開後に追記し、assetは置換しない。
 
 TEST119公開後確認: SOURCEd8aa39e（CODEからdocs4件のみ）、公式全1181blob/bytes/CRC/同nativeを照合。固定3assetの匿名全GET/SHA/GitHub digest/実tagは全一致。IPA18,470,994B/SHA2fa20bf29c5219d76796c92d6f9810b203718fb0cf1f35e1b7c2f698968a80c0、source10,451,177B/SHAa546316e10c4a42e9aa979260dee4628d8ba17d63b05c024c5db5473b819002f、SHA表1f6e83ccb48c24fe07655d67b3b9245f7a6b5cd6e6c1ab639828407abf23a09d。公開job267/run45537748686は再ビルドせず、IPAは検証済みbuild266のまま。公開後は文書のみ追記しassetは置換しない。iPhone結果は未受領。
+
+## TEST119受領とTEST120: 通路の再判断・PARTIAL送信前・左上候補
+
+2026-11-25。実機11ZIP/7run/4campaign・170PNG/203記録を全照合。通路3停止と開扉後の送信期限切れ、capture62の左上候補を修正。旧成功3rootの判定→実RS→child、初回RS/連続周回を保持。[検証](../reviews/test120.md)・[修正表](../fix-records.md)。全商品未観測のPARTIALを陰性へ変えない。
+
+製品CODE723c1c6・CI268/run45550690119、host122/実Py3964/Mac1case2subrun、実IPAと配布前6照合が合格。37nativeの3変更34保持、実iOS compiler/全9MachO/CODE全1201blobを確認。Macの既知ACKは実ゲームのMOVEDではなく、iPhone改善・毎拍/速度の受入はこれから。
+
+[固定IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test120-build268/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test120-build268/source.zip)・[SHA表](https://github.com/shuhei0720/necrogold-automation/releases/download/test120-build268/SHA256SUMS.txt)。固定公開/匿名取得は公開工程で別に確認する。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN、新sourceのtest_120.shがあるフォルダをiSHへmountする。
+
+```sh
+mkdir -p /mnt/necro_test120
+mount -t ios . /mnt/necro_test120
+cd /mnt/necro_test120 && sh test_120.sh --until-target
+```
+
+通常1-1ポーズから初回RS→候補/通路→商店→全商品確認→対象なしの正常判定/保存/実RS→次周回を一連で依頼する。対象/候補/障害等の停止後に画像/記録を回収し、終了表示のruntime/test-120の全run ZIPとcampaign ZIPを返してもらう。回収済みrunを追加回収のため再実行しない。

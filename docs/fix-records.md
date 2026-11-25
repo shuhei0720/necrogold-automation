@@ -735,3 +735,7 @@ TEST119公開後確認: SOURCEd8aa39e（CODE617fc248からdocs4件のみ）/公�
 新120のcap/namespaceは旧118/119・初回RS/同root回復/連続周回を保持。独立レビューでコメント内タグの誤認を検出し、新120だけblock-commentを拒否する最小修正で閉鎖した（既6method内の6反例assertion Red→Green、旧metadata11件も保持）。これは配布識別の補助不具合であり実機停止の原因件数へ加算しない。新IPA/実Mac/公開配布とiPhone受入はまだこれから。
 
 | FR-120-DEV-ROUTE-VISUAL-PARENT | 2026-11-25 | 配布前レビューで新routeの入力後に元P後のunitをcreditし得る | publication/beginだけP/Wをclipし、private route消費後のvisual/scheduleは新source+3秒まで残る | 新route active時だけreserve wait_horizonとprepare_recovery_slot horizonへ元Pを継承する2行修正 | 元be35の12 assertion Red→最終cf471の新9件/関連22件Green。8境界subcaseでP-1/Pの正常unitとP後/commit-only P+1拒否を確認、独立最終P0/P1なし。旧attempt1保持 | 配布前1。実機の再発数へ加算しない |
+
+TEST120配布前確認: CODE723c1c6・CI268で公式host122/実Py3964/Mac1case2subrun/実IPAが合格。原3ZIPのGHdigest/CRC、全CODE1201blob、37nativeの3変更34保持、実compilerと全9MachO等6項目はattempt1で合格。IPA45fab1d1。実機改善/速度の受入と各実機再発数は据え置き、固定公開/公式SOURCE/匿名取得は別途確認する。
+
+| FR-120-DEV-DELIVERY-DIGEST | 2026-11-25 | reader source reviewで原GH digest欠損を拒否しない不足 | 継承118 gateはdigestが存在する場合だけ比較 | 新120だけ3原ZIPのname/ID一意・exact digestを必須にしてから元CI gate全assertへ委譲 | 私有旧source保持。純関数1accept/18reject、独立最終P0/P1なし。actual6gateで全原GHdigest照合成功 | 配布前source不足1。実機の再発数へ加算しない |

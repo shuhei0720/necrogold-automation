@@ -39,3 +39,15 @@ fresh G1から最終G2をseal/applyし、37native中Controller/Nav/RPCだけの3
 関連旧076のREADY/ISSUED未知化を一律SCREENとする1methodは、exact119でも同じ2subcase不合格だった。既assert/sourceを保持して今回CIから未選択とし、元W内の無入力OBSERVE復帰を明示する現117の3methodへ対応付けた。新規成功へ数えず、代替を含む直接関連22件で最終Cを確認した。
 
 Mac5sourceの静的最終差分レビューもP0/P1なし。原Runtime/fakes本文を保持し、publicC/normal RGBA・Ringから実Runtime dispatch/main begin/post gateへ結ぶ。旧119 Cの同公開前奏はbegin成功でもMotion1回に対し新期待0のassertion Red。purevalidatorの正常2/拒否38、C fixtureの厳格compileは合格。これらはMac callback合格ではなく、Swift nested aliasの型検査と実10ms内のnormal/実post lateは標準GHAで確認する。
+
+## 実ビルドと配布前照合
+
+製品CODE `723c1c65251f123228a22e21ea998032a06b4826`、標準CI268/run45550690119が成功。公式host122（native95/cap6/package8/selector13）と実CPython3.9.25の64、macos-26の`partial_begin_dispatch`1case/normal・post_guard_lateの2subrun、IPA build268が合格した。旧全Runtime world/故障集合を実行したとは数えない。
+
+Mac原記録のnormalはbeginのMotion0/getterMotion0・MOVE1/既知ACK、begin実費97,958ns・終了時D前8,728,976ns。lateもbeginが49,625nsで成功し、その後の宣言したHOST owner実費を原Runtimeのpost gateが拒否してMOVE0/確実NOT_SENTとなった。公開RGBA/通常Perception・Ring/公開Cと実Runtimeによるcomponent試験であり、物理撮影thread/実gesture/ゲームのMOVED/iPhone速度は未確認。実機の元7.466ms全区間からMac費用を差し引いて改善完了とはしない。
+
+原3artifactのGitHub digest/byte size/CRC/安全で一意なpathを照合し、CODE全1201Git blobのflat ZIPも同bytes。読み取り6項目（元CI、source/package、host/Py39、current Runtime、実iOS compiler、全9MachO）はattempt1で全合格。製品37nativeの正確な3変更/34保持・追加0、R12全40/G1/canonical15、API/native_v15/ABI/profile3、実8C/5Swift記録とsource/object/argv/RSPを確認した。IPA18,477,717bytes、SHA256 `45fab1d140139cfb5e799b30d3e8d843752c3f0ef5bff99e1b181d47d9129cc3`。読み取り中のcompiler/classifier/callback/RPCの追加実行は0。
+
+readerの独立source reviewでは、継承CI gateがGH digest欠損時に省略するP1を検出。新120だけ3役のname/ID一意・原ZIPへのexact digest必須を前段へ追加し、元gate全assertを保持した。私有原sourceを保存し、純関数1accept/18rejectと独立差分確認で閉鎖。最終6gateでは3原digest全照合に成功した。製品/IPAや実機失敗の件数へ加算しない。
+
+固定配布はTEST120/build268へIPA・完全source・SHA表を置く。公式SOURCEは製品CODEから文書だけを変更し、全Git blobと同nativeを別途照合する。固定公開・匿名全取得は次工程であり、新版iPhone受入はこれから。
