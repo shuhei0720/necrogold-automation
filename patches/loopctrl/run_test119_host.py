@@ -182,7 +182,7 @@ CASES = (
         'test_observed_floor_requires_original_colour_texture_and_median_r16',
     }), True),
     ('tests.test_native_perception', 'NativePerceptionTests', 'test119-native-NativePerceptionTests', frozenset({
-        'test_known_floor_public_entry',
+        'test_floor_quantization_integer_band_boundaries',
     }), False),
     ('tests.test_native_entered112', 'NativeEntered112Tests', 'test119-native-NativeEntered112Tests', frozenset({
         'test_candidate_target_and_strong_word_keep_priority_over_late_moved',

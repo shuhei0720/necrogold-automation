@@ -31,3 +31,5 @@ TEST119 client/capは実Python3.9で新17件の意味的Red→同testsのGreen�
 変更部の単体/関連回帰と必要な実IPA/実compiler/全source・seal照合を行う。RuntimeやSpoolが不変なら新規全故障/大規模Macworldは実行せず、過去結果を過去として区別する。次の端末試験で商品到達→正常判定→実RS→次周回を評価し、毎拍/人超え速度や実機精度を補助検証だけで合格にしない。
 
 専用Runtime結合のsource freezeは公開RGBAの前奏→同じ公開C状態→通常Runtime latest/cycle/画像lease→通常Ring→producer/commit両return・drainへ結合した。Scene/分類結果の注入は使わず、元Runtime本体は不変。normal/candidateの短い2subrunの最終source独立レビューもP0/P1なし。Linuxの公開C前奏校正をMac実行や実機成功とは扱わず、実Macのcompile/callback結果はCI原本で別途確認する。
+
+CI265は旧known-floor選択がGit外のTEST043全画像を要求して停止した。元ログ/ZIP・digestを保持し、旧assert/試験sourceは変更しない。CI普通床1件を既公開`test_floor_quantization_integer_band_boundaries`へ選択変更し、22RGB境界＋flat/HUD/gold優先を欠けたprivate根でGreen確認。旧known-floorは同じ製品sourceのローカル130件でPASS、CIで新規成功と数えない。native37/4変更・seal・他129件は保持し、新CODEでCIを実行する。
