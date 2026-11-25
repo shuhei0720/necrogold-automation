@@ -2012,11 +2012,47 @@ static int closed_floor_one_ahead(const NG2Scene *a,const NG2Scene *b,const NG2D
     }
     return gold_a==2&&gold_b==2;
 }
+/* One unstarted closed door can retain its existing ticket through one
+ * behind-diagonal DIRT->STONE. Both are positive blockers off its route;
+ * every other near difference remains a refusal, including a second corner. */
+static int closed_door_blocking_corner121(const NG2Controller *p,const NG2Scene *scene){
+    const NG2Scene *a=&p->before;const NG2ControllerEvent *e=p->event_count?&p->events[p->event_count-1]:NULL;
+    int i,near_count=0,d=p->command.direction;
+    if(d<1||d>4||p->s.input_state!=1||!p->command.id||!p->command.source_capture_id
+        ||p->s.current_command_id!=p->command.id
+        ||!e||e->begin_ns||e->outcome||memcmp(&e->command,&p->command,sizeof(p->command))
+        ||p->command.kind!=NG2_ACTION_MOVE||p->command_choice.reason!=5
+        ||p->command_choice.obstacle!=NG2_TILE_DOOR||p->s.phase!=NG2_PHASE_WALK
+        ||!p->s.lead_confirmed||!level_moves(p)||p->finish_requested||p->s.terminal||p->s.goods
+        ||p->replan_pending||p->continuous_pending||p->passage_active||p->entrance.valid
+        ||p->stationary_wait_active||p->gate_refresh_state||p->passage_wait_kind
+        ||p->terrain_refresh_active||p->observation_refresh_active||p->stationary_gate_retry_waiting
+        ||p->entry.active||p->lower.active||p->upper.active||p->route120.active
+        ||p->cycle_partial_credit||p->cycle_full_framing||p->cycle.candidate_latched||cycle_holding(p)
+        ||p->last_observed_prefix!=p->s.last_completed_id
+        ||a->state!=NG2_FLOOR||scene->state!=NG2_FLOOR
+        ||a->gold_state!=NG2_GOLD_CANDIDATE||scene->gold_state!=NG2_GOLD_CANDIDATE
+        ||a->goods!=NG2_GOODS_UNKNOWN||scene->goods!=NG2_GOODS_UNKNOWN
+        ||tile(a,0,0)!=NG2_TILE_FLOOR||tile(scene,0,0)!=NG2_TILE_FLOOR
+        ||tile(a,dx[d],dy[d])!=NG2_TILE_DOOR||tile(scene,dx[d],dy[d])!=NG2_TILE_DOOR
+        ||!gate_at(a,dx[d],dy[d])||!gate_at(scene,dx[d],dy[d])||!same_gold(a,scene))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int x=i%23-11,y=i/23-5,old=a->tiles[i],now=scene->tiles[i];
+        if(a->protected_cells[i]||scene->protected_cells[i]||old==NG2_TILE_ITEM||now==NG2_TILE_ITEM)return 0;
+        if(old==now)continue;
+        if((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)){
+            if(old!=NG2_TILE_DIRT||now!=NG2_TILE_STONE||x*dx[d]+y*dy[d]!=-1
+                ||abs(x*dy[d]-y*dx[d])!=1)return 0;
+            ++near_count;
+        }
+    }
+    return near_count==1;
+}
 /* Keep an entrance or the same observed-floor vantage through irrelevant
  * remote flicker. Ticket/before and all bounds stay fixed;
  * do not grant safe-floor calibration, reissue or reference eligibility. */
 static int quiet_gate_scene(const NG2Controller *p,const NG2Scene *scene,NG2Decision *out){
-    NG2Decision before,latest;NG2Motion motion;int i,d=p->command.direction;
+    NG2Decision before,latest;NG2Motion motion;int i,d=p->command.direction,corner_palette=-1;
     const NG2ControllerEvent *e=p->event_count?&p->events[p->event_count-1]:NULL;
     int obstacle=p->command_choice.obstacle;
     int entrance_step=p->command_choice.reason==5
@@ -2064,15 +2100,17 @@ static int quiet_gate_scene(const NG2Controller *p,const NG2Scene *scene,NG2Deci
             &&tile(scene,x-dx[d],y-dy[d])==NG2_TILE_GOLD
             &&!protected_at(&p->before,x,y)&&!protected_at(scene,x,y);
         if(a==b)continue;
-        /* A new STONE classification uses the separate independent refresh,
-         * never this cheap same-ticket palette qualification. */
+        /* Closed-FLOOR STONE keeps its separate independent refresh. */
         if(closed_floor_step&&((a!=NG2_TILE_UNKNOWN&&a!=NG2_TILE_FLOOR&&a!=NG2_TILE_DIRT)
             ||(b!=NG2_TILE_UNKNOWN&&b!=NG2_TILE_FLOOR&&b!=NG2_TILE_DIRT)))return 0;
         if(clipped_entry&&i/23==0&&p->before.protected_cells[i])continue;
         if(dirt_step&&(p->before.protected_cells[i]||scene->protected_cells[i]))return 0;
         if(growth&&b==NG2_TILE_GOLD)continue;
-        if((!shielded&&((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)))
-            ||(a!=NG2_TILE_UNKNOWN&&a!=NG2_TILE_FLOOR&&a!=NG2_TILE_DIRT&&a!=NG2_TILE_STONE)
+        if(!shielded&&((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1))){
+            if(corner_palette<0)corner_palette=closed_door_blocking_corner121(p,scene);
+            if(!corner_palette)return 0;
+        }
+        if((a!=NG2_TILE_UNKNOWN&&a!=NG2_TILE_FLOOR&&a!=NG2_TILE_DIRT&&a!=NG2_TILE_STONE)
             ||(b!=NG2_TILE_UNKNOWN&&b!=NG2_TILE_FLOOR&&b!=NG2_TILE_DIRT&&b!=NG2_TILE_STONE))return 0;
     }
     if(!choose_step(p,&p->before,&before)||!choose_step(p,scene,&latest)
@@ -3894,8 +3932,106 @@ static int cycle_structural_witness(const NG2Controller *p,const NG2RingResult *
     return cycle_binary_cell(&result->partial[0],row->left-36,row->sy,0,w->strip_box)
         &&cycle_binary_cell(&result->partial[1],row->left+108,row->sy,0,w->strip_box);
 }
+/* Independent numeric and own-anchor checks for the two additional positive
+ * coverage witnesses. This does not import a producer Scene or its verdict. */
+static int cycle_partial_tail121(const NG2RingSlot *slot,const NG2RingRow *row,int group){
+    /* Check untrusted int32 coordinates before any addition or abs. */
+    if(slot->cx<18||slot->cx>=878||slot->sy<0||slot->sy>347)return 0;
+    int outside=abs(slot->cx-row->left+72)<=2||(group&&abs(slot->cx-row->left-144)<=2);
+    if(!outside||abs(slot->sy-row->sy)>(group?10:2)
+       ||slot->slot||slot->kind||slot->outcome!=NG2_RING_UNKNOWN||!cycle_binary_no_positive(slot)
+       ||slot->non_target_id||slot->ignored_container_id||slot->non_target_conflict
+       ||slot->non_target_icon_score!=0.0||slot->non_target_name_iou!=0.0||slot->non_target_name_coverage!=0.0
+       ||slot->ignored_icon_score!=0.0||slot->ignored_gold_iou!=0.0||slot->ignored_gold_coverage!=0.0
+       ||slot->ignored_dark_iou!=0.0||slot->ignored_dark_coverage!=0.0||!cycle_box(slot->icon_box)
+       ||!cycle_zero_box(slot->non_target_icon_box)||!cycle_zero_box(slot->non_target_name_box)
+       ||!cycle_zero_box(slot->ignored_icon_box))return 0;
+    if(slot->word_present)return cycle_box(slot->word_box);
+    return slot->word_iou==0.0&&slot->word_coverage==0.0&&cycle_zero_box(slot->word_box);
+}
+static int cycle_coverage121_witness(const NG2Controller *p,const NG2RingResult *result){
+    const NG2RingCoverage *w=&result->certificate;int group=w->policy_version==NG2_RING_GROUPED_SIGN_POLICY;
+    if((!group&&w->policy_version!=NG2_RING_RELATIVE_SIGN_POLICY)||p->cycle.partial
+       ||p->cycle.candidate_latched||!p->cycle.full_seen||result->abi!=NG2_RING_ABI||result->size!=sizeof(*result)
+       ||result->status!=NG2_RING_OK||result->outcome!=NG2_RING_NEGATIVE||result->coverage!=NG2_RING_COVERAGE_COMPLETE
+       ||result->row_count<1||result->row_count>4||result->selected_row<0||result->selected_row>=result->row_count
+       ||result->partial_count<2||result->partial_count>NG2_RING_MAX_PARTIAL||result->selected_partial!=-1||result->partial_safe_no_positive
+       ||w->layout_version!=1||w->board_mode!=w->policy_version||w->failure_flags||w->accepted_rows!=1
+       ||w->row_index!=result->selected_row||w->observed_items!=3||w->observed_prices!=3
+       ||w->non_target_items!=3||w->ignored_containers||w->unmatched_prices||w->unmatched_boards
+       ||w->unmatched_items<0||w->unmatched_items>(180*67)/24||w->scene_state!=NG2_FLOOR
+       ||w->scene_goods!=NG2_GOODS_VISIBLE||!cycle_zero_box(w->merchant_box)
+       ||w->merchant_score!=0.0||w->merchant_coverage!=0.0)return 0;
+    const NG2RingRow *row=&result->rows[result->selected_row];int gold=0,alternate=0;
+    if(row->left<54||row->left>770||row->sy<0||row->sy>323||w->row[0]!=row->left||w->row[1]!=row->sy
+       ||!cycle_box(w->strip_box)||w->strip_box[0]!=row->left-54||w->strip_box[1]!=row->sy+24
+       ||w->strip_box[2]!=180||w->strip_box[3]!=67
+       ||p->cycle_anchor.abi_version!=NG2_ABI_VERSION||p->cycle_anchor.struct_size!=sizeof(NG2Scene)
+       ||!cycle_observed_shop_scene(&p->cycle_anchor,row,-1)
+       ||!(group?cycle_closed_shop_scene(&p->cycle_anchor,row):cycle_single_sign_scene(&p->cycle_anchor,row)))return 0;
+    for(int i=0;i<NG2_TILE_COUNT;i++)gold+=p->cycle_anchor.tiles[i]==NG2_TILE_GOLD;
+    if(gold<(group?12:7)||w->actual_gold_cells!=gold)return 0;
+    for(int side=0;side<2;side++) {
+        const int32_t *board=w->board_boxes[side];const NG2RingEndcap *end=&w->endcaps[side];
+        int32_t roi[4]={row->left+72*side-18,row->sy-20,36,40};
+        if(group||side==0) {
+            if(!cycle_box(roi)||!cycle_box(board)||!cycle_contains(roi,board)
+               ||board[2]<29||board[2]>30||board[3]<29||board[3]>30
+               ||w->board_counts[side]<150||w->board_counts[side]>board[2]*board[3]
+               ||abs(board[0]+board[2]/2-row->left-72*side)>2||abs(board[1]+board[3]/2-row->sy)>2)return 0;
+        } else if(!cycle_zero_box(board)||w->board_counts[side])return 0;
+        if(w->board_exterior_count[side])return 0;
+        for(int k=0;k<4;k++)if(w->board_edge_counts[side][k]||w->board_corner_counts[side][k])return 0;
+        if(!group&&side==0) {
+            const int32_t *glyph=w->sign_boxes[side];
+            if(!cycle_box(glyph)||glyph[2]!=24||glyph[3]!=11||!cycle_contains(board,glyph)
+               ||glyph[0]<row->left-15||glyph[0]>row->left-9||glyph[1]<row->sy-6||glyph[1]>row->sy
+               ||!cycle_score(w->sign_iou[side],.94)||!cycle_score(w->sign_coverage[side],.95)
+               ||w->sign_iou[side]>1.0||w->sign_coverage[side]>1.0)return 0;
+        } else if(!cycle_zero_box(w->sign_boxes[side])||w->sign_iou[side]!=0.0||w->sign_coverage[side]!=0.0)return 0;
+        if(!cycle_box(end->box)||end->box[0]!=row->left+(side?96:-48)||end->box[1]!=row->sy+36
+           ||end->box[2]!=25||end->box[3]!=25||end->count!=625||end->black_count<0||end->black_count>62
+           ||end->bright_count<0||end->bright_count>=24||end->price_ink_count<0||end->price_ink_count>=18
+           ||end->r<0||end->r>255||end->g<0||end->g>255||end->b<0||end->b>255||end->spread!=1
+           ||end->floor_full!=1||end->floor_lower!=1||!cycle_endcap_floor(end))return 0;
+        if(group&&end->floor_upper==NG2_RING_FLOOR_DIAGONAL_PROOF)alternate++;
+        else if(end->floor_upper!=1)return 0;
+    }
+    if(group&&(alternate!=1||!cycle_closed_shop_faces(w,row)||(w->board_counts[0]<300&&w->board_counts[1]<300)
+       ||w->board_boxes[0][2]!=w->board_boxes[1][2]||w->board_boxes[0][3]!=w->board_boxes[1][3]
+       ||w->board_boxes[0][1]!=w->board_boxes[1][1]
+       ||abs(w->board_boxes[1][0]+w->board_boxes[1][2]/2-w->board_boxes[0][0]-w->board_boxes[0][2]/2-72)>2))return 0;
+    for(int r=0;r<result->row_count;r++) {
+        const NG2RingRow *alias=&result->rows[r];
+        if(alias->left<54||alias->left>770||alias->sy<0||alias->sy>323
+           ||abs(alias->left-row->left)>2||abs(alias->sy-row->sy)>(group?10:2)
+           ||!cycle_observed_shop_scene(&p->cycle_anchor,alias,-1))return 0;
+        int32_t strip[4]={alias->left-54,alias->sy+24,180,67};if(!cycle_box(strip))return 0;
+        for(int s=0;s<3;s++)if(!cycle_binary_cell(&alias->slots[s],alias->left+36*s,alias->sy,s,strip))return 0;
+    }
+    for(int s=0;s<result->partial_count;s++)if(!cycle_binary_no_positive(&result->partial[s]))return 0;
+    for(int s=2;s<result->partial_count;s++) {
+        if(!cycle_partial_tail121(&result->partial[s],row,group))return 0;
+        for(int j=0;j<s;j++)if(result->partial[s].cx==result->partial[j].cx&&result->partial[s].sy==result->partial[j].sy)return 0;
+    }
+    int top=414,bottom=0;
+    for(int s=0;s<3;s++) {
+        const int32_t *price=w->price_boxes[s];
+        if(!cycle_binary_cell(&row->slots[s],row->left+36*s,row->sy,s,w->strip_box)
+           ||memcmp(w->item_boxes[s],row->slots[s].non_target_icon_box,sizeof(w->item_boxes[s]))
+           ||!cycle_zero_box(w->name_boxes[s])||!cycle_box(price)||price[0]<row->left+36*s-11
+           ||price[0]+price[2]>row->left+36*s+12||price[1]<row->sy+69||price[1]+price[3]>row->sy+89)return 0;
+        for(int k=0;k<s;k++)if(!memcmp(price,w->price_boxes[k],sizeof(w->price_boxes[s])))return 0;
+        if(price[1]<top)top=price[1];
+        if(price[1]+price[3]>bottom)bottom=price[1]+price[3];
+    }
+    if(!group&&bottom-top>9)return 0;
+    return cycle_binary_cell(&result->partial[0],row->left-36,row->sy,0,w->strip_box)
+        &&cycle_binary_cell(&result->partial[1],row->left+108,row->sy,0,w->strip_box);
+}
 static int cycle_negative_witness(const NG2Controller *p,const NG2RingResult *result){
     const NG2RingCoverage *w=&result->certificate;const NG2RingRow *row;int i,j,gold=0,named=0,ignored=0;
+    if(w->policy_version==NG2_RING_RELATIVE_SIGN_POLICY||w->policy_version==NG2_RING_GROUPED_SIGN_POLICY)return cycle_coverage121_witness(p,result);
     if(w->policy_version==3||w->policy_version==4||w->policy_version==5||w->policy_version==6||w->policy_version==7||w->policy_version==8||w->policy_version==9||w->policy_version==10||w->policy_version==11||w->policy_version==15||w->policy_version==17||w->policy_version==18)return cycle_structural_witness(p,result);
     if(p->cycle.partial||p->cycle.candidate_latched||!p->cycle.full_seen
         ||result->coverage!=NG2_RING_COVERAGE_COMPLETE||result->row_count<1||result->row_count>4

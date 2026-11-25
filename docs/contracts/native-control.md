@@ -123,3 +123,14 @@ profilev2はPerception/Navigation strict O2（-fno-fast-math/-ffp-contract=off�
 2026-11-18の利用者の明示指定を受け、`initial_restart:true`をirregular profileのstartへopt-inする。省略の旧開始契約は維持する。同owner/UUIDのmodeはimmutable。初回rootだけ、現在のPAUSEからRS、または有効FLOORの商品候補保持を優先したPAUSE→RSを行う。初回専用の状態で元UI資格・ACK・新floor確認を経て通常処理へ戻す。商品陰性の耐久保存/yieldとは混同せず、既新floorを継ぐcontinuous successorへflagを渡さない。期限/予算/取消/UNKNOWN無再送を維持する。
 
 TEST117 current DATA mode2は同FULL3ITEM/正確halo/両cap/全下床/元GOLDを保ち、商品/実player近傍外の有限material変化だけで最新DATAを取り直す。元parent/2DATA/current一回・同prefix・旧worker候補先/実returnを保つ。通常Motionをzeroとせず、MOVE/UP/移動信用を与えない。新UNKNOWNはHELD、最新画像の完全陰性/独立C証明/耐久保存ができてから既UI資格でRSする。
+
+## TEST121の追加商品証明
+
+[限定計画](../plans/test121-goods-coverage.md)。新cap121に結び、公開POD/ABI・既profile3・元source150ms/worker100ms/D/Pを保持する。layout1/board_mode同値のpolicy19/20を旧policyへ偽装しない。
+
+- 19は唯一の観測SIGN成分のcount/実bboxを照合し、同成分の背景と元4SHOP文字形の相対明暗で認証する。元一致率を保持し、sign既fieldへ実box/有限scoreを保存、merchant全値は0。両capの元floor値1を要求する。
+- 20は元3成分を捨てず、唯一のpartitionで2物理看板へ結ぶ。片capだけの`floor_upper=2`は、全体/下半/非重複UL・LRの元床支持と有限の上半色差を要求する別証明で、通常の上半床1を意味しない。他capとfull/lowerは1。旧policyと19へ値2を通さない。
+- 全numeric aliasの5cellと広い名前領域を、床の失敗で打ち切る前に対象探索する。先頭2partialは選択rowの両端、残りは元領域外partialの保持情報とし、新19/20だけ総数2..12を許す。切捨てず、超過は未確認のまま。tailは追加商品の被覆証明にせず、候補/名称vetoを維持する。各aliasとtailの座標・box・score・word整合を独立Cでも検査し、未観測/非有限値を陰性にしない。
+- 同じimmutable画像の同じsprite/整数座標のboundだけを、当該呼出内の有限heapで再利用できる。元kernel値・全訪問順・対象優先・clock checkpoint・取消/期限を維持し、全出口で解放する。cache不足は元計算または非OKで、入力権限やNEGを作らない。
+
+正常producerの完全陰性、独立C証明、耐久保存と既UI資格が揃ってからRSへ進む。新証明は追加MOVE・UNKNOWN再送・未観測商品の陰性化を許可しない。

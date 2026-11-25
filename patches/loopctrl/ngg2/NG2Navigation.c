@@ -468,6 +468,27 @@ static int passage_capped_left_vantage(const NG2Scene *s,const Path route[CELLS]
     return route[vantage].cost!=INF_COST&&route[vantage].length==3
         &&route[inboard].cost!=INF_COST&&route[inboard].length==4;
 }
+/* A positively observed left mouth can remain disconnected below a split
+ * roof. Independent roof ends/left walls authorize only the three inside
+ * FLOOR steps; the dark inboard and outside never become traversable. */
+static int passage_split_roof_left_vantage(const NG2Scene *s,const Path route[CELLS]) {
+    static const int walls[][2]={{-4,-3},{-3,-3},{1,-3},{2,-3},{3,-3},
+        {-3,-1},{-3,0},{-3,1},{-3,2},{-3,3}};
+    static const int floors[][2]={{-2,-1},{-2,0},{-1,-2},{-1,-1},{-1,0},{0,-1},{0,0}};
+    static const int dark[][2]={{-2,-2},{-4,-2},{-4,-1},{-2,-3},{-1,-3},{0,-3}};
+    int i,vantage=index_of(-2,-1),inboard=index_of(-2,-2),mouth=index_of(-3,-2);
+    if(s->gold_state!=NG2_GOLD_CLEAR||tile(s,-3,-2)!=NG2_TILE_FLOOR)return 0;
+    for(i=0;i<CELLS;++i)
+        if(s->protected_cells[i]||s->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(i=0;i<(int)(sizeof(walls)/sizeof(walls[0]));++i)
+        if(!passage_wall(s,walls[i][0],walls[i][1]))return 0;
+    for(i=0;i<(int)(sizeof(floors)/sizeof(floors[0]));++i)
+        if(tile(s,floors[i][0],floors[i][1])!=NG2_TILE_FLOOR)return 0;
+    for(i=0;i<(int)(sizeof(dark)/sizeof(dark[0]));++i)
+        if(tile(s,dark[i][0],dark[i][1])!=NG2_TILE_UNKNOWN)return 0;
+    return route[vantage].cost!=INF_COST&&route[vantage].length==3
+        &&route[inboard].cost==INF_COST&&route[mouth].cost==INF_COST;
+}
 uint32_t ng2_passage_candidates(const NG2Scene *s) {
     Path route[CELLS];uint32_t result=0;int side,k;
     if (!passage_scene(s)) return 0;
@@ -518,7 +539,8 @@ uint32_t ng2_passage_candidates(const NG2Scene *s) {
         result|=UINT32_C(1)<<(side*5+k+2);
     }
     if(result)return result;
-    return passage_capped_left_vantage(s,route)?UINT32_C(1)<<5:0;
+    if(passage_capped_left_vantage(s,route))return UINT32_C(1)<<5;
+    return passage_split_roof_left_vantage(s,route)?UINT32_C(1)<<5:0;
 }
 int ng2_choose_passage(const NG2Scene *s,int32_t x,int32_t y,
                        int32_t mouth_x,int32_t mouth_y,NG2Decision *out) {

@@ -1,9 +1,9 @@
 # 最新状態
 
-更新: 2026-11-25（日本時間）。[TEST120/build268](https://github.com/shuhei0720/necrogold-automation/releases/tag/test120-build268)を固定公開し、IPA・完全source・SHA表を匿名全取得/全bytes/GHdigest/CRC/実tagまで照合済み。[検証](reviews/test120.md)・[修正表](fix-records.md)。製品CODE723c1c6、SOURCEa540008（docs4件のみ）、CI268/run45550690119。公開job269は再ビルドしていない。
+更新: 2026-11-25（日本時間）。TEST120実機7ZIP/4run/3campaign・99PNG/117記録を全照合、欠損なし。[TEST121計画](plans/test121-device-failures.md)。限定修正・関連検証・独立レビュー完了。商品2画像の通常陰性/独立C証明を確認。封印済みでCI/IPA照合へ進む。
 
-TEST119の停止4件と左上候補を修正。通路再判断・入力後も元P継承・PARTIAL begin重複計算・cap壁witnessに限定。実機成功3件の正常陰性→実RS→childを保持。初回RS・--until-target・全商品観測・候補保持・元期限/UNKNOWN無再送を維持する。
+実順3a4a（扉前の後方角DIRT→STONEで取消）→5572（正常policy17陰性→実RS24→新floor306成功）→a084 child（看板分断と床支持でUNKNOWN、capture1別候補形見逃し）→18c0（看板文字の描画差でUNKNOWN）。商品2停止は期限内に通常結果を採用済み。未収録のprivate状態/過去job packetは補完しない。
 
-公式host122、実CPython3.9.25の64、Mac partial_begin_dispatch normal/late、実IPAと配布前6照合が合格。37nativeの3変更34保持、API/native_v15/profile3・実compiler/全9MachO/公式全1201Git blobを確認。IPA45fab1d1・sourcedb18a0f1・SHA表6e313491。
+配布基準は[TEST120/build268](https://github.com/shuhei0720/necrogold-automation/releases/tag/test120-build268)、CODE723c1c6、SOURCEa540008。固定3asset匿名全取得済み。前回host122/実Py3964/Mac1case2subrun/実IPA6照合は過去結果で、今回の改善完了には流用しない。
 
-実機到達率・停止解消・毎拍/速度は次のiPhone受入で確認する。通常1-1ポーズからtest_120.sh --until-target、終了後の全run/campaign ZIPを依頼。TEST119の11ZIP/170PNG/203記録は全照合済み、欠損なし。
+成功した正常陰性/実RS/同Runtime child、初回RS・全商品観測・候補保持・元期限/UNKNOWN無再送を保持して修正する。実機到達・毎拍/速度の受入は未完了。

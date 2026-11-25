@@ -741,3 +741,16 @@ TEST120配布前確認: CODE723c1c6・CI268で公式host122/実Py3964/Mac1case2s
 | FR-120-DEV-DELIVERY-DIGEST | 2026-11-25 | reader source reviewで原GH digest欠損を拒否しない不足 | 継承118 gateはdigestが存在する場合だけ比較 | 新120だけ3原ZIPのname/ID一意・exact digestを必須にしてから元CI gate全assertへ委譲 | 私有旧source保持。純関数1accept/18reject、独立最終P0/P1なし。actual6gateで全原GHdigest照合成功 | 配布前source不足1。実機の再発数へ加算しない |
 
 TEST120公開後確認: SOURCEa540008（CODE723c1c6からdocs4件のみ）/公式1201blob/同native、固定3assetの匿名GET200/全bytes/SHA/GHdigest/size/ZIP CRC/実tagが一致。IPA45fab1d1・source db18a0f1・SHA表6e313491。公開job269/run45553051523はbuild268を保存するだけで再ビルドしていない。固定assetは置換せず文書のみ追記し、実機改善/速度と再発数の未確認を維持する。
+
+## TEST121: TEST120実機3root/1childの再確認（2026-11-25）
+
+7ZIP/4run/3campaign・99PNG/117記録を全照合、提出欠損なし。[計画](plans/test121-device-failures.md)。実順3a4a→5572→a084 child→18c0。5572の正常policy17/layout1完全陰性→C採用→durable→実RS24→新floor306→同Runtime childの実歩行まで成功。120新route/cacheのhitは非公開のため因果・速度改善を先取りしない。以下は確認した原因と対策計画で、実機改善未確認。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-121-CLOSED-DOOR-PALETTE | 2026-11-25 | 3a4aが6歩後の扉前でSCREEN | 同LEFT/同閉DOOR/直接通常零だが、behind対角DIRT→STONEをquietが拒否し、同時の遠方DIRT→FLOORをmonotoneも拒否。実停止は元Dより101ms以上前 | 未開始closedDOOR同票のnear正blocking差ちょうど1だけを旧far規則と合成し、元ID/source/NBD/epoch/予算を保持 | exact旧120で主assert8失敗→新6＋直接旧14の固定20件Green。原cutはquiet0→1、成功5572のUNKNOWN gate-refitは保持。owned2body以外全C同bytes、独立最終P0/P1なし。実機改善未確認 | 今回1。既閉扉quietの適用範囲外、120新route回帰ではない。通算不明 |
+| FR-121-SPLIT-BOARD-AND-CAP | 2026-11-25 | a084で3商品が見えてもUNKNOWN/RSなし | 同じ右看板が文字で2成分に分裂しEXTRA_BOARD。groupしたcutにも左cap upper Floor証明の独立拒否が残る | 全3成分を2物理看板へ結ぶpolicy20と、元floor/色度閾値を保持するUL/LR別床支持。真正余剰・全alias対象探索・元partial tailを保持、独立C検査 | 原215は通常NEG20/partial5・Ring証明/独立own-anchor C各1。新7件は旧120で9assert Red→cache有無各Green、関連16Green。実機改善未確認。FR105/109/118の適用漏れとして確認 | 今回1。商品可視停止の同症状継続、分裂＋床支持の同根因通算未集計 |
+| FR-121-SINGLE-BOARD-AUTH | 2026-11-25 | 18c0で3商品が見えてもUNKNOWN/RSなし | 単一SIGN/Scene7GOLD/3ITEM/両cap/全掃引は成立するが、元merchant2画素例とSHOP glyphの認証が描画差で不成立、ROWS0 | 元4文字形/閾値と同じSIGN成分背景の相対明暗を結ぶpolicy19。実sign数値を保存しmerchantは0、全商品登録やUNKNOWN緩和なし | 原125は通常NEG19/partial3・Ring証明/独立own-anchor C各1。旧119/120の元packet同値、看板30行は原因外。新7/関連16と実3.9数値保存が合格、実機改善未確認 | 今回1。FR096/103/117系列の未対応条件が継続、同根因通算未集計 |
+| FR-121-SPLIT-ROOF-FLOOR-MOUTH | 2026-11-25 | a084 capture1の左上候補を見送り | FLOOR口/UNKNOWN inboard/屋根3黒gapで、120全屋根cap形と別。旧119/120 mask0、同原時刻C cutもPAUSE予約 | 旧mask集合優先、0時だけ既bit5へ独立witness。観測済み3床で再観測し、不達口/未知床を保つ | 旧Navの新8件で10assert Red→新8＋旧9の17件Green。269原画はScene不変・旧nonzero5全保持、差はcapture1だけ0→32。原frame Cも候補保持/SYNCへ変化、旧chooser全bytes保持。独立最終P0/P1なし、実機到達未確認 | 今回1。前回cap成立後の退行ではなく別shape。上左系列通算不明 |
+
+両FULL UNKNOWNは元Dより約53/82ms前に正常採用され、PAUSE ACK→durable→GOODS1へ進む。時間切れとして修正しない。ControllerのFULL追加観測MOVEは原ACK observed214/124とjob source215/125の不一致で資格外、実private mode/残DATAは未収録のため補完しない。まずproducerの正しい全被覆→独立C採用を確認する。
