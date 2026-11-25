@@ -30,6 +30,7 @@ ALLOWED_TARGETS = {
 }
 DEVICE_FIXES118_CAPABILITY = b'necrogold_native_device_fixes118_v1'
 DEVICE_FIXES119_CAPABILITY = b'necrogold_native_device_fixes119_v1'
+DEVICE_FIXES120_CAPABILITY = b'necrogold_native_device_fixes120_v1'
 
 
 def device_fixes118_metadata(patch_bytes, rpc_source):
@@ -64,6 +65,27 @@ def device_fixes119_metadata(patch_bytes, rpc_source):
     if b'\n    ]' not in body or lines.count(entry) != 1:
         raise ValueError('device_fixes119_capability_binding')
     return {'device_fixes119_capability': cap.decode('ascii')}
+
+
+def device_fixes120_metadata(patch_bytes, rpc_source):
+    """Bind the additional 120 tag while preserving both historical fields."""
+    cap = DEVICE_FIXES120_CAPABILITY
+    if cap not in patch_bytes and cap not in rpc_source:
+        return {}
+    # The generated RPC format has no block comments. Fail closed rather than
+    # treating a commented declaration or nested commented tag as active.
+    if b'/*' in rpc_source or b'*/' in rpc_source:
+        raise ValueError('device_fixes120_capability_binding')
+    entry = b'        "'+cap+b'",'
+    declaration = b'    static let capabilityTags: [String] = [\n'
+    if (patch_bytes.count(b'+'+entry) != 1 or patch_bytes.count(b'"'+cap+b'"') != 1
+            or rpc_source.count(declaration) != 1 or rpc_source.count(b'"'+cap+b'"') != 1):
+        raise ValueError('device_fixes120_capability_binding')
+    body = rpc_source.split(declaration, 1)[1]
+    lines = [line.split(b'//', 1)[0].rstrip() for line in body.split(b'\n    ]', 1)[0].splitlines()]
+    if b'\n    ]' not in body or lines.count(entry) != 1:
+        raise ValueError('device_fixes120_capability_binding')
+    return {'device_fixes120_capability': cap.decode('ascii')}
 
 
 def digest(raw):
@@ -343,6 +365,10 @@ def seal(root):
     if implementation119 and manifest.get('device_fixes_capability') != DEVICE_FIXES118_CAPABILITY.decode('ascii'):
         raise ValueError('device_fixes119_prerequisites')
     manifest.update(implementation119)
+    implementation120 = device_fixes120_metadata(raw_patch, rpc_source)
+    if implementation120 and manifest.get('device_fixes119_capability') != DEVICE_FIXES119_CAPABILITY.decode('ascii'):
+        raise ValueError('device_fixes120_prerequisites')
+    manifest.update(implementation120)
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2) + '\n')
     return manifest
 

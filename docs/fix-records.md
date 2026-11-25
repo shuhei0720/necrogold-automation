@@ -719,3 +719,19 @@ TEST118固定配布確認（2026-11-25）: SOURCE7dc68c2はCODEdca8ca3からdocs
 TEST119配布前確認: CODE617fc248・CI266でhost130/実Py3953/Mac1case・2subrun/IPAが合格。実compiler・全source・9MachO等の6照合も合格。IPA2fa20bf2、37native中4変更/33保持。固定公開後の匿名3取得は別途確認する。実機の改善/速度/未知精度は未確認、各行の再発数は据え置く。
 
 TEST119公開後確認: SOURCEd8aa39e（CODE617fc248からdocs4件のみ）/公式1181blob/同native、固定IPA・完全source・SHA表の匿名全GET/全SHA/GH digest/CRC/実tagが一致。IPA2fa20bf2・sourcea546316e・SHA表1f6e83cc。公開job267は再ビルドせずbuild266を保存。各実機再発数と改善未確認の記録は変更せず、公開後文書だけを追記した。
+
+## TEST120: TEST119の成功3件を保持して停止4件を修正（2026-11-25）
+
+11ZIP/7run/4campaign・170PNG/203記録を全照合。[計画](plans/test120-device-failures.md)。実順723、1a358→ca2、6423→c41、aa8→2d1。成功3rootは全て正常完全陰性→C採用→耐久保存→実RS→新floor→同Runtime childを確認した。特にaa8のpolicy4/layout3は119の価格修正が実機で効いた例で、同原画は263でUNKNOWN、119で完全陰性。末尾resetのnullを失敗と扱わない。停止は別原因として下表に記録する。実装・補助検証を実機改善完了へ数えない。
+
+| ID | 修正日 | 事象 | 原因 | 対策 | 改善確認方法 | 再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-120-WAIT-ROUTE-OBSERVATION | 2026-11-25 | 723で3歩後、通路の待機中にSCREEN | 元323→330はUNKNOWNのまま、直前に採用した329→330は通常strict零。同じDOWNでもvantage targetが変わりsame_choiceが元P/W内で拒否 | 旧UNKNOWNを信用せず、直前の採用済みproofと現在の直接零から一度だけDATA観測へ引継ぐ。元P/W・owner・予算を保持し、次の独立proofと通常fitの後だけ未来の新IDを発行 | 原323/329/330と実時刻を校正。旧119公開Cで期待DATAに対しSCREENのassertion Redを確認、新9件と関連22件が最終CでGreen、独立combined差分P0/P1なし。原本に無い未来経路は未証明 | 今回1。119のlive票側対策が既待機側を覆わない別段階。同根因通算不明 |
+| FR-120-GOLD-VANTAGE-OBSERVATION | 2026-11-25 | ca2 childでLEFT1歩後にSCREEN | 原67→69の通常零と同GOLDは成立。旧UP経路のFLOOR→DIRT等を伴う新LEFT判断が既開口/壁露出条件外 | 確実未開始の旧UPを撤回し、現在の正床・同GOLD/保護・直接零から限定route観測へ。元P/Wと一回性を保持、独立proof後に未来の新IDだけ許可 | exact263/119の公開C cutで同一停止。旧119正式assertion Redを確認、実装/関連検証中。実機の個別C入場時刻は未記録 | 今回1。旧新回帰ではなく既条件の適用範囲外。同根因通算不明 |
+| FR-120-NEARER-DOOR-REFRESH | 2026-11-25 | c41 childが6歩後の通路でSCREEN | 原122→123は通常strict零。床1セル先の後に新DOORとbracket GOLDが露出し、遠方DIRT→FLOORも併発。既条件は床2セル先/旧DIRT扉を要求 | 元全GOLD・局所床・保護・実方向・固定期限を要求する別の閉じたbracket証明。既FRESH資格と同physical beat/epochを使い、扉開けや移動creditを捏造しない | 原Scene/Motion/Navの旧新同値、旧119正式assertion Redを確認。最小実装/関連検証中。未保存71/79/80画像を補完しない | 今回1。既遠い扉の証明と距離/材質が異なる。同根因通算不明 |
+| FR-120-PARTIAL-BEGIN-PROOF | 2026-11-25 | 2d1 childが開扉後、2商品だけ見えて停止 | PARTIAL/UNKNOWNは正しい。LEFT22はC予約/begin承認後、実送信guardが元Dを50,136ns超過。同じ画像pairの通常Motionをobserve後beginで再計算。記録の7.466542msはCだけでなくRuntime guard全区間 | 予約後の独立observeが得た直接零を、C所有の全Scene bytes/metadata/全command/epoch/ownerへ固定し同一時だけ再利用。missは通常再計算、元10ms/DとRuntime最終guardを保持 | exact旧119で新6件のうち4 assertion Red→最小cacheで6件/直接旧13件Green、独立owned差分P0/P1なし。Linuxの原pair中央値4.447→0.030msは診断に限定し、Cbegin↔Runtimeだけ別Mac境界で確認する。未観測3商品を陰性にしない | 今回1。重複費用の存在は確認、実機の費用内訳と新版改善は未確認 |
+| FR-120-UPPER-LEFT-CANDIDATE | 2026-11-25 | aa8 capture62で赤丸の左上通路を見逃す | 旧263/119のScene全bytes同一。既左上fringeは外cap FLOORを要求するが原画はDIRT、外側はUNKNOWN。候補mask0 | 全屋根/左壁/正内床を要求する別witnessをmask0時だけ既bit5へ追加。木扉DIRT/外側UNKNOWNと既chooserを保持し、観測床だけの再観測へ | 新6件は旧119で5 assertion Red→新Green、直接旧39含む45件Green。170原画でScene変化/書換え0、旧nonzero2件保持、capture62だけ0→32。独立最終diff P0/P1なし | 今回1。ユーザー訂正は左上。右下案は撤回、方向/bit/APIの拡張なし |
+
+新120のcap/namespaceは旧118/119・初回RS/同root回復/連続周回を保持。独立レビューでコメント内タグの誤認を検出し、新120だけblock-commentを拒否する最小修正で閉鎖した（既6method内の6反例assertion Red→Green、旧metadata11件も保持）。これは配布識別の補助不具合であり実機停止の原因件数へ加算しない。新IPA/実Mac/公開配布とiPhone受入はまだこれから。
+
+| FR-120-DEV-ROUTE-VISUAL-PARENT | 2026-11-25 | 配布前レビューで新routeの入力後に元P後のunitをcreditし得る | publication/beginだけP/Wをclipし、private route消費後のvisual/scheduleは新source+3秒まで残る | 新route active時だけreserve wait_horizonとprepare_recovery_slot horizonへ元Pを継承する2行修正 | 元be35の12 assertion Red→最終cf471の新9件/関連22件Green。8境界subcaseでP-1/Pの正常unitとP後/commit-only P+1拒否を確認、独立最終P0/P1なし。旧attempt1保持 | 配布前1。実機の再発数へ加算しない |

@@ -451,6 +451,23 @@ static int passage_lower_fringe_vantage(const NG2Scene *s,const Path route[CELLS
         &&route[inboard].cost!=INF_COST&&route[inboard].length<=4
         &&route[outside].cost==INF_COST;
 }
+/* An opaque upper-left mouth can sit below an observed exterior wall cap.
+ * Independent complete roof/left boundaries and the short inside FLOOR
+ * route merit a closer view; neither the mouth nor dark outside is opened. */
+static int passage_capped_left_vantage(const NG2Scene *s,const Path route[CELLS]) {
+    static const int floors[][2]={{-2,-2},{-2,-1},{-1,-2},{-1,-1},{0,-1},{-1,0},{0,0}};
+    int i,x,y,vantage=index_of(-2,-1),inboard=index_of(-2,-2);
+    if(s->gold_state!=NG2_GOLD_CLEAR||!passage_wall(s,-4,-3)
+        ||tile(s,-4,-2)!=NG2_TILE_UNKNOWN||tile(s,-4,-1)!=NG2_TILE_UNKNOWN)return 0;
+    for(i=0;i<CELLS;++i)
+        if(s->protected_cells[i]||s->tiles[i]==NG2_TILE_ITEM)return 0;
+    for(x=-3;x<=2;++x)if(!passage_wall(s,x,-3))return 0;
+    for(y=-3;y<=3;++y)if(!passage_wall(s,-3,y))return 0;
+    for(i=0;i<(int)(sizeof(floors)/sizeof(floors[0]));++i)
+        if(tile(s,floors[i][0],floors[i][1])!=NG2_TILE_FLOOR)return 0;
+    return route[vantage].cost!=INF_COST&&route[vantage].length==3
+        &&route[inboard].cost!=INF_COST&&route[inboard].length==4;
+}
 uint32_t ng2_passage_candidates(const NG2Scene *s) {
     Path route[CELLS];uint32_t result=0;int side,k;
     if (!passage_scene(s)) return 0;
@@ -500,7 +517,8 @@ uint32_t ng2_passage_candidates(const NG2Scene *s) {
         } else continue;
         result|=UINT32_C(1)<<(side*5+k+2);
     }
-    return result;
+    if(result)return result;
+    return passage_capped_left_vantage(s,route)?UINT32_C(1)<<5:0;
 }
 int ng2_choose_passage(const NG2Scene *s,int32_t x,int32_t y,
                        int32_t mouth_x,int32_t mouth_y,NG2Decision *out) {

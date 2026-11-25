@@ -1,7 +1,9 @@
 # 最新状態
 
-更新: 2026-11-25（日本時間）。TEST119/build266の修正・実IPA照合済み。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test119-build266/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test119-build266/source.zip)。固定3assetの匿名全取得/SHA/CRC/実tagも一致。[今回計画](plans/test119-device-failures.md)・[検証](reviews/test119.md)・[修正表](fix-records.md)。
+更新: 2026-11-25（日本時間）。TEST119実機11ZIP/7run/4campaign・170PNG/203記録を全照合。[TEST120計画](plans/test120-device-failures.md)・[検証](reviews/test120.md)。欠損なし。
 
-TEST118実機9ZIPの通路判断変更、PARTIAL入口、価格縦断片/低い配置、松明床、遅延入店/新DATA所有と実周回の処理順を修正。3fの実陰性→RS→child継承と成功判定packetを保持。初回RSと`--until-target`を維持。
+成功3rootの正常陰性→実RS→child継承を確認して保持。通路3停止は新9/関連22件、開扉後のPARTIAL重複計算は新6/関連13件、左上候補は新6/関連39件で確認し、最終製品差分レビューP0/P1なし。発見した新routeの元P継承漏れも境界Red→Greenで修正した。
 
-製品CODE617fc248、CI266/run45534392534。関連host130・実Python3.9の53・Mac1case/2subrunが合格。実compiler/profile3・37native（4変更/33保持）・全ソース・9MachO等の6照合も合格。Macは手続き画像のcomponent確認であり、iPhone到達/毎拍・人超え速度/精度は未受入。通常1-1ポーズから新版で一連を試験し、終了後`runtime/test-119*.zip`を全返却してもらう。
+Ccf471e36/Nav6b4faeb6をfresh G1からseal/applyし、37native中Controller/Nav/RPCの3変更・34保持、API/native_v15/profile3同一を照合。Mac結合はpartial_begin_dispatchのnormal/lateだけを選び、最終fixtureの静的レビュー完了、実Mac/IPAはこれから。初回RS・--until-target・全商品観測・候補保持・元期限/UNKNOWN無再送を維持。
+
+配布基準は[TEST119/build266](https://github.com/shuhei0720/necrogold-automation/releases/tag/test119-build266)、CODE617fc248/保存1d9a0a4。TEST120の実機到達率・改善・速度は未確認。

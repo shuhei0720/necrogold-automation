@@ -6,6 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
+| TEST119実機→TEST120 | [今回](plans/test120-device-failures.md) | 11ZIP/7run：成功3陰性/RSを保持し、待機/新扉/送信前期限/候補形を旧版と比較 |
 | TEST118実機→TEST119 | [今回](plans/test119-device-failures.md) | 実9ZIP：通路の判断変更、PARTIAL継続、価格の縦断片/低価格、早期FULL後の入店。3fの実RS成功は保持 |
 | 直前の実機・候補保持 | [114](plans/test114-device-failures.md)・[113](plans/test113-device-failures.md)・[112](plans/test112-device-failures.md) | 元対策と未確定原因は各計画/修正表へ |
 | TEST107の複合変化・初歩前フェード | [計画](plans/test107-partial-composition.md) | top商品投影と既地形関係の合成、元D内の最新2画像による再取得 |

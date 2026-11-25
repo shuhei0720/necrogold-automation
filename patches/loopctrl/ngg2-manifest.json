@@ -4,7 +4,7 @@
   "api_version": "1.98.16-ngg2",
   "capability": "necrogold_native_v1",
   "client_capability": "necrogold_native_v15",
-  "patch_sha256": "c01d3f0cb9305a99847a69f7ee6c0e0ce9803eb9a227d0f50f3a7bbe36740002",
+  "patch_sha256": "fd64a1faa4acbd0f106d3849f0555ee8e6f9b200ff3758bfdfd9909b9b039517",
   "files": {
     "LoopCtrlUITests/ActionHandler.swift": {
       "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
@@ -19,7 +19,7 @@
     "LoopCtrlKit/RPCMethod.swift": {
       "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
       "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
-      "patched_sha256": "34c28fd5d581fa2a5df0eaa278d1b5bbc9cec646d7ffa1c52e4624f145254904"
+      "patched_sha256": "18a7a3d20224503da2ab6f9663116875e908b3683bfd8ee8684359a708cc66fc"
     },
     "LoopCtrlKit/JSONRPCServer.swift": {
       "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
@@ -67,7 +67,7 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "ef0fffaf67c77d42dd4ddf32b614e4fd93b4e2115ae25cb5dd51c35414558448"
+      "sha256": "cf471e36e1eb74c3c9f6924d21de9e25608830cdbab6324505579d0668bc7e0e"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
@@ -91,7 +91,7 @@
     },
     "LoopCtrlUITests/NG2Navigation.c": {
       "source": "NG2Navigation.c",
-      "sha256": "e6893c8a08ddd03065c154ae47c75a9994a5f0372084d6850fa3e41a7c30e1f1"
+      "sha256": "6b4faeb6adbee72c60e0ad58f3e253dffd40254b6b17e9bfb24d92e6ae8c3d97"
     },
     "LoopCtrlUITests/NG2Perception.c": {
       "source": "NG2Perception.c",
@@ -186,5 +186,6 @@
   "continuous_campaign_capability": "necrogold_native_continuous_campaign_v1",
   "continuous_campaign_start_flag": "continuous_campaign",
   "device_fixes_capability": "necrogold_native_device_fixes118_v1",
-  "device_fixes119_capability": "necrogold_native_device_fixes119_v1"
+  "device_fixes119_capability": "necrogold_native_device_fixes119_v1",
+  "device_fixes120_capability": "necrogold_native_device_fixes120_v1"
 }
