@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-25（日本時間）。TEST119/build266の修正・実IPA照合済み。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test119-build266/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test119-build266/source.zip)。固定公開の匿名取得確認は別途追記する。[今回計画](plans/test119-device-failures.md)・[検証](reviews/test119.md)・[修正表](fix-records.md)。
+更新: 2026-11-25（日本時間）。TEST119/build266の修正・実IPA照合済み。[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test119-build266/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test119-build266/source.zip)。固定3assetの匿名全取得/SHA/CRC/実tagも一致。[今回計画](plans/test119-device-failures.md)・[検証](reviews/test119.md)・[修正表](fix-records.md)。
 
 TEST118実機9ZIPの通路判断変更、PARTIAL入口、価格縦断片/低い配置、松明床、遅延入店/新DATA所有と実周回の処理順を修正。3fの実陰性→RS→child継承と成功判定packetを保持。初回RSと`--until-target`を維持。
 

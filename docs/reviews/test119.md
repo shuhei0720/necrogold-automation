@@ -45,3 +45,5 @@ Mac原証跡ではnormalの3workerがsource34→35→36を通常UNKNOWNとして
 最初の読取attemptはworkflowのteeログ1本を一覧へ登録しておらずruntime段階で停止。原source/入力/失敗ledgerを保持し、必須26本と同CODEのtee/pipefail・checkerのexact78B PASSへ結合する限定修正を独立レビュー。原8入力/製品/CI/IPAを変えず、新しいattemptで6項目を一回確認した。分類/コンパイル/過去Runtime・Spool故障集合を読取時に再実行していない。
 
 固定配布は[TEST119/build266](https://github.com/shuhei0720/necrogold-automation/releases/tag/test119-build266)。公開sourceはこの製品CODEから文書だけを変更し、公式ZIPの全Git bytesと同nativeを別途照合する。新版iPhoneの改善確認はこれからであり、元実機の再発数を検証件数で置き換えない。
+
+固定公開確認も完了。SOURCEd8aa39e1420c0763f19d646c8eaa1d1682822991はCODEから文書4件だけ変更、全1181Git blobと公式ZIPが同bytes。公開job267/run45537748686は原CI266 IPAを保存するだけで再ビルドしていない。3assetをログインなしで全取得し、IPA2fa20bf2/sourcea546316e/SHA表1f6e83cc、GH digest/byte size/両ZIP CRC/実tag SOURCEを照合。公開後文書を追記し、固定assetは置き換えない。実機受入はこれから。

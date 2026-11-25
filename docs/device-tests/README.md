@@ -3203,3 +3203,5 @@ cd /mnt/necro_test119 && sh test_119.sh --until-target
 ```
 
 通常ケイデンス・オールゾーン1-1ポーズから一連を確認する。上部入口も全3商品が見えるまで移動→対象外なら回収を挟まず次周回、対象候補なら保持/通知を確認。終了表示まで画像/ZIP照合を待ち、途中停止分を含む`runtime/test-119*.zip`を全て返却してもらう。公式全sourceと公開3assetの匿名全GET/SHA/CRC/実tagは公開後に追記し、assetは置換しない。
+
+TEST119公開後確認: SOURCEd8aa39e（CODEからdocs4件のみ）、公式全1181blob/bytes/CRC/同nativeを照合。固定3assetの匿名全GET/SHA/GitHub digest/実tagは全一致。IPA18,470,994B/SHA2fa20bf29c5219d76796c92d6f9810b203718fb0cf1f35e1b7c2f698968a80c0、source10,451,177B/SHAa546316e10c4a42e9aa979260dee4628d8ba17d63b05c024c5db5473b819002f、SHA表1f6e83ccb48c24fe07655d67b3b9245f7a6b5cd6e6c1ab639828407abf23a09d。公開job267/run45537748686は再ビルドせず、IPAは検証済みbuild266のまま。公開後は文書のみ追記しassetは置換しない。iPhone結果は未受領。

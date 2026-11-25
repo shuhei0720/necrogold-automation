@@ -717,3 +717,5 @@ TEST118固定配布確認（2026-11-25）: SOURCE7dc68c2はCODEdca8ca3からdocs
 | FR-119-DELIVERY-TEE-INVENTORY | 2026-11-25 | 配布前の読取attempt1がruntimeのファイル一覧で停止 | checkerの25本だけを列挙し、同CODE workflowがteeで保存するruntime-command.txtを未登録 | 閉じた一覧へ必須26本目を追加し、同CODEのtee/pipefailとfrozen checker最終printへ原78Bをexact結合。任意extra無視や既assert緩和はしない | 原attempt1/source/8入力/ledgerを保持。独立増分P0/P1なし。同じ原8入力・IPA・CIの新attemptで6項目が合格。分類/compile/製品試験は再実行せず | 読取consumer今回1。実機の再発数へ加算しない |
 
 TEST119配布前確認: CODE617fc248・CI266でhost130/実Py3953/Mac1case・2subrun/IPAが合格。実compiler・全source・9MachO等の6照合も合格。IPA2fa20bf2、37native中4変更/33保持。固定公開後の匿名3取得は別途確認する。実機の改善/速度/未知精度は未確認、各行の再発数は据え置く。
+
+TEST119公開後確認: SOURCEd8aa39e（CODE617fc248からdocs4件のみ）/公式1181blob/同native、固定IPA・完全source・SHA表の匿名全GET/全SHA/GH digest/CRC/実tagが一致。IPA2fa20bf2・sourcea546316e・SHA表1f6e83cc。公開job267は再ビルドせずbuild266を保存。各実機再発数と改善未確認の記録は変更せず、公開後文書だけを追記した。
