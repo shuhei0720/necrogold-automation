@@ -3306,3 +3306,6 @@ cd /mnt/necro_test124 && sh test_124.sh --until-target
 ```
 
 初回もRSから開始する。ゲーム表示中は触らず、候補/通路→開扉→全3商品が見える位置までの移動→対象外なら実RS→そのまま次周回を確認する。のろいのゆびわ候補ではポーズ/通知を確認する。終了・停止後は画像回収の完了表示まで待ち、runtimeの `test-124-*.zip` と `test-124-campaign-*.zip` を全て返す。停止が残った場合は何周目/何回目・どの動作の後かも添える。回収済みrunを追加回収目的で走らせず、未回収が明示された場合だけ同じLoopCtrl起動状態/source/runtimeで同root回復を行う。
+
+
+TEST124固定公開確認（2026-11-27）: 公式SOURCEfbbaf4cはCODE2077895から文書4件だけ、全1261Git blob/同nativeを照合済み。source.zipは10,881,837B/SHA `921d1c4a10ccb88f1c9720b352b8c245faa010c43e5fbaf10a081ae8f331361e`。公開277はbuild276を再ビルドせず保存。上の固定3assetを匿名全GET200し、原本全bytes/SHA/GitHub digest/size・両ZIP CRC・実tag SOURCEを確認した（public receipt7d9ecc3a）。実機改善/速度の受入は新返却待ち。

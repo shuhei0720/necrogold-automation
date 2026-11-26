@@ -809,3 +809,6 @@ TEST123公開後確認（2026-11-26）: SOURCE8c85a8a（CODE578a9efから文書4
 
 
 TEST124配布前確認（2026-11-27）: CODE2077895・実CI276/run45860793228でhost137/実Py39108/実IPA合格。新52＋直接旧57を含み、元3artifact GHdigest/全bytes/CRC、全1261CODE blob・37nativeの3変更34保持、実compiler/profile3/全9MachOの五項目がattempt1合格（verification f7698b0b）。IPA18,520,248B/SHA35fcfe28f500c929f37a01216395ffb3f21e5368e59a9e8c33b6329880fef3ea。原対象は候補へ、他24packetを全bytes保持。初回RS/連続周回・候補優先・元P/D/W/予算を維持。実機改善/速度/再発数は未受入、公式SOURCE/固定公開/匿名取得は次工程。
+
+
+TEST124公開後確認（2026-11-27）: SOURCEfbbaf4c（CODE2077895から文書4件のみ）・公式全1261Git blob/同nativeを照合。固定IPA/完全source/SHA表を匿名全GET200し、原本全bytes/SHA/GitHub digest/size・両ZIP CRC・実tag SOURCEを確認（public receipt7d9ecc3a）。IPA18,520,248B/SHA35fcfe28、source10,881,837B/SHA921d1c4a、SHA表156B/SHA1e797933。公開277/run45863674713は元build276を再ビルドせずrelease459690227/test124-build276へ保存。公開後は文書のみを更新し、asset/実tagは置換しない。実機改善/速度/元再発数は新返却まで未受入。

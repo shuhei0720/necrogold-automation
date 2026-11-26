@@ -84,3 +84,10 @@ host137=新52＋直接旧57＋metadata6＋package8＋selector14、native109、�
 CODE20778950f39d8bc9134932952328331ae1b99c5a、CI276/run45860793228はsource-ready/host/focused-buildの実3job成功・15skip。host137と実CPython3.9.25の108はfailure/error/skip0、元artifact GHdigest/全bytes/CRCを照合。元IPAは18,520,248B/SHA `35fcfe28f500c929f37a01216395ffb3f21e5368e59a9e8c33b6329880fef3ea`。
 
 read-only五項目はattempt1で全合格（verification SHA `f7698b0b2a2c5779a897e6a70f1f1b7a3bdc0c71ead85cbd6e72c7feaca3ebe4`）。CODE全1261Git blob/全bytes・37nativeの3変更34保持/追加0、実compiler/profile3、全9MachO、過去markerの正しい出典と新fixtureマーカー排除等を確認した。reader c34c49a5、scope d5e4ce29。新Mac Runtime0・旧Runtime/world/spool再走0、local reader classifier/compiler0。未実施を現行合格へ置換しない。公式docs-only SOURCE/固定公開/匿名全取得・iPhone受入は後続工程。
+
+
+## 固定公開の最終確認
+
+公式SOURCE `fbbaf4c1141d01289563e54ee1a6ffa49b3f32d5` はCODEから文書4件だけ、全1261Git blob/全bytes/CRC/同nativeを照合。source.zipは10,881,837B/SHA `921d1c4a10ccb88f1c9720b352b8c245faa010c43e5fbaf10a081ae8f331361e`。公開277/run45863674713の唯一の実行job publish-downloadが成功し、元build276を再ビルドせずrelease459690227/test124-build276へ保存した。
+
+固定3assetの匿名全GET200を実施し、IPA/完全source/SHA表の原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認（public receipt SHA `7d9ecc3abf1aae424585be4efc9e12164d70b5b0e8d208ee64ca74c22df5b3e8`）。IPAは18,520,248B/SHA `35fcfe28f500c929f37a01216395ffb3f21e5368e59a9e8c33b6329880fef3ea`、SHA表156B/SHA `1e79793303d49efae5f7c5d2826812acf44cc88dce51bd9f3f817025946ef261`。公開後の更新は文書だけとし、固定asset/実tagを置換しない。実機改善/毎拍・速度/元再発数の受入はTEST124返却待ち。
