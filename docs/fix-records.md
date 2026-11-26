@@ -776,3 +776,14 @@ TEST122配布前確認（2026-11-26）: CODEf5143e3・CI272/run45763652619、hos
 
 
 TEST122公開後確認（2026-11-26）: SOURCE6dfe3f7（CODEf5143e3から文書4件のみ）、公式全1231Git blob/全bytes/CRC/同nativeを照合。固定3assetを匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA18,500,451B/SHAa9affa880979b1abd05686c907f489c8ac355a89eb91ad829e2c833cd02efa96、source10,702,007B/SHA26443b772b3d6634882a919a18c014d1c3039e3f634d151ec4ba6bf57d4f4cbc、SHA表156B/SHAcccca710b0f2a6eed1a77b3eb46145485ec4b7171f22eeddc0d3185d2758e6d8。公開273/run45765891436は元build272を再ビルドせず固定保存した。公開後は文書だけを更新し、asset/実tagは置換しない。実機改善/毎拍・速度と再発数は新返却まで未確認。
+
+## TEST123: TEST122の実RS成功と4停止（2026-11-26）
+
+[計画](plans/test123-device-failures.md)。9ZIP/4campaign/5run/120PNG/143記録を全照合、不足0。実初回RS4/4・実unit/開扉5/5・全商品可視4/5・商品後実RS1/4。66c8/source148の旧policy15→C採用/保存→実RS15 knownACK→新floor→child開始は実成功として保持する。新21成功hit0、他新対策のprivate途中hit不明を通しの不使用と同一視しない。以下は今回の原因/実装中の確認で、実機改善済みではない。
+
+| ID | 修正日 | 実機事象 | 確認した原因 | 対策案 | 改善確認方法・現在の範囲 | 同原因再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-123-TWO-SIGN-HUD-ALIAS | 2026-11-26 | f5a3で全3商品可視でもRSせず | 原235は正常BOARD/ROWS258 UNKNOWNをD内採用。実fullfaceは非HUDだが探索ROIだけ1px HUD重複、同2看板の縦6px aliasを別行とする | 実face/観測3商品帯の正のcanonicalと、2bboxから復元する全seed/alias画像探索を別証明にする | 原235の新正常22/5 NEGと独立Ring/C検査を確認。原234の既NEG9は別sourceとして保持。exact旧122 Red→新Green、全alias集合の独立証明を補強。性能/最終差分・実機改善は確認中 | 今回1。同症状継続、旧15/21等とは別形。同根因通算不明 |
+| FR-123-VERTICAL-CAP | 2026-11-26 | b6cbで全3商品可視でもRSせず | 原106は正常ENDCAP16 UNKNOWN。右full/lower Floor成立、upper材質と旧別証明が不成立 | 同25x25を固定左右12x25/13x25で全被覆する別証明。全元threshold・数値stats/area/count和・独立C検査を保持 | 原106の新正常22/5・marker3 NEGと独立Ring/Cを確認。原両patchは元floor/90%/bright成立、105/108の既NEG4を106へ流用しない。実3.9の数値往復を確認。実機改善未確認 | 今回1。FR121別床支持の別partition、同根因通算不明 |
+| FR-123-TWO-SIGN-ROW-ALIAS | 2026-11-26 | 4a98で全商品可視でもRSせず | 原169は正常ROWS256 UNKNOWN。同physical列のleft301/302を2行と数える | 2実看板bboxの全seed/同world格子/原全rowと両外partialをexact対応し、対象/name/tailを落とさない | 原169の新正常22/5 NEGと独立Ring/Cを確認。原168/169同条件。全alias削除・追加・重複・順変更/両外tailを拒否。性能/最終差分・実機改善は確認中 | 今回1。同症状継続、同根因通算不明 |
+| FR-123-TOP-PROJECTION-RAIL | 2026-11-26 | 636eで開扉後、全商品未視のまま停止 | 正常safe UNKNOWN採用後、上端ITEM投影＋UPnext対角の旧GOLD rail穴1セル露出を旧関係が拒否。原121で元P残2.539秒 | 旧MOVEを救わずPARTIALの新immutable DATA、一用/共有DATA2と旧Pを保持。旧model/slotは撤回し既HUD履歴だけ保持して新current/newfitへ | 原119→121正常直接零/同UP/次床、旧121/122同拒否10を校正。最終同fixtureはexact旧122で19assertion failure/errors0→新11/旧25Green。原phaseにworker100ms/currentage31msを加えた通常次unitは元P内1.575秒残。未来実機画像/私的履歴は補わず実機改善未確認 | 今回1。FR106/107投影/材質の合成系列の別境界、同根因通算不明 |

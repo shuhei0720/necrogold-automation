@@ -1,7 +1,7 @@
 # 最新状態
 
-更新: 2026-11-26（日本時間）。[TEST122/build272](https://github.com/shuhei0720/necrogold-automation/releases/tag/test122-build272)固定公開・匿名全GET済み。CODEf5143e3/CI272、host102・実CPython3.9.25の86・実IPA/配布前5照合が合格。37nativeは5変更32保持、API/native_v15/ABI1/profile3を維持。
+更新: 2026-11-26（日本時間）。[TEST123計画](plans/test123-device-failures.md)を進行中。TEST122実機9ZIP/4campaign/5run・120PNGを全照合、不足0。全商品可視4/5・商品後実RS1/4。66c8の正常policy15→採用/保存→実RS→新floor→child成功を保持する。
 
-[計画](plans/test122-device-failures.md)・[検証](reviews/test122.md)。TEST121実機8ZIP/4root/96PNGの通路ACK後unit、価格独立21/4、上部入口H1前観測、FULL halo新DATAを修正。旧成功5packet/対象候補/初回RS/連続周回を保持。元実機の商品可視2/4・商品後RS0/2の改善は新返却で評価する。
+商品停止3件は二看板alias/HUD/固定床端の新22/5で原3画像を判定。限定DATAの新11/旧25、商品新8/旧11がGreen、既成功packetを保持し独立差分の指摘を修正した。client/cap123も実3.9関連203件合格。37nativeの4変更33保持を封印・実適用照合済み。host83/実Py3997をCODE固定CIへ進める。Linux期限校正の不成立も記録し、実機改善/速度は新返却まで未確認。
 
-IPA SHAa9affa88/18,500,451B。SOURCE6dfe3f7/全1231blob・同native、固定3assetの全bytes/SHA/CRC/実tagを確認。公開273は再ビルドなし。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。通常1-1ポーズから新sourceで`sh test_122.sh --until-target`。終了表示後の全run/campaign ZIPを返却してもらう。実機到達・連続RS・毎拍/速度は未受入。
+前回配布は[TEST122/build272](https://github.com/shuhei0720/necrogold-automation/releases/tag/test122-build272)。CODEf5143e3/SOURCE6dfe3f7、host102/実Py3986、実IPA/全source/固定3asset匿名取得済。37native/API/native_v15/ABI1/profile3保持。TEST123の実IPA・完全sourceを固定配布し、通常1-1から次実機で商品判定→実RS→次周回を確認する。

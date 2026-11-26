@@ -6,10 +6,9 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
+| TEST122実機→TEST123 | [今回](plans/test123-device-failures.md) | 9ZIP/5run：旧15の実RS成功を保持、二看板alias/HUD/床端と上端投影＋rail新DATA |
 | TEST121実機→TEST122 | [今回](plans/test122-device-failures.md) | 8ZIP/4root：ACK後Motion、価格独立全商品帯、上部入口の静止材質、FULL halo DATA。実商品後RS0/2を改善評価の基準にする |
-| TEST120実機→TEST121 | [今回](plans/test121-device-failures.md) | 7ZIP/4run：扉前拒否、FULL看板/行のUNKNOWN、初期候補別形、5572実RS成功を保持 |
-| TEST119実機→TEST120 | [今回](plans/test120-device-failures.md) | 11ZIP/7run：成功3陰性/RSを保持し、待機/新扉/送信前期限/候補形を旧版と比較 |
-| TEST118実機→TEST119 | [今回](plans/test119-device-failures.md) | 実9ZIP：通路の判断変更、PARTIAL継続、価格の縦断片/低価格、早期FULL後の入店。3fの実RS成功は保持 |
+| TEST118〜120の実機修正 | [121](plans/test121-device-failures.md)・[120](plans/test120-device-failures.md)・[119](plans/test119-device-failures.md) | 旧成功・看板/床・価格・通路/送信前資格・早期FULLを比較 |
 | 直前の実機・候補保持 | [114](plans/test114-device-failures.md)・[113](plans/test113-device-failures.md)・[112](plans/test112-device-failures.md) | 元対策と未確定原因は各計画/修正表へ |
 | TEST107の複合変化・初歩前フェード | [計画](plans/test107-partial-composition.md) | top商品投影と既地形関係の合成、元D内の最新2画像による再取得 |
 | TEST106の実機停止/候補見逃し | [計画](plans/test106-real-failures.md)・[検証](reviews/test106.md) | 共通閉容器/価格証明、開扉後の遠方金壁、最上段投影、左側の観測vantage |

@@ -867,6 +867,10 @@ jobs:
               NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test122_host.py
               DEVICE_PROFILE=122
             fi
+            if [ -f driver/patches/loopctrl/run_test123_host.py ]; then
+              NATIVE_HOST_RUNNER=driver/patches/loopctrl/run_test123_host.py
+              DEVICE_PROFILE=123
+            fi
           fi
           "$RUNNER_TEMP/test061-host-venv/bin/python" "$NATIVE_HOST_RUNNER" driver upstream "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/host-command.txt"
           echo "device_profile=$DEVICE_PROFILE" >> "$GITHUB_OUTPUT"
@@ -1057,7 +1061,7 @@ jobs:
           set -euo pipefail
           "${{ steps.python39_115.outputs.python-path }}" driver/patches/loopctrl/run_test115_python39.py driver "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/python39-command.txt"
       - name: Select actual Python 3.9 for TEST116 client compatibility
-        if: inputs.native_lane == 'device' && (steps.host_contracts.outputs.device_profile == '116' || steps.host_contracts.outputs.device_profile == '117' || steps.host_contracts.outputs.device_profile == '118' || steps.host_contracts.outputs.device_profile == '119' || steps.host_contracts.outputs.device_profile == '120' || steps.host_contracts.outputs.device_profile == '121' || steps.host_contracts.outputs.device_profile == '122')
+        if: inputs.native_lane == 'device' && (steps.host_contracts.outputs.device_profile == '116' || steps.host_contracts.outputs.device_profile == '117' || steps.host_contracts.outputs.device_profile == '118' || steps.host_contracts.outputs.device_profile == '119' || steps.host_contracts.outputs.device_profile == '120' || steps.host_contracts.outputs.device_profile == '121' || steps.host_contracts.outputs.device_profile == '122' || steps.host_contracts.outputs.device_profile == '123')
         id: python39_116
         shell: bash
         run: |
@@ -1123,6 +1127,12 @@ jobs:
         run: |
           set -euo pipefail
           "${{ steps.python39_116.outputs.python-path }}" driver/patches/loopctrl/run_test122_python39.py driver "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/python39-command.txt"
+      - name: Run TEST123 exact client methods and shell entry using actual Python 3.9
+        if: inputs.native_lane == 'device' && steps.host_contracts.outputs.device_profile == '123'
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${{ steps.python39_116.outputs.python-path }}" driver/patches/loopctrl/run_test123_python39.py driver "$RUNNER_TEMP/test061-host" 2>&1 | tee "$RUNNER_TEMP/test061-host/python39-command.txt"
       - name: Save selected host evidence and explicit test inventory
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
