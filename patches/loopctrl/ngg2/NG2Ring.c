@@ -2720,6 +2720,76 @@ static int coverage121(const unsigned char *rgba,const RingObservation *observat
     status=checkpoint(options,&work);*result=work;return status;
 }
 
+/* Price-independent complete goods need the existing merchant/one-face
+ * enclosure AND exact observed offers. Prices neither discover nor certify
+ * this row. Completed alias pixel proofs belong to this same invocation. */
+static int price_independent_coverage122(const unsigned char *rgba,const RingObservation *observation,
+                       const NG2RingSign signs[12],int count,const NG2RingOptions *options,
+                       NG2RingResult *result,const NG2RingResult *original,OfferSweepProof proofs[4]) {
+    if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY||result->outcome!=NG2_RING_UNKNOWN
+       ||result->coverage==NG2_RING_COVERAGE_COMPLETE||count!=1)return NG2_RING_OK;
+    NG2RingResult prior=*result,work=*original;
+    work.checks=result->checks;work.finished_ns=result->finished_ns;
+    if(!work.row_count) {
+        /* The only observed full face gives a relative candidate; positive
+         * Scene/auth/body/cap checks below must independently close it. */
+        work.row_count=1;work.rows[0].left=signs[0].cx;work.rows[0].sy=signs[0].sy;
+    }
+    int selected=0,ax,ay,aliases[4];NG2RingRow *row=&work.rows[selected];
+    if(!single_sign_scene_row(options->scene,row->left,row->sy)
+       ||!offer_footprint_scene_row(options->scene,row->left,row->sy)
+       ||!structural_face(&signs[0],row->left,row->sy)
+       ||signs[0].x1-signs[0].x0<29||signs[0].x1-signs[0].x0>30
+       ||signs[0].y1-signs[0].y0<29||signs[0].y1-signs[0].y0>30
+       ||!structural_cell(row->left,448,&ax)||!structural_cell(row->sy+48,207,&ay))return NG2_RING_OK;
+    for(int r=0;r<work.row_count;r++) {
+        const NG2RingRow *alias=&work.rows[r];int x,y;
+        if(alias->left<197||alias->left>537||alias->sy<21||alias->sy>224
+           ||abs(alias->left-row->left)>2||abs(alias->sy-row->sy)>2
+           ||!structural_cell(alias->left,448,&x)||!structural_cell(alias->sy+48,207,&y)
+           ||x!=ax||y!=ay||!offer_footprint_scene_row(options->scene,alias->left,alias->sy))return NG2_RING_OK;
+        aliases[r]=r;
+    }
+    double merchant=0.0,coverage=0.0;int32_t merchant_box[4]={0};
+    for(int phase=0;phase<R94_MERCHANT_COUNT;phase++) {
+        double score=0.0,cov=0.0;int32_t box[4]={0};
+        int status=bank_icon(rgba,row->left+36,row->sy,&r94_merchants[phase],options,&work,&score,&cov,box,1);
+        if(status){*result=work;return status;}
+        int qualifies=score>=.94&&cov>=.95,old=merchant>=.94&&coverage>=.95;
+        if((qualifies!=old)?qualifies:score>merchant){merchant=score;coverage=cov;memcpy(merchant_box,box,sizeof(box));}
+    }
+    result->checks=work.checks;result->finished_ns=work.finished_ns;
+    if(merchant<.94||coverage<.95||!box_valid(merchant_box)||merchant_box[2]!=36||merchant_box[3]!=36
+       ||abs(merchant_box[0]-row->left-18)>3||merchant_box[1]<row->sy-39||merchant_box[1]>row->sy-33)return NG2_RING_OK;
+    NG2RingSlot tail[NG2_RING_MAX_PARTIAL];int tail_count=0;
+    for(int s=0;s<original->partial_count;s++) {
+        int owned=0;const NG2RingSlot *slot=&original->partial[s];
+        for(int r=0;r<work.row_count;r++)for(int k=-1;k<=3;k++)
+            owned|=slot->cx==work.rows[r].left+36*k&&slot->sy==work.rows[r].sy;
+        if(!owned){if(tail_count>=NG2_RING_MAX_PARTIAL-2)return NG2_RING_OK;tail[tail_count++]=*slot;}
+    }
+    NG2RingCoverage *out=&work.certificate;memset(out,0,sizeof(*out));
+    out->layout_version=NG2_RING_PRICE_INDEPENDENT_LAYOUT;
+    out->policy_version=out->board_mode=NG2_RING_PRICE_INDEPENDENT_POLICY;
+    out->accepted_rows=1;out->row_index=selected;out->row[0]=row->left;out->row[1]=row->sy;
+    out->scene_state=options->scene->state;out->scene_goods=options->scene->goods;
+    for(int i=0;i<NG2_TILE_COUNT;i++)out->actual_gold_cells+=options->scene->tiles[i]==NG2_TILE_GOLD;
+    int32_t strip[4]={row->left-54,row->sy+24,180,67};memcpy(out->strip_box,strip,sizeof(strip));
+    out->merchant_score=merchant;out->merchant_coverage=coverage;memcpy(out->merchant_box,merchant_box,sizeof(merchant_box));
+    const NG2RingSign *face=&signs[0];int32_t board[4]={face->x0,face->y0,face->x1-face->x0,face->y1-face->y0};
+    memcpy(out->board_boxes[0],board,sizeof(board));out->board_counts[0]=face->count;
+    int status=alias_sweep121(rgba,observation,options,&work,&prior,aliases,work.row_count,selected,proofs);
+    if(status||work.outcome!=NG2_RING_UNKNOWN){*result=work;return status;}
+    for(int s=0;s<tail_count;s++)work.partial[work.partial_count++]=tail[s];
+    int complete=endcap_witness(rgba,observation,row->left-36,row->sy,&out->endcaps[0]);
+    complete&=endcap_witness(rgba,observation,row->left+108,row->sy,&out->endcaps[1]);
+    for(int s=0;s<3;s++)memcpy(out->item_boxes[s],row->slots[s].non_target_icon_box,sizeof(out->item_boxes[s]));
+    item_witness(rgba,row,out);out->non_target_items=3;
+    if(!complete||out->observed_items!=3){result->checks=work.checks;result->finished_ns=work.finished_ns;return NG2_RING_OK;}
+    work.coverage=NG2_RING_COVERAGE_COMPLETE;work.selected_row=selected;work.selected_partial=-1;
+    status=checkpoint(options,&work);*result=work;return status;
+}
+
 /* A layout's incomplete proof is diagnostic, not a veto over a different
  * complete witness for the same immutable physical row. Keep the first
  * failure if neither independent footprint succeeds; failed jobs and any
@@ -3459,7 +3529,66 @@ static int coverage121_negative_certificate(const NG2RingResult *result) {
     return binary_cell_certificate(&result->partial[0],row->left-36,row->sy,0,w->strip_box)
         &&binary_cell_certificate(&result->partial[1],row->left+108,row->sy,0,w->strip_box);
 }
+static int price_independent_negative_certificate122(const NG2RingResult *result) {
+    if(!result||result->abi!=NG2_RING_ABI||result->size!=sizeof(*result)||result->status!=NG2_RING_OK
+       ||(result->outcome!=NG2_RING_UNKNOWN&&result->outcome!=NG2_RING_NEGATIVE)
+       ||result->coverage!=NG2_RING_COVERAGE_COMPLETE||result->row_count<1||result->row_count>4
+       ||result->selected_row<0||result->selected_row>=result->row_count||result->selected_partial!=-1
+       ||result->partial_safe_no_positive||result->partial_count<2||result->partial_count>NG2_RING_MAX_PARTIAL)return 0;
+    const NG2RingCoverage *w=&result->certificate;const NG2RingRow *row=&result->rows[result->selected_row];int ax,ay;
+    if(w->policy_version!=NG2_RING_PRICE_INDEPENDENT_POLICY||w->board_mode!=NG2_RING_PRICE_INDEPENDENT_POLICY
+       ||w->layout_version!=NG2_RING_PRICE_INDEPENDENT_LAYOUT||w->failure_flags||w->accepted_rows!=1
+       ||w->row_index!=result->selected_row||w->observed_items!=3||w->non_target_items!=3||w->ignored_containers
+       ||w->observed_prices||w->unmatched_prices||w->unmatched_boards||w->unmatched_items<0||w->unmatched_items>(180*67)/24
+       ||w->scene_state!=NG2_FLOOR||w->scene_goods!=NG2_GOODS_VISIBLE||w->actual_gold_cells<7||w->actual_gold_cells>NG2_TILE_COUNT
+       ||row->left<197||row->left>537||row->sy<21||row->sy>224||w->row[0]!=row->left||w->row[1]!=row->sy
+       ||!structural_row_cells(row->left,row->sy,&ax,&ay)||ay-2 < -5||ay+2>4
+       ||!box_valid(w->strip_box)||w->strip_box[0]!=row->left-54||w->strip_box[1]!=row->sy+24
+       ||w->strip_box[2]!=180||w->strip_box[3]!=67||!box_valid(w->merchant_box)
+       ||w->merchant_box[2]!=36||w->merchant_box[3]!=36||abs(w->merchant_box[0]-row->left-18)>3
+       ||w->merchant_box[1]<row->sy-39||w->merchant_box[1]>row->sy-33
+       ||!proof_score(w->merchant_score,.94)||!proof_score(w->merchant_coverage,.95)
+       ||w->merchant_score>1.0||w->merchant_coverage>1.0)return 0;
+    const int32_t *board=w->board_boxes[0];if(!box_valid(board))return 0;
+    NG2RingSign face={w->board_counts[0],board[0]+board[2]/2,board[1]+board[3]/2,
+        board[0],board[1],board[0]+board[2],board[1]+board[3]};
+    if(!structural_face(&face,row->left,row->sy)||board[2]<29||board[2]>30||board[3]<29||board[3]>30
+       ||w->board_counts[1])return 0;
+    for(int side=0;side<2;side++) {
+        const NG2RingEndcap *cap=&w->endcaps[side];
+        if(w->sign_iou[side]!=0.0||w->sign_coverage[side]!=0.0||w->board_exterior_count[side]
+           ||!box_valid(cap->box)||cap->box[0]!=row->left+(side?96:-48)||cap->box[1]!=row->sy+36
+           ||cap->box[2]!=25||cap->box[3]!=25||cap->count!=625||cap->black_count<0||cap->black_count>62
+           ||cap->bright_count<0||cap->bright_count>=24||cap->price_ink_count<0||cap->price_ink_count>=18
+           ||cap->r<0||cap->r>255||cap->g<0||cap->g>255||cap->b<0||cap->b>255||cap->spread!=1
+           ||cap->floor_full!=1||cap->floor_upper!=1||cap->floor_lower!=1||!material_floor(*cap))return 0;
+        for(int k=0;k<4;k++)if(w->sign_boxes[side][k]||w->board_edge_counts[side][k]
+            ||w->board_corner_counts[side][k]||w->board_boxes[1][k])return 0;
+    }
+    for(int r=0;r<result->row_count;r++) {
+        const NG2RingRow *alias=&result->rows[r];int x,y;
+        if(alias->left<197||alias->left>537||alias->sy<21||alias->sy>224
+           ||abs(alias->left-row->left)>2||abs(alias->sy-row->sy)>2
+           ||!structural_row_cells(alias->left,alias->sy,&x,&y)||x!=ax||y!=ay)return 0;
+        int32_t strip[4]={alias->left-54,alias->sy+24,180,67};if(!box_valid(strip))return 0;
+        for(int s=0;s<3;s++)if(!binary_cell_certificate(&alias->slots[s],alias->left+36*s,alias->sy,s,strip)
+            ||!word_metadata121(&alias->slots[s]))return 0;
+    }
+    for(int s=0;s<3;s++)for(int k=0;k<4;k++)if(w->price_boxes[s][k]||w->name_boxes[s][k])return 0;
+    for(int s=0;s<3;s++)if(memcmp(w->item_boxes[s],row->slots[s].non_target_icon_box,sizeof(w->item_boxes[s])))return 0;
+    for(int s=0;s<result->partial_count;s++) {
+        if(!binary_no_candidate(&result->partial[s])||!word_metadata121(&result->partial[s]))return 0;
+        if(s>=2) {
+            if(!partial_tail121(&result->partial[s],row,0))return 0;
+            for(int j=0;j<s;j++)if(result->partial[s].cx==result->partial[j].cx&&result->partial[s].sy==result->partial[j].sy)return 0;
+        }
+    }
+    return binary_cell_certificate(&result->partial[0],row->left-36,row->sy,0,w->strip_box)
+        &&binary_cell_certificate(&result->partial[1],row->left+108,row->sy,0,w->strip_box);
+}
 int ng2_ring_negative_certificate(const NG2RingResult *result) {
+    if(result&&result->certificate.policy_version==NG2_RING_PRICE_INDEPENDENT_POLICY)
+        return price_independent_negative_certificate122(result);
     if(result&&(result->certificate.policy_version==NG2_RING_RELATIVE_SIGN_POLICY
         ||result->certificate.policy_version==NG2_RING_GROUPED_SIGN_POLICY))return coverage121_negative_certificate(result);
     if(result&&result->certificate.layout_version==3)return separate_price_negative_certificate(result);
@@ -3627,6 +3756,8 @@ int ng2_ring_assess_rgba(const unsigned char *rgba,size_t bytes,size_t stride,
             separate_price.lower_slot>=0?&separate_price:NULL,coverage_proofs);
     if(!status&&result->outcome==NG2_RING_UNKNOWN&&result->coverage!=NG2_RING_COVERAGE_COMPLETE)
         status=coverage121(rgba,&observation,observed_signs,sign_count,options,result,&original,coverage_proofs);
+    if(!status&&result->outcome==NG2_RING_UNKNOWN&&result->coverage!=NG2_RING_COVERAGE_COMPLETE)
+        status=price_independent_coverage122(rgba,&observation,observed_signs,sign_count,options,result,&original,coverage_proofs);
 #endif
     if(!status)status=checkpoint(options,result);
     if(!status&&options&&options->scene&&options->scene->abi_version==NG2_ABI_VERSION

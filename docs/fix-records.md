@@ -760,3 +760,14 @@ TEST121配布前確認（2026-11-25）: CODE4574786・CI270/run45566129079、hos
 
 
 TEST121公開後確認（2026-11-25）: SOURCEd2fae5c（CODE4574786から文書4件だけ）/公式全1215blob・同nativeを照合。固定3assetの匿名全GET200、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA18,493,552B/SHA671bb82f1d14c732e668b7ecd7a7876e381cae0aa2af4d59551bec80cd620d97、source10,623,801B/SHA4deec35fecdf562b630da4fcfe18bd07c273ab8aefc214b919d51ad59f07ea7d、SHA表c9e9f422d73b30cdcfa2768c23eedf9459e50d47fafdc6d2b6d49d231f8288a5。公開271/run45569222642は検証済みbuild270を再ビルドせず保存した。公開後は文書のみを更新し、固定asset/実tagは置換しない。実機改善・速度と元再発数は未確認のまま。
+
+## TEST122: TEST121実機4rootの原因分離（2026-11-26）
+
+[計画](plans/test122-device-failures.md)。8ZIP/4root/96PNG/111記録を全照合。実順fbbd/de9f/ca23/7a9d、初回RS4/4・実MOVED4/4・開扉3/4・全商品可視2/4・商品後RS0/2。正常UNKNOWN採用3件と後続status上書きを区別する。以下の限定実装・単体/直接関連はGreen。配布と実機改善を先取りしない。
+
+| ID | 修正日 | 実機事象 | 確認した原因 | 対策 | 改善確認方法・現在の範囲 | 同原因再発数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| FR-122-SINGLETON-DEPENDENCY | 2026-11-26 | fbbdで商店への通路、UP既知ACK後停止 | 8比較の通常UNKNOWN。原153の唯一側方露出/強いdependency画素支持が、旧world支持不足/全旧STONE保持条件で採用されない | 唯一singleton/遠方STONE限定に全72代替排除と独立axis絶対支持を組み合わせる別unit証明。元visual/8枠/一度信用を保持 | 原134→153/早い140..151と元時計を校正し、新10＋関連34Green。旧scheduleは復活させず通常回復へ。実機改善未確認 | 今回1。FR096/108/113の同系列、同根因通算不明 |
+| FR-122-PRICE-INDEPENDENT-OFFER | 2026-11-26 | de9fで全3商品可視でもRSなし | 原124の正常PRICE64 UNKNOWNを元D前56.067msに採用。single policy7へ既低価格helperが未継承 | 価格を必須にしない独立21/4。全3商品/halo/床/囲い/merchant/cap/全alias対象探索を正に証明し独立C検査 | 原124正常NEG21/4/Ring証明/own-anchor C各1、新4＋関連15Green。旧5全packet/19・20/元期限を保持。実機改善未確認 | 今回1。FR119価格対策の適用漏れ、同症状継続・通算不明 |
+| FR-122-UPPER-MATERIAL | 2026-11-26 | ca23の上部入口で開扉後下行せず | V2/同商品/正床/直接静止零でも、歩行外4材質差を全tiles一致が拒否。最後の実commit>Pは正しい拒否 | 初回H1前だけ、全ITEM/保護/旧GOLD/DOORと両歩行crossを保持したV2静止材質関係。旧完全一致/後続bridge/元Pを保持 | 原339/340/402..407のguardを校正し、新9＋関連24Green。末尾からの5歩予算成立は主張せず、早い公開earned V2モデルを区別。未出力history/未来商品画像を補わない。実機改善未確認 | 今回1。FR118上部入口の別静止境界、同根因通算不明 |
+| FR-122-FULL-HALO-DATA | 2026-11-26 | 7a9dで商品可視でも新DATA判定へ進まず停止 | 原234はcap89.28%でUNKNOWNが正しい。次235/236は既完全NEGだが保護halo1セルUNKNOWN→DIRTを旧pairが拒否 | 同ITEM/mask/GOLD/DOOR/歩行cross/直接零の1halo露出に限り別DATA資格。旧MOVEを救わず新immutable mode2へ | 原234 UNKNOWN・235/236旧NEGを保持。新8＋関連15Greenで公開未発行framing→新DATA→通常producer/独立C/保存RSと共有DATA2/一回/元Pを確認。Runtime実drain再実行0、境界sourceは保持。実機改善未確認 | 今回1。FR110/114の現在DATAの別適用外、同根因通算不明 |

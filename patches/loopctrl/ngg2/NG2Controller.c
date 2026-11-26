@@ -4029,8 +4029,77 @@ static int cycle_coverage121_witness(const NG2Controller *p,const NG2RingResult 
     return cycle_binary_cell(&result->partial[0],row->left-36,row->sy,0,w->strip_box)
         &&cycle_binary_cell(&result->partial[1],row->left+108,row->sy,0,w->strip_box);
 }
+/* Independent own-anchor and numeric verification of the price-unused
+ * layout. No old price-dependent policy is normalized into this proof. */
+static int cycle_price_independent_word122(const NG2RingSlot *slot){
+    if(slot->word_present<0||slot->word_present>1||!cycle_score(slot->word_iou,0.0)
+       ||!cycle_score(slot->word_coverage,0.0))return 0;
+    if(slot->word_present)return cycle_box(slot->word_box);
+    return slot->word_iou==0.0&&slot->word_coverage==0.0&&cycle_zero_box(slot->word_box);
+}
+static int cycle_price_independent_witness122(const NG2Controller *p,const NG2RingResult *result){
+    const NG2RingCoverage *w=&result->certificate;
+    if(p->cycle.partial||p->cycle.candidate_latched||!p->cycle.full_seen
+       ||result->abi!=NG2_RING_ABI||result->size!=sizeof(*result)||result->status!=NG2_RING_OK
+       ||result->outcome!=NG2_RING_NEGATIVE||result->coverage!=NG2_RING_COVERAGE_COMPLETE
+       ||result->row_count<1||result->row_count>4||result->selected_row<0||result->selected_row>=result->row_count
+       ||result->selected_partial!=-1||result->partial_safe_no_positive||result->partial_count<2||result->partial_count>NG2_RING_MAX_PARTIAL
+       ||w->policy_version!=NG2_RING_PRICE_INDEPENDENT_POLICY||w->board_mode!=NG2_RING_PRICE_INDEPENDENT_POLICY
+       ||w->layout_version!=NG2_RING_PRICE_INDEPENDENT_LAYOUT||w->failure_flags||w->accepted_rows!=1
+       ||w->row_index!=result->selected_row||w->observed_items!=3||w->non_target_items!=3||w->ignored_containers
+       ||w->observed_prices||w->unmatched_prices||w->unmatched_boards||w->unmatched_items<0||w->unmatched_items>(180*67)/24
+       ||w->scene_state!=NG2_FLOOR||w->scene_goods!=NG2_GOODS_VISIBLE
+       ||p->cycle_anchor.abi_version!=NG2_ABI_VERSION||p->cycle_anchor.struct_size!=sizeof(NG2Scene))return 0;
+    const NG2RingRow *row=&result->rows[result->selected_row];int gold=0;
+    if(row->left<197||row->left>537||row->sy<21||row->sy>224||w->row[0]!=row->left||w->row[1]!=row->sy
+       ||!cycle_box(w->strip_box)||w->strip_box[0]!=row->left-54||w->strip_box[1]!=row->sy+24
+       ||w->strip_box[2]!=180||w->strip_box[3]!=67
+       ||!cycle_single_sign_scene(&p->cycle_anchor,row)||!cycle_observed_shop_scene(&p->cycle_anchor,row,-1)
+       ||!cycle_single_sign_merchant(w,row)||w->merchant_score>1.0||w->merchant_coverage>1.0)return 0;
+    for(int i=0;i<NG2_TILE_COUNT;i++)gold+=p->cycle_anchor.tiles[i]==NG2_TILE_GOLD;
+    if(gold<7||w->actual_gold_cells!=gold)return 0;
+    for(int side=0;side<2;side++) {
+        const NG2RingEndcap *cap=&w->endcaps[side];const int32_t *board=w->board_boxes[side];
+        int32_t roi[4]={row->left-18,row->sy-20,36,40};
+        if(!side) {
+            if(!cycle_box(roi)||!cycle_box(board)||!cycle_contains(roi,board)
+               ||board[2]<29||board[2]>30||board[3]<29||board[3]>30
+               ||w->board_counts[0]<150||w->board_counts[0]>board[2]*board[3]
+               ||abs(board[0]+board[2]/2-row->left)>2||abs(board[1]+board[3]/2-row->sy)>2)return 0;
+        } else if(!cycle_zero_box(board)||w->board_counts[side])return 0;
+        if(!cycle_zero_box(w->sign_boxes[side])||w->sign_iou[side]!=0.0||w->sign_coverage[side]!=0.0
+           ||w->board_exterior_count[side]||!cycle_box(cap->box)||cap->box[0]!=row->left+(side?96:-48)
+           ||cap->box[1]!=row->sy+36||cap->box[2]!=25||cap->box[3]!=25||cap->count!=625
+           ||cap->black_count<0||cap->black_count>62||cap->bright_count<0||cap->bright_count>=24
+           ||cap->price_ink_count<0||cap->price_ink_count>=18||cap->r<0||cap->r>255||cap->g<0||cap->g>255
+           ||cap->b<0||cap->b>255||cap->spread!=1||cap->floor_full!=1||cap->floor_upper!=1
+           ||cap->floor_lower!=1||!cycle_endcap_floor(cap))return 0;
+        for(int k=0;k<4;k++)if(w->board_edge_counts[side][k]||w->board_corner_counts[side][k])return 0;
+    }
+    for(int r=0;r<result->row_count;r++) {
+        const NG2RingRow *alias=&result->rows[r];
+        if(alias->left<197||alias->left>537||alias->sy<21||alias->sy>224
+           ||abs(alias->left-row->left)>2||abs(alias->sy-row->sy)>2
+           ||!cycle_observed_shop_scene(&p->cycle_anchor,alias,-1))return 0;
+        int32_t strip[4]={alias->left-54,alias->sy+24,180,67};if(!cycle_box(strip))return 0;
+        for(int s=0;s<3;s++)if(!cycle_binary_cell(&alias->slots[s],alias->left+36*s,alias->sy,s,strip)
+            ||!cycle_price_independent_word122(&alias->slots[s]))return 0;
+    }
+    for(int s=0;s<3;s++)if(!cycle_zero_box(w->price_boxes[s])||!cycle_zero_box(w->name_boxes[s])
+        ||memcmp(w->item_boxes[s],row->slots[s].non_target_icon_box,sizeof(w->item_boxes[s])))return 0;
+    for(int s=0;s<result->partial_count;s++) {
+        if(!cycle_binary_no_positive(&result->partial[s])||!cycle_price_independent_word122(&result->partial[s]))return 0;
+        if(s>=2) {
+            if(!cycle_partial_tail121(&result->partial[s],row,0))return 0;
+            for(int j=0;j<s;j++)if(result->partial[s].cx==result->partial[j].cx&&result->partial[s].sy==result->partial[j].sy)return 0;
+        }
+    }
+    return cycle_binary_cell(&result->partial[0],row->left-36,row->sy,0,w->strip_box)
+        &&cycle_binary_cell(&result->partial[1],row->left+108,row->sy,0,w->strip_box);
+}
 static int cycle_negative_witness(const NG2Controller *p,const NG2RingResult *result){
     const NG2RingCoverage *w=&result->certificate;const NG2RingRow *row;int i,j,gold=0,named=0,ignored=0;
+    if(w->policy_version==NG2_RING_PRICE_INDEPENDENT_POLICY)return cycle_price_independent_witness122(p,result);
     if(w->policy_version==NG2_RING_RELATIVE_SIGN_POLICY||w->policy_version==NG2_RING_GROUPED_SIGN_POLICY)return cycle_coverage121_witness(p,result);
     if(w->policy_version==3||w->policy_version==4||w->policy_version==5||w->policy_version==6||w->policy_version==7||w->policy_version==8||w->policy_version==9||w->policy_version==10||w->policy_version==11||w->policy_version==15||w->policy_version==17||w->policy_version==18)return cycle_structural_witness(p,result);
     if(p->cycle.partial||p->cycle.candidate_latched||!p->cycle.full_seen
@@ -5685,6 +5754,29 @@ static int cycle_current_data_unissued(const NG2Controller *p){
         &&p->cycle.status==NG2_RING_OK&&p->cycle.outcome==NG2_RING_UNKNOWN
         &&p->cycle.coverage==NG2_RING_COVERAGE_INCOMPLETE;
 }
+/* One nonwalking cardinal halo can expose positive DIRT while the same
+ * complete offer projection stays protected. This relation grants only a
+ * new DATA epoch; the old FULL movement/material proof remains refused. */
+static int cycle_current_halo_data122(const NG2Scene *a,const NG2Scene *b,int d){
+    NG2Motion still={0};int i,k,halo=0;
+    if((d!=NG2_LEFT&&d!=NG2_RIGHT)||!cycle_current_data_scene(a)
+        ||!cycle_current_data_scene(b)||a->gold_state!=b->gold_state)return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int old=a->tiles[i],latest=b->tiles[i],x=i%23-11,y=i/23-5,neighbor=0;
+        if(a->protected_cells[i]!=b->protected_cells[i])return 0;
+        if(old==latest)continue;
+        if(abs(x)+abs(y)<=1||abs(x-dx[d])+abs(y)<=1)return 0;
+        if(a->protected_cells[i]){
+            if(old!=NG2_TILE_UNKNOWN||latest!=NG2_TILE_DIRT)return 0;
+            for(k=1;k<=4;++k)neighbor|=tile(a,x+dx[k],y+dy[k])==NG2_TILE_ITEM
+                &&tile(b,x+dx[k],y+dy[k])==NG2_TILE_ITEM;
+            if(!neighbor||++halo>1)return 0;
+        }else if((old!=NG2_TILE_UNKNOWN&&old!=NG2_TILE_FLOOR&&old!=NG2_TILE_STONE&&old!=NG2_TILE_DIRT)
+            ||(latest!=NG2_TILE_UNKNOWN&&latest!=NG2_TILE_FLOOR
+                &&latest!=NG2_TILE_STONE&&latest!=NG2_TILE_DIRT))return 0;
+    }
+    return halo==1&&ng2_motion(a,b,d,&still)&&still.kind==NG2_BLOCKED&&!still.dx&&!still.dy;
+}
 static int cycle_current_data_start(NG2Controller *p,const NG2RingResult *result,uint64_t now){
     NG2Scene source;int unissued=cycle_current_data_unissued(p);
     if(!p->restart_yield.s.enabled||p->cycle_current_used||p->cycle_current_active||p->cycle.pending
@@ -5705,7 +5797,9 @@ static int cycle_current_data_start(NG2Controller *p,const NG2RingResult *result
         ||p->last_observed_prefix!=p->cycle.prefix||p->s.last_completed_id!=p->cycle.prefix
         ||now<p->s.last_capture_end_ns||now>p->s.last_capture_start_ns+CYCLE_CAPTURE_BUDGET
         ||!p->cycle.continuation_deadline_ns||now>=p->cycle.continuation_deadline_ns
-        ||!cycle_current_data_pair(&p->cycle_anchor,&p->scene))return 0;
+        ||(!cycle_current_data_pair(&p->cycle_anchor,&p->scene)
+            &&(!unissued||!cycle_current_halo_data122(&p->cycle_anchor,&p->scene,
+                p->cycle_full_choice.direction))))return 0;
     if(result){
         if(!(p->cycle_retry_blocked&1)||cycle_result_positive_hint(result)!=0
             ||(result->outcome!=NG2_RING_NEGATIVE
@@ -6518,10 +6612,29 @@ static int upper_assess(NG2Controller *p,const NG2RingResult *result,uint64_t no
     }
     p->upper.stage=1;p->cycle.state=NG2_CYCLE_OBSERVE_MORE;p->cycle.release_after_ns=now;return 1;
 }
+/* Before its first unit, V2 may keep its anchor through material flicker
+ * outside both current stepping crosses. Goods, walls and protection stay
+ * exact; the caller still requires normal zero directly from that anchor. */
+static int upper_material_footprint122(const NG2Controller *p,const NG2Scene *scene){
+    const NG2Scene *a=&p->cycle_anchor;int i,d=upper_direction(p),changed=0;
+    if(p->upper.variant!=2||p->upper.inputs||p->upper.horizontal||p->upper.down||d<1||d>4)return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int old=a->tiles[i],latest=scene->tiles[i],x=i%23-11,y=i/23-5;
+        if(old==latest)continue;
+        if(a->protected_cells[i]||scene->protected_cells[i]
+            ||abs(x)+abs(y)<=1||abs(x-dx[d])+abs(y-dy[d])<=1
+            ||(old!=NG2_TILE_UNKNOWN&&old!=NG2_TILE_FLOOR&&old!=NG2_TILE_DIRT&&old!=NG2_TILE_STONE)
+            ||(latest!=NG2_TILE_UNKNOWN&&latest!=NG2_TILE_FLOOR
+                &&latest!=NG2_TILE_DIRT&&latest!=NG2_TILE_STONE))return 0;
+        changed=1;
+    }
+    return changed;
+}
 static int upper_static_footprint(const NG2Controller *p,const NG2Scene *scene){
     return upper_identity(p)&&upper_floor(p,scene)&&scene->goods==p->cycle_anchor.goods
-        &&!memcmp(p->cycle_anchor.tiles,scene->tiles,NG2_TILE_COUNT)
-        &&!memcmp(p->cycle_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT);
+        &&!memcmp(p->cycle_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT)
+        &&(!memcmp(p->cycle_anchor.tiles,scene->tiles,NG2_TILE_COUNT)
+            ||upper_material_footprint122(p,scene));
 }
 static int upper_normal_zero(const NG2Controller *p,const NG2Scene *scene,NG2Motion *motion){
     if(!ng2_motion(&p->cycle_anchor,scene,upper_direction(p),motion)

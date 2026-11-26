@@ -1,20 +1,19 @@
 # 作業ごとのコンテキスト
 
-最初は [AGENTS](../AGENTS.md)・[現在の状態](status.md)・本索引を読む。この3文書は合計16KiB以内とし、最新結果・今回の計画・必要な契約へ案内する。現行版、配布物、試験結果はstatusを正本とする。
+最初は [AGENTS](../AGENTS.md)・[状態](status.md)・本索引を読む。合計16KiB以内を維持する。現行版・配布物・結果の正本はstatus。
 
 機能を変える前に [要件正本](requirements/necrogold.md)、[開発フロー](development-flow.md)、[制御契約](contracts/native-control.md) の該当節を読む。TEST072の探索/level切替は[限定契約](contracts/passage-approach.md)も参照する。以下の表から対象の関数と試験を選び、`rg -n` で位置を探して周辺を読む。大きいファイルを一括で読んだことを、影響範囲の確認の代わりにしない。
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
+| TEST121実機→TEST122 | [今回](plans/test122-device-failures.md) | 8ZIP/4root：ACK後Motion、価格独立全商品帯、上部入口の静止材質、FULL halo DATA。実商品後RS0/2を改善評価の基準にする |
 | TEST120実機→TEST121 | [今回](plans/test121-device-failures.md) | 7ZIP/4run：扉前拒否、FULL看板/行のUNKNOWN、初期候補別形、5572実RS成功を保持 |
 | TEST119実機→TEST120 | [今回](plans/test120-device-failures.md) | 11ZIP/7run：成功3陰性/RSを保持し、待機/新扉/送信前期限/候補形を旧版と比較 |
 | TEST118実機→TEST119 | [今回](plans/test119-device-failures.md) | 実9ZIP：通路の判断変更、PARTIAL継続、価格の縦断片/低価格、早期FULL後の入店。3fの実RS成功は保持 |
 | 直前の実機・候補保持 | [114](plans/test114-device-failures.md)・[113](plans/test113-device-failures.md)・[112](plans/test112-device-failures.md) | 元対策と未確定原因は各計画/修正表へ |
 | TEST107の複合変化・初歩前フェード | [計画](plans/test107-partial-composition.md) | top商品投影と既地形関係の合成、元D内の最新2画像による再取得 |
 | TEST106の実機停止/候補見逃し | [計画](plans/test106-real-failures.md)・[検証](reviews/test106.md) | 共通閉容器/価格証明、開扉後の遠方金壁、最上段投影、左側の観測vantage |
-| TEST105の商品判定・開扉後継続 | [計画](plans/test105-goods-and-continuation.md)・[検証](reviews/test105.md) | 看板上部成分、閉容器の正の識別、保護halo上の新GOLD再判定。元期限/対象探索を維持 |
-| TEST104の上部入口・商品被覆・候補 | [計画](plans/test104-shop-continuation.md)・[検証](reviews/test104.md) | 最新source再判定、policy9、観測口116。旧期限/候補保持を維持 |
-| TEST103の遮蔽・静止・商品coverage | [計画](plans/test103-observation-coverage.md)・[検証](reviews/test103.md) | ACK内UNKNOWN待機、plural資格、policy7/8、C独立証明 |
+| TEST103〜105の商品/継続 | [105](plans/test105-goods-and-continuation.md)・[104](plans/test104-shop-continuation.md)・[103](plans/test103-observation-coverage.md) | 上部入口・最新source・保護halo・完全被覆の旧対策 |
 | TEST102の入店継続・陰性周回 | [今回計画](plans/test102-shop-entry-cycle.md)・[検証](reviews/test102.md) | 実footprint/通路framing、policy6、正常分類→保存→再開。[前版101](reviews/test101.md) |
 | TEST093の開扉後の入店 | [計画](plans/test093-opened-entry.md)・[受領/検証](reviews/test093.md) | 新CのFRESH/未送信回復と旧関連だけ。Runtime092は不変bytes/過去証跡 |
 | 現在の不具合・今回の計画 | statusの結果と計画リンク | [検証の区分](testing.md)、該当する受領記録 |

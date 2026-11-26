@@ -171,6 +171,23 @@ def inspect_native_sources(upstream, driver):
         if b'\n    ]' not in body or lines.count(entry) != 1:
             raise ValueError('native_device_fixes121_binding')
         implementation['device_fixes121_capability'] = cap121.decode('ascii')
+    cap122 = b'necrogold_native_device_fixes122_v1'
+    if 'device_fixes122_capability' in manifest or cap122 in raw_patch or cap122 in rpc:
+        # Match the new122 sealer's strict generated RPC format.
+        if b'/*' in rpc or b'*/' in rpc:
+            raise ValueError('native_device_fixes122_binding')
+        declaration = b'    static let capabilityTags: [String] = [\n'
+        entry = b'        "'+cap122+b'",'
+        if (manifest.get('device_fixes122_capability') != cap122.decode('ascii')
+                or implementation.get('device_fixes121_capability') != cap121.decode('ascii')
+                or raw_patch.count(b'+'+entry) != 1 or raw_patch.count(b'"'+cap122+b'"') != 1
+                or rpc.count(declaration) != 1 or rpc.count(b'"'+cap122+b'"') != 1):
+            raise ValueError('native_device_fixes122_binding')
+        body = rpc.split(declaration, 1)[1]
+        lines = [line.split(b'//', 1)[0].rstrip() for line in body.split(b'\n    ]', 1)[0].splitlines()]
+        if b'\n    ]' not in body or lines.count(entry) != 1:
+            raise ValueError('native_device_fixes122_binding')
+        implementation['device_fixes122_capability'] = cap122.decode('ascii')
     return {**cycle_fields, **implementation, 'api_version': manifest['api_version'], 'capability': manifest['capability'],
         'client_capability': manifest.get('client_capability', 'necrogold_native_v1'),
         'native_manifest_sha256': hashlib.sha256(manifest_raw).hexdigest(),

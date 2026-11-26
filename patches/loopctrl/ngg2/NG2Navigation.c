@@ -2618,6 +2618,69 @@ static void revealed_domain2_dependency_motion(const NG2Scene *a,const NG2Scene 
     out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
 }
 
+/* A side reveal may lose remote blocking samples without losing its old
+ * placement witnesses. Keep the complete nine-candidate singleton proof;
+ * two surviving stones and old noncollinear dirt remain positive anchors.
+ * Only far STONE->DIRT/UNKNOWN is unavailable, never a traversable conflict. */
+static int singleton_remote_world122(const NG2Scene *a,const NG2Scene *b,int direction){
+    int i,j,gx=0,gy=0,stones=0,lost=0,noncollinear=0,dx=ddx[direction],dy=ddy[direction];
+    for(i=0;i<CELLS;++i)if(a->tiles[i]==NG2_TILE_GOLD){gx=px(i);gy=py(i);}
+    for(i=0;i<CELLS;++i)if(a->tiles[i]==NG2_TILE_STONE){
+        int x=px(i),y=py(i),qx=x-dx,qy=y-dy,latest=tile(b,qx,qy);
+        if(latest!=NG2_TILE_STONE){
+            if((latest!=NG2_TILE_DIRT&&latest!=NG2_TILE_UNKNOWN)
+                ||revealed_singleton_near(x,y,0,0)||revealed_singleton_near(x,y,dx,dy)
+                ||revealed_singleton_near(qx,qy,0,0))return 0;
+            ++lost;continue;
+        }
+        if(hud_sample_hidden(x,y)||hud_sample_hidden(qx,qy))continue;
+        ++stones;
+        for(j=i+1;j<CELLS;++j)if(a->tiles[j]==NG2_TILE_STONE
+            &&!hud_sample_hidden(px(j),py(j))&&!hud_sample_hidden(px(j)-dx,py(j)-dy)
+            &&tile(b,px(j)-dx,py(j)-dy)==NG2_TILE_STONE
+            &&(x-gx)*(py(j)-gy)!=(y-gy)*(px(j)-gx))noncollinear=1;
+    }
+    return lost&&stones>=2&&noncollinear
+        &&unique_revealed_singleton_translation(a,b,direction,-9*dx,-9*dy);
+}
+/* All wider alternatives need affirmative support and their original lead.
+ * The separate known-axis plane supplies absolute 95% quality in two bands;
+ * unavailable axis alternatives are neutral, not positive margins. */
+static void singleton_dependency_motion122(const NG2Scene *a,const NG2Scene *b,int direction,
+                                            const View views[2],const Candidate raw[73],NG2Motion *out){
+    unsigned char included[N];ClosedGateAxisCache *cache;
+    int i,dx,dy,support,bad,regions[2];
+    if(out->kind!=NG2_MOTION_UNKNOWN||direction<1||direction>4||!valid_scene(a)||!valid_scene(b))return;
+    dx=ddx[direction];dy=ddy[direction];
+    if(a->state!=NG2_FLOOR||b->state!=NG2_FLOOR
+        ||a->gold_state!=NG2_GOLD_CANDIDATE||b->gold_state!=NG2_GOLD_CANDIDATE
+        ||a->goods!=NG2_GOODS_UNKNOWN||b->goods!=NG2_GOODS_UNKNOWN
+        ||tile(a,0,0)!=NG2_TILE_FLOOR||tile(a,dx,dy)!=NG2_TILE_FLOOR
+        ||tile(b,0,0)!=NG2_TILE_FLOOR||revealed_singleton_raw_domain(raw,direction)!=2)return;
+    for(i=0;i<CELLS;++i)if(a->protected_cells[i]||b->protected_cells[i]
+        ||a->tiles[i]==NG2_TILE_ITEM||b->tiles[i]==NG2_TILE_ITEM||a->tiles[i]==NG2_TILE_DOOR)return;
+    if(!singleton_remote_world122(a,b,direction))return;
+    revealed_world_mask(included);
+    revealed_dependency_texture(views,included,raw[0].sx,raw[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,95)||regions[0]<100||regions[1]<100)return;
+    for(i=1;i<73;++i){
+        int count,opposite;
+        revealed_dependency_texture(views,included,raw[i].sx,raw[i].sy,&count,&opposite,NULL);
+        if(count<300||!texture_lead(support,bad,count,opposite))return;
+    }
+    cache=(ClosedGateAxisCache*)calloc(1,sizeof(*cache));if(!cache)return;
+    closed_gate_axis_features(a,cache->before,cache->indices,&cache->count);
+    closed_gate_axis_features(b,cache->after,NULL,NULL);
+    closed_gate_axis_texture(cache,raw[0].sx,raw[0].sy,&support,&bad,regions);
+    if(!texture_strength(support,bad,95)||regions[0]<100||regions[1]<100){free(cache);return;}
+    for(i=1;i<73;++i){
+        int count,opposite;
+        closed_gate_axis_texture(cache,raw[i].sx,raw[i].sy,&count,&opposite,NULL);
+        if(count>=300&&!texture_lead(support,bad,count,opposite)){free(cache);return;}
+    }
+    free(cache);out->kind=NG2_MOVED;out->dx=dx;out->dy=dy;
+}
+
 /* A preserved old singleton may be approached through a sparse corridor.
  * Complete old terrain anchors and two dependency-closed image planes must
  * agree with the finite raw winner; unsupported candidates supply no margin.
@@ -2760,6 +2823,7 @@ static int motion_with_unlocalized_zero(const NG2Scene *before,const NG2Scene *a
     first_gold_supported_phase_motion(before,after,direction,views,candidates,out);
     revealed_dependency_unit_motion(before,after,direction,views,candidates,out);
     revealed_domain2_dependency_motion(before,after,direction,views,candidates,out);
+    singleton_dependency_motion122(before,after,direction,views,candidates,out);
     if(zero&&out->kind==NG2_MOTION_UNKNOWN&&!out->dx&&!out->dy
         &&(gold_dirt?single_gold_dirt_zero_scene(before,after,direction):
             unlocalized_passage_zero_scene(before,after,direction))){

@@ -4,7 +4,7 @@
   "api_version": "1.98.16-ngg2",
   "capability": "necrogold_native_v1",
   "client_capability": "necrogold_native_v15",
-  "patch_sha256": "8ab216e098c40957c6f7faf09cba24b0e9e8c1ae1652cfd02e52f3b6f94d9ccc",
+  "patch_sha256": "5cd7b910e703e8527406f46d1058c3b22f18b77401a90fe58c767c8b3d7d3d4e",
   "files": {
     "LoopCtrlUITests/ActionHandler.swift": {
       "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
@@ -19,7 +19,7 @@
     "LoopCtrlKit/RPCMethod.swift": {
       "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
       "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
-      "patched_sha256": "52d73076c8a28d3d18bfc914c69e4d60e38055aa7885809ccb1de08ef204aed4"
+      "patched_sha256": "afce9d5a354d54839b79532538ac6cb8ff8ee655bfff8e7335e4b81a67110996"
     },
     "LoopCtrlKit/JSONRPCServer.swift": {
       "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
@@ -67,7 +67,7 @@
     },
     "LoopCtrlUITests/NG2Controller.c": {
       "source": "NG2Controller.c",
-      "sha256": "554b6ae4cdbbbabb4138599c87e6a71a22b3c74035f78c6c657d33ed1c361c6e"
+      "sha256": "ff4d9531e60102447679e3f536760dcb4896c372eb4cc93c3fe6be8ee40e5081"
     },
     "LoopCtrlUITests/NG2Controller.h": {
       "source": "NG2Controller.h",
@@ -91,7 +91,7 @@
     },
     "LoopCtrlUITests/NG2Navigation.c": {
       "source": "NG2Navigation.c",
-      "sha256": "ebba4541c43e1bf015630e1642548cfde4c3785e84a8751d8bb59ce6eae1fa03"
+      "sha256": "e0c43a717e29e65cb23c52caca49d8cade46cc3dfa4055cf341d8a0a6324f501"
     },
     "LoopCtrlUITests/NG2Perception.c": {
       "source": "NG2Perception.c",
@@ -107,11 +107,11 @@
     },
     "LoopCtrlUITests/NG2Ring.c": {
       "source": "NG2Ring.c",
-      "sha256": "6127e5f92c97d6864800e0936ee5fc8b38044f1ebc800e5c3a06a46b7d6287e5"
+      "sha256": "426c19d23085e829afddef12575c8f97ddefd2dc414a866c16558dca0b24cc37"
     },
     "LoopCtrlUITests/NG2Ring.h": {
       "source": "NG2Ring.h",
-      "sha256": "a28215e70cdf3f2a0bf0a05af4783d6be34446a7b9ad05bbb04bd9ab73874b6a"
+      "sha256": "7c067c310be63286bfcdf3da5670c8fd146b19638bc4a71000098dbc32d7a886"
     },
     "LoopCtrlUITests/NG2RingBank.h": {
       "source": "NG2RingBank.h",
@@ -188,5 +188,6 @@
   "device_fixes_capability": "necrogold_native_device_fixes118_v1",
   "device_fixes119_capability": "necrogold_native_device_fixes119_v1",
   "device_fixes120_capability": "necrogold_native_device_fixes120_v1",
-  "device_fixes121_capability": "necrogold_native_device_fixes121_v1"
+  "device_fixes121_capability": "necrogold_native_device_fixes121_v1",
+  "device_fixes122_capability": "necrogold_native_device_fixes122_v1"
 }

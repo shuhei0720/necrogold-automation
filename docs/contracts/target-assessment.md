@@ -53,3 +53,9 @@ iSHへの結果表示はOSバックグラウンド通知ではない。今回、
 word_presentや名称のboxを偽造せず、positive certificate16には実icon/price boxを保存する。coverageはINCOMPLETEで、対象外証明への転用はしない。mode2のpolicy文字列は exposed_cursering_image_price_v3。新TEST111は開始前に専用capability necrogold_native_image_price_v1を同じschema取得で確認し、同API版の旧IPAを取り違えない。
 
 既知陽性1b3e原309と、価格100のカリスマ/価格13のフェージング等を校正に使う。最新115枚に新TARGETなし、既知陽性は名称なしのpolicy16でTARGETとなった。これは校正結果であり、未知の配置・画像劣化や実機速度の受入ではない。旧mode2の「名称なしなら常にcandidate」という試験だけを新要件へ更新し、価格欠落・真の価格間配置・名称単独の候補保持は残す。
+
+## TEST122: 価格を使わない対象なしの全被覆（2026-11-26）
+
+ユーザー指定に従い、全商品登録・商品名や価格の読取りを対象なし判定の必須条件にしない。[限定計画](../plans/test122-price-independent-goods.md)のmode2 policy21/layout4は、単看板/merchantの正の認証、正確な全3ITEM/halo/下床/囲い、raw3物体、両外cap、全alias5cellの対象探索・名前veto・外側tail保持を全て要求する。Ring数値証明とController自身のanchorによる独立証明を必要とし、PARTIAL/欠商品/未観測/対象候補を陰性にしない。
+
+新tagの価格count/box全0は「価格証明を使用しない」を表し、価格不在や3価格確認済みを表さない。capの外側白inkは実測値を保持する。旧完全陰性・TARGET/CANDIDATE・positive policy16と旧名保護は維持し、価格独立の陰性から対象の確定や購入権限を作らない。既POD/期限/owner/prefix/取消/耐久保存/リスタートの採用境界を変えず、新122専用capabilityで旧IPAとの取違えを拒否する。実機の精度・速度・継続は新しい返却結果で評価する。
