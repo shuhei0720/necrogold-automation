@@ -6,6 +6,7 @@
 
 | 作業 | 対象コード・入口 | 対応する試験・資料 |
 | --- | --- | --- |
+| TEST123実機→TEST124 | [今回](plans/test124-device-failures.md) | 10ZIP/5root：実対象の抽出0、開扉/上部入口/初歩/FULL後の停止を分離 |
 | TEST122実機→TEST123 | [今回](plans/test123-device-failures.md) | 9ZIP/5run：旧15の実RS成功を保持、二看板alias/HUD/床端と上端投影＋rail新DATA |
 | TEST121実機→TEST122 | [今回](plans/test122-device-failures.md) | 8ZIP/4root：ACK後Motion、価格独立全商品帯、上部入口の静止材質、FULL halo DATA。実商品後RS0/2を改善評価の基準にする |
 | TEST118〜120の実機修正 | [121](plans/test121-device-failures.md)・[120](plans/test120-device-failures.md)・[119](plans/test119-device-failures.md) | 旧成功・看板/床・価格・通路/送信前資格・早期FULLを比較 |

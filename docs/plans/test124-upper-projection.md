@@ -1,0 +1,70 @@
+# TEST124 root2: actual H1後に増えた未確定商品投影を、保護したまま観測経路へ渡す
+
+2026-11-27（日本時間）。独立計画レビューP0/P1/P2=0、exact123の公開earned意味Red1/errors0とhold祖先監査の後、rootがこの限定実装と直接関連検証をGOした。基準は出荷123/CODE578a9ef。root1の既GO/修正へ混ぜない。
+
+## 確定事実とprivate履歴の範囲
+
+b48eのLEFT23は原259→266で通常DOOR_OPENED、既知ACK・0歩。次LEFT24はsource268から既知ACKし、原275/276の通常MotionはUNKNOWN、277は通常unitだが原評価cadenceで採用されず、原278で実LEFT unitとして記録された。actual H1はこの24であり、door cellへ入ったH1の後はLEFT H2→DOWN D1/D2/D3の計4歩を残す。ACKだけで進入/歩数を数えない。
+
+原266/268はnormalScene PARTIAL・正確保護・上部V2=2、5ITEMがworld row4 x=-7..-3。原normalRingはUNKNOWN/incomplete/safe1（266 partial1、268 partial2）で、旧122/出荷123 packet同値。原278/job2はUNKNOWN/incomplete/safe1/partial4を元D前88.121792msにC採用し、後にPAUSE ACK/durable/HELD。元Pは60295750212301、restart intent0、後続unit/RS0。
+
+H1の変位を反映すると旧5ITEMの予想currentはrow4 x=-6..-2だが、原278はx=-6..0の7ITEM、newITEM2・追加protected4・旧GOLD喪失0。旧upper_world/result/floorは0になる。raw Perception attributionでは266/268はseed(px266,py297)1個のoffset0/72×6dyがunion5、278は左seed302と新しい右seed374（同y297、差72）のunion7を正に生成している。追加current(-1,4)/(0,4)は右実SHOP seed374のoffset0/cx410,446の投影で、全6dyが同row4。両SHOP patchは非HUD、原RGBA/normalScene bytes不変。7商品が見えたとも、新2ITEMが偽で消してよいとも解釈しない。全7ITEM/現保護を保持する。
+
+| 原callerのあり得る経路 | 同じ停止の条件 | 確定範囲 |
+| --- | --- | --- |
+| A: first V2がH1を出していた | H1 actualunit278の新投影を旧upper_worldが拒否→upper_bindでvalid0→job2正常UNKNOWN→upper_hold | 原Scene/packet/既知unit/parentと整合し、const拒否を確認。後述の閉source/hold祖先監査でAへ論理限定する。private upper.active/stageの直接dumpとは区別する |
+| B: generic PARTIALの一歩だった | 次278はlastACKがMOVED、7ITEMで旧5ITEM初期variant0なのでfresh upper_admit不可 | finalsourceだけ古opening/5ITEM guardを解除する案は不適。sealed checkpointはPAUSE ACK後なので、そのHELD/completed1だけではAへ限定しない。別のhold祖先監査でgeneric新latchでは原oldholdを保持できないことを確認した（private flag直接dumpではない） |
+
+C公開cycle_assess wrapperはpure assessでtickを呼ばないが、Runtime checkpointの保存条件はpause_capture_id!=0である。原record-0001-checkpointはpaused1/last_completed25/last_capture283、PAUSE25 ACK後であり、assessment_nsをsnapshot時刻と扱わない。原job2のhold_started60292561272458はactual H1 begin60292806000041より244727583ns前のまま。全9setterとsetterを使わないqueuedjob++を独立照合し、generic relatchはH1以後nowへholdを書き替え、LEFT/PARTIALの他経路は資格外であるため、出荷CODE/原publicfieldsの閉じた前提ではupper_bindのAへ論理限定できると確認した。これはprivate upper.active/stageを直接読み出した証明とは別である。
+
+job1 source/time/result/private modelは直接出力されていない。原コード上、正常PARTIAL bindと実開扉266からfirstsource266は強く示唆されるが、normal再読取packetを保存されていない原job1のbytes/時刻と称さない。P−3sが原261midpoint＋520154177nsとなることもV2 allocationと整合するだけで、元periodを復元したと扱わない。
+
+## 最小案A（Bの未earned初期routeを後から作らない）
+
+既V2が正規admitされ、steps5/inputs1/horizontal1/down0の実H1を確認した場合だけ、原immutable worldは保持したまま追加potential mask2セルを一度保存する。新maskは原V2 row4の7幅world x=-7..-1を超えず、現在の全ITEMはH1平行移動後の7連続row4に完全一致、現在protectedは全7ITEMの正確cardinal unionであることを要求する。元5ITEM/world全GOLD、同owner/level/opening/actual H1 command・prefix/位置/入力/歩数/元P/hold/sync/steps/ordinalを固定する。最新のorigin/nextの正FLOOR・非保護を別に要求し、素材関係からunitを合成しない。
+
+この追加maskは新たな商品の不在証明ではなく、未知商品の保護する可能域を増やすDATA仮資格だけである。Scene・Perception・Ringの閾値/7ITEM/protectionを変えず、HUD aliasを未観測陰性へしない。raw2SHOP attributionがこの限定関係の根拠だが、CがSceneだけから2物理看板や3商品を識別したとも呼ばない。入力は現Sceneの正FLOOR/非保護・新独立strict zero・normal modelから毎回証明するため、実看板boxを新packetへ足す必要はない。
+
+実H1確認の時点で仮資格をarmし、既job2のimmutable通常分類をそのまま待つ。元world拒否の理由が限定2potential追加だけであることと、待機中のすべての採用Sceneがexpanded worldへ一致することを別に記録する。他のGOLD喪失・新ITEM/保護・owner/prefix/位置不一致や元P後はsticky invalidとして戻さない。正常resultのTARGET/CANDIDATEは最優先で保持し、UNKNOWN/incomplete/safe1かつ全観測slotがexpanded potentialへ一致する場合にだけ、この新関係のDATA仮資格を消費してstage1へ進める。元invalid一般枝を無条件にvalidへ戻さない。新job/新worker100msは作らず、既job2の通常結果を使う。
+
+その後の独立current・通常strict零・通常add_sample/fitを経てから未来H2を発行する。旧currentとの静止を仮定せず、既V2 firstsnapshot/実return fenceの資格・原capture150/worker100/P/hold/syncを保持する。モデルやHUD履歴/slotを増やして期限を作らず、既postunitの限定準備条件を使う。
+
+原278のH2(-1,0)/D1(-1,1)/D2(-1,2)はFLOOR/protected0だが、D3(-1,3)はUNKNOWN/protected1である。D3床は未来currentで観測するまで資格外である。7potential全体をHHDDDした検索unionは既±78/+59の範囲でx190..562・bottom302となり既central/HUD315内へ収まるが、可視域へ収まることと歩行床の正の観測は別に検査する。
+
+futureの各currentは、元worldGOLD保持、旧5＋新2potential内のITEM subset、正常Scene自身のexact protection、実originと次destinationが非保護FLOOR、同route/stage、通常Motion/fitをすべて再検査する。7ITEMがD3まで残りlane haloが保護するならD3前で止める。途中の正常FULL3へ解決すればそのcurrentの保護に従って進める。仮説を3ITEMへ縮めたり未観測の未来FULLを埋めたりしない。H1の実1creditを保持し、remaining4と既steps5/入力16だけを使い、generic PARTIALの一歩を再armしない。新maskのarm/消費はowner/level/opening/実H1固有で一用、cancel/finish/terminal/level resetで撤回する。
+
+Bは今回の閉source/oldhold祖先と一致しない仮の一般経路であり、この修正から新しい権限を与えない。将来その経路へ拡張するなら、sole LEFTを発行する前の正常safe V2 source/roof/元P/oneuse provenanceを別にearnedして保存し、実H1後の現在DATAへ移す必要がある。元job1Pが未出力であり、今回から遡ってprovisionalを持っていたとは扱えない。Bへ無条件に追加4歩を付けたり、初期5歩allocationをH1後に新たに行ったりしない。この最小案AはBの改善保証を含めない。
+
+## 元Pと4歩のclock
+
+原normal採用から元Pまで2.458852843秒。将来H2 ticket/model/phaseは原出力に無いので、以下はactual H1target60292955771859とterminal period520557417を固定した宣言componentである。
+
+H2/D1/D2/D3 targetsは60293476329276/60293996886693/60294517444110/60295038001527。H2 NBは60293326329276で、原result採用の34.969818ms後、通常50ms準備には15.030182ms不足する。旧V2の実unit後限定<50msが必要であり、一般予約の準備値を変更しない。原H1のC観測commitは未出力だが、analysis_end<=commit<=job2 worker_begin（C observe後に呼ばれる）の範囲である。後者を宣言した保守的unit-offset323.709391msにすると、D3のcomponent unitは元Pに388.501383ms残す。1拍遅れると132.056034ms超過する。80ms最早visualだけなら632.210774ms残るが、これを通常費用の保証へ流用しない。
+
+同じ原capture13ms＋postcapture24ms付近の費用では、通常のpostrelease currentはNBを逃し得る。既V2 firstsnapshotの凍結資格を満たす宣言例start=adopt−10ms/end=adopt＋3ms/commit=adopt＋27msなら、startは元H1source end/worker以後、endはresult採用以後で、NBを7.969818ms残す。start<releaseは普通のpostrelease currentではなく、既V2 firstsnapshotの限定例外としてだけ検査する。そのような原currentは未保存であり実phone再現ではない。新worker100msの後でも必ず4歩が入るとは言えず、遅れた場合は旧Pで正しく止める。
+
+## 意味Redと公開fixtureの検証範囲
+
+通常fit・実unit・開扉→宣言した初期5ITEM Sceneと正常ABIの型付きUNKNOWN safe結果から、V2 admissionを公開でearnedし、H1を正常ACK/通常Motion unitで1回だけcreditする。H1後の7ITEM Sceneも宣言したcontrol componentである。出荷Controllerのupper_world拒否→HELDを、元world不変・新DATA仮資格/OBSERVE_MORE・追加入力0の期待に対する意味Redにした。原実機raw sourceでの通常Perception/通常Ringとconst拒否は別receiptで検証し、型付き結果を実画素の通常classifier出力とは呼ばない。fixtureでupperactive/step/prefix/Pはreadonlyで確認し、private状態を注入しない。
+
+成功control componentは既job2結果の後の独立current/通常zero/modelからH2→D1/D2/D3を個別にearnedし、各unit後にDATA/商品優先へ戻す。全7projectionが継続する世界ではD3の保護拒否を確認し、FULL3へ解決する宣言世界だけ最終到達を確認する。候補・旧GOLD喪失・extraITEM/extraProtect・別prefix・未完了/UNKNOWN H1には資格を与えない。元P等号/+1は実際のobserve commitで検査し、新7tokenでも既firstsnapshotのworker/end/adopt boundsと通常strict零を要求する。1拍遅延と追加worker100msの限界は上記原時刻の宣言算式であり、未保存futureの実機成功例ではない。旧V1/初回H1/一般PARTIAL/通常prepare50msを変更せず、直接upper112/118/122の該当回帰と独立差分レビューを行う。
+
+証跡: normal const `normal-const.json`、upper const `test124-ring/root2-upper/receipt.json` SHA86b002e3、raw alias `root2-alias/receipt.json` SHA341538bb、design options SHA505e9ebf、clock `root2/clock.json` SHAc834f02f。原private/history/futureの不明を残し、原改善/速度の受入は次の実機である。
+
+source-order receipt SHAbdc8eca2（checkpoint SHA bb542767）、独立hold祖先receipt SHA5c6dfa92。最初の新formalfixtureは公開V2 active/valid/stage1/steps5→actual H1通常unit→current7/exacthalo/旧world不変/元Pを先assertし、正常typed UNKNOWN safeの後のOBSERVE_MORE3期待に旧HELD7の意味Red1/errors0を確認した。型付きworker結果・手続きSceneのcontrol componentであり、raw normalPerception2seedの出典証明と区別する。
+
+## 実装と検証結果
+
+private potential tokenを追加し、既V2のactual H1後だけ一度armする。元world/元parentとH1 command/eventを保持し、新DATAの正常safe結果でだけactiveにする。旧upper_world/anchor/admit/identity/budget/static/firstsnapshot/postunit/holdは不変更で、floor/result/slot/bind/assess/observeの限定adapterから追加potentialを参照する。現在ITEMは元5＋追加2の範囲内、現保護はそのSceneの全ITEMの正確なcardinal unionを毎回要求し、旧GOLDや現在正床を失う場合はMOVEを出さない。別のinvalid世界をvalidへ戻す処理は追加しない。
+
+公開 `tests/test_native_upper_projection124.py` は12件合格、failure/error/skipは0。初期earned意味Redはexact123に対して1件失敗・error0、最終同methodも同じHELD差で失敗した。最終fixtureはroot2単独hunkをroot1/root4凍結後のCへ再構成したowned sourceでも12件合格した。成功routeは元Pを固定し、H2 LEFTと3回のDOWNを各通常Motion unitで確認し、ACKだけではmove countを増やさない。FULL3は宣言したcontrol Sceneであり、未来の原phone画素の再現ではない。
+
+直接関連はupper_material122の4件、upper_begin118の4件、upper_snapshot118の3件、upper_postunit118の3件、upper_entry112のextraITEM/旧GOLD sticky拒否1件の計15件が合格した。この15件はroot1で試みた別の15件とは別集合である。root1で旧072の2method/7assertがexact123同様に失敗した事実や、root4の旧076 fixture限界を合格へ読み替えない。
+
+拡張fixtureの初回にはmirrorのprobeを中央HUD側から選んだ前提ミスと、next DIRTをhard invalidと期待したoracleミスの2失敗があった。前者は旧118同様に最遠の観測slotへ修正し、後者は既worldの限定待機・追加入力0を検査する別methodへ直した。製品変更を加えず修正し、この2件は実装前の意味Redへ数えない。
+
+root1の新2helper/late caller、root4の全6helperと20追加spanは現在Cで保持されている。sourcefreezeはroot2の7新helper・6既存consumerのbody/hashと局所type/field/reset、owned patchを保存する。並行するroot5のcurrent DATA変更は別ownerで、共有Cの古い全体snapshotを上書きしない。最終結合sourceでのCIとTEST124の実機受入はroot側の後続工程である。
+
+公開生成器のshop patchを使った別の実画素componentでも、D2相当で通常Perceptionが旧GOLDをすべて保ったFULL3（ITEM x=-3,-2,-1/row2、exact protection11）を出し、通常RingはUNKNOWN/incomplete/policy2を返した。D3相当は同じ3商品・価格・非対象imageを確認した通常NEGATIVE/complete/policy9になった。これは未来可視域の手続き生成例であり原phoneの未保存画像ではない。
+
+同じD2 raw FULLを制御fixture後の独立DATAへ渡す診断では、宣言したsparse Sceneとの通常MotionがUNKNOWNなのでupper/tokenを無効にし、D3の歩行証拠には接続しなかった。反復raw frameも無効を復活させない。一方、公開target patchを描いたraw FULLからの実Ring TARGETは通常worker callbackでcandidateを保持し、upper無効でも優先された。入力6/moves5のまま、追加入力/unit/RSは0。この実画素producer/正検出componentと、12件中の宣言Sceneによる全HHDDD公開制御routeは分けて受け入れる。実機での7potential→FULL3、最終DOWN、元P内到達はTEST124で確認する。

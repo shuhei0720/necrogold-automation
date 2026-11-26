@@ -244,8 +244,12 @@ class NativeFullHaloData122Tests(unittest.TestCase):
         self.assertEqual(self.saved_counts[:4], self.counts()[:4])
 
     def test_new_unknown_is_held_and_cannot_remint_current_data_or_observation_move(self):
-        latest, job = self.queued()
-        value = self.normal(latest, unknown=True)
+        from tests.test_native_transferred_view124 import unarmed_current_data, full_normal
+        # A prepared, still-unbegun PAUSE never owned the transferred view.
+        # Keep generic mode2 UNKNOWN held; the earned unissued A path now has
+        # its own two-proof/one-use preservation checks in TEST124.
+        latest, job, _ = unarmed_current_data(self, prepared=True)
+        value = full_normal(self, latest)
         self.assertEqual(0, value.outcome)
         self.commit(value)
         self.assertEqual((0, 0, 7), (self.q.cycle().outcome,

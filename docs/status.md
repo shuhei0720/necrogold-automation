@@ -1,7 +1,7 @@
 # 最新状態
 
-更新: 2026-11-26（日本時間）。[TEST123](reviews/test123.md)のCODE578a9ef・CI274/run45833855464でhost83/実Py3997/実IPAが合格。元3artifact、全1243CODE blob、37native/実compiler/全9MachOの五項目がattempt1合格。[固定3asset](https://github.com/shuhei0720/necrogold-automation/releases/tag/test123-build274)の匿名全取得/全SHA/CRC/tag一致も確認済み。SOURCE8c85a8a、実機改善は未確認。
+更新: 2026-11-27（日本時間）。[TEST124計画](plans/test124-device-failures.md)・[検証](reviews/test124.md)。TEST123の10ZIP/5run・120PNGを全照合、不足0。開扉後・上部入口・対象抽出・初歩・追加観測の5原因を修正した。
 
-TEST122実機9ZIP/4campaign/5run・120PNGの不足0、全商品可視4/5・商品後実RS1/4。商品停止3件を二看板alias/HUD/固定床端、開扉後1件を上端投影＋金壁railへ原因分離した。新22/5と限定DATAを実装し既成功packetを保持。独立差分指摘を修正し、37nativeは4変更33保持。Linux期限校正の不成立も記録し、実機改善/速度は新返却まで未確認。
+新52＋直接旧57Green、client17/実Py39関連220Green。独立機能差分P0/P1/P2残0。原対象を候補として保持し、他24packet全bytesを保持。元期限/予算・初回RS/連続周回を維持。fresh G1から37nativeを封印・適用し、3変更34保持を照合。最終scope137/実Py39108・selector14と独立確認済み。実CI/新IPAは次工程、新実機の改善は未受入。
 
-IPA18,508,986B/SHA30a48a1d019f472d49d5450e84431d0d4bdc17e1c6a777ae241f1b29c83863f9。API1.98.16/native_v15/ABI1/profile3保持。実IPA・完全sourceを固定配布し、[通常1-1の次実機手順](device-tests/README.md#test-123実行手順)で商品判定→実RS→次周回を確認する。前回固定版は[TEST122/build272](https://github.com/shuhei0720/necrogold-automation/releases/tag/test122-build272)。
+出荷基準は[TEST123/build274](https://github.com/shuhei0720/necrogold-automation/releases/tag/test123-build274)、CODE578a9ef/SOURCE8c85a8a、保存HEADfd5901d。旧実機はnative FULL1/5、人の3商品可視2/5・対象実在1/検出0・商品後RS0。新単体合格で旧実機結果を置換しない。

@@ -1,0 +1,42 @@
+# TEST124 root1: 開扉後UNKNOWNの遠方金壁露出で同じ未送信票を保持する案
+
+2026-11-27（日本時間）。CODE578a9ef/TEST123出荷を基準とする。rootは独立計画レビューP0/P1/P2=0の後、公開fixtureのexact出荷123意味Red→この限定実装/関連Greenを正式GOした。別rootの変更やCI拡張は本GOに含めない。
+
+原root1 d7a4ではLEFT22が既知ACKし、197→205の通常DOOR_OPENED（0歩）を確認した。実移動は計8歩で、その後LEFT23はbegin0のままSCREENで退役した。原207→208はGOODS_UNKNOWN同士でありPARTIAL判定jobは0。差は遠方(-7,-2)DIRT→GOLDただ1セル、既隣接(-7,-1)GOLDは不変。元/現在の全GOLD・保護、正FLOORの原点/次セル/cardinal cross、同LEFT/reason5/FLOOR/target(-1,0)、直接通常BLOCKED(0,0)が成立する。一般safe_stepは0なので、一般safe-floorの資格と呼ばない。
+
+原validationはBUDGET5、runの再予約数8・今回chain0。過去8回はIDs8/9、11、13/14、17、19/20で、各後続ACKのordinal/方向/target/NB/Dは同一だった。末detail20はcount8/chain2を明示する。先行画像146/148/149/155/157/163/164/165は有限保存の範囲外で、全8回を不要だったとは言えない。保持された181→183/191→192は同tiles/protect・直接零の正規preinput source更新であり、118の比較元改善を一括抑止しない。保持189→191には遠方palette3差と直接零がある。全記録はoriginal-timeline.jsonに列挙した。
+
+const診断ではopened_entry_floor=1、opened_entry_relation=1、quiet_gate_scene=0。旧opened_entry_relationはUNKNOWNの正のremote_wallを認めてもFRESH別IDへ進むため元run8で拒否される。旧quietのgrowthはPARTIAL開扉/入店だけである。旧12helperは122/123で全bytes一致し、TEST123の新投影DATA追加を削除回帰と扱わない。
+
+## 最小変更案
+
+1. Controllerへ別のconst scene資格と実時計observation資格を追加する。cycle有効、確実未開始のMOVE/current ID/event一致、既知同方向開扉、非入店、lead/実unit確認済み、両UNKNOWN/FLOOR・同完整Decision・原点/次セル/cardinal crossと全保護不変を要求する。追加差は3×3の両歩行近傍外のDIRT→GOLDちょうど1セルだけとし、そのcardinal隣接に元/現在で同じ正GOLDを必須にする。他の全tileは不変、元と直前採用済みSceneの全GOLDは保持する。既通常Motionの元→現在strict BLOCKED零も必須。UNKNOWN→GOLD、DOOR→GOLD、inner DIRT→FLOOR、複数露出、clipped商品をこの新資格へ混ぜない。旧opened_entry_relation全体とのORはしない。
+2. 実時計資格は旧quietのmodel/corrected/source/phase/continuous_horizon/元NB/D/sync/walk/sessionを同じか厳しく検査する。原入力10ms、同ID/source/ordinal/target/NB/D/元MotionWait/phase/preparation epochを保持し、count8/chain2を増やしも減らしもしない。新ID・再予約・MOVE/ACK/unit/RSのcreditは与えない。通常observe末尾だけがp.sceneを最新採用Sceneへ更新する。
+3. 新quietが一度成立した後のGOLD消失を通常callerで止める。既p.sceneはgeneric observe末尾まで直前採用画像なので、新たなprivate token/historyは不要。同じUNKNOWN開扉未送信票の狭い条件で、quiet/preinput/新旧accept経路に入る前にgold_retained(&p.scene,current)を検査し、不成立ならGOLD8を記録して旧票退役/停止する。この検査はscene_change(before,current)==0でも行う。新helperだけの拒否では不十分であり、元sourceのDIRTへ戻った画像が旧quietやmask0経路を通ってp.sceneを上書きできないことを保証する。通常beginはこの最新acceptedSceneと同旧ID/元期限を使う。
+
+旧quiet/SAME/FRESH/reference/PartialDATA/Runtime/Nav/Perception/Beat/ABI/保護資産は全bytes保持を目標にし、新資格と必要なcaller call/fenceだけを変更する。door開け・未知送信の再送や商品陰性の意味は変えない。新PARTIAL/対象候補は既商品優先へ渡す。
+
+## 公開fixtureと意味Red案
+
+新fixtureは通常fit→最初の通常unitでleadをearnedし、4回の別logical MOVEへそれぞれ正規SAME/FRESH更新2回を公開observe/tickで行ってrun8をearnedする。各inputは既知ACKと通常同方向unitで完了し、chainは新ordinalへ通常resetする。その先の正のgold bracketへ実開扉（通常DOOR_OPENED0歩）を与え、次のUNKNOWN開扉FLOOR票を公開reserveする。元run8・今回chain0・元期限とsourceはread-only suffixで確認できるが、counter/model/historyを注入しない。clockと後続応答は宣言した手続きcomponent入力であり、未保存の原ラン履歴や未来phone画像にしない。
+
+出荷123で、遠方単一DIRT→GOLD後の「同ID・begin0・input_state1・SCREENなし・event追加0・count8不変」を期待するassertionがBUDGET停止でRedになることを確認する。その後だけ最小実装へ進む。新コードのcompile失敗/fixture前提不足/誤oracleを意味Redへ数えない。
+
+陽性資格の次に、同じcallerへ以下を与える。
+
+- 同じ正GOLDを保持した独立current、通常の元NB内begin→既知ACK（0unit）→宣言した後続通常同方向unit。元時計/ID/source/phase/slot/credit/再予約数が増えないことを確認する。実機未来の成功とは呼ばない。
+- 新quietで一度採用したGOLDを元sourceのDIRTへ戻すmask0画像、消去UNKNOWN、他remoteセルへの横ずれ。元beforeと一致しても通常callerがGOLD8/退役となり、旧/新begin=0、未来tickからMOVE0であることを確認する。oldquietへ復帰する経路も含める。
+- 片側の元GOLD喪失/neighbor支持欠落、二露出、非DIRTからGOLD、local/cross/next/保護変化、別完整Decision、Motion UNKNOWN/非零、開扉ACKなし/別方向/ACK済みMOVEやUNKNOWN入力、旧prefix/owner/取消、FULL/候補/新PARTIALを拒否または既優先分岐へ渡す。新資格不成立を一般旧資格の削除と混同せず、必要なcaseはrun8で旧FRESHも既予算どおり拒否する。
+- 原source・phase/horizon/NB/D/元親の等号・+1、capture_end<=Dだがactualcommit>D、current metadata/prefixの拒否を確認する。原root1のactualCcommitはZIPに無くstop時刻がcapture_endであるため、原analysis_endをexactcommitと偽装しない。
+
+直接関連は071の開扉quiet、077のPARTIAL遠方GOLD保持/消失、072の観測wait、118のpreinput更新の該当methodを選ぶ。旧12helper不変bytesも照合する。別root4早期passage failure hunkとは別所有であり、この案からRuntimeや全world/無関係CIを増やさない。独立差分レビュー1回・実native IPA/封印/実compiler/完全source/固定配布と次実機評価はroot工程である。
+
+## 正式GO後の確認
+
+公開fit/通常unit・4logical MOVEの各2回刷新でrun8をearnedし、実開扉0歩→UNKNOWN票までを先assertした最初の同fixtureは、exact出荷123で意味assertion failure2/errors0となった。限定2helper＋late caller fence/callだけの最小実装で2Green。拒否・clock・GOLD消失のcaller確認へ広げた最終新8methodがGreenで、最終fixtureの元2positiveもexact出荷123で同じ意味Red2/errors0を再確認した。追加したfenceのみを外すprivate mutationの4失敗/errors0は、実装前Redとは別の必要性診断として保存した。
+
+新quiet採用後に元sourceのDIRTへ戻し別の遠方palette差を加えた画像は、read-only旧quiet_gate_scene=1を先assertしてから通常observeへ渡し、それでもGOLD8/旧票退役/begin0となることを確認した。mask0の元source一致・消去・ずれも同callerで拒否した。元D等号/+1のactualcommit、新規8/既未使用0とも同ID/source/元target/NB/D/phase/slot/counter/親MotionWaitを保持し、宣言した後続通常unitまでをcomponentで確認した。未知入力の再送や未観測の陰性は追加していない。
+
+直接関連の最初の15method選択は13Green、旧072の2methodはcapped_floorのfixture前提で計7assert失敗/errors0/skip0だった。exact出荷123でも同2methodが同じ7失敗となり、新branchはcycle_enabled=0の旧constructorへ適用されない。旧assertや製品guardを変更せず、失敗attemptとbaseline両logを保持する。正式関連範囲は既071/077/118と旧072の該当quietを含む13Greenとし、旧072の2method内の後段assertは今回未合格・CI非選択と明示する。15全合格とは扱わない。
+
+root1 owned Cは`fb25842e`、新2helper/late callerのowned patchは`e071ac2f`。旧12helper本体はexact123/122と全bytes同じ。新8のfixtureは`a04bb32d`。Git外の原時刻・未収録/不明な履歴・const診断と公開earned lifecycleの区分は維持し、iPhoneでの入店/商品到達・毎拍/速度・次周回の改善は新実機まで未確認である。共有Cへ別root4の独立差分が加わるため、root1だけのsourceはbaselineへowned hunkのみを重ねたprivate coreで固定し、共有ファイル全体の古いsnapshotを書き戻さない。

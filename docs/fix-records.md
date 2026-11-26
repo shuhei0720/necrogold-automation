@@ -793,3 +793,16 @@ TEST123配布前確認（2026-11-26）: CODE578a9ef・CI274/run45833855464でhos
 
 
 TEST123公開後確認（2026-11-26）: SOURCE8c85a8a（CODE578a9efから文書4件のみ）・公式全1243Git blob/同nativeを照合。固定IPA・完全source・SHA表の匿名全GET200/全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA30a48a1d・source19bf9dea・SHA表1c5142d4、public receipt2c7f592e。公開275/run45836807840は検証済みbuild274を再ビルドせずrelease459504666/test123-build274へ保存した。公開後は文書のみを更新し、固定asset/実tagを置換しない。実機改善/毎拍・速度と元再発数は新返却まで未確認。
+
+
+## TEST124: TEST123実機5rootの停止と対象見逃し（2026-11-27）
+
+[計画](plans/test124-device-failures.md)。10ZIP/5run/5campaign/120stable PNG/138記録を全照合、不足0。初回RS要求/knownACK5/5・開扉4/5、native FULL1/5と人の3商品icon可視2/5を区別する。対象はroot3で実在したが正常候補検出0。root5の対象外全商品可視後RS0。正常jobs3件は元D内にUNKNOWN採用、root1/4はjob0で別制御境界である。新124の実機改善は未確認。
+
+| ID | 修正日 | 原事象/確定した境界 | 対策/確認の範囲 | 同原因再発数 |
+| --- | --- | --- | --- | --- |
+| FR-124-PARTIAL-POSITIVE-SEED | 2026-11-27 | aa0d/source196の実のろいのゆびわを見逃す。看板0でrow/partial0、正常UNKNOWNをD前約88ms採用。看板のHUD/上端clipでkernelに到達しない | 観測ITEM由来の有限safe全poseを元kernelで候補だけ探索する別資格。原196意味Red1＋公開9methodの6意味Red/errors0→新9/関連5Green。原対象を候補.8324へ、他24packet全bytesを保持。PAUSE/ACK/保存・MOVE/RS0、独立review残0。実機未確認 | 今回1。正常同原packetは旧122/123同値の既適用不足、通算不明 |
+| FR-124-OPENED-GOLD-QUIET | 2026-11-27 | d7a4の開扉後、同未送信LEFTで遠方単一DIRT→GOLDがrun8更新枠のBUDGET5。直前採用GOLD消失も保持が必要 | 正に支持されたremote GOLDだけを同ID/元時計のquietへ。公開run8/実unit/開扉をearnedした意味Red2/errors0後、新8Green。全GOLD保持caller fence・旧12helper bytesと直接関連13Green・独立review残0。旧072の2method/7assertは旧123でも同じ失敗を保持し非選択。実機未確認 | 今回1。同症状継続、先行8全てを不要と断定せず、同根因通算不明 |
+| FR-124-REFINED-CURRENT-DATA | 2026-11-27 | ea66で初LEFT実unit後、anchor78→81 UNKNOWN、current80→81通常零/同LEFT。既待機は別方向専用でSCREEN | 旧UNKNOWN/旧票を救わず、退役後の独立A/Bと新fitから別DATAの新IDだけへ。元schedule/P/W/一用を保持。公開earned意味Red後、新14/関連16Green。退役actualtick後の二proof/新fit、別GOLD anchorから通常FLOOR/DOOR/DIRT復帰を検証し独立P1閉鎖。旧076同2assert失敗は保持、実機未確認 | 今回1。FR115/119の同方向＋混在palette境界、通算不明 |
+| FR-124-UPPER-AFTER-ENTRY | 2026-11-27 | b48eの上部入口、最終278は7ITEM/元V2不成立/最後ACKはMOVEDで既admit適用外 | 新実看板による2potential増加。hold ancestryから既V2履歴をコード上絞り、公開H1earned意味Red後に旧5＋新2/全保護・元Pを保持してLEFT残1→DOWN3の新12/関連15Green。原D3未観測は解決まで不可、独立review残0。通常画素とcontrol経路は別証明、実機未確認 | 今回1。同症状継続、元job1原因は未確定、同根因通算不明 |
+| FR-124-FULL-SHADOW-CAP | 2026-11-27 | 6fa4/source188は3商品可視だが右cap black73.76%でUNKNOWNが正しい。ACK16は通常UNKNOWN、商品後view実入力0 | 原188NEGや閾値緩和は不可。旧full_admitの未発行arm、または同guardに資格のある未armの一回だけをDATAへ所有移送。公開A意味Red後、元P/spent/DATA2維持と新current直接二零/新fitから新9/関連7/旧setup1Green。新unit→通常NEG/C/保存RSのモデルを確認、独立review残0。private spent/mode原値は補完せず実機未確認 | 今回1。FR123verticalとは別の未観測、同根因通算不明 |

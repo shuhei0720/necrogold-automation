@@ -88,6 +88,15 @@ typedef struct {
     int used;
     uint64_t owner_start,level,opening,job,capture,prefix,parent,hold,sync;
 } NG2UpperPartialRefresh;
+/* An actual V2 H1 can reveal two more protected potential origins. The
+ * original world and five-step parent stay immutable; pending DATA is not
+ * movement authority and no failed unrelated world can be restored. */
+typedef struct {
+    int used,armed,active,invalid,inputs,moves,restarts;
+    uint64_t owner,level,opening,parent,hold,sync,job,capture,start,end,prefix;
+    NG2Command unit;
+    uint8_t potential[NG2_TILE_COUNT];
+} NG2UpperProjection124;
 /* One original horizontal ACK may be confirmed after its early FULL was
  * UNKNOWN. Only that earned unit owns the bounded, still-unissued exposure;
  * a classified current source never renews this owner or its DATA budget. */
@@ -96,6 +105,15 @@ typedef struct {
     uint64_t owner_start,level,unit_capture,parent,sync,hold,period;
     NG2Command command;
 } NG2EnteredCurrent;
+/* The same unissued horizontal one-view may outlive an immutable DATA bind.
+ * Stage1 owns DATA only,2 waits for two new direct zeros,3 is one reserved ID.
+ * This private record is never serialized or reconstructed from recovery. */
+typedef struct {
+    int stage,inputs,moves,restarts,data_used;
+    uint64_t owner,level,old_job,old_capture,old_start,prefix,P,hold,sync,ordinal,new_id;
+    uint64_t job,capture,start,end;
+    NG2Decision choice;
+} NG2TransferredView124;
 /* Opt-in boundary after a real, durably recorded negative restart. Old
  * counters and the new floor remain intact; this state grants only PAUSE. */
 typedef struct {
@@ -118,6 +136,17 @@ typedef struct {
     NG2Entrance entrance;
     uint16_t visits[NG2_VISIT_COUNT];
 } NG2PassageSource;
+/* A definitely-unsent same-route refinement may own DATA once per level.
+ * Its original input/schedule/visual bounds never become fresh authority. */
+typedef struct {
+    int used,stage,gold,x,y,inputs,moves,restarts,bit,unlocalized;
+    uint32_t pending,inspected,unresolved,closed;
+    uint64_t owner,level,prefix,retired_at,P,W,schedule,period,first_id,first_end,proof,new_id;
+    NG2Command retired;
+    NG2Decision choice;
+    NG2Entrance entrance;
+    uint16_t visits[NG2_VISIT_COUNT];
+} NG2RefinedPassageData124;
 /* A changed route owns DATA, never the retired input's UNKNOWN. One fixed
  * anchor and independently earned current proof share the old world/P/W. */
 typedef struct {
@@ -155,6 +184,7 @@ typedef struct {
 } NG2InitialRestart;
 struct NG2Controller {
     NG2PassageSource passage_source;
+    NG2RefinedPassageData124 refined_data124;
     NG2RouteObservation120 route120;
     NG2ControllerStatus s;
     NG2Scene scene,before,retune_anchor,initial_scene_previous;
@@ -288,6 +318,7 @@ struct NG2Controller {
     uint64_t cycle_current_level,cycle_current_job,cycle_current_proof_id,cycle_current_proof_end;
     uint64_t cycle_current_parent,cycle_current_sync,cycle_current_ordinal;
     NG2Scene cycle_current_source;
+    NG2TransferredView124 transferred_view124;
     NG2ControllerIrregularStatus irregular;
     NG2IrregularObservation irregular_observation,irregular_first_enemy,irregular_menu;
     NG2Scene irregular_live,irregular_move_before,irregular_floor,irregular_goods;
@@ -305,6 +336,7 @@ struct NG2Controller {
     NG2LowerObservation lower;
     NG2UpperObservation upper;
     NG2UpperPartialRefresh upper_partial_refresh;
+    NG2UpperProjection124 upper_projection124;
     uint64_t cycle_credit_prefix,cycle_consumed_prefix,cycle_sync_deadline;
     NG2ControllerCycleStatus cycle;
     NG2Scene cycle_anchor,cycle_queued_scene;
@@ -326,6 +358,7 @@ struct NG2Controller {
 static int restart_yield_basis(const NG2Controller *,uint64_t);
 static int restart_yield_ui_source(const NG2Controller *,uint64_t,uint64_t,uint64_t,int);
 static int cycle_current_data_pair(const NG2Scene *,const NG2Scene *);
+static int cycle_transferred_static124(const NG2Controller *,const NG2Scene *,NG2Motion *);
 static void restart_yield_invalidate(NG2Controller *p){
     if(p->restart_yield.s.pending){p->restart_yield.s.invalid=1;p->restart_yield.s.permitted=0;}
 }
@@ -411,6 +444,8 @@ static void clear_stationary_wait(NG2Controller *p){
     p->stationary_wait_active=0;p->stationary_wait_parent=0;p->stationary_wait_trigger_id=0;
 }
 static void terminal(NG2Controller *p,uint64_t now,int reason){
+    memset(&p->transferred_view124,0,sizeof(p->transferred_view124));
+    p->refined_data124.stage=0;
     clear_route120(p);
     p->cycle_partial_zero.valid=0;
     p->cycle_entered.active=0;
@@ -438,6 +473,8 @@ static void end_visual_wait(NG2Controller *p){
     p->motion_wait.active=0;p->s.input_state=0;p->s.current_command_id=0;
 }
 static void finish(NG2Controller *p,uint64_t now,int reason){
+    memset(&p->transferred_view124,0,sizeof(p->transferred_view124));
+    p->refined_data124.stage=0;
     clear_route120(p);
     p->cycle_partial_zero.valid=0;
     p->cycle_entered.active=0;
@@ -897,10 +934,13 @@ static void add_sample(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint64
     }
 }
 static void reset_level(NG2Controller *p,uint64_t end){
+    memset(&p->transferred_view124,0,sizeof(p->transferred_view124));
+    memset(&p->refined_data124,0,sizeof(p->refined_data124));
     memset(&p->route120,0,sizeof(p->route120));
     p->cycle_partial_zero.valid=0;p->cycle_partial_anchor_end=0;
     memset(&p->cycle_entered,0,sizeof(p->cycle_entered));
     memset(&p->upper_partial_refresh,0,sizeof(p->upper_partial_refresh));
+    memset(&p->upper_projection124,0,sizeof(p->upper_projection124));
     p->cycle_retry_only=p->cycle_retry_waiting=p->cycle_retry_used=p->cycle_retry_blocked=p->cycle_late_worker=0;
     p->cycle_retry_data=p->cycle_up_history=0;
     p->cycle_current_used=p->cycle_current_active=p->cycle_current_invalid=p->cycle_current_proofs=0;
@@ -1428,6 +1468,155 @@ static int begin_refined_passage_route_wait(NG2Controller *p,const NG2Scene *sce
         ||zero.kind!=NG2_BLOCKED||zero.dx||zero.dy)return 0;
     begin_passage_wait(p,scene,id,start,end,now,PASSAGE_WAIT_ROUTE);
     return 1;
+}
+static int refined_data_world124(const NG2Controller *p){
+    const NG2RefinedPassageData124 *s=&p->refined_data124;
+    return s->used&&s->stage&&s->owner==p->s.started_ns&&s->level==p->cycle.level_id
+        &&p->restart_yield.s.enabled&&p->irregular.enabled&&!p->finish_requested&&!p->s.terminal&&!p->s.goods
+        &&p->s.x==s->x&&p->s.y==s->y&&p->s.inputs==s->inputs&&p->s.moves==s->moves
+        &&p->s.restarts==s->restarts&&p->s.last_completed_id==s->prefix&&p->last_observed_prefix==s->prefix
+        &&p->passage_active==!(s->gold&&s->stage>=2)&&p->passage_bit==s->bit&&p->passage_pending==s->pending
+        &&p->passage_inspected==s->inspected&&p->passage_unresolved==s->unresolved
+        &&p->passage_closed==s->closed&&p->passage_unlocalized_gold==s->unlocalized
+        &&!memcmp(p->visits,s->visits,sizeof(s->visits))
+        &&!memcmp(&p->entrance,&s->entrance,sizeof(s->entrance));
+}
+static int refined_data_scene124(const NG2Controller *p,const NG2Scene *scene){
+    const NG2RefinedPassageData124 *s=&p->refined_data124;NG2Decision latest;NG2Motion zero;int i;
+    if(s->gold){
+        int d=s->choice.direction;
+        if(!refined_data_world124(p)||d<1||d>4||!actual_gold(scene)||!actual_gold(&p->passage_anchor)
+            ||scene->goods!=NG2_GOODS_UNKNOWN||tile(scene,0,0)!=NG2_TILE_FLOOR
+            ||!same_gold(&p->passage_anchor,scene)
+            ||memcmp(p->passage_anchor.tiles,scene->tiles,NG2_TILE_COUNT)
+            ||memcmp(p->passage_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT)
+            ||!ng2_choose(scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&latest)
+            ||!same_choice(&latest,&s->choice)
+            ||(latest.obstacle!=NG2_TILE_FLOOR&&latest.obstacle!=NG2_TILE_DOOR&&latest.obstacle!=NG2_TILE_DIRT)
+            ||tile(scene,dx[d],dy[d])!=latest.obstacle)return 0;
+        for(i=0;i<NG2_TILE_COUNT;++i)if(scene->protected_cells[i]||scene->tiles[i]==NG2_TILE_ITEM)return 0;
+        return ng2_motion(&p->passage_anchor,scene,d,&zero)&&zero.kind==NG2_BLOCKED&&!zero.dx&&!zero.dy;
+    }
+    if(!refined_data_world124(p)||!clear_gold_floor(scene)||!clear_gold_floor(&p->passage_anchor)
+        ||!safe_step(p,scene,s->choice.direction)||!choose_step(p,scene,&latest)
+        ||!same_choice(&latest,&s->choice))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i)
+        if(scene->protected_cells[i]||p->passage_anchor.protected_cells[i]
+            ||scene->tiles[i]==NG2_TILE_GOLD||p->passage_anchor.tiles[i]==NG2_TILE_GOLD
+            ||scene->tiles[i]==NG2_TILE_ITEM||p->passage_anchor.tiles[i]==NG2_TILE_ITEM
+            ||scene->tiles[i]==NG2_TILE_DOOR||p->passage_anchor.tiles[i]==NG2_TILE_DOOR)return 0;
+    return ng2_motion(&p->passage_anchor,scene,s->choice.direction,&zero)
+        &&zero.kind==NG2_BLOCKED&&!zero.dx&&!zero.dy;
+}
+/* This witness never repairs original-anchor UNKNOWN or issues another
+ * same-beat ID. Retire only this current safe route into independent DATA. */
+static int begin_refined_passage_data124(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    uint64_t start,uint64_t end,uint64_t prefix,uint64_t now){
+    NG2RefinedPassageData124 *s=&p->refined_data124;const NG2PassageSource *old=&p->passage_source;
+    const NG2ControllerEvent *e=event(p);NG2Decision before,latest;NG2Motion zero;
+    uint64_t parent,wait;size_t samples=p->sample_count;int i,d=p->command.direction,floors=0,stones=0;
+    if(s->used||!p->restart_yield.s.enabled||!p->irregular.enabled||!old->active||!old->refreshed
+        ||p->s.input_state!=1||p->s.current_command_id!=p->command.id
+        ||!e||memcmp(&e->command,&p->command,sizeof(p->command))||e->begin_ns||e->outcome
+        ||p->replan_pending||p->continuous_pending||p->entry.active||p->lower.active||p->upper.active
+        ||p->cycle_partial_credit||p->cycle_full_framing||p->gate_refresh_state||p->stationary_wait_active
+        ||p->terrain_refresh_active||p->observation_refresh_active||p->passage_wait_kind
+        ||d<1||d>4||p->command_choice.reason!=10||p->command_choice.obstacle!=NG2_TILE_FLOOR
+        ||!passage_source_world(p,now)||!p->have_scene||p->s.last_capture_id!=p->command.source_capture_id
+        ||p->s.last_capture_start_ns!=p->command.source_start_ns||memcmp(&p->before,&p->scene,sizeof(p->before))
+        ||id<=p->s.last_capture_id||start<p->s.last_capture_end_ns||end<=start||now<end
+        ||prefix!=p->s.last_completed_id||now-start>FRESH||p->continuous_chain_count>2||p->continuous_count>8
+        ||!clear_gold_floor(&p->before)||!clear_gold_floor(scene)||!clear_gold_floor(&old->anchor)
+        ||!safe_step(p,&p->before,d)||!safe_step(p,scene,d)
+        ||!choose_step(p,&p->before,&before)||!same_choice(&before,&p->command_choice)
+        ||!choose_step(p,scene,&latest)||!same_choice(&before,&latest))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int a=p->before.tiles[i],b=scene->tiles[i],original=old->anchor.tiles[i],x=i%23-11,y=i/23-5;
+        if(p->before.protected_cells[i]||scene->protected_cells[i]||old->anchor.protected_cells[i]
+            ||a==NG2_TILE_GOLD||b==NG2_TILE_GOLD||original==NG2_TILE_GOLD
+            ||a==NG2_TILE_ITEM||b==NG2_TILE_ITEM||original==NG2_TILE_ITEM
+            ||a==NG2_TILE_DOOR||b==NG2_TILE_DOOR||original==NG2_TILE_DOOR)return 0;
+        if(a==b)continue;
+        if((abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1)
+            ||a!=NG2_TILE_DIRT||(b!=NG2_TILE_STONE&&b!=NG2_TILE_FLOOR))return 0;
+        floors+=b==NG2_TILE_FLOOR;stones+=b==NG2_TILE_STONE;
+    }
+    if(!floors||!stones||!ng2_motion(&p->before,scene,d,&zero)
+        ||zero.kind!=NG2_BLOCKED||zero.dx||zero.dy
+        ||!old->period||old->period>=(NS_LIMIT-old->ticket.source_start_ns)/2)return 0;
+    parent=minimum(old->visual,sync_deadline(p));
+    if(old->sync)parent=minimum(parent,old->sync);
+    wait=minimum(old->ticket.source_start_ns+2*old->period,parent);
+    if(now>=parent||now>=wait||now>old->schedule)return 0;
+    s->used=1;s->stage=1;s->owner=p->s.started_ns;s->level=p->cycle.level_id;
+    s->x=p->s.x;s->y=p->s.y;s->inputs=p->s.inputs;s->moves=p->s.moves;s->restarts=p->s.restarts;
+    s->bit=p->passage_bit;s->pending=p->passage_pending;s->inspected=p->passage_inspected;
+    s->unresolved=p->passage_unresolved;s->closed=p->passage_closed;s->unlocalized=p->passage_unlocalized_gold;
+    s->prefix=prefix;s->P=parent;s->W=wait;s->schedule=old->schedule;s->period=old->period;
+    s->retired=p->command;s->choice=latest;s->entrance=p->entrance;memcpy(s->visits,p->visits,sizeof(s->visits));
+    begin_passage_wait(p,scene,id,start,end,now,PASSAGE_WAIT_ROUTE);
+    p->passage_wait_horizon=parent;p->passage_wait_deadline=wait;
+    /* Past samples are immutable observations admitted at their own stable
+     * prefixes. Revoke the old model, not that same-owner/level raw data. */
+    clear_slots(p);clear_model(p);p->sample_count=samples;
+    p->passage_source.active=p->passage_source.refreshed=0;
+    p->proof_capture_id=p->proof_deadline=p->passage_release_proof_id=0;p->proof_reacquire=0;
+    return 1;
+}
+/* Observing actual GOLD retires CLEAR qualification, not the fixed budget.
+ * The ordinary shop Decision and a new independent GOLD pair own its action. */
+static int refined_data_gold124(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    uint64_t start,uint64_t end,uint64_t prefix,uint64_t now){
+    NG2RefinedPassageData124 *s=&p->refined_data124;NG2Decision latest;size_t samples=p->sample_count;int i;
+    if(s->gold||s->stage<1||s->stage>2||p->s.input_state||p->s.current_command_id
+        ||!refined_data_world124(p)||!actual_gold(scene)||scene->goods!=NG2_GOODS_UNKNOWN
+        ||prefix!=s->prefix||now<end||end<=start||now-start>FRESH
+        ||id<=p->passage_anchor_id||start<p->passage_anchor_end||tile(scene,0,0)!=NG2_TILE_FLOOR
+        ||!ng2_choose(scene,p->s.x,p->s.y,p->visits,NG2_VISIT_COUNT,&p->entrance,&latest)
+        ||latest.direction<1||latest.direction>4
+        ||(latest.obstacle!=NG2_TILE_FLOOR&&latest.obstacle!=NG2_TILE_DOOR&&latest.obstacle!=NG2_TILE_DIRT)
+        ||tile(scene,dx[latest.direction],dy[latest.direction])!=latest.obstacle)return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i)if(scene->protected_cells[i]||scene->tiles[i]==NG2_TILE_ITEM)return 0;
+    s->gold=1;s->stage=1;s->choice=latest;s->first_id=s->first_end=s->proof=s->retired_at=0;
+    p->passage_wait_kind=PASSAGE_WAIT_GOLD;p->passage_anchor=*scene;
+    p->passage_anchor_id=id;p->passage_anchor_start=start;p->passage_anchor_end=end;
+    clear_slots(p);clear_model(p);p->sample_count=samples;
+    p->proof_capture_id=p->proof_deadline=p->passage_release_proof_id=0;p->proof_reacquire=0;
+    p->s.phase=NG2_PHASE_SYNC;return 1;
+}
+static void update_refined_passage_data124(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    uint64_t start,uint64_t end,uint64_t prefix,uint64_t now){
+    NG2RefinedPassageData124 *s=&p->refined_data124;
+    if(!s->stage||s->stage>=3||p->finish_requested)return;
+    if(now>=s->P||now>=s->W||now>s->schedule){finish(p,now,NG2_REASON_LATE);return;}
+    if(!s->gold&&actual_gold(scene)){
+        if(!refined_data_gold124(p,scene,id,start,end,prefix,now))finish(p,now,NG2_REASON_SCREEN);
+        return;
+    }
+    if(id==p->passage_anchor_id)return;
+    if(!s->retired_at)return; /* First actual tick fences C-return before A/B acquisition. */
+    if(p->s.input_state||p->s.current_command_id||!refined_data_world124(p)
+        ||prefix!=s->prefix||id<=p->passage_anchor_id||start<s->retired_at||end<=start||now<end
+        ||now-start>FRESH){finish(p,now,NG2_REASON_SCREEN);return;}
+    if(!refined_data_scene124(p,scene))return;
+    if(s->first_id&&(id<=s->first_id||start<s->first_end))return;
+    add_sample(p,scene,id,start,end);
+    if(p->finish_requested)return;
+    if(!s->first_id){s->first_id=id;s->first_end=end;return;}
+    if(!ng2_beat_model_valid(&p->model)||p->model_capture_id<id)return;
+    s->stage=2;s->proof=id;p->proof_capture_id=id;p->passage_release_proof_id=id;
+    if(s->gold)p->passage_active=0;
+    p->passage_wait_kind=0;p->proof_deadline=s->P;p->proof_reacquire=1;p->s.phase=NG2_PHASE_SYNC;
+}
+static int refined_data_ready124(const NG2Controller *p,uint64_t now,int issued){
+    const NG2RefinedPassageData124 *s=&p->refined_data124;
+    return s->stage==(issued?3:2)&&now<s->P&&now<=s->schedule&&s->proof
+        &&p->s.last_capture_id>=s->proof&&p->model_capture_id>=s->proof
+        &&ng2_beat_model_valid(&p->model)&&!p->beat_failed&&refined_data_scene124(p,&p->scene)
+        &&(!issued||(p->command.id==s->new_id&&p->command.kind==NG2_ACTION_MOVE
+            &&p->command.target_ns>s->retired.target_ns&&p->command.deadline_ns<=s->schedule
+            &&p->schedule_deadline<=s->schedule&&p->motion_wait.deadline_ns<=s->P
+            &&same_choice(&p->command_choice,&s->choice)));
 }
 /* An initial fade is not a stationary source. Retire only its old route/slot
  * authority, then keep a data anchor until two current views independently
@@ -2130,6 +2319,55 @@ static int quiet_gate_observation(const NG2Controller *p,const NG2Scene *scene,u
         ||now-p->s.walk_started_ns>=45*SECOND||now-p->s.started_ns>=180*SECOND
         ||!corrected(p,p->continuous_ticket.target_ns,p->continuous_period,&aligned))return 0;
     return quiet_gate_scene(p,scene,NULL);
+}
+/* A verified opening with no merchandise projection can keep its one live
+ * FLOOR ticket. This context grants no generic safe-floor/reference credit. */
+static int opened_unknown_quiet_context124(const NG2Controller *p,const NG2Scene *scene){
+    const NG2ControllerEvent *e=p->event_count?&p->events[p->event_count-1]:NULL;
+    return p->cycle_enabled&&!cycle_holding(p)&&!p->cycle.pending&&!p->cycle.candidate_latched
+        &&p->s.input_state==1&&p->s.current_command_id==p->command.id&&p->command.id
+        &&p->command.kind==NG2_ACTION_MOVE&&e&&!e->begin_ns&&!e->outcome
+        &&!memcmp(&e->command,&p->command,sizeof(p->command))
+        &&!p->finish_requested&&!p->s.terminal&&!p->s.goods
+        &&p->s.phase==NG2_PHASE_WALK&&!p->replan_pending&&!p->continuous_pending
+        &&p->continuous_ticket_valid&&!p->passage_active&&!p->entrance.valid
+        &&!p->entry.active&&!p->lower.active&&!p->upper.active&&!p->route120.active
+        &&!p->cycle_partial_credit&&!p->cycle_full_framing&&!p->stationary_wait_active
+        &&!p->gate_refresh_state&&!p->terrain_refresh_active&&!p->observation_refresh_active
+        &&!p->stationary_gate_retry_waiting&&!p->passage_wait_kind
+        &&p->last_observed_prefix==p->s.last_completed_id
+        &&p->before.goods==NG2_GOODS_UNKNOWN&&p->scene.goods==NG2_GOODS_UNKNOWN
+        &&scene->goods==NG2_GOODS_UNKNOWN&&opened_entry_floor(p,scene);
+}
+/* Exactly one remote DIRT cell completes an already observed wall. The
+ * source, ID and all clocks stay frozen; both old and last accepted GOLD
+ * survive. Other opened-entry material/door/clipped relations are separate. */
+static int opened_unknown_remote_gold124(const NG2Controller *p,const NG2Scene *scene,uint64_t now){
+    const NG2Scene *a=&p->before;NG2Decision before,latest;NG2Motion still;
+    uint64_t aligned;int i,d=p->command.direction,changed=0;
+    if(!opened_unknown_quiet_context124(p,scene)||p->beat_failed||!ng2_beat_model_valid(&p->model)
+        ||now>p->command.deadline_ns||now>p->continuous_ticket.deadline_ns
+        ||now<p->command.source_start_ns||now-p->command.source_start_ns>FRESH
+        ||now<p->command.phase_sample_ns||now-p->command.phase_sample_ns>FRESH
+        ||now<p->model.last_ns||now-p->model.last_ns>FRESH||now>continuous_horizon(p)
+        ||(p->command_sync_deadline&&now>=p->command_sync_deadline)
+        ||now-p->s.walk_started_ns>=45*SECOND||now-p->s.started_ns>=180*SECOND
+        ||!corrected(p,p->continuous_ticket.target_ns,p->continuous_period,&aligned)
+        ||memcmp(a->protected_cells,scene->protected_cells,NG2_TILE_COUNT)
+        ||!gold_retained(a,scene)||!gold_retained(&p->scene,scene))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int x=i%23-11,y=i/23-5,j,neighbor=0;
+        if(a->tiles[i]==scene->tiles[i])continue;
+        if(a->tiles[i]!=NG2_TILE_DIRT||scene->tiles[i]!=NG2_TILE_GOLD
+            ||a->protected_cells[i]||scene->protected_cells[i]||++changed>1
+            ||(abs(x)<=1&&abs(y)<=1)||(abs(x-dx[d])<=1&&abs(y-dy[d])<=1))return 0;
+        for(j=1;j<=4;++j)neighbor|=tile(a,x+dx[j],y+dy[j])==NG2_TILE_GOLD
+            &&tile(scene,x+dx[j],y+dy[j])==NG2_TILE_GOLD;
+        if(!neighbor)return 0;
+    }
+    return changed==1&&choose_step(p,a,&before)&&choose_step(p,scene,&latest)
+        &&same_choice(&before,&p->command_choice)&&same_choice(&before,&latest)
+        &&ng2_motion(a,scene,d,&still)&&still.kind==NG2_BLOCKED&&!still.dx&&!still.dy;
 }
 /* Only the live, unstarted observed-floor approach may reuse this scene
  * proof after its input window expires. Its caller retires the old ticket;
@@ -3376,8 +3614,12 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
     end_visual_wait(p);
     if(motion.kind==NG2_MOVED){
         if(!credit_unit_move(p,&p->before,scene,direction,&motion,e,end))return;
+        if(p->refined_data124.stage==3&&p->command.id==p->refined_data124.new_id)
+            p->refined_data124.stage=0;
     }else if(motion.kind==NG2_DOOR_OPENED||motion.kind==NG2_TERRAIN_OPENED){
         if(motion.kind==NG2_DOOR_OPENED)++p->s.door_changes;else ++p->s.terrain_changes;
+        if(p->refined_data124.stage==3&&p->command.id==p->refined_data124.new_id)
+            p->refined_data124.stage=0;
         p->latest_verified_ns=p->observe_now;
         /* An opening is a verified terrain change, never the displacement
          * proof required to calibrate native lead or begin continuous beats. */
@@ -3423,6 +3665,7 @@ static void resolve_move(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
 /* Cycle evidence never becomes a UI source. Only observe() installs current
  * stable-prefix authority; the worker/writer methods below consume identities. */
 static void cycle_failure(NG2Controller *p,uint64_t now,int status,int reason){
+    memset(&p->transferred_view124,0,sizeof(p->transferred_view124));
     clear_route120(p);
     p->cycle_partial_zero.valid=0;
     p->cycle_entered.active=0;
@@ -4690,6 +4933,8 @@ static int cycle_full_admit(const NG2Controller *p,const NG2RingResult *result,N
     return 1;
 }
 static int cycle_full_static(const NG2Controller *p,const NG2Scene *scene,NG2Motion *motion){
+    if(p->cycle_current_partial==2&&p->transferred_view124.stage>=2)
+        return cycle_transferred_static124(p,scene,motion);
     const NG2Scene *a=p->cycle_full_source_valid?&p->cycle_full_source:&p->cycle_anchor;
     int local=p->cycle_current_partial&&p->cycle_current_active?
         (p->cycle_full_choice.direction==NG2_UP&&cycle_current_partial_local(p,scene)):
@@ -5072,6 +5317,7 @@ static void cycle_bind(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint64
     if(!p->cycle.partial){memcpy(p->restart_fingerprint,scene->fingerprint,48);p->restart_baseline_valid=1;}
 }
 static void cycle_latch(NG2Controller *p,const NG2Scene *scene,uint64_t now){
+    memset(&p->transferred_view124,0,sizeof(p->transferred_view124));
     clear_route120(p);
     uint64_t level=p->cycle.level_id,job=p->cycle.job_id+1;
     int completed=p->cycle.completed_shops,sticky=p->cycle.candidate_latched;
@@ -5976,8 +6222,37 @@ static int cycle_current_halo_data122(const NG2Scene *a,const NG2Scene *b,int d)
     }
     return halo==1&&ng2_motion(a,b,d,&still)&&still.kind==NG2_BLOCKED&&!still.dx&&!still.dy;
 }
+static NG2TransferredView124 cycle_transferred_capture124(const NG2Controller *p,
+    const NG2RingResult *result,int unissued,uint64_t now){
+    NG2TransferredView124 t={0};NG2Decision earned={0};const NG2Decision *c=&p->cycle_full_choice;
+    if(p->s.input_state||p->cycle_pause_attempted||p->cycle_retry_only
+        ||p->cycle_retry_data||p->cycle_retry_waiting||p->cycle_full_data_active
+        ||p->cycle_current_used||p->cycle_current_active)return t;
+    if(!unissued){
+        /* The callback may reach DATA before the existing full_admit arm.
+         * Qualify that very same right on the untouched old context; NULL
+         * callers and paths intercepted before full_admit cannot earn it. */
+        if(!result||p->cycle_full_spent||p->cycle_full_framing
+            ||result->status!=NG2_RING_OK||result->outcome!=NG2_RING_UNKNOWN
+            ||result->coverage!=NG2_RING_COVERAGE_INCOMPLETE||!entry_result_safe(result)
+            ||cycle_result_positive_hint(result)!=0||!cycle_full_admit(p,result,&earned))return t;
+        c=&earned;
+    }
+    if((c->direction!=NG2_LEFT&&c->direction!=NG2_RIGHT)||c->reason!=5
+        ||c->target_x!=dx[c->direction]||c->target_y||c->obstacle!=NG2_TILE_FLOOR
+        ||!p->cycle.continuation_deadline_ns||now>=p->cycle.continuation_deadline_ns
+        ||(unissued&&(!p->cycle_full_parent||now>=p->cycle_full_parent)))return t;
+    t.stage=1;t.owner=p->s.started_ns;t.level=p->cycle.level_id;
+    t.old_job=p->cycle.job_id;t.old_capture=p->cycle.capture_id;t.old_start=p->cycle.capture_start_ns;
+    t.prefix=p->cycle.prefix;t.P=p->cycle.continuation_deadline_ns;
+    if(unissued)t.P=minimum(t.P,p->cycle_full_parent);
+    t.hold=p->cycle.hold_started_ns;t.sync=p->cycle_sync_deadline;
+    t.ordinal=unissued?p->cycle_full_old_ordinal:p->events[p->event_count-1].command.ordinal;
+    t.inputs=p->s.inputs;t.moves=p->s.moves;t.restarts=p->s.restarts;t.choice=*c;
+    return t;
+}
 static int cycle_current_data_start(NG2Controller *p,const NG2RingResult *result,uint64_t now){
-    NG2Scene source;int unissued=cycle_current_data_unissued(p);
+    NG2Scene source;NG2TransferredView124 transferred;int unissued=cycle_current_data_unissued(p);
     if(!p->restart_yield.s.enabled||p->cycle_current_used||p->cycle_current_active||p->cycle.pending
         ||p->cycle_retry_used>=2||p->cycle.partial||!p->cycle.full_seen
         ||(p->cycle_retry_only&&(p->cycle_retry_prefix!=p->cycle.prefix
@@ -6006,9 +6281,16 @@ static int cycle_current_data_start(NG2Controller *p,const NG2RingResult *result
     }else if((!unissued&&(!p->cycle_retry_only||!p->cycle_retry_data||!p->cycle_retry_waiting))
         ||p->cycle.state!=NG2_CYCLE_OBSERVE_MORE||p->cycle.status!=NG2_RING_OK
         ||p->cycle.outcome!=NG2_RING_UNKNOWN)return 0;
+    transferred=cycle_transferred_capture124(p,result,unissued,now);
+    if(transferred.stage)p->cycle_full_spent=1;
     source=p->scene;
     cycle_current_bind(p,&source,p->s.last_capture_id,p->s.last_capture_start_ns,
         p->s.last_capture_end_ns,p->cycle.prefix,now,2);
+    if(transferred.stage){
+        transferred.job=p->cycle_current_job;transferred.capture=p->cycle_current_id;
+        transferred.start=p->cycle_current_start;transferred.end=p->cycle_current_end;
+        transferred.data_used=p->cycle_retry_used;p->transferred_view124=transferred;
+    }
     /* Only the retired old source carried these flags. New mode2 has its own
      * immutable job and sticky validation, and never grants UP credit. */
     p->cycle_retry_only=p->cycle_retry_data=p->cycle_retry_waiting=p->cycle_retry_blocked=0;
@@ -6126,6 +6408,75 @@ static int cycle_current_identity(const NG2Controller *p){
         &&p->cycle.continuation_deadline_ns<=p->cycle_current_parent
         &&p->cycle_sync_deadline<=p->cycle_current_sync;
 }
+static int cycle_transferred_identity124(const NG2Controller *p){
+    const NG2TransferredView124 *t=&p->transferred_view124;
+    return t->stage&&cycle_current_identity(p)&&p->cycle_current_partial==2
+        &&p->cycle_current_used&&p->cycle_full_spent&&t->data_used>=1&&t->data_used<=2
+        &&p->cycle_retry_used==t->data_used&&p->s.started_ns==t->owner
+        &&p->cycle.level_id==t->level&&p->cycle.job_id==t->job&&t->job==t->old_job+1
+        &&p->cycle.capture_id==t->capture&&p->cycle.capture_start_ns==t->start
+        &&p->cycle_current_end==t->end&&p->cycle.prefix==t->prefix
+        &&t->capture>t->old_capture&&t->start>t->old_start
+        &&p->cycle.hold_started_ns==t->hold&&p->cycle.continuation_deadline_ns<=t->P
+        &&p->cycle_current_parent<=t->P&&p->cycle_current_sync<=t->sync
+        &&p->s.inputs==t->inputs&&p->s.moves==t->moves&&p->s.restarts==t->restarts
+        &&!p->cycle.candidate_latched&&!p->cycle_restart_unproved&&!p->cycle_storage_error
+        &&!p->cycle.pause_capture_id&&!p->cycle.durable_ns&&!p->cycle.intent_ns
+        &&!p->cycle_pause_attempted&&!p->finish_requested&&!p->s.terminal
+        &&!p->entry.active&&!p->lower.active&&!p->upper.active;
+}
+static int cycle_transferred_static124(const NG2Controller *p,const NG2Scene *scene,NG2Motion *motion){
+    const NG2TransferredView124 *t=&p->transferred_view124;const NG2Scene *a=&p->cycle_current_source;
+    int d=t->choice.direction;
+    if(t->stage<2||!cycle_transferred_identity124(p)||p->cycle_current_active!=2
+        ||(d!=NG2_LEFT&&d!=NG2_RIGHT)||!same_choice(&p->cycle_full_choice,&t->choice)
+        ||!p->cycle_full_source_valid||p->cycle_full_source_id!=t->capture
+        ||p->cycle_full_source_start!=t->start||p->cycle_full_source_prefix!=t->prefix
+        ||p->cycle_full_parent>t->P||p->cycle_full_data_active
+        ||(t->stage==2?(p->s.input_state||p->s.current_command_id
+            ||(p->cycle_full_framing!=1&&p->cycle_full_framing!=2)):
+            (p->s.input_state!=1||p->cycle_full_framing!=3||!t->new_id
+                ||p->command.id!=t->new_id||p->s.current_command_id!=t->new_id
+                ||p->command.kind!=NG2_ACTION_MOVE||p->command.direction!=d)))return NG2_REVALIDATE_STATE;
+    if(!cycle_full_local_proof(a,d)||!cycle_full_local_proof(scene,d)
+        ||a->gold_state!=scene->gold_state||!actual_gold(scene)
+        ||memcmp(a->tiles,scene->tiles,NG2_TILE_COUNT)
+        ||memcmp(a->protected_cells,scene->protected_cells,NG2_TILE_COUNT))return NG2_REVALIDATE_PROTECTED;
+    return ng2_motion(a,scene,d,motion)&&motion->kind==NG2_BLOCKED&&!motion->dx&&!motion->dy?
+        NG2_REVALIDATE_NONE:NG2_REVALIDATE_MOTION;
+}
+static int cycle_transferred_assess124(NG2Controller *p,const NG2RingResult *result,uint64_t now){
+    NG2TransferredView124 *t=&p->transferred_view124;const NG2Scene *s=&p->cycle_current_source;
+    size_t samples;int d=t->choice.direction;
+    if(t->stage!=1)return 0;
+    if(!cycle_transferred_identity124(p)||now>=t->P||p->s.input_state
+        ||result->status!=NG2_RING_OK||result->outcome!=NG2_RING_UNKNOWN
+        ||result->coverage!=NG2_RING_COVERAGE_INCOMPLETE||!entry_result_safe(result)
+        ||cycle_result_positive_hint(result)!=0||(!result->row_count&&!result->partial_count)
+        ||(d!=NG2_LEFT&&d!=NG2_RIGHT)||!cycle_full_local_proof(s,d))goto refuse;
+    for(int r=0;r<result->row_count;r++) {
+        const NG2RingRow *row=&result->rows[r];
+        if(row->left<112||row->left>712||row->sy<20||row->sy>299
+            ||!cycle_full_roi(row->left-112,row->sy-20,row->left+184,row->sy+52,d))goto refuse;
+        for(int k=0;k<3;k++)if(row->slots[k].cx!=row->left+36*k||row->slots[k].sy!=row->sy
+            ||!cycle_full_slot(&row->slots[k],d))goto refuse;
+    }
+    for(int k=0;k<result->partial_count;k++)if(!cycle_full_slot(&result->partial[k],d))goto refuse;
+    for(int k=0;k<NG2_TILE_COUNT;k++)if(s->tiles[k]==NG2_TILE_ITEM) {
+        int cx=448+36*(k%23-11),cy=207+36*(k/23-5);
+        if(!cycle_full_roi(cx-78,cy-86,cx+78,cy+61,d))goto refuse;
+    }
+    t->stage=2;p->cycle_current_active=2;p->cycle_full_framing=1;p->cycle_full_choice=t->choice;
+    p->cycle_full_old_ordinal=t->ordinal;p->cycle_full_source=*s;p->cycle_full_source_valid=1;
+    p->cycle_full_source_id=t->capture;p->cycle_full_source_start=t->start;
+    p->cycle_full_source_prefix=t->prefix;p->cycle_full_parent=p->cycle_current_parent;
+    p->cycle_full_data_active=p->cycle_full_data_blocked=0;
+    p->cycle.state=NG2_CYCLE_OBSERVE_MORE;p->cycle.release_after_ns=now;
+    samples=p->sample_count;clear_slots(p);clear_model(p);p->sample_count=samples;
+    p->proof_capture_id=p->proof_deadline=0;return 1;
+refuse:
+    memset(t,0,sizeof(*t));return 0;
+}
 /* The independent current source can regain only the old top duplicates,
  * each supported by its unchanged lower ITEM and original potential mask.
  * This changes no anchor, result, DATA count or one-use observation budget.
@@ -6167,6 +6518,8 @@ static int cycle_current_partial_top_relation(const NG2Controller *p,const NG2Sc
 }
 static int cycle_current_relation(const NG2Controller *p,const NG2Scene *scene,NG2Motion *motion){
     const NG2Scene *a=&p->cycle_current_source;
+    if(p->cycle_current_partial==2&&p->transferred_view124.stage>=2)
+        return cycle_transferred_static124(p,scene,motion)==NG2_REVALIDATE_NONE;
     if(p->cycle_current_partial==2)
         return cycle_current_identity(p)&&cycle_current_data_pair(a,scene);
     return cycle_current_identity(p)&&scene->gold_state==a->gold_state
@@ -6219,6 +6572,7 @@ static int cycle_current_assess(NG2Controller *p,const NG2RingResult *result,uin
         p->cycle_current_invalid=1;cycle_failure(p,now,NG2_RING_KERNEL,NG2_REASON_SCREEN);return 1;
     }
     if(p->cycle_current_partial==2){
+        if(cycle_transferred_assess124(p,result,now))return 1;
         p->cycle_current_active=0;
         if(result->outcome==NG2_RING_UNKNOWN){
             p->cycle.state=NG2_CYCLE_HELD;++p->cycle.completed_shops;return 1;
@@ -6633,9 +6987,58 @@ static int upper_identity(const NG2Controller *p){
 static int upper_direction(const NG2Controller *p){
     return p->upper.horizontal<2?p->upper.direction:p->upper.down<p->upper.steps-2?NG2_DOWN:0;
 }
+static int upper_projection_unit124(const NG2Controller *p){
+    const NG2UpperProjection124 *q=&p->upper_projection124;size_t i;
+    if(q->prefix!=q->unit.id||q->unit.kind!=NG2_ACTION_MOVE
+        ||q->unit.direction!=p->upper.direction)return 0;
+    for(i=0;i<p->event_count;++i){
+        const NG2ControllerEvent *e=&p->events[i];
+        if(e->command.id==q->unit.id)return !memcmp(&e->command,&q->unit,sizeof(q->unit))
+            &&e->begin_ns&&e->end_ns>=e->begin_ns&&e->outcome==2&&e->motion==NG2_MOVED
+            &&e->dx==dx[q->unit.direction]&&!e->dy&&e->observed_capture_id==q->capture;
+    }
+    return 0;
+}
+static int upper_projection_context124(const NG2Controller *p){
+    const NG2UpperProjection124 *q=&p->upper_projection124;
+    int n=p->upper.horizontal+p->upper.down,d=p->upper.direction;
+    return q->used&&!q->invalid&&(q->active||q->armed)&&p->restart_yield.s.enabled
+        &&p->upper.active&&p->upper.valid&&p->upper.variant==2&&p->upper.row==4&&p->upper.steps==5
+        &&p->upper.stage<6&&!p->finish_requested&&!p->s.terminal&&!p->cycle.candidate_latched
+        &&q->owner==p->s.started_ns&&q->level==p->upper.level&&q->level==p->cycle.level_id
+        &&q->opening==p->upper.opening&&q->parent==p->upper.parent
+        &&q->parent==p->upper.allocated_parent&&q->hold==p->upper.hold&&q->sync==p->upper.sync
+        &&upper_projection_unit124(p)
+        &&p->cycle.continuation_deadline_ns<=q->parent
+        &&(d==NG2_LEFT||d==NG2_RIGHT)&&upper_side_variant(&p->upper.world,d)==2
+        &&n>=1&&n<=5&&p->upper.inputs==n
+        &&p->upper.horizontal==(n<2?n:2)&&p->upper.down==(n>2?n-2:0)
+        &&p->s.x==p->upper.x+dx[d]*p->upper.horizontal&&p->s.y==p->upper.y+p->upper.down
+        &&p->s.inputs==q->inputs+n-1&&p->s.moves==q->moves+n-1&&p->s.restarts==q->restarts;
+}
+/* The original five-cell world stays immutable. Only two additional
+ * potential origins are known; every current ITEM/halo is still protected. */
+static int upper_projection_world124(const NG2Controller *p,const NG2Scene *scene){
+    const NG2UpperProjection124 *q=&p->upper_projection124;
+    int i,ox=p->s.x-p->upper.x,oy=p->s.y-p->upper.y;
+    if(!upper_projection_context124(p)||scene->state!=NG2_FLOOR
+        ||(scene->goods!=NG2_GOODS_PARTIAL&&scene->goods!=NG2_GOODS_VISIBLE)
+        ||!actual_gold(scene)||!cycle_exact_item_protection(scene)
+        ||tile(scene,0,0)!=NG2_TILE_FLOOR||protected_at(scene,0,0))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int x=i%23-11,y=i/23-5,index=tile_index(x+ox,y+oy);
+        if(scene->tiles[i]==NG2_TILE_ITEM&&tile(&p->upper.world,x+ox,y+oy)!=NG2_TILE_ITEM
+            &&(index<0||!q->potential[index]))return 0;
+        if(p->upper.world.tiles[i]==NG2_TILE_GOLD&&tile(scene,x-ox,y-oy)!=NG2_TILE_GOLD)return 0;
+    }
+    return 1;
+}
+static int upper_observed_world124(const NG2Controller *p,const NG2Scene *scene){
+    return upper_world(p,scene)||upper_projection_world124(p,scene);
+}
 static int upper_floor(const NG2Controller *p,const NG2Scene *scene){
     int d=upper_direction(p);
-    return d&&upper_world(p,scene)&&tile(scene,dx[d],dy[d])==NG2_TILE_FLOOR
+    return d&&upper_observed_world124(p,scene)&&tile(scene,dx[d],dy[d])==NG2_TILE_FLOOR
         &&!protected_at(scene,dx[d],dy[d]);
 }
 static int upper_anchor(const NG2Controller *p,int cx,int sy,int outside){
@@ -6647,14 +7050,24 @@ static int upper_anchor(const NG2Controller *p,int cx,int sy,int outside){
     return outside&&y==p->upper.row&&(tile(&p->upper.world,x-1,y)==NG2_TILE_ITEM
         ||tile(&p->upper.world,x+1,y)==NG2_TILE_ITEM);
 }
+static int upper_projection_anchor124(const NG2Controller *p,int cx,int sy,int outside){
+    const NG2UpperProjection124 *q=&p->upper_projection124;int x,y,index,left,right;
+    if(!upper_projection_context124(p)||cx<0||cx>=896||sy<0||sy>=414
+        ||!cycle_structural_cell(cx,448,&x)||!cycle_structural_cell(sy+48,207,&y))return 0;
+    x+=p->s.x-p->upper.x;y+=p->s.y-p->upper.y;index=tile_index(x,y);
+    if(index>=0&&q->potential[index])return 1;
+    left=tile_index(x-1,y);right=tile_index(x+1,y);
+    return outside&&y==p->upper.row&&((left>=0&&q->potential[left])||(right>=0&&q->potential[right]));
+}
 static int upper_slot(const NG2Controller *p,const NG2RingSlot *slot,int outside){
-    return cycle_binary_no_positive(slot)&&upper_anchor(p,slot->cx,slot->sy,outside)
+    return cycle_binary_no_positive(slot)&&(upper_anchor(p,slot->cx,slot->sy,outside)
+        ||upper_projection_anchor124(p,slot->cx,slot->sy,outside))
         &&(cycle_zero_box(slot->icon_box)||cycle_box(slot->icon_box))
         &&(slot->word_present?cycle_box(slot->word_box):cycle_zero_box(slot->word_box));
 }
 static int upper_result(const NG2Controller *p,const NG2RingResult *result){
     int r,k,virtual_cell;
-    if(!upper_world(p,&p->cycle_anchor))return 0;
+    if(!upper_observed_world124(p,&p->cycle_anchor))return 0;
     for(r=0;r<result->row_count;++r){
         const NG2RingRow *row=&result->rows[r];
         for(k=0;k<3;++k)
@@ -6669,6 +7082,63 @@ static int upper_result(const NG2Controller *p,const NG2RingResult *result){
         if(!upper_slot(p,slot,virtual_cell))return 0;
     }
     return 1;
+}
+/* This callback follows resolve_move's one actual unit. It arms only the
+ * normal H1 DATA source, never a second generic PARTIAL movement allowance. */
+static void upper_projection_arm124(NG2Controller *p,const NG2Scene *scene,uint64_t id,
+    uint64_t start,uint64_t end,uint64_t prefix,uint64_t now){
+    NG2UpperProjection124 *q=&p->upper_projection124;const NG2ControllerEvent *e=event(p);
+    int d=p->upper.direction,i,count=0;NG2Entrance entered;
+    if(q->used||!p->restart_yield.s.enabled||!p->upper.active||!p->upper.valid
+        ||p->upper.variant!=2||p->upper.row!=4||p->upper.steps!=5||p->upper.stage!=4
+        ||p->upper.inputs!=1||p->upper.horizontal!=1||p->upper.down||p->s.input_state
+        ||p->s.current_command_id||p->finish_requested||p->s.terminal||p->cycle.candidate_latched
+        ||p->cycle.pending||!p->cycle.partial||p->cycle.status!=NG2_RING_OK
+        ||p->cycle.outcome!=NG2_RING_UNKNOWN||p->cycle.coverage!=NG2_RING_COVERAGE_INCOMPLETE
+        ||(d!=NG2_LEFT&&d!=NG2_RIGHT)||upper_side_variant(&p->upper.world,d)!=2
+        ||!e||e->command.id!=p->upper.issued||e->command.id!=prefix||e->outcome!=2
+        ||e->command.kind!=NG2_ACTION_MOVE||e->command.direction!=d||!e->begin_ns||!e->end_ns
+        ||e->motion!=NG2_MOVED||e->dx!=dx[d]||e->dy||e->observed_capture_id!=id
+        ||prefix!=p->s.last_completed_id||prefix!=p->last_observed_prefix
+        ||id!=p->s.last_capture_id||id!=p->seen_id||start!=p->s.last_capture_start_ns
+        ||start!=p->seen_start||end!=p->s.last_capture_end_ns||end!=p->seen_end
+        ||now<end||now>p->upper.parent||now>start+CYCLE_CAPTURE_BUDGET
+        ||p->s.x!=p->upper.x+dx[d]||p->s.y!=p->upper.y
+        ||scene->state!=NG2_FLOOR||scene->goods!=NG2_GOODS_PARTIAL
+        ||!cycle_exact_item_protection(scene)
+        ||tile(scene,0,0)!=NG2_TILE_FLOOR||tile(scene,dx[d],0)!=NG2_TILE_FLOOR
+        ||protected_at(scene,0,0)||protected_at(scene,dx[d],0)
+        ||!ng2_entered_gate(&p->before,scene,d,p->upper.x,p->upper.y,NG2_MOVED,&entered)
+        ||!p->entrance.valid||memcmp(&entered,&p->entrance,sizeof(entered)))return;
+    for(i=0;i<NG2_TILE_COUNT;++i)if(scene->tiles[i]==NG2_TILE_ITEM){
+        int x=(i%23-11)*dx[d],y=i/23-5;
+        if(y!=4||x<0||x>6)return;
+        ++count;
+    }
+    if(count!=7)return;
+    memset(q,0,sizeof(*q));q->used=q->armed=1;
+    q->owner=p->s.started_ns;q->level=p->upper.level;q->opening=p->upper.opening;
+    q->parent=p->upper.parent;q->hold=p->upper.hold;q->sync=p->upper.sync;
+    q->inputs=p->s.inputs;q->moves=p->s.moves;q->restarts=p->s.restarts;
+    q->job=p->cycle.job_id+1;q->capture=id;q->start=start;q->end=end;q->prefix=prefix;q->unit=e->command;
+    q->potential[tile_index(dx[d],4)]=q->potential[tile_index(2*dx[d],4)]=1;
+    if(!upper_projection_world124(p,scene)){q->armed=0;q->invalid=1;}
+}
+static int upper_projection_assess124(NG2Controller *p,const NG2RingResult *result,uint64_t now){
+    NG2UpperProjection124 *q=&p->upper_projection124;
+    if(!q->armed)return 1;
+    if(!upper_projection_context124(p)||p->upper.stage!=5||p->s.input_state||p->cycle.pending
+        ||p->cycle.job_id!=q->job||p->cycle.capture_id!=q->capture||p->cycle.capture_start_ns!=q->start
+        ||p->cycle.prefix!=q->prefix||p->cycle.prefix!=p->s.last_completed_id
+        ||p->cycle.prefix!=p->last_observed_prefix||!p->cycle.partial
+        ||p->cycle.assessment_ns!=now||now<q->end||now>q->parent||now>q->start+CYCLE_CAPTURE_BUDGET
+        ||result->status!=NG2_RING_OK||result->outcome!=NG2_RING_UNKNOWN
+        ||result->coverage!=NG2_RING_COVERAGE_INCOMPLETE||result->partial_safe_no_positive!=1
+        ||result->row_count||result->partial_count<=0||!entry_result_safe(result)
+        ||cycle_result_positive_hint(result)!=0||!upper_result(p,result)){
+        q->armed=0;q->invalid=1;return 0;
+    }
+    q->armed=0;q->active=1;return 1;
 }
 static void upper_hold(NG2Controller *p){
     p->upper.static_proof.valid=0;
@@ -6756,8 +7226,10 @@ static void upper_bind(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint64
     NG2Motion still={0};int seen=p->cycle.full_seen,d=upper_direction(p);uint64_t oldjob=p->upper.job;
     p->upper.static_proof.valid=0;
     if(!d)d=NG2_DOWN;
-    if(!upper_world(p,scene)||(bridge&&(!ng2_motion(&p->cycle_anchor,scene,d,&still)
-        ||still.kind!=NG2_BLOCKED||still.dx||still.dy)))p->upper.valid=0;
+    if(!upper_observed_world124(p,scene)||(bridge&&(!ng2_motion(&p->cycle_anchor,scene,d,&still)
+        ||still.kind!=NG2_BLOCKED||still.dx||still.dy))){
+        p->upper.valid=0;if(p->upper_projection124.used)p->upper_projection124.invalid=1;
+    }
     cycle_latch(p,scene,now);cycle_bind(p,scene,id,start,prefix);
     p->upper.anchor_end=p->s.last_capture_id==id&&p->s.last_capture_start_ns==start
         &&p->s.last_capture_end_ns>=start?p->s.last_capture_end_ns:0;
@@ -6790,6 +7262,7 @@ static int upper_assess(NG2Controller *p,const NG2RingResult *result,uint64_t no
         }
         p->upper.stage=6;p->upper.valid=0;return 0;
     }
+    if(!upper_projection_assess124(p,result,now)){upper_hold(p);return 1;}
     /* A queued newly FULL image still deserves a normal data job after
      * the movement cap/root expires. It can retain positives, not MOVE. */
     if(result->outcome==NG2_RING_UNKNOWN&&entry_result_safe(result)
@@ -6919,7 +7392,9 @@ static int upper_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
     if(p->upper.stage==5){
         /* New accepted geometry can revoke the old source's MOVE/negative
          * identity while its immutable worker drains; positives stay prior. */
-        if(scene->state==NG2_FLOOR&&!upper_world(p,scene))p->upper.valid=0;
+        if(scene->state==NG2_FLOOR&&!upper_observed_world124(p,scene)){
+            p->upper.valid=0;if(p->upper_projection124.used)p->upper_projection124.invalid=1;
+        }
         if(!p->upper.rebound&&p->cycle.pending&&p->cycle.partial
             &&scene->state==NG2_FLOOR&&scene->goods==NG2_GOODS_VISIBLE){
             p->cycle_queued_scene=*scene;p->cycle_queued_valid=1;
@@ -6940,7 +7415,8 @@ static int upper_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
                 else {cycle_failure(p,now,NG2_RING_INVALID,NG2_REASON_GEOMETRY);return 1;}
                 p->upper.rebound=0;
                 if(scene->goods==NG2_GOODS_UNKNOWN)upper_hold(p);
-                else upper_bind(p,scene,id,start,prefix,now,0);
+                else {upper_projection_arm124(p,scene,id,start,end,prefix,now);
+                    upper_bind(p,scene,id,start,prefix,now,0);}
             }
         }
         return 1;
@@ -6960,7 +7436,7 @@ static int upper_observe(NG2Controller *p,const NG2Scene *scene,uint64_t id,uint
         }
         /* No response, model or latest mask may stand in for direct zero.
          * Unchanged unsafe floor may wait, but never gains a ticket. */
-        if(p->upper.stage!=3&&upper_world(p,scene))return 1;
+        if(p->upper.stage!=3&&upper_observed_world124(p,scene))return 1;
         cycle_record_rejection(p,scene,id,validation);
         cycle_failure(p,now,NG2_RING_KERNEL,NG2_REASON_SCREEN);return 1;
     }
@@ -7413,6 +7889,7 @@ static int cycle_assess(NG2Controller *p,uint64_t job,uint64_t capture,uint64_t 
     p->cycle.pending=0;p->cycle_refresh_safe=0;p->cycle.status=NG2_RING_OK;p->cycle.outcome=(int)result->outcome;
     p->cycle.coverage=(int)result->coverage;p->cycle.assessment_ns=now;
     if(result->outcome==NG2_RING_TARGET||result->outcome==NG2_RING_CANDIDATE){
+        memset(&p->transferred_view124,0,sizeof(p->transferred_view124));
         p->cycle_partial_zero.valid=0;
         p->cycle_entered.active=0;
         restart_yield_invalidate(p);
@@ -8182,7 +8659,9 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
         int partial=scene->goods==NG2_GOODS_PARTIAL;
         int draining_partial=partial&&p->s.input_state==2&&prefix==p->cycle_consumed_prefix;
         if(!p->upper.active&&!p->entry.active&&!p->lower.active&&!cycle_holding(p)&&(scene->goods==NG2_GOODS_VISIBLE
-            ||(partial&&!p->cycle_partial_credit&&!draining_partial)))cycle_latch(p,scene,commit);
+            ||(partial&&!p->cycle_partial_credit&&!draining_partial))){
+            p->refined_data124.stage=0;cycle_latch(p,scene,commit);
+        }
         if(!p->upper.active&&!p->entry.active&&!p->lower.active&&cycle_holding(p)&&scene->goods==NG2_GOODS_VISIBLE){p->cycle.full_seen=1;p->s.goods=1;}
     }
     if((p->s.input_state==1||p->replan_pending||p->continuous_pending)&&p->command.kind==NG2_ACTION_MOVE)
@@ -8260,14 +8739,22 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
     if(p->passage_source.refreshed&&!p->finish_requested
         &&(p->s.input_state==1||p->continuous_pending)
         &&!passage_source_proof(p,scene,commit)){
-        if(begin_refined_passage_route_wait(p,scene,id,start,end,prefix,commit)){
+        if(begin_refined_passage_route_wait(p,scene,id,start,end,prefix,commit)
+            ||begin_refined_passage_data124(p,scene,id,start,end,prefix,commit)){
             if(mask)record_change(p,scene,id,mask,changed_tiles,changed_protected,0,NG2_REVALIDATE_ROUTE);
         }else{
             not_sent(p,end,NG2_REASON_SCREEN);finish(p,commit,NG2_REASON_SCREEN);
         }
         mask=0;
     }
-    if(p->passage_active&&!p->finish_requested&&!p->stationary_wait_active){
+    if(p->refined_data124.stage&&p->refined_data124.stage<3&&!p->finish_requested){
+        update_refined_passage_data124(p,scene,id,start,end,prefix,commit);mask=0;
+    }else if(p->refined_data124.stage==3&&p->s.input_state==1&&!p->finish_requested){
+        if(!refined_data_ready124(p,commit,1)||!refined_data_scene124(p,scene)){
+            not_sent(p,commit,NG2_REASON_SCREEN);finish(p,commit,NG2_REASON_SCREEN);
+        }
+        mask=0;
+    }else if(p->passage_active&&!p->finish_requested&&!p->stationary_wait_active){
         if((scene->goods==NG2_GOODS_PARTIAL||passage_goods_protected(scene))&&!actual_gold(scene))
             finish(p,end,NG2_REASON_PARTIAL_GOODS);
         else if(p->passage_wait_kind){update_passage_wait(p,scene,id,start,end,commit);mask=0;}
@@ -8344,8 +8831,17 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
             &&!memcmp(&p->motion_reference_scene,&p->before,sizeof(p->before)))preinput_zero=1;
     }
     clipped_entry=clipped_entry_top(p,scene);
+    /* p->scene is the last accepted image until the common install below.
+     * Check even mask-zero returns to before, before either old quiet path
+     * can erase a positively observed post-opening wall. */
+    if(!p->finish_requested&&opened_unknown_quiet_context124(p,scene)
+        &&!gold_retained(&p->scene,scene)){
+        record_change(p,scene,id,mask,changed_tiles,changed_protected,0,NG2_REVALIDATE_GOLD);
+        not_sent(p,end,NG2_REASON_SCREEN);finish(p,commit,NG2_REASON_SCREEN);mask=0;
+    }
     if(!p->finish_requested&&p->s.input_state==1&&p->command.kind==NG2_ACTION_MOVE
-        &&(mask||clipped_entry))quiet_gate=quiet_gate_observation(p,scene,commit);
+        &&(mask||clipped_entry))quiet_gate=quiet_gate_observation(p,scene,commit)
+            ||opened_unknown_remote_gold124(p,scene,commit);
     if(!p->finish_requested&&p->s.input_state==1&&p->command.kind==NG2_ACTION_MOVE
         &&opened_entry_relation(p,scene)
         &&(mask||(scene->goods==NG2_GOODS_PARTIAL&&partial_shop_floor_step(p)
@@ -8364,7 +8860,7 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
         not_sent(p,end,NG2_REASON_SCREEN);finish(p,end,NG2_REASON_SCREEN);mask=0;
     }
     if((mask&&quiet_initial_observation(p,scene,commit))||quiet_gate){mask=0;opened_refresh=0;}
-    if(!mask&&!opened_refresh){
+    if(!mask&&!opened_refresh&&!p->refined_data124.stage){
         NG2Decision latest;
         if(preinput_same_source(p,scene,id,start,end,prefix,commit,preinput_zero||quiet_gate,&latest)){
             uint64_t epoch=p->preparation_epoch;
@@ -8454,7 +8950,8 @@ int ng2_controller_observe_at(NG2Controller *p,const NG2Scene *scene,uint64_t id
     if(irregular_active(p))return 1;
     if(!p->stationary_wait_active)update_passage_progress(p,scene,id,start,end,commit);
     if(!p->finish_requested&&p->s.walk_started_ns&&scene->state==NG2_FLOOR
-        &&p->s.input_state!=3&&!passage_moved_uncertain_wait(p))add_sample(p,scene,id,start,end);
+        &&p->s.input_state!=3&&!passage_moved_uncertain_wait(p)
+        &&!(p->refined_data124.stage&&p->refined_data124.stage<3))add_sample(p,scene,id,start,end);
     if(p->beat_failed&&!p->finish_requested
         &&!(p->s.input_state==3&&p->command.kind==NG2_ACTION_MOVE)&&!p->proof_deadline)
         finish(p,commit,NG2_REASON_BEAT);
@@ -8469,6 +8966,15 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
     NG2ControllerEvent *e;uint64_t deadline,horizon,tail;
     int reissuing=kind==NG2_ACTION_MOVE&&p->continuous_pending;
     uint64_t inherited_sync_deadline=reissuing?p->command_sync_deadline:0;
+    if(kind==NG2_ACTION_MOVE&&p->transferred_view124.stage){
+        NG2Motion still={0};
+        if(reissuing||p->transferred_view124.stage!=2||p->cycle_current_proofs!=2
+            ||p->model_capture_id<p->cycle_current_proof_id
+            ||direction!=p->transferred_view124.choice.direction
+            ||now>p->transferred_view124.P||cycle_transferred_static124(p,&p->scene,&still))return 0;
+    }
+    if(kind==NG2_ACTION_MOVE&&p->refined_data124.stage
+        &&(reissuing||!refined_data_ready124(p,now,0)||direction!=p->refined_data124.choice.direction))return 0;
     if(kind==NG2_ACTION_MOVE&&p->route120.active
         &&(p->route120.issued||!route120_proof(p,now)))return 0;
     if(p->restart_yield.s.pending&&kind!=NG2_ACTION_PAUSE){restart_yield_invalidate(p);return 0;}
@@ -8498,6 +9004,7 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
         horizon=minimum(horizon,p->s.walk_started_ns+45*SECOND);}
     if(kind==NG2_ACTION_MOVE&&p->stationary_wait_parent)horizon=minimum(horizon,p->stationary_wait_parent);
     if(kind==NG2_ACTION_MOVE&&p->route120.active)horizon=minimum(horizon,route120_limit(p));
+    if(kind==NG2_ACTION_MOVE&&p->refined_data124.stage)horizon=minimum(horizon,p->refined_data124.P);
     if(kind==NG2_ACTION_MOVE&&p->opened_entry_parent)horizon=minimum(horizon,p->opened_entry_parent);
     if(kind==NG2_ACTION_MOVE&&(p->cycle_partial_credit||p->cycle_full_framing||p->entry.active||p->lower.active||p->upper.active))horizon=minimum(horizon,p->cycle.continuation_deadline_ns);
     if(reissuing)horizon=minimum(horizon,continuous_horizon(p));
@@ -8618,6 +9125,13 @@ static int reserve(NG2Controller *p,uint64_t now,int kind,int direction,uint64_t
         if(p->route120.active){p->route120.issued=1;p->route120.ticket=p->command;}
     }
     if(!reissuing)create_passage_source(p);
+    if(kind==NG2_ACTION_MOVE&&p->transferred_view124.stage==2){
+        p->transferred_view124.stage=3;p->transferred_view124.new_id=p->command.id;
+    }
+    if(kind==NG2_ACTION_MOVE&&p->refined_data124.stage==2){
+        p->refined_data124.stage=3;p->refined_data124.new_id=p->command.id;
+        p->command_sync_deadline=minimum(p->command_sync_deadline,p->refined_data124.P);
+    }
     *out=p->command;return 1;
 }
 static int irregular_tick(NG2Controller *p,uint64_t now,NG2Command *out){
@@ -8782,6 +9296,9 @@ static int recover_unsent_continuous(NG2Controller *p,uint64_t now){
 static int prepare_recovery_slot(NG2Controller *p,uint64_t now){
     uint64_t aligned,target,next,horizon,tail=p->s.lead_ns+50000000;
     if(p->recovery.mode!=NG2_RECOVERY_POST_MOVE)return 1;
+    if(p->refined_data124.stage&&!refined_data_ready124(p,now,0)){
+        finish(p,now,NG2_REASON_SCREEN);return 0;
+    }
     if(now>=sync_deadline(p)){
         recovery_record(p,NG2_RECOVERY_SYNC_BUDGET,NG2_RECOVERY_ACTUAL_TICK,now,p->s.last_capture_id);
         finish(p,now,NG2_REASON_BEAT);return 0;
@@ -8821,6 +9338,14 @@ static int prepare_recovery_slot(NG2Controller *p,uint64_t now){
         p->recovery_slot_deadline=minimum(p->recovery_slot_not_before+10000000,horizon-tail);
         p->recovery_slot_schedule=minimum(next-p->s.lead_ns+10000000,horizon);
         p->recovery_slot_visual=horizon;
+    }
+    if(p->refined_data124.stage){
+        const NG2RefinedPassageData124 *data=&p->refined_data124;
+        p->recovery_slot_deadline=minimum(p->recovery_slot_deadline,data->schedule);
+        p->recovery_slot_schedule=minimum(p->recovery_slot_schedule,data->schedule);
+        p->recovery_slot_visual=minimum(p->recovery_slot_visual,data->P);
+        if(p->recovery_slot_target<=data->retired.target_ns
+            ||p->recovery_slot_not_before>p->recovery_slot_deadline){finish(p,now,NG2_REASON_LATE);return 0;}
     }
     p->s.next_target_ns=p->recovery_slot_target;
     if(p->recovery_slot_not_before-now>INITIAL_PUBLICATION)return 0;
@@ -9219,6 +9744,17 @@ int ng2_controller_tick(NG2Controller *p,uint64_t now,int32_t front,int32_t lock
     if(now-p->s.started_ns>=180*SECOND||campaign_expired(p,now)){ng2_controller_cancel(p,now,NG2_REASON_SESSION);return 0;}
     if(p->have_scene&&p->s.last_capture_end_ns>now){ng2_controller_cancel(p,now,NG2_REASON_CAPTURE);return 0;}
     if(p->s.walk_started_ns&&now-p->s.walk_started_ns>=45*SECOND)finish(p,now,NG2_REASON_LIMIT);
+    if(p->refined_data124.stage==1){
+        NG2RefinedPassageData124 *data=&p->refined_data124;
+        const NG2ControllerEvent *retired=event(p);
+        if(now>=data->P||now>=data->W||now>data->schedule){finish(p,now,NG2_REASON_LATE);return 0;}
+        if(!refined_data_world124(p)||p->s.input_state||p->s.current_command_id
+            ||!retired||memcmp(&retired->command,&data->retired,sizeof(data->retired))
+            ||retired->begin_ns||retired->outcome!=3||retired->reason!=NG2_REASON_SCREEN){
+            finish(p,now,NG2_REASON_SCREEN);return 0;
+        }
+        if(!data->retired_at)data->retired_at=now;
+    }
     if(p->restart_yield.s.enabled&&!p->restart_yield.s.initial_pause_seen){
         if(now-p->s.started_ns>=TRANSITION)terminal(p,now,NG2_REASON_SCREEN);
         return 0;
@@ -9526,6 +10062,8 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
     }
     if(!reason&&p->command.kind==NG2_ACTION_MOVE&&p->passage_source.refreshed
         &&!passage_source_proof(p,&p->scene,now))reason=NG2_REASON_SCREEN;
+    if(!reason&&p->command.kind==NG2_ACTION_MOVE&&p->refined_data124.stage
+        &&!refined_data_ready124(p,now,1))reason=NG2_REASON_SCREEN;
     if(!reason&&p->command.kind==NG2_ACTION_MOVE&&p->command_choice.reason==9
         &&(p->edge_sent||level_inputs(p)||level_moves(p)||p->s.lead_confirmed
            ||!p->edge_validated_capture_id||p->edge_validated_capture_id!=p->s.last_capture_id))
@@ -9599,6 +10137,7 @@ int ng2_controller_begin(NG2Controller *p,uint64_t id,uint64_t now,int32_t front
     }
     if(p->command.kind==NG2_ACTION_MOVE&&p->cycle_full_framing==3){
         p->cycle_full_framing=4;p->cycle_current_active=0;
+        memset(&p->transferred_view124,0,sizeof(p->transferred_view124));
     }
     if(p->command.kind==NG2_ACTION_MOVE&&p->entry.active){++p->entry.inputs;p->entry.stage=4;}
     if(p->command.kind==NG2_ACTION_MOVE&&p->lower.active){++p->lower.inputs;p->lower.stage=4;}

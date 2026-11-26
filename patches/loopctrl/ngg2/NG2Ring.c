@@ -4016,6 +4016,69 @@ int ng2_ring_negative_certificate(const NG2RingResult *result) {
     }
     return named==w->non_target_items&&ignored==w->ignored_containers;
 }
+/* A clipped top shop can have no usable SIGN seed while its ITEM icon is
+ * already clear below pause HUD. This finite fallback adds positives only;
+ * its shifted kernel probe never supplies a board, price or negative row. */
+static int partial_positive124(const unsigned char *rgba,const RingObservation *observation,
+                             const NG2RingOptions *options,NG2RingResult *result,int signs) {
+    if(!options||options->mode!=NG2_RING_MODE_TARGET_ONLY||!options->scene
+       ||options->scene->abi_version!=NG2_ABI_VERSION||options->scene->struct_size!=sizeof(NG2Scene)
+       ||options->scene->state!=NG2_FLOOR||options->scene->goods!=NG2_GOODS_PARTIAL
+       ||(options->scene->gold_state!=NG2_GOLD_CANDIDATE&&options->scene->gold_state!=NG2_GOLD_EDGE_DOWN)
+       ||result->status!=NG2_RING_OK||result->outcome!=NG2_RING_UNKNOWN
+       ||result->coverage!=NG2_RING_COVERAGE_INCOMPLETE||result->row_count||result->partial_count
+       ||result->selected_row!=-1||result->selected_partial!=-1||signs)return NG2_RING_OK;
+    const NG2Scene *scene=options->scene;
+    int found=0,gold=0,cx=0,base_sy=0,probe_sy=45-24;
+    for(int i=0;i<NG2_TILE_COUNT;i++) {
+        gold+=scene->tiles[i]==NG2_TILE_GOLD;
+        if(scene->tiles[i]!=NG2_TILE_ITEM||scene->protected_cells[i]!=1)continue;
+        int x=448+36*(i%23-11),sy=207+36*(i/23-5)-48;
+        /* The ORIGINAL window must cross the top HUD edge. Already clear
+         * lower rows and offscreen rows gain no new ITEM discovery here. */
+        if(probe_sy-sy<=0||probe_sy-sy>6)continue;
+        int eligible=1;
+        for(size_t s=0;s<sizeof(sprites)/sizeof(sprites[0]);s++) {
+            const Sprite *sp=&sprites[s];
+            int x0=x-sp->width/2-8,last=x-sp->width/2+8;
+            /* Every original horizontal pose intersects [429,465).
+             * Its non-HUD poses are therefore exactly those at y>=45. */
+            if(x0+sp->width<=429||last>=465||sy+24>=45||sy+57+sp->height<=45
+               ||x0<0||last+sp->width>RING_W||probe_sy+24<0
+               ||probe_sy+57+sp->height>RING_HH
+               ||partial_hud(x0,probe_sy+24,last+sp->width,probe_sy+57+sp->height)) {
+                eligible=0;break;
+            }
+        }
+        if(eligible){if(++found>1)return NG2_RING_OK;cx=x;base_sy=sy;}
+    }
+    if(!gold||found!=1)return NG2_RING_OK;
+    int potential=1,status,box[4]={0};double upper=0.0,score=0.0;
+    if((status=checkpoint(options,result)))return status;
+    if(options->fast) {
+        status=candidate_probe(rgba,cx,probe_sy,options,result,&potential,&upper,box);
+        if(status)return status;
+    }
+    if(!potential)return NG2_RING_OK;
+    if((status=checkpoint(options,result)))return status;
+    if(ring_icon(rgba,RING_RGBA,cx,probe_sy,0,NULL,&score,box))return NG2_RING_KERNEL;
+    score=ng2_ring_round9(score<1.0?score:1.0);
+    if(score>=.80) {
+        /* Publish a known positive before subsequent checkpoints, so the
+         * existing late-result hint can retain it without adopting absence. */
+        NG2RingSlot slot={0};slot.cx=cx;slot.sy=base_sy;slot.icon_score=score;
+        slot.icon_score_exact=1;slot.icon_upper_bound=score;slot.outcome=NG2_RING_CANDIDATE;
+        memcpy(slot.icon_box,box,sizeof(box));result->partial[0]=slot;result->partial_count=1;
+        result->selected_partial=0;result->selected_row=-1;result->outcome=NG2_RING_CANDIDATE;
+        result->reason=NG2_RING_ICON_ONLY;result->coverage=NG2_RING_COVERAGE_INCOMPLETE;
+        result->partial_safe_no_positive=0;
+    }
+    if((status=checkpoint(options,result)))return status;
+    if(result->outcome!=NG2_RING_CANDIDATE)return NG2_RING_OK;
+    /* The observed base cell, not the safe probe, owns word association.
+     * No shifted price/name promotion can turn this fallback into TARGET. */
+    return binary_slot_word(observation,cx,base_sy,options,result,&result->partial[0]);
+}
 #endif
 #if !NG2_HAS_RING_BANK
 int ng2_ring_negative_certificate(const NG2RingResult *result){(void)result;return 0;}
@@ -4092,6 +4155,9 @@ int ng2_ring_assess_rgba(const unsigned char *rgba,size_t bytes,size_t stride,
         result->partial_safe_no_positive=result->outcome==NG2_RING_UNKNOWN
             &&(result->partial_count>0||result->row_count>0);
     }
+#if NG2_HAS_RING_BANK
+    if(!status)status=partial_positive124(rgba,&observation,options,result,sign_count);
+#endif
     if(!status&&result->coverage==NG2_RING_COVERAGE_COMPLETE) {
         if(!ng2_ring_negative_certificate(result)){status=NG2_RING_KERNEL;goto done;}
         result->outcome=NG2_RING_NEGATIVE;result->reason=NG2_RING_EXPOSED_TARGET_ABSENT;
