@@ -77,3 +77,10 @@ C2fde2c4c・newfixture34a70efa・oldfixture067ad33eを凍結し、author b82d932
 ## 最終source scope
 
 host137=新52＋直接旧57＋metadata6＋package8＋selector14、native109、実AST CORE閉包66、実CPython3.9選択108を明示固定した。non-doc変更16/新11、fixture74/import18/Py39 paths50を実sourceに結び、旧file/directory aliasを正しく分離した。selector14は実3.9.25でexact旧123の意味11assertion Red/errors0→新14Green、metadata6prefix/旧assert/helpers/過去reader originsを保持。独立finalscope review07ad3777でP0/P1/P2残0。fullhost137/実Py39108のローカル再走は行わず、これから同一CODEの実CIで一度実行する。実IPA/全source照合・固定公開・実機受入は未実施。
+
+
+## 実CI・配布前の同一性確認
+
+CODE20778950f39d8bc9134932952328331ae1b99c5a、CI276/run45860793228はsource-ready/host/focused-buildの実3job成功・15skip。host137と実CPython3.9.25の108はfailure/error/skip0、元artifact GHdigest/全bytes/CRCを照合。元IPAは18,520,248B/SHA `35fcfe28f500c929f37a01216395ffb3f21e5368e59a9e8c33b6329880fef3ea`。
+
+read-only五項目はattempt1で全合格（verification SHA `f7698b0b2a2c5779a897e6a70f1f1b7a3bdc0c71ead85cbd6e72c7feaca3ebe4`）。CODE全1261Git blob/全bytes・37nativeの3変更34保持/追加0、実compiler/profile3、全9MachO、過去markerの正しい出典と新fixtureマーカー排除等を確認した。reader c34c49a5、scope d5e4ce29。新Mac Runtime0・旧Runtime/world/spool再走0、local reader classifier/compiler0。未実施を現行合格へ置換しない。公式docs-only SOURCE/固定公開/匿名全取得・iPhone受入は後続工程。
