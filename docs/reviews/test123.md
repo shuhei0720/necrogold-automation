@@ -62,3 +62,10 @@ CODE `578a9ef94ecf581d8fdb363efff58b5ff4dd51f5`、[CI274/run45833855464](https:/
 CODE flat10,562,039B/SHA80da3a75の全1243Git blob/全bytes/CRC/各SHAを照合。source-only最終fill/aee13805と独立最終差分を確認した後、原8roleとCI identityに結び、rootがactual GO/八flagを確定した。reader e5c61351・scope6b09c525・input3666325cを固定し、read-only五項目 ci/source_package/host_python39/ios_compile/macho がattempt1で全合格した（verification SHA `e4bac2b70778fa2794195c0d28794a56c449c54c6210d31d352fec2cccc1705a`）。37native/API/profile3・実compiler・全9MachOのfixture混入なしを確認。reader内classifier/compiler実行0、新Mac Runtime0。
 
 新iPhoneでの商品到達・対象判定・商品後RS・連続周回/毎拍・速度は未受入。Linux期限校正の1件all_within=falseも据え置く。公式SOURCEと固定3assetの匿名全取得は別工程で検証し、公開後追記する。
+
+
+## 固定公開後の全取得（2026-11-26）
+
+公式SOURCE `8c85a8ade8610ae08c28a6ac17347ecf818fe54a` はCODE578a9efから文書4件だけの差。全1243Git blob/各raw bytes/CRC/同nativeを照合した。source.zipは10,774,206B/SHA `19bf9dea9bf20c1a3202776b649f1de41dc34b3fd8f4d17bb4c3e6417f3df0c3`、SHA表156B/SHA `1c5142d4528db1fad4b053cabac525ea161674e57ea6a35b27150d3eadbb9434`。
+
+[publisher275/run45836807840](https://github.com/shuhei0720/necrogold-automation/actions/runs/45836807840)は検証済みbuild274を再ビルドせず、[test123-build274](https://github.com/shuhei0720/necrogold-automation/releases/tag/test123-build274)・release459504666へ3assetを固定保存した。publish-downloadだけが成功し、build jobは全てskip。固定IPA・完全source・SHA表の匿名全GET200、元原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した（public receipt SHA `2c7f592e9274d8a0c684a0f77dd93d6aadecdff5bd8c4855bae3f23e406aaed9`）。公開後は文書だけを追記し、asset/実tagは置換しない。新実機受入・毎拍/速度の未確認と原実機再発数を維持する。

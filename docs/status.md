@@ -1,6 +1,6 @@
 # 最新状態
 
-更新: 2026-11-26（日本時間）。[TEST123](reviews/test123.md)のCODE578a9ef・CI274/run45833855464でhost83/実Py3997/実IPAが合格。元3artifact、全1243CODE blob、37native/実compiler/全9MachOの五項目がattempt1合格。固定配布の公開・匿名取得を確認中。実機改善は未確認。
+更新: 2026-11-26（日本時間）。[TEST123](reviews/test123.md)のCODE578a9ef・CI274/run45833855464でhost83/実Py3997/実IPAが合格。元3artifact、全1243CODE blob、37native/実compiler/全9MachOの五項目がattempt1合格。[固定3asset](https://github.com/shuhei0720/necrogold-automation/releases/tag/test123-build274)の匿名全取得/全SHA/CRC/tag一致も確認済み。SOURCE8c85a8a、実機改善は未確認。
 
 TEST122実機9ZIP/4campaign/5run・120PNGの不足0、全商品可視4/5・商品後実RS1/4。商品停止3件を二看板alias/HUD/固定床端、開扉後1件を上端投影＋金壁railへ原因分離した。新22/5と限定DATAを実装し既成功packetを保持。独立差分指摘を修正し、37nativeは4変更33保持。Linux期限校正の不成立も記録し、実機改善/速度は新返却まで未確認。
 

@@ -790,3 +790,6 @@ TEST122公開後確認（2026-11-26）: SOURCE6dfe3f7（CODEf5143e3から文書4
 
 
 TEST123配布前確認（2026-11-26）: CODE578a9ef・CI274/run45833855464でhost83/実Py3997/実IPA合格。元3artifactの必須GHdigest/全bytes/CRC、CODE全1243blob、37nativeの4変更33保持、実compiler/profile3/全9MachOのread-only五項目がattempt1合格（verification SHAe4bac2b7）。IPA18,508,986B/SHA30a48a1d019f472d49d5450e84431d0d4bdc17e1c6a777ae241f1b29c83863f9。商品exact旧122の3原Red/公開新8の11意味assertion Red→新Green、metadata6/overflow3の意味Red→Green、control最終11/旧25Green、selector14は旧122で11意味Red→現14Green。独立combined差分P0/P1/P2残0（SHA83f659a1）。原成功66c8/旧5/19・20/21/PARTIALの全6112Bを保持。新22だけmembership最適化し、Linux元D校正b6は2/3対旧1/3・中央値約2.16ms改善だがall_within=false。元期限は延ばさず、全期限安定達成・実機改善・速度と再発数は未確認のまま。固定公開/公式SOURCE/匿名取得は次工程。
+
+
+TEST123公開後確認（2026-11-26）: SOURCE8c85a8a（CODE578a9efから文書4件のみ）・公式全1243Git blob/同nativeを照合。固定IPA・完全source・SHA表の匿名全GET200/全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA30a48a1d・source19bf9dea・SHA表1c5142d4、public receipt2c7f592e。公開275/run45836807840は検証済みbuild274を再ビルドせずrelease459504666/test123-build274へ保存した。公開後は文書のみを更新し、固定asset/実tagを置換しない。実機改善/毎拍・速度と元再発数は新返却まで未確認。

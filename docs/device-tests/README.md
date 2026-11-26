@@ -3283,3 +3283,6 @@ cd /mnt/necro_test123 && sh test_123.sh --until-target
 ```
 
 初回もRSから開始する。ゲーム表示中は触らず、候補/通路→開扉→全3商品が見える位置までの移動→対象外なら実RS→そのまま次周回を確認する。のろいのゆびわ候補では通知/停止を確認する。終了・停止後は画像回収の完了表示まで待ち、runtimeの `test-123-*.zip` と `test-123-campaign-*.zip` を全て返す。回収済みrunをもう一度走らせて追加回収しない。未回収が明示された場合だけ同じLoopCtrl起動状態/source/runtimeで同root回復を行う。
+
+
+TEST123固定公開確認（2026-11-26）: 公式SOURCE8c85a8aはCODE578a9efから文書4件だけ、全1243Git blob/同nativeを照合済み。source.zipは10,774,206B/SHA19bf9dea9bf20c1a3202776b649f1de41dc34b3fd8f4d17bb4c3e6417f3df0c3。公開job275はbuild274を再ビルドせず保存。上の固定3assetを匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した（public receipt SHA2c7f592e）。実機改善/速度の受入は新返却待ち。
