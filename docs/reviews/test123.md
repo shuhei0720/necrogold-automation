@@ -51,3 +51,14 @@ combined差分レビューのP1は、新numeric validatorでrow0座標を検査�
 combined独立最終差分はP0/P1/P2残0、receipt SHA83f659a1。商品author最終SHA5bcb1c92、計画24cce8e8へ数字の文書訂正だけを反映し、native/fixtureの再変更はない。新selector14はexact旧122 subjectで11意味assertion failure/errors0→現14Green（実CPython3.9.25）。source-only ASTはhost83＝native55＋cap6＋package8＋selector14、CORE50、実Py39は旧86＋新11＝97、既存変更15/新8を固定した（wiring receipt SHAbaeae5b4、AST352ba86f）。localで全83/97や旧selectorを重複再実行せず、CODE固定の標準CIで検証する。
 
 新read-only readerは旧source/package/compiler/全9MachOの原helperを同SHAで継承し、今回は五項目だけを選ぶ。helper9source/3data・旧actual272のmarker来歴を保持し、実artifactの必須name/typed ID/GHdigestを先に検査する。source/fixture/importの現bytesと83/97のASTを確認し、実CODE/run/buildと全CODE blobの確定前はactual GO/八final flagをfalseのまま保持する。source review SHA d73de7f8、reader e5c61351。旧Runtime/worldの再実行や旧CIの新結果への付け替えはしない。
+
+
+## 実ビルドと配布前同一性（2026-11-26）
+
+CODE `578a9ef94ecf581d8fdb363efff58b5ff4dd51f5`、[CI274/run45833855464](https://github.com/shuhei0720/necrogold-automation/actions/runs/45833855464)はhost83/実CPython3.9.25の97/実IPA生成が成功。skip/error/failure/expected-failure0を原host ZIPから確認。全18jobは必要3成功/選択外15skip、旧Runtime/worldは再実行していない。
+
+元package19,076,787B/SHA cc367df727e00a24a8ab70e9cd54cbb7f121d98bbe691043303aa1d8c48b3b7f、validation163,940B/SHA201c1da8、host31,944B/SHAa3841efdはGitHubの必須name/typed ID/digest・全bytes/CRCを照合した。IPAはpackage内の元memberを無変換で取得し、18,508,986B/SHA `30a48a1d019f472d49d5450e84431d0d4bdc17e1c6a777ae241f1b29c83863f9`。
+
+CODE flat10,562,039B/SHA80da3a75の全1243Git blob/全bytes/CRC/各SHAを照合。source-only最終fill/aee13805と独立最終差分を確認した後、原8roleとCI identityに結び、rootがactual GO/八flagを確定した。reader e5c61351・scope6b09c525・input3666325cを固定し、read-only五項目 ci/source_package/host_python39/ios_compile/macho がattempt1で全合格した（verification SHA `e4bac2b70778fa2794195c0d28794a56c449c54c6210d31d352fec2cccc1705a`）。37native/API/profile3・実compiler・全9MachOのfixture混入なしを確認。reader内classifier/compiler実行0、新Mac Runtime0。
+
+新iPhoneでの商品到達・対象判定・商品後RS・連続周回/毎拍・速度は未受入。Linux期限校正の1件all_within=falseも据え置く。公式SOURCEと固定3assetの匿名全取得は別工程で検証し、公開後追記する。

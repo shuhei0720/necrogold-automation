@@ -3263,3 +3263,23 @@ cd /mnt/necro_test122 && sh test_122.sh --until-target
 
 
 TEST122公開後確認（2026-11-26）: SOURCE6dfe3f7（CODEf5143e3から文書4件のみ）、公式全1231Git blob/全bytes/CRC/同nativeを照合。固定3assetを匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA18,500,451B/SHAa9affa880979b1abd05686c907f489c8ac355a89eb91ad829e2c833cd02efa96、source10,702,007B/SHA26443b772b3d6634882a919a18c014d1c3039e3f634d151ec4ba6bf57d4f4cbc、SHA表156B/SHAcccca710b0f2a6eed1a77b3eb46145485ec4b7171f22eeddc0d3185d2758e6d8。公開273/run45765891436は元build272を再ビルドせず固定保存した。公開後は文書だけを更新し、asset/実tagは置換しない。実機改善/毎拍・速度と再発数は新返却まで未確認。
+
+
+## TEST-123実行手順
+
+TEST122の9ZIP/4campaign/5runを全照合。商品が全て見える3停止は二看板のalias/HUD探索枠/床端の固定分割、開扉後の1停止は上端投影＋金壁railの再観測を修正した。旧実RS成功の全判定bytes、初回RSと連続周回は保持。全商品登録・宝箱対象・価格や名前の必須化は追加しない。
+
+CODE578a9ef、CI274はhost83/実CPython3.9.25の97/実IPA合格。37native/実compiler/全9MachO/全1243CODE blob等の五項目もattempt1合格。iPhoneでの改善は未受入、Linux期限校正の1件全回成立も未達で、単体合格と分ける。
+
+[IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test123-build274/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test123-build274/source.zip)・[SHA表](https://github.com/shuhei0720/necrogold-automation/releases/download/test123-build274/SHA256SUMS.txt)を固定Releaseへ保存する。IPAは18,508,986B/SHA `30a48a1d019f472d49d5450e84431d0d4bdc17e1c6a777ae241f1b29c83863f9`。公式SOURCE/公開後の全取得確認は公開後追記する。
+
+1. IPAをSideStoreで更新し、LoopCtrlを完全終了して開き直す。Start ServerとVPNを確認する。
+2. source.zipを展開し、test_123.shのあるフォルダを以下のmountで選ぶ。ゲームはケイデンス・通常オールゾーン1-1のポーズ、いつもの向き/画面端0で開始する。
+
+```sh
+mkdir -p /mnt/necro_test123
+mount -t ios . /mnt/necro_test123
+cd /mnt/necro_test123 && sh test_123.sh --until-target
+```
+
+初回もRSから開始する。ゲーム表示中は触らず、候補/通路→開扉→全3商品が見える位置までの移動→対象外なら実RS→そのまま次周回を確認する。のろいのゆびわ候補では通知/停止を確認する。終了・停止後は画像回収の完了表示まで待ち、runtimeの `test-123-*.zip` と `test-123-campaign-*.zip` を全て返す。回収済みrunをもう一度走らせて追加回収しない。未回収が明示された場合だけ同じLoopCtrl起動状態/source/runtimeで同root回復を行う。
