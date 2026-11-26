@@ -1,9 +1,7 @@
 # 最新状態
 
-更新: 2026-11-26（日本時間）。TEST121実機8ZIP/4root/96PNGを照合し、[TEST122の4原因修正](plans/test122-device-failures.md)・単体/直接関連・独立差分レビューを完了。実機は全商品可視2/4・商品後RS0/2のまま。通路ACK後unit、価格独立21/4、V2初回観測、FULL halo DATAを修正し旧成功5packetを保持。[検証](reviews/test122.md)。37nativeの5変更32保持を封印、実IPA/CIと実機改善は未確認。
+更新: 2026-11-26（日本時間）。[TEST122/build272](https://github.com/shuhei0720/necrogold-automation/releases/tag/test122-build272)の実IPA/CIと配布前5照合が合格。固定公開・匿名全取得は公開後に追記する。CODEf5143e3、CI272/run45763652619、host102・実CPython3.9.25の86。37nativeは5変更32保持、API/native_v15/ABI1/profile3を維持。
 
-前回配布は[TEST121/build270](https://github.com/shuhei0720/necrogold-automation/releases/tag/test121-build270)。CODE4574786/CI270、host88・実Py39 75・実IPAの5確認が合格。37nativeは5変更32保持、API/native_v15/POD/profile3を維持。
+[計画](plans/test122-device-failures.md)・[検証](reviews/test122.md)。TEST121実機8ZIP/4root/96PNGの通路ACK後Motion、価格独立21/4、上部入口H1前の静止観測、FULL halo新DATAを修正。旧成功5packet/対象候補/初回RS/連続周回を保持した。元実機の商品可視2/4・商品後RS0/2を、新しい実機で改善評価する。
 
-[検証](reviews/test121.md)・[計画](plans/test121-device-failures.md)。TEST120実機7ZIP/4run/99PNGを照合し、扉前の壁色差による取消、看板分断/床支持/暖色文字の商品UNKNOWN、capture1左上候補を修正。旧成功5packetと初回RS/連続周回を保持。269画像のNav差は指摘1件だけ。
-
-IPA SHA671bb82f。SOURCEd2fae5c/全1215blob・同native、固定3assetの匿名全GET/全bytes/SHA/CRC/実tagを確認済み。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。通常1-1ポーズから `sh test_121.sh --until-target`。終了表示後の全run/campaign ZIPを返却してもらう。実機到達・毎拍/速度の受入は未完了。
+IPA SHAa9affa88/18,500,451B。CODE全1231blob・実compiler/全9MachO等はattempt1合格、新Mac0。SOURCEは文書4件だけを更新し公式全sourceを別照合する。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。通常1-1ポーズから新sourceで`sh test_122.sh --until-target`。終了表示後の全run/campaign ZIPを返却してもらう。実機到達・連続RS・毎拍/速度は未受入。

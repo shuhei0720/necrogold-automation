@@ -3243,3 +3243,20 @@ cd /mnt/necro_test121 && sh test_121.sh --until-target
 
 
 TEST121公開後確認（2026-11-25）: SOURCEd2fae5c（CODE4574786から文書4件だけ）/公式全1215blob・同nativeを照合。固定3assetの匿名全GET200、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA18,493,552B/SHA671bb82f1d14c732e668b7ecd7a7876e381cae0aa2af4d59551bec80cd620d97、source10,623,801B/SHA4deec35fecdf562b630da4fcfe18bd07c273ab8aefc214b919d51ad59f07ea7d、SHA表c9e9f422d73b30cdcfa2768c23eedf9459e50d47fafdc6d2b6d49d231f8288a5。公開271/run45569222642は検証済みbuild270を再ビルドせず保存した。公開後は文書のみを更新し、固定asset/実tagは置換しない。実機改善・速度と元再発数は未確認のまま。
+
+
+## TEST121受領とTEST122: 通路ACK・価格独立判定・上部観測・現在DATA
+
+2026-11-26。8ZIP/4root/4campaign・96PNG/111記録を全照合。通路のACK後unit確認、全商品可視でも価格不足でUNKNOWNになる適用漏れ、上部入口H1前の歩行外材質、FULL haloの1セル露出による新DATA拒否を修正。[検証](../reviews/test122.md)・[修正表](../fix-records.md)。旧5成功packet、初回RS/対象候補/対象外の連続周回/元期限を保持する。元実機の全商品可視2/4・商品後RS0/2を合成成功で改善済みにしない。
+
+CODEf5143e3・CI272/run45763652619、host102/実CPython3.9.25の86・実IPAが合格。37nativeの5変更32保持、全1231CODE blob/実compiler/全9MachO等のread-only5項目はattempt1合格。新Mac0。IPA18,500,451B/SHAa9affa88。実機の商品到達/継続/毎拍・速度は次の返却で確認する。
+
+[固定IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test122-build272/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test122-build272/source.zip)・[SHA表](https://github.com/shuhei0720/necrogold-automation/releases/download/test122-build272/SHA256SUMS.txt)。IPA更新→LoopCtrl完全終了/起動→Start Server/通常VPN。完全sourceを展開しtest_122.shがあるフォルダをiSHへmountする。公式SOURCE/固定公開3assetの匿名全取得は公開後に追記する。
+
+```sh
+mkdir -p /mnt/necro_test122
+mount -t ios . /mnt/necro_test122
+cd /mnt/necro_test122 && sh test_122.sh --until-target
+```
+
+通常ケイデンス・オールゾーン1-1のポーズから初回RS→候補/通路→開扉→全3商品確認を一連で依頼する。上部入口は内側の金壁沿いに下行し、対象外なら画像転送を挟まず実RS→次周回、対象候補なら保持/通知することを確認する。停止後の回収完了表示まで待ち、途中停止分を含むruntime/test-122の全run ZIPとcampaign ZIPを返却してもらう。回収済みrunを追加回収目的で再実行しない。

@@ -51,3 +51,13 @@ client/cap13pathの独立静的確認はP0/P1なし。新122は121継承で識�
 review後に固定upstream6e25cf6へ元G1f9508cd3→新G2をseal/applyし、全37nativeの実ファイルSHAをmanifestと照合した。5変更（RPC/Controller/Nav/Ring.c/H）・32保持・追加/削除0。manifest SHA1d0d2e27、patch SHA5cd7b910。API1.98.16-ngg2/native_v15/ABI1/profile3とRuntime/残Swift/Perception/R12/G1は保持する。Git外 `test122-root/seal-source-inventory.json` SHA320fb243。最初にmanifest entry辞書をSHA名のkeyへ置いた準備receiptは別保存し、実37SHA文字列へ訂正/全applied bytes再照合した現receiptを正とする。これは配布前のsource確認であり、実compiler/IPA gateの代替ではない。
 
 封印後の正式selector14/14はGreen。最終source freeze SHA88c6db66でnon-doc895全bytes/hash、既存15変更/新10、全28additionのdriver/applied sibling、fixture67source/CORE59 import-only、31/102/86 methodを照合した。host final化はreviewed b9f02627から2flagと説明comment1行だけ（after9933b9c6、increment receipt SHA480b0f20）。実host102/実Py3986は重複したローカル全実行を増やさず、次のCODE固定の標準CI一回へ残す。local source freezeをGit CODE pin済みと誤表示しない。
+
+## 実CI・IPAと配布前照合
+
+CODE `f5143e339a1e6efddb3c24a69dbea163fd1007de`、[CI272/run45763652619](https://github.com/shuhei0720/necrogold-automation/actions/runs/45763652619)。標準Ubuntuのhost102（20group88＋selector14）・実CPython3.9.25の86、標準macos-26の実IPAが合格。必須18jobを全取得し、3active job成功/他15skipは選択どおり。全Runtime故障/合成worldの再実行0、新Mac Runtime0。正しいskipを実行合格へ数えない。
+
+元3artifactのtyped ID/name/必須GitHub digest/raw全bytes/SHA/CRCを確認。package15091227992/c1755b92、validation15091263019/e94fa636、host15091575534/274aa2f9。IPAは元packageのmemberから全bytesを保存し、18,500,451B/SHA `a9affa880979b1abd05686c907f489c8ac355a89eb91ad829e2c833cd02efa96`。ローカルCODE flat ZIPは全1231Git blob/全bytes/CRC一致、10,492,397B/SHA0a502f63。
+
+独立したread-only5項目（ci/source_package/host_python39/ios_compile/macho）はattempt1で全PASS。実compiler/RSP/PBX/profile3、37native、全9MachOとfixture marker3088、全source/host/実Py39方法/shaを確認した。新classification/compile/過去Runtime gateのローカル再実行0。`test122-delivery/actual272-attempt1/verification.json` SHA8b974960、readeredd3579/scope20c01e23。旧helper4/source9/data3とactual270由来の明示marker188＋legacy経路を保持。新scannerのescape疑義は標準re校正で誤読と確認、reader差分0。prep/actualのswitch・原input・失敗初稿を混ぜない。
+
+[固定IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test122-build272/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test122-build272/source.zip)・[SHA表](https://github.com/shuhei0720/necrogold-automation/releases/download/test122-build272/SHA256SUMS.txt)。検証済みbuild272を再ビルドせず保存する。公開用SOURCEはCODEから文書4件だけを更新し、公式ZIP全Git bytes/CRC/同nativeと公開3assetの匿名全GETを別途確認する。iPhone受入は新返却まで未実施。
