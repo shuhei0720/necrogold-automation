@@ -61,3 +61,8 @@ CODE `f5143e339a1e6efddb3c24a69dbea163fd1007de`、[CI272/run45763652619](https:/
 独立したread-only5項目（ci/source_package/host_python39/ios_compile/macho）はattempt1で全PASS。実compiler/RSP/PBX/profile3、37native、全9MachOとfixture marker3088、全source/host/実Py39方法/shaを確認した。新classification/compile/過去Runtime gateのローカル再実行0。`test122-delivery/actual272-attempt1/verification.json` SHA8b974960、readeredd3579/scope20c01e23。旧helper4/source9/data3とactual270由来の明示marker188＋legacy経路を保持。新scannerのescape疑義は標準re校正で誤読と確認、reader差分0。prep/actualのswitch・原input・失敗初稿を混ぜない。
 
 [固定IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test122-build272/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test122-build272/source.zip)・[SHA表](https://github.com/shuhei0720/necrogold-automation/releases/download/test122-build272/SHA256SUMS.txt)。検証済みbuild272を再ビルドせず保存する。公開用SOURCEはCODEから文書4件だけを更新し、公式ZIP全Git bytes/CRC/同nativeと公開3assetの匿名全GETを別途確認する。iPhone受入は新返却まで未実施。
+
+
+TEST122公開後確認（2026-11-26）: SOURCE6dfe3f7（CODEf5143e3から文書4件のみ）、公式全1231Git blob/全bytes/CRC/同nativeを照合。固定3assetを匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA18,500,451B/SHAa9affa880979b1abd05686c907f489c8ac355a89eb91ad829e2c833cd02efa96、source10,702,007B/SHA26443b772b3d6634882a919a18c014d1c3039e3f634d151ec4ba6bf57d4f4cbc、SHA表156B/SHAcccca710b0f2a6eed1a77b3eb46145485ec4b7171f22eeddc0d3185d2758e6d8。公開273/run45765891436は元build272を再ビルドせず固定保存した。公開後は文書だけを更新し、asset/実tagは置換しない。実機改善/毎拍・速度と再発数は新返却まで未確認。
+
+公開検証receipt: `test122-delivery/public-get/receipt.json` SHA704c9cdbc2082682fd9f5e0deee58e3745090241e22528b755fbc60f86bf9303。public GETは認証/header/cookie/netrc指定なしのcurl -qで行い、署名期限付きURLを配布リンクにしない。

@@ -773,3 +773,6 @@ TEST121公開後確認（2026-11-25）: SOURCEd2fae5c（CODE4574786から文書4
 | FR-122-FULL-HALO-DATA | 2026-11-26 | 7a9dで商品可視でも新DATA判定へ進まず停止 | 原234はcap89.28%でUNKNOWNが正しい。次235/236は既完全NEGだが保護halo1セルUNKNOWN→DIRTを旧pairが拒否 | 同ITEM/mask/GOLD/DOOR/歩行cross/直接零の1halo露出に限り別DATA資格。旧MOVEを救わず新immutable mode2へ | 原234 UNKNOWN・235/236旧NEGを保持。新8＋関連15Greenで公開未発行framing→新DATA→通常producer/独立C/保存RSと共有DATA2/一回/元Pを確認。Runtime実drain再実行0、境界sourceは保持。実機改善未確認 | 今回1。FR110/114の現在DATAの別適用外、同根因通算不明 |
 
 TEST122配布前確認（2026-11-26）: CODEf5143e3・CI272/run45763652619、host102/実Py3986/実IPAが合格。元3artifact必須GHdigest、全1231CODE blob、37nativeの5変更32保持、実compiler/profile3/全9MachO等のread-only5項目がattempt1合格（receipt SHA8b974960）。IPA18,500,451B/SHAa9affa880979b1abd05686c907f489c8ac355a89eb91ad829e2c833cd02efa96。新Mac0、旧5成功全6112bytes同値。実機改善/毎拍・速度と再発数は未確認、固定公開/公式SOURCE/匿名全取得は公開工程で確認する。
+
+
+TEST122公開後確認（2026-11-26）: SOURCE6dfe3f7（CODEf5143e3から文書4件のみ）、公式全1231Git blob/全bytes/CRC/同nativeを照合。固定3assetを匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA18,500,451B/SHAa9affa880979b1abd05686c907f489c8ac355a89eb91ad829e2c833cd02efa96、source10,702,007B/SHA26443b772b3d6634882a919a18c014d1c3039e3f634d151ec4ba6bf57d4f4cbc、SHA表156B/SHAcccca710b0f2a6eed1a77b3eb46145485ec4b7171f22eeddc0d3185d2758e6d8。公開273/run45765891436は元build272を再ビルドせず固定保存した。公開後は文書だけを更新し、asset/実tagは置換しない。実機改善/毎拍・速度と再発数は新返却まで未確認。

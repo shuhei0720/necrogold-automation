@@ -3260,3 +3260,6 @@ cd /mnt/necro_test122 && sh test_122.sh --until-target
 ```
 
 通常ケイデンス・オールゾーン1-1のポーズから初回RS→候補/通路→開扉→全3商品確認を一連で依頼する。上部入口は内側の金壁沿いに下行し、対象外なら画像転送を挟まず実RS→次周回、対象候補なら保持/通知することを確認する。停止後の回収完了表示まで待ち、途中停止分を含むruntime/test-122の全run ZIPとcampaign ZIPを返却してもらう。回収済みrunを追加回収目的で再実行しない。
+
+
+TEST122公開後確認（2026-11-26）: SOURCE6dfe3f7（CODEf5143e3から文書4件のみ）、公式全1231Git blob/全bytes/CRC/同nativeを照合。固定3assetを匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認した。IPA18,500,451B/SHAa9affa880979b1abd05686c907f489c8ac355a89eb91ad829e2c833cd02efa96、source10,702,007B/SHA26443b772b3d6634882a919a18c014d1c3039e3f634d151ec4ba6bf57d4f4cbc、SHA表156B/SHAcccca710b0f2a6eed1a77b3eb46145485ec4b7171f22eeddc0d3185d2758e6d8。公開273/run45765891436は元build272を再ビルドせず固定保存した。公開後は文書だけを更新し、asset/実tagは置換しない。実機改善/毎拍・速度と再発数は新返却まで未確認。
