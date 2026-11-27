@@ -3329,3 +3329,6 @@ cd /mnt/necro_test125 && sh test_125.sh --until-target
 ```
 
 初回もRSから開始する。ゲーム表示中は触らず、候補/通路→開扉→全3商品が見える位置までの移動→対象外なら実RS→そのまま次周回を確認する。のろいのゆびわ候補ではポーズ/通知を確認する。終了・停止後は画像回収の完了表示まで待ち、runtimeの `test-125-*.zip` と `test-125-campaign-*.zip` を全て返す。停止が残った場合は何周目/何回目・どの動作の後かも添える。回収済みrunを追加回収目的で走らせず、未回収が明示された場合だけ同じLoopCtrl起動状態/source/runtimeで同root回復を行う。
+
+
+TEST125固定公開確認（2026-11-27）: 公式SOURCE `cb59218c6d0e39565b23bef168bcea407f962751` はCODEc18db303から文書4件だけ。全1275Git blob/全bytes/CRC/同nativeを照合。source.zipは10,944,917B/SHA `18fe3b9f65b1e6ef30004610eec3a535c07e1063d62df736d5a885e9d2868450`。公開279/run45923051755は元build278のartifact15165181499を再ビルドせずrelease460063102/test125-build278へ保存した。固定IPA/完全source/SHA表を匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認（public receipt SHA `b4b0bb6a96eb08c0fc85896296eab5d4f43625d38dd4105285fbffd0fe1da26f`）。IPA18,521,182B/SHA97a7c054、SHA表156B/SHA27172b7a。公開後は文書だけを更新し、asset/実tagは置換しない。新実機の商品到達/実RS/速度・再発数は次の返却まで未受入。

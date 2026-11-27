@@ -45,3 +45,6 @@ CODE `c18db303a648571be4b3ff6afdd0e0f86b6458ce`、実CI278/run45921464109は18jo
 IPAは18,521,182B/SHA `97a7c05463c44416a03742535136fc0111cd66c99b7c8f6c3733ca97e2261ddf`。CODE全1275Git blob/CRC、native37のRPC+C2変更/35保持/追加0、実arm64 compiler/profile3、全9MachOと元/current markerの五項目がactual278-attempt1で合格（verification SHA `d627fe807cdab0993bec72155d49366da94e2cfb618fd2910d7c475169194bc0`、macho f5b95d3a）。readerは既閉鎖sourceから実3artifactの受領後だけactual GOし、ローカルclassifier/compiler・旧Runtime全体を実行していない。
 
 最終wiringレビュー0376c8cf/reader sourceレビューb34e2d39・統合c00c3d44は残指摘0。CODE archive SHA786cfe48、source確定scope969b7a7b、actual承認scope5411e661を区別し、実CI前のflags/approvednullを成功へ書換えていない。公式SOURCEはCODEから文書4件だけ更新して全Git blob/同nativeを照合し、元IPAと固定公開する。公開後の匿名全GETと新iPhone受入はこの時点では未実施。
+
+
+TEST125固定公開確認（2026-11-27）: 公式SOURCE `cb59218c6d0e39565b23bef168bcea407f962751` はCODEc18db303から文書4件だけ。全1275Git blob/全bytes/CRC/同nativeを照合。source.zipは10,944,917B/SHA `18fe3b9f65b1e6ef30004610eec3a535c07e1063d62df736d5a885e9d2868450`。公開279/run45923051755は元build278のartifact15165181499を再ビルドせずrelease460063102/test125-build278へ保存した。固定IPA/完全source/SHA表を匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認（public receipt SHA `b4b0bb6a96eb08c0fc85896296eab5d4f43625d38dd4105285fbffd0fe1da26f`）。IPA18,521,182B/SHA97a7c054、SHA表156B/SHA27172b7a。公開後は文書だけを更新し、asset/実tagは置換しない。新実機の商品到達/実RS/速度・再発数は次の返却まで未受入。

@@ -827,3 +827,6 @@ TEST124公開後確認（2026-11-27）: SOURCEfbbaf4c（CODE2077895から文書4
 
 
 TEST125配布前確認（2026-11-27）: CODEc18db303・実CI278/run45921464109でhost132/実CPython3.9.25の119/実IPAが合格。新native24/直接旧80を含む元16groupが失敗/skip0。元3artifact GHdigest/全bytes/CRC・全1275CODE blob・37nativeの2変更35保持・実compiler/profile3/全9MachOを五項目attempt1照合（d627fe80）。IPA18,521,182B/SHA97a7c05463c44416a03742535136fc0111cd66c99b7c8f6c3733ca97e2261ddf。成功policy19と実RSを保持、元P/予算・未確認≠NEG・候補優先・UNKNOWN無再送を維持。新実機改善/速度・再発数は未受入。公式SOURCE/固定公開の匿名全取得は次工程。
+
+
+TEST125固定公開確認（2026-11-27）: 公式SOURCE `cb59218c6d0e39565b23bef168bcea407f962751` はCODEc18db303から文書4件だけ。全1275Git blob/全bytes/CRC/同nativeを照合。source.zipは10,944,917B/SHA `18fe3b9f65b1e6ef30004610eec3a535c07e1063d62df736d5a885e9d2868450`。公開279/run45923051755は元build278のartifact15165181499を再ビルドせずrelease460063102/test125-build278へ保存した。固定IPA/完全source/SHA表を匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認（public receipt SHA `b4b0bb6a96eb08c0fc85896296eab5d4f43625d38dd4105285fbffd0fe1da26f`）。IPA18,521,182B/SHA97a7c054、SHA表156B/SHA27172b7a。公開後は文書だけを更新し、asset/実tagは置換しない。新実機の商品到達/実RS/速度・再発数は次の返却まで未受入。
