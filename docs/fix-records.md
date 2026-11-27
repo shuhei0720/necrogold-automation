@@ -812,3 +812,15 @@ TEST124配布前確認（2026-11-27）: CODE2077895・実CI276/run45860793228で
 
 
 TEST124公開後確認（2026-11-27）: SOURCEfbbaf4c（CODE2077895から文書4件のみ）・公式全1261Git blob/同nativeを照合。固定IPA/完全source/SHA表を匿名全GET200し、原本全bytes/SHA/GitHub digest/size・両ZIP CRC・実tag SOURCEを確認（public receipt7d9ecc3a）。IPA18,520,248B/SHA35fcfe28、source10,881,837B/SHA921d1c4a、SHA表156B/SHA1e797933。公開277/run45863674713は元build276を再ビルドせずrelease459690227/test124-build276へ保存。公開後は文書のみを更新し、asset/実tagは置換しない。実機改善/速度/元再発数は新返却まで未受入。
+
+
+## TEST125: TEST124実機の継続3停止と実RS成功（2026-11-27）
+
+[計画](plans/test125-device-failures.md)。7ZIP/3campaign/4run・96PNG/115記録を全照合、不足0。95stable＋元inflight1を分け、9043/source156 normal19完全NEG→保存→実RS17→新floor178→child5296の成功を保持する。残3runは通常UNKNOWNをD内採用後に停止。前回124の限定条件/模擬成功だけで別入口の継続を覆えていなかった。
+
+| ID | 修正日 | 原事象/確定した境界 | 対策/確認の範囲 | 同原因再発数 |
+| --- | --- | --- | --- | --- |
+| FR-125-PARTIAL-REMOTE-FLOOR | 2026-11-27 | d301の空PARTIAL UP framing、原122→124は通常直接零/同UP/保護・金壁・次FLOOR不変。遠方UNKNOWN→FLOORだけがstatic ROUTE10 | 元source/候補範囲を保持する共有材質関係。exact124の意味Red後、新規/直接関連66Green。原画像predicateはstatic10→0、元context不変 | 今回1。FR109遠方材質系列のUP適用漏れ継続。通算不明、実機改善未受入 |
+| FR-125-PARTIAL-GOLD-CONTRACTION | 2026-11-27 | 8831の上端重複ITEM10→5で旧ITEM内の支持GOLDをtop-aliasがROUTE10。通常直接零・同UP、下段5ITEM/全旧GOLD保持 | 旧大potentialを保持する投影縮退を共有判定へ。追加DATA/枠残推測なし。意味Red後、上記66Green。原画像predicate10→0、元context/Scene不変（dffbec61） | 今回1。同症状継続、旧TOP/rail系列の別役割境界。通算不明 |
+| FR-125-UPPER-WEAK-PROBE | 2026-11-27 | child5296原131は通常UNKNOWN safe1/4partial。弱maxのbox下端382がHUD380を越え、upper_slotが拒否 | 弱探索位置と正の存在/陰性証拠を分離したUNKNOWN観測専用契約。意味Red後、新6/直接24Green。global HUD/NEG・通常packetは不変 | 今回1。同症状継続、旧ROI/上部入口修正では未網羅。通算不明 |
+| FR-125-UPPER-POSTUNIT-PALETTE | 2026-11-27 | 同childのH1後129→130/131は同ITEM/保護/金壁/次LEFT・通常直接零だが、遠方の既知F/D/S三セルで旧pre-H1限定relationから外れ再判定へ。実unit/sourceとの結合も失う | 元unit/owner/job/sourceと旧Pを保持した既知材質だけの共有静止関係。UNKNOWN・近傍・商品変更を除外。固定d3bの意味Red後、新8＋弱probe6＋直接24=38Green、begin/正常H2/DOWNと宣言FULLを確認 | 今回1。同childの停止前段、追加の適用漏れ。通算不明、実機の次拍/全商品到達は未受入 |

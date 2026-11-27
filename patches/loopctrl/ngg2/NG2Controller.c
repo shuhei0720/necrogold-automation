@@ -5043,6 +5043,8 @@ static int cycle_opened_partial(const NG2Controller *p,int d){
  * quiet gate path. Remote STONE may resolve to DIRT, never to unknown/floor.
  * Empty UP framing retains one remote DIRT-to-STONE refinement only while
  * both positive corridor proofs survive; the caller still proves direct zero.
+ * A clean classified PARTIAL or empty framing may reveal remote FLOOR
+ * from UNKNOWN without changing its immutable goods/route evidence.
  * Full choice/protection and independent strict zero remain required below. */
 static int cycle_partial_quiet_cell(const NG2Controller *p,const NG2Scene *source,
                                   const NG2Scene *scene,int d,int i){
@@ -5062,7 +5064,11 @@ static int cycle_partial_quiet_cell(const NG2Controller *p,const NG2Scene *sourc
             ||(p->cycle_framing_credit&&d==NG2_UP&&opened
                 &&cycle_corridor_scene(source)&&cycle_corridor_scene(scene)
                 &&old==NG2_TILE_DIRT&&latest==NG2_TILE_STONE)
-            ||(opened&&old==NG2_TILE_FLOOR&&latest==NG2_TILE_UNKNOWN));
+            ||(opened&&old==NG2_TILE_FLOOR&&latest==NG2_TILE_UNKNOWN)
+            ||(opened&&(p->cycle_refresh_safe||p->cycle_framing_credit)
+                &&source->state==NG2_FLOOR&&scene->state==NG2_FLOOR
+                &&source->goods==NG2_GOODS_PARTIAL&&scene->goods==NG2_GOODS_PARTIAL
+                &&old==NG2_TILE_UNKNOWN&&latest==NG2_TILE_FLOOR));
 }
 static int cycle_partial_distant_dirt(const NG2Controller *p,const NG2Scene *source,
                                      const NG2Scene *scene,int d){
@@ -5121,7 +5127,9 @@ enum { CYCLE_TOP_ALIAS=1,CYCLE_TOP_ITEM=2,CYCLE_TOP_DATA=4 };
 /* Separate an observed top duplicate from the unchanged real row beneath it.
  * Every other cell still uses the old quiet/shielded rule. The exact ITEM
  * mask explains only its own top margins; it is not a general protection or
- * GOLD exception. New ITEM/material evidence requires a new normal job. */
+ * GOLD exception. A duplicate may contract to its old supported wall rail,
+ * retaining the larger old ITEM potential. New ITEM/material evidence still
+ * requires a new normal job. */
 static int cycle_partial_top_roles(const NG2Controller *p,const NG2Scene *scene){
     const NG2Scene *a=&p->cycle_anchor;
     int i,x,left=12,right=-12,items=0,roles=0;
@@ -5151,6 +5159,13 @@ static int cycle_partial_top_roles(const NG2Controller *p,const NG2Scene *scene)
                     ||old==NG2_TILE_DIRT||old==NG2_TILE_GOLD))roles|=CYCLE_TOP_ITEM;
             else if(old==NG2_TILE_ITEM&&(next==NG2_TILE_UNKNOWN||next==NG2_TILE_FLOOR
                     ||next==NG2_TILE_DIRT))roles|=CYCLE_TOP_ALIAS;
+            else if(old==NG2_TILE_ITEM&&next==NG2_TILE_GOLD){
+                int k;
+                if(!cycle_corridor_scene(a)||!cycle_corridor_scene(scene))return 0;
+                for(k=2;k<=4;++k)
+                    if(tile(a,cx,cy+k)!=NG2_TILE_GOLD||tile(scene,cx,cy+k)!=NG2_TILE_GOLD)return 0;
+                roles|=CYCLE_TOP_ALIAS;
+            }
             else if((old==NG2_TILE_UNKNOWN||old==NG2_TILE_FLOOR||old==NG2_TILE_DIRT)
                 &&(next==NG2_TILE_UNKNOWN||next==NG2_TILE_FLOOR||next==NG2_TILE_DIRT))roles|=CYCLE_TOP_DATA;
             else return 0;
@@ -7065,9 +7080,53 @@ static int upper_slot(const NG2Controller *p,const NG2RingSlot *slot,int outside
         &&(cycle_zero_box(slot->icon_box)||cycle_box(slot->icon_box))
         &&(slot->word_present?cycle_box(slot->word_box):cycle_zero_box(slot->word_box));
 }
+/* An inexact probe maximum is a bound over the normal template domain,
+ * not a matched sprite. Its position may overlap HUD while still proving
+ * no positive in that domain. This grants observation only, never NEGATIVE. */
+static int cycle_observation_probe125(const NG2RingSlot *slot){
+    const int32_t *icon=slot->icon_box,*word=slot->word_box;
+    int x0,x1,y0,y1;
+    if(slot->cx<0||slot->cx>=896||slot->sy<0||slot->sy>=414
+        ||slot->slot||slot->kind||slot->outcome!=NG2_RING_UNKNOWN||slot->icon_score_exact
+        ||slot->icon_score!=slot->icon_upper_bound||!cycle_binary_no_positive(slot)
+        ||slot->non_target_id||slot->non_target_conflict||slot->ignored_container_id
+        ||slot->non_target_icon_score!=0.0||slot->non_target_name_iou!=0.0
+        ||slot->non_target_name_coverage!=0.0||slot->ignored_icon_score!=0.0
+        ||slot->ignored_gold_iou!=0.0||slot->ignored_gold_coverage!=0.0
+        ||slot->ignored_dark_iou!=0.0||slot->ignored_dark_coverage!=0.0
+        ||!cycle_zero_box(slot->non_target_icon_box)||!cycle_zero_box(slot->non_target_name_box)
+        ||!cycle_zero_box(slot->ignored_icon_box)
+        ||!((icon[2]==32&&icon[3]==28)||(icon[2]==33&&icon[3]==28)
+            ||(icon[2]==34&&icon[3]==29))
+        ||icon[0]<0||icon[1]<0||icon[0]>896-icon[2]||icon[1]>414-icon[3])return 0;
+    x0=slot->cx-icon[2]/2-8;if(x0<0)x0=0;
+    x1=slot->cx-icon[2]/2+8;if(x1>896-icon[2])x1=896-icon[2];
+    y0=slot->sy+24;y1=slot->sy+57;if(y1>414-icon[3])y1=414-icon[3];
+    if(icon[0]<x0||icon[0]>x1||icon[1]<y0||icon[1]>y1)return 0;
+    if(!slot->word_present)return cycle_zero_box(word)&&slot->word_iou==0.0&&slot->word_coverage==0.0;
+    return word[2]==84&&word[3]==11&&cycle_box(word)
+        &&word[0]>=slot->cx-60&&word[0]<=slot->cx-24
+        &&word[1]>=slot->sy-20&&word[1]<=slot->sy+35;
+}
+static int upper_observation_result125(const NG2Controller *p,const NG2RingResult *result){
+    return p->restart_yield.s.enabled&&upper_identity(p)&&p->upper.stage==5
+        &&p->upper.inputs>0&&p->upper.inputs<p->upper.steps
+        &&p->cycle.partial&&!p->cycle.full_seen&&!p->cycle.pending&&!p->cycle.candidate_latched
+        &&!p->s.input_state&&!p->s.current_command_id&&!p->finish_requested&&!p->s.terminal
+        &&p->cycle.hold_started_ns==p->upper.hold
+        &&p->cycle.continuation_deadline_ns==p->upper.parent
+        &&p->cycle.assessment_ns&&p->cycle.assessment_ns<=p->upper.parent
+        &&upper_floor(p,&p->cycle_anchor)
+        &&result->abi==NG2_RING_ABI&&result->size==sizeof(*result)&&result->status==NG2_RING_OK
+        &&result->outcome==NG2_RING_UNKNOWN&&result->coverage==NG2_RING_COVERAGE_INCOMPLETE
+        &&result->reason<=NG2_RING_EXPOSED_TARGET_ABSENT
+        &&!result->row_count&&result->partial_count>0&&result->partial_count<=NG2_RING_MAX_PARTIAL
+        &&result->partial_safe_no_positive==1&&cycle_result_positive_hint(result)==0;
+}
 static int upper_result(const NG2Controller *p,const NG2RingResult *result){
-    int r,k,virtual_cell;
+    int r,k,virtual_cell,observation;
     if(!upper_observed_world124(p,&p->cycle_anchor))return 0;
+    observation=upper_observation_result125(p,result);
     for(r=0;r<result->row_count;++r){
         const NG2RingRow *row=&result->rows[r];
         for(k=0;k<3;++k)
@@ -7079,7 +7138,9 @@ static int upper_result(const NG2Controller *p,const NG2RingResult *result){
         for(r=0;r<result->row_count;++r)
             if(slot->sy==result->rows[r].sy&&(slot->cx==result->rows[r].left-36
                 ||slot->cx==result->rows[r].left+108))virtual_cell=1;
-        if(!upper_slot(p,slot,virtual_cell))return 0;
+        if(!upper_slot(p,slot,virtual_cell)&&!(observation&&cycle_observation_probe125(slot)
+            &&(upper_anchor(p,slot->cx,slot->sy,virtual_cell)
+                ||upper_projection_anchor124(p,slot->cx,slot->sy,virtual_cell))))return 0;
     }
     return 1;
 }
@@ -7302,11 +7363,59 @@ static int upper_material_footprint122(const NG2Controller *p,const NG2Scene *sc
     }
     return changed;
 }
+/* Keep an actual unit's classified source through fully observed remote
+ * palette changes. The completed prefix, not a later reservation, owns it;
+ * all callers still require direct normal zero and their original clocks. */
+static int upper_postunit_material125(const NG2Controller *p,const NG2Scene *scene){
+    const NG2Scene *a=&p->cycle_anchor;const NG2ControllerEvent *unit=NULL,*latest;
+    size_t n;int i,d=upper_direction(p),previous,changed=0;
+    if(!p->restart_yield.s.enabled||!upper_identity(p)||p->upper.variant!=2||p->upper.row!=4
+        ||(p->upper.direction!=NG2_LEFT&&p->upper.direction!=NG2_RIGHT)
+        ||p->upper.stage<1||p->upper.stage>3||p->upper.rebound
+        ||p->upper.inputs<1||p->upper.inputs>=p->upper.steps
+        ||p->upper.horizontal!=(p->upper.inputs<2?p->upper.inputs:2)
+        ||p->upper.down!=(p->upper.inputs>2?p->upper.inputs-2:0)
+        ||p->cycle.pending||p->cycle_assessing||p->cycle.candidate_latched
+        ||!p->cycle.partial||p->cycle.full_seen||p->cycle.status!=NG2_RING_OK
+        ||p->cycle.outcome!=NG2_RING_UNKNOWN||p->cycle.coverage!=NG2_RING_COVERAGE_INCOMPLETE
+        ||p->cycle.hold_started_ns!=p->upper.hold
+        ||p->cycle.continuation_deadline_ns!=p->upper.parent
+        ||!p->upper.anchor_end||p->upper.anchor_end<p->cycle.capture_start_ns
+        ||p->cycle.worker_started_ns<p->upper.anchor_end
+        ||p->cycle.assessment_ns<p->cycle.worker_started_ns
+        ||p->cycle.assessment_ns>p->upper.parent||p->finish_requested||p->s.terminal
+        ||p->s.input_state>1||d<1||d>4||!upper_floor(p,scene))return 0;
+    for(n=0;n<p->event_count;++n)
+        if(p->events[n].command.id==p->cycle.prefix)unit=&p->events[n];
+    previous=p->upper.inputs<=2?p->upper.direction:NG2_DOWN;
+    if(!unit||unit->command.kind!=NG2_ACTION_MOVE||unit->command.direction!=previous
+        ||unit->command.id<=p->upper.opening||unit->outcome!=2||!unit->begin_ns
+        ||unit->end_ns<unit->begin_ns||unit->end_ns>p->cycle.capture_start_ns
+        ||unit->motion!=NG2_MOVED||unit->dx!=dx[previous]||unit->dy!=dy[previous]
+        ||unit->observed_capture_id!=p->cycle.capture_id)return 0;
+    latest=p->event_count?&p->events[p->event_count-1]:NULL;
+    if(!p->s.input_state){
+        if(latest!=unit||p->s.current_command_id||memcmp(&unit->command,&p->command,sizeof(p->command)))return 0;
+    }else if(p->upper.stage!=3||!latest||latest->outcome||latest->begin_ns||latest->end_ns
+        ||p->command.id!=p->upper.issued||p->command.id<=unit->command.id
+        ||p->command.id!=p->s.current_command_id||p->command.kind!=NG2_ACTION_MOVE
+        ||p->command.direction!=d||memcmp(&latest->command,&p->command,sizeof(p->command)))return 0;
+    for(i=0;i<NG2_TILE_COUNT;++i){
+        int old=a->tiles[i],now=scene->tiles[i],x=i%23-11,y=i/23-5;
+        if(old==now)continue;
+        if(a->protected_cells[i]||scene->protected_cells[i]||abs(x)+abs(y)<=1
+            ||abs(x-dx[d])+abs(y-dy[d])<=1
+            ||(old!=NG2_TILE_FLOOR&&old!=NG2_TILE_DIRT&&old!=NG2_TILE_STONE)
+            ||(now!=NG2_TILE_FLOOR&&now!=NG2_TILE_DIRT&&now!=NG2_TILE_STONE))return 0;
+        changed=1;
+    }
+    return changed;
+}
 static int upper_static_footprint(const NG2Controller *p,const NG2Scene *scene){
     return upper_identity(p)&&upper_floor(p,scene)&&scene->goods==p->cycle_anchor.goods
         &&!memcmp(p->cycle_anchor.protected_cells,scene->protected_cells,NG2_TILE_COUNT)
         &&(!memcmp(p->cycle_anchor.tiles,scene->tiles,NG2_TILE_COUNT)
-            ||upper_material_footprint122(p,scene));
+            ||upper_material_footprint122(p,scene)||upper_postunit_material125(p,scene));
 }
 static int upper_normal_zero(const NG2Controller *p,const NG2Scene *scene,NG2Motion *motion){
     if(!ng2_motion(&p->cycle_anchor,scene,upper_direction(p),motion)

@@ -1,0 +1,38 @@
+# TEST125: TEST124受領・原停止の切り分け
+
+2026-11-27（日本時間）。[計画](../plans/test125-device-failures.md)。7ZIP/3campaign/4run/96PNG/115記録・全225memberを照合、不足0。全3内包lastZIPは提出原本全bytes一致、95stable/元inflight1を区別。intake receipt SHA c20c94aabf4eb6ae6864da042472c2f77cbd7a68123af573badc2a016dd918c0。
+
+出荷124 CODE2077895の全1261Git blobを私有baseline124へ再照合。正常診断lib56b1063dはそのC/既canonical helperから構築した。Scene/Motion/通常Ringの意味校正であり、iPhone実行・実速度・私的状態再現ではない。準備linkの不足helperは使用前に検出・記録し、完全link後に正常診断へ使った。
+
+9043のpolicy19通常NEG・adopted checkpoint→実PAUSE/保存/RS17→新floor178→child5296を成功として保持する。通常adoptionは4件中UNKNOWN3/NEG1。初回RS3/3、実unit計23/方向ACK27/開扉4、商品後RS/新floor/qualified/child1。9043/capture154は元inflightであり静止/unit校正へ使わない。
+
+d301原122→124は通常直接零・同UP/FLOOR・全ITEM/保護/金壁保持だが、遠方UNKNOWN→FLOOR一セルでstaticROUTE10。その前の123はreleaseより5.812750ms前開始であり、正しく独立currentから除外される。原正常producerは5.247833ms、D前78.479542msに完了。Cの停止Motion0は未評価の初期値で、実Motion失敗ではない（cause506d1e94）。
+
+8831原135→137も直接零・同UP/FLOOR。上端aliasの一セルが支持金壁へ変わることだけを分離したcounterfactualで拒否が消え、遠方STONE→DIRTだけを戻しても拒否は残る。framing_sceneは両方0で、既current_partial_transitionの適用外。さらにgeneric呼出はPROTECTED9限定で原ROUTE10から入れない。単にGOLDラベルやframing geometryだけを広げても不十分である。
+
+child5296原131の正常packetはUNKNOWN/incomplete/safe1/4partial、D前約87.856ms採用。低いicon bound約.6698の一slotのbest-probe boxがHUD下端を2px越え、upper_slotで拒否。他3slotは通り、原129/130は全4通る。argmax位置を正の商品の存在証拠として扱うconsumerと、不完全な観測結果の役割を分ける計画をレビューする。private upper ownerの一意化はholdだけで主張せず、H1 source118とのcouplingを別に確認する。
+
+元実機からの拒否cut・共通判定の適用表・機能別意味Red/Greenと直接関連・独立差分・新IPA/全source/固定公開は、確定後に追記する。実機で未到達の3件を補助試験の合格へ置換しない。
+
+
+## 実装前の反例と限定実装
+
+共有PARTIALは短計画fa79188f/独立plan6cd81fb5の後、exact124でpublic fit/実unit/開扉0歩/通常UNKNOWN採用/同UP/FLOOR/直接零の前提が通り、SEARCH継続だけHELD7/reason17となる意味Red2/errors0を確認（receipt3be69b0d）。遠方UNKNOWN→FLOORと支持された旧top ITEM→GOLD縮退の共有静的関係だけを変更し、最小2Green。DATA再分類/私的枠の推定/新stateは追加しない。関連境界と通常producerからの接続はauthorが継続中。
+
+観測slotは短計画892081e6/独立plan1c90c4caの後、exact124の公的V2→H1通常unit→7potential→palette rebound job3が成立し、弱い探索argmaxを持つnormal UNKNOWN採用後だけHELDとなる意味Red1/errors0を確認（receipt d9a18196）。inexact0/score=upper<.80の正常探索domainだけをUNKNOWN観測用に扱う限定実装へ進む。global cycle_box/NEG/positive/word条件を変更せず、原131packet/boxは変更しない。原画像/通常kernelのcutと宣言したcontrol componentを区別し、未知の未来実機を合格としない。
+
+client/cap125は17意味Red/28assertion errors0→17Green、実CPython3.9.25の直接237Green。原124client/shell/metadata helper・oldfuture各2literal以外の旧assertを保持し独立差分43b16098残0（author a71316a9）。host/reader/CI配線は未確定flagsFalseのsource準備だけ。実CI/IPA/新実機は未実施。
+
+共有PARTIALは最終新10＋直接関連56=66合格（receipt370483b2）。通常UNKNOWN→独立current→UP→ACK後の通常MOVED→新しい通常FULL policy22/NEG→独立C→耐久保存/RS/新floorを、宣言した未来画像とcallbackのモデルで確認した。過去assertを維持し、途中で既DATA成長を狭めた実装は旧試験が検出して元margin条件へ戻した。観測probeは新6/直接24合格（receipt466b69f3）。原PNGから固定診断時計で生成した通常packetは旧新版全bytes同一で、実機のprivate packet dumpや実C-returnの再現とは扱わない。元policy19の通常NEG/独立C合格と、元実RS成功の来歴を別に保持する。
+
+追加の前段調査では、child5296の原129→130/131が同ITEM/保護/金壁/次LEFTの床・通常直接零のまま、遠方のDIRT/FLOOR/STONE三セルだけ変わることを確認。既upper_material_footprint122は実unit前だけの適用なので、H1後はstatic_footprintが拒否してsource再判定となる。原130のanalysis終了は予測H2 notBeforeの約12.443ms前、131採用は約48.445ms後。旧job2の採用/実C-returnは未収録であり、元129保持が実機でその拍へ必ず間に合ったとは断定しない。期限を延ばさず、同じ実unit/owner/商品保護/次床/通常零を満たす既知遠方材質の関係を共有判定へ接続する追加短計画・反例を確認する。
+
+既増分C d3b589d5/新fixture b9958ad0・94b3fd96の独立差分レビューは指摘残0で閉鎖（2ad26c3d）。全20の他native本体と既233native試験は元CODEとbytes同一であり、実行合格件数とは別の保存確認。追加postunit計画2cf97248は独立78b00f8dで確認し、固定d3bの公開fit/開扉/通常H1/7potential/元P・world等が成立した上で、元job保持期待に対しjob増加/pending再判定となるassertion Red1/errors0（9a9c3fbd）を実装前に確認した。新増分の最終Green/差分は別に追記する。
+
+追加postunitは新8＋旧弱probe6＋直接旧24=38合格（36f44868）、C fea1e39eを凍結。予約した未送信H2のbeginは完了prefixの元unitを参照し、送信済み/UNKNOWNを借りない。H2後DOWN/宣言FULLへのcomponentも確認。原129 Scene/通常packetを同sourceで保持する宣言contextでは原130/131の静的関係0→1、直接零・元job2/source129/P/hold/入力countsを保持（548e7109）。旧private診断の外側callback metadata不足は明記して訂正し、元worker2/C-returnを復元したとは扱わない。d3bの原131同source consumer cutと、新版で129を保持する経路は別証拠であり、131packetを129へ渡さない。
+
+rootでG1→G2を新しいupstreamへseal/applyし、37source全設置SHAを照合。変更はRPC/Cの2・35保持・追加0、他20native本体/R12全40/G1も元CODE bytes保持（seal fc4dcbe3、manifest e20c2382）。元の指輪判定/Beat/Runtime/ABIは変更していない。実CI/IPA/固定公開は次工程。
+
+追加差分は独立レビュー30bda450で指摘残0。新helperと共有footprintのORだけを除くと既閉鎖d3bと全bytes一致し、元P/upper_budget/直接零/begin/入力UNKNOWNの条件を保持した。今回の選択はnative104（新24/直接旧80）、metadata6/旧package8/selector14を合わせhost132、実Py39 client119、CORE AST53の予定。無関係な全Runtime故障/合成worldは再実行せず、不変bytesと過去証拠を区別する。上記は選択とローカル証拠であり、同CODEの実CI結果は次項へ記録する。
+
+配線selector14は同じassert/sourceのままFalseflagsでassertion Red2/errors0（a564b5f2）、最小の確定flags/PENDING切替後14Green（da49b38a）。通常のbaseline workflow read-only Git照会を含む。準備auditが内部Git照会を遮断した初回Errorと、原本bytes供給harnessの試行は保存して正式Redから除外した。ローカルでhost132/Py39119全体を重ねて実行せず、同CODEの実CIで検証する。

@@ -125,10 +125,10 @@ class ContinuousClient119Tests(unittest.TestCase):
         self.assertEqual('necroprobe-continuous-campaign116-v1', campaign._fresh()['schema'])
         self.assertEqual('necroprobe-continuous-campaign117-v1', campaign._fresh(test_number='117')['schema'])
         self.assertEqual('necroprobe-continuous-campaign118-v1', campaign._fresh(test_number='118')['schema'])
-        for number in ('125', '0119', '../119', '', 119, True, None, ['119']):
+        for number in ('126', '0119', '../119', '', 119, True, None, ['119']):
             with self.subTest(number=number), self.assertRaisesRegex(ProbeError, 'campaign_test_number_invalid'):
                 campaign._fresh(test_number=number)
-        for schema in ('necroprobe-continuous-campaign125-v1', [], None):
+        for schema in ('necroprobe-continuous-campaign126-v1', [], None):
             bad = dict(ledger, schema=schema)
             with self.subTest(schema=schema), self.assertRaisesRegex(ProbeError, 'campaign_ledger_invalid'):
                 campaign._validate(bad)
