@@ -824,3 +824,6 @@ TEST124公開後確認（2026-11-27）: SOURCEfbbaf4c（CODE2077895から文書4
 | FR-125-PARTIAL-GOLD-CONTRACTION | 2026-11-27 | 8831の上端重複ITEM10→5で旧ITEM内の支持GOLDをtop-aliasがROUTE10。通常直接零・同UP、下段5ITEM/全旧GOLD保持 | 旧大potentialを保持する投影縮退を共有判定へ。追加DATA/枠残推測なし。意味Red後、上記66Green。原画像predicate10→0、元context/Scene不変（dffbec61） | 今回1。同症状継続、旧TOP/rail系列の別役割境界。通算不明 |
 | FR-125-UPPER-WEAK-PROBE | 2026-11-27 | child5296原131は通常UNKNOWN safe1/4partial。弱maxのbox下端382がHUD380を越え、upper_slotが拒否 | 弱探索位置と正の存在/陰性証拠を分離したUNKNOWN観測専用契約。意味Red後、新6/直接24Green。global HUD/NEG・通常packetは不変 | 今回1。同症状継続、旧ROI/上部入口修正では未網羅。通算不明 |
 | FR-125-UPPER-POSTUNIT-PALETTE | 2026-11-27 | 同childのH1後129→130/131は同ITEM/保護/金壁/次LEFT・通常直接零だが、遠方の既知F/D/S三セルで旧pre-H1限定relationから外れ再判定へ。実unit/sourceとの結合も失う | 元unit/owner/job/sourceと旧Pを保持した既知材質だけの共有静止関係。UNKNOWN・近傍・商品変更を除外。固定d3bの意味Red後、新8＋弱probe6＋直接24=38Green、begin/正常H2/DOWNと宣言FULLを確認 | 今回1。同childの停止前段、追加の適用漏れ。通算不明、実機の次拍/全商品到達は未受入 |
+
+
+TEST125配布前確認（2026-11-27）: CODEc18db303・実CI278/run45921464109でhost132/実CPython3.9.25の119/実IPAが合格。新native24/直接旧80を含む元16groupが失敗/skip0。元3artifact GHdigest/全bytes/CRC・全1275CODE blob・37nativeの2変更35保持・実compiler/profile3/全9MachOを五項目attempt1照合（d627fe80）。IPA18,521,182B/SHA97a7c05463c44416a03742535136fc0111cd66c99b7c8f6c3733ca97e2261ddf。成功policy19と実RSを保持、元P/予算・未確認≠NEG・候補優先・UNKNOWN無再送を維持。新実機改善/速度・再発数は未受入。公式SOURCE/固定公開の匿名全取得は次工程。

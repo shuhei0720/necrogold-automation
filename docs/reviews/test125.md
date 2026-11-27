@@ -36,3 +36,12 @@ rootでG1→G2を新しいupstreamへseal/applyし、37source全設置SHAを照�
 追加差分は独立レビュー30bda450で指摘残0。新helperと共有footprintのORだけを除くと既閉鎖d3bと全bytes一致し、元P/upper_budget/直接零/begin/入力UNKNOWNの条件を保持した。今回の選択はnative104（新24/直接旧80）、metadata6/旧package8/selector14を合わせhost132、実Py39 client119、CORE AST53の予定。無関係な全Runtime故障/合成worldは再実行せず、不変bytesと過去証拠を区別する。上記は選択とローカル証拠であり、同CODEの実CI結果は次項へ記録する。
 
 配線selector14は同じassert/sourceのままFalseflagsでassertion Red2/errors0（a564b5f2）、最小の確定flags/PENDING切替後14Green（da49b38a）。通常のbaseline workflow read-only Git照会を含む。準備auditが内部Git照会を遮断した初回Errorと、原本bytes供給harnessの試行は保存して正式Redから除外した。ローカルでhost132/Py39119全体を重ねて実行せず、同CODEの実CIで検証する。
+
+
+## 同CODEの実ビルドと配布前照合
+
+CODE `c18db303a648571be4b3ff6afdd0e0f86b6458ce`、実CI278/run45921464109は18job中3success/15skip。選択したhost132（native104/metadata6/package8/selector14）と実CPython3.9.25の119は全てfail/error/skip/expected-failure0。ソース/ABI/設置sourceは試験後も不変。元3artifactのGitHub digest/size/全bytes/CRC・来歴を照合し、IPA memberを再packせず取得した。
+
+IPAは18,521,182B/SHA `97a7c05463c44416a03742535136fc0111cd66c99b7c8f6c3733ca97e2261ddf`。CODE全1275Git blob/CRC、native37のRPC+C2変更/35保持/追加0、実arm64 compiler/profile3、全9MachOと元/current markerの五項目がactual278-attempt1で合格（verification SHA `d627fe807cdab0993bec72155d49366da94e2cfb618fd2910d7c475169194bc0`、macho f5b95d3a）。readerは既閉鎖sourceから実3artifactの受領後だけactual GOし、ローカルclassifier/compiler・旧Runtime全体を実行していない。
+
+最終wiringレビュー0376c8cf/reader sourceレビューb34e2d39・統合c00c3d44は残指摘0。CODE archive SHA786cfe48、source確定scope969b7a7b、actual承認scope5411e661を区別し、実CI前のflags/approvednullを成功へ書換えていない。公式SOURCEはCODEから文書4件だけ更新して全Git blob/同nativeを照合し、元IPAと固定公開する。公開後の匿名全GETと新iPhone受入はこの時点では未実施。
