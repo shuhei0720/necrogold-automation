@@ -1,0 +1,13 @@
+# TEST125起動診断の追加
+
+2026-11-28（日本時間）。[計画](../plans/test125-startup-diagnostic.md)。ゲーム側の基準は1fafd13、既存のIPA278はそのまま使用する。
+
+受領した日次runnerログでは8回とも通知許可/サーバー起動成功。App Logsの3ファイルは2種類で、023329の2件は同一。build278の起動/ローカルネットワーク許可/起動時のforeground guard解除を確認した。DDI配布先HEAD200はLoopCtrl内部HTTPの到達証明ではない。後続のprepare結果・停止理由・Wi-Fi原因はログに記録されていないため未確定。
+
+新規の診断専用ファイルだけを用意した。既存のDeviceClient125がschema確認時にtrial_support RPCを追加する継承関係は、認証付きの模擬transport試験が検出した。診断専用subclassだけが元CycleClient.check_schemaを使い、全125cap検査を保ったGETのみの確認後にpairingを読む。RPC許可を広げずprepare/authorization=Falseだけを3回読み、ゲーム開始・入力の再送・削除・出版を行わない。
+
+実Python3.9で、実行可能stubに対して3 sample期待/実0のassertion Red1・errors0を確認後に実装。新規直接14試験は全件合格（実行時間0.016秒）。認証/暗号/既存prepare parserへの接続、pending/denied/scan失敗/未公開記録の区別、接続断と途中結果保持、秘密値除去、禁止RPC、排他的保存を確認した。これは模擬transport/時計とホストfilesystemの確認であり、iPhoneでの診断結果や停止原因の解決ではない。
+
+凍結helper SHA256 `1bcbd648d51f3eaf36b0d807135cf5d96b0860fe78285ebbb257b4bb0c7c3b96`、直接試験 `3fb14a18d6b1e99e9d1fdb999979c62509f6217fdb566a1288bb3278b4f12014`。独立した読み取り差分レビューはPASS/残指摘0。理由/error/transportの値whitelist、ID/rawreply/例外本文/私的pathの非出力、完了済みsample保持、UTCファイル名/O_EXCL0600を確認した。レビュアーの試験実行・コンパイル・Git操作は0。
+
+診断branchへ保存し、固定commitのrawファイルを取得する手順を返す。新native/IPA/全Runtime CIは実行しない。公開済みTEST125のsource/IPA/tag/3assetとゲーム側branchは変更しない。利用者から生成JSONを受け取り、実際の通知状態・回収scan状態・HTTP失敗箇所を次に照合する。
