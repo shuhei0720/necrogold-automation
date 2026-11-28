@@ -867,3 +867,12 @@ TEST126配布前確認（2026-11-28）: CODE75d3282/実CI46129888763/#1/appbuild
 
 
 TEST126固定公開確認（2026-11-28）: CODE75d3282から文書4件だけの公式SOURCE `e9a86fa7597fb0e38c1bd294b8c5b1a62e7423bd`、完全1294Git blob/全bytes/CRC/同nativeを照合。source.zip11,018,665B/SHA `d25113b492a58cd2f84ef7ccddd346de04124d859f72ecbdeac9f6e2e6930137`。公開280/run46131121683は検証済みartifact15257770438の元IPAを再ビルドせずrelease461445393/test126-build1001へ保存した。CI build run #1/appbuild1001と公開workflow #280を混同しない。publish-download1job成功/他17skip。固定3assetを匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、lightweight tag→SOURCEを確認（public receipt SHA `6b6673724e15be6d5fd45a5d5a2b54a8bcf6810d32a76c6c7f44431b2ab19f7b`）。IPA18,536,391B/SHA788720fe、SHA表156B/SHAb3af1faa。公開後は文書だけを追記し、asset/tagは置換しない。新iPhoneのmemory peak/起動/商品到達・実RS/速度・再発数は未受入。
+
+
+## TEST126: 開始拒否理由の欠落（2026-11-28）
+
+[計画](plans/test126-start-admission.md)・[検証](reviews/test126-start-admission.md)。22:55の画面で起動準備後に開始拒否2回。native -32095は11出口あり、今回の条件は未確定。FR-126-STARTUP-JETSAMの再発と断定しない。
+
+| ID | 修正日 | 事象/原因 | 対策/確認方法 | 再発数 |
+| --- | --- | --- | --- | --- |
+| FR-126-START-REFUSAL-DETAIL | 2026-11-28 | clientが認証済み11種類の開始拒否を汎用コードへ縮約し、理由を失って反復実行を案内 | 126連続clientだけ固定11理由を保存/日本語表示。未知は未特定。Red25 assertion→新15/関連149 Green、独立レビュー。native/build1001不変 | 今回2回。拒否条件と実機改善は未確認 |

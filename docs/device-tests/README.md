@@ -3385,3 +3385,18 @@ cd /mnt/necro_test126 && sh test_126.sh --until-target
 
 
 TEST126固定公開確認（2026-11-28）: CODE75d3282から文書4件だけの公式SOURCE `e9a86fa7597fb0e38c1bd294b8c5b1a62e7423bd`、完全1294Git blob/全bytes/CRC/同nativeを照合。source.zip11,018,665B/SHA `d25113b492a58cd2f84ef7ccddd346de04124d859f72ecbdeac9f6e2e6930137`。公開280/run46131121683は検証済みartifact15257770438の元IPAを再ビルドせずrelease461445393/test126-build1001へ保存した。CI build run #1/appbuild1001と公開workflow #280を混同しない。publish-download1job成功/他17skip。固定3assetを匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、lightweight tag→SOURCEを確認（public receipt SHA `6b6673724e15be6d5fd45a5d5a2b54a8bcf6810d32a76c6c7f44431b2ab19f7b`）。IPA18,536,391B/SHA788720fe、SHA表156B/SHAb3af1faa。公開後は文書だけを追記し、asset/tagは置換しない。新iPhoneのmemory peak/起動/商品到達・実RS/速度・再発数は未受入。
+
+
+## TEST-126 開始拒否の表示修正1
+
+2026-11-28。[内容と検証](../reviews/test126-start-admission.md)。2回の開始拒否が起きたが、元表示では11条件のどれかを識別できなかった。clientの理由保持/表示を直し、原因未確認の反復実行案内を外した。新15＋関連149は実CPython3.9で合格。起動拒否そのものの解消は未確認。
+
+IPAは上記build1001のまま。SideStoreでの再更新は不要。[新しい完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test126-admission-fix1/source.zip)は固定公開準備中。公開確認後、新ZIPを展開し、test_126.shが入ったフォルダをmountで選ぶ。旧runtimeとpairingは削除しない。LoopCtrlサーバーRunningといつものVPNを確認し、通常1-1ポーズから実行する。
+
+```sh
+mkdir -p /mnt/necro_test126fix
+mount -t ios . /mnt/necro_test126fix
+cd /mnt/necro_test126fix && sh test_126.sh --until-target
+```
+
+拒否なら「停止理由」と「開始できない理由」が見える画面を送る。同じエラーの再実行を繰り返さず、その条件を確認する。開始できたら触らず、初回RS→候補/通路→開扉→全3商品確認→対象外の実RS/次周回を確認。終了後、表示されたruntime/test-126-*.zipとtest-126-campaign-*.zipを全て返す。回収済みrunを追加回収目的で再実行しない。
