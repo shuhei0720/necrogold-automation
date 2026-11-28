@@ -3391,7 +3391,7 @@ TEST126固定公開確認（2026-11-28）: CODE75d3282から文書4件だけの�
 
 2026-11-28。[内容と検証](../reviews/test126-start-admission.md)。2回の開始拒否が起きたが、元表示では11条件のどれかを識別できなかった。clientの理由保持/表示を直し、原因未確認の反復実行案内を外した。新15＋関連149は実CPython3.9で合格。起動拒否そのものの解消は未確認。
 
-IPAは上記build1001のまま。SideStoreでの再更新は不要。[新しい完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test126-admission-fix1/source.zip)は固定公開準備中。公開確認後、新ZIPを展開し、test_126.shが入ったフォルダをmountで選ぶ。旧runtimeとpairingは削除しない。LoopCtrlサーバーRunningといつものVPNを確認し、通常1-1ポーズから実行する。
+IPAは上記build1001のまま。SideStoreでの再更新は不要。[新しい完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test126-admission-fix1/source.zip)を固定公開・匿名取得確認済み。新ZIPを展開し、test_126.shが入ったフォルダをmountで選ぶ。旧runtimeとpairingは削除しない。LoopCtrlサーバーRunningといつものVPNを確認し、通常1-1ポーズから実行する。
 
 ```sh
 mkdir -p /mnt/necro_test126fix

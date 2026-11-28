@@ -18,3 +18,8 @@ prepare.readyの検査対象はscan・未出版記録・通知だけ。startに�
 原本はGit外 `/workspace/analysis-evidence/test126-admission/`。新IPA/native CIは作らず、同一nativeの過去build1001検証だけを再利用する。完全sourceの全Git blob/CRC、保護生成入力・canonical/R12のGit mode/blob、既存IPA検証receiptとの対応を配布前に別途照合する。固定公開と匿名GETの結果は公開後に追記する。
 
 build1001のまま新sourceから通常コマンドを一度実行する。拒否なら「停止理由」と「開始できない理由」の画面を受け取り、その条件を修正する。開始できた場合は通常1-1ポーズから初回RS→候補/通路→開扉→全3商品→対象外の実RS/次周回を確認し、終了後に全run/campaign ZIPを返してもらう。原本/pairingは保全。実機起動、メモリpeak、商品到達、実RS、速度は未受入。
+
+
+固定公開確認（2026-11-28）: CODE3bfc15e→文書4件だけのSOURCE `8ec2985b81d919284e392aad1e321ea3c1b80d56`。公式source.zip11,031,444B/SHA `e40f0780569b77cf433d183c7f6cdd633814bd47d39ac80a39a103fa02244913`、完全1298Git blob/CRC/全bytes一致。build1001から保護316パスのmode/blob変更0、native37/canonical/R12を保持。source/native receipt SHA `149500eea2505540d1ce94db6ceadc1a8bae54ec812d29a8b010b9c824adf804`。新IPA0。
+
+空draft461605829/tag test126-admission-fix1へ、transport e34e400のpublisher run46153463050（1job成功）がsource/SHA表のみを保存・公開した。固定2assetの匿名全GET200、原本全bytes/SHA/GitHub digest/size、ZIP CRC、lightweight tag→SOURCEを確認。SHA表77B/SHAf17e65ad。public receipt SHA `da34a6e28512c6bb2e47d09a3ec11b0acd5485234c5fb25d762ed6a84f7549c7`。旧asset/tagは置換しない。実機起動拒否の条件・改善は次の表示待ち。
