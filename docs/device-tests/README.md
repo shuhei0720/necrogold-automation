@@ -3359,3 +3359,26 @@ cd /mnt/necro_test125fix && sh test_125.sh --until-target
 起動準備修正1の固定公開確認（2026-11-28）: client CODE `c55192eca75561dcbbbd79db67d155b8b3bc9244` → 公式SOURCE `48cc1be74ccac089548c80350746538d5ca95124` は文書4件だけ。完全1282Git blob/全bytes/CRC一致。source.zip 10,969,461B/SHA `4ed7645a4380d09d319b8c8ad2df0969560a316fb7b23d08fbf08736501e54fb`、SHA表77B/SHA `bccbfa328c2ecc9a5d7655718f24898170ccfa1e4aea6964513d64501d4e925d`。app CODEc18db303との保護87Git blob/mode（native37の生成入力、canonical15＋binary、R12原本40を含む）は差分0、SOURCE側receipt SHA `e289ebd91841b9db17336d5cb640254406f0e29e3f02aca28bc3bc10546f28f6`。実IPA278の以前のcompiler/全MachO検証は再実行と数えない。
 
 local uploadの401後、空draft461192412へ配布専用branch `work/test125-startup-publish` / commit0f077edのAction run46089536793（publish-source 1job成功）が検証済みsource/SHA表だけを保存・公開した。新nativeビルド0、旧release/IPA/tagは不変。専用workflowの静的独立レビューPASS。固定tag `test125-startup-fix1` → SOURCEを確認し、2assetの匿名全GET200/原本全bytes/SHA/GitHub digest/size/CRC一致、public receipt SHA `4a0737a13cc2d5c429876a60f5bf139f7ffaf4ecbe0a1e9f74539f86c35a2c0f`。公開assetは置換しない。後続の文書追記だけをhotfix branchへ保存し、次版もこのclient修正を継承する。新実機は未受入。
+
+
+## TEST-126実行手順
+
+2026-11-28。TEST125起動時のJetsamで、今回のLoopCtrl PID11645が2098MiB/per-process-limitで終了していたことを確認した。保存確認の全peer/ledger保持と反復復元をcompact summary/一件処理へ、画像hashを64KiB逐次読込へ修正した。元記録を削除せず、同じ出版・未回収・破損・容量・owner条件を維持する。ゲーム側Controller/Perception/Nav/Beat、初回RSと125の起動待機を継承した。
+
+CODE75d3282、実CI46129888763/#1、appbuild1001。host14/実CPython3.9.25の47/実MacSwift14/実IPAが合格。原本全bytes/CRC、1294CODE blob、native37の2変更35保持・実compiler/profile3・全9MachOの五項目照合PASS。実Mac8namespaceはload64→20・同時保持8→2で、iPhoneのmemory peak/起動成功とは区別する。
+
+[新IPA](https://github.com/shuhei0720/necrogold-automation/releases/download/test126-build1001/LoopCtrl.ipa)・[完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test126-build1001/source.zip)・[SHA表](https://github.com/shuhei0720/necrogold-automation/releases/download/test126-build1001/SHA256SUMS.txt)。IPAは18,536,391B/SHA `788720feec4d1324d4da573830815b46293ba82b8d2e26d42133bdee4374c64f`。固定公開/公式SOURCE/匿名取得の結果は公開後に追記する。
+
+1. IPAをSideStoreで更新する。今回は本体の修正なので既存build278のままでは126を開始できない。LoopCtrlを完全終了して開き直し、Start Serverと通常のVPNを確認する。元設定・pairing・runtimeを削除しない。
+2. 新source.zipを新しいフォルダへ展開する。ゲームは通常ケイデンス・オールゾーン1-1ポーズ、いつもの向き/画面端0で開始する。
+3. iSHで以下を実行し、フォルダ選択では今回のtest_126.shがあるフォルダを選ぶ。
+
+```sh
+mkdir -p /mnt/necro_test126
+mount -t ios . /mnt/necro_test126
+cd /mnt/necro_test126 && sh test_126.sh --until-target
+```
+
+初回RS→候補/通路→開扉→全3商品確認→対象外なら実RS/次周回、対象候補なら保持/ポーズ/通知を確認する。動作中は画面に触らず、終了/停止後は回収完了表示を待ち、runtimeの `test-126-*.zip` と `test-126-campaign-*.zip` を全て返す。停止が残れば何周目/何回目・どの動作の後かも添える。
+
+以前の未回収記録が見つかった場合は元回収を優先し、表示に従う。回収済みrunを追加回収目的で再実行しない。開始できなければエラー画面とLoopCtrlのRunning/Stopped表示を返す。実機改善・速度は次の受入まで未確認。

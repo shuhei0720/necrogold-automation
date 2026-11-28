@@ -19,3 +19,14 @@ client/capabilityは実Python3.9.25で4件の意味Red（fail5/error0）後に�
 Spoolはcompact facts/scan-local quota・source/ledger一件処理と64KiB逐次SHAへ変更した。validated seal next/reservationは先行own identityへ絞らず、元順序を保存してreverse推定後parentでfirst-matchを実行する。独立レビューの残差確認も指摘0（e3c011478faaa436fa8f58ed9518344444ff8a9a27b23f05130db26a41c7fbe3）。新Greenは境界3＋既116helper7＋094由来の新snapshot_parity＋新hash FD/short/growth3の14case。旧094本体を再実行したとは扱わない。元Red対象discovery/hash関数は同一bodyで、新FDobserver/counter追加は別来歴として保持した。
 
 native manifestを最終sourceへ整合し、37件の変更RPCMethod/Spoolのみ・保持35、compile用addition28全bytesを確認した（manifest7afb305e）。Rootの新selector8は実Py3.9で合格。これは配布用scopeの検査でありiPhone改善ではない。実Swift Green/実IPA/compiler/全9MachO・完全CODE/source・固定公開の検証は次工程である。
+
+
+## 実CI・原本配布前照合
+
+CODE `75d328237c3ed8a5bbb72cc22e43f69f930d4dd9`、専用CI run46129888763/#1の2jobが成功。appbuildは明示式1000+run_numberの1001であり、CI run_numberと混同しない。host14（cap6＋selector8）、実CPython3.9.25の47（新14＋起動14＋直接19）、実Swift6.3.3.1.3の14（新境界3＋旧116helper7＋新snapshot_parity1＋新FD3）で失敗/skip0。実Mac計測は8namespaceでmetadata20/同時source2、hash scratch65536B。元Redの64/8/1483776Bから変化し、exact pending/原本全bytesとdigest/snapshot/publication/破損/容量の境界を保持した。これは模擬データ/実FSの確認で、iPhone RSSの実測ではない。
+
+元package artifact15257770438/SHA `4fc82ac7255eb691467e3246bfbd9768079e2d01202c3bd4fe0354768e34c9a9`、validation15256754749/SHA `aa112fb34c0122a3c22668343d456dee965c1577ebb3ce83f4148539fed95bb6`、host15257292966/SHA `a7e4f9831b5bebf2156232aac850f57b1c71a2151c19cadc8ab3f2594fa5ddea` を全取得し、GitHub digest/全bytes/size/CRCへ結合した。
+
+新しいreaderはsource-only準備・独立最終読取後、rootの明示GOで原本の五項目をattempt1に一度ずつ照合した。CI/全source-package/host実Py39/実iOScompiler/全9MachOがPASS、verification SHA `2f8f2aca94a529e0057c31fe4141d7163110182992f0c236202b6c0b37c054fb`。全1294Git blob、native37の変更2/保持35、compile addition28、canonical15＋binary/R12原本40、profile3の実PBX/log/RSP/必須C/Swift source、全9MachOと全世代HOST/fixture marker不在を確認した。reader自身のclassifier/compiler実行は0。古いC/gameplay/fullRuntime/fault/world成功を今回の実行と数えない。
+
+IPAは18,536,391B/SHA `788720feec4d1324d4da573830815b46293ba82b8d2e26d42133bdee4374c64f`。CODEの完全flat archiveは1294Git blob/全bytes/CRC一致（10,851,631B/SHAa6e75e1c）。次の公式SOURCEはCODEから文書4件だけを変え、固定Release `test126-build1001` へ原IPAと完全source/SHA表を公開する。公開後の匿名全取得は別工程であり、この合格に含めない。新iPhone受入は未確認。

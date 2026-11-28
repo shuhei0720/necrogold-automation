@@ -861,3 +861,6 @@ TEST125接続拒否の追加3log確認（2026-11-28）: 10:47:23起動/許可成
 | ID | 修正日 | 事象/確定原因と候補 | 対策/確認方法 | 再発数 |
 | --- | --- | --- | --- | --- |
 | FR-126-STARTUP-JETSAM | 2026-11-28 | TEST125起動未到達/後続refused。OSは同PIDのメモリ上限終了を記録。sourceではscanの全peer/ledger保持・N² metadata読込・autorelease一時物・全artifact読込が候補 | compact scan-local summary/一件処理/64KiB逐次hash。検証skipや記録削除で解決しない。実Mac意味Red後に最小修正、pending集合/出版/破損/容量の旧assertを維持して関連Green、新IPAへ | 今回OS記録1。同症状の以前のconnection_errorは死因未収録なので同原因通算不明。修正/実機改善未確認 |
+
+
+TEST126配布前確認（2026-11-28）: CODE75d3282/実CI46129888763/#1/appbuild1001。host14/実Py3.9.25の47/実MacSwift14・実IPAが成功。8namespaceのmetadata64→20/同時source8→2、hash scratch1483776→65536Bを実Mac/実FSで確認し、元pending/原本/digest/出版/破損/容量の期待を維持した。native37はRPC/Spoolの2変更・35保持。元3artifactと全1294Git blob/実compiler/profile3/全9MachOを五項目attempt1照合、verification SHA `2f8f2aca94a529e0057c31fe4141d7163110182992f0c236202b6c0b37c054fb`。IPA18,536,391B/SHA788720feec4d1324d4da573830815b46293ba82b8d2e26d42133bdee4374c64f。固定SOURCE/匿名公開確認は次工程。FR-126の実機改善・再発数は未受入のままとし、OS記録1件を修正完了0件へ書き換えない。
