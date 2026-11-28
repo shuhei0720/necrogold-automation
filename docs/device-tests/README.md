@@ -3354,3 +3354,8 @@ cd /mnt/necro_test125fix && sh test_125.sh --until-target
 冒頭の「TEST-125: 起動準備修正1」で更新版を確認する。通常ケイデンス・オールゾーン1-1ポーズ、いつもの向き/画面端0から初回RS→候補/通路→開扉→全3商品確認→対象外なら実RS/次周回、候補なら保持/ポーズ/通知を確認する。以前の回収記録が見つかった場合は旧回収を優先し、表示に従う。
 
 動作開始後はゲームに触らず、停止後に回収完了表示を待ち、表示された `runtime/test-125-*.zip` と `runtime/test-125-campaign-*.zip` を全て返す。回収済みrunを追加回収目的で再実行しない。準備中や接続エラーで開始しなかった場合はLoopCtrlを再起動せず、表示されたエラー全文と、同フォルダで `python3 diagnose_startup125.py` を実行してできる診断JSONを返す。診断はゲーム開始/入力/記録削除を行わない。8秒は新規開始の資格期限で、既発行RPCを含む全処理が8秒以内で完了する保証ではない。
+
+
+起動準備修正1の固定公開確認（2026-11-28）: client CODE `c55192eca75561dcbbbd79db67d155b8b3bc9244` → 公式SOURCE `48cc1be74ccac089548c80350746538d5ca95124` は文書4件だけ。完全1282Git blob/全bytes/CRC一致。source.zip 10,969,461B/SHA `4ed7645a4380d09d319b8c8ad2df0969560a316fb7b23d08fbf08736501e54fb`、SHA表77B/SHA `bccbfa328c2ecc9a5d7655718f24898170ccfa1e4aea6964513d64501d4e925d`。app CODEc18db303との保護87Git blob/mode（native37の生成入力、canonical15＋binary、R12原本40を含む）は差分0、SOURCE側receipt SHA `e289ebd91841b9db17336d5cb640254406f0e29e3f02aca28bc3bc10546f28f6`。実IPA278の以前のcompiler/全MachO検証は再実行と数えない。
+
+local uploadの401後、空draft461192412へ配布専用branch `work/test125-startup-publish` / commit0f077edのAction run46089536793（publish-source 1job成功）が検証済みsource/SHA表だけを保存・公開した。新nativeビルド0、旧release/IPA/tagは不変。専用workflowの静的独立レビューPASS。固定tag `test125-startup-fix1` → SOURCEを確認し、2assetの匿名全GET200/原本全bytes/SHA/GitHub digest/size/CRC一致、public receipt SHA `4a0737a13cc2d5c429876a60f5bf139f7ffaf4ecbe0a1e9f74539f86c35a2c0f`。公開assetは置換しない。後続の文書追記だけをhotfix branchへ保存し、次版もこのclient修正を継承する。新実機は未受入。

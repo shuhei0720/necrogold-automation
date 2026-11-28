@@ -841,3 +841,8 @@ TEST125固定公開確認（2026-11-27）: 公式SOURCE `cb59218c6d0e39565b23bef
 | FR-125-STARTUP-SCAN-PENDING | 2026-11-28 | 保存scan完了前の単回prepare ready=falseを通知権限エラーへ一律変換し終了 | TEST125連続clientだけ元8秒開始資格内で同probe/False照会を待機。sole POST guardも同期限、late readyは開始0。scan/通知pending・明示失敗を区別。意味Red後、新14＋直接19の33件/実Py3.9.25、独立レビュー1回と指摘閉鎖PASS。次実機で準備→商品→実RSを確認する | 今回の診断1件。旧画像ではscan状態不明のため通算不明、修正後実機未確認 |
 
 client CODE `c55192eca75561dcbbbd79db67d155b8b3bc9244`。明示失敗のdeadline境界P2は新Red後に訂正。native/旧assert・旧116〜124/Finite125・UNKNOWN無再送/旧回収は保持。新IPA/全Runtime CIは不要として未実施、実IPA278を使う。scanのpeer読込/画像hashは負荷候補にとどめ、未計測の最適化は混ぜない。固定sourceと同native/匿名全取得は公開工程で追記する。
+
+
+起動準備修正1の固定公開確認（2026-11-28）: client CODE `c55192eca75561dcbbbd79db67d155b8b3bc9244` → 公式SOURCE `48cc1be74ccac089548c80350746538d5ca95124` は文書4件だけ。完全1282Git blob/全bytes/CRC一致。source.zip 10,969,461B/SHA `4ed7645a4380d09d319b8c8ad2df0969560a316fb7b23d08fbf08736501e54fb`、SHA表77B/SHA `bccbfa328c2ecc9a5d7655718f24898170ccfa1e4aea6964513d64501d4e925d`。app CODEc18db303との保護87Git blob/mode（native37の生成入力、canonical15＋binary、R12原本40を含む）は差分0、SOURCE側receipt SHA `e289ebd91841b9db17336d5cb640254406f0e29e3f02aca28bc3bc10546f28f6`。実IPA278の以前のcompiler/全MachO検証は再実行と数えない。
+
+local uploadの401後、空draft461192412へ配布専用branch `work/test125-startup-publish` / commit0f077edのAction run46089536793（publish-source 1job成功）が検証済みsource/SHA表だけを保存・公開した。新nativeビルド0、旧release/IPA/tagは不変。専用workflowの静的独立レビューPASS。固定tag `test125-startup-fix1` → SOURCEを確認し、2assetの匿名全GET200/原本全bytes/SHA/GitHub digest/size/CRC一致、public receipt SHA `4a0737a13cc2d5c429876a60f5bf139f7ffaf4ecbe0a1e9f74539f86c35a2c0f`。公開assetは置換しない。後続の文書追記だけをhotfix branchへ保存し、次版もこのclient修正を継承する。新実機は未受入。
