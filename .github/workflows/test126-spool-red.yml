@@ -1,0 +1,42 @@
+name: TEST126 startup Spool assertion Red
+
+on:
+  push:
+    branches: [work/test126-spool-red]
+    paths: ['.github/workflows/test126-spool-red.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  startup-spool-red:
+    if: github.repository == 'shuhei0720/necrogold-automation'
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: driver
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Pin the shipped TEST125 Spool before behavior changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C driver fetch --no-tags --depth=1 origin c18db303a648571be4b3ff6afdd0e0f86b6458ce
+          mkdir -p "$RUNNER_TEMP/test126-spool-red/before-source"
+          git -C driver show c18db303a648571be4b3ff6afdd0e0f86b6458ce:patches/loopctrl/ngg2/NG2CycleSpool.swift > "$RUNNER_TEMP/test126-spool-red/before-source/NG2CycleSpool.swift"
+          echo "242cdabfaa3ce99fdebc34d15a88056dc74140681e692c43d7fad2945795682b  $RUNNER_TEMP/test126-spool-red/before-source/NG2CycleSpool.swift" | shasum -a 256 --check
+          cmp driver/patches/loopctrl/ngg2/NG2CycleSpool.swift "$RUNNER_TEMP/test126-spool-red/before-source/NG2CycleSpool.swift"
+      - name: Require semantic assertion Red for work, live sources and hash scratch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 driver/patches/loopctrl/check_cycle_spool126.py "$RUNNER_TEMP/test126-spool-red/actual" --baseline-only --before-spool "$RUNNER_TEMP/test126-spool-red/before-source/NG2CycleSpool.swift" 2>&1 | tee "$RUNNER_TEMP/test126-spool-red/command.txt"
+      - name: Preserve exact source, compile and assertion evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: test126-startup-spool-red
+          path: ${{ runner.temp }}/test126-spool-red/
+          if-no-files-found: error
