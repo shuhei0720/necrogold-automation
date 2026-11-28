@@ -1,0 +1,15 @@
+# TEST125起動準備修正1
+
+2026-11-28（日本時間）。[計画](../plans/test125-startup-preparation.md)。受領診断のSHA256は `0ac225c39db4ce124b7d0d310100453f1d1b27cc13857b64fca9dd183ef82d41`。3回の認証済みprepareはHTTP200、通知はpendingからauthorizedへ変化し、保存記録scanは全てpendingだった。scan完了前の件数0は未回収なしの証明ではない。sample時刻・所要時間・Runtime IDは未収録で、永久停止や別時点のserver停止原因は確定しない。
+
+確定したclient不具合は、最初のprepareでreadyでなければscan pendingも通知権限エラーとして終了すること。125連続実行だけが有限の準備待ちを使う。最初のprepare前に設定した元8秒の開始資格期限をsole POST guardにも使い、待機後に再設定しない。既発行RPCは従来の最大2秒で遅れて戻り得るが、遅いreadyで新startしない。認証済み未公開IDは旧回収へ、通信失敗・不正応答・取消は停止へ渡す。UNKNOWN POSTは再送しない。
+
+実Python3.9.25で変更前の意味Red1/fail1/error0後に最小修正。新規14＋直接関連19（既125の11＋116起動/回収8）＝33件が2.567秒、fail/error0で合格した。模擬clock/transportとhost保存の検証であり、実機scanの完了・速度・ゲーム到達を証明しない。旧assert/試験ファイルは変更していない。
+
+独立差分レビュー1回はPASS。期限到達時の明示通知拒否/scan failedをpending期限エラーへ隠すP2指摘1件は、新境界1件/2subcaseの意味Red（fail2/error0）後、取消→認証済みID回収→明示失敗→元期限→readyの順へ修正し、同33件で確認した。pending説明から通知拒否でないとの断定も除いた。修正部分の再読で閉鎖、残指摘0。レビュアーの試験/コンパイル/Git/編集は0。
+
+凍結campaign116 SHA256 `59742a0c5a848c732e4e5a12902dcdfe6bc55441f544b5e72dda874f3cbd06e6`、新fixture `31c1a06e7e0f32f29a1bb9277ee253343fb131417bfca3f60c9af7a9378d12d4`。私的author receipt SHA256 `15a0577ec35480af96f933d7b05e79e3286a912672dcda16cbaf02ba1a2c66c5` と最終レビュー閉鎖を別に保持した。
+
+native/wire/capability・TEST116〜124/Finite125・ゲームの期限/予算/商品優先/UNKNOWN無再送は維持する。clientのみの変更なので新IPA/全Runtime CIは実行しない。実IPA278（CODEc18db303、SHA256 `97a7c05463c44416a03742535136fc0111cd66c99b7c8f6c3733ca97e2261ddf`）を継続使用する。以前のnative検証を今回の新規実行と数えず、公開する完全sourceと同nativeを別照合する。
+
+nativeの発見scanにはpeer metadataの反復読込や画像hash経路があるが、端末の実時間・メモリ・停止原因は未計測。この増分に推測の最適化や記録削除を混ぜない。サーバー再起動はscanを最初からやり直すので、現在の起動状態と元記録を保つ。更新版の実機開始・商品到達・実RS/次周回は未受入である。

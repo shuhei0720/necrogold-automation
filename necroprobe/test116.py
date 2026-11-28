@@ -60,6 +60,9 @@ def _main(argv, *, test_number, continuous_client, finite_client):
     def stop(_signal,_frame):stopped[0]=True
     previous={sig:signal.signal(sig,stop) for sig in (signal.SIGINT,signal.SIGTERM)}
     notice=lambda text:print(text,flush=True)
+    if (test_number=='125' and args.until_target
+            and getattr(continuous_client,'wait_for_startup_ready',False) is True):
+        notice(banner+': 起動準備修正1。保存記録と通知の準備完了を確認してから開始します。')
     try:
         key,tok=load_pairing(Path.home()/'.loopctrl'/'token.json')
         with OwnedRpcTimer() as timer:
@@ -83,7 +86,17 @@ def _main(argv, *, test_number, continuous_client, finite_client):
         return 0 if ledger['collection_complete'] else 2
     except (ProbeError,OSError,ValueError,zipfile.BadZipFile) as error:
         code=error.code if isinstance(error,ProbeError) else 'local_storage_failed'
-        notice(banner+': 未完了 / '+code+'。原本を保持し、新しいゲームを開始しないでください。');return 2
+        notice(banner+': 未完了 / '+code+'。原本を保持し、新しいゲームを開始しないでください。')
+        if test_number=='125':
+            explanation={
+                'cycle_recovery_scan_pending':'保存記録の確認が開始期限内に終わりませんでした。LoopCtrlと記録をそのまま保ち、起動診断JSONを送ってください。',
+                'cycle_recovery_scan_failed':'保存記録の確認に失敗しました。記録は削除せず、起動診断JSONを送ってください。',
+                'cycle_notification_pending':'通知の許可状態を開始期限内に確認できませんでした。起動診断JSONを送ってください。',
+                'cycle_prepare_timeout':'起動準備の応答が元の開始期限を越えました。ゲーム開始要求は送っていません。',
+                'cycle_prepare_not_ready':'準備完了を確認できませんでした。ゲーム開始要求は送っていません。',
+            }.get(code)
+            if explanation is not None:notice(explanation)
+        return 2
     finally:
         for sig,handler in previous.items():signal.signal(sig,handler)
 

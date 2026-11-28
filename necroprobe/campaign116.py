@@ -636,6 +636,49 @@ def _finish_collect(client, base, destination, ledger, *, notice, clock, sleep, 
         stop_reason=ledger['stop_reason'],record=cycle.load_journal(base,protocol_spec=SPEC))
 
 
+def _startup_deadline_error(prepared):
+    if prepared is not None and prepared['recovery_scan']=='pending':
+        return 'cycle_recovery_scan_pending'
+    if prepared is not None and prepared['notification_authorization']=='pending':
+        return 'cycle_notification_pending'
+    return 'cycle_prepare_timeout'
+
+
+def _prepare_startup(client, probe, deadline, *, cancelled, notice, clock, sleep):
+    # This is an admission bound, like the existing sole-POST guard. A read
+    # already in flight may finish under its unchanged <=2s RPC timeout; its
+    # late reply never restores permission to start a new game.
+    prepared=None;announced=None
+    def checked():
+        cycle.require(not cancelled(),'cancel_requested')
+        cycle.require(clock()<deadline,_startup_deadline_error(prepared))
+    while True:
+        checked()
+        prepared=cycle.prepare(cycle._call(client,SPEC.query,dict(run_id=probe,mode='prepare',
+            request_authorization=False)),probe,protocol_spec=SPEC)
+        cycle.require(not cancelled(),'cancel_requested')
+        # Admission expiry revokes a new start, not authenticated evidence.
+        # The old recovery path still validates and collects these identities.
+        if prepared['unpublished_run_ids']:
+            return prepared
+        cycle.require(prepared['recovery_scan']!='failed','cycle_recovery_scan_failed')
+        cycle.require(prepared['notification_authorization'] not in ('denied','not_determined','unavailable'),
+            'cycle_notification_permission')
+        checked()
+        if prepared['ready']:
+            return prepared
+        pending=('scan' if prepared['recovery_scan']=='pending' else
+            'notification' if prepared['notification_authorization']=='pending' else None)
+        cycle.require(pending is not None,'cycle_prepare_not_ready')
+        if pending!=announced:
+            notice('起動準備: 保存記録を確認しています。LoopCtrlを再起動せずお待ちください。'
+                if pending=='scan' else '起動準備: 通知の許可状態を確認しています。')
+            announced=pending
+        checked()
+        sleep(min(.25,max(0,(deadline-clock())/1_000_000_000)))
+        checked()
+
+
 def run(client, destination, *, spool, until_target=True, recovery_only=False, test_number='116',
         cancelled=lambda:False, notice=print, clock=time.monotonic_ns, sleep=time.sleep):
     _number(test_number)
@@ -653,6 +696,7 @@ def run(client, destination, *, spool, until_target=True, recovery_only=False, t
     cycle.require(not base.is_symlink(),'cycle_local_symlink')
     with cycle.device_lock():
         ledger=_load(base,test_number=test_number)
+        startup_deadline=None
         recovering=bool(ledger is not None and ledger['start_intent'] and not ledger['collection_complete'])
         if ledger is not None and ledger['collection_complete'] and recovery_only:
             return _finish_collect(client,base,destination,ledger,notice=notice,clock=clock,sleep=sleep)
@@ -661,8 +705,15 @@ def run(client, destination, *, spool, until_target=True, recovery_only=False, t
                 forensic.verify_closed_collection(base,ledger)
             client.check_schema()
             probe=uuid.uuid4().hex
-            prepared=cycle.prepare(cycle._call(client,SPEC.query,dict(run_id=probe,mode='prepare',
-                request_authorization=False)),probe,protocol_spec=SPEC)
+            wait_for_ready=getattr(client,'wait_for_startup_ready',False)
+            cycle.require(type(wait_for_ready) is bool,'cycle_protocol_invalid')
+            if wait_for_ready:
+                startup_deadline=clock()+8_000_000_000
+                prepared=_prepare_startup(client,probe,startup_deadline,cancelled=cancelled,
+                    notice=notice,clock=clock,sleep=sleep)
+            else:
+                prepared=cycle.prepare(cycle._call(client,SPEC.query,dict(run_id=probe,mode='prepare',
+                    request_authorization=False)),probe,protocol_spec=SPEC)
             if prepared['unpublished_run_ids']:
                 ledger=_fresh(prepared['unpublished_run_ids'][0],test_number=test_number);ledger.update(start_intent=True,
                     state='pending',recovery_ids=prepared['unpublished_run_ids'])
@@ -680,7 +731,7 @@ def run(client, destination, *, spool, until_target=True, recovery_only=False, t
                 cycle.require(not recovery_only and not cancelled(),'cancel_requested')
                 ledger.update(start_intent=True,state='running',last_error=None);_save(base,ledger)
                 # There is exactly one POST. All uncertain results retain root.
-                ready_deadline=clock()+8_000_000_000
+                ready_deadline=(startup_deadline if startup_deadline is not None else clock()+8_000_000_000)
                 def start_guard():
                     try:
                         cycle._checked(cancelled,clock,ready_deadline)
