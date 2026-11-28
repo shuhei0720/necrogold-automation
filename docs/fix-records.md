@@ -830,3 +830,14 @@ TEST125配布前確認（2026-11-27）: CODEc18db303・実CI278/run45921464109�
 
 
 TEST125固定公開確認（2026-11-27）: 公式SOURCE `cb59218c6d0e39565b23bef168bcea407f962751` はCODEc18db303から文書4件だけ。全1275Git blob/全bytes/CRC/同nativeを照合。source.zipは10,944,917B/SHA `18fe3b9f65b1e6ef30004610eec3a535c07e1063d62df736d5a885e9d2868450`。公開279/run45923051755は元build278のartifact15165181499を再ビルドせずrelease460063102/test125-build278へ保存した。固定IPA/完全source/SHA表を匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認（public receipt SHA `b4b0bb6a96eb08c0fc85896296eab5d4f43625d38dd4105285fbffd0fe1da26f`）。IPA18,521,182B/SHA97a7c054、SHA表156B/SHA27172b7a。公開後は文書だけを更新し、asset/実tagは置換しない。新実機の商品到達/実RS/速度・再発数は次の返却まで未受入。
+
+
+## TEST125起動準備修正1（2026-11-28）
+
+[計画](plans/test125-startup-preparation.md)・[検証](reviews/test125-startup-preparation.md)。実診断は認証済みHTTP200、通知pending→authorized、3回ともscan pending。未完了scanの件数0は未回収なしの証明ではない。scanの長期停止・外出先Wi-Fi原因・別時点のserver停止はこの資料では未確定。
+
+| ID | 修正日 | 事象/原因 | 対策/改善確認方法 | 同原因再発数 |
+| --- | --- | --- | --- | --- |
+| FR-125-STARTUP-SCAN-PENDING | 2026-11-28 | 保存scan完了前の単回prepare ready=falseを通知権限エラーへ一律変換し終了 | TEST125連続clientだけ元8秒開始資格内で同probe/False照会を待機。sole POST guardも同期限、late readyは開始0。scan/通知pending・明示失敗を区別。意味Red後、新14＋直接19の33件/実Py3.9.25、独立レビュー1回と指摘閉鎖PASS。次実機で準備→商品→実RSを確認する | 今回の診断1件。旧画像ではscan状態不明のため通算不明、修正後実機未確認 |
+
+client CODE `c55192eca75561dcbbbd79db67d155b8b3bc9244`。明示失敗のdeadline境界P2は新Red後に訂正。native/旧assert・旧116〜124/Finite125・UNKNOWN無再送/旧回収は保持。新IPA/全Runtime CIは不要として未実施、実IPA278を使う。scanのpeer読込/画像hashは負荷候補にとどめ、未計測の最適化は混ぜない。固定sourceと同native/匿名全取得は公開工程で追記する。

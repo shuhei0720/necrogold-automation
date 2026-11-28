@@ -1,7 +1,7 @@
 # 最新状態
 
-更新: 2026-11-27（日本時間）。[TEST125/build278](https://github.com/shuhei0720/necrogold-automation/releases/tag/test125-build278)を公開済み。[計画](plans/test125-device-failures.md)・[検証](reviews/test125.md)・[実行手順](device-tests/README.md#test-125実行手順)。CODEc18db303、実CI278/run45921464109。
+更新: 2026-11-28（日本時間）。現在は[TEST125起動準備修正1](plans/test125-startup-preparation.md)、client CODEc55192e。[検証](reviews/test125-startup-preparation.md)・[実行手順](device-tests/README.md#test125起動準備修正1)。固定source公開は次工程。
 
-TEST124の7ZIP/4runは不足0、商品後の実RS→次周回1成功を保持。開扉後の遠方床/商品投影、上部入口の弱probe/実unit後の不要再判定を修正。実CIでhost132/実Py39119/IPAが合格し、1275CODE blob・37native（変更2/保持35）・実compiler/全9MachO等を五項目照合済み（d627fe80）。
+実診断HTTP200/通知authorized・保存scan pendingを一律通知エラーにするclientを修正。元開始期限内のpending待ち・原因別表示、新14＋直接19合格/独立レビュー閉鎖。実機改善・別時点のserver停止原因は未確認。
 
-元期限/予算・商品優先・ACKと実変位・UNKNOWN無再送を保持。新実機の商品到達・実RS/次周回・速度は未受入。SOURCEcb59218c（CODEから文書4件のみ）・固定3assetを匿名全GET200/原本一致まで確認済み。単体やビルド合格を実機改善へ置換しない。
+IPAは既存TEST125/build278（CODEc18db303/SHA97a7c054）のまま。native/元期限/予算/UNKNOWN無再送は維持、新IPAは作らない。LoopCtrlを再起動せず元記録を保つ。次版もこのclient修正を継承する。

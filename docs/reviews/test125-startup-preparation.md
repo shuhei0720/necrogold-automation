@@ -13,3 +13,6 @@
 native/wire/capability・TEST116〜124/Finite125・ゲームの期限/予算/商品優先/UNKNOWN無再送は維持する。clientのみの変更なので新IPA/全Runtime CIは実行しない。実IPA278（CODEc18db303、SHA256 `97a7c05463c44416a03742535136fc0111cd66c99b7c8f6c3733ca97e2261ddf`）を継続使用する。以前のnative検証を今回の新規実行と数えず、公開する完全sourceと同nativeを別照合する。
 
 nativeの発見scanにはpeer metadataの反復読込や画像hash経路があるが、端末の実時間・メモリ・停止原因は未計測。この増分に推測の最適化や記録削除を混ぜない。サーバー再起動はscanを最初からやり直すので、現在の起動状態と元記録を保つ。更新版の実機開始・商品到達・実RS/次周回は未受入である。
+
+
+公開準備: client CODE `c55192eca75561dcbbbd79db67d155b8b3bc9244` を保存した。固定tag `test125-startup-fix1` は新しい完全source/SHA表だけを配布し、旧IPA278/旧Releaseを置換しない。CODEから次のSOURCEは文書4件だけを変更する。公式全Git blob/CRC・実IPA側nativeとの同一性・匿名全取得を次工程で確認し、公開後の記録だけを追記する。

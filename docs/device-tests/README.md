@@ -3313,6 +3313,8 @@ TEST124固定公開確認（2026-11-27）: 公式SOURCEfbbaf4cはCODE2077895か�
 
 ## TEST-125実行手順
 
+2026-11-28の起動不具合には、後掲の[起動準備修正1](#test125起動準備修正1)を使う。下の初回配布時のIPA再起動手順を繰り返さない。
+
 TEST124の7ZIP/4runを全照合。開扉後の遠方床/商品上端の投影で継続を拒否する問題、上部入口の一歩後に既知床色だけで再判定へ入り直す問題、弱い探索位置のHUD重なりで観測を打ち切る問題を修正した。3周目1回目の通常NEG→実RS→次周回成功は保持。価格/名前の必須化、全商品登録、宝箱対象は追加しない。
 
 CODEc18db303、CI278はhost132/実CPython3.9.25の119/実IPA合格。全1275CODE blob・37native/実compiler/profile3/全9MachO等の五項目もattempt1合格。宣言したScene/未来画像によるcomponentと元実機cutを分け、新iPhoneでの改善・速度は未受入である。
@@ -3332,3 +3334,23 @@ cd /mnt/necro_test125 && sh test_125.sh --until-target
 
 
 TEST125固定公開確認（2026-11-27）: 公式SOURCE `cb59218c6d0e39565b23bef168bcea407f962751` はCODEc18db303から文書4件だけ。全1275Git blob/全bytes/CRC/同nativeを照合。source.zipは10,944,917B/SHA `18fe3b9f65b1e6ef30004610eec3a535c07e1063d62df736d5a885e9d2868450`。公開279/run45923051755は元build278のartifact15165181499を再ビルドせずrelease460063102/test125-build278へ保存した。固定IPA/完全source/SHA表を匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、実tag SOURCEを確認（public receipt SHA `b4b0bb6a96eb08c0fc85896296eab5d4f43625d38dd4105285fbffd0fe1da26f`）。IPA18,521,182B/SHA97a7c054、SHA表156B/SHA27172b7a。公開後は文書だけを更新し、asset/実tagは置換しない。新実機の商品到達/実RS/速度・再発数は次の返却まで未受入。
+
+
+## TEST125起動準備修正1
+
+2026-11-28。client CODEc55192e。保存記録の確認中に即終了する問題と通知エラーの誤表示を修正。新規14＋直接関連19が実Python3.9で合格し、独立差分レビュー閉鎖済み。nativeとゲーム側の修正はbuild278のまま。実機の開始/商品到達/実RS・別時点のserver停止の改善は未確認。
+
+[更新した完全source](https://github.com/shuhei0720/necrogold-automation/releases/download/test125-startup-fix1/source.zip)・[SHA表](https://github.com/shuhei0720/necrogold-automation/releases/download/test125-startup-fix1/SHA256SUMS.txt)。固定公開/全byte照合は公開後に追記する。IPAは[既存build278](https://github.com/shuhei0720/necrogold-automation/releases/download/test125-build278/LoopCtrl.ipa)を継続使用し、インストールし直さない。
+
+1. 現在起動しているLoopCtrlと保存記録をそのまま保つ。サーバー再起動は保存scanを最初からやり直すので、再起動を繰り返さない。元runtime/pairing/記録を削除しない。
+2. 更新source.zipを新しいフォルダへ展開する。iSHで以下を実行し、フォルダ選択では新しい `test_125.sh` のあるフォルダを選ぶ。
+
+```sh
+mkdir -p /mnt/necro_test125fix
+mount -t ios . /mnt/necro_test125fix
+cd /mnt/necro_test125fix && sh test_125.sh --until-target
+```
+
+冒頭の「TEST-125: 起動準備修正1」で更新版を確認する。通常ケイデンス・オールゾーン1-1ポーズ、いつもの向き/画面端0から初回RS→候補/通路→開扉→全3商品確認→対象外なら実RS/次周回、候補なら保持/ポーズ/通知を確認する。以前の回収記録が見つかった場合は旧回収を優先し、表示に従う。
+
+動作開始後はゲームに触らず、停止後に回収完了表示を待ち、表示された `runtime/test-125-*.zip` と `runtime/test-125-campaign-*.zip` を全て返す。回収済みrunを追加回収目的で再実行しない。準備中や接続エラーで開始しなかった場合はLoopCtrlを再起動せず、表示されたエラー全文と、同フォルダで `python3 diagnose_startup125.py` を実行してできる診断JSONを返す。診断はゲーム開始/入力/記録削除を行わない。8秒は新規開始の資格期限で、既発行RPCを含む全処理が8秒以内で完了する保証ではない。
