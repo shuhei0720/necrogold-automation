@@ -6,4 +6,4 @@
 
 IPAは既存TEST125/build278（CODEc18db303/SHA97a7c054）のまま。native/元期限/予算/UNKNOWN無再送は維持、新IPAは作らない。LoopCtrlを再起動せず元記録を保つ。次版もこのclient修正を継承する。
 
-修正1再確認: 開始未到達。後続診断はschema接続拒否111、最新回答Stopped。[受領](reviews/test125-startup-refused.md)。同時刻の保存ログで停止理由を確認中。
+修正1再確認: 開始未到達。後続診断はschema接続拒否111、最新回答Stopped。[受領](reviews/test125-startup-refused.md)。保存3logは10:47起動成功/死因なし。iOS終了記録を次に確認する。

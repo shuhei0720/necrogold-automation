@@ -849,3 +849,6 @@ local uploadの401後、空draft461192412へ配布専用branch `work/test125-sta
 
 
 TEST125修正1の実機再確認（2026-11-28）: 修正版の保存確認中→cycle_recovery_scan_pending表示で開始未到達1件を受領。後続診断はHTTP前のschema接続拒否111/samples0、利用者の最新訂正はStopped。元の通知誤分類が再発したとは扱わず、scan未完了と後続の接続不能を別観測として残す。同じprocess/停止理由/scan負荷との因果は不明。[受領と次の照合](reviews/test125-startup-refused.md)。同原因の通算は不明、改善完了へ更新しない。製品/IPA/既33試験は変更・再実行していない。
+
+
+TEST125接続拒否の追加3log確認（2026-11-28）: 10:47:23起動/許可成功→10:47:27背景まで、10:57:56は別PID。旧日次224行と同bytesのprefix＋66行を確認。明示stop/listener失敗/tearDown/exit/signalは未収録、死因とscanとの因果は未確定。[受領](reviews/test125-startup-refused.md#同時刻の保存3ログ受領)。同事象の追加資料なので再発件数を増やさず、次はOS crash/Jetsam記録を照合する。新コード/試験/IPAは作らない。
