@@ -1,0 +1,37 @@
+# TEST126: 起動時の回復探索を小さいメモリで完了する
+
+2026-11-28（日本時間）。基準はTEST125/build278のnativeと、client起動準備修正1を含む1617fd2。Jetsam原本SHA `adba680099595922270b7473fd70771535e4deb4e230b2e21628adab6d294b3f` は同じPID11645のLoopCtrlAllInOneにper-process-limit、134272ページ×16384B＝2098MiBを記録する。OSによるメモリ上限終了は確定。どの割当が増えたか、正確な終了時刻、scanの実所要時間は未計測である。
+
+## 背景・対象
+
+通常起動の保存探索はrunごとに全peerのspool/JSONを復元して同時保持し、weak quota cacheの確認もその後にある。publicationのledger配列・JSON一時物・artifact全読込が重なる。pendingの誤表示を直すだけでは実機開始に到達しなかった。今回変更するのは保存探索の読み方と寿命で、gameplayのController/Perception/Navigation/Beatを変えない。
+
+## 設計と維持する意味
+
+- 一回のunpublished探索だけのcompact contextを設け、metadataを一件ずつ読み、identity/validated seal→reservation link/usage/publicationの小さい値だけを保持する。全NG2CycleSpoolや全payloadのcacheにしない。通常の明示recoverは新しい状態を読み直す。
+- 復元するmembership/conflict、欠損/破損header、quota予約・128 namespace上限を従来どおり検査する。scan内でroot quotaを共有しても入力権限・owner/clock・自動再開を復活させない。失敗は元のfail-closedへ渡す。
+- source/ledgerは一件ずつ扱い、sourceへのquota代入前後で異なる既存のpublication検査順を維持する。snapshot/owner/input_authority/receipt-only siblingとoriginal manifestの照合を省かない。外側のhasRecoveryPublicationを早い段階の弱いBoolで代用しない。
+- hash専用artifact読込は64KiB bufferで逐次SHAを計算する。O_NOFOLLOW/fstat/owner/mode/nlink/size上限/EINTR/short read/末尾EOF、空file条件、同じartifact集合/順序/digestを維持する。JSON/PNG/RGBAの検証は従来どおり。Foundation一時物は小さなautoreleasepoolで解放する。
+- contextはscan終了で解放し、永続cache・記録削除・ready強制・検証skipを導入しない。通常回復にも残る全peer強保持を小さいsummary/一件処理へ置き換える。新しい入力/期限/予算変更は無い。
+
+## 反例と影響範囲
+
+基準Spoolの全bytesを固定し、同じHOST専用の観測counterをtemporary copyへ注入する。8個の合法campaign namespaceで一回scanのexact pending集合、metadata load≤4N、同時source保持≤4、全原本不変を期待する。元のN²/全peer保持に対するassertion Redを実Mac/実Swiftで確認してから振る舞いを変える。hash専用scratch≤64KiBのRedとdigest/snapshot一致も確認する。counterは実呼出/寿命を測り、文字列存在やcompile失敗をRedに数えない。
+
+最小Green後、既存116のpublished_quota/receipt-only sibling・damaged_owner・orphan_quota/accounting・alias_integrity/recovered_quota・recovery_namespace、および094の元artifact変更→snapshot不一致を選ぶ。元のassertは編集しない。RSSは実Macの補助計測でありiPhone実peakの代用にしない。
+
+実Mac Red（run46128930089、標準macos-26）は元Spool SHA `242cdabfaa3ce99fdebc34d15a88056dc74140681e692c43d7fad2945795682b` で指定3assertの失敗を確認した。8namespaceのpending集合と全原本不変は先に成立し、metadata load64（上限32）、同時保持8（上限4）、artifact hash scratch1,483,776B（上限65,536B）だった。compile失敗は0。これを根拠に製品変更へ進む。
+
+実装は一回のscan内だけの`RecoveryFacts`/`RecoveryScan`へ縮約する。usage/own publicationの読取失敗は`Result`として保存し、従来の該当cohort検査時に失敗させる。seal nextUUIDと同UUIDの検証済みreservation候補を小さい値で残し、reverse linkによる推定identityを得た後で元の親/root/index/pred filterを適用する。cohortのrecovery publicationはquotaをsourceへ代入する前、外側のpending判定は代入後に検査する。ledger visitorは公開の全ledger取得APIも従来どおり返せるwrapperを残し、内部のpublication検査だけreceipt/manifest tupleへ縮約する。該当manifestは判定時に安全に再open/read/hashする。hashのstream化ではJSON/PNG/RGBAの検証用bufferまで削らない。
+
+新runnerのGreenは新3件＋既存116の関数本体7件を一回のcompileで選択する。`snapshot_parity`は094由来の境界を新fixtureへ移したcaseであり、旧094試験そのものを実行したとは記さない。
+
+stream hashの変更境界として新3件を追加し、Greenは計14件とする。`hash_file_safety`はartifact列挙後・実hash open直前にrawをsymlink/不適切mode/上限超へ変え、再open時の拒否を検査する。`hash_short`/`hash_growth`はtemporary copyだけに同一のreadBytes hookを注入し、実raw FDをEINTR一回後に切詰め/追記して`read-short`/`read-growth`を確認する。製品へ試験hookは加えない。元3Redの本体と期待値は変更しない。
+
+## 実装順と配布前確認
+
+短い設計確認→fixtureと限定Mac Red→最小Spool修正→新規/直接回帰Green→独立差分レビュー→必要なIPA実build/封印/compiler/全MachO/完全source照合→固定Release/匿名全取得→実機の順。TEST126入口は修正1の待機を継承し、追加capで旧IPA278を開始前に拒否する。旧116〜125/既wire/version/初回RSを保持する。Macは標準macos-26、不要な全Runtime/ゲーム再試験は実行しない。
+
+## 未確認と対象外
+
+実機のmemory peak/scan完了/商品到達/実RSは次の受入まで未確認。ジェットサムの原因を特定のJSON割当や漏れへ断定しない。今回の修正で全gameplay失敗が改善したとは扱わない。raw report・個人設定・元保存記録はGit外で保全する。

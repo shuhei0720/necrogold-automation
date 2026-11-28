@@ -60,7 +60,7 @@ def _main(argv, *, test_number, continuous_client, finite_client):
     def stop(_signal,_frame):stopped[0]=True
     previous={sig:signal.signal(sig,stop) for sig in (signal.SIGINT,signal.SIGTERM)}
     notice=lambda text:print(text,flush=True)
-    if (test_number=='125' and args.until_target
+    if (test_number in ('125','126') and args.until_target
             and getattr(continuous_client,'wait_for_startup_ready',False) is True):
         notice(banner+': 起動準備修正1。保存記録と通知の準備完了を確認してから開始します。')
     try:
@@ -87,7 +87,7 @@ def _main(argv, *, test_number, continuous_client, finite_client):
     except (ProbeError,OSError,ValueError,zipfile.BadZipFile) as error:
         code=error.code if isinstance(error,ProbeError) else 'local_storage_failed'
         notice(banner+': 未完了 / '+code+'。原本を保持し、新しいゲームを開始しないでください。')
-        if test_number=='125':
+        if test_number in ('125','126'):
             explanation={
                 'cycle_recovery_scan_pending':'保存記録の確認が開始期限内に終わりませんでした。LoopCtrlと記録をそのまま保ち、起動診断JSONを送ってください。',
                 'cycle_recovery_scan_failed':'保存記録の確認に失敗しました。記録は削除せず、起動診断JSONを送ってください。',

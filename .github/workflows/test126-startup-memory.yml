@@ -1,0 +1,377 @@
+name: TEST126 startup memory build and verification
+
+on:
+  push:
+    branches: [work/test126-startup-memory]
+    paths: [.github/workflows/test126-startup-memory.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test126-host:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      artifact-id: ${{ steps.host_artifact.outputs.artifact-id }}
+      artifact-digest: ${{ steps.host_artifact.outputs.artifact-digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Apply guarded source and run TEST126 source-bound capability checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/test126-host"
+          python3 driver/patches/loopctrl/apply_patch.py upstream 2>&1 | tee "$RUNNER_TEMP/test126-host/g1-applied.txt"
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream 2>&1 | tee "$RUNNER_TEMP/test126-host/g2-applied.txt"
+          python3 driver/patches/loopctrl/run_test126_host.py driver upstream "$RUNNER_TEMP/test126-host" 2>&1 | tee "$RUNNER_TEMP/test126-host/host-command.txt"
+      - name: Install pinned actual CPython 3.9.25
+        id: python39
+        shell: bash
+        run: |
+          set -euo pipefail
+          python39_root="$RUNNER_TEMP/test126-python39"
+          python39_archive="$RUNNER_TEMP/test126-python39.tar.gz"
+          mkdir -p "$python39_root"
+          curl --fail --location --retry 2 --connect-timeout 15 --max-time 120 --output "$python39_archive" 'https://github.com/astral-sh/python-build-standalone/releases/download/20251031/cpython-3.9.25%2B20251031-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz'
+          echo "fe04e8b27bd69ca2144fc542428f8b9b5287b6a2e45516a4acfe2c2bc3102773  $python39_archive" | sha256sum --check
+          tar -xzf "$python39_archive" -C "$python39_root"
+          python39_path="$python39_root/python/bin/python3.9"
+          TEST126_PYTHON_ARCHIVE="$python39_archive" "$python39_path" - <<'PY' | tee "$RUNNER_TEMP/test126-host/test126-python39-provider.json"
+          import ctypes, hashlib, json, os, platform, ssl, sys, zlib
+          from pathlib import Path
+          assert platform.python_implementation() == 'CPython' and sys.version_info[:3] == (3, 9, 25)
+          archive_sha = hashlib.sha256(Path(os.environ['TEST126_PYTHON_ARCHIVE']).read_bytes()).hexdigest()
+          assert archive_sha == 'fe04e8b27bd69ca2144fc542428f8b9b5287b6a2e45516a4acfe2c2bc3102773'
+          print(json.dumps(dict(schema='test126-python39-provider-v1', implementation=platform.python_implementation(),
+              version=list(sys.version_info[:3]), sys_version=sys.version, archive_sha256=archive_sha,
+              executable_sha256=hashlib.sha256(Path(sys.executable).resolve().read_bytes()).hexdigest(),
+              imports=['ssl','hashlib','ctypes','zlib'], openssl_version=ssl.OPENSSL_VERSION)))
+          PY
+          echo "python-path=$python39_path" >> "$GITHUB_OUTPUT"
+      - name: Run TEST126 client14 retained startup14 and direct19 using actual Python 3.9
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${{ steps.python39.outputs.python-path }}" driver/patches/loopctrl/run_test126_python39.py driver "$RUNNER_TEMP/test126-host" 2>&1 | tee "$RUNNER_TEMP/test126-host/python39-command.txt"
+      - name: Inventory TEST126 host evidence
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          output = Path(os.environ['RUNNER_TEMP'])/'test126-host'
+          output.mkdir(parents=True, exist_ok=True)
+          files = {p.relative_to(output).as_posix(): dict(bytes=p.stat().st_size,
+              sha256=hashlib.sha256(p.read_bytes()).hexdigest())
+              for p in sorted(output.rglob('*')) if p.is_file() and not p.is_symlink()
+              and p.name != 'artifact-file-manifest.json'}
+          (output/'artifact-file-manifest.json').write_text(json.dumps(dict(
+              schema='test126-artifact-file-manifest-v1', artifact='loopctrl-ngg2-native-host',
+              driver_commit=os.environ['GITHUB_SHA'], ci_run_id=int(os.environ['GITHUB_RUN_ID']),
+              ci_run_number=int(os.environ['GITHUB_RUN_NUMBER']), files=files), indent=2)+'\n')
+          PY
+      - name: Save TEST126 host and actual Python 3.9 evidence
+        if: always()
+        id: host_artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-ngg2-native-host
+          path: ${{ runner.temp }}/test126-host/
+          if-no-files-found: error
+          retention-days: 30
+
+  test126-build:
+    needs: test126-host
+    runs-on: macos-26
+    timeout-minutes: 60
+    outputs:
+      app-build-number: ${{ steps.build_identity.outputs.app-build-number }}
+      package-artifact-id: ${{ steps.package_artifact.outputs.artifact-id }}
+      package-artifact-digest: ${{ steps.package_artifact.outputs.artifact-digest }}
+      validation-artifact-id: ${{ steps.validation_artifact.outputs.artifact-id }}
+      validation-artifact-digest: ${{ steps.validation_artifact.outputs.artifact-digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: driver
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Souitou-iop/LoopCtrl
+          ref: 6e25cf6a9f65bc86c372cdce94bdb151d0cf6767
+          path: upstream
+          persist-credentials: false
+      - name: Set distinct CI and application build identities
+        id: build_identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_build_number=$((1000 + GITHUB_RUN_NUMBER))
+          echo "APP_BUILD_NUMBER=$app_build_number" >> "$GITHUB_ENV"
+          echo "app-build-number=$app_build_number" >> "$GITHUB_OUTPUT"
+      - name: Apply guarded source and pin TEST126 exact native inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ngg2" "$RUNNER_TEMP/test126-spool"
+          python3 driver/patches/loopctrl/apply_patch.py upstream 2>&1 | tee "$RUNNER_TEMP/ngg2/workflow-g1-applied.txt"
+          python3 driver/patches/loopctrl/apply_ngg2.py upstream 2>&1 | tee "$RUNNER_TEMP/ngg2/workflow-g2-applied.txt"
+          python3 driver/patches/loopctrl/run_test126_host.py driver upstream "$RUNNER_TEMP/ngg2" --source-only 2>&1 | tee "$RUNNER_TEMP/ngg2/source-command.txt"
+      - name: Run actual Swift TEST126 startup bounds and selected filesystem regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 driver/patches/loopctrl/check_cycle_spool126.py "$RUNNER_TEMP/test126-spool" 2>&1 | tee "$RUNNER_TEMP/test126-spool/spool-command.txt"
+      - name: Install build tools
+        run: |
+          brew install xcodegen
+          rustup target add aarch64-apple-ios
+          xcodebuild -version
+          rustc --version
+      - name: Generate and inspect actual source-specific project configuration
+        run: |
+          (cd upstream && xcodegen generate --spec project.yml)
+          python3 driver/patches/loopctrl/check_perception_build.py --project --profile-version 3 upstream "$RUNNER_TEMP/ngg2/perception-build"
+      - name: Configure unsigned build
+        working-directory: upstream
+        run: |
+          mkdir -p Config
+          printf '// CI: unsigned build, no team.\nDEVELOPMENT_TEAM =\n' > Config/Local.xcconfig
+      - name: Build and package unsigned IPA
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          make ipa UNSIGNED=1 EXTRA_BUILD_SETTINGS="CURRENT_PROJECT_VERSION=$APP_BUILD_NUMBER" 2>&1 | tee "$RUNNER_TEMP/ngg2/ios-build.txt"
+          Scripts/package-release.sh 2>&1 | tee "$RUNNER_TEMP/ngg2/ios-package.txt"
+      - name: Preserve actual compiler inputs for verification diagnostics
+        if: always()
+        env:
+          NATIVE_ARG_PROOF: ${{ runner.temp }}/ngg2/perception-build/raw-build-args
+        run: |
+          python3 - <<'PYPROOF'
+          import hashlib
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('profile_reader', 'driver/patches/loopctrl/check_perception_build.py')
+          reader = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(reader)
+          upstream = Path('upstream').resolve()
+          output = Path(os.environ['NATIVE_ARG_PROOF'])
+          output.mkdir(parents=True, exist_ok=True)
+          snapshot = {'format_version': 1, 'responses': [], 'errors': [], 'truncated': False}
+          budget = 0
+          build = upstream / 'build'
+          for path in sorted(build.rglob('*')) if build.is_dir() else []:
+              if path.is_symlink() or not path.is_file() or not (path.suffix == '.resp' or path.name.endswith('.SwiftFileList')):
+                  continue
+              if len(snapshot['responses']) >= 256 or path.stat().st_size > 2*1024*1024 or budget + path.stat().st_size > 8*1024*1024:
+                  snapshot['truncated'] = True
+                  continue
+              try:
+                  _, records = reader.expand_response_args(['@'+str(path)], upstream, output)
+                  snapshot['responses'].extend(records)
+                  budget += sum(record['bytes'] for record in records)
+              except reader.ProfileError as error:
+                  snapshot['errors'].append({'path': path.relative_to(upstream).as_posix(), 'code': str(error)})
+          project = upstream / 'LoopCtrl.xcodeproj/project.pbxproj'
+          if project.is_file() and not project.is_symlink():
+              raw = project.read_bytes()
+              (output/'project.pbxproj').write_bytes(raw)
+              snapshot['project_sha256'] = hashlib.sha256(raw).hexdigest()
+              (output/'project-model.json').write_text(json.dumps(reader.read_project(project), indent=2)+'\n')
+          (output/'snapshot.json').write_text(json.dumps(snapshot, indent=2)+'\n')
+          PYPROOF
+      - name: Verify actual source-specific Perception compiler profile
+        run: python3 driver/patches/loopctrl/check_perception_build.py --compile-profile --profile-version 3 upstream "$RUNNER_TEMP/ngg2/ios-build.txt" "$RUNNER_TEMP/ngg2/perception-build"
+      - name: Verify package and record provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 driver/patches/loopctrl/verify_package.py upstream driver upstream/release/LoopCtrl.ipa 2>&1 | tee "$RUNNER_TEMP/ngg2/package-verify.txt"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path('upstream/release/build-manifest.json')
+          report = json.loads(path.read_bytes())
+          app_build = int(os.environ['APP_BUILD_NUMBER'])
+          if int(report['build']) != app_build or app_build <= 278:
+              raise SystemExit('TEST126 actual IPA build must match its distinct application build identity')
+          report.update(ci_run_id=int(os.environ['GITHUB_RUN_ID']), ci_run_number=int(os.environ['GITHUB_RUN_NUMBER']),
+              app_build_number=app_build, build_identity_schema='test126-ci-app-build-identity-v1')
+          path.write_text(json.dumps(report, indent=2)+'\n')
+          PY
+          python3 driver/patches/loopctrl/run_test126_host.py driver upstream "$RUNNER_TEMP/ngg2" --source-only
+      - name: Inventory every packaged Mach-O without executing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, struct, zipfile
+          from pathlib import Path
+          ipa = Path('upstream/release/LoopCtrl.ipa')
+          magics = {bytes.fromhex(value) for value in ('feedface','cefaedfe','feedfacf','cffaedfe',
+              'cafebabe','bebafeca','cafebabf','bfbafeca')}
+          rows = []
+          with zipfile.ZipFile(ipa) as archive:
+              if archive.testzip() is not None:
+                  raise SystemExit('TEST126 IPA CRC failure')
+              for info in archive.infolist():
+                  if info.is_dir():
+                      continue
+                  with archive.open(info) as member:
+                      magic = member.read(4)
+                      if magic not in magics:
+                          continue
+                      digest = hashlib.sha256(magic)
+                      for block in iter(lambda: member.read(65536), b''):
+                          digest.update(block)
+                  rows.append(dict(path=info.filename, bytes=info.file_size, sha256=digest.hexdigest(), magic=magic.hex()))
+          if len(rows) != 9 or len({row['path'] for row in rows}) != 9:
+              raise SystemExit('TEST126 requires all nine unique packaged Mach-O files')
+          receipt = dict(schema='test126-ipa-macho-inventory-v1', driver_commit=os.environ['GITHUB_SHA'],
+              ci_run_id=int(os.environ['GITHUB_RUN_ID']),
+              ci_run_number=int(os.environ['GITHUB_RUN_NUMBER']), app_build_number=int(os.environ['APP_BUILD_NUMBER']),
+              ipa_sha256=hashlib.sha256(ipa.read_bytes()).hexdigest(), all_macho=rows,
+              execution=False, full_macho_gate='root reader verifies original downloaded IPA separately')
+          Path('upstream/release/ipa-macho-inventory.json').write_text(json.dumps(receipt, indent=2)+'\n')
+          PY
+      - name: Archive complete CODE source and inventory delivery files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C driver archive --format=zip --prefix=necrogold-automation/ --output="$GITHUB_WORKSPACE/upstream/release/code-source.zip" "$GITHUB_SHA"
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess, zipfile
+          from pathlib import Path
+          driver, release = Path('driver'), Path('upstream/release')
+          code = os.environ['GITHUB_SHA']
+          records = subprocess.check_output(['git','-C',str(driver),'ls-tree','-rz',code]).split(b'\0')
+          files = {}
+          for record in records:
+              if not record:
+                  continue
+              metadata, path = record.split(b'\t',1)
+              mode, kind, oid = metadata.decode().split()
+              if kind != 'blob':
+                  raise SystemExit('TEST126 source must contain only Git blobs')
+              files[path.decode()] = dict(mode=mode, git_blob=oid)
+          process = subprocess.Popen(['git','-C',str(driver),'cat-file','--batch'], stdin=subprocess.PIPE,
+              stdout=subprocess.PIPE)
+          raw, _ = process.communicate(('\n'.join(row['git_blob'] for row in files.values())+'\n').encode())
+          if process.returncode:
+              raise SystemExit('TEST126 Git blob read failed')
+          cursor = 0
+          with zipfile.ZipFile(release/'code-source.zip') as archive:
+              if archive.testzip() is not None:
+                  raise SystemExit('TEST126 source CRC failure')
+              members = [item for item in archive.infolist() if not item.is_dir()]
+              if len(members) != len(files) or {item.filename for item in members} != {'necrogold-automation/'+p for p in files}:
+                  raise SystemExit('TEST126 complete CODE archive membership differs')
+              for path, row in files.items():
+                  end = raw.index(b'\n', cursor); header = raw[cursor:end].decode().split()
+                  size = int(header[2]); original = raw[end+1:end+1+size]; cursor = end+2+size
+                  if header[:2] != [row['git_blob'], 'blob'] or archive.read('necrogold-automation/'+path) != original:
+                      raise SystemExit('TEST126 CODE archive differs from Git blob: '+path)
+                  row.update(bytes=size, sha256=hashlib.sha256(original).hexdigest())
+          if cursor != len(raw):
+              raise SystemExit('TEST126 unexpected trailing Git blob data')
+          receipt = dict(schema='test126-code-source-archive-v1', driver_commit=code,
+              ci_run_id=int(os.environ['GITHUB_RUN_ID']),
+              ci_run_number=int(os.environ['GITHUB_RUN_NUMBER']), app_build_number=int(os.environ['APP_BUILD_NUMBER']),
+              archive='code-source.zip', sha256=hashlib.sha256((release/'code-source.zip').read_bytes()).hexdigest(),
+              complete_git_blob_count=len(files), files=files, published_source='root creates later docs-only SOURCE archive')
+          (release/'code-source-manifest.json').write_text(json.dumps(receipt, indent=2)+'\n')
+          inventory = {p.name: dict(bytes=p.stat().st_size, sha256=hashlib.sha256(p.read_bytes()).hexdigest())
+              for p in sorted(release.iterdir()) if p.is_file() and not p.is_symlink()
+              and p.name != 'artifact-file-manifest.json'}
+          (release/'artifact-file-manifest.json').write_text(json.dumps(dict(schema='test126-artifact-file-manifest-v1',
+              artifact='loopctrl-ngg2-unsigned', driver_commit=code, ci_run_id=int(os.environ['GITHUB_RUN_ID']),
+              ci_run_number=int(os.environ['GITHUB_RUN_NUMBER']), app_build_number=int(os.environ['APP_BUILD_NUMBER']),
+              files=inventory), indent=2)+'\n')
+          PY
+      - name: Save unsigned IPA and sealed production source
+        id: package_artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-ngg2-unsigned
+          path: |
+            upstream/release/LoopCtrl.ipa
+            upstream/release/SHA256SUMS.txt
+            upstream/release/build-manifest.json
+            upstream/release/native-perception-profile.json
+            upstream/release/ipa-macho-inventory.json
+            upstream/release/code-source.zip
+            upstream/release/code-source-manifest.json
+            upstream/release/artifact-file-manifest.json
+            upstream/LoopCtrl.xcodeproj/project.pbxproj
+            upstream/LICENSE
+            upstream/NOTICE.md
+            driver/patches/loopctrl/NOTICE-LoopCtrl.md
+            upstream/LoopCtrlUITests/ActionCommand.swift
+            upstream/LoopCtrlUITests/ActionHandler.swift
+            upstream/LoopCtrlKit/RPCMethod.swift
+            upstream/LoopCtrlKit/RPCTypes.swift
+            upstream/LoopCtrlUITests/LoopCtrlUITests.swift
+            upstream/LoopCtrlUITests/ScreenStream.swift
+            upstream/LoopCtrlUITests/ObjCException.m
+            upstream/LoopCtrlUITests/XCTestPrivate-Bridging-Header.h
+            upstream/LoopCtrlUITests/NG2*
+            upstream/LoopCtrlUITests/NG2RingKernel/**
+            upstream/Tests/LoopCtrlKitTests/NG2RPCContractsTests.swift
+            upstream/project.yml
+            upstream/LoopCtrlKit/JSONRPCServer.swift
+            upstream/LoopCtrlKit/RemoteSession.swift
+            driver/patches/loopctrl/ngg2-manifest.json
+            driver/patches/loopctrl/ngg2_runtime_scene_fixtures.c
+            driver/patches/loopctrl/ngg2_runtime_scene_fixtures.h
+          if-no-files-found: error
+          retention-days: 30
+      - name: Inventory validation logs and compiler evidence
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          files = {p.relative_to(root).as_posix(): dict(bytes=p.stat().st_size,
+              sha256=hashlib.sha256(p.read_bytes()).hexdigest())
+              for directory in ('test126-spool', 'ngg2') for p in sorted((root/directory).rglob('*'))
+              if p.is_file() and not p.is_symlink() and p.name != 'artifact-file-manifest.json'}
+          output = root/'ngg2'; output.mkdir(parents=True, exist_ok=True)
+          (output/'artifact-file-manifest.json').write_text(json.dumps(dict(schema='test126-artifact-file-manifest-v1',
+              artifact='loopctrl-ngg2-validation', driver_commit=os.environ['GITHUB_SHA'],
+              ci_run_id=int(os.environ['GITHUB_RUN_ID']), ci_run_number=int(os.environ['GITHUB_RUN_NUMBER']),
+              app_build_number=int(os.environ['APP_BUILD_NUMBER']), files=files), indent=2)+'\n')
+          PY
+      - name: Save TEST126 actual Swift and build diagnostics
+        if: always()
+        id: validation_artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: loopctrl-ngg2-validation
+          path: |
+            ${{ runner.temp }}/test126-spool/
+            ${{ runner.temp }}/ngg2/*.json
+            ${{ runner.temp }}/ngg2/*.txt
+            ${{ runner.temp }}/ngg2/perception-build/
+          if-no-files-found: error
+          retention-days: 30

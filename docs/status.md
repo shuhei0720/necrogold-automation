@@ -1,9 +1,7 @@
 # 最新状態
 
-更新: 2026-11-28（日本時間）。現在は[TEST125起動準備修正1](plans/test125-startup-preparation.md)、client CODEc55192e。[検証](reviews/test125-startup-preparation.md)・[実行手順](device-tests/README.md#test125起動準備修正1)。[固定source](https://github.com/shuhei0720/necrogold-automation/releases/tag/test125-startup-fix1)公開済み。SOURCE48cc1be、1282blob/全byte・匿名全GET照合PASS。
+更新: 2026-11-28（日本時間）。TEST126起動memory修正を開発中・未配布。[計画](plans/test126-startup-memory.md)。OS Jetsamは今回のLoopCtrl PID11645にper-process-limit、2098MiBを記録し、メモリ上限終了を確定した。割当元/正確な終了時刻は未確定。
 
-実診断HTTP200/通知authorized・保存scan pendingを一律通知エラーにするclientを修正。元開始期限内のpending待ち・原因別表示、新14＋直接19合格/独立レビュー閉鎖。実機改善・別時点のserver停止原因は未確認。
+保存scanの全peer/ledger保持・反復JSON読込をcompact summary/一件処理へ変更する。元sourceの実Mac意味Red→限定Green/関連回帰→独立レビュー→新IPA/全source照合を進める。Controller/Perception/Nav/Beat・既期限/予算/owner/UNKNOWN無再送は変更しない。実機改善は未受入。
 
-IPAは既存TEST125/build278（CODEc18db303/SHA97a7c054）のまま。native/元期限/予算/UNKNOWN無再送は維持、新IPAは作らない。LoopCtrlを再起動せず元記録を保つ。次版もこのclient修正を継承する。
-
-修正1再確認: 開始未到達。後続診断はschema接続拒否111、最新回答Stopped。[受領](reviews/test125-startup-refused.md)。保存3logは10:47起動成功/死因なし。iOS終了記録を次に確認する。
+配布済みは[TEST125修正1](https://github.com/shuhei0720/necrogold-automation/releases/tag/test125-startup-fix1)（client CODEc55192e/SOURCE48cc1be、既IPA278）。待機/誤表示は修正したが実機開始不可が残った。[受領](reviews/test125-startup-refused.md)。次版はclient待機を継承する。原本/設定を削除せず保存する。

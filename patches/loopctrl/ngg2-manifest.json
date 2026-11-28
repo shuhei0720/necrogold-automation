@@ -4,7 +4,7 @@
   "api_version": "1.98.16-ngg2",
   "capability": "necrogold_native_v1",
   "client_capability": "necrogold_native_v15",
-  "patch_sha256": "c73bae63535c23e9e2e5f8287840052973350f8f838d94e5bc36372af76c4530",
+  "patch_sha256": "6c4b6d559b2dbd761a39b82aea3aa467108869d6cceeab57b66b6e7fb47bf864",
   "files": {
     "LoopCtrlUITests/ActionHandler.swift": {
       "sha256": "df9362d3ec91455d7ceed75d7a615d1c0d8c6cdd135aa7ea10611a87b976ff78",
@@ -19,7 +19,7 @@
     "LoopCtrlKit/RPCMethod.swift": {
       "sha256": "9642cbe386bc1d9c44f95365cdc7aa2241328638bc5d3717f8b76b35d5936f87",
       "blob": "28590c1b2fbdf189abc0d4e6b759d0974c2fb337",
-      "patched_sha256": "00314fa24769ebba7bb4433c6bedaca7eca223882f1234a2aaafee4949f5f066"
+      "patched_sha256": "2d769152104f6f57a47df4c5a991811a2e4c5937c3300425011aab1d1bfd2a6b"
     },
     "LoopCtrlKit/JSONRPCServer.swift": {
       "sha256": "19fe41d26ce4501f1f0357f1343135b284dd95351ee3ce2843cf10181225cfbd",
@@ -83,7 +83,7 @@
     },
     "LoopCtrlUITests/NG2CycleSpool.swift": {
       "source": "NG2CycleSpool.swift",
-      "sha256": "242cdabfaa3ce99fdebc34d15a88056dc74140681e692c43d7fad2945795682b"
+      "sha256": "e3c011478faaa436fa8f58ed9518344444ff8a9a27b23f05130db26a41c7fbe3"
     },
     "LoopCtrlUITests/NG2CycleWire.swift": {
       "source": "NG2CycleWire.swift",
@@ -192,5 +192,6 @@
   "device_fixes122_capability": "necrogold_native_device_fixes122_v1",
   "device_fixes123_capability": "necrogold_native_device_fixes123_v1",
   "device_fixes124_capability": "necrogold_native_device_fixes124_v1",
-  "device_fixes125_capability": "necrogold_native_device_fixes125_v1"
+  "device_fixes125_capability": "necrogold_native_device_fixes125_v1",
+  "device_fixes126_capability": "necrogold_native_device_fixes126_v1"
 }

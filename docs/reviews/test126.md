@@ -1,0 +1,21 @@
+# TEST126起動memory: 受領・検証記録
+
+2026-11-28（日本時間）。[計画](../plans/test126-startup-memory.md)。製品基準1617fd2、nativeはTEST125/build278 CODEc18db303。client修正1の待機/元期限/UNKNOWN無再送を継承する。
+
+OS Jetsamは同App PID11645 LoopCtrlAllInOneにper-process-limit、2098MiBを記録する。App build278との結合は既App logの同PIDに基づく。JetsamのbuildはOS buildでありapp版の証明にしない。largestProcessだけではkillを断定せず、当該processのreasonで判定した。killDelta/timeDeltaは保存し、正確な終了時刻や経過時間へ換算しない。原本/個人情報はGit外で保全する。
+
+[Apple一次資料](https://developer.apple.com/documentation/xcode/identifying-high-memory-use-with-jetsam-event-reports)の定義に照らして独立担当が同じ値を確認した。通知/VPN/Wi-Fiの設定不備へ原因を戻さず、割当元はsourceと限定fixtureで調べる。静的解析で確認した保持・読込経路を実機のallocation traceと同一扱いしない。
+
+設計確認は独立担当1名でP0/P1なし。validated seal/chain由来のmembership、欠損header推定slot/競合root、quota代入前後のpublication別判定、owner/input_authority=false/receipt-only sibling、streamSHAのFD/EOF条件を最終差分で確認する。実装試験・IPA・公開は未完了。実機改善は次の受入まで未確認。
+
+
+変更前の意味Redを実Macで確認した。専用run46128930089/job140929615823、commit2ece9ba9・baselineSpool SHA242cdabf。元配布の全bytesとcmpした上で、同一temporary counter注入のfixtureを実Swift6.3.3.1.3/-Ononeでcompile成功。3別processは、work64 metadata load（8namespace、上限32）、同時保持8（上限4）、hash scratch1483776B（上限65536）でそれぞれ指定assertion1件だけ失敗した。exact pending/原本全file不変/終了後解放は先に成功している。compile/環境失敗をRedに数えていない。
+
+元artifact15257096891はGitHub digest SHA0aa5c94d311016ec2aa209218d73342833460290d54c0aea649bf1efb91b2047と全bytes/CRCを確認した。CLIのAzure直取得は拒否されたため、GitHub connectorのartifact取得→file参照から原本を保存した。memoryの構造上限を測る試験であり、RSSやiPhoneで2098MiBから減った実測とは扱わない。Red確認後にSpoolの振る舞い変更へGOした。
+
+
+client/capabilityは実Python3.9.25で4件の意味Red（fail5/error0）後に選択53件が合格した（新126client14＋新cap6＋起動待機14＋直接19）。旧117〜124 namespace91件も合格し、旧567assertを保持した。旧117〜125の変更は未来拒否126→127のliteralだけ。独立最終読取でclient/package指摘0、旧125入口/初回RS/起動待機と旧API/profile/capを保持すると確認した。
+
+Spoolはcompact facts/scan-local quota・source/ledger一件処理と64KiB逐次SHAへ変更した。validated seal next/reservationは先行own identityへ絞らず、元順序を保存してreverse推定後parentでfirst-matchを実行する。独立レビューの残差確認も指摘0（e3c011478faaa436fa8f58ed9518344444ff8a9a27b23f05130db26a41c7fbe3）。新Greenは境界3＋既116helper7＋094由来の新snapshot_parity＋新hash FD/short/growth3の14case。旧094本体を再実行したとは扱わない。元Red対象discovery/hash関数は同一bodyで、新FDobserver/counter追加は別来歴として保持した。
+
+native manifestを最終sourceへ整合し、37件の変更RPCMethod/Spoolのみ・保持35、compile用addition28全bytesを確認した（manifest7afb305e）。Rootの新selector8は実Py3.9で合格。これは配布用scopeの検査でありiPhone改善ではない。実Swift Green/実IPA/compiler/全9MachO・完全CODE/source・固定公開の検証は次工程である。

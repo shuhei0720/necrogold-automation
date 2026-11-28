@@ -852,3 +852,12 @@ TEST125修正1の実機再確認（2026-11-28）: 修正版の保存確認中→
 
 
 TEST125接続拒否の追加3log確認（2026-11-28）: 10:47:23起動/許可成功→10:47:27背景まで、10:57:56は別PID。旧日次224行と同bytesのprefix＋66行を確認。明示stop/listener失敗/tearDown/exit/signalは未収録、死因とscanとの因果は未確定。[受領](reviews/test125-startup-refused.md#同時刻の保存3ログ受領)。同事象の追加資料なので再発件数を増やさず、次はOS crash/Jetsam記録を照合する。新コード/試験/IPAは作らない。
+
+
+## TEST126: 起動時のメモリ上限終了（2026-11-28）
+
+[計画](plans/test126-startup-memory.md)。Jetsam原本SHA `adba680099595922270b7473fd70771535e4deb4e230b2e21628adab6d294b3f`、report timestamp10:50:19+0900。今回App logと同じLoopCtrlAllInOne PID11645にreason=per-process-limit、rpages=lifetimeMax134272、pageSize16384（2199912448B/2098MiB）を確認した。OSのメモリ上限による終了が確定した。killDelta/timeDeltaを未定義のまま終了walltimeへ換算しない。scan内のどの割当が原因かは未計測である。
+
+| ID | 修正日 | 事象/確定原因と候補 | 対策/確認方法 | 再発数 |
+| --- | --- | --- | --- | --- |
+| FR-126-STARTUP-JETSAM | 2026-11-28 | TEST125起動未到達/後続refused。OSは同PIDのメモリ上限終了を記録。sourceではscanの全peer/ledger保持・N² metadata読込・autorelease一時物・全artifact読込が候補 | compact scan-local summary/一件処理/64KiB逐次hash。検証skipや記録削除で解決しない。実Mac意味Red後に最小修正、pending集合/出版/破損/容量の旧assertを維持して関連Green、新IPAへ | 今回OS記録1。同症状の以前のconnection_errorは死因未収録なので同原因通算不明。修正/実機改善未確認 |
