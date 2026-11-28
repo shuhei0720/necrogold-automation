@@ -2,6 +2,7 @@
 import re
 
 from .validation import ProbeError
+from .start_admission126 import classify as classify_start_admission, REASONS as START_ADMISSION_REASONS
 
 DIAGNOSTIC_REVISION = "rpc-diagnostics-v1"
 FIXED_FIND_PARAMS = {"bundle_id": "jp.co.spike-chunsoft.necrodancerjp",
@@ -44,13 +45,15 @@ def valid_rpc_code(value):
 
 
 class RemoteRpcError(ProbeError):
-    """既存codeを保ち、安全な3値だけを属性へ載せる。"""
+    """既存codeを保ち、固定分類だけを属性へ載せる。自由文は保持しない。"""
 
-    def __init__(self, rpc_code, category, error_shape_valid):
+    def __init__(self, rpc_code, category, error_shape_valid, *, admission_reason=None):
         super().__init__("rpc_error")
         self.rpc_code = rpc_code
         self.category = category
         self.error_shape_valid = error_shape_valid
+        self.admission_reason = (admission_reason if type(admission_reason) is str
+            and admission_reason in START_ADMISSION_REASONS else None)
 
 
 def remote_error(response, method, params):
@@ -74,4 +77,5 @@ def remote_error(response, method, params):
                 break
         if category == "unclassified" and code == -32000 and _AX_DURATION.match(message):
             category = "ax_unresponsive"
-    return RemoteRpcError(code, category, True)
+    return RemoteRpcError(code, category, True,
+        admission_reason=classify_start_admission(method, params, code, message))

@@ -73,14 +73,21 @@ def _main(argv, *, test_number, continuous_client, finite_client):
                 until_target=args.until_target,recovery_only=args.recovery or not args.until_target,
                 cancelled=lambda:stopped[0],notice=notice)
         ledger=result['ledger']
+        admission_detail=(campaign116.admission.EXPLANATIONS.get(result['stop_reason'])
+            if test_number=='126' and getattr(continuous_client,'start_admission_diagnostics',False) is True
+            and not ledger['start_intent'] else None)
         if not ledger['start_intent']:
-            notice(banner+': ゲームは開始していません。準備を確認し、同じ通常コマンドを再実行してください。')
+            notice(banner+': ゲームは開始していません。'+('開始を拒否した条件を確認してください。'
+                if admission_detail is not None else '準備を確認し、同じ通常コマンドを再実行してください。'))
         elif ledger['collection_complete'] and not ledger['complete']:
             notice(banner+': 診断記録と一覧を保存しました。未確定の記録片は端末に残しています。ゲームの判定完了とは区別します。次の通常実行まで停止します。')
         else:
             notice(banner+': '+('全周の保存・照合が完了しました。' if ledger['complete']
                 else '回収・照合は未完了です。原本を保持し、--recoveryで回収してください。'))
         notice('停止理由: '+str(result['stop_reason'])+'。')
+        if admission_detail is not None:
+            notice('開始できない理由: '+admission_detail)
+            notice('記録は削除せず、この停止理由と説明が見える画面を送ってください。')
         if result['campaign_archive'] is not None:
             notice('この返却用ZIPとruntime/test-'+test_number+'-*.zipをすべて送ってください: '+str(result['campaign_archive']))
         return 0 if ledger['collection_complete'] else 2

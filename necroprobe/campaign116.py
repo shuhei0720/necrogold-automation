@@ -15,6 +15,7 @@ import zipfile
 from . import native_cycle as cycle
 from . import cycle_publication as publication
 from . import campaign_forensic116 as forensic
+from . import start_admission126 as admission
 from .test069 import _digest, _sync_directory
 from .trial_evidence099 import inspect_run, _frame, _negative, _raw_assessment_hints
 from .validation import ProbeError
@@ -754,9 +755,14 @@ def run(client, destination, *, spool, until_target=True, recovery_only=False, t
                     # before native admission. Other errors remain uncertain.
                     if (isinstance(failure,cycle.RemoteRpcError) and failure.error_shape_valid is True
                             and failure.rpc_code==-32095):
-                        ledger.update(start_intent=False,state='prepared',last_error='cycle_start_not_admitted')
+                        code='cycle_start_not_admitted'
+                        reason=getattr(failure,'admission_reason',None)
+                        if (test_number=='126' and getattr(client,'start_admission_diagnostics',False) is True
+                                and type(reason) is str and reason in admission.REASONS):
+                            code=reason
+                        ledger.update(start_intent=False,state='prepared',last_error=code)
                         _save(base,ledger)
-                        raise cycle._StartNotSent('cycle_start_not_admitted') from None
+                        raise cycle._StartNotSent(code) from None
                     raise
                 finally:
                     client._before_start_post=previous_guard

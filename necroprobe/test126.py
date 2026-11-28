@@ -9,6 +9,7 @@ IMPLEMENTATION_CAPABILITY = 'necrogold_native_device_fixes126_v1'
 class DeviceClient126(DeviceClient125):
     trial_revision = 'native-device-failures-trial-v126'
     required_capabilities = DeviceClient125.required_capabilities | frozenset((IMPLEMENTATION_CAPABILITY,))
+    start_admission_diagnostics = True
 
 
 class FiniteClient126(FiniteClient125):
