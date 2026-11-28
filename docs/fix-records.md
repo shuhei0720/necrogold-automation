@@ -864,3 +864,6 @@ TEST125接続拒否の追加3log確認（2026-11-28）: 10:47:23起動/許可成
 
 
 TEST126配布前確認（2026-11-28）: CODE75d3282/実CI46129888763/#1/appbuild1001。host14/実Py3.9.25の47/実MacSwift14・実IPAが成功。8namespaceのmetadata64→20/同時source8→2、hash scratch1483776→65536Bを実Mac/実FSで確認し、元pending/原本/digest/出版/破損/容量の期待を維持した。native37はRPC/Spoolの2変更・35保持。元3artifactと全1294Git blob/実compiler/profile3/全9MachOを五項目attempt1照合、verification SHA `2f8f2aca94a529e0057c31fe4141d7163110182992f0c236202b6c0b37c054fb`。IPA18,536,391B/SHA788720feec4d1324d4da573830815b46293ba82b8d2e26d42133bdee4374c64f。固定SOURCE/匿名公開確認は次工程。FR-126の実機改善・再発数は未受入のままとし、OS記録1件を修正完了0件へ書き換えない。
+
+
+TEST126固定公開確認（2026-11-28）: CODE75d3282から文書4件だけの公式SOURCE `e9a86fa7597fb0e38c1bd294b8c5b1a62e7423bd`、完全1294Git blob/全bytes/CRC/同nativeを照合。source.zip11,018,665B/SHA `d25113b492a58cd2f84ef7ccddd346de04124d859f72ecbdeac9f6e2e6930137`。公開280/run46131121683は検証済みartifact15257770438の元IPAを再ビルドせずrelease461445393/test126-build1001へ保存した。CI build run #1/appbuild1001と公開workflow #280を混同しない。publish-download1job成功/他17skip。固定3assetを匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、lightweight tag→SOURCEを確認（public receipt SHA `6b6673724e15be6d5fd45a5d5a2b54a8bcf6810d32a76c6c7f44431b2ab19f7b`）。IPA18,536,391B/SHA788720fe、SHA表156B/SHAb3af1faa。公開後は文書だけを追記し、asset/tagは置換しない。新iPhoneのmemory peak/起動/商品到達・実RS/速度・再発数は未受入。

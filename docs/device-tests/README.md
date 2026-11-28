@@ -3382,3 +3382,6 @@ cd /mnt/necro_test126 && sh test_126.sh --until-target
 初回RS→候補/通路→開扉→全3商品確認→対象外なら実RS/次周回、対象候補なら保持/ポーズ/通知を確認する。動作中は画面に触らず、終了/停止後は回収完了表示を待ち、runtimeの `test-126-*.zip` と `test-126-campaign-*.zip` を全て返す。停止が残れば何周目/何回目・どの動作の後かも添える。
 
 以前の未回収記録が見つかった場合は元回収を優先し、表示に従う。回収済みrunを追加回収目的で再実行しない。開始できなければエラー画面とLoopCtrlのRunning/Stopped表示を返す。実機改善・速度は次の受入まで未確認。
+
+
+TEST126固定公開確認（2026-11-28）: CODE75d3282から文書4件だけの公式SOURCE `e9a86fa7597fb0e38c1bd294b8c5b1a62e7423bd`、完全1294Git blob/全bytes/CRC/同nativeを照合。source.zip11,018,665B/SHA `d25113b492a58cd2f84ef7ccddd346de04124d859f72ecbdeac9f6e2e6930137`。公開280/run46131121683は検証済みartifact15257770438の元IPAを再ビルドせずrelease461445393/test126-build1001へ保存した。CI build run #1/appbuild1001と公開workflow #280を混同しない。publish-download1job成功/他17skip。固定3assetを匿名全GET200し、原本全bytes/SHA/GitHub digest/size、両ZIP CRC、lightweight tag→SOURCEを確認（public receipt SHA `6b6673724e15be6d5fd45a5d5a2b54a8bcf6810d32a76c6c7f44431b2ab19f7b`）。IPA18,536,391B/SHA788720fe、SHA表156B/SHAb3af1faa。公開後は文書だけを追記し、asset/tagは置換しない。新iPhoneのmemory peak/起動/商品到達・実RS/速度・再発数は未受入。
