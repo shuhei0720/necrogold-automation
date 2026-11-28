@@ -5,3 +5,5 @@
 実診断HTTP200/通知authorized・保存scan pendingを一律通知エラーにするclientを修正。元開始期限内のpending待ち・原因別表示、新14＋直接19合格/独立レビュー閉鎖。実機改善・別時点のserver停止原因は未確認。
 
 IPAは既存TEST125/build278（CODEc18db303/SHA97a7c054）のまま。native/元期限/予算/UNKNOWN無再送は維持、新IPAは作らない。LoopCtrlを再起動せず元記録を保つ。次版もこのclient修正を継承する。
+
+修正1再確認: 開始未到達。後続診断はschema接続拒否111、最新回答Stopped。[受領](reviews/test125-startup-refused.md)。同時刻の保存ログで停止理由を確認中。
